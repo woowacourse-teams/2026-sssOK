@@ -1,0 +1,21 @@
+language: "ko-KR"
+
+reviews:
+  profile: "chill"
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  collapse_walkthrough: false
+  auto_review:
+    enabled: true
+    drafts: false
+  path_filters:
+    - "!**/*.gitkeep"
+    - "!**/build/**"
+    - "!**/dist/**"
+    - "!**/node_modules/**"
+    - "!**/.gradle/**"
+
+chat:
+  auto_reply: true
