@@ -44,3 +44,17 @@ cd frontend
 2. `main`에서 [브랜치 전략](./docs/BRANCH_STRATEGY.md)에 따라 작업 브랜치 생성
 3. [커밋 컨벤션](./docs/COMMIT_CONVENTION.md)에 맞게 작업 + 커밋
 4. [PR 규칙](./docs/PR_GUIDE.md)에 따라 PR 생성 → 리뷰 → CI 통과 → `main` 머지
+
+## 팀원
+
+### Frontend
+
+| <img src="https://github.com/janghw0126.png" width="100"> | <img src="https://github.com/yundol777.png" width="100"> |
+| :---: | :---: |
+| [해니](https://github.com/janghw0126) | [윤돌](https://github.com/yundol777) |
+
+### Backend
+
+| <img src="https://github.com/Uechann.png" width="100"> | <img src="https://github.com/gahyeonnni.png" width="100"> |
+| :---: | :---: |
+| [마이찬](https://github.com/Uechann) | [현미밥](https://github.com/gahyeonnni) |
