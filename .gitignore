@@ -1,0 +1,16 @@
+# Gradle
+  .gradle/
+  build/
+  !gradle/wrapper/gradle-wrapper.jar
+
+  # IDE
+  .idea/
+  *.iml
+  .vscode/
+
+  # 환경변수/시크릿
+  .env
+  application-local.yml
+
+  # OS
+  .DS_Store
