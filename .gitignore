@@ -1,16 +1,30 @@
 # Gradle
-  .gradle/
-  build/
-  !gradle/wrapper/gradle-wrapper.jar
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
 
-  # IDE
-  .idea/
-  *.iml
-  .vscode/
+# Node
+node_modules/
+dist/
+.next/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-  # 환경변수/시크릿
-  .env
-  application-local.yml
+# IDE
+.idea/
+*.iml
+.vscode/
 
-  # OS
-  .DS_Store
+# 환경변수/시크릿
+.env
+.env.local
+application-local.yml
+application-local.yaml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 로그
+*.log
