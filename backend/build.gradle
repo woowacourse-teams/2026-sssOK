@@ -28,6 +28,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    // DB 마이그레이션
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
     // QueryDSL
     implementation "com.querydsl:querydsl-jpa:${querydslVersion}:jakarta"
     annotationProcessor "com.querydsl:querydsl-apt:${querydslVersion}:jakarta"
