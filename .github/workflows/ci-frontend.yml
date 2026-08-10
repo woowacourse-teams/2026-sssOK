@@ -25,6 +25,8 @@ jobs:
 
       - name: pnpm 설치
         uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
       - name: Node 22 설정
         uses: actions/setup-node@v4
