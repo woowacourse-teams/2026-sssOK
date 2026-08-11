@@ -35,6 +35,9 @@ jobs:
           echo "repo=${REPO_LOWER}" >> "$GITHUB_OUTPUT"
           echo "image=${REPO_LOWER}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
+      - name: QEMU 설정 (크로스 아키텍처 빌드용)
+        uses: docker/setup-qemu-action@v3
+
       - name: Buildx 설정
         uses: docker/setup-buildx-action@v3
 
@@ -50,6 +53,8 @@ jobs:
         with:
           context: backend
           push: true
+          # 서버가 ARM64(Graviton)라 amd64 러너에서 크로스 빌드한다.
+          platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.meta.outputs.image }}
             ${{ steps.meta.outputs.repo }}:latest
