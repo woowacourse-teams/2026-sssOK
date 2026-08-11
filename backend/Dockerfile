@@ -1,25 +1,14 @@
 # syntax=docker/dockerfile:1
 
-# ---------- 빌드 스테이지 ----------
-FROM eclipse-temurin:21-jdk-alpine AS builder
-WORKDIR /workspace
-
-# 의존성 레이어를 소스와 분리해 캐시 적중률을 높인다.
-COPY gradle/ gradle/
-COPY gradlew settings.gradle build.gradle ./
-RUN chmod +x gradlew && ./gradlew dependencies --no-daemon
-
-COPY src/ src/
-RUN ./gradlew clean bootJar --no-daemon -x test \
-    && mv build/libs/*.jar app.jar
-
-# ---------- 실행 스테이지 ----------
+# JAR은 CI가 러너에서 네이티브로 미리 빌드해서 build/libs/ 에 놓는다.
+# (컴파일을 이미지 안에서 하면 arm64 크로스 빌드 시 QEMU 에뮬레이션으로
+#  수 배 느려지기 때문에, 컴파일과 이미지 조립을 분리했다.)
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 RUN addgroup -S app && adduser -S app -G app
 
-COPY --from=builder --chown=app:app /workspace/app.jar app.jar
+COPY --chown=app:app build/libs/*.jar app.jar
 
 USER app
 EXPOSE 8080
