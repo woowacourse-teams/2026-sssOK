@@ -35,6 +35,21 @@ jobs:
           echo "repo=${REPO_LOWER}" >> "$GITHUB_OUTPUT"
           echo "image=${REPO_LOWER}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
+      - name: JDK 21 설정
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle 설정
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: JAR 빌드 (네이티브)
+        # 컴파일은 러너에서 amd64 네이티브로 끝내고, Docker는 결과물만 담는다.
+        # (이미지 안에서 컴파일하면 arm64 크로스 빌드 시 QEMU 에뮬레이션으로 수 배 느려진다)
+        working-directory: backend
+        run: ./gradlew bootJar -x test --no-daemon
+
       - name: QEMU 설정 (크로스 아키텍처 빌드용)
         uses: docker/setup-qemu-action@v3
 
@@ -48,12 +63,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 빌드 및 푸시
+      - name: 이미지 빌드 및 푸시
         uses: docker/build-push-action@v6
         with:
           context: backend
           push: true
-          # 서버가 ARM64(Graviton)라 amd64 러너에서 크로스 빌드한다.
+          # 이미지 조립은 미리 빌드된 JAR을 복사만 하므로,
+          # QEMU 에뮬레이션 비용 없이 두 아키텍처 모두 빠르게 빌드된다.
           platforms: linux/amd64,linux/arm64
           tags: |
             ${{ steps.meta.outputs.image }}
