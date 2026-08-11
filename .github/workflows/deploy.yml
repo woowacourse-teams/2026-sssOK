@@ -64,76 +64,66 @@ jobs:
   deploy:
     name: 서버 배포
     needs: build
-    runs-on: ubuntu-latest
+    # 러너 자체가 배포 대상 EC2 위에서 돈다 (self-hosted).
+    # 그래서 SSH/SCP 없이 로컬 명령으로 바로 배포한다.
+    runs-on: [self-hosted, linux, ARM64]
     environment: production
 
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
-      - name: compose 파일 전송
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          source: backend/docker-compose.prod.yml
-          target: ${{ secrets.DEPLOY_PATH }}
-          strip_components: 1
+      - name: compose 파일 배치
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          mkdir -p "$DEPLOY_PATH"
+          cp backend/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
 
       - name: 이미지 교체 및 헬스체크
-        uses: appleboy/ssh-action@v1.2.0
         env:
           NEW_IMAGE: ${{ needs.build.outputs.image }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          envs: NEW_IMAGE,GHCR_USER,GHCR_TOKEN,DEPLOY_PATH
-          script_stop: true
-          script: |
-            set -eu
-            cd "$DEPLOY_PATH"
+        run: |
+          set -eu
+          cd "$DEPLOY_PATH"
 
-            COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml"
+          COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml"
 
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
-            # 롤백 대비로 직전 이미지 태그를 보관한다.
-            if [ -f image.env ]; then
-              cp image.env image.env.prev
+          # 롤백 대비로 직전 이미지 태그를 보관한다.
+          if [ -f image.env ]; then
+            cp image.env image.env.prev
+          fi
+          echo "BACKEND_IMAGE=$NEW_IMAGE" > image.env
+
+          $COMPOSE pull
+          $COMPOSE up -d
+
+          echo "헬스체크 시작"
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
+              echo "헬스체크 성공 ($i번째 시도)"
+              docker image prune -f > /dev/null 2>&1 || true
+              docker logout ghcr.io > /dev/null 2>&1 || true
+              exit 0
             fi
-            echo "BACKEND_IMAGE=$NEW_IMAGE" > image.env
+            sleep 5
+          done
 
-            $COMPOSE pull
+          echo "헬스체크 실패 - 직전 버전으로 롤백한다"
+          $COMPOSE logs --tail 100 app || true
+
+          if [ -f image.env.prev ]; then
+            mv image.env.prev image.env
             $COMPOSE up -d
+            echo "롤백 완료"
+          else
+            echo "직전 버전이 없어 롤백하지 못했다 (최초 배포로 추정)"
+          fi
 
-            echo "헬스체크 시작"
-            for i in $(seq 1 30); do
-              if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
-                echo "헬스체크 성공 ($i번째 시도)"
-                docker image prune -f > /dev/null 2>&1 || true
-                docker logout ghcr.io > /dev/null 2>&1 || true
-                exit 0
-              fi
-              sleep 5
-            done
-
-            echo "헬스체크 실패 - 직전 버전으로 롤백한다"
-            docker compose -f docker-compose.prod.yml logs --tail 100 app || true
-
-            if [ -f image.env.prev ]; then
-              mv image.env.prev image.env
-              $COMPOSE up -d
-              echo "롤백 완료"
-            else
-              echo "직전 버전이 없어 롤백하지 못했다 (최초 배포로 추정)"
-            fi
-
-            docker logout ghcr.io > /dev/null 2>&1 || true
-            exit 1
+          docker logout ghcr.io > /dev/null 2>&1 || true
+          exit 1

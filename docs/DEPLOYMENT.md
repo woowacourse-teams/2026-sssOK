@@ -3,21 +3,27 @@
 ## 전체 구조
 
 ```
-main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions
+main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions (GitHub-hosted)
                                             │
                               ┌─────────────┴─────────────┐
                               │ 1. Docker 이미지 빌드      │
                               │ 2. GHCR 에 push           │
                               └─────────────┬─────────────┘
-                                            │ SSH
+                                            │
+                                            ▼
+                              GitHub Actions (self-hosted, EC2 내부)
+                                            │ 로컬 명령 (SSH 없음)
                                             ▼
                                     EC2 (Docker + compose)
                                     ├─ sssok-app       (GHCR 에서 pull)
                                     └─ sssok-postgres  (볼륨 영속)
 ```
 
+- 이미지 빌드는 GitHub-hosted 러너에서, 서버 배포는 **EC2 위에 설치된 self-hosted 러너**에서 실행된다. 배포 잡이 러너 자체이자 배포 대상이므로 SSH/SCP가 필요 없다.
 - 이미지 태그는 커밋 SHA를 사용한다. 롤백은 직전 태그로 되돌리는 것으로 끝난다.
 - 배포 후 `/health` 를 최대 150초간 폴링하고, 실패하면 자동으로 직전 이미지로 롤백한다.
+
+> **왜 self-hosted인가**: GitHub-hosted 러너는 매 실행마다 IP가 바뀌는 임시 VM이라, 보안 그룹에서 특정 IP만 허용하는 정책과 근본적으로 충돌한다. self-hosted 러너를 EC2 안에 두면 배포 스텝이 "밖에서 안으로 접속"하는 게 아니라 "그 자리에서 로컬 실행"이 되므로, 22번 포트를 CI용으로 열어둘 필요가 아예 없어진다.
 
 ## 서버 디렉터리 구조
 
@@ -38,8 +44,10 @@ main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions
 
 | 포트 | 소스 | 용도 |
 | --- | --- | --- |
-| 22 | 내 IP | SSH |
+| 22 | 관리자 IP / VPN | 사람이 직접 접속할 때만 (CI는 이 포트를 쓰지 않음) |
 | 8080 | 0.0.0.0/0 | 백엔드 (Nginx 붙이기 전 임시) |
+
+CI(GitHub Actions)는 self-hosted 러너를 통해 EC2 내부에서 직접 실행되므로, 22번 포트를 CI용으로 별도 개방할 필요가 없다.
 
 ### 2. Docker 설치
 
@@ -80,21 +88,29 @@ EOF
 chmod 600 .env
 ```
 
-### 4. 배포용 SSH 키 발급
+### 4. self-hosted 러너 설치 (EC2 내부)
 
-로컬에서 실행한다. **기존에 노출된 키는 쓰지 않는다.**
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/sssok_deploy -N "" -C "github-actions-deploy"
-```
-
-공개키를 서버에 등록한다.
+`Settings → Actions → Runners → New self-hosted runner` 에서 OS/아키텍처(Linux, ARM64)를 선택하면
+등록 토큰이 포함된 설치 명령이 나온다. 그 명령을 EC2 에서 그대로 실행한다. 등록 토큰은 1시간 안에 써야 한다.
 
 ```bash
-ssh-copy-id -i ~/.ssh/sssok_deploy.pub ubuntu@<EC2_IP>
+mkdir -p ~/actions-runner && cd ~/actions-runner
+curl -o actions-runner-linux-arm64.tar.gz -L https://github.com/actions/runner/releases/download/<버전>/actions-runner-linux-arm64-<버전>.tar.gz
+tar xzf ./actions-runner-linux-arm64.tar.gz
+./config.sh --url https://github.com/woowacourse-teams/2026-sssOK --token <등록_토큰>
 ```
 
-개인키(`~/.ssh/sssok_deploy`) **전문**을 GitHub Secret `DEPLOY_SSH_KEY` 에 넣는다.
+서비스로 등록해서 재부팅 후에도 계속 떠 있게 한다.
+
+```bash
+sudo ./svc.sh install
+sudo ./svc.sh start
+sudo ./svc.sh status   # active (running) 확인
+```
+
+러너 실행 계정이 `docker` 그룹에 속해 있는지 확인한다 (안 되어 있으면 `sudo usermod -aG docker ubuntu` 후 `sudo ./svc.sh stop && sudo ./svc.sh start`).
+
+> **보안**: self-hosted 러너는 그 서버에서 임의 코드를 실행할 권한을 가진다. 이 워크플로는 `deploy` 브랜치 push(이미 리뷰된 코드)에만 반응하므로 위험이 낮지만, 이 리포에서 외부 기여자의 fork PR을 받게 되면 `Settings → Actions → General` 에서 fork PR의 워크플로 자동 실행을 반드시 막아야 한다.
 
 ### 5. GitHub Secrets 등록
 
@@ -102,13 +118,9 @@ ssh-copy-id -i ~/.ssh/sssok_deploy.pub ubuntu@<EC2_IP>
 
 | 이름 | 예시 |
 | --- | --- |
-| `DEPLOY_HOST` | `13.125.x.x` |
-| `DEPLOY_USER` | `ubuntu` |
-| `DEPLOY_SSH_KEY` | `-----BEGIN OPENSSH PRIVATE KEY-----` 로 시작하는 전문 |
-| `DEPLOY_PORT` | `22` |
 | `DEPLOY_PATH` | `/home/ubuntu/app` |
 
-DB·JWT·R2 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣지 않는다.
+DB·JWT·R2 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣지 않는다. (SSH 기반이 아니므로 `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_PORT` 는 더 이상 사용하지 않는다.)
 
 ### 6. GHCR 패키지 접근 권한
 
