@@ -1,6 +1,10 @@
-# sssOK
+<div align="center">
+  <img src="./.github/assets/sssOK-logo.png" width="160" alt="sssOK 로고">
 
-**sssOK(쏙)** 은 링크 하나로 여는 단발성 이미지·영상 공유 공간입니다.
+  # sssOK
+
+  **쏙** — 링크 하나로 여는 단발성 이미지·영상 공유 공간
+</div>
 
 앱 설치, 번호 교환, 계정 생성 없이 링크 하나로 모여 사진과 영상을 나눠 갖고, 각자의 목적을 이루면 자연스럽게 파하는 가벼운 공유 서비스를 지향합니다.
 
@@ -15,6 +19,10 @@
 ├── backend/    # 백엔드 서버
 ├── frontend/   # 프론트엔드 앱
 └── docs/       # 협업 문서
+    ├── collaboration/   # 커밋 컨벤션, 이슈·브랜치·PR 규칙
+    ├── deployment/      # 배포 가이드
+    ├── troubleshooting/ # 트러블슈팅 기록
+    └── requirements/    # PRD, 기능 명세 등 요구사항 문서
 ```
 
 ## 시작하기
@@ -41,18 +49,20 @@ cd frontend
 
 | 문서 | 내용 |
 | --- | --- |
-| [커밋 컨벤션](./docs/COMMIT_CONVENTION.md) | 커밋 메시지 타입 및 작성 규칙 |
-| [이슈 전략](./docs/ISSUE_GUIDE.md) | 라벨, 템플릿, 이슈 작성 규칙 |
-| [브랜치 전략](./docs/BRANCH_STRATEGY.md) | 브랜치 종류, 네이밍, 워크플로우 |
-| [PR 규칙](./docs/PR_GUIDE.md) | PR 생성 조건, 리뷰, 머지 조건 |
-| [배포 가이드](./docs/DEPLOYMENT.md) | 서버 세팅, 배포·롤백, DB 마이그레이션 |
+| [커밋 컨벤션](./docs/collaboration/COMMIT_CONVENTION.md) | 커밋 메시지 타입 및 작성 규칙 |
+| [이슈 전략](./docs/collaboration/ISSUE_GUIDE.md) | 라벨, 템플릿, 이슈 작성 규칙 |
+| [브랜치 전략](./docs/collaboration/BRANCH_STRATEGY.md) | 브랜치 종류, 네이밍, 워크플로우 |
+| [PR 규칙](./docs/collaboration/PR_GUIDE.md) | PR 생성 조건, 리뷰, 머지 조건 |
+| [배포 가이드](./docs/deployment/DEPLOYMENT.md) | 서버 세팅, 배포·롤백, DB 마이그레이션 |
+| [트러블슈팅 기록](./docs/troubleshooting/TROUBLESHOOTING.md) | 증상·원인·해결 순서로 정리한 문제 해결 기록 |
+| [요구사항 문서](./docs/requirements/) | PRD, 기능 명세 등 (준비 중) |
 
 ## 개발 워크플로우 요약
 
-1. [이슈](./docs/ISSUE_GUIDE.md) 생성 (담당자·라벨·영역 지정)
-2. `main`에서 [브랜치 전략](./docs/BRANCH_STRATEGY.md)에 따라 작업 브랜치 생성
-3. [커밋 컨벤션](./docs/COMMIT_CONVENTION.md)에 맞게 작업 + 커밋
-4. [PR 규칙](./docs/PR_GUIDE.md)에 따라 PR 생성 → 리뷰 → CI 통과 → `main` 머지
+1. [이슈](./docs/collaboration/ISSUE_GUIDE.md) 생성 (담당자·라벨·영역 지정)
+2. `main`에서 [브랜치 전략](./docs/collaboration/BRANCH_STRATEGY.md)에 따라 작업 브랜치 생성
+3. [커밋 컨벤션](./docs/collaboration/COMMIT_CONVENTION.md)에 맞게 작업 + 커밋
+4. [PR 규칙](./docs/collaboration/PR_GUIDE.md)에 따라 PR 생성 → 리뷰 → CI 통과 → `main` 머지
 
 ## 팀원
 
