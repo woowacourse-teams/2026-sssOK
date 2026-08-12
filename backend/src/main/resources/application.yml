@@ -48,3 +48,8 @@ media:
   resize-target-width: 1600
   # GIF는 애니메이션이 깨지므로 리사이즈/압축 대상에서 제외한다
   skip-formats: gif
+
+springdoc:
+  swagger-ui:
+    operations-sorter: method
+    tags-sorter: alpha
