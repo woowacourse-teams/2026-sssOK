@@ -1,4 +1,4 @@
-package com.sssok.domain.room;
+package com.sssok.domain.room.exception;
 
 public class InvalidRoomCodeException extends RuntimeException {
 

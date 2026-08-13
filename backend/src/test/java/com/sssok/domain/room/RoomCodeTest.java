@@ -1,5 +1,6 @@
 package com.sssok.domain.room;
 
+import com.sssok.domain.room.exception.InvalidRoomCodeException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

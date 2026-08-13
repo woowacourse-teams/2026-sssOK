@@ -1,5 +1,6 @@
 package com.sssok.application.room;
 
+import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
