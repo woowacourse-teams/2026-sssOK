@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -39,9 +40,12 @@ class RoomApiTest {
 
     @Test
     void 방을_생성하고_코드로_조회한다() throws Exception {
-        MvcResult createResult = mockMvc.perform(post("/rooms"))
+        MvcResult createResult = mockMvc.perform(post("/rooms")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"우테코 회식\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.code").value(matchesPattern("[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}")))
+            .andExpect(jsonPath("$.data.name").value("우테코 회식"))
             .andExpect(jsonPath("$.data.status").value("ACTIVE"))
             .andReturn();
 
@@ -51,7 +55,17 @@ class RoomApiTest {
         mockMvc.perform(get("/rooms/{code}", code))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.code").value(code))
+            .andExpect(jsonPath("$.data.name").value("우테코 회식"))
             .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void 이름_없이_생성하면_400() throws Exception {
+        mockMvc.perform(post("/rooms")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_NAME"));
     }
 
     @Test
