@@ -7,5 +7,6 @@ module.exports = {
   transform: {
     "^.+\\.[jt]sx?$": "babel-jest",
   },
+  setupFilesAfterEnv: ["<rootDir>/src/setupTests.ts"],
   clearMocks: true,
 };
