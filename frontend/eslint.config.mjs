@@ -1,3 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
+import storybook from "eslint-plugin-storybook";
+
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
@@ -7,11 +10,9 @@ import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist", "node_modules"] },
-
-  // src: 브라우저 + React + TS
+  { ignores: ["dist", "node_modules"] }, // src: 브라우저 + React + TS
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", ".storybook/**/*.{ts,tsx}"],
     extends: [
       eslint.configs.recommended,
       tseslint.configs.recommended,
@@ -21,15 +22,13 @@ export default tseslint.config(
     ],
     languageOptions: { globals: globals.browser },
     settings: { react: { version: "detect" } },
-  },
-
-  // 루트 설정 파일: Node CJS
+  }, // 루트 설정 파일: Node CJS
   {
     files: ["*.js", "*.cjs"],
     extends: [eslint.configs.recommended],
     languageOptions: { globals: globals.node, sourceType: "commonjs" },
   },
-
   prettier,
   eslintConfigPrettier,
+  storybook.configs["flat/recommended"],
 );
