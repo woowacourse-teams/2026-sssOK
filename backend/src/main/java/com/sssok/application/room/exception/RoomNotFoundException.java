@@ -1,4 +1,4 @@
-package com.sssok.application.room;
+package com.sssok.application.room.exception;
 
 import com.sssok.domain.room.RoomCode;
 

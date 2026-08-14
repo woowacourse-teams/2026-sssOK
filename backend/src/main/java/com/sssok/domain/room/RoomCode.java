@@ -1,5 +1,6 @@
 package com.sssok.domain.room;
 
+import com.sssok.domain.room.exception.InvalidRoomCodeException;
 import java.util.random.RandomGenerator;
 
 // 방 참여에 쓰이는 8자리 코드 값 객체.

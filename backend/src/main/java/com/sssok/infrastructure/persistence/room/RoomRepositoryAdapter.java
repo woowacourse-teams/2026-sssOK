@@ -3,7 +3,10 @@ package com.sssok.infrastructure.persistence.room;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomStatus;
+import com.sssok.domain.room.RoomExpiration;
+import com.sssok.domain.room.RoomName;
+import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.domain.room.UploadPolicy;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -29,8 +32,13 @@ public class RoomRepositoryAdapter implements RoomRepository {
         return new RoomJpaEntity(
             room.getId(),
             room.getCode().value(),
+            room.getName().value(),
             room.getStatus().name(),
-            room.getCreatedAt()
+            room.getExpiration().expiresAt(),
+            room.getUploadPolicy().name(),
+            room.getHostId(),
+            room.getCreatedAt(),
+            room.getDeletedAt()
         );
     }
 
@@ -38,8 +46,13 @@ public class RoomRepositoryAdapter implements RoomRepository {
         return Room.reconstruct(
             entity.getId(),
             new RoomCode(entity.getCode()),
-            RoomStatus.valueOf(entity.getStatus()),
-            entity.getCreatedAt()
+            new RoomName(entity.getName()),
+            RoomStatus.from(entity.getStatus()),
+            new RoomExpiration(entity.getExpiresAt()),
+            UploadPolicy.valueOf(entity.getUploadPolicy()),
+            entity.getHostId(),
+            entity.getCreatedAt(),
+            entity.getDeletedAt()
         );
     }
 }
