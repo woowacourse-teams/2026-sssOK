@@ -10,4 +10,6 @@ public interface RoomRepository {
     Room save(Room room);
 
     Optional<Room> findByCode(RoomCode code);
+
+    Optional<Room> findById(Long id);
 }
