@@ -28,6 +28,11 @@ public class RoomRepositoryAdapter implements RoomRepository {
         return jpaRepository.findByCode(code.value()).map(this::toDomain);
     }
 
+    @Override
+    public Optional<Room> findById(Long id) {
+        return jpaRepository.findById(id).map(this::toDomain);
+    }
+
     private RoomJpaEntity toEntity(Room room) {
         return new RoomJpaEntity(
             room.getId(),
