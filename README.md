@@ -55,7 +55,7 @@ cd frontend
 | [PR 규칙](./docs/collaboration/PR_GUIDE.md) | PR 생성 조건, 리뷰, 머지 조건 |
 | [배포 가이드](./docs/deployment/DEPLOYMENT.md) | 서버 세팅, 배포·롤백, DB 마이그레이션 |
 | [트러블슈팅 기록](./docs/troubleshooting/TROUBLESHOOTING.md) | 증상·원인·해결 순서로 정리한 문제 해결 기록 |
-| [요구사항 문서](./docs/requirements/) | PRD, 기능 명세 등 (준비 중) |
+| [요구사항 문서](./docs/requirements/) | PRD, 기능 명세, 화면 정의서 — [PRD.md](./docs/requirements/PRD.md)부터 시작 |
 
 ## 개발 워크플로우 요약
 
