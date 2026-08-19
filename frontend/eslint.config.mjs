@@ -38,6 +38,10 @@ export default tseslint.config(
               group: ["@/app/**", "@/pages/**", "@/widgets/**", "@/features/**", "@/entities/**"],
               message: "shared는 상위 레이어를 import할 수 없습니다.",
             },
+            {
+              regex: "^(?:\\.\\./)+(?:app|pages|widgets|features|entities)(?:/|$)",
+              message: "shared는 상대경로를 통해 상위 레이어를 import할 수 없습니다.",
+            },
           ],
         },
       ],
