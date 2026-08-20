@@ -268,6 +268,9 @@ importers:
       babel-loader:
         specifier: ^10.1.1
         version: 10.1.1(@babel/core@8.0.1)(webpack@5.109.2)
+      css-loader:
+        specifier: ^7.1.4
+        version: 7.1.4(webpack@5.109.2)
       eslint:
         specifier: ^9.39.5
         version: 9.39.5(supports-color@8.1.1)
@@ -301,6 +304,9 @@ importers:
       storybook:
         specifier: 10.5.7
         version: 10.5.7(@types/react@19.2.18)(prettier@3.9.6)(react@19.2.8)
+      style-loader:
+        specifier: ^4.0.0
+        version: 4.0.0(webpack@5.109.2)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
