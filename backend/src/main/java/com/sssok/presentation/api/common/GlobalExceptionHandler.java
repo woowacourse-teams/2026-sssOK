@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.common;
 
+import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.domain.member.exception.InvalidNicknameException;
 import com.sssok.domain.room.exception.InvalidRoomNameException;
 import com.sssok.application.room.exception.RoomNotFoundException;
@@ -17,6 +18,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInvalidNickname(InvalidNicknameException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("INVALID_NICKNAME", "닉네임을 입력해주세요"));
+    }
+
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<ErrorResponse> handleUnauthorized(UnauthorizedException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .body(new ErrorResponse("UNAUTHORIZED", e.getMessage()));
     }
 
     @ExceptionHandler(RoomNotFoundException.class)

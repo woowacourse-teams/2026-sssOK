@@ -1,7 +1,9 @@
 package com.sssok.infrastructure.security;
 
+import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.infrastructure.config.JwtProperties;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.time.Instant;
@@ -27,6 +29,21 @@ public class JwtTokenProvider implements TokenProvider {
             .signWith(secretKey())
             .compact();
         return new IssuedToken(token, expiresAt);
+    }
+
+    @Override
+    public Long parse(String token) {
+        try {
+            String subject = Jwts.parser()
+                .verifyWith(secretKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload()
+                .getSubject();
+            return Long.valueOf(subject);
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new UnauthorizedException("다시 접속해주세요");
+        }
     }
 
     private SecretKey secretKey() {
