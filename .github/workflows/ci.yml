@@ -57,6 +57,8 @@ jobs:
           SPRING_DATASOURCE_USERNAME: sssok
           SPRING_DATASOURCE_PASSWORD: sssok
           SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
+          # CI 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
+          JWT_SECRET: 5SWYqRqL3JIuYo1c/ecWhbU6RTRd2nWPQfeaDjGJSd0=
 
       - name: 테스트 리포트 업로드
         if: always()

@@ -32,6 +32,11 @@ spring:
       pool:
         size: 2
 
+jwt:
+  # 시크릿 자체는 실제 값을 커밋하지 않는다 — 로컬은 application-local.yml(gitignored), CI/운영은 환경변수로 공급한다.
+  secret: ${JWT_SECRET}
+  access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30d}
+
 room:
   code-length: 8
   default-ttl: 24h
