@@ -29,4 +29,8 @@ public class LinkCode {
     public static LinkCode reconstruct(Long id, Long memberId, LinkCodeValue code, Instant expiresAt) {
         return new LinkCode(id, memberId, code, expiresAt);
     }
+
+    public boolean isExpired(Instant now) {
+        return now.isAfter(expiresAt);
+    }
 }
