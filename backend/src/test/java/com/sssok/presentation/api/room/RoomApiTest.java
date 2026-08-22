@@ -40,7 +40,7 @@ class RoomApiTest {
 
     @Test
     void 방을_생성하고_코드로_조회한다() throws Exception {
-        MvcResult createResult = mockMvc.perform(post("/rooms")
+        MvcResult createResult = mockMvc.perform(post("/api/v1/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"우테코 회식\"}"))
             .andExpect(status().isCreated())
@@ -52,7 +52,7 @@ class RoomApiTest {
         JsonNode created = objectMapper.readTree(createResult.getResponse().getContentAsString());
         String code = created.get("data").get("code").asText();
 
-        mockMvc.perform(get("/rooms/{code}", code))
+        mockMvc.perform(get("/api/v1/rooms/{code}", code))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.code").value(code))
             .andExpect(jsonPath("$.data.name").value("우테코 회식"))
@@ -61,7 +61,7 @@ class RoomApiTest {
 
     @Test
     void 이름_없이_생성하면_400() throws Exception {
-        mockMvc.perform(post("/rooms")
+        mockMvc.perform(post("/api/v1/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"\"}"))
             .andExpect(status().isBadRequest())
@@ -70,14 +70,14 @@ class RoomApiTest {
 
     @Test
     void 존재하지_않는_코드로_조회하면_404() throws Exception {
-        mockMvc.perform(get("/rooms/{code}", "23456789"))
+        mockMvc.perform(get("/api/v1/rooms/{code}", "23456789"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
 
     @Test
     void 형식이_잘못된_코드로_조회하면_400() throws Exception {
-        mockMvc.perform(get("/rooms/{code}", "invalid-code"))
+        mockMvc.perform(get("/api/v1/rooms/{code}", "invalid-code"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
     }
