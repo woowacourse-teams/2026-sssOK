@@ -25,7 +25,7 @@ spring:
 
 jwt:
   secret: ${JWT_SECRET}
-  guest-token-ttl: 24h
+  access-token-ttl: 30d
 
 storage:
   r2:
