@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.common;
 
+import com.sssok.domain.member.exception.InvalidNicknameException;
 import com.sssok.domain.room.exception.InvalidRoomNameException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.exception.InvalidRoomCodeException;
@@ -11,6 +12,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(InvalidNicknameException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidNickname(InvalidNicknameException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_NICKNAME", "닉네임을 입력해주세요"));
+    }
 
     @ExceptionHandler(RoomNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleRoomNotFound(RoomNotFoundException e) {
