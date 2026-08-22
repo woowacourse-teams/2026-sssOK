@@ -3,6 +3,7 @@ package com.sssok.infrastructure.persistence.auth;
 import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.domain.auth.LinkCode;
 import com.sssok.domain.auth.LinkCodeValue;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,16 @@ public class LinkCodeRepositoryAdapter implements LinkCodeRepository {
     @Override
     public void deleteAllByMemberId(Long memberId) {
         jpaRepository.deleteAllByMemberId(memberId);
+    }
+
+    @Override
+    public Optional<LinkCode> findByCode(LinkCodeValue code) {
+        return jpaRepository.findByCode(code.value()).map(this::toDomain);
+    }
+
+    @Override
+    public void deleteByCode(LinkCodeValue code) {
+        jpaRepository.deleteByCode(code.value());
     }
 
     private LinkCodeJpaEntity toEntity(LinkCode linkCode) {
