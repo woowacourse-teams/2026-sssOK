@@ -60,7 +60,11 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
 
-    // 통합 테스트용 실제 PostgreSQL (H2 금지 — JSONB 등 PostgreSQL 전용 기능 검증 불가)
+    // Repository+Service 통합 테스트용 (기본 CRUD는 H2로 빠르게 검증)
+    testImplementation 'com.h2database:h2'
+
+    // API 인수 테스트 / PostgreSQL 전용 기능(JSONB 등) 검증용 실제 PostgreSQL
+    // 자세히: docs/backend/TEST_CONVENTION.md
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'

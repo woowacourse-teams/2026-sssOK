@@ -20,6 +20,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+// API 인수 테스트 (docs/backend/TEST_CONVENTION.md 참고)
 // 닉네임으로 익명 회원을 생성하고 토큰을 발급받는 흐름이 실제 PostgreSQL 위에서 맞물려 도는지 확인한다.
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureMockMvc
