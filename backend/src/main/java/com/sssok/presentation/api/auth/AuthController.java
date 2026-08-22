@@ -4,6 +4,7 @@ import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.auth.IssueLinkCodeService;
 import com.sssok.application.auth.LinkCodeResult;
+import com.sssok.application.auth.LinkLoginService;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class AuthController {
 
     private final AnonymousAuthService anonymousAuthService;
     private final IssueLinkCodeService issueLinkCodeService;
+    private final LinkLoginService linkLoginService;
 
     @PostMapping("/anonymous")
     public ResponseEntity<ApiResponse<AuthResponse>> createAnonymous(@RequestBody AnonymousAuthRequest request) {
@@ -34,5 +36,11 @@ public class AuthController {
         LinkCodeResult result = issueLinkCodeService.issue(memberId);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.of(LinkCodeResponse.from(result)));
+    }
+
+    @PostMapping("/link")
+    public ApiResponse<AuthResponse> login(@RequestBody LinkLoginRequest request) {
+        AuthResult result = linkLoginService.login(request.linkCode());
+        return ApiResponse.of(AuthResponse.from(result));
     }
 }
