@@ -8,6 +8,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
+import com.sssok.application.auth.IssueLinkCodeService;
+import com.sssok.application.auth.LinkCodeResult;
+import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.member.exception.InvalidNicknameException;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -18,7 +22,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 // AuthController의 요청/응답 매핑과 예외 -> 에러 응답 변환만 검증하는 슬라이스 테스트.
-// Service는 Mock으로 대체하므로 실제 회원 생성·토큰 발급 로직은 이 테스트의 관심사가 아니다.
+// Service는 Mock으로 대체하므로 실제 회원 생성·토큰 발급·코드 발급 로직은 이 테스트의 관심사가 아니다.
 @WebMvcTest(AuthController.class)
 class AuthControllerTest {
 
@@ -27,6 +31,13 @@ class AuthControllerTest {
 
     @MockitoBean
     AnonymousAuthService anonymousAuthService;
+
+    @MockitoBean
+    IssueLinkCodeService issueLinkCodeService;
+
+    // AuthMemberArgumentResolver가 의존하는 포트 — Authorization 헤더 파싱 검증에 필요하다.
+    @MockitoBean
+    TokenProvider tokenProvider;
 
     @Test
     void 익명_인증에_성공하면_201과_토큰_정보를_반환한다() throws Exception {
@@ -53,5 +64,35 @@ class AuthControllerTest {
                 .content("{\"nickname\":\"\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_NICKNAME"));
+    }
+
+    @Test
+    void 유효한_토큰으로_연결_코드를_발급받으면_201을_반환한다() throws Exception {
+        given(tokenProvider.parse("valid-token")).willReturn(1L);
+        given(issueLinkCodeService.issue(1L))
+            .willReturn(new LinkCodeResult("483920", Instant.parse("2026-08-22T04:15:00Z")));
+
+        mockMvc.perform(post("/auth/link-code")
+                .header("Authorization", "Bearer valid-token"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.linkCode").value("483920"))
+            .andExpect(jsonPath("$.data.expiresAt").value("2026-08-22T04:15:00Z"));
+    }
+
+    @Test
+    void Authorization_헤더가_없으면_401을_반환한다() throws Exception {
+        mockMvc.perform(post("/auth/link-code"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 토큰_검증에_실패하면_401을_반환한다() throws Exception {
+        given(tokenProvider.parse(anyString())).willThrow(new UnauthorizedException("다시 접속해주세요"));
+
+        mockMvc.perform(post("/auth/link-code")
+                .header("Authorization", "Bearer invalid-token"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 }

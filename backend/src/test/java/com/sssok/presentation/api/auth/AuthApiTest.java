@@ -1,6 +1,7 @@
 package com.sssok.presentation.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.matchesPattern;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -74,5 +75,58 @@ class AuthApiTest {
                 .content("{\"nickname\":\"\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_NICKNAME"));
+    }
+
+    @Test
+    void 발급받은_토큰으로_연결_코드를_발급받는다() throws Exception {
+        String accessToken = 익명_인증으로_토큰_발급받기();
+
+        mockMvc.perform(post("/auth/link-code")
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.linkCode").value(matchesPattern("\\d{6}")))
+            .andExpect(jsonPath("$.data.expiresAt").value(notNullValue()));
+    }
+
+    @Test
+    void 같은_토큰으로_다시_발급받으면_이전_코드가_무효화된다() throws Exception {
+        String accessToken = 익명_인증으로_토큰_발급받기();
+
+        MvcResult first = mockMvc.perform(post("/auth/link-code")
+                .header("Authorization", "Bearer " + accessToken))
+            .andReturn();
+        MvcResult second = mockMvc.perform(post("/auth/link-code")
+                .header("Authorization", "Bearer " + accessToken))
+            .andReturn();
+
+        JsonNode firstBody = objectMapper.readTree(first.getResponse().getContentAsString());
+        JsonNode secondBody = objectMapper.readTree(second.getResponse().getContentAsString());
+
+        assertThat(firstBody.get("data").get("linkCode").asText())
+            .isNotEqualTo(secondBody.get("data").get("linkCode").asText());
+    }
+
+    @Test
+    void Authorization_헤더_없이_연결_코드를_요청하면_401() throws Exception {
+        mockMvc.perform(post("/auth/link-code"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 형식이_잘못된_토큰으로_요청하면_401() throws Exception {
+        mockMvc.perform(post("/auth/link-code")
+                .header("Authorization", "Bearer not-a-real-token"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    private String 익명_인증으로_토큰_발급받기() throws Exception {
+        MvcResult result = mockMvc.perform(post("/auth/anonymous")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"민수\"}"))
+            .andReturn();
+        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
+        return body.get("data").get("accessToken").asText();
     }
 }
