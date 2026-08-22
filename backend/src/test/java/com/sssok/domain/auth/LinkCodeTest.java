@@ -25,4 +25,18 @@ class LinkCodeTest {
 
         assertThat(linkCode.getId()).isEqualTo(1L);
     }
+
+    @Test
+    void 만료_시각_이전이면_만료가_아니다() {
+        LinkCode linkCode = LinkCode.issue(10L, new LinkCodeValue("483920"), NOW);
+
+        assertThat(linkCode.isExpired(NOW.plusSeconds(1))).isFalse();
+    }
+
+    @Test
+    void 만료_시각이_지나면_만료다() {
+        LinkCode linkCode = LinkCode.issue(10L, new LinkCodeValue("483920"), NOW);
+
+        assertThat(linkCode.isExpired(NOW.plus(6, ChronoUnit.MINUTES))).isTrue();
+    }
 }

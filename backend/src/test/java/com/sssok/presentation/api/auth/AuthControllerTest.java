@@ -10,8 +10,12 @@ import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.auth.IssueLinkCodeService;
 import com.sssok.application.auth.LinkCodeResult;
+import com.sssok.application.auth.LinkLoginService;
+import com.sssok.application.auth.exception.LinkCodeExpiredException;
+import com.sssok.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.TokenProvider;
+import com.sssok.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.domain.member.exception.InvalidNicknameException;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -35,6 +39,9 @@ class AuthControllerTest {
     @MockitoBean
     IssueLinkCodeService issueLinkCodeService;
 
+    @MockitoBean
+    LinkLoginService linkLoginService;
+
     // AuthMemberArgumentResolver가 의존하는 포트 — Authorization 헤더 파싱 검증에 필요하다.
     @MockitoBean
     TokenProvider tokenProvider;
@@ -44,7 +51,7 @@ class AuthControllerTest {
         given(anonymousAuthService.authenticate(anyString()))
             .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z")));
 
-        mockMvc.perform(post("/auth/anonymous")
+        mockMvc.perform(post("/api/v1/auth/anonymous")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andExpect(status().isCreated())
@@ -59,7 +66,7 @@ class AuthControllerTest {
         given(anonymousAuthService.authenticate(anyString()))
             .willThrow(new InvalidNicknameException("닉네임을 입력해주세요"));
 
-        mockMvc.perform(post("/auth/anonymous")
+        mockMvc.perform(post("/api/v1/auth/anonymous")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"\"}"))
             .andExpect(status().isBadRequest())
@@ -72,7 +79,7 @@ class AuthControllerTest {
         given(issueLinkCodeService.issue(1L))
             .willReturn(new LinkCodeResult("483920", Instant.parse("2026-08-22T04:15:00Z")));
 
-        mockMvc.perform(post("/auth/link-code")
+        mockMvc.perform(post("/api/v1/auth/link-code")
                 .header("Authorization", "Bearer valid-token"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.linkCode").value("483920"))
@@ -81,7 +88,7 @@ class AuthControllerTest {
 
     @Test
     void Authorization_헤더가_없으면_401을_반환한다() throws Exception {
-        mockMvc.perform(post("/auth/link-code"))
+        mockMvc.perform(post("/api/v1/auth/link-code"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
@@ -90,9 +97,56 @@ class AuthControllerTest {
     void 토큰_검증에_실패하면_401을_반환한다() throws Exception {
         given(tokenProvider.parse(anyString())).willThrow(new UnauthorizedException("다시 접속해주세요"));
 
-        mockMvc.perform(post("/auth/link-code")
+        mockMvc.perform(post("/api/v1/auth/link-code")
                 .header("Authorization", "Bearer invalid-token"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 유효한_연결_코드로_로그인하면_200과_토큰_정보를_반환한다() throws Exception {
+        given(linkLoginService.login("483920"))
+            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z")));
+
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"483920\"}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.accessToken").value("token-value"))
+            .andExpect(jsonPath("$.data.userId").value(1))
+            .andExpect(jsonPath("$.data.nickname").value("민수"));
+    }
+
+    @Test
+    void 형식이_잘못된_코드면_400을_반환한다() throws Exception {
+        given(linkLoginService.login(anyString())).willThrow(new InvalidLinkCodeException("abc"));
+
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"abc\"}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_LINK_CODE"));
+    }
+
+    @Test
+    void 존재하지_않는_코드면_404를_반환한다() throws Exception {
+        given(linkLoginService.login(anyString())).willThrow(new LinkCodeNotFoundException());
+
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"999999\"}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("LINK_CODE_NOT_FOUND"));
+    }
+
+    @Test
+    void 만료된_코드면_410을_반환한다() throws Exception {
+        given(linkLoginService.login(anyString())).willThrow(new LinkCodeExpiredException());
+
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"999999\"}"))
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("LINK_CODE_EXPIRED"));
     }
 }
