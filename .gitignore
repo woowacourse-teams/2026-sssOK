@@ -16,6 +16,10 @@ yarn-error.log*
 *.iml
 .vscode/
 
+# AI 에이전트 - 팀 공용 규칙(AGENTS.md, .claude/skills)은 공유하고
+# 개인 설정만 제외한다
+.claude/settings.local.json
+
 # 환경변수/시크릿
 .env
 .env.local
