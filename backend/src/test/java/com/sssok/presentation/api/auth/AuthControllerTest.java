@@ -18,6 +18,7 @@ import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.domain.member.exception.InvalidNicknameException;
 import java.time.Instant;
+import java.util.NoSuchElementException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -148,5 +149,16 @@ class AuthControllerTest {
                 .content("{\"linkCode\":\"999999\"}"))
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("LINK_CODE_EXPIRED"));
+    }
+
+    @Test
+    void 매핑되지_않은_예외는_500과_일관된_에러_형식으로_반환된다() throws Exception {
+        given(linkLoginService.login(anyString())).willThrow(new NoSuchElementException());
+
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"999999\"}"))
+            .andExpect(status().isInternalServerError())
+            .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"));
     }
 }
