@@ -23,7 +23,8 @@ public class LinkLoginService {
     private final MemberRepository memberRepository;
     private final TokenProvider tokenProvider;
 
-    @Transactional
+    // LinkCodeExpiredException을 던질 때도 그 직전의 청소용 삭제는 커밋돼야 하므로 롤백 대상에서 뺌
+    @Transactional(noRollbackFor = LinkCodeExpiredException.class)
     public AuthResult login(String rawCode) {
         Instant now = Instant.now();
         LinkCodeValue code = new LinkCodeValue(rawCode);
@@ -31,6 +32,7 @@ public class LinkLoginService {
         LinkCode linkCode = linkCodeRepository.findByCode(code)
             .orElseThrow(LinkCodeNotFoundException::new);
         if (linkCode.isExpired(now)) {
+            linkCodeRepository.deleteByCode(code);
             throw new LinkCodeExpiredException();
         }
 

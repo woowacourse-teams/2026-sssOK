@@ -90,6 +90,21 @@ class LinkLoginServiceTest {
     }
 
     @Test
+    void 만료된_코드는_로그인_시도_시점에_청소된다() {
+        AuthResult registered = anonymousAuthService.authenticate("로지");
+        LinkCodeValue code = LinkCodeValue.generate(RandomGenerator.of("Random"));
+        LinkCode expired = LinkCode.issue(registered.userId(), code, Instant.now().minus(10, ChronoUnit.MINUTES));
+        linkCodeRepository.save(expired);
+
+        assertThatThrownBy(() -> linkLoginService.login(code.value()))
+            .isInstanceOf(LinkCodeExpiredException.class);
+
+        // 방치돼있던 행이 지워졌는지 확인 — 같은 코드로 다시 시도하면 이제는 404(찾을 수 없음)여야 한다.
+        assertThatThrownBy(() -> linkLoginService.login(code.value()))
+            .isInstanceOf(LinkCodeNotFoundException.class);
+    }
+
+    @Test
     void 동시에_같은_코드로_로그인하면_하나만_성공한다() throws InterruptedException {
         AuthResult registered = anonymousAuthService.authenticate("로지");
         LinkCodeResult issued = issueLinkCodeService.issue(registered.userId());
