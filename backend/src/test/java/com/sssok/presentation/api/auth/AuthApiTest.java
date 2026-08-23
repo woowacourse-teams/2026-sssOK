@@ -101,9 +101,23 @@ class AuthApiTest {
 
         JsonNode firstBody = objectMapper.readTree(first.getResponse().getContentAsString());
         JsonNode secondBody = objectMapper.readTree(second.getResponse().getContentAsString());
+        String firstCode = firstBody.get("data").get("linkCode").asText();
+        String secondCode = secondBody.get("data").get("linkCode").asText();
 
-        assertThat(firstBody.get("data").get("linkCode").asText())
-            .isNotEqualTo(secondBody.get("data").get("linkCode").asText());
+        assertThat(firstCode).isNotEqualTo(secondCode);
+
+        // 실제로 이전 코드가 무효화됐는지: 첫 번째 코드로는 로그인이 실패해야 한다.
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"" + firstCode + "\"}"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("LINK_CODE_NOT_FOUND"));
+
+        // 두 번째(최신) 코드로는 로그인이 성공해야 한다.
+        mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"" + secondCode + "\"}"))
+            .andExpect(status().isOk());
     }
 
     @Test
