@@ -5,6 +5,7 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
+    "types": ["node"],
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "jsxImportSource": "@emotion/react",
