@@ -39,4 +39,11 @@ class LinkCodeTest {
 
         assertThat(linkCode.isExpired(NOW.plus(6, ChronoUnit.MINUTES))).isTrue();
     }
+
+    @Test
+    void 만료_시각과_정확히_같은_순간도_만료다() {
+        LinkCode linkCode = LinkCode.issue(10L, new LinkCodeValue("483920"), NOW);
+
+        assertThat(linkCode.isExpired(linkCode.getExpiresAt())).isTrue();
+    }
 }

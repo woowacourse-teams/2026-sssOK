@@ -30,7 +30,8 @@ public class LinkCode {
         return new LinkCode(id, memberId, code, expiresAt);
     }
 
+    // 만료 시각과 정확히 같은 순간도 만료로 취급한다 (RoomExpiration.isExpired와 동일한 경계 규칙).
     public boolean isExpired(Instant now) {
-        return now.isAfter(expiresAt);
+        return !now.isBefore(expiresAt);
     }
 }
