@@ -2,6 +2,9 @@ package com.sssok.infrastructure.persistence.auth;
 
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface LinkCodeJpaRepository extends JpaRepository<LinkCodeJpaEntity, Long> {
 
@@ -9,5 +12,7 @@ public interface LinkCodeJpaRepository extends JpaRepository<LinkCodeJpaEntity, 
 
     Optional<LinkCodeJpaEntity> findByCode(String code);
 
-    void deleteByCode(String code);
+    @Modifying
+    @Query("DELETE FROM LinkCodeJpaEntity e WHERE e.code = :code")
+    int deleteByCode(@Param("code") String code);
 }

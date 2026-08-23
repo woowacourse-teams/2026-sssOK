@@ -14,6 +14,7 @@ public interface LinkCodeRepository {
 
     Optional<LinkCode> findByCode(LinkCodeValue code);
 
-    // 1회용 코드 소비 — 로그인에 성공하면 즉시 폐기한다.
-    void deleteByCode(LinkCodeValue code);
+    // 1회용 코드 소비 — 실제로 이 호출이 행을 지웠으면(=소비에 성공했으면) true.
+    // 동시에 같은 코드로 여러 요청이 들어와도 단 하나만 true를 받는다.
+    boolean deleteByCode(LinkCodeValue code);
 }

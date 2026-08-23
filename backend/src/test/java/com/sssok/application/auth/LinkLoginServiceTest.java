@@ -11,23 +11,24 @@ import com.sssok.domain.auth.LinkCodeValue;
 import com.sssok.domain.auth.exception.InvalidLinkCodeException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 // LinkLoginService가 실제 Repository 빈을 통해 코드를 조회·소비하고 토큰을 발급하는지 확인하는 통합 테스트.
-// 기본 CRUD만 검증하므로 H2로 빠르게 돈다 (docs/backend/TEST_CONVENTION.md 참고).
+// 기본 CRUD만 검증하므로 H2로 빠르게 돈다.
+// H2 설정은 application-test.yml(test 프로파일)에 모아뒀다 (docs/backend/TEST_CONVENTION.md 참고).
 @SpringBootTest
-@TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:link-login-service-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.username=sa",
-    "spring.datasource.password=",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.flyway.enabled=false"
-})
+@ActiveProfiles("test")
 class LinkLoginServiceTest {
 
     @Autowired
@@ -86,5 +87,43 @@ class LinkLoginServiceTest {
 
         assertThatThrownBy(() -> linkLoginService.login(code.value()))
             .isInstanceOf(LinkCodeExpiredException.class);
+    }
+
+    @Test
+    void 동시에_같은_코드로_로그인하면_하나만_성공한다() throws InterruptedException {
+        AuthResult registered = anonymousAuthService.authenticate("로지");
+        LinkCodeResult issued = issueLinkCodeService.issue(registered.userId());
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch readyLatch = new CountDownLatch(threadCount);
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        List<Future<AuthResult>> futures = new ArrayList<>();
+        for (int i = 0; i < threadCount; i++) {
+            futures.add(executor.submit(() -> {
+                readyLatch.countDown();
+                startLatch.await();
+                return linkLoginService.login(issued.linkCode());
+            }));
+        }
+        readyLatch.await();
+        startLatch.countDown();
+
+        int successCount = 0;
+        int notFoundCount = 0;
+        for (Future<AuthResult> future : futures) {
+            try {
+                future.get();
+                successCount++;
+            } catch (ExecutionException e) {
+                assertThat(e.getCause()).isInstanceOf(LinkCodeNotFoundException.class);
+                notFoundCount++;
+            }
+        }
+        executor.shutdown();
+
+        assertThat(successCount).isEqualTo(1);
+        assertThat(notFoundCount).isEqualTo(1);
     }
 }

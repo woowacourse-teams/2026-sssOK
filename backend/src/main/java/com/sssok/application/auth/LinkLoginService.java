@@ -33,7 +33,12 @@ public class LinkLoginService {
         if (linkCode.isExpired(now)) {
             throw new LinkCodeExpiredException();
         }
-        linkCodeRepository.deleteByCode(code);
+
+        // 삭제가 실제로 이 행을 지웠는지로 소비 성공 여부를 판별
+        boolean consumed = linkCodeRepository.deleteByCode(code);
+        if (!consumed) {
+            throw new LinkCodeNotFoundException();
+        }
 
         Member member = memberRepository.findById(linkCode.getMemberId()).orElseThrow();
         IssuedToken token = tokenProvider.issue(member.getId(), now);

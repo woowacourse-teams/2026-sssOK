@@ -30,8 +30,8 @@ public class LinkCodeRepositoryAdapter implements LinkCodeRepository {
     }
 
     @Override
-    public void deleteByCode(LinkCodeValue code) {
-        jpaRepository.deleteByCode(code.value());
+    public boolean deleteByCode(LinkCodeValue code) {
+        return jpaRepository.deleteByCode(code.value()) > 0;
     }
 
     private LinkCodeJpaEntity toEntity(LinkCode linkCode) {
