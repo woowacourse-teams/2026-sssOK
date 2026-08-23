@@ -19,21 +19,6 @@ jobs:
       run:
         working-directory: backend
 
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: sssok
-          POSTGRES_USER: sssok
-          POSTGRES_PASSWORD: sssok
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U sssok -d sssok"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 10
-
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
@@ -53,10 +38,6 @@ jobs:
       - name: 빌드 및 테스트
         run: ./gradlew build
         env:
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/sssok
-          SPRING_DATASOURCE_USERNAME: sssok
-          SPRING_DATASOURCE_PASSWORD: sssok
-          SPRING_JPA_HIBERNATE_DDL_AUTO: create-drop
           # CI 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
           JWT_SECRET: 5SWYqRqL3JIuYo1c/ecWhbU6RTRd2nWPQfeaDjGJSd0=
 
