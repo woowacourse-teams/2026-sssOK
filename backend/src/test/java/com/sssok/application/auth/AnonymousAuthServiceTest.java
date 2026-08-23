@@ -6,20 +6,13 @@ import com.sssok.application.port.out.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 // Service가 실제 Repository 빈을 통해 회원을 저장하고 토큰을 발급하는지 확인하는 통합 테스트.
-// 기본 CRUD만 검증하므로 PostgreSQL 전용 기능이 필요 없어 H2로 빠르게 돈다 (Flyway는 끄고
-// Hibernate가 엔티티로부터 스키마를 직접 생성한다 — 실제 운영 스키마 검증은 API 인수 테스트가 담당).
+// 기본 CRUD만 검증하므로 PostgreSQL 전용 기능이 필요 없어 H2로 빠르게 돈다.
+// H2 설정은 application-test.yml(test 프로파일)에 모아뒀다 (docs/backend/TEST_CONVENTION.md 참고).
 @SpringBootTest
-@TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:auth-service-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.datasource.username=sa",
-    "spring.datasource.password=",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.flyway.enabled=false"
-})
+@ActiveProfiles("test")
 class AnonymousAuthServiceTest {
 
     @Autowired

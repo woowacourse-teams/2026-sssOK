@@ -50,12 +50,12 @@ DB나 전체 Spring Context를 띄우지 않아 실행이 빠르다. Service 내
 
 Flyway 마이그레이션은 PostgreSQL 전용 문법(`BIGSERIAL`, `TIMESTAMPTZ` 등)을 쓰므로 H2에서 그대로 실행되지 않는다. Repository+Service 테스트는 Flyway를 끄고 Hibernate가 엔티티로부터 스키마를 직접 생성하도록 한다 (실제 마이그레이션-엔티티 정합성 검증은 API 인수 테스트의 `ddl-auto=validate`가 담당하므로 역할이 겹치지 않는다).
 
+H2 설정(데이터소스, `ddl-auto`, Flyway 끄기, 테스트 전용 `jwt.secret`)은 테스트 클래스마다 반복해서 적지 않고, `backend/src/test/resources/application-test.yml`(`test` 프로파일) 하나에 모아뒀다. 새 Repository+Service 테스트를 추가할 때는 아래처럼 프로파일만 지정하면 된다.
+
 ```java
 @SpringBootTest
-@TestPropertySource(properties = {
-    "spring.datasource.url=jdbc:h2:mem:auth-service-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-    "spring.datasource.driver-class-name=org.h2.Driver",
-    "spring.jpa.hibernate.ddl-auto=create-drop",
-    "spring.flyway.enabled=false"
-})
+@ActiveProfiles("test")
+class SomeServiceTest {
+    // ...
+}
 ```
