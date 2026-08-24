@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.persistence.room;
 
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.domain.room.EntryPassword;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
@@ -41,6 +42,7 @@ public class RoomRepositoryAdapter implements RoomRepository {
             room.getStatus().name(),
             room.getExpiration().expiresAt(),
             room.getUploadPolicy().name(),
+            toHash(room.getEntryPassword()),
             room.getHostId(),
             room.getCreatedAt(),
             room.getDeletedAt()
@@ -55,9 +57,24 @@ public class RoomRepositoryAdapter implements RoomRepository {
             RoomStatus.from(entity.getStatus()),
             new RoomExpiration(entity.getExpiresAt()),
             UploadPolicy.valueOf(entity.getUploadPolicy()),
+            toEntryPassword(entity.getEntryPassword()),
             entity.getHostId(),
             entity.getCreatedAt(),
             entity.getDeletedAt()
         );
+    }
+
+    private String toHash(EntryPassword entryPassword) {
+        if (entryPassword == null) {
+            return null;
+        }
+        return entryPassword.hash();
+    }
+
+    private EntryPassword toEntryPassword(String hash) {
+        if (hash == null) {
+            return null;
+        }
+        return new EntryPassword(hash);
     }
 }

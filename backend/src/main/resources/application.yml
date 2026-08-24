@@ -26,7 +26,7 @@ spring:
         core-size: 4
         max-size: 8
         queue-capacity: 100
-    # 방 만료 TTL / 30일 보관 후 영구 삭제 @Scheduled 배치
+    # 방 만료 TTL / 보관 기간 경과 후 영구 삭제 @Scheduled 배치
     scheduling:
       thread-name-prefix: batch-
       pool:
@@ -42,7 +42,7 @@ room:
   default-ttl: 24h
   expiration-change-limit: 3
   # soft delete 이후 실제 삭제까지의 보관 기간
-  retention-after-delete: 30d
+  retention-after-delete: 7d
 
 upload:
   image-max-size: 10MB

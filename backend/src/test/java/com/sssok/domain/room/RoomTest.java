@@ -1,8 +1,11 @@
 package com.sssok.domain.room;
 
+import com.sssok.domain.room.exception.InvalidPasscodeException;
+import com.sssok.domain.room.exception.PasscodeRequiredException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.exception.IllegalRoomStatusTransitionException;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.security.SecureRandom;
@@ -20,6 +23,7 @@ class RoomTest {
     private static final Instant NOW = Instant.parse("2026-08-13T00:00:00Z");
     private static final Long HOST = 1L;
     private static final Long GUEST = 2L;
+    private static final String PASSCODE = "sssok2026";
 
     private Room createRoom() {
         RoomCode code = RoomCode.generate(new SecureRandom());
@@ -138,21 +142,21 @@ class RoomTest {
     }
 
     @Test
-    void 삭제_후_30일이_지나지_않으면_퍼지_대상이_아니다() {
+    void 삭제_후_보존_기간이_지나지_않으면_퍼지_대상이_아니다() {
         Room room = createRoom();
         Instant deletedAt = NOW;
         room.delete(HOST, deletedAt);
 
-        assertThat(room.isPurgeable(deletedAt.plus(Duration.ofDays(29)))).isFalse();
+        assertThat(room.isPurgeable(deletedAt.plus(Duration.ofDays(6)))).isFalse();
     }
 
     @Test
-    void 삭제_후_30일이_지나면_퍼지_대상이다() {
+    void 삭제_후_보존_기간이_지나면_퍼지_대상이다() {
         Room room = createRoom();
         Instant deletedAt = NOW;
         room.delete(HOST, deletedAt);
 
-        assertThat(room.isPurgeable(deletedAt.plus(Duration.ofDays(30)))).isTrue();
+        assertThat(room.isPurgeable(deletedAt.plus(Duration.ofDays(7)))).isTrue();
     }
 
     @Test
@@ -181,5 +185,61 @@ class RoomTest {
         room.purge();
 
         assertThat(room.getStatus()).isSameAs(PurgedRoomStatus.INSTANCE);
+    }
+
+    @Test
+    void 삭제되지_않은_방은_영구_삭제_예정_시각이_없다() {
+        Room room = createRoom();
+
+        assertThat(room.purgeAt()).isNull();
+    }
+
+    @Test
+    void 삭제하면_영구_삭제_예정_시각은_삭제_시각의_보존_기간_뒤다() {
+        Room room = createRoom();
+        Instant deletedAt = NOW.plus(Duration.ofMinutes(10));
+
+        room.delete(HOST, deletedAt);
+
+        assertThat(room.purgeAt()).isEqualTo(deletedAt.plus(Duration.ofDays(7)));
+    }
+
+    @Test
+    void 암호가_없는_방은_아무_값을_보내지_않아도_입장_검증을_통과한다() {
+        Room room = createRoom();
+
+        assertThat(room.requiresPasscode()).isFalse();
+        assertThatCode(() -> room.verifyEntry(null)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void 암호가_걸린_방은_맞는_암호로_입장_검증을_통과한다() {
+        Room room = createRoomWithPasscode();
+
+        assertThat(room.requiresPasscode()).isTrue();
+        assertThatCode(() -> room.verifyEntry(PASSCODE)).doesNotThrowAnyException();
+    }
+
+    @Test
+    void 암호가_걸린_방에_암호를_보내지_않으면_예외() {
+        Room room = createRoomWithPasscode();
+
+        assertThatThrownBy(() -> room.verifyEntry(null))
+            .isInstanceOf(PasscodeRequiredException.class);
+        assertThatThrownBy(() -> room.verifyEntry("  "))
+            .isInstanceOf(PasscodeRequiredException.class);
+    }
+
+    @Test
+    void 암호가_걸린_방에_틀린_암호를_보내면_예외() {
+        Room room = createRoomWithPasscode();
+
+        assertThatThrownBy(() -> room.verifyEntry("wrong-one"))
+            .isInstanceOf(InvalidPasscodeException.class);
+    }
+
+    private Room createRoomWithPasscode() {
+        RoomCode code = RoomCode.generate(new SecureRandom());
+        return Room.create(code, new RoomName("우테코 회식"), HOST, EntryPassword.of(PASSCODE, code), NOW);
     }
 }

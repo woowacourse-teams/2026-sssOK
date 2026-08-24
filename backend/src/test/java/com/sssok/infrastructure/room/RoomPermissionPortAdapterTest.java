@@ -42,6 +42,7 @@ class RoomPermissionPortAdapterTest {
             RoomStatus.initial(),
             new RoomExpiration(expiresAt),
             uploadPolicy,
+            null,
             HOST_ID,
             Instant.now().minusSeconds(60),
             null
