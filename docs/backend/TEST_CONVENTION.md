@@ -43,7 +43,9 @@ DB나 전체 Spring Context를 띄우지 않아 실행이 빠르다. Service 내
 ## 현재 적용 현황
 
 - **Auth(익명 인증) 기능**은 3단계 구조를 모두 적용했다: `AnonymousAuthServiceTest`(Repository+Service, H2) / `AuthControllerTest`(Controller 슬라이스) / `AuthApiTest`(API 인수 테스트, Testcontainers)
-- **Room·Folder 기능**(`RoomApiTest`)은 아직 API 인수 테스트만 있다 — Room을 다시 손보게 되면 이 구조로 맞춰 나간다
+- **Room 기능**도 3단계 구조를 모두 적용했다: `UpdateRoomServiceTest`·`DeleteRoomServiceTest`(Repository+Service, H2) / `RoomControllerTest`(Controller 슬라이스) / `RoomApiTest`(API 인수 테스트, Testcontainers)
+- **입장(`JoinRoomServiceTest`·`JoinRoomConcurrencyTest`)만 예외적으로 Testcontainers를 쓴다** — 입장 멱등성을 `ON CONFLICT DO NOTHING`(PostgreSQL 전용 네이티브 쿼리)으로 보장하므로 H2로는 검증할 수 없다. 위 "1. Repository + Service" 절의 *DB 종속 기능은 Testcontainers* 규칙을 그대로 적용한 사례다.
+- **Folder 기능**은 아직 도메인 단위 테스트만 있다 — 서비스·API가 생기면 이 구조로 맞춰 나간다
 - H2 의존성(`com.h2database:h2`)은 `backend/build.gradle`에 추가되어 있다
 
 ## H2 통합 테스트 작성 시 참고
