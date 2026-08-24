@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:sssok-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+# 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
+jwt:
+  secret: mvtcAhMGbXlhpJ4JuIvRWJVF+yMUju6PxRCb/FMojgA=
