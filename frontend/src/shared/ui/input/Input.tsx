@@ -7,17 +7,11 @@ import { Count, ErrorMessage, Label, StyledInput } from "./Input.styles";
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label: string;
   errorMessage?: string;
+  value: string;
   maxLength: number;
 }
 
-export const Input = ({
-  label,
-  errorMessage = "",
-  value,
-  maxLength,
-  id,
-  ...props
-}: InputProps) => {
+export const Input = ({ label, errorMessage = "", value, maxLength, id, ...props }: InputProps) => {
   const generatedId = useId();
   const inputId = id ?? generatedId;
 
@@ -37,7 +31,7 @@ export const Input = ({
       <Row justify="space-between">
         <ErrorMessage>{errorMessage}</ErrorMessage>
         <Count>
-          {typeof value === "string" ? value.length : 0}/{maxLength}
+          {value.length}/{maxLength}
         </Count>
       </Row>
     </Stack>
