@@ -1,15 +1,36 @@
 package com.sssok.presentation.api.room;
 
+import com.sssok.application.room.RoomDetail;
 import com.sssok.domain.room.Room;
 import java.time.Instant;
 
-public record RoomResponse(String code, String name, String status, Instant createdAt) {
+public record RoomResponse(
+    Long roomId,
+    String code,
+    String name,
+    String status,
+    Long hostId,
+    String hostName,
+    String uploadPolicy,
+    boolean requiresPasscode,
+    boolean joined,
+    Instant expiresAt,
+    Instant createdAt
+) {
 
-    public static RoomResponse from(Room room) {
+    public static RoomResponse from(RoomDetail detail) {
+        Room room = detail.room();
         return new RoomResponse(
+            room.getId(),
             room.getCode().value(),
             room.getName().value(),
             room.getStatus().name(),
+            room.getHostId(),
+            detail.hostName(),
+            room.getUploadPolicy().apiValue(),
+            room.requiresPasscode(),
+            detail.joined(),
+            room.getExpiration().expiresAt(),
             room.getCreatedAt()
         );
     }
