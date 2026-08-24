@@ -13,7 +13,7 @@ export const BottomSheet = ({ title, onClose, children }: BottomSheetProps) => {
   return createPortal(
     <Overlay data-testid="bottom-sheet-overlay" onClick={onClose}>
       <Sheet onClick={(event) => event.stopPropagation()}>
-        <Handle />
+        {onClose && <Handle data-testid="bottom-sheet-handle" />}
         <Title>{title}</Title>
         <Body>{children}</Body>
       </Sheet>

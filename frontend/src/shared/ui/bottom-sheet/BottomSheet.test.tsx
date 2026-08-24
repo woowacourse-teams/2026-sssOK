@@ -51,3 +51,23 @@ test("onClose 없이도 렌더링되고 배경 클릭 시 에러가 발생하지
 
   await expect(user.click(screen.getByTestId("bottom-sheet-overlay"))).resolves.not.toThrow();
 });
+
+test("onClose를 전달하면 닫기 핸들을 렌더링한다", () => {
+  render(
+    <BottomSheet title="새 폴더 만들기" onClose={jest.fn()}>
+      <p>폴더 이름을 입력해 주세요.</p>
+    </BottomSheet>,
+  );
+
+  expect(screen.getByTestId("bottom-sheet-handle")).toBeInTheDocument();
+});
+
+test("onClose를 전달하지 않으면 닫기 핸들을 렌더링하지 않는다", () => {
+  render(
+    <BottomSheet title="새 폴더 만들기">
+      <p>폴더 이름을 입력해 주세요.</p>
+    </BottomSheet>,
+  );
+
+  expect(screen.queryByTestId("bottom-sheet-handle")).not.toBeInTheDocument();
+});
