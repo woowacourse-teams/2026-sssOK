@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { colors, spacing } from "@/shared/styles/tokens";
+import { colors, radius, shadow, spacing } from "@/shared/styles/tokens";
 
 export interface MenuModalProps {
   onClose: () => void;
@@ -33,6 +33,6 @@ const Card = styled.div`
   padding: ${spacing[8]};
   background: ${colors.backgroundDefault};
   border: 1px solid ${colors.borderDefault};
-  border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(43, 29, 20, 0.16);
+  border-radius: ${radius[12]};
+  box-shadow: ${shadow.modal};
 `;
