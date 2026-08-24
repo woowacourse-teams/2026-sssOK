@@ -1,0 +1,99 @@
+package com.sssok.presentation.api.room;
+
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.port.out.TokenProvider;
+import com.sssok.application.room.SubscribeRoomEventsService;
+import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomNotFoundException;
+import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+// RoomEventController의 인증(헤더/쿼리 파라미터)·검증 실패 라우팅만 확인하는 슬라이스 테스트.
+// 실제 구독·이벤트 전달은 API 인수 테스트가 담당한다.
+@WebMvcTest(RoomEventController.class)
+class RoomEventControllerTest {
+
+    @Autowired
+    MockMvc mockMvc;
+
+    @MockitoBean
+    TokenProvider tokenProvider;
+
+    @MockitoBean
+    SubscribeRoomEventsService subscribeRoomEventsService;
+
+    @MockitoBean
+    InMemorySseEventPublisher sseEventPublisher;
+
+    @Test
+    void Authorization_헤더로_구독하면_비동기_요청이_시작된다() throws Exception {
+        given(tokenProvider.parse("valid-token")).willReturn(1L);
+        given(sseEventPublisher.subscribe(1024L, null)).willReturn(new SseEmitter());
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Bearer valid-token"))
+            .andExpect(request().asyncStarted());
+    }
+
+    @Test
+    void Authorization_헤더가_없어도_token_쿼리_파라미터로_구독된다() throws Exception {
+        given(tokenProvider.parse("query-token")).willReturn(1L);
+        given(sseEventPublisher.subscribe(1024L, null)).willReturn(new SseEmitter());
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events").param("token", "query-token"))
+            .andExpect(request().asyncStarted());
+    }
+
+    @Test
+    void 토큰이_전혀_없으면_401() throws Exception {
+        mockMvc.perform(get("/api/v1/rooms/1024/events"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 토큰_검증에_실패하면_401() throws Exception {
+        given(tokenProvider.parse(anyString())).willThrow(new UnauthorizedException("다시 접속해주세요"));
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Bearer invalid-token"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 없는_방이면_404() throws Exception {
+        given(tokenProvider.parse(anyString())).willReturn(1L);
+        willThrow(new RoomNotFoundException(999L)).given(subscribeRoomEventsService).validate(anyLong());
+
+        mockMvc.perform(get("/api/v1/rooms/999/events")
+                .header("Authorization", "Bearer valid-token"))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+    }
+
+    @Test
+    void 만료된_방이면_410() throws Exception {
+        given(tokenProvider.parse(anyString())).willReturn(1L);
+        willThrow(new RoomExpiredException()).given(subscribeRoomEventsService).validate(anyLong());
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Bearer valid-token"))
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+}
