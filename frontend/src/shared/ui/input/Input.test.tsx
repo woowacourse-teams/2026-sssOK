@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import { colors } from "@/shared/styles/tokens";
 import { Input } from "./Input";
+import { useState } from "react";
 
 describe("Input", () => {
   it("입력값과 글자 수를 렌더링한다", () => {
@@ -14,13 +15,7 @@ describe("Input", () => {
 
   it("에러 메시지와 에러 상태를 표시한다", () => {
     render(
-      <Input
-        label="이름"
-        value=""
-        maxLength={10}
-        errorMessage="이름을 입력해주세요."
-        readOnly
-      />,
+      <Input label="이름" value="" maxLength={10} errorMessage="이름을 입력해주세요." readOnly />,
     );
 
     const input = screen.getByRole("textbox", { name: "이름" });
@@ -33,10 +28,7 @@ describe("Input", () => {
   it("에러가 없어도 글자 수 영역을 표시한다", () => {
     render(<Input label="이름" value="" maxLength={10} readOnly />);
 
-    expect(screen.getByRole("textbox", { name: "이름" })).toHaveAttribute(
-      "aria-invalid",
-      "false",
-    );
+    expect(screen.getByRole("textbox", { name: "이름" })).toHaveAttribute("aria-invalid", "false");
     expect(screen.getByText("0/10")).toBeInTheDocument();
   });
 
@@ -44,15 +36,24 @@ describe("Input", () => {
     const user = userEvent.setup();
     const handleChange = jest.fn();
 
-    render(
-      <Input
-        label="이름"
-        defaultValue=""
-        maxLength={10}
-        placeholder="이름을 입력해주세요."
-        onChange={handleChange}
-      />,
-    );
+    const TestInput = () => {
+      const [value, setValue] = useState("");
+
+      return (
+        <Input
+          label="이름"
+          value={value}
+          maxLength={10}
+          placeholder="이름을 입력해주세요."
+          onChange={(event) => {
+            setValue(event.target.value);
+            handleChange(event);
+          }}
+        />
+      );
+    };
+
+    render(<TestInput />);
 
     const input = screen.getByPlaceholderText("이름을 입력해주세요.");
     await user.type(input, "윤돌");

@@ -6,7 +6,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const config: StorybookConfig = {
   stories: ["../src/**/*.stories.@(js|jsx|mjs|ts|tsx)"],
-  addons: ["@storybook/addon-webpack5-compiler-swc"],
+  staticDirs: ["../public"],
+  addons: ["@storybook/addon-webpack5-compiler-swc", "msw-storybook-addon"],
   framework: "@storybook/react-webpack5",
 
   webpackFinal: async (config) => {
