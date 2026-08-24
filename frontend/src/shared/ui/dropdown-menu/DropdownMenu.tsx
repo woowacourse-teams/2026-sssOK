@@ -33,6 +33,6 @@ const Card = styled.div`
   padding: ${spacing[8]};
   background: ${colors.backgroundDefault};
   border: 1px solid ${colors.borderDefault};
-  border-radius: ${radius[12]};
+  border-radius: ${radius[16]};
   box-shadow: ${shadow.modal};
 `;
