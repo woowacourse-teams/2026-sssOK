@@ -111,11 +111,23 @@ class DeleteRoomServiceTest {
     }
 
     @Test
-    void 만료된_방을_삭제하면_예외() {
+    void 만료된_방도_방장이_삭제할_수_있다() {
         Room expired = roomRepository.save(expiredRoom());
 
-        assertThatThrownBy(() -> deleteRoomService.delete(expired.getId(), HOST))
-            .isInstanceOf(RoomAlreadyDeletedException.class);
+        DeleteRoomResult result = deleteRoomService.delete(expired.getId(), HOST);
+
+        assertThat(result.deletedAt()).isNotNull();
+        assertThat(roomRepository.findById(expired.getId()).orElseThrow().getStatus())
+            .isSameAs(DeletedRoomStatus.INSTANCE);
+    }
+
+    @Test
+    void 만료된_방을_삭제하면_보존_기간_뒤가_영구_삭제_예정_시각이_된다() {
+        Room expired = roomRepository.save(expiredRoom());
+
+        DeleteRoomResult result = deleteRoomService.delete(expired.getId(), HOST);
+
+        assertThat(result.purgeAt()).isEqualTo(result.deletedAt().plus(Duration.ofDays(7)));
     }
 
     // CreateRoomService로는 만료된 방을 만들 수 없어 직접 복원한다.

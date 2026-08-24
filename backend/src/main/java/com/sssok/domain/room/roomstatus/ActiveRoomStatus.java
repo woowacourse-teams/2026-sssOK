@@ -26,6 +26,11 @@ public final class ActiveRoomStatus implements RoomStatus {
     }
 
     @Override
+    public boolean isDeleted() {
+        return false;
+    }
+
+    @Override
     public RoomStatus toExpired() {
         return ExpiredRoomStatus.INSTANCE;
     }

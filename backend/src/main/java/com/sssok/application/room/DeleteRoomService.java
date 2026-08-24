@@ -28,7 +28,7 @@ public class DeleteRoomService {
         if (!permissionPolicy.canDeleteRoom(room, requesterId)) {
             throw new RoomHostRequiredException();
         }
-        if (!room.canEnter(now)) {
+        if (room.isDeleted()) {
             throw new RoomAlreadyDeletedException();
         }
 
