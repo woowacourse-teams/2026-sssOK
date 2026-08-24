@@ -1,2 +1,2 @@
-export { FloatingProgressBar } from "./FloatingProgressBar";
-export type { FloatingProgressBarProps } from "./FloatingProgressBar";
+export { FloatingBar } from "./FloatingBar";
+export type { FloatingBarProps } from "./FloatingBar";

@@ -2,12 +2,12 @@ import type { Meta, StoryObj } from "@storybook/react-webpack5";
 import styled from "@emotion/styled";
 import { LuLoaderCircle } from "react-icons/lu";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
-import { FloatingProgressBar } from "./FloatingProgressBar";
+import { FloatingBar } from "./FloatingBar";
 
 const meta = {
-  title: "shared/ui/FloatingProgressBar",
-  component: FloatingProgressBar,
-} satisfies Meta<typeof FloatingProgressBar>;
+  title: "shared/ui/FloatingBar",
+  component: FloatingBar,
+} satisfies Meta<typeof FloatingBar>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

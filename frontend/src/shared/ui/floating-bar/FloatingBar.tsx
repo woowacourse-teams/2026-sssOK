@@ -2,11 +2,11 @@ import { type ReactNode } from "react";
 import styled from "@emotion/styled";
 import { colors, radius, shadow, spacing } from "@/shared/styles/tokens";
 
-export interface FloatingProgressBarProps {
+export interface FloatingBarProps {
   children: ReactNode;
 }
 
-export const FloatingProgressBar = ({ children }: FloatingProgressBarProps) => {
+export const FloatingBar = ({ children }: FloatingBarProps) => {
   return <Bar>{children}</Bar>;
 };
 
