@@ -42,6 +42,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -89,6 +90,7 @@ class RoomControllerTest {
     private RoomDetail roomDetail(UploadPolicy uploadPolicy, boolean joined) {
         Room room = Room.reconstruct(
             ROOM_ID,
+            null,
             new RoomCode(CODE),
             new RoomName("우테코 회식"),
             RoomStatus.initial(),
@@ -248,6 +250,19 @@ class RoomControllerTest {
                 .content("{\"name\":\"2차 회식\"}"))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_HOST"));
+    }
+
+    @Test
+    void 저장_직전에_다른_요청이_방을_바꿨으면_409를_반환한다() throws Exception {
+        given(updateRoomService.update(anyLong(), anyLong(), any()))
+            .willThrow(new ObjectOptimisticLockingFailureException("room", ROOM_ID));
+
+        mockMvc.perform(patch("/api/v1/rooms/{roomId}", ROOM_ID)
+                .header("Authorization", BEARER)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"2차 회식\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ROOM_MODIFIED"));
     }
 
     @Test

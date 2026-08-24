@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -20,6 +21,9 @@ public class RoomJpaEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    private Long version;
 
     @Column(nullable = false, unique = true, length = 8)
     private String code;
@@ -47,6 +51,7 @@ public class RoomJpaEntity {
 
     public RoomJpaEntity(
         Long id,
+        Long version,
         String code,
         String name,
         String status,
@@ -57,6 +62,7 @@ public class RoomJpaEntity {
         Instant deletedAt
     ) {
         this.id = id;
+        this.version = version;
         this.code = code;
         this.name = name;
         this.status = status;

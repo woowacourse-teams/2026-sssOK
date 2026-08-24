@@ -195,6 +195,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         Instant past = Instant.now().minus(Duration.ofHours(1));
         return Room.reconstruct(
             null,
+            null,
             RoomCode.generate(new SecureRandom()),
             new RoomName("지난 회식"),
             RoomStatus.initial(),

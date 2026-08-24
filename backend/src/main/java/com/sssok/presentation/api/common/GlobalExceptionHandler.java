@@ -15,6 +15,7 @@ import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.exception.InvalidRoomCodeException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -94,6 +95,7 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("INVALID_UPLOAD_POLICY", "업로드 권한은 everyone 또는 host 만 선택할 수 있습니다"));
     }
 
+
     @ExceptionHandler(EmptyPatchException.class)
     public ResponseEntity<ErrorResponse> handleEmptyPatch(EmptyPatchException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -112,6 +114,8 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("ROOM_ALREADY_DELETED", e.getMessage()));
     }
 
+
+
     // 본문이 깨졌거나 타입이 맞지 않는 요청
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ErrorResponse> handleUnreadableBody(HttpMessageNotReadableException e) {
@@ -125,6 +129,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(new ErrorResponse("INVALID_REQUEST_PARAMETER",
                 "%s 값의 형식이 올바르지 않습니다".formatted(e.getName())));
+    }
+
+    // 읽은 뒤 저장하기 전에 다른 요청이 같은 방을 바꾼 경우
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("ROOM_MODIFIED", "방 정보가 방금 변경되었습니다. 다시 시도해주세요"));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

@@ -14,6 +14,8 @@ public class Room {
     private static final Duration RETENTION_AFTER_DELETE = Duration.ofDays(7);
 
     private final Long id;
+    // 읽은 뒤 저장하기까지 다른 요청이 이 방을 바꿨는지 판별하는 값. 저장 전이면 null 이다.
+    private final Long version;
     private final RoomCode code;
     private RoomName name;
     private RoomStatus status;
@@ -25,6 +27,7 @@ public class Room {
 
     private Room(
         Long id,
+        Long version,
         RoomCode code,
         RoomName name,
         RoomStatus status,
@@ -35,6 +38,7 @@ public class Room {
         Instant deletedAt
     ) {
         this.id = id;
+        this.version = version;
         this.code = code;
         this.name = name;
         this.status = status;
@@ -46,13 +50,14 @@ public class Room {
     }
 
     public static Room create(RoomCode code, RoomName name, Long hostId, Instant now) {
-        return new Room(null, code, name, RoomStatus.initial(),
+        return new Room(null, null, code, name, RoomStatus.initial(),
             RoomExpiration.defaultFrom(now), UploadPolicy.ANYONE, hostId, now, null);
     }
 
     // 저장소에서 불러온 값으로 복원
     public static Room reconstruct(
         Long id,
+        Long version,
         RoomCode code,
         RoomName name,
         RoomStatus status,
@@ -62,7 +67,7 @@ public class Room {
         Instant createdAt,
         Instant deletedAt
     ) {
-        return new Room(id, code, name, status, expiration, uploadPolicy, hostId, createdAt, deletedAt);
+        return new Room(id, version, code, name, status, expiration, uploadPolicy, hostId, createdAt, deletedAt);
     }
 
     public boolean isHost(Long memberId) {
