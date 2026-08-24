@@ -34,7 +34,6 @@ const Overlay = styled.div`
 
 const Sheet = styled.div`
   width: 100%;
-  max-width: 390px;
   padding: ${spacing[16]} ${spacing[24]} ${spacing[24]};
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]};
