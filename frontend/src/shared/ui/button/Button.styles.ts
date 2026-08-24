@@ -9,8 +9,7 @@ export const StyledButton = styled.button<{
 }>`
   width: 100%;
   height: ${({ size }) => (size === "sm" ? "55px" : "65px")};
-  border: ${({ variant }) =>
-    variant === "default" ? `1.25px solid ${colors.borderDefault}` : 0};
+  border: ${({ variant }) => (variant === "default" ? `1.25px solid ${colors.borderDefault}` : 0)};
   border-radius: ${({ size }) => (size === "sm" ? radius[12] : radius[16])};
 
   background-color: ${({ variant }) =>
@@ -30,6 +29,7 @@ export const StyledButton = styled.button<{
       background-color: ${({ variant }) => {
         if (variant === "primary") return colors.primaryPressed;
         if (variant === "default") return colors.interactiveHover;
+        if (variant === "danger") return colors.dangerPressed;
         return undefined;
       }};
     }
@@ -39,6 +39,7 @@ export const StyledButton = styled.button<{
     background-color: ${({ variant }) => {
       if (variant === "primary") return colors.primaryPressed;
       if (variant === "default") return colors.interactiveHover;
+      if (variant === "danger") return colors.dangerPressed;
       return undefined;
     }};
   }
