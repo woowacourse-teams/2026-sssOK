@@ -13,5 +13,6 @@ export const NewFolder: Story = {
   args: {
     title: "새 폴더 만들기",
     onClose: () => {},
+    children: <p>폴더 이름을 입력해 주세요.</p>,
   },
 };

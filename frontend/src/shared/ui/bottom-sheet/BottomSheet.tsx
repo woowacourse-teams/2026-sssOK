@@ -6,7 +6,7 @@ import { colors, radius, shadow, spacing, typography } from "@/shared/styles/tok
 export interface BottomSheetProps {
   title: string;
   onClose?: () => void;
-  children?: ReactNode;
+  children: ReactNode;
 }
 
 export const BottomSheet = ({ title, onClose, children }: BottomSheetProps) => {
@@ -15,7 +15,7 @@ export const BottomSheet = ({ title, onClose, children }: BottomSheetProps) => {
       <Sheet onClick={(event) => event.stopPropagation()}>
         <Handle />
         <Title>{title}</Title>
-        {children && <Body>{children}</Body>}
+        <Body>{children}</Body>
       </Sheet>
     </Overlay>,
     document.body,
