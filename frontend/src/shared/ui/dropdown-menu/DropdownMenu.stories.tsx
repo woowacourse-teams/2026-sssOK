@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-webpack5";
-import { MenuModal } from "./MenuModal";
+import { DropdownMenu } from "./DropdownMenu";
 import { Divider } from "../divider/Divider";
 
 const meta = {
-  title: "shared/ui/MenuModal",
-  component: MenuModal,
-} satisfies Meta<typeof MenuModal>;
+  title: "shared/ui/DropdownMenu",
+  component: DropdownMenu,
+} satisfies Meta<typeof DropdownMenu>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;

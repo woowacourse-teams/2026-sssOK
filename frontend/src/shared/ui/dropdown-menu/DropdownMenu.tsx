@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { colors, radius, shadow, spacing } from "@/shared/styles/tokens";
 
-export interface MenuModalProps {
+export interface DropdownMenuProps {
   onClose: () => void;
   children: ReactNode;
 }
 
-export const MenuModal = ({ onClose, children }: MenuModalProps) => {
+export const DropdownMenu = ({ onClose, children }: DropdownMenuProps) => {
   return createPortal(
-    <Overlay data-testid="menu-modal-overlay" onClick={onClose}>
+    <Overlay data-testid="dropdown-menu-overlay" onClick={onClose}>
       <Card onClick={(event) => event.stopPropagation()}>{children}</Card>
     </Overlay>,
     document.body,
