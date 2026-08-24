@@ -223,7 +223,7 @@ importers:
         specifier: ^19.2.8
         version: 19.2.8(react@19.2.8)
       react-icons:
-        specifier: ^5.7.0
+        specifier: 5.7.0
         version: 5.7.0(react@19.2.8)
     devDependencies:
       '@babel/core':
