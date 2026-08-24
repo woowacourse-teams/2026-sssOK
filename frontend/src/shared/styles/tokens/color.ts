@@ -21,6 +21,7 @@ export const colors = {
 
   disabled: "#C9C9C9",
   danger: "#F13337",
+  dangerPressed: "#F06A6E",
 
   overlay: "rgba(26, 22, 18, 0.58)",
 } as const;
