@@ -40,7 +40,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
     void 같은_사람이_동시에_여러_번_입장해도_신규_참여는_한_번뿐이다() throws Exception {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
         Long guestId = anonymousAuthService.authenticate("민수").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식").room();
 
         List<JoinRoomResult> results = 동시에_입장(room.getId(), guestId);
 
@@ -53,7 +53,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
     void 동시_입장에서도_참여_시각과_방장_정보가_모두_같은_값으로_내려간다() throws Exception {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
         Long guestId = anonymousAuthService.authenticate("민수").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식").room();
 
         List<JoinRoomResult> results = 동시에_입장(room.getId(), guestId);
 
@@ -74,7 +74,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
             for (int i = 0; i < THREADS; i++) {
                 futures.add(pool.submit((Callable<JoinRoomResult>) () -> {
                     start.await();
-                    return joinRoomService.join(roomId, memberId, null);
+                    return joinRoomService.join(roomId, memberId);
                 }));
             }
             start.countDown();

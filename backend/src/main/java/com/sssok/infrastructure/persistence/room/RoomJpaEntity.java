@@ -36,9 +36,6 @@ public class RoomJpaEntity {
     @Column(name = "upload_policy", nullable = false, length = 20)
     private String uploadPolicy;
 
-    @Column(name = "entry_password", length = 64)
-    private String entryPassword;
-
     @Column(name = "host_id", nullable = false)
     private Long hostId;
 
@@ -55,7 +52,6 @@ public class RoomJpaEntity {
         String status,
         Instant expiresAt,
         String uploadPolicy,
-        String entryPassword,
         Long hostId,
         Instant createdAt,
         Instant deletedAt
@@ -66,7 +62,6 @@ public class RoomJpaEntity {
         this.status = status;
         this.expiresAt = expiresAt;
         this.uploadPolicy = uploadPolicy;
-        this.entryPassword = entryPassword;
         this.hostId = hostId;
         this.createdAt = createdAt;
         this.deletedAt = deletedAt;

@@ -41,7 +41,7 @@ public class RoomController {
         @AuthMember Long memberId,
         @RequestBody CreateRoomRequest request
     ) {
-        RoomDetail detail = createRoomService.create(memberId, request.name(), request.entryPassword());
+        RoomDetail detail = createRoomService.create(memberId, request.name());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.of(RoomResponse.from(detail)));
     }
@@ -73,10 +73,9 @@ public class RoomController {
     @PostMapping("/{roomId}/members")
     public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(
         @AuthMember Long memberId,
-        @PathVariable Long roomId,
-        @RequestBody(required = false) JoinRoomRequest request
+        @PathVariable Long roomId
     ) {
-        JoinRoomResult result = joinRoomService.join(roomId, memberId, JoinRoomRequest.orEmpty(request).passcode());
+        JoinRoomResult result = joinRoomService.join(roomId, memberId);
         HttpStatus status = result.newlyJoined() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status)
             .body(ApiResponse.of(RoomMemberResponse.from(result)));

@@ -33,10 +33,8 @@ import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.exception.InvalidPasscodeException;
 import com.sssok.domain.room.exception.InvalidRoomExpirationException;
 import com.sssok.domain.room.exception.InvalidUploadPolicyException;
-import com.sssok.domain.room.exception.PasscodeRequiredException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
@@ -96,7 +94,6 @@ class RoomControllerTest {
             RoomStatus.initial(),
             new RoomExpiration(EXPIRES_AT),
             uploadPolicy,
-            null,
             HOST_ID,
             CREATED_AT,
             null
@@ -106,7 +103,7 @@ class RoomControllerTest {
 
     @Test
     void 방을_생성하면_201과_roomId를_포함한_방_정보를_반환한다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), any()))
+        given(createRoomService.create(eq(MEMBER_ID), anyString()))
             .willReturn(roomDetail(UploadPolicy.ANYONE, false));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -143,7 +140,6 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.hostId").value(HOST_ID))
             .andExpect(jsonPath("$.data.hostName").value("가현"))
             .andExpect(jsonPath("$.data.uploadPolicy").value("everyone"))
-            .andExpect(jsonPath("$.data.requiresPasscode").value(false))
             .andExpect(jsonPath("$.data.joined").value(true))
             .andExpect(jsonPath("$.data.expiresAt").value("2026-08-14T00:00:00Z"));
     }
@@ -327,7 +323,7 @@ class RoomControllerTest {
 
     @Test
     void 처음_입장하면_201과_멤버_정보를_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID), any())).willReturn(
+        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         performJoin("{}")
@@ -342,7 +338,7 @@ class RoomControllerTest {
 
     @Test
     void 표시_이름은_요청_바디로_받지_않는다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
+        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
@@ -350,12 +346,12 @@ class RoomControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.displayName").value("민수"));
 
-        then(joinRoomService).should().join(eq(ROOM_ID), eq(MEMBER_ID), isNull());
+        then(joinRoomService).should().join(eq(ROOM_ID), eq(MEMBER_ID));
     }
 
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_200을_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID), any())).willReturn(
+        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, false));
 
         performJoin("{}")
@@ -363,28 +359,11 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.displayName").value("민수"));
     }
 
-    @Test
-    void 암호를_보내지_않으면_401과_PASSCODE_REQUIRED를_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong(), any())).willThrow(new PasscodeRequiredException());
 
-        performJoin("{}")
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("PASSCODE_REQUIRED"));
-    }
-
-    @Test
-    void 암호가_틀리면_401과_INVALID_PASSCODE를_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong(), eq("wrong-one")))
-            .willThrow(new InvalidPasscodeException());
-
-        performJoin("{\"passcode\":\"wrong-one\"}")
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("INVALID_PASSCODE"));
-    }
 
     @Test
     void 없는_방에_입장하면_404를_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong(), any())).willThrow(new RoomNotFoundException(ROOM_ID));
+        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomNotFoundException(ROOM_ID));
 
         performJoin("{}")
             .andExpect(status().isNotFound())
@@ -393,7 +372,7 @@ class RoomControllerTest {
 
     @Test
     void 만료된_방에_입장하면_410을_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong(), any())).willThrow(new RoomExpiredException());
+        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomExpiredException());
 
         performJoin("{}")
             .andExpect(status().isGone())

@@ -12,7 +12,6 @@ public record RoomResponse(
     Long hostId,
     String hostName,
     String uploadPolicy,
-    boolean requiresPasscode,
     boolean joined,
     Instant expiresAt,
     Instant createdAt
@@ -28,7 +27,6 @@ public record RoomResponse(
             room.getHostId(),
             detail.hostName(),
             room.getUploadPolicy().apiValue(),
-            room.requiresPasscode(),
             detail.joined(),
             room.getExpiration().expiresAt(),
             room.getCreatedAt()

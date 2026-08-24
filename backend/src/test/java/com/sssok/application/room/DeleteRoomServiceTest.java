@@ -53,7 +53,7 @@ class DeleteRoomServiceTest {
     }
 
     private Room createRoom() {
-        return createRoomService.create(HOST, "우테코 회식", null).room();
+        return createRoomService.create(HOST, "우테코 회식").room();
     }
 
     @Test
@@ -128,7 +128,6 @@ class DeleteRoomServiceTest {
             RoomStatus.initial(),
             new RoomExpiration(past),
             UploadPolicy.ANYONE,
-            null,
             HOST,
             past.minus(Duration.ofHours(24)),
             null

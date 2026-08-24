@@ -14,8 +14,6 @@ import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.exception.InvalidPasscodeException;
-import com.sssok.domain.room.exception.PasscodeRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.support.PostgresContainerSupport;
 import java.security.SecureRandom;
@@ -30,8 +28,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 // 입장이 PostgreSQL 전용 네이티브 쿼리를 쓰므로 H2가 아닌 실제 PostgreSQL로 돌린다.
 @SpringBootTest
 class JoinRoomServiceTest extends PostgresContainerSupport {
-
-    private static final String PASSCODE = "sssok2026";
 
     @Autowired
     JoinRoomService joinRoomService;
@@ -66,18 +62,15 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     }
 
     private Room createRoom() {
-        return createRoomService.create(hostId, "우테코 회식", null).room();
+        return createRoomService.create(hostId, "우테코 회식").room();
     }
 
-    private Room createRoomWithPasscode() {
-        return createRoomService.create(hostId, "우테코 회식", PASSCODE).room();
-    }
 
     @Test
     void 처음_입장하면_신규_참여로_기록된다() {
         Room room = createRoom();
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, null);
+        JoinRoomResult result = joinRoomService.join(room.getId(), guestId);
 
         assertThat(result.newlyJoined()).isTrue();
         assertThat(result.roomId()).isEqualTo(room.getId());
@@ -89,7 +82,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 표시_이름은_요청이_아니라_인증된_회원_정보에서_온다() {
         Room room = createRoom();
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, null);
+        JoinRoomResult result = joinRoomService.join(room.getId(), guestId);
 
         assertThat(result.displayName()).isEqualTo("민수");
     }
@@ -98,8 +91,8 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 응답에_이_방의_방장_ID가_담긴다() {
         Room room = createRoom();
 
-        JoinRoomResult guestResult = joinRoomService.join(room.getId(), guestId, null);
-        JoinRoomResult hostResult = joinRoomService.join(room.getId(), hostId, null);
+        JoinRoomResult guestResult = joinRoomService.join(room.getId(), guestId);
+        JoinRoomResult hostResult = joinRoomService.join(room.getId(), hostId);
 
         assertThat(guestResult.hostId()).isEqualTo(hostId);
         assertThat(hostResult.hostId()).isEqualTo(hostId);
@@ -108,9 +101,9 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_신규_참여가_아니다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId, null);
+        joinRoomService.join(room.getId(), guestId);
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, null);
+        JoinRoomResult result = joinRoomService.join(room.getId(), guestId);
 
         assertThat(result.newlyJoined()).isFalse();
     }
@@ -118,9 +111,9 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 다시_입장해도_처음_참여_시각이_유지된다() {
         Room room = createRoom();
-        JoinRoomResult first = joinRoomService.join(room.getId(), guestId, null);
+        JoinRoomResult first = joinRoomService.join(room.getId(), guestId);
 
-        JoinRoomResult second = joinRoomService.join(room.getId(), guestId, null);
+        JoinRoomResult second = joinRoomService.join(room.getId(), guestId);
 
         assertThat(second.joinedAt()).isEqualTo(first.joinedAt());
     }
@@ -128,8 +121,8 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 다시_입장해도_참여_기록은_하나뿐이다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId, null);
-        joinRoomService.join(room.getId(), guestId, null);
+        joinRoomService.join(room.getId(), guestId);
+        joinRoomService.join(room.getId(), guestId);
 
         assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)).isPresent();
     }
@@ -140,7 +133,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
 
         assertThat(getRoomService.getByCode(room.getCode(), guestId).joined()).isFalse();
 
-        joinRoomService.join(room.getId(), guestId, null);
+        joinRoomService.join(room.getId(), guestId);
 
         assertThat(getRoomService.getByCode(room.getCode(), guestId).joined()).isTrue();
     }
@@ -149,7 +142,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 다른_사람이_입장해도_내_joined는_그대로다() {
         Room room = createRoom();
 
-        joinRoomService.join(room.getId(), guestId, null);
+        joinRoomService.join(room.getId(), guestId);
 
         assertThat(getRoomService.getByCode(room.getCode(), hostId).joined()).isFalse();
     }
@@ -157,7 +150,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 토큰_없이_조회하면_joined는_거짓이다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId, null);
+        joinRoomService.join(room.getId(), guestId);
 
         assertThat(getRoomService.getByCode(room.getCode(), null).joined()).isFalse();
     }
@@ -169,43 +162,13 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         assertThat(getRoomService.getByCode(room.getCode(), null).hostName()).isEqualTo("가현");
     }
 
-    @Test
-    void 암호가_걸린_방은_맞는_암호로_입장할_수_있다() {
-        Room room = createRoomWithPasscode();
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, PASSCODE);
 
-        assertThat(result.newlyJoined()).isTrue();
-    }
 
-    @Test
-    void 암호가_걸린_방에_암호를_보내지_않으면_예외() {
-        Room room = createRoomWithPasscode();
-
-        assertThatThrownBy(() -> joinRoomService.join(room.getId(), guestId, null))
-            .isInstanceOf(PasscodeRequiredException.class);
-    }
-
-    @Test
-    void 암호가_걸린_방에_틀린_암호를_보내면_예외() {
-        Room room = createRoomWithPasscode();
-
-        assertThatThrownBy(() -> joinRoomService.join(room.getId(), guestId, "wrong-one"))
-            .isInstanceOf(InvalidPasscodeException.class);
-    }
-
-    @Test
-    void 암호가_없는_방에_암호를_보내도_그냥_입장된다() {
-        Room room = createRoom();
-
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, "아무거나");
-
-        assertThat(result.newlyJoined()).isTrue();
-    }
 
     @Test
     void 존재하지_않는_방이면_예외() {
-        assertThatThrownBy(() -> joinRoomService.join(-1L, guestId, null))
+        assertThatThrownBy(() -> joinRoomService.join(-1L, guestId))
             .isInstanceOf(RoomNotFoundException.class);
     }
 
@@ -213,7 +176,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 만료된_방이면_예외() {
         Room expired = roomRepository.save(expiredRoom());
 
-        assertThatThrownBy(() -> joinRoomService.join(expired.getId(), guestId, null))
+        assertThatThrownBy(() -> joinRoomService.join(expired.getId(), guestId))
             .isInstanceOf(RoomExpiredException.class);
     }
 
@@ -223,7 +186,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         room.delete(hostId, Instant.now());
         roomRepository.save(room);
 
-        assertThatThrownBy(() -> joinRoomService.join(room.getId(), guestId, null))
+        assertThatThrownBy(() -> joinRoomService.join(room.getId(), guestId))
             .isInstanceOf(RoomExpiredException.class);
     }
 
@@ -237,7 +200,6 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
             RoomStatus.initial(),
             new RoomExpiration(past),
             UploadPolicy.ANYONE,
-            null,
             hostId,
             past.minus(Duration.ofHours(24)),
             null

@@ -5,12 +5,9 @@ import com.sssok.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.domain.member.exception.InvalidNicknameException;
-import com.sssok.domain.room.exception.InvalidEntryPasswordException;
-import com.sssok.domain.room.exception.InvalidPasscodeException;
 import com.sssok.domain.room.exception.InvalidRoomExpirationException;
 import com.sssok.domain.room.exception.InvalidRoomNameException;
 import com.sssok.domain.room.exception.InvalidUploadPolicyException;
-import com.sssok.domain.room.exception.PasscodeRequiredException;
 import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -97,12 +94,6 @@ public class GlobalExceptionHandler {
             .body(new ErrorResponse("INVALID_UPLOAD_POLICY", "업로드 권한은 everyone 또는 host 만 선택할 수 있습니다"));
     }
 
-    @ExceptionHandler(InvalidEntryPasswordException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidEntryPassword(InvalidEntryPasswordException e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-            .body(new ErrorResponse("INVALID_ENTRY_PASSWORD", e.getMessage()));
-    }
-
     @ExceptionHandler(EmptyPatchException.class)
     public ResponseEntity<ErrorResponse> handleEmptyPatch(EmptyPatchException e) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -119,18 +110,6 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRoomAlreadyDeleted(RoomAlreadyDeletedException e) {
         return ResponseEntity.status(HttpStatus.GONE)
             .body(new ErrorResponse("ROOM_ALREADY_DELETED", e.getMessage()));
-    }
-
-    @ExceptionHandler(PasscodeRequiredException.class)
-    public ResponseEntity<ErrorResponse> handlePasscodeRequired(PasscodeRequiredException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponse("PASSCODE_REQUIRED", e.getMessage()));
-    }
-
-    @ExceptionHandler(InvalidPasscodeException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidPasscode(InvalidPasscodeException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-            .body(new ErrorResponse("INVALID_PASSCODE", e.getMessage()));
     }
 
     // 본문이 깨졌거나 타입이 맞지 않는 요청

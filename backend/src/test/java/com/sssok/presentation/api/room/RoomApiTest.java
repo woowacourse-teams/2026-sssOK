@@ -48,7 +48,6 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.hostId").value(notNullValue()))
             .andExpect(jsonPath("$.data.hostName").value("가현"))
             .andExpect(jsonPath("$.data.uploadPolicy").value("everyone"))
-            .andExpect(jsonPath("$.data.requiresPasscode").value(false))
             .andExpect(jsonPath("$.data.joined").value(false))
             .andExpect(jsonPath("$.data.expiresAt").value(notNullValue()))
             .andReturn();
@@ -85,12 +84,6 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("INVALID_ROOM_NAME"));
     }
 
-    @Test
-    void 공백만_넣은_암호로_생성하면_400() throws Exception {
-        방_생성(익명_인증("가현"), "{\"name\":\"우테코 회식\",\"entryPassword\":\"   \"}")
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("INVALID_ENTRY_PASSWORD"));
-    }
 
     @Test
     void roomId_자리에_방_코드를_넣으면_500이_아니라_400() throws Exception {
@@ -136,7 +129,7 @@ class RoomApiTest extends PostgresContainerSupport {
                 .header("Authorization", "Bearer " + guestToken))
             .andExpect(jsonPath("$.data.joined").value(false));
 
-        입장(guestToken, roomId, "{}").andExpect(status().isCreated());
+        입장(guestToken, roomId).andExpect(status().isCreated());
 
         mockMvc.perform(get("/api/v1/rooms/{code}", code)
                 .header("Authorization", "Bearer " + guestToken))
@@ -315,7 +308,7 @@ class RoomApiTest extends PostgresContainerSupport {
         String guestToken = 익명_인증("민수");
         long roomId = 방_만들기(hostToken).roomId();
 
-        MvcResult first = 입장(guestToken, roomId, "{}")
+        MvcResult first = 입장(guestToken, roomId)
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.roomId").value(roomId))
             .andExpect(jsonPath("$.data.userId").value(notNullValue()))
@@ -324,7 +317,7 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.joinedAt").value(notNullValue()))
             .andReturn();
 
-        MvcResult second = 입장(guestToken, roomId, "{}")
+        MvcResult second = 입장(guestToken, roomId)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.displayName").value("민수"))
             .andReturn();
@@ -338,39 +331,17 @@ class RoomApiTest extends PostgresContainerSupport {
         String guestToken = 익명_인증("민수");
         long roomId = 방_만들기(hostToken).roomId();
 
-        MvcResult hostJoin = 입장(hostToken, roomId, "{}").andExpect(status().isCreated()).andReturn();
-        MvcResult guestJoin = 입장(guestToken, roomId, "{}").andExpect(status().isCreated()).andReturn();
+        MvcResult hostJoin = 입장(hostToken, roomId).andExpect(status().isCreated()).andReturn();
+        MvcResult guestJoin = 입장(guestToken, roomId).andExpect(status().isCreated()).andReturn();
 
         assertThat(값(hostJoin, "userId")).isEqualTo(값(hostJoin, "hostId"));
         assertThat(값(guestJoin, "userId")).isNotEqualTo(값(guestJoin, "hostId"));
     }
 
-    @Test
-    void 암호가_걸린_방은_암호를_보내야_들어갈_수_있다() throws Exception {
-        String hostToken = 익명_인증("가현");
-        String guestToken = 익명_인증("민수");
-        MvcResult created = 방_생성(hostToken, "{\"name\":\"우테코 회식\",\"entryPassword\":\"sssok2026\"}")
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.data.requiresPasscode").value(true))
-            .andReturn();
-        long roomId = Long.parseLong(값(created, "roomId"));
-
-        입장(guestToken, roomId, "{}")
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("PASSCODE_REQUIRED"));
-
-        입장(guestToken, roomId, "{\"passcode\":\"wrong-one\"}")
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("INVALID_PASSCODE"));
-
-        입장(guestToken, roomId, "{\"passcode\":\"sssok2026\"}")
-            .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.data.displayName").value("민수"));
-    }
 
     @Test
     void 없는_방에_입장하면_404() throws Exception {
-        입장(익명_인증("민수"), -1L, "{}")
+        입장(익명_인증("민수"), -1L)
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
@@ -383,7 +354,7 @@ class RoomApiTest extends PostgresContainerSupport {
 
         삭제(hostToken, roomId).andExpect(status().isOk());
 
-        입장(guestToken, roomId, "{}")
+        입장(guestToken, roomId)
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
     }
@@ -418,11 +389,9 @@ class RoomApiTest extends PostgresContainerSupport {
             .header("Authorization", "Bearer " + token));
     }
 
-    private ResultActions 입장(String token, long roomId, String body) throws Exception {
+    private ResultActions 입장(String token, long roomId) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-            .header("Authorization", "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(body));
+            .header("Authorization", "Bearer " + token));
     }
 
     // roomId 는 수정·삭제·입장에, code 는 조회에 쓴다.

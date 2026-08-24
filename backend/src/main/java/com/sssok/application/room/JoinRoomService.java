@@ -26,15 +26,13 @@ public class JoinRoomService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public JoinRoomResult join(Long roomId, Long memberId, String passcode) {
+    public JoinRoomResult join(Long roomId, Long memberId) {
         Instant now = Instant.now();
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
         if (!room.canEnter(now)) {
             throw new RoomExpiredException();
         }
-        room.verifyEntry(passcode);
-
         Member member = memberRepository.findById(memberId)
             .orElseThrow(() -> new UnauthorizedException("다시 접속해주세요"));
 
