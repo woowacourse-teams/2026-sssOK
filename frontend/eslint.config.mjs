@@ -8,6 +8,8 @@ import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
+import tanstackQuery from "@tanstack/eslint-plugin-query";
+
 export default tseslint.config(
   // ignore
   { ignores: ["dist/**", "coverage/**", "storybook-static/**"] },
@@ -25,6 +27,9 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
     settings: { react: { version: "detect" } },
   },
+
+  // TanStack Query 규칙
+  ...tanstackQuery.configs["flat/recommended"],
 
   // shared 아키텍처 규칙
   {
