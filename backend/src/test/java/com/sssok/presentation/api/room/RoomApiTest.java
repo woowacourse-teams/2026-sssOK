@@ -170,11 +170,12 @@ class RoomApiTest extends PostgresContainerSupport {
     @Test
     void 보낸_항목만_바뀌고_나머지는_그대로다() throws Exception {
         String token = 익명_인증("가현");
-        MvcResult created = 방_생성(token, "{\"name\":\"우테코 회식\"}").andReturn();
-        long roomId = Long.parseLong(값(created, "roomId"));
-        String originalExpiresAt = 값(created, "expiresAt");
+        생성된_방 room = 방_만들기(token);
+        // 저장된 값과 비교해야 한다. DB는 마이크로초까지만 담아서, 생성 응답 값과는 정밀도가 다를 수 있다.
+        String originalExpiresAt = 값(mockMvc.perform(get("/api/v1/rooms/{code}", room.code())).andReturn(),
+            "expiresAt");
 
-        수정(token, roomId, "{\"name\":\"2차 회식\"}")
+        수정(token, room.roomId(), "{\"name\":\"2차 회식\"}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.name").value("2차 회식"))
             .andExpect(jsonPath("$.data.uploadPolicy").value("everyone"))

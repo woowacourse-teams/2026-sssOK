@@ -62,7 +62,7 @@ class UpdateRoomServiceTest {
     @Test
     void 이름만_보내면_이름만_바뀐다() {
         Room room = createRoom();
-        Instant originalExpiresAt = room.getExpiration().expiresAt();
+        Instant originalExpiresAt = storedExpiresAt(room.getId());
 
         RoomDetail updated = updateRoomService.update(room.getId(), HOST,
             new UpdateRoomCommand("2차 회식", null, null));
@@ -222,6 +222,11 @@ class UpdateRoomServiceTest {
         assertThatThrownBy(() -> updateRoomService.update(room.getId(), HOST,
             new UpdateRoomCommand("", null, null)))
             .isInstanceOf(InvalidRoomNameException.class);
+    }
+
+    // 저장된 값과 비교해야 한다. DB는 마이크로초까지만 담아서, 저장 전 값과는 정밀도가 다를 수 있다.
+    private Instant storedExpiresAt(Long roomId) {
+        return roomRepository.findById(roomId).orElseThrow().getExpiration().expiresAt();
     }
 
     // CreateRoomService로는 만료된 방을 만들 수 없어 직접 복원한다.
