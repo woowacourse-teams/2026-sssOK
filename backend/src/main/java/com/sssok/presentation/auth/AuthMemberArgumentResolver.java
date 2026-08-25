@@ -34,12 +34,13 @@ public class AuthMemberArgumentResolver implements HandlerMethodArgumentResolver
     ) {
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
         String authorizationHeader = request.getHeader("Authorization");
+        String tokenParam = request.getParameter("token");
 
-        // 안 보낸 경우만 통과시킨다. 보냈는데 잘못된 토큰이면 401.
-        if (isMissing(authorizationHeader) && !isRequired(parameter)) {
+        // 헤더/쿼리 둘 다 안 보낸 경우만 통과시킨다. 보냈는데 잘못된 토큰이면 401.
+        if (isMissing(authorizationHeader) && isMissing(tokenParam) && !isRequired(parameter)) {
             return null;
         }
-        return tokenProvider.parse(extractToken(authorizationHeader));
+        return tokenProvider.parse(extractToken(authorizationHeader, tokenParam));
     }
 
     private boolean isRequired(MethodParameter parameter) {
@@ -47,14 +48,18 @@ public class AuthMemberArgumentResolver implements HandlerMethodArgumentResolver
         return annotation == null || annotation.required();
     }
 
-    private boolean isMissing(String authorizationHeader) {
-        return authorizationHeader == null || authorizationHeader.isBlank();
+    private boolean isMissing(String value) {
+        return value == null || value.isBlank();
     }
 
-    private String extractToken(String authorizationHeader) {
-        if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
-            throw new UnauthorizedException("다시 접속해주세요");
+    // EventSource(SSE)는 커스텀 헤더를 못 붙이므로, Authorization 헤더가 없으면 token 쿼리 파라미터로 대체 인증한다.
+    private String extractToken(String authorizationHeader, String tokenParam) {
+        if (authorizationHeader != null && authorizationHeader.startsWith(BEARER_PREFIX)) {
+            return authorizationHeader.substring(BEARER_PREFIX.length());
         }
-        return authorizationHeader.substring(BEARER_PREFIX.length());
+        if (tokenParam != null && !tokenParam.isBlank()) {
+            return tokenParam;
+        }
+        throw new UnauthorizedException("다시 접속해주세요");
     }
 }
