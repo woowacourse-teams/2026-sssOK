@@ -1,13 +1,32 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { createAnonymous, saveRoomSession } from "@/entities/session";
+import { createAnonymous, removeRoomSession, saveRoomSession } from "@/entities/session";
+import { joinRoom } from "./joinRoom";
 
-/** 인증에 성공하면 이 방의 세션으로 저장한다. 방마다 새 member 라 다른 방과 섞이면 안 된다. */
+interface EnterRoomVariables {
+  nickname: string;
+  /** 방 조회 응답의 roomId. 입장 API 는 코드가 아니라 이 값을 쓴다. */
+  roomId: number;
+}
+
+/**
+ * 이름을 받아 익명 인증 → 이 방 세션 저장 → 방 입장까지 한 번에 끝낸다.
+ * 셋 중 하나라도 어긋나면 방에 못 들어간 것이므로, 저장한 세션을 도로 지워
+ * 다음 방문 때 이름 화면부터 다시 밟게 한다.
+ */
 export const useAnonymousAuth = (roomCode: string, onSuccess: () => void) =>
   useMutation({
-    mutationFn: (nickname: string) => createAnonymous({ nickname }),
-    onSuccess: (session) => {
+    mutationFn: async ({ nickname, roomId }: EnterRoomVariables) => {
+      const session = await createAnonymous({ nickname });
+
       saveRoomSession(roomCode, session);
-      onSuccess();
+
+      try {
+        return await joinRoom(roomId, session.accessToken);
+      } catch (error) {
+        removeRoomSession(roomCode);
+        throw error;
+      }
     },
+    onSuccess,
   });

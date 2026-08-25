@@ -72,6 +72,48 @@ describe("RoomEntryPage", () => {
       expect(saved?.nickname).toBe("해니");
     });
 
+    it("인증 토큰으로 방 입장까지 마친다", async () => {
+      let joinRequest: { url: string; authorization: string | null } | null = null;
+      server.use(
+        http.post("/rooms/:roomId/members", ({ request }) => {
+          joinRequest = {
+            url: new URL(request.url).pathname,
+            authorization: request.headers.get("Authorization"),
+          };
+          return HttpResponse.json({ roomId: 5031 }, { status: 201 });
+        }),
+      );
+      const user = userEvent.setup();
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await user.type(await screen.findByRole("textbox"), "해니");
+      await user.click(getSubmitButton());
+
+      expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
+      // 입장 API 는 방 코드가 아니라 방 조회 응답의 roomId 를 쓴다
+      expect(joinRequest).toEqual({
+        url: "/rooms/5031/members",
+        authorization: "Bearer mock-access-token",
+      });
+    });
+
+    it("방 입장에 실패하면 저장한 세션을 도로 지우고 에러 화면을 보여준다", async () => {
+      server.use(
+        http.post("/rooms/:roomId/members", () =>
+          HttpResponse.json({ code: "ROOM_JOIN_FAILED", message: "안돼요" }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await user.type(await screen.findByRole("textbox"), "해니");
+      await user.click(getSubmitButton());
+
+      expect(await screen.findByText(/입장하지 못했어요/)).toBeInTheDocument();
+      // 세션만 남으면 다음 방문 때 입장하지 않은 채 갤러리로 새어 들어간다
+      expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
+    });
+
     it("인증에 실패하면 에러 화면을 보여준다", async () => {
       server.use(
         http.post("/auth/anonymous", () =>

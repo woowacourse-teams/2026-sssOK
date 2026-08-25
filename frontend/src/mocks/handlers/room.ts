@@ -32,6 +32,12 @@ const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED") => ({
   expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
 });
 
+/** 입장 멱등성을 흉내내려고 이번 세션의 입장 기록을 들고 있는다. 목 전용 상태다. */
+const joinedRooms = new Set<string>();
+
+/** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
+export const resetJoinedRooms = () => joinedRooms.clear();
+
 export const roomHandlers = [
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
   http.get("/rooms/:code", ({ params }) => {
@@ -59,6 +65,34 @@ export const roomHandlers = [
     return HttpResponse.json(
       { code: "ROOM_NOT_FOUND", message: "존재하지 않는 방입니다." },
       { status: 404 },
+    );
+  }),
+
+  /**
+   * 입장은 멱등이다. 처음이면 201, 이미 입장했으면 200 으로 같은 내용을 돌려준다.
+   * 목은 이번 세션에 입장한 방을 기억해 두 번째 호출부터 200 을 준다.
+   */
+  http.post("/rooms/:roomId/members", ({ request, params }) => {
+    const token = request.headers.get("Authorization");
+
+    if (token === null) {
+      return HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const roomId = Number(params.roomId);
+    const alreadyJoined = joinedRooms.has(`${token}:${roomId}`);
+
+    joinedRooms.add(`${token}:${roomId}`);
+
+    return HttpResponse.json(
+      {
+        roomId,
+        userId: 10234,
+        displayName: "해니",
+        hostId: 10234,
+        joinedAt: "2026-08-18T05:31:00Z",
+      },
+      { status: alreadyJoined ? 200 : 201 },
     );
   }),
 
