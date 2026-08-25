@@ -1,5 +1,6 @@
 package com.sssok.application.room;
 
+import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -22,6 +23,7 @@ public class UpdateRoomService {
 
     private final RoomRepository roomRepository;
     private final RoomDetailReader roomDetailReader;
+    private final EventPublisherPort eventPublisher;
 
     private final RoomPermissionPolicy permissionPolicy = new RoomPermissionPolicy();
 
@@ -43,7 +45,9 @@ public class UpdateRoomService {
 
         room.updateSettings(requesterId, resolveName(room, command), resolveExpiration(room, command, now),
             resolveUploadPolicy(room, command));
-        return roomDetailReader.read(roomRepository.save(room), requesterId);
+        Room saved = roomRepository.save(room);
+        eventPublisher.publish(roomId, "room.updated", RoomUpdatedEvent.from(saved));
+        return roomDetailReader.read(saved, requesterId);
     }
 
     private RoomName resolveName(Room room, UpdateRoomCommand command) {

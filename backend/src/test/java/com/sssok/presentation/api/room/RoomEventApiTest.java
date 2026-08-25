@@ -15,6 +15,7 @@ import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomName;
 import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
 import com.sssok.support.PostgresContainerSupport;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Map;
@@ -27,7 +28,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
-// 방 이벤트 구독(SSE)이 실제 PostgreSQL·실제 인증 흐름 위에서 맞물려 도는지 확인하는 인수 테스트.
+// 방 이벤트 구독(SSE)이 실제 PostgreSQL·실제 인증/입장 흐름 위에서 맞물려 도는지 확인하는 인수 테스트.
 // PostgresContainerSupport(싱글톤 컨테이너)를 상속하므로 다른 API 인수 테스트와 컨테이너를 공유한다.
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureMockMvc
@@ -51,6 +52,7 @@ class RoomEventApiTest extends PostgresContainerSupport {
     void 구독하면_비동기_스트림이_시작되고_발행한_이벤트를_그대로_받는다() throws Exception {
         Long roomId = 활성_방_저장();
         String accessToken = 익명_인증으로_토큰_발급받기();
+        방에_입장하기(roomId, accessToken);
 
         MvcResult result = mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
                 .header("Authorization", "Bearer " + accessToken))
@@ -65,9 +67,31 @@ class RoomEventApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 구독_중일_때_다른_회원이_실제로_입장하면_room_member_joined_이벤트를_받는다() throws Exception {
+        Long roomId = 활성_방_저장();
+        String subscriberToken = 익명_인증으로_토큰_발급받기();
+        방에_입장하기(roomId, subscriberToken);
+
+        MvcResult result = mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .header("Authorization", "Bearer " + subscriberToken))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+
+        String joinerToken = 익명_인증으로_토큰_발급받기();
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
+                .header("Authorization", "Bearer " + joinerToken))
+            .andExpect(status().isCreated());
+
+        assertThat(result.getResponse().getContentAsString(StandardCharsets.UTF_8))
+            .contains("event:room.member.joined")
+            .contains("\"displayName\":\"로지\"");
+    }
+
+    @Test
     void token_쿼리_파라미터로도_구독된다() throws Exception {
         Long roomId = 활성_방_저장();
         String accessToken = 익명_인증으로_토큰_발급받기();
+        방에_입장하기(roomId, accessToken);
 
         mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
                 .param("token", accessToken))
@@ -93,6 +117,17 @@ class RoomEventApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
 
+    @Test
+    void 입장하지_않고_구독하면_403() throws Exception {
+        Long roomId = 활성_방_저장();
+        String accessToken = 익명_인증으로_토큰_발급받기();
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("ROOM_MEMBERSHIP_REQUIRED"));
+    }
+
     private Long 활성_방_저장() {
         Room room = Room.create(RoomCode.generate(RANDOM), new RoomName("실시간방"), 1L, Instant.now());
         return roomRepository.save(room).getId();
@@ -105,5 +140,10 @@ class RoomEventApiTest extends PostgresContainerSupport {
             .andReturn();
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.get("data").get("accessToken").asText();
+    }
+
+    private void 방에_입장하기(Long roomId, String accessToken) throws Exception {
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
+            .header("Authorization", "Bearer " + accessToken));
     }
 }

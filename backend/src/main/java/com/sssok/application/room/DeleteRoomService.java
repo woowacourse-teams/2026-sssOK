@@ -1,5 +1,6 @@
 package com.sssok.application.room;
 
+import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomNotFoundException;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class DeleteRoomService {
 
     private final RoomRepository roomRepository;
+    private final EventPublisherPort eventPublisher;
 
     private final RoomPermissionPolicy permissionPolicy = new RoomPermissionPolicy();
 
@@ -34,6 +36,8 @@ public class DeleteRoomService {
 
         room.delete(requesterId, now);
         Room saved = roomRepository.save(room);
-        return new DeleteRoomResult(saved.getDeletedAt(), saved.purgeAt());
+        DeleteRoomResult result = new DeleteRoomResult(saved.getDeletedAt(), saved.purgeAt());
+        eventPublisher.publish(roomId, "room.deleted", new RoomDeletedEvent(roomId, result.deletedAt(), result.purgeAt()));
+        return result;
     }
 }
