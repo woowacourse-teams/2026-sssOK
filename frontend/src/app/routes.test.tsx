@@ -1,9 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
-import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
 import { ROUTES } from "@/shared/config";
 import { routes } from "./routes";
+
+const ROOM_CODE = "7K93QX2S";
 
 const renderAt = (path: string) => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -21,13 +22,13 @@ describe("라우트", () => {
   });
 
   it("/rooms/:code 는 방 입장 화면을 보여주고 코드를 읽는다", () => {
-    renderAt(ROUTES.roomEntry(MOCK_ROOM_CODES.active));
+    renderAt(ROUTES.roomEntry(ROOM_CODE));
 
-    expect(screen.getByText(new RegExp(MOCK_ROOM_CODES.active))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(ROOM_CODE))).toBeInTheDocument();
   });
 
   it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", () => {
-    renderAt(ROUTES.gallery(MOCK_ROOM_CODES.active));
+    renderAt(ROUTES.gallery(ROOM_CODE));
 
     expect(screen.getByText(/갤러리 화면/)).toBeInTheDocument();
   });
