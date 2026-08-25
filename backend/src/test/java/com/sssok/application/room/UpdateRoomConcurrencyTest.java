@@ -1,10 +1,12 @@
 package com.sssok.application.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
+import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 // 방 설정 변경이 조회-수정-저장으로 이뤄져서, 낙관적 락 없이는 동시 요청이 서로를 덮어쓴다.
 @SpringBootTest
@@ -58,13 +61,30 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 수정과_삭제가_동시에_들어와도_삭제된_방이_되살아나지_않는다() throws Exception {
+    void 읽은_뒤_삭제된_방에는_수정을_저장할_수_없다() {
         Long hostId = 방장_생성();
+        Room room = createRoomService.create(hostId, "우테코 회식").room();
+        Room stale = roomRepository.findById(room.getId()).orElseThrow();
+
+        deleteRoomService.delete(room.getId(), hostId);
+        stale.updateSettings(hostId, new RoomName("2차 회식"), stale.getExpiration(), stale.getUploadPolicy());
+
+        // 읽어둔 옛 상태를 그대로 저장하면 status·deleted_at 까지 되돌아가 방이 되살아난다.
+        assertThatThrownBy(() -> roomRepository.save(stale))
+            .isInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(roomRepository.findById(room.getId()).orElseThrow().getStatus())
+            .isSameAs(DeletedRoomStatus.INSTANCE);
+    }
+
+    @Test
+    void 수정과_삭제가_동시에_들어와도_삭제가_성공했으면_되살아나지_않는다() throws Exception {
+        Long hostId = 방장_생성();
+        int deleted = 0;
 
         for (int round = 0; round < ROUNDS; round++) {
             Room room = createRoomService.create(hostId, "우테코 회식").room();
 
-            동시에(2, i -> {
+            List<Object> outcomes = 동시에(2, i -> {
                 if (i == 0) {
                     return updateRoomService.update(room.getId(), hostId,
                         new UpdateRoomCommand("2차 회식", null, null));
@@ -72,10 +92,17 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
                 return deleteRoomService.delete(room.getId(), hostId);
             });
 
+            // 수정이 경쟁에서 이기면 삭제가 충돌로 실패한다. 그건 정상이므로 성공한 경우만 본다.
+            if (outcomes.get(1) instanceof Exception) {
+                continue;
+            }
+            deleted++;
             Room reloaded = roomRepository.findById(room.getId()).orElseThrow();
             assertThat(reloaded.getStatus()).isSameAs(DeletedRoomStatus.INSTANCE);
             assertThat(reloaded.getDeletedAt()).isNotNull();
         }
+
+        assertThat(deleted).isPositive();
     }
 
     private Long 방장_생성() {

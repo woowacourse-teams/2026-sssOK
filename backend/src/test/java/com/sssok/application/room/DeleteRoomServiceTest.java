@@ -124,7 +124,9 @@ class DeleteRoomServiceTest {
     @Test
     void 만료된_방을_삭제하면_만료_시각_기준으로_영구_삭제_시각이_잡힌다() {
         Room expired = roomRepository.save(expiredRoom());
-        Instant expiresAt = expired.getExpiration().expiresAt();
+        // DB는 마이크로초까지만 담아서, 저장 전 값과 비교하면 정밀도가 어긋난다.
+        Instant expiresAt = roomRepository.findById(expired.getId()).orElseThrow()
+            .getExpiration().expiresAt();
 
         DeleteRoomResult result = deleteRoomService.delete(expired.getId(), HOST);
 
