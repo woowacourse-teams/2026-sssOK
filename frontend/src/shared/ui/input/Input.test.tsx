@@ -1,13 +1,23 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 
 import { colors } from "@/shared/styles/tokens";
 import { Input } from "./Input";
-import { useState } from "react";
+
+const handleValueChange = jest.fn();
 
 describe("Input", () => {
   it("입력값과 글자 수를 렌더링한다", () => {
-    render(<Input label="이름" value="윤돌" maxLength={10} readOnly />);
+    render(
+      <Input
+        label="이름"
+        value="윤돌"
+        maxLength={10}
+        onValueChange={handleValueChange}
+        readOnly
+      />,
+    );
 
     expect(screen.getByRole("textbox", { name: "이름" })).toHaveValue("윤돌");
     expect(screen.getByText("2/10")).toBeInTheDocument();
@@ -15,7 +25,14 @@ describe("Input", () => {
 
   it("에러 메시지와 에러 상태를 표시한다", () => {
     render(
-      <Input label="이름" value="" maxLength={10} errorMessage="이름을 입력해주세요." readOnly />,
+      <Input
+        label="이름"
+        value=""
+        maxLength={10}
+        errorMessage="이름을 입력해주세요."
+        onValueChange={handleValueChange}
+        readOnly
+      />,
     );
 
     const input = screen.getByRole("textbox", { name: "이름" });
@@ -26,7 +43,15 @@ describe("Input", () => {
   });
 
   it("에러가 없어도 글자 수 영역을 표시한다", () => {
-    render(<Input label="이름" value="" maxLength={10} readOnly />);
+    render(
+      <Input
+        label="이름"
+        value=""
+        maxLength={10}
+        onValueChange={handleValueChange}
+        readOnly
+      />,
+    );
 
     expect(screen.getByRole("textbox", { name: "이름" })).toHaveAttribute("aria-invalid", "false");
     expect(screen.getByText("0/10")).toBeInTheDocument();
@@ -45,9 +70,9 @@ describe("Input", () => {
           value={value}
           maxLength={10}
           placeholder="이름을 입력해주세요."
-          onChange={(event) => {
-            setValue(event.target.value);
-            handleChange(event);
+          onValueChange={(nextValue) => {
+            setValue(nextValue);
+            handleChange(nextValue);
           }}
         />
       );
@@ -58,7 +83,7 @@ describe("Input", () => {
     const input = screen.getByPlaceholderText("이름을 입력해주세요.");
     await user.type(input, "윤돌");
 
-    expect(handleChange).toHaveBeenCalled();
+    expect(handleChange).toHaveBeenLastCalledWith("윤돌");
     expect(input).toHaveValue("윤돌");
   });
 });

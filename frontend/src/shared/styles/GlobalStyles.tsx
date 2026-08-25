@@ -108,6 +108,29 @@ export const GlobalStyles = () => (
       #root {
         isolation: isolate;
       }
+
+      .container {
+        box-sizing: border-box;
+        position: relative;
+        width: 100%;
+        min-height: 100dvh;
+        margin: 0 auto;
+        max-width: 480px;
+        background: ${colors.backgroundDefault};
+        display: flex;
+        flex-direction: column;
+        overflow-x: hidden;
+
+        @media (min-width: 768px) {
+          max-width: 1180px;
+        }
+      }
+
+      .container > main {
+        display: flex;
+        flex: 1;
+        width: 100%;
+      }
     `}
   />
 );

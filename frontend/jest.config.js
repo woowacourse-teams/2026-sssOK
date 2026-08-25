@@ -12,6 +12,7 @@ module.exports = {
   ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
+    "\\.(png|jpe?g|gif|svg)$": "<rootDir>/test/fileMock.js",
   },
   setupFilesAfterEnv: ["<rootDir>/src/setupTests.ts"],
   clearMocks: true,

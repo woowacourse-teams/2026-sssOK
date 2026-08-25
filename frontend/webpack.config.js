@@ -8,6 +8,8 @@ module.exports = {
   output: {
     filename: "bundle.js",
     path: path.resolve(__dirname, "dist"),
+    // 중첩 경로(/rooms/:code)에서도 번들을 루트 기준으로 찾게 한다
+    publicPath: "/",
   },
 
   resolve: {
