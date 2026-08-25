@@ -36,7 +36,7 @@ export const NameEntryForm = ({ onSubmit, isPending = false }: NameEntryFormProp
           placeholder="이름을 입력하세요"
           value={name}
           maxLength={MAX_NAME_LENGTH}
-          onChange={(event) => setName(event.target.value)}
+          onValueChange={setName}
           disabled={isPending}
           autoFocus
         />
