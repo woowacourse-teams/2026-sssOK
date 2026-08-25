@@ -4,8 +4,10 @@ import { Row } from "../row";
 import { Stack } from "../stack";
 import { Count, ErrorMessage, Label, StyledInput } from "./Input.styles";
 
-export interface InputProps
-  extends Omit<InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
+export interface InputProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  "value" | "onChange"
+> {
   label: string;
   errorMessage?: string;
   value: string;
@@ -34,7 +36,7 @@ export const Input = ({
         id={inputId}
         value={value}
         maxLength={maxLength}
-        onChange={(event) => onValueChange(event.target.value)}
+        onChange={(event) => onValueChange(event.target.value.slice(0, maxLength))}
         aria-invalid={Boolean(errorMessage)}
         $hasError={Boolean(errorMessage)}
       />

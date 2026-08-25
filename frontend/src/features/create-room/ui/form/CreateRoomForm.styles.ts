@@ -1,6 +1,6 @@
 import styled from "@emotion/styled";
 
-import { spacing } from "@/shared/styles/tokens";
+import { colors, spacing, typography } from "@/shared/styles/tokens";
 
 export const Form = styled.form`
   display: flex;
@@ -13,4 +13,11 @@ export const Form = styled.form`
 export const SubmitArea = styled.div`
   width: 100%;
   margin-top: auto;
+`;
+
+export const SubmitError = styled.p`
+  margin-bottom: ${spacing[8]};
+  color: ${colors.danger};
+
+  ${typography.label5}
 `;
