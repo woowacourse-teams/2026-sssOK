@@ -4,17 +4,16 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-import { API_PREFIX } from "@/mocks/config";
+import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
-import { tokenStorage } from "@/shared/api";
 import { ROUTE_PATTERNS } from "@/shared/config";
 import { RoomEntryPage } from "./RoomEntryPage";
 
 const FUTURE = "2099-01-01T00:00:00Z";
 const PAST = "2020-01-01T00:00:00Z";
 
-const storedToken = (expiresAt: string) => ({
+const session = (expiresAt: string) => ({
   accessToken: "abc",
   userId: 10234,
   nickname: "민수",
@@ -68,14 +67,14 @@ describe("RoomEntryPage", () => {
       await user.click(getSubmitButton());
 
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
-      const saved = tokenStorage.get(MOCK_ROOM_CODES.active);
+      const saved = getRoomSession(MOCK_ROOM_CODES.active);
       expect(saved?.accessToken).toBeTruthy();
       expect(saved?.nickname).toBe("해니");
     });
 
     it("인증에 실패하면 에러 화면을 보여준다", async () => {
       server.use(
-        http.post(`${API_PREFIX}/auth/anonymous`, () =>
+        http.post("/auth/anonymous", () =>
           HttpResponse.json({ code: "INVALID_NICKNAME", message: "안돼요" }, { status: 400 }),
         ),
       );
@@ -91,7 +90,7 @@ describe("RoomEntryPage", () => {
 
   describe("토큰이 있을 때", () => {
     it("다른 방 토큰만 있으면 이 방에서는 이름을 다시 묻는다", async () => {
-      tokenStorage.set("ABCD2345", storedToken(FUTURE));
+      saveRoomSession("ABCD2345", session(FUTURE));
 
       renderAt(MOCK_ROOM_CODES.active);
 
@@ -101,7 +100,7 @@ describe("RoomEntryPage", () => {
     });
 
     it("유효한 토큰이면 이름 모달 없이 갤러리로 이동한다", async () => {
-      tokenStorage.set(MOCK_ROOM_CODES.active, storedToken(FUTURE));
+      saveRoomSession(MOCK_ROOM_CODES.active, session(FUTURE));
 
       renderAt(MOCK_ROOM_CODES.active);
 
@@ -110,26 +109,26 @@ describe("RoomEntryPage", () => {
     });
 
     it("만료된 토큰이면 지우고 이름 모달을 띄운다", async () => {
-      tokenStorage.set(MOCK_ROOM_CODES.active, storedToken(PAST));
+      saveRoomSession(MOCK_ROOM_CODES.active, session(PAST));
 
       renderAt(MOCK_ROOM_CODES.active);
 
       expect(await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" })).toBeInTheDocument();
-      expect(tokenStorage.get(MOCK_ROOM_CODES.active)).toBeNull();
+      expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
     });
   });
 
   describe("들어갈 수 없는 방", () => {
     it("만료된 방은 안내와 함께 그 방 토큰만 지운다", async () => {
-      tokenStorage.set(MOCK_ROOM_CODES.active, storedToken(FUTURE));
-      tokenStorage.set(MOCK_ROOM_CODES.expired, storedToken(FUTURE));
+      saveRoomSession(MOCK_ROOM_CODES.active, session(FUTURE));
+      saveRoomSession(MOCK_ROOM_CODES.expired, session(FUTURE));
 
       renderAt(MOCK_ROOM_CODES.expired);
 
       expect(await screen.findByText(/만료된 방이에요/)).toBeInTheDocument();
-      expect(tokenStorage.get(MOCK_ROOM_CODES.expired)).toBeNull();
+      expect(getRoomSession(MOCK_ROOM_CODES.expired)).toBeNull();
       // 다른 방 토큰은 그 방에서 계속 쓴다
-      expect(tokenStorage.get(MOCK_ROOM_CODES.active)).not.toBeNull();
+      expect(getRoomSession(MOCK_ROOM_CODES.active)).not.toBeNull();
     });
 
     it("삭제된 방은 삭제 안내를 보여준다", async () => {

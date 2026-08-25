@@ -1,7 +1,5 @@
 import { http, HttpResponse } from "msw";
 
-import { API_PREFIX } from "../config";
-
 /**
  * 방 코드는 8자리다. 혼동하기 쉬운 0, 1, I, O 는 알파벳에서 빠져 있다.
  * backend 의 RoomCode 값 객체와 같은 규칙이다.
@@ -36,7 +34,7 @@ const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED") => ({
 
 export const roomHandlers = [
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
-  http.get(`${API_PREFIX}/rooms/:code`, ({ params }) => {
+  http.get("/rooms/:code", ({ params }) => {
     const code = String(params.code);
 
     if (!ROOM_CODE_PATTERN.test(code)) {
@@ -47,15 +45,15 @@ export const roomHandlers = [
     }
 
     if (code === MOCK_ROOM_CODES.expired) {
-      return HttpResponse.json({ data: room(code, "EXPIRED") });
+      return HttpResponse.json(room(code, "EXPIRED"));
     }
 
     if (code === MOCK_ROOM_CODES.deleted) {
-      return HttpResponse.json({ data: room(code, "DELETED") });
+      return HttpResponse.json(room(code, "DELETED"));
     }
 
     if (code === MOCK_ROOM_CODES.active || code === MOCK_ROOM_CODES.second) {
-      return HttpResponse.json({ data: room(code, "ACTIVE") });
+      return HttpResponse.json(room(code, "ACTIVE"));
     }
 
     return HttpResponse.json(
@@ -64,11 +62,28 @@ export const roomHandlers = [
     );
   }),
 
-  http.post(`${API_PREFIX}/rooms`, async ({ request }) => {
-    const { name } = (await request.json()) as { name: string };
+  http.post("/rooms", async ({ request }) => {
+    if (request.headers.get("Authorization") !== "Bearer mock-access-token") {
+      return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
+    }
+
+    const { name, uploadPolicy } = (await request.json()) as {
+      name: string;
+      uploadPolicy: "everyone" | "host";
+      expiryHours: 24 | 72;
+    };
 
     return HttpResponse.json(
-      { data: { ...room(MOCK_ROOM_CODES.active, "ACTIVE"), name } },
+      {
+        roomId: 5031,
+        code: MOCK_ROOM_CODES.active,
+        name,
+        hostId: 10234,
+        hostName: "민수",
+        createdAt: "2026-08-18T05:30:00Z",
+        expiresAt: "2026-08-19T05:30:00Z",
+        uploadPolicy,
+      },
       { status: 201 },
     );
   }),

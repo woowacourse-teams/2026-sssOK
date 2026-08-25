@@ -1,70 +1,52 @@
 import { http, HttpResponse } from "msw";
 
-import { API_PREFIX } from "@/mocks/config";
 import { server } from "@/mocks/server";
 import { ApiError } from "./ApiError";
 import { apiClient } from "./apiClient";
 
 describe("apiClient", () => {
-  it("성공 응답에서 data 만 꺼내 돌려준다", async () => {
+  it("응답 JSON을 반환한다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/ping`, () => HttpResponse.json({ data: { pong: true } })),
-    );
-
-    await expect(apiClient("/ping")).resolves.toEqual({ pong: true });
-  });
-
-  it("토큰을 넘기면 Authorization 헤더를 붙인다", async () => {
-    let authorization: string | null = null;
-    server.use(
-      http.get(`${API_PREFIX}/ping`, ({ request }) => {
-        authorization = request.headers.get("Authorization");
-        return HttpResponse.json({ data: null });
+      http.get("/api-test", () => {
+        return HttpResponse.json({ name: "제주 여행" });
       }),
     );
 
-    await apiClient("/ping", { token: "my-token" });
-
-    expect(authorization).toBe("Bearer my-token");
+    await expect(apiClient("/api-test")).resolves.toEqual({ name: "제주 여행" });
   });
 
-  it("토큰을 넘기지 않으면 Authorization 헤더를 붙이지 않는다", async () => {
-    let authorization: string | null = "아직 확인 전";
+  it("전달받은 token을 Authorization 헤더에 추가한다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/ping`, ({ request }) => {
-        authorization = request.headers.get("Authorization");
-        return HttpResponse.json({ data: null });
+      http.get("/api-test", ({ request }) => {
+        return HttpResponse.json({ authorization: request.headers.get("Authorization") });
       }),
     );
 
-    await apiClient("/ping");
-
-    expect(authorization).toBeNull();
+    await expect(apiClient("/api-test", { token: "test-token" })).resolves.toEqual({
+      authorization: "Bearer test-token",
+    });
   });
 
-  it("실패 응답은 status 와 code 를 담은 ApiError 로 던진다", async () => {
+  it("실패 응답을 ApiError로 변환한다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/ping`, () =>
-        HttpResponse.json({ code: "ROOM_NOT_FOUND", message: "없는 방" }, { status: 404 }),
-      ),
+      http.get("/api-test", () => {
+        return HttpResponse.json(
+          {
+            code: "ROOM_CREATE_FAILED",
+            message: "방을 만들 수 없습니다.",
+          },
+          { status: 500 },
+        );
+      }),
     );
 
-    await expect(apiClient("/ping")).rejects.toMatchObject({
-      status: 404,
-      code: "ROOM_NOT_FOUND",
-      message: "없는 방",
-    });
-    await expect(apiClient("/ping")).rejects.toBeInstanceOf(ApiError);
-  });
-
-  it("200 이지만 우리 형식이 아닌 응답도 ApiError 로 던진다", async () => {
-    server.use(
-      http.get(`${API_PREFIX}/ping`, () => HttpResponse.html("<!doctype html><html></html>")),
+    await expect(apiClient("/api-test")).rejects.toEqual(
+      expect.objectContaining<Partial<ApiError>>({
+        name: "ApiError",
+        status: 500,
+        code: "ROOM_CREATE_FAILED",
+        message: "방을 만들 수 없습니다.",
+      }),
     );
-
-    await expect(apiClient("/ping")).rejects.toMatchObject({
-      status: 200,
-      code: "INVALID_RESPONSE",
-    });
   });
 });

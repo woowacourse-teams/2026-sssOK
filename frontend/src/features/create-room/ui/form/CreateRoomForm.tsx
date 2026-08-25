@@ -1,29 +1,30 @@
-import { useState, type FormEvent } from "react";
+import type { FormEvent } from "react";
 
+import { ApiError } from "@/shared/api";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { RadioGroup } from "@/shared/ui/radio-group";
-import { INITIAL_CREATE_ROOM_FORM, type CreateRoomFormValues } from "../../model/createRoomForm";
-import { Form, SubmitArea } from "./CreateRoomForm.styles";
 import { Stack } from "@/shared/ui/stack";
+import type { CreateRoomResponse } from "../../api/types";
+import { useCreateRoomForm } from "../../model/useCreateRoomForm";
+import { useCreateRoomMutation } from "../../model/useCreateRoomMutation";
+import { Form, SubmitArea, SubmitError } from "./CreateRoomForm.styles";
 
 interface CreateRoomFormProps {
-  onSubmit?: (values: CreateRoomFormValues) => void;
+  onSuccess?: (room: CreateRoomResponse) => void;
 }
 
-export const CreateRoomForm = ({ onSubmit }: CreateRoomFormProps) => {
-  const [formValues, setFormValues] = useState<CreateRoomFormValues>(INITIAL_CREATE_ROOM_FORM);
-
-  const updateField = (name: keyof CreateRoomFormValues) => (value: string) => {
-    setFormValues((previous) => ({ ...previous, [name]: value }));
-  };
+export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
+  const { formValues, updateField, isValid } = useCreateRoomForm();
+  const { mutate, isPending, error } = useCreateRoomMutation();
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onSubmit?.(formValues);
+    mutate(formValues, { onSuccess });
   };
 
-  const isValid = Boolean(formValues.nickname.trim() && formValues.name.trim());
+  const errorMessage =
+    error instanceof ApiError ? error.message : error ? "방을 만들지 못했습니다." : undefined;
 
   return (
     <Form onSubmit={handleSubmit}>
@@ -70,8 +71,9 @@ export const CreateRoomForm = ({ onSubmit }: CreateRoomFormProps) => {
       </Stack>
 
       <SubmitArea>
-        <Button size="lg" type="submit" disabled={!isValid}>
-          방 만들기
+        {errorMessage && <SubmitError role="alert">{errorMessage}</SubmitError>}
+        <Button size="lg" type="submit" disabled={!isValid || isPending}>
+          {isPending ? "방 만드는 중..." : "방 만들기"}
         </Button>
       </SubmitArea>
     </Form>

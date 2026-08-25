@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 
+import { removeRoomSession } from "@/entities/session";
 import { NameEntryBottomSheet } from "@/features/join-room";
-import { isApiError, tokenStorage } from "@/shared/api";
+import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useAnonymousAuth, useRoom } from "../api";
+import { readValidRoomSession } from "../lib/roomSession";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
@@ -22,16 +24,19 @@ export const RoomEntryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
   const { data: room, isPending, error } = useRoom(code);
 
-  // 토큰은 방마다 따로 있다. 처음 보는 방이면 이름부터 다시 묻는다.
-  const [hasToken, setHasToken] = useState(() => tokenStorage.get(code) !== null);
-  const auth = useAnonymousAuth(code, () => setHasToken(true));
+  // 방금 인증을 마친 방. 코드가 바뀌면 그 방 기준으로 다시 판단해야 해서 방 코드로 들고 있는다.
+  const [authedCode, setAuthedCode] = useState<string | null>(null);
+  const auth = useAnonymousAuth(code, () => setAuthedCode(code));
+
+  // 세션은 방마다 따로 있다. 처음 보는 방이면 이름부터 다시 묻는다.
+  const hasSession = authedCode === code || readValidRoomSession(code) !== null;
 
   const roomUnavailable = room !== undefined && room.status !== "ACTIVE";
 
-  // 들어갈 수 없는 방이면 들고 있던 토큰도 쓸 데가 없다
+  // 들어갈 수 없는 방이면 들고 있던 세션도 쓸 데가 없다
   useEffect(() => {
     if (roomUnavailable) {
-      tokenStorage.clear(code);
+      removeRoomSession(code);
     }
   }, [roomUnavailable, code]);
 
@@ -73,8 +78,8 @@ export const RoomEntryPage = () => {
     );
   }
 
-  // 이 방 토큰이 이미 있으면 이름을 다시 묻지 않는다
-  if (hasToken) {
+  // 이 방 세션이 이미 있으면 이름을 다시 묻지 않는다
+  if (hasSession) {
     return <Navigate to={ROUTES.gallery(code)} replace />;
   }
 
