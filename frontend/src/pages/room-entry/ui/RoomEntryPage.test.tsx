@@ -92,7 +92,7 @@ describe("RoomEntryPage", () => {
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
       expect(joinRequest).toEqual({
         url: `/rooms/${MOCK_ROOM_CODES.active}/members`,
-        authorization: "Bearer mock-access-token",
+        authorization: "Bearer mock-token-10234",
       });
     });
 
@@ -130,6 +130,23 @@ describe("RoomEntryPage", () => {
   });
 
   describe("토큰이 있을 때", () => {
+    it("다른 방 세션은 그대로 두고 이 방 세션만 새 member 로 덧붙인다", async () => {
+      saveRoomSession("ABCD2345", session(FUTURE));
+      const user = userEvent.setup();
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await user.type(await screen.findByRole("textbox"), "해니");
+      await user.click(getSubmitButton());
+
+      expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
+      // 방마다 인증을 새로 하므로 방마다 다른 member 가 방 코드별로 나란히 쌓인다
+      expect(getRoomSession("ABCD2345")).toMatchObject({ accessToken: "abc", nickname: "민수" });
+      expect(getRoomSession(MOCK_ROOM_CODES.active)).toMatchObject({
+        accessToken: "mock-token-10234",
+        nickname: "해니",
+      });
+    });
+
     it("다른 방 토큰만 있으면 이 방에서는 이름을 다시 묻는다", async () => {
       saveRoomSession("ABCD2345", session(FUTURE));
 

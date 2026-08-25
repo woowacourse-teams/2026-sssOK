@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 
+import { getRoomSession } from "@/entities/session";
 import { server } from "@/mocks/server";
 import { ApiError } from "@/shared/api";
 import { useCreateRoomMutation } from "./useCreateRoomMutation";
@@ -47,14 +48,12 @@ describe("useCreateRoomMutation", () => {
           uploadPolicy: "host",
         }),
       );
-      expect(localStorage.getItem(`room-session:${room.code}`)).toBe(
-        JSON.stringify({
-          accessToken: "mock-access-token",
-          userId: 10234,
-          nickname: "민수",
-          expiresAt: "2026-09-17T05:30:00Z",
-        }),
-      );
+      expect(getRoomSession(room.code)).toEqual({
+        accessToken: "mock-token-10234",
+        userId: 10234,
+        nickname: "민수",
+        expiresAt: "2026-09-17T05:30:00Z",
+      });
     });
   });
 

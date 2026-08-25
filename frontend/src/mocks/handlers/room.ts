@@ -102,7 +102,8 @@ export const roomHandlers = [
   }),
 
   http.post("/rooms", async ({ request }) => {
-    if (request.headers.get("Authorization") !== "Bearer mock-access-token") {
+    // 토큰은 인증할 때마다 달라진다. 목은 실렸는지만 본다.
+    if (request.headers.get("Authorization") === null) {
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
