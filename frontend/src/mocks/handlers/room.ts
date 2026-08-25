@@ -2,6 +2,10 @@ import { http, HttpResponse } from "msw";
 
 export const roomHandlers = [
   http.post("/rooms", async ({ request }) => {
+    if (request.headers.get("Authorization") !== "Bearer mock-access-token") {
+      return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
+    }
+
     const { name, uploadPolicy } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
