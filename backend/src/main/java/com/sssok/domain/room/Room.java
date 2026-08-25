@@ -1,7 +1,6 @@
 package com.sssok.domain.room;
 
 import com.sssok.domain.room.exception.RoomHostRequiredException;
-import java.time.Duration;
 import java.time.Instant;
 
 import com.sssok.domain.room.roomstatus.RoomStatus;
@@ -11,7 +10,7 @@ import lombok.Getter;
 @Getter
 public class Room {
 
-    private static final Duration RETENTION_AFTER_DELETE = Duration.ofDays(7);
+    private static final RetentionPolicy RETENTION_POLICY = new RetentionPolicy();
 
     private final Long id;
     // 읽은 뒤 저장하기까지 다른 요청이 이 방을 바꿨는지 판별하는 값. 저장 전이면 null 이다.
@@ -108,16 +107,22 @@ public class Room {
         this.status = status.toPurged();
     }
 
-    public Instant purgeAt() {
-        if (deletedAt == null) {
-            return null;
+    // 방이 더는 쓰이지 않게 된 시각. 삭제와 만료 중 먼저 온 쪽이다.
+    // 만료된 방을 뒤늦게 지웠다고 보관 기간이 늘어나면, 정리하려던 행동이 수명을 늘리는 셈이 된다.
+    public Instant endedAt() {
+        Instant expiresAt = expiration.expiresAt();
+        if (deletedAt == null || expiresAt.isBefore(deletedAt)) {
+            return expiresAt;
         }
-        return deletedAt.plus(RETENTION_AFTER_DELETE);
+        return deletedAt;
+    }
+
+    public Instant purgeAt() {
+        return RETENTION_POLICY.purgeAt(endedAt());
     }
 
     public boolean isPurgeable(Instant now) {
-        Instant purgeAt = purgeAt();
-        return purgeAt != null && !now.isBefore(purgeAt);
+        return !now.isBefore(purgeAt());
     }
 
     private void requireHost(Long requester) {
