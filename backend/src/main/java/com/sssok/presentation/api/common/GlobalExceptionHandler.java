@@ -11,6 +11,7 @@ import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.exception.InvalidRoomCodeException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
@@ -112,6 +113,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRoomAlreadyDeleted(RoomAlreadyDeletedException e) {
         return ResponseEntity.status(HttpStatus.GONE)
             .body(new ErrorResponse("ROOM_ALREADY_DELETED", e.getMessage()));
+    }
+
+    @ExceptionHandler(RoomMembershipRequiredException.class)
+    public ResponseEntity<ErrorResponse> handleRoomMembershipRequired(RoomMembershipRequiredException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(new ErrorResponse("ROOM_MEMBERSHIP_REQUIRED", e.getMessage()));
     }
 
 

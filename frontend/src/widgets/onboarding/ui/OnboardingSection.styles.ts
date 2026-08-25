@@ -7,6 +7,7 @@ export const Section = styled.section`
   flex: 1;
   flex-direction: column;
   width: 100%;
+  padding: ${spacing[16]};
 `;
 
 export const IntroArea = styled.div`

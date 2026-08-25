@@ -5,14 +5,14 @@ import { Input } from "./Input";
 import type { InputProps } from "./Input";
 
 const InteractiveInput = (props: InputProps) => {
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(props.value);
 
   return (
     <Input
       {...props}
       value={value}
       readOnly={false}
-      onChange={(event) => setValue(event.target.value.slice(0, props.maxLength))}
+      onValueChange={setValue}
     />
   );
 };
@@ -25,6 +25,7 @@ const meta = {
     value: "",
     maxLength: 10,
     placeholder: "이름을 입력해주세요.",
+    onValueChange: () => undefined,
     readOnly: true,
   },
 } satisfies Meta<typeof Input>;

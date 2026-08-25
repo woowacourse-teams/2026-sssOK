@@ -1,12 +1,13 @@
 import { useNavigate } from "react-router-dom";
 
+import { ROUTES } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 
 export const JoinRoomNavButton = () => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    navigate("/rooms/join");
+    navigate(ROUTES.joinRoom);
   };
 
   return (

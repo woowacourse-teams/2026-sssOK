@@ -11,4 +11,8 @@ import java.lang.annotation.Target;
 public @interface AuthMember {
 
     boolean required() default true;
+
+    // SSE(EventSource)처럼 커스텀 헤더를 붙일 수 없는 클라이언트를 위해
+    // token 쿼리 파라미터로도 인증을 허용할지 여부. 기본은 false — 필요한 엔드포인트에서만 켠다.
+    boolean allowQueryToken() default false;
 }

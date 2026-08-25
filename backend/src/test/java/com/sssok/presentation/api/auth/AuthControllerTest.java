@@ -95,6 +95,15 @@ class AuthControllerTest {
     }
 
     @Test
+    void token_쿼리_파라미터로는_인증되지_않는다() throws Exception {
+        given(tokenProvider.parse("valid-token")).willReturn(1L);
+
+        mockMvc.perform(post("/api/v1/auth/link-code").param("token", "valid-token"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
     void 토큰_검증에_실패하면_401을_반환한다() throws Exception {
         given(tokenProvider.parse(anyString())).willThrow(new UnauthorizedException("다시 접속해주세요"));
 

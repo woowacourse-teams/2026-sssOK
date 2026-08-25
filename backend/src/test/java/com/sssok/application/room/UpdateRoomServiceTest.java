@@ -19,10 +19,13 @@ import com.sssok.domain.room.exception.InvalidRoomNameException;
 import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +48,9 @@ class UpdateRoomServiceTest {
 
     @Autowired
     AnonymousAuthService anonymousAuthService;
+
+    @Autowired
+    RoomEventJpaRepository roomEventJpaRepository;
 
     private Long HOST;
     private Long GUEST;
@@ -150,6 +156,19 @@ class UpdateRoomServiceTest {
             new UpdateRoomCommand("2차 회식", null, null));
 
         assertThat(updated.joined()).isFalse();
+    }
+
+    @Test
+    void 수정하면_room_updated_이벤트가_발행된다() {
+        Room room = createRoom();
+
+        updateRoomService.update(room.getId(), HOST, new UpdateRoomCommand("2차 회식", "host", null));
+
+        List<RoomEventJpaEntity> events =
+            roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getEventType()).isEqualTo("room.updated");
+        assertThat(events.get(0).getPayload()).contains("2차 회식").contains("host");
     }
 
     @Test

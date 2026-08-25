@@ -7,7 +7,7 @@ import type { RadioGroupProps } from "./RadioGroup";
 const InteractiveRadioGroup = (props: RadioGroupProps) => {
   const [value, setValue] = useState(props.value);
 
-  return <RadioGroup {...props} value={value} onChange={setValue} />;
+  return <RadioGroup {...props} value={value} onValueChange={setValue} />;
 };
 
 const meta = {
@@ -21,7 +21,7 @@ const meta = {
       { label: "누구나", value: "everyone" },
       { label: "방장만", value: "host" },
     ],
-    onChange: () => undefined,
+    onValueChange: () => undefined,
   },
   render: (args) => <InteractiveRadioGroup {...args} />,
 } satisfies Meta<typeof RadioGroup>;

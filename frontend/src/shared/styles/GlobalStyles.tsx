@@ -1,6 +1,6 @@
 import { Global, css } from "@emotion/react";
 import "./fonts/fonts.css";
-import { colors, spacing } from "./tokens";
+import { colors } from "./tokens";
 
 export const GlobalStyles = () => (
   <Global
@@ -120,7 +120,6 @@ export const GlobalStyles = () => (
         display: flex;
         flex-direction: column;
         overflow-x: hidden;
-        padding: ${spacing[16]};
 
         @media (min-width: 768px) {
           max-width: 1180px;

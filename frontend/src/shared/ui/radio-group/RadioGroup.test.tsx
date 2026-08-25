@@ -16,7 +16,7 @@ describe("RadioGroup", () => {
         name="uploadPermission"
         value="everyone"
         options={options}
-        onChange={jest.fn()}
+        onValueChange={jest.fn()}
       />,
     );
 
@@ -35,7 +35,7 @@ describe("RadioGroup", () => {
         name="uploadPermission"
         value="everyone"
         options={options}
-        onChange={handleChange}
+        onValueChange={handleChange}
       />,
     );
 
