@@ -78,7 +78,7 @@ describe("RoomEntryPage", () => {
       server.use(
         http.post(`${API_PREFIX}/rooms/:roomCode/members`, ({ request }) => {
           joinRequest = {
-            url: new URL(request.url).pathname,
+            url: request.url,
             authorization: request.headers.get("Authorization"),
           };
           return HttpResponse.json({ memberId: 10234 }, { status: 201 });
