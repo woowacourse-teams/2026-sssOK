@@ -13,6 +13,7 @@ import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.SubscribeRoomEventsService;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
 import org.junit.jupiter.api.Test;
@@ -78,7 +79,7 @@ class RoomEventControllerTest {
     @Test
     void 없는_방이면_404() throws Exception {
         given(tokenProvider.parse(anyString())).willReturn(1L);
-        willThrow(new RoomNotFoundException(999L)).given(subscribeRoomEventsService).validate(anyLong());
+        willThrow(new RoomNotFoundException(999L)).given(subscribeRoomEventsService).validate(anyLong(), anyLong());
 
         mockMvc.perform(get("/api/v1/rooms/999/events")
                 .header("Authorization", "Bearer valid-token"))
@@ -89,11 +90,22 @@ class RoomEventControllerTest {
     @Test
     void 만료된_방이면_410() throws Exception {
         given(tokenProvider.parse(anyString())).willReturn(1L);
-        willThrow(new RoomExpiredException()).given(subscribeRoomEventsService).validate(anyLong());
+        willThrow(new RoomExpiredException()).given(subscribeRoomEventsService).validate(anyLong(), anyLong());
 
         mockMvc.perform(get("/api/v1/rooms/1024/events")
                 .header("Authorization", "Bearer valid-token"))
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    @Test
+    void 입장하지_않은_방이면_403() throws Exception {
+        given(tokenProvider.parse(anyString())).willReturn(1L);
+        willThrow(new RoomMembershipRequiredException()).given(subscribeRoomEventsService).validate(anyLong(), anyLong());
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Bearer valid-token"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("ROOM_MEMBERSHIP_REQUIRED"));
     }
 }

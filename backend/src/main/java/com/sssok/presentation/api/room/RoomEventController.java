@@ -26,7 +26,7 @@ public class RoomEventController {
         @PathVariable Long roomId,
         @RequestHeader(value = "Last-Event-ID", required = false) Long lastEventId
     ) {
-        subscribeRoomEventsService.validate(roomId);
+        subscribeRoomEventsService.validate(roomId, memberId);
         return sseEventPublisher.subscribe(roomId, lastEventId);
     }
 }

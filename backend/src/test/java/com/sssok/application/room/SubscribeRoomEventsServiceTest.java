@@ -3,12 +3,15 @@ package com.sssok.application.room;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
+import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
@@ -21,13 +24,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
-// SSE 구독 전 방 존재/만료 검증이 실제 Repository 빈을 통해 도는지 확인하는 통합 테스트.
+// SSE 구독 전 방 존재/만료/멤버십 검증이 실제 Repository 빈을 통해 도는지 확인하는 통합 테스트.
 // H2 설정은 application-test.yml(test 프로파일)에 모아뒀다 (docs/backend/TEST_CONVENTION.md 참고).
 @SpringBootTest
 @ActiveProfiles("test")
 class SubscribeRoomEventsServiceTest {
 
     private static final RandomGenerator RANDOM = new SecureRandom();
+    private static final Long MEMBER_ID = 1L;
 
     @Autowired
     SubscribeRoomEventsService subscribeRoomEventsService;
@@ -35,9 +39,12 @@ class SubscribeRoomEventsServiceTest {
     @Autowired
     RoomRepository roomRepository;
 
+    @Autowired
+    RoomMemberRepository roomMemberRepository;
+
     @Test
     void 존재하지_않는_방이면_예외() {
-        assertThatThrownBy(() -> subscribeRoomEventsService.validate(999_999L))
+        assertThatThrownBy(() -> subscribeRoomEventsService.validate(999_999L, MEMBER_ID))
             .isInstanceOf(RoomNotFoundException.class);
     }
 
@@ -45,27 +52,39 @@ class SubscribeRoomEventsServiceTest {
     void 만료된_방이면_예외() {
         Room expired = Room.reconstruct(
             null,
+            null,
             RoomCode.generate(RANDOM),
             new RoomName("만료방"),
             RoomStatus.initial(),
             new RoomExpiration(Instant.now().minus(1, ChronoUnit.HOURS)),
             UploadPolicy.ANYONE,
-            1L,
+            MEMBER_ID,
             Instant.now().minus(2, ChronoUnit.DAYS),
             null
         );
         Room saved = roomRepository.save(expired);
+        roomMemberRepository.save(RoomMember.join(saved.getId(), MEMBER_ID, Instant.now()));
 
-        assertThatThrownBy(() -> subscribeRoomEventsService.validate(saved.getId()))
+        assertThatThrownBy(() -> subscribeRoomEventsService.validate(saved.getId(), MEMBER_ID))
             .isInstanceOf(RoomExpiredException.class);
     }
 
     @Test
-    void 이용_가능한_방이면_예외_없음() {
-        Room active = Room.create(RoomCode.generate(RANDOM), new RoomName("활성방"), 1L, Instant.now());
+    void 입장하지_않은_회원이면_예외() {
+        Room active = Room.create(RoomCode.generate(RANDOM), new RoomName("활성방"), MEMBER_ID, Instant.now());
         Room saved = roomRepository.save(active);
 
-        assertThatCode(() -> subscribeRoomEventsService.validate(saved.getId()))
+        assertThatThrownBy(() -> subscribeRoomEventsService.validate(saved.getId(), 999_999L))
+            .isInstanceOf(RoomMembershipRequiredException.class);
+    }
+
+    @Test
+    void 입장한_회원이면_예외_없음() {
+        Room active = Room.create(RoomCode.generate(RANDOM), new RoomName("활성방"), MEMBER_ID, Instant.now());
+        Room saved = roomRepository.save(active);
+        roomMemberRepository.save(RoomMember.join(saved.getId(), MEMBER_ID, Instant.now()));
+
+        assertThatCode(() -> subscribeRoomEventsService.validate(saved.getId(), MEMBER_ID))
             .doesNotThrowAnyException();
     }
 }
