@@ -18,8 +18,11 @@ import com.sssok.support.PostgresContainerSupport;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.random.RandomGenerator;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,6 +51,16 @@ class RoomEventApiTest extends PostgresContainerSupport {
     @Autowired
     InMemorySseEventPublisher sseEventPublisher;
 
+    // 이 테스트에서 구독을 연 방들. SSE는 타임아웃이 없어(-1) 저절로 안 끝나므로,
+    // 각 테스트가 끝나면 열어둔 emitter를 명시적으로 완료 처리해 다음 테스트로 새지 않게 한다.
+    private final List<Long> subscribedRoomIds = new ArrayList<>();
+
+    @AfterEach
+    void closeOpenEmitters() {
+        subscribedRoomIds.forEach(sseEventPublisher::completeAll);
+        subscribedRoomIds.clear();
+    }
+
     @Test
     void 구독하면_비동기_스트림이_시작되고_발행한_이벤트를_그대로_받는다() throws Exception {
         Long roomId = 활성_방_저장();
@@ -58,6 +71,7 @@ class RoomEventApiTest extends PostgresContainerSupport {
                 .header("Authorization", "Bearer " + accessToken))
             .andExpect(request().asyncStarted())
             .andReturn();
+        subscribedRoomIds.add(roomId);
 
         sseEventPublisher.publish(roomId, "media.created", Map.of("mediaId", 5012));
 
@@ -76,6 +90,7 @@ class RoomEventApiTest extends PostgresContainerSupport {
                 .header("Authorization", "Bearer " + subscriberToken))
             .andExpect(request().asyncStarted())
             .andReturn();
+        subscribedRoomIds.add(roomId);
 
         String joinerToken = 익명_인증으로_토큰_발급받기();
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
@@ -96,6 +111,7 @@ class RoomEventApiTest extends PostgresContainerSupport {
         mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
                 .param("token", accessToken))
             .andExpect(request().asyncStarted());
+        subscribedRoomIds.add(roomId);
     }
 
     @Test

@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
@@ -16,7 +17,6 @@ import com.sssok.application.room.SubscribeRoomEventsService;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
-import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -49,6 +49,19 @@ class RoomEventControllerTest {
         mockMvc.perform(get("/api/v1/rooms/1024/events")
                 .header("Authorization", "Bearer valid-token"))
             .andExpect(request().asyncStarted());
+    }
+
+    @Test
+    void Last_Event_ID_헤더가_있으면_그대로_publisher에_전달된다() throws Exception {
+        given(tokenProvider.parse("valid-token")).willReturn(1L);
+        given(sseEventPublisher.subscribe(1024L, 42L)).willReturn(new SseEmitter());
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Bearer valid-token")
+                .header("Last-Event-ID", "42"))
+            .andExpect(request().asyncStarted());
+
+        verify(sseEventPublisher).subscribe(1024L, 42L);
     }
 
     @Test
