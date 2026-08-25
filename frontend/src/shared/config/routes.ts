@@ -1,5 +1,7 @@
 export const ROUTES = {
   home: "/",
+  createRoom: "/rooms/create",
+  joinRoom: "/rooms/join",
   /** 공유 링크·QR 로 들어오는 진입점 */
   roomEntry: (code: string) => `/rooms/${code}`,
   gallery: (code: string) => `/rooms/${code}/gallery`,
