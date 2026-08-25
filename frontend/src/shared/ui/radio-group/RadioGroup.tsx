@@ -1,4 +1,4 @@
-import { useId, type ChangeEvent } from "react";
+import { useId } from "react";
 
 import { Stack } from "../stack";
 import { Option, OptionLabel, RadioGroupContainer, RadioGroupLabel } from "./RadioGroup.styles";
@@ -13,7 +13,7 @@ export interface RadioGroupProps {
   name: string;
   value: string;
   options: RadioOption[];
-  onChange: (value: string) => void;
+  onValueChange: (value: string) => void;
   disabled?: boolean;
 }
 
@@ -22,14 +22,10 @@ export const RadioGroup = ({
   name,
   value,
   options,
-  onChange,
+  onValueChange,
   disabled = false,
 }: RadioGroupProps) => {
   const labelId = useId();
-
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange(event.target.value);
-  };
 
   return (
     <Stack gap={8}>
@@ -47,7 +43,7 @@ export const RadioGroup = ({
               name={name}
               value={option.value}
               checked={value === option.value}
-              onChange={handleChange}
+              onChange={() => onValueChange(option.value)}
               disabled={disabled}
             />
             <Option>{option.label}</Option>
