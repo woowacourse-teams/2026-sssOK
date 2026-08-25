@@ -29,6 +29,11 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
         return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt) > 0;
     }
 
+    @Override
+    public void deleteAllByRoomId(Long roomId) {
+        jpaRepository.deleteAllByRoomId(roomId);
+    }
+
     private RoomMemberJpaEntity toEntity(RoomMember roomMember) {
         return new RoomMemberJpaEntity(
             roomMember.getId(),

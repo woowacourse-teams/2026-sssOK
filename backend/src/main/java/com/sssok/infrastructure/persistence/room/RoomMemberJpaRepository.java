@@ -11,6 +11,8 @@ public interface RoomMemberJpaRepository extends JpaRepository<RoomMemberJpaEnti
 
     Optional<RoomMemberJpaEntity> findByRoomIdAndMemberId(Long roomId, Long memberId);
 
+    void deleteAllByRoomId(Long roomId);
+
     // 동시 입장에서도 하나만 통과하도록 DB에 맡긴다.
     @Modifying
     @Query(value = """
