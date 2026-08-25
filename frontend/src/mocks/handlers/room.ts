@@ -15,6 +15,8 @@ export const MOCK_ROOM_CODES = {
   deleted: "DELETED7",
   /** 형식은 맞지만 존재하지 않는 방 → 404 */
   notFound: "NTFUND23",
+  /** 두 번째 활성 방. 방마다 다른 이름으로 들어가는 흐름을 손으로 확인할 때 쓴다. */
+  second: "QRST6789",
   /** 형식 자체가 틀린 코드 (O 는 허용 알파벳이 아니다) → 400 */
   invalid: "NOTFOUND",
 } as const;
@@ -52,7 +54,7 @@ export const roomHandlers = [
       return HttpResponse.json({ data: room(code, "DELETED") });
     }
 
-    if (code === MOCK_ROOM_CODES.active) {
+    if (code === MOCK_ROOM_CODES.active || code === MOCK_ROOM_CODES.second) {
       return HttpResponse.json({ data: room(code, "ACTIVE") });
     }
 
