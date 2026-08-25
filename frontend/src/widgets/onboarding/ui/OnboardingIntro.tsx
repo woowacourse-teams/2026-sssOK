@@ -1,4 +1,4 @@
-import onboardingImage from "../assets/onboarding.png";
+import onboardingImage from "@/shared/assets/mascot.png";
 import { Description, Highlight, ImageSlot, IntroStack, Title } from "./OnboardingIntro.styles";
 
 export const OnboardingIntro = () => {

@@ -1,23 +1,22 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-import { MAX_NAME_LENGTH, NameEntryBottomSheet } from "./NameEntryBottomSheet";
+import { MAX_NAME_LENGTH, NameEntryForm } from "./NameEntryForm";
 
 const getNameInput = () =>
   screen.getByRole("textbox", { name: "입력한 이름은 다른 사람에게 보여요" });
 const getSubmitButton = () => screen.getByRole("button", { name: "입장하기" });
 
-describe("NameEntryBottomSheet", () => {
-  it("안내 문구와 이름 입력 자리표시자를 보여준다", () => {
-    render(<NameEntryBottomSheet onSubmit={jest.fn()} />);
+describe("NameEntryForm", () => {
+  it("이름 입력 자리표시자와 글자 수를 보여준다", () => {
+    render(<NameEntryForm onSubmit={jest.fn()} />);
 
-    expect(screen.getByRole("heading", { name: "표시할 이름을 입력해주세요" })).toBeInTheDocument();
     expect(screen.getByPlaceholderText("이름을 입력하세요")).toBeInTheDocument();
     expect(screen.getByText(`0/${MAX_NAME_LENGTH}`)).toBeInTheDocument();
   });
 
   it("이름이 비어 있는 동안 입장하기 버튼은 비활성화된다", () => {
-    render(<NameEntryBottomSheet onSubmit={jest.fn()} />);
+    render(<NameEntryForm onSubmit={jest.fn()} />);
 
     expect(getSubmitButton()).toBeDisabled();
   });
@@ -25,7 +24,7 @@ describe("NameEntryBottomSheet", () => {
   it("이름을 입력하면 입장하기 버튼이 활성화되고 글자 수가 갱신된다", async () => {
     const user = userEvent.setup();
 
-    render(<NameEntryBottomSheet onSubmit={jest.fn()} />);
+    render(<NameEntryForm onSubmit={jest.fn()} />);
     await user.type(getNameInput(), "해니");
 
     expect(getSubmitButton()).toBeEnabled();
@@ -35,7 +34,7 @@ describe("NameEntryBottomSheet", () => {
   it("공백만 입력하면 입장하기 버튼은 비활성화 상태를 유지한다", async () => {
     const user = userEvent.setup();
 
-    render(<NameEntryBottomSheet onSubmit={jest.fn()} />);
+    render(<NameEntryForm onSubmit={jest.fn()} />);
     await user.type(getNameInput(), "   ");
 
     expect(getSubmitButton()).toBeDisabled();
@@ -45,7 +44,7 @@ describe("NameEntryBottomSheet", () => {
     const user = userEvent.setup();
     const handleSubmit = jest.fn();
 
-    render(<NameEntryBottomSheet onSubmit={handleSubmit} />);
+    render(<NameEntryForm onSubmit={handleSubmit} />);
     await user.type(getNameInput(), "  윤돌  ");
     await user.click(getSubmitButton());
 
@@ -55,7 +54,7 @@ describe("NameEntryBottomSheet", () => {
   it(`이름은 ${MAX_NAME_LENGTH}자를 넘겨 입력할 수 없다`, async () => {
     const user = userEvent.setup();
 
-    render(<NameEntryBottomSheet onSubmit={jest.fn()} />);
+    render(<NameEntryForm onSubmit={jest.fn()} />);
     await user.type(getNameInput(), "가".repeat(MAX_NAME_LENGTH + 3));
 
     expect(getNameInput()).toHaveValue("가".repeat(MAX_NAME_LENGTH));
@@ -66,7 +65,7 @@ describe("NameEntryBottomSheet", () => {
     const user = userEvent.setup();
     const handleSubmit = jest.fn();
 
-    render(<NameEntryBottomSheet isPending onSubmit={handleSubmit} />);
+    render(<NameEntryForm isPending onSubmit={handleSubmit} />);
 
     expect(getNameInput()).toBeDisabled();
     expect(getSubmitButton()).toBeDisabled();

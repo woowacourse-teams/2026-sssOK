@@ -17,5 +17,5 @@ export interface Room {
   createdAt: string;
 }
 
-/** 공유 링크·QR 로 들어온 코드로 방을 조회한다. 입장에 필요한 roomId 를 여기서 얻는다. */
+/** 공유 링크·QR 로 들어온 코드로 방을 조회한다. 입장 여부는 status 로 판단한다. */
 export const getRoom = (code: string) => apiClient<Room>(`/rooms/${code}`);

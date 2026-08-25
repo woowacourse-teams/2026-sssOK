@@ -1,53 +1,15 @@
-import { useState, type FormEvent } from "react";
-
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
-import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Stack } from "@/shared/ui/stack";
+import { NAME_ENTRY_TITLE, NameEntryForm, type NameEntryFormProps } from "./NameEntryForm";
 
-export const MAX_NAME_LENGTH = 12;
-
-export interface NameEntryBottomSheetProps {
-  onSubmit: (name: string) => void;
-  isPending?: boolean;
-}
-
-export const NameEntryBottomSheet = ({
-  onSubmit,
-  isPending = false,
-}: NameEntryBottomSheetProps) => {
-  const [name, setName] = useState("");
-
-  const trimmedName = name.trim();
-  const canSubmit = trimmedName.length > 0 && !isPending;
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!canSubmit) return;
-
-    onSubmit(trimmedName);
-  };
-
+/**
+ * 뒤에 살아 있는 화면이 있을 때 쓰는 형태.
+ * 005 방장 초기설정처럼 방 설정 화면 위로 올라오는 경우다.
+ * 002 입장은 뒤에 아무것도 없어서 시트가 아니라 화면 자체로 그린다.
+ */
+export const NameEntryBottomSheet = (props: NameEntryFormProps) => {
   return (
-    <BottomSheet title="표시할 이름을 입력해주세요">
-      <form onSubmit={handleSubmit}>
-        <Stack gap={20}>
-          <Input
-            label="입력한 이름은 다른 사람에게 보여요"
-            placeholder="이름을 입력하세요"
-            value={name}
-            maxLength={MAX_NAME_LENGTH}
-            onChange={(event) => setName(event.target.value)}
-            disabled={isPending}
-            autoFocus
-          />
-
-          <Button type="submit" size="sm" disabled={!canSubmit}>
-            입장하기
-          </Button>
-        </Stack>
-      </form>
+    <BottomSheet title={NAME_ENTRY_TITLE}>
+      <NameEntryForm {...props} />
     </BottomSheet>
   );
 };

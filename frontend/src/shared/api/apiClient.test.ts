@@ -6,7 +6,7 @@ import { ApiError } from "./ApiError";
 import { apiClient } from "./apiClient";
 import { tokenStorage } from "./tokenStorage";
 
-afterEach(() => tokenStorage.clear());
+afterEach(() => tokenStorage.clearAll());
 
 describe("apiClient", () => {
   it("성공 응답에서 data 만 꺼내 돌려준다", async () => {
@@ -17,8 +17,13 @@ describe("apiClient", () => {
     await expect(apiClient("/ping")).resolves.toEqual({ pong: true });
   });
 
-  it("토큰이 있으면 Authorization 헤더를 붙인다", async () => {
-    tokenStorage.set("my-token");
+  it("저장된 토큰이 있으면 Authorization 헤더를 붙인다", async () => {
+    tokenStorage.save("7K93QX2S", {
+      accessToken: "my-token",
+      userId: 10234,
+      nickname: "민수",
+      expiresAt: "2099-01-01T00:00:00Z",
+    });
 
     let authorization: string | null = null;
     server.use(
@@ -33,7 +38,7 @@ describe("apiClient", () => {
     expect(authorization).toBe("Bearer my-token");
   });
 
-  it("토큰이 없으면 Authorization 헤더를 붙이지 않는다", async () => {
+  it("저장된 토큰이 없으면 Authorization 헤더를 붙이지 않는다", async () => {
     let authorization: string | null = "아직 확인 전";
     server.use(
       http.get(`${API_PREFIX}/ping`, ({ request }) => {
@@ -60,5 +65,16 @@ describe("apiClient", () => {
       message: "없는 방",
     });
     await expect(apiClient("/ping")).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("200 이지만 우리 형식이 아닌 응답도 ApiError 로 던진다", async () => {
+    server.use(
+      http.get(`${API_PREFIX}/ping`, () => HttpResponse.html("<!doctype html><html></html>")),
+    );
+
+    await expect(apiClient("/ping")).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_RESPONSE",
+    });
   });
 });
