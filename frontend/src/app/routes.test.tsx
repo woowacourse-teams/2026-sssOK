@@ -18,7 +18,7 @@ describe("라우트", () => {
   it("/ 는 홈 화면을 보여준다", () => {
     renderAt(ROUTES.home);
 
-    expect(screen.getByText(/홈 화면/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /사진 모으고 바로 쏙 나누기/ })).toBeInTheDocument();
   });
 
   it("/rooms/:code 는 방 입장 화면을 보여주고 코드를 읽는다", () => {
@@ -37,6 +37,6 @@ describe("라우트", () => {
     const router = renderAt("/이런-주소는-없다");
 
     expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(screen.getByText(/홈 화면/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /사진 모으고 바로 쏙 나누기/ })).toBeInTheDocument();
   });
 });
