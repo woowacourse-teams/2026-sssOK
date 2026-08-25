@@ -83,10 +83,5 @@ export const RoomEntryPage = () => {
     return <Navigate to={ROUTES.gallery(code)} replace />;
   }
 
-  return (
-    <NameEntryBottomSheet
-      onSubmit={(nickname) => auth.mutate({ nickname, roomId: room.roomId })}
-      isPending={auth.isPending}
-    />
-  );
+  return <NameEntryBottomSheet onSubmit={auth.mutate} isPending={auth.isPending} />;
 };

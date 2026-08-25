@@ -19,7 +19,7 @@ export const MOCK_ROOM_CODES = {
   invalid: "NOTFOUND",
 } as const;
 
-const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED") => ({
+const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED", joined = false) => ({
   roomId: 5031,
   code,
   name: "제주 여행",
@@ -27,7 +27,7 @@ const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED") => ({
   hostId: 10234,
   hostName: "민수",
   uploadPolicy: "everyone",
-  joined: false,
+  joined,
   createdAt: "2026-08-18T05:30:00Z",
   expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
 });
@@ -40,8 +40,11 @@ export const resetJoinedRooms = () => joinedRooms.clear();
 
 export const roomHandlers = [
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
-  http.get("/rooms/:code", ({ params }) => {
+  http.get("/rooms/:code", ({ request, params }) => {
     const code = String(params.code);
+    const token = request.headers.get("Authorization");
+    // 토큰이 실렸을 때만 참여 여부를 판정한다. 비로그인 요청은 언제나 false 다.
+    const joined = token !== null && joinedRooms.has(`${token}:${code}`);
 
     if (!ROOM_CODE_PATTERN.test(code)) {
       return HttpResponse.json(
@@ -51,15 +54,15 @@ export const roomHandlers = [
     }
 
     if (code === MOCK_ROOM_CODES.expired) {
-      return HttpResponse.json(room(code, "EXPIRED"));
+      return HttpResponse.json({ data: room(code, "EXPIRED") });
     }
 
     if (code === MOCK_ROOM_CODES.deleted) {
-      return HttpResponse.json(room(code, "DELETED"));
+      return HttpResponse.json({ data: room(code, "DELETED") });
     }
 
     if (code === MOCK_ROOM_CODES.active || code === MOCK_ROOM_CODES.second) {
-      return HttpResponse.json(room(code, "ACTIVE"));
+      return HttpResponse.json({ data: room(code, "ACTIVE", joined) });
     }
 
     return HttpResponse.json(
@@ -72,22 +75,24 @@ export const roomHandlers = [
    * 입장은 멱등이다. 처음이면 201, 이미 입장했으면 200 으로 같은 내용을 돌려준다.
    * 목은 이번 세션에 입장한 방을 기억해 두 번째 호출부터 200 을 준다.
    */
-  http.post("/rooms/:roomId/members", ({ request, params }) => {
+  http.post("/rooms/:roomCode/members", ({ request, params }) => {
     const token = request.headers.get("Authorization");
 
     if (token === null) {
-      return HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다." }, { status: 401 });
+      return HttpResponse.json(
+        { code: "UNAUTHORIZED", message: "인증이 필요합니다." },
+        { status: 401 },
+      );
     }
 
-    const roomId = Number(params.roomId);
-    const alreadyJoined = joinedRooms.has(`${token}:${roomId}`);
+    const roomCode = String(params.roomCode);
+    const alreadyJoined = joinedRooms.has(`${token}:${roomCode}`);
 
-    joinedRooms.add(`${token}:${roomId}`);
+    joinedRooms.add(`${token}:${roomCode}`);
 
     return HttpResponse.json(
       {
-        roomId,
-        userId: 10234,
+        memberId: 10234,
         displayName: "해니",
         hostId: 10234,
         joinedAt: "2026-08-18T05:31:00Z",

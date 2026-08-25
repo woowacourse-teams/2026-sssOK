@@ -75,12 +75,12 @@ describe("RoomEntryPage", () => {
     it("인증 토큰으로 방 입장까지 마친다", async () => {
       let joinRequest: { url: string; authorization: string | null } | null = null;
       server.use(
-        http.post("/rooms/:roomId/members", ({ request }) => {
+        http.post("/rooms/:roomCode/members", ({ request }) => {
           joinRequest = {
             url: new URL(request.url).pathname,
             authorization: request.headers.get("Authorization"),
           };
-          return HttpResponse.json({ roomId: 5031 }, { status: 201 });
+          return HttpResponse.json({ memberId: 10234 }, { status: 201 });
         }),
       );
       const user = userEvent.setup();
@@ -90,16 +90,15 @@ describe("RoomEntryPage", () => {
       await user.click(getSubmitButton());
 
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
-      // 입장 API 는 방 코드가 아니라 방 조회 응답의 roomId 를 쓴다
       expect(joinRequest).toEqual({
-        url: "/rooms/5031/members",
+        url: `/rooms/${MOCK_ROOM_CODES.active}/members`,
         authorization: "Bearer mock-access-token",
       });
     });
 
     it("방 입장에 실패하면 저장한 세션을 도로 지우고 에러 화면을 보여준다", async () => {
       server.use(
-        http.post("/rooms/:roomId/members", () =>
+        http.post("/rooms/:roomCode/members", () =>
           HttpResponse.json({ code: "ROOM_JOIN_FAILED", message: "안돼요" }, { status: 500 }),
         ),
       );
