@@ -1,3 +1,4 @@
+import { API_BASE_URL } from "@/shared/config";
 import { ApiError } from "./ApiError";
 
 interface ApiClientOptions extends RequestInit {
@@ -17,8 +18,9 @@ const getErrorResponse = async (response: Response): Promise<ErrorResponse> => {
   }
 };
 
+/** path 는 접두사를 뺀 경로다 — 접두사는 여기서 한 번만 붙인다. */
 export const apiClient = async <T>(
-  url: string,
+  path: string,
   { token, headers, ...options }: ApiClientOptions = {},
 ): Promise<T> => {
   const requestHeaders = new Headers(headers);
@@ -30,7 +32,7 @@ export const apiClient = async <T>(
   let response: Response;
 
   try {
-    response = await fetch(url, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
       headers: requestHeaders,
     });

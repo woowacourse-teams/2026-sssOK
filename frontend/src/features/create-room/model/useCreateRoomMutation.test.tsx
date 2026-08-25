@@ -4,6 +4,7 @@ import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 
 import { getRoomSession } from "@/entities/session";
+import { API_PREFIX } from "@/mocks/config";
 import { server } from "@/mocks/server";
 import { ApiError } from "@/shared/api";
 import { useCreateRoomMutation } from "./useCreateRoomMutation";
@@ -59,7 +60,7 @@ describe("useCreateRoomMutation", () => {
 
   it("익명 인증이 실패하면 ApiError를 반환한다", async () => {
     server.use(
-      http.post("/auth/anonymous", () => {
+      http.post(`${API_PREFIX}/auth/anonymous`, () => {
         return HttpResponse.json(
           {
             code: "ANONYMOUS_AUTH_FAILED",

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import type { ComponentProps, ReactNode } from "react";
 
+import { API_PREFIX } from "@/mocks/config";
 import { server } from "@/mocks/server";
 import { CreateRoomForm } from "./CreateRoomForm";
 
@@ -61,7 +62,7 @@ describe("CreateRoomForm", () => {
 
   it("요청 중에는 중복 제출을 막는다", async () => {
     server.use(
-      http.post("/auth/anonymous", async ({ request }) => {
+      http.post(`${API_PREFIX}/auth/anonymous`, async ({ request }) => {
         const body = (await request.json()) as { nickname: string };
         await delay(50);
 
@@ -84,7 +85,7 @@ describe("CreateRoomForm", () => {
 
   it("방 생성 실패 메시지를 표시한다", async () => {
     server.use(
-      http.post("/auth/anonymous", () => {
+      http.post(`${API_PREFIX}/auth/anonymous`, () => {
         return HttpResponse.json(
           { code: "INVALID_NICKNAME", message: "닉네임을 입력해주세요" },
           { status: 400 },

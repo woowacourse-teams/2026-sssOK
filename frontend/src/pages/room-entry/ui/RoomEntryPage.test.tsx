@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
+import { API_PREFIX } from "@/mocks/config";
 import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { ROUTE_PATTERNS } from "@/shared/config";
@@ -75,7 +76,7 @@ describe("RoomEntryPage", () => {
     it("인증 토큰으로 방 입장까지 마친다", async () => {
       let joinRequest: { url: string; authorization: string | null } | null = null;
       server.use(
-        http.post("/rooms/:roomCode/members", ({ request }) => {
+        http.post(`${API_PREFIX}/rooms/:roomCode/members`, ({ request }) => {
           joinRequest = {
             url: new URL(request.url).pathname,
             authorization: request.headers.get("Authorization"),
@@ -91,14 +92,14 @@ describe("RoomEntryPage", () => {
 
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
       expect(joinRequest).toEqual({
-        url: `/rooms/${MOCK_ROOM_CODES.active}/members`,
+        url: `${API_PREFIX}/rooms/${MOCK_ROOM_CODES.active}/members`,
         authorization: "Bearer mock-token-10234",
       });
     });
 
     it("방 입장에 실패하면 저장한 세션을 도로 지우고 에러 화면을 보여준다", async () => {
       server.use(
-        http.post("/rooms/:roomCode/members", () =>
+        http.post(`${API_PREFIX}/rooms/:roomCode/members`, () =>
           HttpResponse.json({ code: "ROOM_JOIN_FAILED", message: "안돼요" }, { status: 500 }),
         ),
       );
@@ -115,7 +116,7 @@ describe("RoomEntryPage", () => {
 
     it("인증에 실패하면 에러 화면을 보여준다", async () => {
       server.use(
-        http.post("/auth/anonymous", () =>
+        http.post(`${API_PREFIX}/auth/anonymous`, () =>
           HttpResponse.json({ code: "INVALID_NICKNAME", message: "안돼요" }, { status: 400 }),
         ),
       );
