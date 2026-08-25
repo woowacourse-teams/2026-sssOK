@@ -37,6 +37,7 @@ class RoomPermissionPortAdapterTest {
     private Room roomWith(UploadPolicy uploadPolicy, Instant expiresAt) {
         return Room.reconstruct(
             ROOM_ID,
+            null,
             new RoomCode("A3F9K2M7"),
             new RoomName("우테코 데모데이"),
             RoomStatus.initial(),

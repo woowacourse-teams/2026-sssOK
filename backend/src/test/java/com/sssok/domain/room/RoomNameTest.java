@@ -28,7 +28,7 @@ class RoomNameTest {
 
     @Test
     void 최대_길이를_넘으면_예외() {
-        String tooLong = "가".repeat(31);
+        String tooLong = "가".repeat(13);
 
         assertThatThrownBy(() -> new RoomName(tooLong))
             .isInstanceOf(InvalidRoomNameException.class);
@@ -36,8 +36,8 @@ class RoomNameTest {
 
     @Test
     void 최대_길이까지는_허용된다() {
-        String exactly30 = "가".repeat(30);
+        String exactly12 = "가".repeat(12);
 
-        assertThat(new RoomName(exactly30).value()).hasSize(30);
+        assertThat(new RoomName(exactly12).value()).hasSize(12);
     }
 }

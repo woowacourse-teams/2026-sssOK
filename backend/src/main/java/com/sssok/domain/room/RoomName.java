@@ -4,7 +4,7 @@ import com.sssok.domain.room.exception.InvalidRoomNameException;
 // 방 이름 값 객체.
 public record RoomName(String value) {
 
-    private static final int MAX_LENGTH = 30;
+    private static final int MAX_LENGTH = 12;
 
     public RoomName {
         if (value == null || value.isBlank()) {
