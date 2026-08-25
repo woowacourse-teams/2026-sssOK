@@ -34,7 +34,7 @@ public class AuthMemberArgumentResolver implements HandlerMethodArgumentResolver
     ) {
         HttpServletRequest request = (HttpServletRequest) webRequest.getNativeRequest();
         String authorizationHeader = request.getHeader("Authorization");
-        String tokenParam = request.getParameter("token");
+        String tokenParam = allowsQueryToken(parameter) ? request.getParameter("token") : null;
 
         // 헤더/쿼리 둘 다 안 보낸 경우만 통과시킨다. 보냈는데 잘못된 토큰이면 401.
         if (isMissing(authorizationHeader) && isMissing(tokenParam) && !isRequired(parameter)) {
@@ -46,6 +46,13 @@ public class AuthMemberArgumentResolver implements HandlerMethodArgumentResolver
     private boolean isRequired(MethodParameter parameter) {
         AuthMember annotation = parameter.getParameterAnnotation(AuthMember.class);
         return annotation == null || annotation.required();
+    }
+
+    // allowQueryToken=true로 명시한 엔드포인트(SSE)에서만 token 쿼리 파라미터를 인증에 사용한다.
+    // 그 외에는 URL에 실린 값이 access log·브라우저 히스토리·Referer로 새는 걸 막기 위해 아예 보지 않는다.
+    private boolean allowsQueryToken(MethodParameter parameter) {
+        AuthMember annotation = parameter.getParameterAnnotation(AuthMember.class);
+        return annotation != null && annotation.allowQueryToken();
     }
 
     private boolean isMissing(String value) {

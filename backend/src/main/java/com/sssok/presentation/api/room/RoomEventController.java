@@ -22,7 +22,7 @@ public class RoomEventController {
 
     @GetMapping(value = "/{roomId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(
-        @AuthMember Long memberId,
+        @AuthMember(allowQueryToken = true) Long memberId,
         @PathVariable Long roomId,
         @RequestHeader(value = "Last-Event-ID", required = false) Long lastEventId
     ) {
