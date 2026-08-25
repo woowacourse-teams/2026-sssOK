@@ -60,8 +60,12 @@ public class AuthMemberArgumentResolver implements HandlerMethodArgumentResolver
     }
 
     // EventSource(SSE)는 커스텀 헤더를 못 붙이므로, Authorization 헤더가 없으면 token 쿼리 파라미터로 대체 인증한다.
+    // 단, 헤더 자체는 보냈는데 형식이 잘못된 경우(Bearer 아님)는 쿼리로 폴백하지 않고 바로 401 처리한다.
     private String extractToken(String authorizationHeader, String tokenParam) {
-        if (authorizationHeader != null && authorizationHeader.startsWith(BEARER_PREFIX)) {
+        if (!isMissing(authorizationHeader)) {
+            if (!authorizationHeader.startsWith(BEARER_PREFIX)) {
+                throw new UnauthorizedException("다시 접속해주세요");
+            }
             return authorizationHeader.substring(BEARER_PREFIX.length());
         }
         if (tokenParam != null && !tokenParam.isBlank()) {

@@ -68,6 +68,17 @@ class RoomEventControllerTest {
     }
 
     @Test
+    void 형식이_잘못된_헤더는_유효한_쿼리_토큰이_있어도_401() throws Exception {
+        given(tokenProvider.parse("query-token")).willReturn(1L);
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Basic query-token")
+                .param("token", "query-token"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
     void 토큰_검증에_실패하면_401() throws Exception {
         given(tokenProvider.parse(anyString())).willThrow(new UnauthorizedException("다시 접속해주세요"));
 
