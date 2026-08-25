@@ -1,6 +1,5 @@
 package com.sssok.application.room;
 
-import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -13,6 +12,7 @@ import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +23,7 @@ public class UpdateRoomService {
 
     private final RoomRepository roomRepository;
     private final RoomDetailReader roomDetailReader;
-    private final EventPublisherPort eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     private final RoomPermissionPolicy permissionPolicy = new RoomPermissionPolicy();
 
@@ -46,7 +46,7 @@ public class UpdateRoomService {
         room.updateSettings(requesterId, resolveName(room, command), resolveExpiration(room, command, now),
             resolveUploadPolicy(room, command));
         Room saved = roomRepository.save(room);
-        eventPublisher.publish(roomId, "room.updated", RoomUpdatedEvent.from(saved));
+        eventPublisher.publishEvent(RoomUpdatedEvent.from(saved));
         return roomDetailReader.read(saved, requesterId);
     }
 

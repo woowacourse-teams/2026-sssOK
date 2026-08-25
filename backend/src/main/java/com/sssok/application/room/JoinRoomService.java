@@ -1,7 +1,6 @@
 package com.sssok.application.room;
 
 import com.sssok.application.auth.exception.UnauthorizedException;
-import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
@@ -13,6 +12,7 @@ import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +25,7 @@ public class JoinRoomService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final MemberRepository memberRepository;
-    private final EventPublisherPort eventPublisher;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public JoinRoomResult join(Long roomId, Long memberId) {
@@ -46,7 +46,7 @@ public class JoinRoomService {
         // 실제로 행을 넣은 쪽만 신규 참여다. 재입장은 알림을 다시 보내지 않는다.
         if (roomMemberRepository.joinIfAbsent(roomId, memberId, now)) {
             JoinRoomResult result = JoinRoomResult.newlyJoined(room, requireJoined(roomId, memberId), member);
-            eventPublisher.publish(roomId, "room.member.joined", RoomMemberJoinedEvent.from(result));
+            eventPublisher.publishEvent(RoomMemberJoinedEvent.from(result));
             return result;
         }
         return JoinRoomResult.rejoined(room, requireJoined(roomId, memberId), member);
