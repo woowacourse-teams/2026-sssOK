@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import type { FormEvent } from "react";
 
 import { ApiError } from "@/shared/api";
 import { Button } from "@/shared/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/shared/ui/input";
 import { RadioGroup } from "@/shared/ui/radio-group";
 import { Stack } from "@/shared/ui/stack";
 import type { CreateRoomResponse } from "../../api/types";
-import { INITIAL_CREATE_ROOM_FORM, type CreateRoomFormValues } from "../../model/createRoomForm";
+import { useCreateRoomForm } from "../../model/useCreateRoomForm";
 import { useCreateRoomMutation } from "../../model/useCreateRoomMutation";
 import { Form, SubmitArea, SubmitError } from "./CreateRoomForm.styles";
 
@@ -15,19 +15,14 @@ interface CreateRoomFormProps {
 }
 
 export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
-  const [formValues, setFormValues] = useState<CreateRoomFormValues>(INITIAL_CREATE_ROOM_FORM);
+  const { formValues, updateField, isValid } = useCreateRoomForm();
   const { mutate, isPending, error } = useCreateRoomMutation();
-
-  const updateField = (name: keyof CreateRoomFormValues) => (value: string) => {
-    setFormValues((previous) => ({ ...previous, [name]: value }));
-  };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     mutate(formValues, { onSuccess });
   };
 
-  const isValid = Boolean(formValues.nickname.trim() && formValues.name.trim());
   const errorMessage =
     error instanceof ApiError ? error.message : error ? "방을 만들지 못했습니다." : undefined;
 
