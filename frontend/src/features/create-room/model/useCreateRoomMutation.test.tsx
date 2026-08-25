@@ -3,6 +3,8 @@ import { act, renderHook } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 
+import { getRoomSession } from "@/entities/session";
+import { API_PREFIX } from "@/mocks/config";
 import { server } from "@/mocks/server";
 import { ApiError } from "@/shared/api";
 import { useCreateRoomMutation } from "./useCreateRoomMutation";
@@ -47,20 +49,18 @@ describe("useCreateRoomMutation", () => {
           uploadPolicy: "host",
         }),
       );
-      expect(localStorage.getItem(`room-session:${room.code}`)).toBe(
-        JSON.stringify({
-          accessToken: "mock-access-token",
-          userId: 10234,
-          nickname: "민수",
-          expiresAt: "2026-09-17T05:30:00Z",
-        }),
-      );
+      expect(getRoomSession(room.code)).toEqual({
+        accessToken: "mock-token-10234",
+        userId: 10234,
+        nickname: "민수",
+        expiresAt: "2026-09-17T05:30:00Z",
+      });
     });
   });
 
   it("익명 인증이 실패하면 ApiError를 반환한다", async () => {
     server.use(
-      http.post("/auth/anonymous", () => {
+      http.post(`${API_PREFIX}/auth/anonymous`, () => {
         return HttpResponse.json(
           {
             code: "ANONYMOUS_AUTH_FAILED",

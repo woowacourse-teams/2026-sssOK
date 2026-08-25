@@ -1,4 +1,5 @@
 const path = require("path");
+const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 
 module.exports = {
@@ -46,6 +47,12 @@ module.exports = {
     ],
   },
   plugins: [
+    // 브라우저 번들에는 process 가 없다. mode 가 자동으로 넣어주는 건 NODE_ENV 뿐이라
+    // 그 밖의 환경변수는 여기서 직접 값으로 치환해야 런타임에 터지지 않는다.
+    new webpack.DefinePlugin({
+      "process.env.API_BASE_URL": JSON.stringify(process.env.API_BASE_URL),
+    }),
+
     new HtmlWebpackPlugin({
       template: "./public/index.html",
       filename: "index.html",
