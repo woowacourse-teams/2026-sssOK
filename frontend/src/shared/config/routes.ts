@@ -10,6 +10,7 @@ export const ROUTES = {
 /** 라우트 정의에 쓰는 패턴. ROUTES 는 실제 이동에 쓴다. */
 export const ROUTE_PATTERNS = {
   home: "/",
+  createRoom: "/rooms/create",
   roomEntry: "/rooms/:code",
   gallery: "/rooms/:code/gallery",
 } as const;
