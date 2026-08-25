@@ -77,7 +77,7 @@ export const roomHandlers = [
    * 입장은 멱등이다. 처음이면 201, 이미 입장했으면 200 으로 같은 내용을 돌려준다.
    * 목은 이번 세션에 입장한 방을 기억해 두 번째 호출부터 200 을 준다.
    */
-  http.post(`${API_PREFIX}/rooms/:roomCode/members`, ({ request, params }) => {
+  http.post(`${API_PREFIX}/rooms/:roomId/members`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
 
     if (token === null) {
@@ -87,17 +87,20 @@ export const roomHandlers = [
       );
     }
 
-    const roomCode = String(params.roomCode);
-    const alreadyJoined = joinedRooms.has(`${token}:${roomCode}`);
+    const roomId = Number(params.roomId);
+    const alreadyJoined = joinedRooms.has(`${token}:${roomId}`);
 
-    joinedRooms.add(`${token}:${roomCode}`);
+    joinedRooms.add(`${token}:${roomId}`);
 
     return HttpResponse.json(
       {
-        memberId: 10234,
-        displayName: "해니",
-        hostId: 10234,
-        joinedAt: "2026-08-18T05:31:00Z",
+        data: {
+          roomId,
+          userId: 10234,
+          displayName: "해니",
+          hostId: 10234,
+          joinedAt: "2026-08-18T05:31:00Z",
+        },
       },
       { status: alreadyJoined ? 200 : 201 },
     );
@@ -117,14 +120,16 @@ export const roomHandlers = [
 
     return HttpResponse.json(
       {
-        roomId: 5031,
-        code: MOCK_ROOM_CODES.active,
-        name,
-        hostId: 10234,
-        hostName: "민수",
-        createdAt: "2026-08-18T05:30:00Z",
-        expiresAt: "2026-08-19T05:30:00Z",
-        uploadPolicy,
+        data: {
+          roomId: 5031,
+          code: MOCK_ROOM_CODES.active,
+          name,
+          hostId: 10234,
+          hostName: "민수",
+          createdAt: "2026-08-18T05:30:00Z",
+          expiresAt: "2026-08-19T05:30:00Z",
+          uploadPolicy,
+        },
       },
       { status: 201 },
     );

@@ -10,6 +10,11 @@ interface ErrorResponse {
   message?: string;
 }
 
+/** 성공 응답은 항상 data 로 한 겹 감싸여 온다 (backend ApiResponse<T>). */
+interface ApiResponse<T> {
+  data: T;
+}
+
 const getErrorResponse = async (response: Response): Promise<ErrorResponse> => {
   try {
     return (await response.json()) as ErrorResponse;
@@ -50,5 +55,13 @@ export const apiClient = async <T>(
     );
   }
 
-  return response.json() as Promise<T>;
+  const body: unknown = await response.json().catch(() => null);
+
+  // 200 인데 본문이 없거나 우리 API 형식이 아니면 서버 응답이 아니다.
+  // (목이 준비되기 전 요청이 dev 서버로 새어 index.html 을 받는 경우가 그렇다)
+  if (body === null || typeof body !== "object" || !("data" in body)) {
+    throw new ApiError(response.status, "INVALID_RESPONSE", "서버 응답을 이해하지 못했어요.");
+  }
+
+  return (body as ApiResponse<T>).data;
 };

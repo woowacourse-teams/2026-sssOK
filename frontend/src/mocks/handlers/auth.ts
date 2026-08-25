@@ -23,10 +23,12 @@ export const authHandlers = [
 
     return HttpResponse.json(
       {
-        accessToken: `mock-token-${userId}`,
-        userId,
-        nickname,
-        expiresAt: "2026-09-17T05:30:00Z",
+        data: {
+          accessToken: `mock-token-${userId}`,
+          userId,
+          nickname,
+          expiresAt: "2026-09-17T05:30:00Z",
+        },
       },
       { status: 201 },
     );
