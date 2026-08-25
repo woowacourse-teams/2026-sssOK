@@ -60,7 +60,7 @@ describe("RoomEntryPage", () => {
       expect(getSubmitButton()).toBeDisabled();
     });
 
-    it("이름을 넣고 입장하면 토큰을 저장하고 갤러리로 이동한다", async () => {
+    it("이름을 넣고 입장하면 이 방 토큰으로 저장하고 갤러리로 이동한다", async () => {
       const user = userEvent.setup();
       renderAt(MOCK_ROOM_CODES.active);
 
@@ -68,7 +68,9 @@ describe("RoomEntryPage", () => {
       await user.click(getSubmitButton());
 
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
-      expect(tokenStorage.current()?.accessToken).toBe("mock-access-token");
+      const saved = tokenStorage.get(MOCK_ROOM_CODES.active);
+      expect(saved?.accessToken).toBeTruthy();
+      expect(saved?.nickname).toBe("해니");
     });
 
     it("인증에 실패하면 에러 화면을 보여준다", async () => {
@@ -88,8 +90,18 @@ describe("RoomEntryPage", () => {
   });
 
   describe("토큰이 있을 때", () => {
+    it("다른 방 토큰만 있으면 이 방에서는 이름을 다시 묻는다", async () => {
+      tokenStorage.set("ABCD2345", storedToken(FUTURE));
+
+      renderAt(MOCK_ROOM_CODES.active);
+
+      expect(
+        await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+      ).toBeInTheDocument();
+    });
+
     it("유효한 토큰이면 이름 모달 없이 갤러리로 이동한다", async () => {
-      tokenStorage.save(MOCK_ROOM_CODES.active, storedToken(FUTURE));
+      tokenStorage.set(MOCK_ROOM_CODES.active, storedToken(FUTURE));
 
       renderAt(MOCK_ROOM_CODES.active);
 
@@ -98,26 +110,26 @@ describe("RoomEntryPage", () => {
     });
 
     it("만료된 토큰이면 지우고 이름 모달을 띄운다", async () => {
-      tokenStorage.save(MOCK_ROOM_CODES.active, storedToken(PAST));
+      tokenStorage.set(MOCK_ROOM_CODES.active, storedToken(PAST));
 
       renderAt(MOCK_ROOM_CODES.active);
 
       expect(await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" })).toBeInTheDocument();
-      expect(tokenStorage.current()).toBeNull();
+      expect(tokenStorage.get(MOCK_ROOM_CODES.active)).toBeNull();
     });
   });
 
   describe("들어갈 수 없는 방", () => {
-    it("만료된 방은 안내와 함께 그 방 기록만 지운다", async () => {
-      tokenStorage.save(MOCK_ROOM_CODES.active, storedToken(FUTURE));
-      tokenStorage.save(MOCK_ROOM_CODES.expired, storedToken(FUTURE));
+    it("만료된 방은 안내와 함께 그 방 토큰만 지운다", async () => {
+      tokenStorage.set(MOCK_ROOM_CODES.active, storedToken(FUTURE));
+      tokenStorage.set(MOCK_ROOM_CODES.expired, storedToken(FUTURE));
 
       renderAt(MOCK_ROOM_CODES.expired);
 
       expect(await screen.findByText(/만료된 방이에요/)).toBeInTheDocument();
-      expect(tokenStorage.hasVisited(MOCK_ROOM_CODES.expired)).toBe(false);
-      // 토큰 자체는 계정 것이라 다른 방에서 계속 쓴다
-      expect(tokenStorage.current()).not.toBeNull();
+      expect(tokenStorage.get(MOCK_ROOM_CODES.expired)).toBeNull();
+      // 다른 방 토큰은 그 방에서 계속 쓴다
+      expect(tokenStorage.get(MOCK_ROOM_CODES.active)).not.toBeNull();
     });
 
     it("삭제된 방은 삭제 안내를 보여준다", async () => {

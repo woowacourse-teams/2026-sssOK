@@ -4,9 +4,6 @@ import { API_PREFIX } from "@/mocks/config";
 import { server } from "@/mocks/server";
 import { ApiError } from "./ApiError";
 import { apiClient } from "./apiClient";
-import { tokenStorage } from "./tokenStorage";
-
-afterEach(() => tokenStorage.clearAll());
 
 describe("apiClient", () => {
   it("성공 응답에서 data 만 꺼내 돌려준다", async () => {
@@ -17,14 +14,7 @@ describe("apiClient", () => {
     await expect(apiClient("/ping")).resolves.toEqual({ pong: true });
   });
 
-  it("저장된 토큰이 있으면 Authorization 헤더를 붙인다", async () => {
-    tokenStorage.save("7K93QX2S", {
-      accessToken: "my-token",
-      userId: 10234,
-      nickname: "민수",
-      expiresAt: "2099-01-01T00:00:00Z",
-    });
-
+  it("토큰을 넘기면 Authorization 헤더를 붙인다", async () => {
     let authorization: string | null = null;
     server.use(
       http.get(`${API_PREFIX}/ping`, ({ request }) => {
@@ -33,12 +23,12 @@ describe("apiClient", () => {
       }),
     );
 
-    await apiClient("/ping");
+    await apiClient("/ping", { token: "my-token" });
 
     expect(authorization).toBe("Bearer my-token");
   });
 
-  it("저장된 토큰이 없으면 Authorization 헤더를 붙이지 않는다", async () => {
+  it("토큰을 넘기지 않으면 Authorization 헤더를 붙이지 않는다", async () => {
     let authorization: string | null = "아직 확인 전";
     server.use(
       http.get(`${API_PREFIX}/ping`, ({ request }) => {

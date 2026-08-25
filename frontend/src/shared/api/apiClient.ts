@@ -1,6 +1,5 @@
 import { API_BASE_URL } from "@/shared/config";
 import { ApiError } from "./ApiError";
-import { tokenStorage } from "./tokenStorage";
 
 /** 성공 응답은 항상 data 로 한 겹 감싸여 온다 (backend ApiResponse<T>). */
 interface ApiResponse<T> {
@@ -12,14 +11,20 @@ interface ErrorBody {
   message?: string;
 }
 
+export interface RequestOptions extends RequestInit {
+  /**
+   * 이 요청에 실을 토큰. 토큰은 방마다 다르므로 호출부가 어느 방 것인지 정해 넘긴다.
+   * 없으면 Authorization 헤더를 아예 붙이지 않는다 — 빈 값을 보내면 서버가 401 로 본다.
+   */
+  token?: string | null;
+}
+
 /**
- * 토큰이 있으면 자동으로 붙이고, 성공 응답의 data 만 꺼내 돌려준다.
+ * 성공 응답의 data 만 꺼내 돌려준다.
  * 실패하면 ApiError 를 던져 호출부가 상태 코드와 코드값으로 분기하게 한다.
  */
-export const apiClient = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
-  const { headers, ...init } = options;
-  // 없을 때 헤더를 아예 빼야 한다 — 빈 값을 보내면 서버가 401 로 본다
-  const token = tokenStorage.current()?.accessToken;
+export const apiClient = async <T>(path: string, options: RequestOptions = {}): Promise<T> => {
+  const { token, headers, ...init } = options;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,

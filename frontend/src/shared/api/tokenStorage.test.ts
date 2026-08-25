@@ -1,4 +1,4 @@
-import { tokenStorage, type StoredToken } from "./tokenStorage";
+import { tokenStorage, type RoomToken } from "./tokenStorage";
 
 const NOW = new Date("2026-08-25T00:00:00Z");
 const FUTURE = "2026-09-25T00:00:00Z";
@@ -7,73 +7,70 @@ const PAST = "2026-08-24T00:00:00Z";
 const ROOM_A = "7K93QX2S";
 const ROOM_B = "ABCD2345";
 
-const token = (expiresAt: string): StoredToken => ({
-  accessToken: "abc",
+const token = (nickname: string, expiresAt: string): RoomToken => ({
+  accessToken: `token-${nickname}`,
   userId: 10234,
-  nickname: "민수",
+  nickname,
   expiresAt,
 });
 
 beforeEach(() => localStorage.clear());
 
 describe("tokenStorage", () => {
-  describe("current — 요청에 실을 토큰", () => {
-    it("저장된 것이 없으면 null 을 준다", () => {
-      expect(tokenStorage.current(NOW)).toBeNull();
-    });
+  it("방 코드로 저장하고 같은 코드로 꺼낸다", () => {
+    tokenStorage.set(ROOM_A, token("민수", FUTURE));
 
-    it("어느 방에서 받았든 같은 토큰을 돌려준다", () => {
-      tokenStorage.save(ROOM_A, token(FUTURE));
-
-      expect(tokenStorage.current(NOW)).toEqual(token(FUTURE));
-    });
-
-    it("만료된 것만 있으면 null 을 주고 저장소를 비운다", () => {
-      tokenStorage.save(ROOM_A, token(PAST));
-
-      expect(tokenStorage.current(NOW)).toBeNull();
-      expect(localStorage.getItem("sssok.auth")).toBe("{}");
-    });
-
-    it("깨진 값이 들어 있으면 null 을 준다", () => {
-      localStorage.setItem("sssok.auth", "이건 JSON 이 아니다");
-
-      expect(tokenStorage.current(NOW)).toBeNull();
-    });
+    expect(tokenStorage.get(ROOM_A, NOW)).toEqual(token("민수", FUTURE));
   });
 
-  describe("hasVisited — 방문 기록", () => {
-    it("들어와 본 방은 true, 처음 보는 방은 false 다", () => {
-      tokenStorage.save(ROOM_A, token(FUTURE));
+  it("저장한 적 없는 방은 null 을 준다 — 다른 방 토큰을 끌어다 쓰지 않는다", () => {
+    tokenStorage.set(ROOM_A, token("민수", FUTURE));
 
-      expect(tokenStorage.hasVisited(ROOM_A, NOW)).toBe(true);
-      expect(tokenStorage.hasVisited(ROOM_B, NOW)).toBe(false);
-    });
-
-    it("여러 방 기록이 같은 토큰으로 함께 남는다", () => {
-      tokenStorage.save(ROOM_A, token(FUTURE));
-      tokenStorage.save(ROOM_B, token(FUTURE));
-
-      expect(tokenStorage.hasVisited(ROOM_A, NOW)).toBe(true);
-      expect(tokenStorage.hasVisited(ROOM_B, NOW)).toBe(true);
-      expect(tokenStorage.current(NOW)).toEqual(token(FUTURE));
-    });
+    expect(tokenStorage.get(ROOM_B, NOW)).toBeNull();
   });
 
-  it("clear 는 그 방 기록만 지우고 토큰은 남긴다", () => {
-    tokenStorage.save(ROOM_A, token(FUTURE));
-    tokenStorage.save(ROOM_B, token(FUTURE));
+  it("방마다 다른 이름을 따로 보관한다", () => {
+    tokenStorage.set(ROOM_A, token("민수", FUTURE));
+    tokenStorage.set(ROOM_B, token("해니", FUTURE));
+
+    expect(tokenStorage.get(ROOM_A, NOW)?.nickname).toBe("민수");
+    expect(tokenStorage.get(ROOM_B, NOW)?.nickname).toBe("해니");
+  });
+
+  it("만료된 토큰은 돌려주지 않고 그 방 항목만 지운다", () => {
+    tokenStorage.set(ROOM_A, token("민수", PAST));
+    tokenStorage.set(ROOM_B, token("해니", FUTURE));
+
+    expect(tokenStorage.get(ROOM_A, NOW)).toBeNull();
+    expect(tokenStorage.get(ROOM_B, NOW)?.nickname).toBe("해니");
+  });
+
+  it("만료 시각이 지금과 같으면 만료로 본다", () => {
+    tokenStorage.set(ROOM_A, token("민수", NOW.toISOString()));
+
+    expect(tokenStorage.get(ROOM_A, NOW)).toBeNull();
+  });
+
+  it("clear 는 그 방 토큰만 지운다", () => {
+    tokenStorage.set(ROOM_A, token("민수", FUTURE));
+    tokenStorage.set(ROOM_B, token("해니", FUTURE));
 
     tokenStorage.clear(ROOM_A);
 
-    expect(tokenStorage.hasVisited(ROOM_A, NOW)).toBe(false);
-    expect(tokenStorage.current(NOW)).not.toBeNull();
+    expect(tokenStorage.get(ROOM_A, NOW)).toBeNull();
+    expect(tokenStorage.get(ROOM_B, NOW)).not.toBeNull();
   });
 
-  it("clearAll 은 전부 지운다", () => {
-    tokenStorage.save(ROOM_A, token(FUTURE));
-    tokenStorage.clearAll();
+  it("깨진 값이 들어 있으면 null 을 준다", () => {
+    localStorage.setItem("sssok.auth", "이건 JSON 이 아니다");
 
-    expect(tokenStorage.current(NOW)).toBeNull();
+    expect(tokenStorage.get(ROOM_A, NOW)).toBeNull();
+  });
+
+  it("형식이 맞지 않는 항목은 지우고 null 을 준다", () => {
+    localStorage.setItem("sssok.auth", JSON.stringify({ [ROOM_A]: { nickname: "민수" } }));
+
+    expect(tokenStorage.get(ROOM_A, NOW)).toBeNull();
+    expect(localStorage.getItem("sssok.auth")).toBe("{}");
   });
 });

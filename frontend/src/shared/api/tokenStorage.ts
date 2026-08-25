@@ -1,6 +1,6 @@
 const STORAGE_KEY = "sssok.auth";
 
-export interface StoredToken {
+export interface RoomToken {
   accessToken: string;
   userId: number;
   nickname: string;
@@ -9,11 +9,11 @@ export interface StoredToken {
 }
 
 /**
- * 방 코드를 키로 담지만 토큰 자체는 하나다 — 들어간 방마다 같은 토큰을 남겨 방문 기록으로 쓴다.
- * 닉네임은 계정당 하나뿐이라(member.nickname) 새 방에서 다시 인증하지 않는다.
- * 다시 인증하면 member 행이 늘어나고, DB 에는 그들을 같은 사람으로 묶을 수단이 없다.
+ * 방 코드를 키로 토큰을 나눠 담는다.
+ * 방마다 익명 인증을 새로 하므로 방마다 다른 member(다른 userId·nickname)가 된다.
+ * 그래서 다른 방 토큰을 끌어다 쓰면 안 된다 — 그 방에서 쓰기로 한 이름이 아니다.
  */
-type VisitedRooms = Record<string, StoredToken>;
+type TokenMap = Record<string, RoomToken>;
 
 const isExpired = (expiresAt: string, now: Date) => {
   const expiry = new Date(expiresAt).getTime();
@@ -22,14 +22,14 @@ const isExpired = (expiresAt: string, now: Date) => {
   return Number.isNaN(expiry) || expiry <= now.getTime();
 };
 
-const isStoredToken = (value: unknown): value is StoredToken => {
+const isRoomToken = (value: unknown): value is RoomToken => {
   if (value === null || typeof value !== "object") return false;
 
-  const token = value as Partial<StoredToken>;
+  const token = value as Partial<RoomToken>;
   return typeof token.accessToken === "string" && typeof token.expiresAt === "string";
 };
 
-const readAll = (): VisitedRooms => {
+const readAll = (): TokenMap => {
   let raw: string | null = null;
 
   try {
@@ -43,62 +43,50 @@ const readAll = (): VisitedRooms => {
 
   try {
     const parsed: unknown = JSON.parse(raw);
-    return parsed !== null && typeof parsed === "object" ? (parsed as VisitedRooms) : {};
+    return parsed !== null && typeof parsed === "object" ? (parsed as TokenMap) : {};
   } catch {
     return {};
   }
 };
 
-const writeAll = (rooms: VisitedRooms) => {
+const writeAll = (tokens: TokenMap) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(rooms));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
   } catch {
     // 저장에 실패해도 이번 세션은 진행한다
   }
 };
 
-/** 만료됐거나 형식이 깨진 항목을 걸러낸 사본. 걸러낸 게 있으면 저장소도 정리한다. */
-const readValid = (now: Date): VisitedRooms => {
-  const rooms = readAll();
-  const valid: VisitedRooms = {};
-
-  for (const [code, token] of Object.entries(rooms)) {
-    if (isStoredToken(token) && !isExpired(token.expiresAt, now)) {
-      valid[code] = token;
-    }
-  }
-
-  if (Object.keys(valid).length !== Object.keys(rooms).length) {
-    writeAll(valid);
-  }
-
-  return valid;
-};
-
 export const tokenStorage = {
-  /** 요청에 실을 토큰. 어느 방에서 받았든 같은 계정이라 아무 유효한 것이나 쓴다. */
-  current(now: Date = new Date()): StoredToken | null {
-    return Object.values(readValid(now))[0] ?? null;
+  /** 이 방에서 쓰던 토큰. 만료됐거나 형식이 깨졌으면 그 항목만 지우고 null 을 준다. */
+  get(roomCode: string, now: Date = new Date()): RoomToken | null {
+    const token = readAll()[roomCode];
+
+    if (!isRoomToken(token)) {
+      if (token !== undefined) this.clear(roomCode);
+      return null;
+    }
+
+    if (isExpired(token.expiresAt, now)) {
+      this.clear(roomCode);
+      return null;
+    }
+
+    return token;
   },
 
-  /** 이 방에 들어와 본 적이 있는지. 이름을 물을지와는 무관하고 방문 기록일 뿐이다. */
-  hasVisited(roomCode: string, now: Date = new Date()): boolean {
-    return roomCode in readValid(now);
+  set(roomCode: string, token: RoomToken) {
+    writeAll({ ...readAll(), [roomCode]: token });
   },
 
-  /** 이 방에 들어왔다고 기록한다. 인증 직후에도, 기존 토큰으로 입장할 때도 부른다. */
-  save(roomCode: string, token: StoredToken) {
-    writeAll({ ...readValid(new Date()), [roomCode]: token });
-  },
-
-  /** 이 방 기록만 지운다. 다른 방 기록과 토큰은 그대로 둔다. */
+  /** 이 방 토큰만 지운다. 다른 방 토큰은 그대로 둔다. */
   clear(roomCode: string) {
-    const rooms = readAll();
+    const tokens = readAll();
 
-    if (!(roomCode in rooms)) return;
+    if (!(roomCode in tokens)) return;
 
-    delete rooms[roomCode];
-    writeAll(rooms);
+    delete tokens[roomCode];
+    writeAll(tokens);
   },
 
   clearAll() {

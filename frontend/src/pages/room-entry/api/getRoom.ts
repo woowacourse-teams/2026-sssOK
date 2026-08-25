@@ -1,4 +1,4 @@
-import { apiClient } from "@/shared/api";
+import { apiClient, tokenStorage } from "@/shared/api";
 
 /** backend RoomStatus 와 같은 값. 만료·삭제도 조회 자체는 성공한다. */
 export type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED";
@@ -18,4 +18,5 @@ export interface Room {
 }
 
 /** 공유 링크·QR 로 들어온 코드로 방을 조회한다. 입장 여부는 status 로 판단한다. */
-export const getRoom = (code: string) => apiClient<Room>(`/rooms/${code}`);
+export const getRoom = (code: string) =>
+  apiClient<Room>(`/rooms/${code}`, { token: tokenStorage.get(code)?.accessToken });

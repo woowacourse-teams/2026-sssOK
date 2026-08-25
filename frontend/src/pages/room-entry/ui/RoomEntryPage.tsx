@@ -22,8 +22,8 @@ export const RoomEntryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
   const { data: room, isPending, error } = useRoom(code);
 
-  // 토큰은 계정당 하나다. 어느 방에서 받았든 이름을 다시 묻지 않는다.
-  const [hasToken, setHasToken] = useState(() => tokenStorage.current() !== null);
+  // 토큰은 방마다 따로 있다. 처음 보는 방이면 이름부터 다시 묻는다.
+  const [hasToken, setHasToken] = useState(() => tokenStorage.get(code) !== null);
   const auth = useAnonymousAuth(code, () => setHasToken(true));
 
   const roomUnavailable = room !== undefined && room.status !== "ACTIVE";
@@ -73,11 +73,8 @@ export const RoomEntryPage = () => {
     );
   }
 
-  // 이미 토큰이 있으면 이름을 다시 묻지 않는다. 이 방에 들어왔다는 기록만 남긴다.
+  // 이 방 토큰이 이미 있으면 이름을 다시 묻지 않는다
   if (hasToken) {
-    const token = tokenStorage.current();
-    if (token) tokenStorage.save(code, token);
-
     return <Navigate to={ROUTES.gallery(code)} replace />;
   }
 
