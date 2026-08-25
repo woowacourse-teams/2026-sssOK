@@ -1,7 +1,8 @@
-import { Button } from "@/shared/ui/button";
 import { useNavigate } from "react-router-dom";
 
-export const CreateRoomButton = () => {
+import { Button } from "@/shared/ui/button";
+
+export const CreateRoomNavButton = () => {
   const navigate = useNavigate();
 
   const handleClick = () => {

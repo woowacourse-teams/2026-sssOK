@@ -1,5 +1,5 @@
-import { CreateRoomButton } from "@/features/create-room";
-import { JoinRoomButton } from "@/features/join-room";
+import { CreateRoomNavButton } from "./CreateRoomNavButton";
+import { JoinRoomNavButton } from "./JoinRoomNavButton";
 import { OnboardingIntro } from "./OnboardingIntro";
 import { ActionGroup, IntroArea, Section } from "./OnboardingSection.styles";
 
@@ -11,8 +11,8 @@ export const OnboardingSection = () => {
       </IntroArea>
 
       <ActionGroup>
-        <CreateRoomButton />
-        <JoinRoomButton />
+        <CreateRoomNavButton />
+        <JoinRoomNavButton />
       </ActionGroup>
     </Section>
   );
