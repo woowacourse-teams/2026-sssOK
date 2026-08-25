@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.SubscribeRoomEventsService;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -38,7 +39,7 @@ class RoomEventControllerTest {
     SubscribeRoomEventsService subscribeRoomEventsService;
 
     @MockitoBean
-    InMemorySseEventPublisher sseEventPublisher;
+    EventSubscriberPort sseEventPublisher;
 
     @Test
     void Authorization_헤더로_구독하면_비동기_요청이_시작된다() throws Exception {

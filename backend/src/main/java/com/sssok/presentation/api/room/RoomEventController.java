@@ -1,7 +1,7 @@
 package com.sssok.presentation.api.room;
 
+import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.room.SubscribeRoomEventsService;
-import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
 import com.sssok.presentation.auth.AuthMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -18,7 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class RoomEventController {
 
     private final SubscribeRoomEventsService subscribeRoomEventsService;
-    private final InMemorySseEventPublisher sseEventPublisher;
+    private final EventSubscriberPort sseEventPublisher;
 
     @GetMapping(value = "/{roomId}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter subscribe(

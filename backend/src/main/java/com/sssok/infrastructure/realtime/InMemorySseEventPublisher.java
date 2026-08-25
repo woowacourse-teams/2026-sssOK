@@ -21,7 +21,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class InMemorySseEventPublisher implements EventPublisherPort {
+public class InMemorySseEventPublisher implements EventPublisherPort, EventSubscriberPort {
 
     private final RoomEventJpaRepository roomEventJpaRepository;
     private final ObjectMapper objectMapper;
@@ -37,6 +37,7 @@ public class InMemorySseEventPublisher implements EventPublisherPort {
     }
 
     // 컨트롤러가 구독을 등록할 때 호출한다. lastEventId가 있으면 놓친 이벤트부터 먼저 재전송한다.
+    @Override
     public SseEmitter subscribe(Long roomId, Long lastEventId) {
         SseEmitter emitter = new SseEmitter();
         List<SseEmitter> emitters = emittersByRoom.computeIfAbsent(roomId, id -> new CopyOnWriteArrayList<>());
