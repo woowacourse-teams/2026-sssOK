@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.sssok.infrastructure.persistence.BaseEntity;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import lombok.AccessLevel;
@@ -16,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "room")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RoomJpaEntity {
+public class RoomJpaEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -43,9 +44,6 @@ public class RoomJpaEntity {
     @Column(name = "host_id", nullable = false)
     private Long hostId;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
@@ -61,6 +59,7 @@ public class RoomJpaEntity {
         Instant createdAt,
         Instant deletedAt
     ) {
+        super(createdAt);
         this.id = id;
         this.version = version;
         this.code = code;
@@ -69,7 +68,6 @@ public class RoomJpaEntity {
         this.expiresAt = expiresAt;
         this.uploadPolicy = uploadPolicy;
         this.hostId = hostId;
-        this.createdAt = createdAt;
         this.deletedAt = deletedAt;
     }
 }

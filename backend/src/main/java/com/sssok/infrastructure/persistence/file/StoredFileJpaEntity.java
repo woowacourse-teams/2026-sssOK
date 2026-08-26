@@ -3,6 +3,7 @@ package com.sssok.infrastructure.persistence.file;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.sssok.infrastructure.persistence.BaseEntity;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -13,7 +14,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "stored_file")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class StoredFileJpaEntity {
+public class StoredFileJpaEntity extends BaseEntity {
 
     @Id
     private Long id;

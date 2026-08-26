@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.sssok.infrastructure.persistence.BaseEntity;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import lombok.AccessLevel;
@@ -19,7 +20,7 @@ import lombok.NoArgsConstructor;
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class FolderJpaEntity {
+public class FolderJpaEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,13 +32,10 @@ public class FolderJpaEntity {
     @Column(nullable = false, length = 12)
     private String name;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
     public FolderJpaEntity(Long id, Long roomId, String name, Instant createdAt) {
+        super(createdAt);
         this.id = id;
         this.roomId = roomId;
         this.name = name;
-        this.createdAt = createdAt;
     }
 }

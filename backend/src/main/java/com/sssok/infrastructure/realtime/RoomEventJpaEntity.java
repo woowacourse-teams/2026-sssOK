@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.sssok.infrastructure.persistence.BaseEntity;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -17,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "room_events")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RoomEventJpaEntity {
+public class RoomEventJpaEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -32,13 +33,10 @@ public class RoomEventJpaEntity {
     @Column(name = "payload", nullable = false)
     private String payload;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
     public RoomEventJpaEntity(Long roomId, String eventType, String payload, Instant createdAt) {
+        super(createdAt);
         this.roomId = roomId;
         this.eventType = eventType;
         this.payload = payload;
-        this.createdAt = createdAt;
     }
 }
