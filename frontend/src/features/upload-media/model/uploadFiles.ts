@@ -1,6 +1,6 @@
 import { issueUploadUrls } from "../api/issueUploadUrls";
 import { registerMedia } from "../api/registerMedia";
-import type { Media } from "../api/types";
+import type { Media } from "@/entities/media";
 import { UPLOAD_CONCURRENCY } from "../config";
 import { runWithLimit } from "../lib/runWithLimit";
 import { pairWithFiles } from "./pairWithFiles";

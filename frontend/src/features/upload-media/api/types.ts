@@ -1,3 +1,5 @@
+import type { Media } from "@/entities/media";
+
 /**
  * 업로드 3-API(발급·완료 등록·재발급)의 요청·응답 모양이다.
  * 지금은 목(src/mocks/handlers/upload.ts)이 이대로 답하고, 서버 구현은 #76 이다.
@@ -62,31 +64,11 @@ export interface RegisterMediaRequest {
   mediaIds: number[];
 }
 
-export type MediaStatus = "RESERVED" | "PROCESSING" | "READY" | "FAILED";
-
 /**
- * 등록 응답에 실려오는 미디어.
- * 나중에 갤러리 목록 조회도 같은 모양을 쓰므로, 그때 entities 로 올린다.
+ * 등록 응답에 실려오는 미디어. 갤러리 목록도 같은 모양을 쓴다 —
+ * 그래서 정의는 `entities/media` 에 두고 여기서는 다시 내보내기만 한다.
  */
-export interface Media {
-  mediaId: number;
-  type: "IMAGE" | "VIDEO";
-  fileName: string;
-  mimeType: string;
-  size: number;
-  /** 워커가 만드는 값이라 PROCESSING 동안은 null 이다. */
-  thumbnailUrl: string | null;
-  originalUrl: string | null;
-  width: number;
-  height: number;
-  /** 영상만 값이 있다. */
-  duration: number | null;
-  folderIds: number[];
-  uploaderId: number;
-  uploaderName: string;
-  status: MediaStatus;
-  uploadedAt: string;
-}
+export type { Media, MediaStatus } from "@/entities/media";
 
 /**
  * 등록에서 미디어 단위로 갈라져 내려오는 실패.

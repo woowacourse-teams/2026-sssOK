@@ -6,4 +6,4 @@ export type {
   UploadProgress,
   UploadResult,
 } from "./model/types";
-export type { Media, RejectedFile } from "./api/types";
+export type { RejectedFile } from "./api/types";
