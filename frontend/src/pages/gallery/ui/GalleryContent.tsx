@@ -1,3 +1,6 @@
+import { useQueryClient } from "@tanstack/react-query";
+
+import { photosQueryKey } from "@/entities/media";
 import type { Room } from "@/entities/room";
 import { MediaUploader } from "@/features/upload-media";
 import { FolderFilter } from "@/widgets/folder-filter";
@@ -16,6 +19,7 @@ interface GalleryContentProps {
 }
 
 export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
+  const queryClient = useQueryClient();
   const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
 
   // 사진 조회
@@ -58,7 +62,15 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
       />
-      <MediaUploader />
+      <MediaUploader
+        roomId={room.roomId}
+        token={accessToken}
+        folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
+        // 올린 사진은 서버에만 있다. 목록을 다시 불러오지 않으면 갤러리에 나타나지 않는다.
+        onUploaded={() =>
+          queryClient.invalidateQueries({ queryKey: photosQueryKey(room.roomId, userId) })
+        }
+      />
       <PhotoGallery
         photos={photos}
         userId={userId}
