@@ -10,7 +10,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 폴더에 담기. mediaIds x folderIds 모든 조합을 연결한다(카테시안 곱).
+// 폴더에 담기. mediaIds 전부를 folderId 폴더 하나에 담는다.
 // 방 존재/만료/입장 여부는 RoomMembershipInterceptor가 먼저 걸러준다.
 @Service
 @RequiredArgsConstructor
@@ -22,40 +22,31 @@ public class AddMediaToFoldersService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public AddMediaToFoldersResult add(Long roomId, List<Long> mediaIds, List<Long> folderIds) {
-        requireNotEmpty(mediaIds, folderIds);
+    public AddMediaToFoldersResult add(Long roomId, List<Long> mediaIds, Long folderId) {
+        requireNotEmpty(mediaIds, folderId);
 
-        List<Long> distinctFolderIds = folderIds.stream().distinct().toList();
         List<Long> distinctMediaIds = mediaIds.stream().distinct().toList();
-
-        List<Folder> folders = roomFolders.requireAllInRoom(roomId, distinctFolderIds);
+        Folder folder = roomFolders.requireAllInRoom(roomId, List.of(folderId)).get(0);
 
         List<Long> existingMediaIds = fileRepository.findExistingIds(distinctMediaIds);
         List<Long> notFoundMediaIds = distinctMediaIds.stream()
             .filter(id -> !existingMediaIds.contains(id))
             .toList();
 
-        int updatedCount = folderMediaRepository.attachAll(distinctFolderIds, existingMediaIds);
-        int totalPairs = distinctFolderIds.size() * existingMediaIds.size();
-        int alreadyInCount = totalPairs - updatedCount;
+        int updatedCount = folderMediaRepository.attachToFolder(folderId, existingMediaIds);
+        int alreadyInCount = existingMediaIds.size() - updatedCount;
 
-        List<FolderSummary> summaries = summarize(folders);
+        FolderSummary summary = FolderSummary.of(folder, folderMediaRepository.countByFolderId(folderId));
 
         if (!existingMediaIds.isEmpty()) {
-            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, existingMediaIds, summaries));
+            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, existingMediaIds, List.of(summary)));
         }
-        return new AddMediaToFoldersResult(updatedCount, alreadyInCount, notFoundMediaIds, summaries);
+        return new AddMediaToFoldersResult(updatedCount, alreadyInCount, notFoundMediaIds, summary);
     }
 
-    private void requireNotEmpty(List<Long> mediaIds, List<Long> folderIds) {
-        if (mediaIds == null || mediaIds.isEmpty() || folderIds == null || folderIds.isEmpty()) {
+    private void requireNotEmpty(List<Long> mediaIds, Long folderId) {
+        if (mediaIds == null || mediaIds.isEmpty() || folderId == null) {
             throw new InvalidMediaFolderParamException();
         }
-    }
-
-    private List<FolderSummary> summarize(List<Folder> folders) {
-        return folders.stream()
-            .map(folder -> FolderSummary.of(folder, folderMediaRepository.countByFolderId(folder.getId())))
-            .toList();
     }
 }

@@ -28,10 +28,10 @@ public class MediaFolderController {
 
     @Operation(
         summary = "폴더에 담기",
-        description = "mediaIds의 모든 미디어를 folderIds의 모든 폴더 각각에 담는다(카테시안 곱). 이미 속한 "
-            + "폴더는 유지되며, 이미 담긴 조합은 오류 없이 alreadyInCount로만 집계된다(멱등). 존재하지 않는 "
-            + "mediaId는 그 미디어만 건너뛰고 notFoundMediaIds로 알려준다 — 반면 folderIds 중 하나라도 없는 "
-            + "폴더면 요청 전체를 거부한다(404). mediaIds/folderIds가 비어 있으면 400이 난다. 성공하면 SSE로 "
+        description = "mediaIds의 모든 미디어를 folderId 폴더 하나에 담는다. 이미 속한 다른 폴더는 유지되며, "
+            + "이미 이 폴더에 담긴 미디어는 오류 없이 alreadyInCount로만 집계된다(멱등). 존재하지 않는 mediaId는 "
+            + "그 미디어만 건너뛰고 notFoundMediaIds로 알려준다 — 반면 folderId가 없는 폴더면 요청 전체를 "
+            + "거부한다(404). mediaIds가 비어 있거나 folderId가 없으면 400이 난다. 성공하면 SSE로 "
             + "media.folders.updated(action: ADD) 이벤트가 발행된다."
     )
     @PutMapping
@@ -41,7 +41,7 @@ public class MediaFolderController {
         @RequestBody AddToFoldersRequest request
     ) {
         AddMediaToFoldersResult result =
-            addMediaToFoldersService.add(roomId, request.mediaIds(), request.folderIds());
+            addMediaToFoldersService.add(roomId, request.mediaIds(), request.folderId());
         return ApiResponse.of(AddToFoldersResponse.from(result));
     }
 

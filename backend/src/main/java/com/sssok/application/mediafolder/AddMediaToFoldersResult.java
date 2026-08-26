@@ -6,6 +6,6 @@ public record AddMediaToFoldersResult(
     int updatedCount,
     int alreadyInCount,
     List<Long> notFoundMediaIds,
-    List<FolderSummary> folders
+    FolderSummary folder
 ) {
 }

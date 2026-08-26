@@ -12,12 +12,10 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     private final FolderMediaJpaRepository jpaRepository;
 
     @Override
-    public int attachAll(List<Long> folderIds, List<Long> mediaIds) {
+    public int attachToFolder(Long folderId, List<Long> mediaIds) {
         int updatedCount = 0;
-        for (Long folderId : folderIds) {
-            for (Long mediaId : mediaIds) {
-                updatedCount += jpaRepository.insertIfAbsent(folderId, mediaId);
-            }
+        for (Long mediaId : mediaIds) {
+            updatedCount += jpaRepository.insertIfAbsent(folderId, mediaId);
         }
         return updatedCount;
     }
