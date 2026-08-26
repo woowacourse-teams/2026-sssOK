@@ -75,7 +75,7 @@ class AuthControllerTest {
     @Test
     void 닉네임이_유효하지_않으면_400과_에러코드를_반환한다() throws Exception {
         given(anonymousAuthService.authenticate(anyString()))
-            .willThrow(new InvalidNicknameException("닉네임을 입력해주세요"));
+            .willThrow(new InvalidNicknameException());
 
         mockMvc.perform(post("/api/v1/auth/anonymous")
                 .contentType(MediaType.APPLICATION_JSON)

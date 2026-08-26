@@ -1,8 +1,11 @@
 package com.sssok.domain.room.exception;
 
-public class RoomHostRequiredException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class RoomHostRequiredException extends SssOkException {
 
     public RoomHostRequiredException() {
-        super("방장만 수행할 수 있는 작업입니다.");
+        super(ErrorCode.NOT_ROOM_HOST);
     }
 }

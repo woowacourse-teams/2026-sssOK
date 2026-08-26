@@ -79,6 +79,16 @@ class LinkLoginServiceTest {
     }
 
     @Test
+    void 회원이_사라진_코드면_예외() {
+        // 방이 정리되면서 회원이 지워지면 코드만 남는다. 이때 500 이 아니라 코드 오류로 나가야 한다.
+        LinkCodeValue code = LinkCodeValue.generate(RandomGenerator.of("Random"));
+        linkCodeRepository.save(LinkCode.issue(-1L, code, Instant.now()));
+
+        assertThatThrownBy(() -> linkLoginService.login(code.value()))
+            .isInstanceOf(LinkCodeNotFoundException.class);
+    }
+
+    @Test
     void 만료된_코드면_예외() {
         AuthResult registered = anonymousAuthService.authenticate("로지");
         LinkCodeValue code = LinkCodeValue.generate(RandomGenerator.of("Random"));

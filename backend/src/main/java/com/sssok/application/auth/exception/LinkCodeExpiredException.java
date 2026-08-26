@@ -1,8 +1,11 @@
 package com.sssok.application.auth.exception;
 
-public class LinkCodeExpiredException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class LinkCodeExpiredException extends SssOkException {
 
     public LinkCodeExpiredException() {
-        super("만료된 코드입니다");
+        super(ErrorCode.LINK_CODE_EXPIRED);
     }
 }

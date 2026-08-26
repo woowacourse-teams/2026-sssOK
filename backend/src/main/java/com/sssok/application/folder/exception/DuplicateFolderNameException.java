@@ -1,8 +1,11 @@
 package com.sssok.application.folder.exception;
 
-public class DuplicateFolderNameException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class DuplicateFolderNameException extends SssOkException {
 
     public DuplicateFolderNameException() {
-        super("이미 같은 이름의 폴더가 있습니다");
+        super(ErrorCode.DUPLICATE_FOLDER_NAME);
     }
 }

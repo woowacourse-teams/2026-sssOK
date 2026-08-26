@@ -1,8 +1,16 @@
 package com.sssok.application.folder.exception;
 
-public class FolderNotFoundException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+import java.util.List;
+
+public class FolderNotFoundException extends SssOkException {
 
     public FolderNotFoundException(Long folderId) {
-        super("존재하지 않는 폴더입니다: " + folderId);
+        super(ErrorCode.FOLDER_NOT_FOUND, folderId);
+    }
+
+    public FolderNotFoundException(List<Long> folderIds) {
+        super(ErrorCode.FOLDER_NOT_FOUND, folderIds);
     }
 }

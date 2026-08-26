@@ -40,6 +40,7 @@ import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,7 +111,7 @@ class RoomControllerTest {
             CREATED_AT,
             null
         );
-        return new RoomDetail(room, "가현", joined);
+        return new RoomDetail(room, "가현", joined, 0, List.of());
     }
 
     @Test
@@ -304,7 +305,7 @@ class RoomControllerTest {
     @Test
     void 허용되지_않은_만료_시간이면_400을_반환한다() throws Exception {
         given(updateRoomService.update(anyLong(), anyLong(), any()))
-            .willThrow(new InvalidRoomExpirationException("48시간"));
+            .willThrow(new InvalidRoomExpirationException());
 
         mockMvc.perform(patch("/api/v1/rooms/{roomId}", ROOM_ID)
                 .header("Authorization", BEARER)
@@ -317,7 +318,7 @@ class RoomControllerTest {
     @Test
     void 알_수_없는_업로드_권한이면_400을_반환한다() throws Exception {
         given(updateRoomService.update(anyLong(), anyLong(), any()))
-            .willThrow(new InvalidUploadPolicyException("nobody"));
+            .willThrow(new InvalidUploadPolicyException());
 
         mockMvc.perform(patch("/api/v1/rooms/{roomId}", ROOM_ID)
                 .header("Authorization", BEARER)

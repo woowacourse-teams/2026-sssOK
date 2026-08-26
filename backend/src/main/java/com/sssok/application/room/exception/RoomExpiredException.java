@@ -1,8 +1,11 @@
 package com.sssok.application.room.exception;
 
-public class RoomExpiredException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class RoomExpiredException extends SssOkException {
 
     public RoomExpiredException() {
-        super("이미 사라진 방입니다");
+        super(ErrorCode.ROOM_EXPIRED);
     }
 }

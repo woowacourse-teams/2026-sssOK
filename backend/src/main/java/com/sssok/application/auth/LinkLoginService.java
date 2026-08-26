@@ -41,8 +41,9 @@ public class LinkLoginService {
         if (!consumed) {
             throw new LinkCodeNotFoundException();
         }
-
-        Member member = memberRepository.findById(linkCode.getMemberId()).orElseThrow();
+        
+        Member member = memberRepository.findById(linkCode.getMemberId())
+            .orElseThrow(LinkCodeNotFoundException::new);
         IssuedToken token = tokenProvider.issue(member.getId(), now);
         return new AuthResult(token.value(), member.getId(), member.getDisplayName().value(), token.expiresAt());
     }

@@ -1,8 +1,11 @@
 package com.sssok.domain.folder.exception;
 
-public class FolderNameTooLongException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class FolderNameTooLongException extends SssOkException {
 
     public FolderNameTooLongException() {
-        super("폴더 이름은 12자까지 입력할 수 있어요");
+        super(ErrorCode.FOLDER_NAME_TOO_LONG);
     }
 }
