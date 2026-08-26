@@ -15,10 +15,13 @@ import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +49,9 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
 
     @Autowired
     RoomMemberRepository roomMemberRepository;
+
+    @Autowired
+    RoomEventJpaRepository roomEventJpaRepository;
 
     private Long hostId;
     private Long guestId;
@@ -96,6 +102,31 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
 
         assertThat(guestResult.hostId()).isEqualTo(hostId);
         assertThat(hostResult.hostId()).isEqualTo(hostId);
+    }
+
+    @Test
+    void 신규_참여하면_room_member_joined_이벤트가_발행된다() {
+        Room room = createRoom();
+
+        joinRoomService.join(room.getId(), guestId);
+
+        List<RoomEventJpaEntity> events =
+            roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getEventType()).isEqualTo("room.member.joined");
+        assertThat(events.get(0).getPayload()).contains(guestId.toString());
+    }
+
+    @Test
+    void 재입장하면_이벤트가_다시_발행되지_않는다() {
+        Room room = createRoom();
+        joinRoomService.join(room.getId(), guestId);
+
+        joinRoomService.join(room.getId(), guestId);
+
+        List<RoomEventJpaEntity> events =
+            roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L);
+        assertThat(events).hasSize(1);
     }
 
     @Test

@@ -1,0 +1,67 @@
+import { API_BASE_URL } from "@/shared/config";
+import { ApiError } from "./ApiError";
+
+interface ApiClientOptions extends RequestInit {
+  token?: string;
+}
+
+interface ErrorResponse {
+  code?: string;
+  message?: string;
+}
+
+/** 성공 응답은 항상 data 로 한 겹 감싸여 온다 (backend ApiResponse<T>). */
+interface ApiResponse<T> {
+  data: T;
+}
+
+const getErrorResponse = async (response: Response): Promise<ErrorResponse> => {
+  try {
+    return (await response.json()) as ErrorResponse;
+  } catch {
+    return {};
+  }
+};
+
+/** path 는 접두사를 뺀 경로다 — 접두사는 여기서 한 번만 붙인다. */
+export const apiClient = async <T>(
+  path: string,
+  { token, headers, ...options }: ApiClientOptions = {},
+): Promise<T> => {
+  const requestHeaders = new Headers(headers);
+
+  if (token) {
+    requestHeaders.set("Authorization", `Bearer ${token}`);
+  }
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      headers: requestHeaders,
+    });
+  } catch {
+    throw new ApiError(0, "NETWORK_ERROR", "네트워크 연결을 확인해주세요.");
+  }
+
+  if (!response.ok) {
+    const error = await getErrorResponse(response);
+
+    throw new ApiError(
+      response.status,
+      error.code ?? "UNKNOWN_ERROR",
+      error.message ?? "API 요청에 실패했습니다.",
+    );
+  }
+
+  const body: unknown = await response.json().catch(() => null);
+
+  // 200 인데 본문이 없거나 우리 API 형식이 아니면 서버 응답이 아니다.
+  // (목이 준비되기 전 요청이 dev 서버로 새어 index.html 을 받는 경우가 그렇다)
+  if (body === null || typeof body !== "object" || !("data" in body)) {
+    throw new ApiError(response.status, "INVALID_RESPONSE", "서버 응답을 이해하지 못했어요.");
+  }
+
+  return (body as ApiResponse<T>).data;
+};

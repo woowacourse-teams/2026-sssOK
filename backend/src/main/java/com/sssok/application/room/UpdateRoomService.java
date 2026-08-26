@@ -12,6 +12,7 @@ import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,7 @@ public class UpdateRoomService {
 
     private final RoomRepository roomRepository;
     private final RoomDetailReader roomDetailReader;
+    private final ApplicationEventPublisher eventPublisher;
 
     private final RoomPermissionPolicy permissionPolicy = new RoomPermissionPolicy();
 
@@ -43,7 +45,9 @@ public class UpdateRoomService {
 
         room.updateSettings(requesterId, resolveName(room, command), resolveExpiration(room, command, now),
             resolveUploadPolicy(room, command));
-        return roomDetailReader.read(roomRepository.save(room), requesterId);
+        Room saved = roomRepository.save(room);
+        eventPublisher.publishEvent(RoomUpdatedEvent.from(saved));
+        return roomDetailReader.read(saved, requesterId);
     }
 
     private RoomName resolveName(Room room, UpdateRoomCommand command) {

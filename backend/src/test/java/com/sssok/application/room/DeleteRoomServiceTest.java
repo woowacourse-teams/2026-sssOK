@@ -16,10 +16,13 @@ import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +45,9 @@ class DeleteRoomServiceTest {
 
     @Autowired
     AnonymousAuthService anonymousAuthService;
+
+    @Autowired
+    RoomEventJpaRepository roomEventJpaRepository;
 
     private Long HOST;
     private Long GUEST;
@@ -85,6 +91,19 @@ class DeleteRoomServiceTest {
 
         Room reloaded = roomRepository.findByCode(room.getCode()).orElseThrow();
         assertThat(reloaded.canEnter(Instant.now())).isFalse();
+    }
+
+    @Test
+    void 삭제하면_room_deleted_이벤트가_발행된다() {
+        Room room = createRoom();
+
+        DeleteRoomResult result = deleteRoomService.delete(room.getId(), HOST);
+
+        List<RoomEventJpaEntity> events =
+            roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L);
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0).getEventType()).isEqualTo("room.deleted");
+        assertThat(events.get(0).getPayload()).contains(result.deletedAt().toString().substring(0, 10));
     }
 
     @Test

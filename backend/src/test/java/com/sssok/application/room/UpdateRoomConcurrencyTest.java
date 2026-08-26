@@ -77,9 +77,8 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 수정과_삭제가_동시에_들어와도_삭제가_성공했으면_되살아나지_않는다() throws Exception {
+    void 수정과_삭제가_동시에_들어와도_한쪽만_반영되고_저장된_상태와_결과가_항상_일치한다() throws Exception {
         Long hostId = 방장_생성();
-        int deleted = 0;
 
         for (int round = 0; round < ROUNDS; round++) {
             Room room = createRoomService.create(hostId, "우테코 회식").room();
@@ -92,17 +91,23 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
                 return deleteRoomService.delete(room.getId(), hostId);
             });
 
-            // 수정이 경쟁에서 이기면 삭제가 충돌로 실패한다. 그건 정상이므로 성공한 경우만 본다.
-            if (outcomes.get(1) instanceof Exception) {
-                continue;
-            }
-            deleted++;
-            Room reloaded = roomRepository.findById(room.getId()).orElseThrow();
-            assertThat(reloaded.getStatus()).isSameAs(DeletedRoomStatus.INSTANCE);
-            assertThat(reloaded.getDeletedAt()).isNotNull();
-        }
+            boolean updateSucceeded = outcomes.get(0) instanceof RoomDetail;
+            boolean deleteSucceeded = outcomes.get(1) instanceof DeleteRoomResult;
 
-        assertThat(deleted).isPositive();
+            // 낙관적 락 덕분에 둘 중 어느 쪽이 이기든 정확히 하나만 반영된다 —
+            // 둘 다 성공하거나(마지막에 쓴 쪽이 상대 결과를 덮어씀) 둘 다 실패할 수는 없다.
+            assertThat(updateSucceeded ^ deleteSucceeded).isTrue();
+
+            Room reloaded = roomRepository.findById(room.getId()).orElseThrow();
+            if (deleteSucceeded) {
+                assertThat(reloaded.getStatus()).isSameAs(DeletedRoomStatus.INSTANCE);
+                assertThat(reloaded.getDeletedAt()).isNotNull();
+            } else {
+                // update가 이겼다면 delete의 쓰기는 충돌로 거부됐어야 한다 — 방이 삭제된 채로 남아있으면 안 된다.
+                assertThat(reloaded.getStatus()).isNotSameAs(DeletedRoomStatus.INSTANCE);
+                assertThat(reloaded.getDeletedAt()).isNull();
+            }
+        }
     }
 
     private Long 방장_생성() {
