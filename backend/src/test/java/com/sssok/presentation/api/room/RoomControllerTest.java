@@ -14,6 +14,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomResult;
@@ -81,6 +83,14 @@ class RoomControllerTest {
     // AuthMemberArgumentResolver가 의존하는 포트
     @MockitoBean
     TokenProvider tokenProvider;
+
+    // WebConfig가 등록하는 RoomMembershipInterceptor가 요구하는 포트. 이 슬라이스의 경로는
+    // 인터셉터 패턴과 무관하지만, 빈 자체는 컨텍스트에 함께 뜨므로 목으로 채워야 한다.
+    @MockitoBean
+    RoomRepository roomRepository;
+
+    @MockitoBean
+    RoomMemberRepository roomMemberRepository;
 
     @BeforeEach
     void setUp() {

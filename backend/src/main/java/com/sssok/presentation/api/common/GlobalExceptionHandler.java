@@ -3,12 +3,16 @@ package com.sssok.presentation.api.common;
 import com.sssok.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.domain.auth.exception.InvalidLinkCodeException;
+import com.sssok.domain.folder.exception.FolderNameTooLongException;
+import com.sssok.domain.folder.exception.InvalidFolderNameException;
 import com.sssok.domain.member.exception.InvalidNicknameException;
 import com.sssok.domain.room.exception.InvalidRoomExpirationException;
 import com.sssok.domain.room.exception.InvalidRoomNameException;
 import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.application.room.exception.EmptyPatchException;
+import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
@@ -119,6 +123,30 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleRoomMembershipRequired(RoomMembershipRequiredException e) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
             .body(new ErrorResponse("ROOM_MEMBERSHIP_REQUIRED", e.getMessage()));
+    }
+
+    @ExceptionHandler(NotRoomMemberException.class)
+    public ResponseEntity<ErrorResponse> handleNotRoomMember(NotRoomMemberException e) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+            .body(new ErrorResponse("NOT_ROOM_MEMBER", e.getMessage()));
+    }
+
+    @ExceptionHandler(InvalidFolderNameException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidFolderName(InvalidFolderNameException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_FOLDER_NAME", e.getMessage()));
+    }
+
+    @ExceptionHandler(FolderNameTooLongException.class)
+    public ResponseEntity<ErrorResponse> handleFolderNameTooLong(FolderNameTooLongException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("FOLDER_NAME_TOO_LONG", e.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateFolderNameException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateFolderName(DuplicateFolderNameException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(new ErrorResponse("DUPLICATE_FOLDER_NAME", e.getMessage()));
     }
 
 
