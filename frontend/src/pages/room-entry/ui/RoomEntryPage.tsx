@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 
-import { removeRoomSession } from "@/entities/session";
+import { useRoomQuery } from "@/entities/room";
+import { readValidRoomSession, removeRoomSession } from "@/entities/session";
 import { NameEntryBottomSheet } from "@/features/join-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
-import { useAnonymousAuth, useRoom } from "../api";
-import { readValidRoomSession } from "../lib/roomSession";
+import { useAnonymousAuth } from "../api";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
@@ -22,14 +22,23 @@ const HomeLink = () => <Link to={ROUTES.home}>홈으로 돌아가기</Link>;
 
 export const RoomEntryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
-  const { data: room, isPending, error } = useRoom(code);
+  const session = readValidRoomSession(code);
+  const {
+    data: room,
+    isPending,
+    error,
+  } = useRoomQuery({
+    code,
+    token: session?.accessToken,
+    userId: session?.userId,
+  });
 
   // 방금 인증을 마친 방. 코드가 바뀌면 그 방 기준으로 다시 판단해야 해서 방 코드로 들고 있는다.
   const [authedCode, setAuthedCode] = useState<string | null>(null);
   const auth = useAnonymousAuth(code, () => setAuthedCode(code));
 
   // 세션은 방마다 따로 있다. 처음 보는 방이면 이름부터 다시 묻는다.
-  const hasSession = authedCode === code || readValidRoomSession(code) !== null;
+  const hasSession = authedCode === code || session !== null;
 
   const roomUnavailable = room !== undefined && room.status !== "ACTIVE";
 

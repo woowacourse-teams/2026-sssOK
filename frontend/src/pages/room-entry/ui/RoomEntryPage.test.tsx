@@ -56,7 +56,9 @@ describe("RoomEntryPage", () => {
     it("이름 입력 모달을 띄우고, 이름이 비어 있으면 입장하기가 비활성화된다", async () => {
       renderAt(MOCK_ROOM_CODES.active);
 
-      expect(await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+      ).toBeInTheDocument();
       expect(getSubmitButton()).toBeDisabled();
     });
 
@@ -173,7 +175,9 @@ describe("RoomEntryPage", () => {
 
       renderAt(MOCK_ROOM_CODES.active);
 
-      expect(await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+      ).toBeInTheDocument();
       expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
     });
   });
