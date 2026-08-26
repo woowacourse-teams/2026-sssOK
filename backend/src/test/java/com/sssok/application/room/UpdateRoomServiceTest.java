@@ -62,7 +62,7 @@ class UpdateRoomServiceTest {
     }
 
     private Room createRoom() {
-        return createRoomService.create(HOST, "우테코 회식").room();
+        return createRoomService.create(HOST, "우테코 회식", null, null).room();
     }
 
     @Test
@@ -149,13 +149,13 @@ class UpdateRoomServiceTest {
     }
 
     @Test
-    void 방장이_아직_입장하지_않았으면_joined는_거짓이다() {
+    void 방장은_생성_시점에_자동으로_입장돼_있어_joined가_참이다() {
         Room room = createRoom();
 
         RoomDetail updated = updateRoomService.update(room.getId(), HOST,
             new UpdateRoomCommand("2차 회식", null, null));
 
-        assertThat(updated.joined()).isFalse();
+        assertThat(updated.joined()).isTrue();
     }
 
     @Test

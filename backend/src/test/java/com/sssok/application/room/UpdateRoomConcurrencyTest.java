@@ -46,7 +46,7 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     @Test
     void 동시에_수정해도_한_번에_하나씩만_반영된다() throws Exception {
         Long hostId = 방장_생성();
-        Room room = createRoomService.create(hostId, "우테코 회식").room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
         Long before = roomRepository.findById(room.getId()).orElseThrow().getVersion();
 
         List<Object> outcomes = 동시에(THREADS, i -> updateRoomService.update(room.getId(), hostId,
@@ -63,7 +63,7 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     @Test
     void 읽은_뒤_삭제된_방에는_수정을_저장할_수_없다() {
         Long hostId = 방장_생성();
-        Room room = createRoomService.create(hostId, "우테코 회식").room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
         Room stale = roomRepository.findById(room.getId()).orElseThrow();
 
         deleteRoomService.delete(room.getId(), hostId);
@@ -81,7 +81,7 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
         Long hostId = 방장_생성();
 
         for (int round = 0; round < ROUNDS; round++) {
-            Room room = createRoomService.create(hostId, "우테코 회식").room();
+            Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
 
             List<Object> outcomes = 동시에(2, i -> {
                 if (i == 0) {

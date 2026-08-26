@@ -81,7 +81,7 @@ class PurgeRoomServiceTest {
 
     @Test
     void 아직_만료되지_않은_방은_대상이_아니다() {
-        Room room = createRoomService.create(hostId, "우테코 회식").room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
 
         int purged = purgeRoomService.purgeAll(Instant.now());
 
@@ -119,7 +119,7 @@ class PurgeRoomServiceTest {
 
     @Test
     void 방을_지우면_참여_기록도_함께_사라진다() {
-        Room room = createRoomService.create(hostId, "우테코 회식").room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
         roomMemberRepository.save(RoomMember.join(room.getId(), guestId, Instant.now()));
         deleteRoomService.delete(room.getId(), hostId);
         오래된_삭제로_되돌리기(room);
@@ -131,7 +131,7 @@ class PurgeRoomServiceTest {
 
     @Test
     void 방을_지워도_회원_계정은_남는다() {
-        Room room = createRoomService.create(hostId, "우테코 회식").room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
         roomMemberRepository.save(RoomMember.join(room.getId(), guestId, Instant.now()));
         deleteRoomService.delete(room.getId(), hostId);
         오래된_삭제로_되돌리기(room);

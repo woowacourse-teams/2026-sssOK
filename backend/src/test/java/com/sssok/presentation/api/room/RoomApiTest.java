@@ -48,7 +48,7 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.hostId").value(notNullValue()))
             .andExpect(jsonPath("$.data.hostName").value("가현"))
             .andExpect(jsonPath("$.data.uploadPolicy").value("everyone"))
-            .andExpect(jsonPath("$.data.joined").value(false))
+            .andExpect(jsonPath("$.data.joined").value(true))
             .andExpect(jsonPath("$.data.expiresAt").value(notNullValue()))
             .andReturn();
 
@@ -331,7 +331,8 @@ class RoomApiTest extends PostgresContainerSupport {
         String guestToken = 익명_인증("민수");
         long roomId = 방_만들기(hostToken).roomId();
 
-        MvcResult hostJoin = 입장(hostToken, roomId).andExpect(status().isCreated()).andReturn();
+        // 방장은 생성 시점에 이미 자동으로 참여자 등록돼 있으므로 200(재입장)이 온다.
+        MvcResult hostJoin = 입장(hostToken, roomId).andExpect(status().isOk()).andReturn();
         MvcResult guestJoin = 입장(guestToken, roomId).andExpect(status().isCreated()).andReturn();
 
         assertThat(값(hostJoin, "userId")).isEqualTo(값(hostJoin, "hostId"));

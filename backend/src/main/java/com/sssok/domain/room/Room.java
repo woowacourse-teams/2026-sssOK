@@ -49,8 +49,18 @@ public class Room {
     }
 
     public static Room create(RoomCode code, RoomName name, Long hostId, Instant now) {
-        return new Room(null, null, code, name, RoomStatus.initial(),
-            RoomExpiration.defaultFrom(now), UploadPolicy.ANYONE, hostId, now, null);
+        return create(code, name, hostId, now, UploadPolicy.ANYONE, RoomExpiration.defaultFrom(now));
+    }
+
+    public static Room create(
+        RoomCode code,
+        RoomName name,
+        Long hostId,
+        Instant now,
+        UploadPolicy uploadPolicy,
+        RoomExpiration expiration
+    ) {
+        return new Room(null, null, code, name, RoomStatus.initial(), expiration, uploadPolicy, hostId, now, null);
     }
 
     // 저장소에서 불러온 값으로 복원
