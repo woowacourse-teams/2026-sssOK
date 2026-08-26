@@ -35,8 +35,8 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     private Long existingMedia(long id) {
         jdbcTemplate.update("""
             INSERT INTO stored_file
-                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes, storage_key, status, created_at)
-            VALUES (?, 1, 1, 'test.jpg', 'JPEG', 1024, ?, 'COMPLETED', now())
+                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes, storage_key, status, created_at, updated_at)
+            VALUES (?, 1, 1, 'test.jpg', 'JPEG', 1024, ?, 'COMPLETED', now(), now())
             """, id, "test-key-" + id);
         return id;
     }

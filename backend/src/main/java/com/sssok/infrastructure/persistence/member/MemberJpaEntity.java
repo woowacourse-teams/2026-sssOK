@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import com.sssok.infrastructure.persistence.BaseEntity;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -15,7 +16,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "member")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MemberJpaEntity {
+public class MemberJpaEntity extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,12 +25,9 @@ public class MemberJpaEntity {
     @Column(name = "nickname", nullable = false, length = 12)
     private String nickname;
 
-    @Column(name = "created_at", nullable = false)
-    private Instant createdAt;
-
     public MemberJpaEntity(Long id, String nickname, Instant createdAt) {
+        super(createdAt);
         this.id = id;
         this.nickname = nickname;
-        this.createdAt = createdAt;
     }
 }

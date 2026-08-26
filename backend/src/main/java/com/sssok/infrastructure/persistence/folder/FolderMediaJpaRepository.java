@@ -35,10 +35,11 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
     int deleteByRoomId(@Param("roomId") Long roomId);
 
     // 동시에 같은 조합을 담으려는 요청이 있어도 관계는 하나만 남도록 DB에 맡긴다.
+    // JPA 를 거치지 않아 BaseEntity 의 @PrePersist 가 돌지 않으므로 감사 컬럼을 직접 넣는다.
     @Modifying
     @Query(value = """
-        INSERT INTO folder_media (folder_id, media_id)
-        VALUES (:folderId, :mediaId)
+        INSERT INTO folder_media (folder_id, media_id, created_at, updated_at)
+        VALUES (:folderId, :mediaId, now(), now())
         ON CONFLICT (folder_id, media_id) DO NOTHING
         """, nativeQuery = true)
     int insertIfAbsent(@Param("folderId") Long folderId, @Param("mediaId") Long mediaId);
