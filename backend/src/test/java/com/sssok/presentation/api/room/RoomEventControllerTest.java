@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.EventSubscriberPort;
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.SubscribeRoomEventsService;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -40,6 +42,14 @@ class RoomEventControllerTest {
 
     @MockitoBean
     EventSubscriberPort sseEventPublisher;
+
+    // WebConfig가 등록하는 RoomMembershipInterceptor가 요구하는 포트. 이 슬라이스의 경로는
+    // 인터셉터 패턴과 무관하지만, 빈 자체는 컨텍스트에 함께 뜨므로 목으로 채워야 한다.
+    @MockitoBean
+    RoomRepository roomRepository;
+
+    @MockitoBean
+    RoomMemberRepository roomMemberRepository;
 
     @Test
     void Authorization_헤더로_구독하면_비동기_요청이_시작된다() throws Exception {

@@ -3,12 +3,21 @@ package com.sssok.infrastructure.persistence.file;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.StoredFile;
 import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-// TODO(#25): 파일 영속화(엔티티·테이블)가 아직 없어 지울 대상이 없다.
-// StoredFile 저장이 생기면 roomId 로 찾아 지우도록 채운다. 그 전까지 정리 배치는 방만 지운다.
+// findAllByRoomId/deleteAllByRoomId: stored_file은 존재 확인용 최소 매핑(id만)이라
+// 실제 업로드 파이프라인(#16)이 StoredFile을 온전히 채워 넣을 때까지는 지울 대상이 없다.
 @Component
+@RequiredArgsConstructor
 public class FileRepositoryAdapter implements FileRepository {
+
+    private final StoredFileJpaRepository jpaRepository;
+
+    @Override
+    public boolean existsById(Long id) {
+        return jpaRepository.existsById(id);
+    }
 
     @Override
     public List<StoredFile> findAllByRoomId(Long roomId) {

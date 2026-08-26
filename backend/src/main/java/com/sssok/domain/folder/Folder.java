@@ -1,5 +1,6 @@
 package com.sssok.domain.folder;
 
+import java.time.Instant;
 import lombok.Getter;
 
 // 방 안에서 파일을 묶는 폴더. 지금 요구사항은 폴더 안에 폴더가 없는 1depth 구조라,
@@ -11,19 +12,21 @@ public class Folder {
     private final Long id;
     private final Long roomId;
     private FolderName name;
+    private final Instant createdAt;
 
-    private Folder(Long id, Long roomId, FolderName name) {
+    private Folder(Long id, Long roomId, FolderName name, Instant createdAt) {
         this.id = id;
         this.roomId = roomId;
         this.name = name;
+        this.createdAt = createdAt;
     }
 
-    public static Folder create(Long roomId, FolderName name) {
-        return new Folder(null, roomId, name);
+    public static Folder create(Long roomId, FolderName name, Instant now) {
+        return new Folder(null, roomId, name, now);
     }
 
-    public static Folder reconstruct(Long id, Long roomId, FolderName name) {
-        return new Folder(id, roomId, name);
+    public static Folder reconstruct(Long id, Long roomId, FolderName name, Instant createdAt) {
+        return new Folder(id, roomId, name, createdAt);
     }
 
     public void rename(FolderName newName) {
