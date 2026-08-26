@@ -32,8 +32,12 @@ export const Description = styled.p`
   ${typography.caption1}
 `;
 
+/**
+ * 시안에서 두 버튼은 같은 폭이다. 권하는 쪽을 넓히지 않는다 — 폭이 아니라 색으로 구분한다.
+ * 높이·라운드·타이포는 공용 `Button` 의 `sm` 이 그대로 맞아서 덮지 않는다.
+ */
 const Action = styled(Button)`
-  height: 55px;
+  flex: 1;
 `;
 
 export const Actions = styled.div`
@@ -48,11 +52,7 @@ export const Actions = styled.div`
  * 여기서만 덮어쓴다 — 다른 화면의 버튼까지 같이 바뀌면 안 된다.
  */
 export const CloseAction = styled(Action)`
-  flex: 1;
   background-color: ${colors.interactiveHover};
 `;
 
-/** 권하는 쪽이라 시안에서도 더 넓다. */
-export const RetryAction = styled(Action)`
-  flex: 1.4;
-`;
+export const RetryAction = Action;
