@@ -1,14 +1,14 @@
 import { http, HttpResponse } from "msw";
 
-import { API_PREFIX } from "@/mocks/config";
 import { server } from "@/mocks/server";
+import { API_BASE_URL } from "@/shared/config";
 import { ApiError } from "./ApiError";
 import { apiClient } from "./apiClient";
 
 describe("apiClient", () => {
   it("성공 응답에서 data 만 꺼내 돌려준다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/api-test`, () => {
+      http.get(`${API_BASE_URL}/api-test`, () => {
         return HttpResponse.json({ data: { name: "제주 여행" } });
       }),
     );
@@ -18,7 +18,7 @@ describe("apiClient", () => {
 
   it("200 이지만 우리 형식이 아닌 응답은 ApiError 로 던진다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/api-test`, () => HttpResponse.html("<!doctype html><html></html>")),
+      http.get(`${API_BASE_URL}/api-test`, () => HttpResponse.html("<!doctype html><html></html>")),
     );
 
     await expect(apiClient("/api-test")).rejects.toMatchObject({
@@ -29,7 +29,7 @@ describe("apiClient", () => {
 
   it("전달받은 token을 Authorization 헤더에 추가한다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/api-test`, ({ request }) => {
+      http.get(`${API_BASE_URL}/api-test`, ({ request }) => {
         return HttpResponse.json({ data: { authorization: request.headers.get("Authorization") } });
       }),
     );
@@ -41,7 +41,7 @@ describe("apiClient", () => {
 
   it("실패 응답을 ApiError로 변환한다", async () => {
     server.use(
-      http.get(`${API_PREFIX}/api-test`, () => {
+      http.get(`${API_BASE_URL}/api-test`, () => {
         return HttpResponse.json(
           {
             code: "ROOM_CREATE_FAILED",
