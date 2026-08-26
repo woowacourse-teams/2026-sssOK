@@ -11,6 +11,18 @@ const COUNTER_KEY = "sssok.mock.nextUserId";
 const readNextUserId = () => Number(localStorage.getItem(COUNTER_KEY)) || FIRST_USER_ID;
 
 /**
+ * 인증할 때 받은 이름을 기억한다. 업로드 목이 등록 응답의 uploaderName 을 채우는 데 쓴다.
+ * 인증을 거치지 않고 손으로 만든 토큰은 여기 없으니 부르는 쪽에서 대비해야 한다.
+ */
+const nicknameByUserId = new Map<number, string>();
+
+/** 인증을 거치지 않은 회원 번호면 null 이다. */
+export const nicknameOf = (userId: number) => nicknameByUserId.get(userId) ?? null;
+
+/** 테스트끼리 이름이 이어지지 않도록 되돌린다. */
+export const resetNicknames = () => nicknameByUserId.clear();
+
+/**
  * 실제 서버는 호출할 때마다 새 member 를 만든다.
  * 방마다 인증을 새로 하는 구조라, 목도 매번 다른 userId·토큰을 줘야 방별로 다른 사람이 된다.
  */
@@ -20,6 +32,7 @@ export const authHandlers = [
     const userId = readNextUserId();
 
     localStorage.setItem(COUNTER_KEY, String(userId + 1));
+    nicknameByUserId.set(userId, nickname);
 
     return HttpResponse.json(
       {
