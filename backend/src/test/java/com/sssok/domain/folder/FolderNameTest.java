@@ -1,5 +1,6 @@
 package com.sssok.domain.folder;
 
+import com.sssok.domain.folder.exception.FolderNameTooLongException;
 import com.sssok.domain.folder.exception.InvalidFolderNameException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -18,6 +19,13 @@ class FolderNameTest {
         assertThat(name.value()).isEqualTo("맛집");
     }
 
+    @Test
+    void 앞뒤_공백은_제거된다() {
+        FolderName name = new FolderName("  맛집  ");
+
+        assertThat(name.value()).isEqualTo("맛집");
+    }
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "   "})
@@ -27,10 +35,19 @@ class FolderNameTest {
     }
 
     @Test
+    void 최대_길이면_통과된다() {
+        String maxLength = "가".repeat(12);
+
+        FolderName name = new FolderName(maxLength);
+
+        assertThat(name.value()).isEqualTo(maxLength);
+    }
+
+    @Test
     void 최대_길이를_넘으면_예외() {
-        String tooLong = "가".repeat(21);
+        String tooLong = "가".repeat(13);
 
         assertThatThrownBy(() -> new FolderName(tooLong))
-            .isInstanceOf(InvalidFolderNameException.class);
+            .isInstanceOf(FolderNameTooLongException.class);
     }
 }
