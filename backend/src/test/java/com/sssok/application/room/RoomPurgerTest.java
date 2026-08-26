@@ -9,6 +9,7 @@ import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.application.port.out.MemberRepository;
+import com.sssok.application.port.out.RoomEventRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.file.FileSize;
@@ -35,6 +36,7 @@ class RoomPurgerTest {
 
     private final RoomRepository roomRepository = mock(RoomRepository.class);
     private final RoomMemberRepository roomMemberRepository = mock(RoomMemberRepository.class);
+    private final RoomEventRepository roomEventRepository = mock(RoomEventRepository.class);
     private final MemberRepository memberRepository = mock(MemberRepository.class);
     private final LinkCodeRepository linkCodeRepository = mock(LinkCodeRepository.class);
     private final FileRepository fileRepository = mock(FileRepository.class);
@@ -42,7 +44,7 @@ class RoomPurgerTest {
     private final FileStoragePort fileStoragePort = mock(FileStoragePort.class);
 
     private final RoomPurger roomPurger = new RoomPurger(
-        roomRepository, roomMemberRepository, memberRepository, linkCodeRepository,
+        roomRepository, roomMemberRepository, roomEventRepository, memberRepository, linkCodeRepository,
         fileRepository, folderRepository, fileStoragePort);
 
     @Test
@@ -55,12 +57,13 @@ class RoomPurgerTest {
         roomPurger.purge(room);
 
         InOrder order = inOrder(fileStoragePort, fileRepository, folderRepository,
-            roomMemberRepository, roomRepository, linkCodeRepository, memberRepository);
+            roomMemberRepository, roomEventRepository, roomRepository, linkCodeRepository, memberRepository);
         // 참여자 명단은 참여 기록을 지우기 전에 확보해야 한다.
         order.verify(roomMemberRepository).findMemberIdsByRoomId(ROOM_ID);
         order.verify(fileStoragePort).delete(file.getStorageKey());
         order.verify(fileRepository).deleteAllByRoomId(ROOM_ID);
         order.verify(folderRepository).deleteAllByRoomId(ROOM_ID);
+        order.verify(roomEventRepository).deleteAllByRoomId(ROOM_ID);
         order.verify(roomMemberRepository).deleteAllByRoomId(ROOM_ID);
         order.verify(roomRepository).delete(room);
         // 방을 지운 뒤에 판정해야 지금 지운 방을 "아직 남은 방"으로 세지 않는다.

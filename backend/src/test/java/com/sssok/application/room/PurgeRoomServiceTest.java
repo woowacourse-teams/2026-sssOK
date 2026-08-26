@@ -19,6 +19,7 @@ import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import jakarta.persistence.EntityManager;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -65,6 +66,9 @@ class PurgeRoomServiceTest {
 
     @Autowired
     LinkCodeRepository linkCodeRepository;
+
+    @Autowired
+    RoomEventJpaRepository roomEventJpaRepository;
 
     @Autowired
     EntityManager entityManager;
@@ -183,6 +187,20 @@ class PurgeRoomServiceTest {
         assertThat(memberRepository.findById(hostId)).isEmpty();
     }
 
+    @Test
+    void 방을_지우면_이벤트_기록도_함께_사라진다() {
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        deleteRoomService.delete(room.getId(), hostId);
+        assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L))
+            .isNotEmpty();
+        오래된_삭제로_되돌리기(room);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L))
+            .isEmpty();
+    }
+
     // 새 테이블이 생겼는데 정리 대상에 넣는 걸 잊으면 여기서 걸린다.
     @Test
     void 방을_지우면_그_방과_이어진_행이_어느_테이블에도_남지_않는다() {
@@ -198,6 +216,7 @@ class PurgeRoomServiceTest {
 
         assertThat(countBy("room", "id", room.getId())).isZero();
         assertThat(countBy("room_member", "room_id", room.getId())).isZero();
+        assertThat(countBy("room_events", "room_id", room.getId())).isZero();
         assertThat(countBy("member", "id", hostId)).isZero();
         assertThat(countBy("member", "id", guestId)).isZero();
         assertThat(countBy("link_code", "member_id", hostId)).isZero();

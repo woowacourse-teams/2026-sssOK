@@ -5,6 +5,7 @@ import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.application.port.out.MemberRepository;
+import com.sssok.application.port.out.RoomEventRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
@@ -21,6 +22,7 @@ public class RoomPurger {
 
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
+    private final RoomEventRepository roomEventRepository;
     private final MemberRepository memberRepository;
     private final LinkCodeRepository linkCodeRepository;
     private final FileRepository fileRepository;
@@ -38,6 +40,7 @@ public class RoomPurger {
 
         fileRepository.deleteAllByRoomId(room.getId());
         folderRepository.deleteAllByRoomId(room.getId());
+        roomEventRepository.deleteAllByRoomId(room.getId());
         roomMemberRepository.deleteAllByRoomId(room.getId());
         roomRepository.delete(room);
 
