@@ -173,6 +173,14 @@ public class GlobalExceptionHandler {
                 "%s 값의 형식이 올바르지 않습니다".formatted(e.getName())));
     }
 
+    // RoomMembershipInterceptor 등 컨트롤러 진입 전에 경로 변수를 직접 파싱하는 곳에서
+    // 숫자가 아닌 값(roomId=abc 등)이 들어오면 여기로 온다. 위 handleTypeMismatch와 같은 응답으로 맞춘다.
+    @ExceptionHandler(NumberFormatException.class)
+    public ResponseEntity<ErrorResponse> handleNumberFormat(NumberFormatException e) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+            .body(new ErrorResponse("INVALID_REQUEST_PARAMETER", "요청 값의 형식이 올바르지 않습니다"));
+    }
+
     // 읽은 뒤 저장하기 전에 다른 요청이 같은 방을 바꾼 경우
     @ExceptionHandler(OptimisticLockingFailureException.class)
     public ResponseEntity<ErrorResponse> handleOptimisticLock(OptimisticLockingFailureException e) {

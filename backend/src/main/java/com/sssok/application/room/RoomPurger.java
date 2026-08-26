@@ -2,6 +2,7 @@ package com.sssok.application.room;
 
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.application.port.out.MemberRepository;
@@ -27,6 +28,7 @@ public class RoomPurger {
     private final LinkCodeRepository linkCodeRepository;
     private final FileRepository fileRepository;
     private final FolderRepository folderRepository;
+    private final FolderMediaRepository folderMediaRepository;
     private final FileStoragePort fileStoragePort;
 
     // 실물을 먼저 지운다. DB 로우가 남아 있어야 중간에 실패해도 다음 회차에 다시 찾아 시도할 수 있다.
@@ -39,6 +41,8 @@ public class RoomPurger {
             .forEach(file -> fileStoragePort.delete(file.getStorageKey()));
 
         fileRepository.deleteAllByRoomId(room.getId());
+        // 폴더가 미디어와 맺은 관계를 먼저 끊어야, 폴더를 지운 뒤 folder_media에 고아 행이 남지 않는다.
+        folderMediaRepository.detachAllByRoomId(room.getId());
         folderRepository.deleteAllByRoomId(room.getId());
         roomEventRepository.deleteAllByRoomId(room.getId());
         roomMemberRepository.deleteAllByRoomId(room.getId());

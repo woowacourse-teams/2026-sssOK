@@ -14,4 +14,9 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     public long detachAllFromFolder(Long folderId) {
         return jpaRepository.deleteByFolderId(folderId);
     }
+
+    @Override
+    public long detachAllByRoomId(Long roomId) {
+        return jpaRepository.deleteByRoomId(roomId);
+    }
 }
