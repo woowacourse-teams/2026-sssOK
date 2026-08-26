@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
 import { nicknameOf } from "./auth";
-import { MOCK_HOST_ID, hasJoinedRoom, roomStatusOfId, uploadPolicyOfId } from "./room";
+import { MOCK_HOST_ID, hasFolder, hasJoinedRoom, roomStatusOfId, uploadPolicyOfId } from "./room";
 
 /**
  * backend `MediaType` enum 과 같은 목록이다.
@@ -26,12 +26,6 @@ const PRESIGNED_TTL_SECONDS = 600;
 
 /** 서명 URL 재발급 한도. 넘으면 429 로 막는다 — 재발급 응답의 `maxRetryCount` 다. */
 const MAX_RETRY_COUNT = 5;
-
-/**
- * 폴더 API 가 아직 없어서 목이 아는 폴더만 통과시킨다.
- * 없는 폴더로 발급을 요청하면 404 FOLDER_NOT_FOUND 가 나는 걸 확인할 수 있다.
- */
-export const MOCK_FOLDER_IDS = [31, 32];
 
 /**
  * 실제 업로드 주소는 `https://<account-id>.r2.cloudflarestorage.com/<bucket>/<key>` 다.
@@ -234,16 +228,17 @@ const guardRoom = (roomId: number, memberId: number, token: string) => {
     return error(410, "ROOM_EXPIRED", "만료된 방입니다.");
   }
 
-  if (status === "DELETED") {
-    return error(410, "ROOM_ALREADY_DELETED", "삭제된 방입니다.");
+  if (status === "DELETED" || status === "PURGED") {
+    return error(410, "ROOM_ALREADY_DELETED", "이미 삭제되었거나 만료된 방입니다");
   }
 
+  // 폴더·미디어 API 가 RoomMembershipInterceptor 에서 내는 코드와 같게 맞춘다.
   if (!hasJoinedRoom(token, roomId)) {
-    return error(403, "ROOM_MEMBERSHIP_REQUIRED", "방에 입장한 뒤에 올릴 수 있어요.");
+    return error(403, "NOT_ROOM_MEMBER", "입장한 방에서만 이용할 수 있습니다");
   }
 
   if (uploadPolicyOfId(roomId) === "host" && memberId !== MOCK_HOST_ID) {
-    return error(403, "UPLOAD_NOT_ALLOWED", "방장만 업로드할 수 있는 방입니다.");
+    return error(403, "NOT_ROOM_HOST", "방장만 수행할 수 있는 작업입니다");
   }
 
   return null;
@@ -251,7 +246,7 @@ const guardRoom = (roomId: number, memberId: number, token: string) => {
 
 interface RejectedFile {
   fileName: string;
-  code: "FILE_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_PARAM";
+  code: "FILE_SIZE_EXCEEDED" | "UNSUPPORTED_FILE_TYPE" | "INVALID_PARAM";
   message: string;
 }
 
@@ -275,15 +270,15 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
   if (mimeType === undefined) {
     return {
       fileName,
-      code: "UNSUPPORTED_MEDIA_TYPE",
-      message: "이미지와 영상만 업로드할 수 있습니다",
+      code: "UNSUPPORTED_FILE_TYPE",
+      message: `지원하지 않는 파일 형식입니다: ${fileName}`,
     };
   }
 
   if (file.size > maxBytesOf(mimeType)) {
     return {
       fileName,
-      code: "FILE_TOO_LARGE",
+      code: "FILE_SIZE_EXCEEDED",
       message: mimeType.startsWith("image/")
         ? "사진은 10MB까지 올릴 수 있어요."
         : "영상은 1GB까지 올릴 수 있어요.",
@@ -353,7 +348,7 @@ export const uploadHandlers = [
       return error(400, "INVALID_PARAM", "폴더 정보가 올바르지 않습니다");
     }
 
-    const unknownFolder = folderIds.find((folderId) => !MOCK_FOLDER_IDS.includes(folderId));
+    const unknownFolder = folderIds.find((folderId) => !hasFolder(roomId, folderId));
 
     if (unknownFolder !== undefined) {
       return error(404, "FOLDER_NOT_FOUND", "폴더를 찾을 수 없습니다");
@@ -513,7 +508,7 @@ export const uploadHandlers = [
       if (media.uploadedBytes > maxBytesOf(media.mimeType)) {
         failed.push({
           mediaId,
-          code: "FILE_TOO_LARGE",
+          code: "FILE_SIZE_EXCEEDED",
           message: "파일 용량이 허용 크기를 초과했습니다",
         });
         continue;
@@ -576,7 +571,7 @@ export const uploadHandlers = [
         }
 
         if (size > maxBytesOf(media.mimeType)) {
-          return error(413, "FILE_TOO_LARGE", "파일 용량 제한을 초과했습니다");
+          return error(413, "FILE_SIZE_EXCEEDED", "파일 용량 제한을 초과했습니다");
         }
 
         media.size = size;

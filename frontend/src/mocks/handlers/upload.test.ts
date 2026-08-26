@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "@/shared/config";
-import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
-import { MOCK_FOLDER_IDS, MOCK_R2_BASE_URL, UPLOAD_MOCK_MARKERS } from "./upload";
+import { MOCK_FOLDER_IDS, MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
+import { MOCK_R2_BASE_URL, UPLOAD_MOCK_MARKERS } from "./upload";
 
 /** 방장 토큰. 방 목 데이터의 hostId 와 같은 회원이다. */
 const HOST_TOKEN = "Bearer mock-token-10234";
@@ -151,29 +151,29 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect(body.data.rejected).toEqual([
       {
         fileName: "아이폰-원본.heic",
-        code: "UNSUPPORTED_MEDIA_TYPE",
+        code: "UNSUPPORTED_FILE_TYPE",
         message: expect.any(String),
       },
     ]);
   });
 
-  it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_MEDIA_TYPE 이다", async () => {
+  it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_FILE_TYPE 이다", async () => {
     const body = await (await issueUploadUrls([file("확장자없음")])).json();
 
     expect(body.data.issued).toHaveLength(0);
-    expect(body.data.rejected[0].code).toBe("UNSUPPORTED_MEDIA_TYPE");
+    expect(body.data.rejected[0].code).toBe("UNSUPPORTED_FILE_TYPE");
   });
 
-  it("사진이 10MB 를 넘으면 rejected FILE_TOO_LARGE 다", async () => {
+  it("사진이 10MB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
     const body = await (await issueUploadUrls([file("원본.jpg", 10 * 1024 * 1024 + 1)])).json();
 
-    expect(body.data.rejected[0].code).toBe("FILE_TOO_LARGE");
+    expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
   });
 
-  it("영상이 1GB 를 넘으면 rejected FILE_TOO_LARGE 다", async () => {
+  it("영상이 1GB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
     const body = await (await issueUploadUrls([file("행사.mp4", 1024 * 1024 * 1024 + 1)])).json();
 
-    expect(body.data.rejected[0].code).toBe("FILE_TOO_LARGE");
+    expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
   });
 
   it("사진 10MB·영상 1GB 까지는 그대로 발급한다", async () => {
@@ -251,22 +251,31 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect((await response.json()).code).toBe("ROOM_ALREADY_DELETED");
   });
 
-  it("입장하지 않은 방이면 403 ROOM_MEMBERSHIP_REQUIRED 다", async () => {
+  it("영구 삭제된 방이면 410 ROOM_ALREADY_DELETED 다", async () => {
+    const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.purged));
+
+    const response = await issueUploadUrls([file("한라산.jpg")], { roomId });
+
+    expect(response.status).toBe(410);
+    expect((await response.json()).code).toBe("ROOM_ALREADY_DELETED");
+  });
+
+  it("입장하지 않은 방이면 403 NOT_ROOM_MEMBER 다", async () => {
     const roomId = await roomIdOf(MOCK_ROOM_CODES.second);
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId });
 
     expect(response.status).toBe(403);
-    expect((await response.json()).code).toBe("ROOM_MEMBERSHIP_REQUIRED");
+    expect((await response.json()).code).toBe("NOT_ROOM_MEMBER");
   });
 
-  it("방장만 올릴 수 있는 방에 참여자가 부르면 403 UPLOAD_NOT_ALLOWED 다", async () => {
+  it("방장만 올릴 수 있는 방에 참여자가 부르면 403 NOT_ROOM_HOST 다", async () => {
     const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.hostOnly), GUEST_TOKEN);
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId, token: GUEST_TOKEN });
 
     expect(response.status).toBe(403);
-    expect((await response.json()).code).toBe("UPLOAD_NOT_ALLOWED");
+    expect((await response.json()).code).toBe("NOT_ROOM_HOST");
   });
 
   it("방장만 올릴 수 있는 방이어도 방장은 발급받는다", async () => {
@@ -588,13 +597,13 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
     expect((await response.json()).code).toBe("INVALID_PARAM");
   });
 
-  it("바뀐 크기가 한도를 넘으면 413 FILE_TOO_LARGE 다", async () => {
+  it("바뀐 크기가 한도를 넘으면 413 FILE_SIZE_EXCEEDED 다", async () => {
     const issued = await issueOne();
 
     const response = await reissueUploadUrl(issued.mediaId, { size: 10 * 1024 * 1024 + 1 });
 
     expect(response.status).toBe(413);
-    expect((await response.json()).code).toBe("FILE_TOO_LARGE");
+    expect((await response.json()).code).toBe("FILE_SIZE_EXCEEDED");
   });
 
   it("이미 등록이 끝난 미디어는 409 UPLOAD_ALREADY_COMPLETED 다", async () => {

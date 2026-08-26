@@ -19,6 +19,8 @@ export const MOCK_ROOM_CODES = {
   second: "QRST6789",
   /** 방장만 올릴 수 있는 방. 업로드 권한 거절(403)을 손으로 확인할 때 쓴다. */
   hostOnly: "HSTNLY23",
+  /** 보존 기간이 지나 영구 삭제된 방 */
+  purged: "PURGED77",
   /** 형식 자체가 틀린 코드 (O 는 허용 알파벳이 아니다) → 400 */
   invalid: "NOTFOUND",
 } as const;
@@ -33,7 +35,24 @@ const ROOM_IDS: Record<string, number> = {
   [MOCK_ROOM_CODES.expired]: 5033,
   [MOCK_ROOM_CODES.deleted]: 5034,
   [MOCK_ROOM_CODES.hostOnly]: 5035,
+  [MOCK_ROOM_CODES.purged]: 5036,
 };
+
+/**
+ * 방마다 가진 폴더. backend `RoomFolderResponse` 와 같은 모양이다.
+ * 업로드 목이 발급 요청의 folderIds 를 이 목록과 대조한다.
+ */
+const ROOM_FOLDERS: Record<string, { id: number; name: string; photoCount: number }[]> = {
+  [MOCK_ROOM_CODES.active]: [
+    { id: 31, name: "첫째 날", photoCount: 12 },
+    { id: 32, name: "둘째 날", photoCount: 4 },
+  ],
+};
+
+const foldersOf = (code: string) => ROOM_FOLDERS[code] ?? [];
+
+/** 기본 방(active)의 폴더 번호. 테스트와 수동 확인이 쓴다. */
+export const MOCK_FOLDER_IDS = foldersOf(MOCK_ROOM_CODES.active).map((folder) => folder.id);
 
 /** 목이 아는 방장. 방 데이터의 hostId 이자 auth 목의 첫 회원이다. */
 export const MOCK_HOST_ID = 10234;
@@ -68,7 +87,7 @@ export const isActiveRoomId = (roomId: number) =>
  * 방 번호로 상태를 본다. 모르는 번호면 null 이다.
  * 업로드 목이 404(없는 방)와 410(만료·삭제)을 갈라 내려주려고 쓴다.
  */
-export const roomStatusOfId = (roomId: number): "ACTIVE" | "EXPIRED" | "DELETED" | null => {
+export const roomStatusOfId = (roomId: number): RoomStatus | null => {
   const code = codeOfRoomId(roomId);
 
   if (code === null) {
@@ -80,8 +99,18 @@ export const roomStatusOfId = (roomId: number): "ACTIVE" | "EXPIRED" | "DELETED"
   if (code === MOCK_ROOM_CODES.deleted) {
     return "DELETED";
   }
+  if (code === MOCK_ROOM_CODES.purged) {
+    return "PURGED";
+  }
 
   return "ACTIVE";
+};
+
+/** 업로드 목이 발급 요청의 folderIds 를 확인할 때 쓴다. 모르는 방이면 폴더도 없다. */
+export const hasFolder = (roomId: number, folderId: number) => {
+  const code = codeOfRoomId(roomId);
+
+  return code !== null && foldersOf(code).some((folder) => folder.id === folderId);
 };
 
 /** 방 번호로 업로드 권한을 본다. 모르는 번호면 null 이다. */
@@ -91,7 +120,10 @@ export const uploadPolicyOfId = (roomId: number) => {
   return code === null ? null : uploadPolicyOf(code);
 };
 
-const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED", joined = false) => ({
+/** backend RoomResponse 의 status 와 같다. PURGED 는 보존 기간이 지나 영구 삭제된 방이다. */
+type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED" | "PURGED";
+
+const room = (code: string, status: RoomStatus, joined = false) => ({
   roomId: ROOM_IDS[code],
   code,
   name: "제주 여행",
@@ -102,6 +134,10 @@ const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED", joined = f
   joined,
   createdAt: "2026-08-18T05:30:00Z",
   expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
+  /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
+  photoCount: foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0),
+  /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
+  folders: foldersOf(code),
 });
 
 /** 입장 멱등성을 흉내내려고 이번 세션의 입장 기록을 들고 있는다. 목 전용 상태다. */
@@ -136,6 +172,10 @@ export const roomHandlers = [
 
     if (code === MOCK_ROOM_CODES.deleted) {
       return HttpResponse.json({ data: room(code, "DELETED") });
+    }
+
+    if (code === MOCK_ROOM_CODES.purged) {
+      return HttpResponse.json({ data: room(code, "PURGED") });
     }
 
     if (isActiveRoomCode(code)) {
@@ -208,6 +248,9 @@ export const roomHandlers = [
           createdAt: "2026-08-18T05:30:00Z",
           expiresAt: "2026-08-19T05:30:00Z",
           uploadPolicy,
+          // 갓 만든 방이라 사진도 폴더도 없다.
+          photoCount: 0,
+          folders: [],
         },
       },
       { status: 201 },

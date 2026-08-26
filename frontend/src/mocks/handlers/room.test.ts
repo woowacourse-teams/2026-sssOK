@@ -64,6 +64,37 @@ describe("GET /rooms/{code} 목 핸들러", () => {
     expect(hostOnly.data.uploadPolicy).toBe("host");
   });
 
+  it("영구 삭제된 방은 200 과 PURGED 상태로 내려준다", async () => {
+    const body = await (await getRoom(MOCK_ROOM_CODES.purged)).json();
+
+    expect(body.data.status).toBe("PURGED");
+  });
+
+  it("방 조회 응답에 사진 수와 폴더 목록이 함께 온다", async () => {
+    const body = await (await getRoom(MOCK_ROOM_CODES.active)).json();
+
+    expect(body.data.folders).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: expect.any(Number), name: expect.any(String) }),
+      ]),
+    );
+    // 방 전체 사진 수는 폴더별 사진 수의 합 이상이다 (루트에 있는 사진도 포함)
+    expect(body.data.photoCount).toBeGreaterThan(0);
+  });
+
+  it("갓 만든 방은 사진도 폴더도 없다", async () => {
+    const body = await (
+      await fetch(`${API_BASE_URL}/rooms`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: TOKEN },
+        body: JSON.stringify({ name: "제주 여행", uploadPolicy: "everyone", expiryHours: 24 }),
+      })
+    ).json();
+
+    expect(body.data.photoCount).toBe(0);
+    expect(body.data.folders).toEqual([]);
+  });
+
   it("방 조회 응답은 data 로 한 겹 감싸여 온다", async () => {
     const body = await (await getRoom(MOCK_ROOM_CODES.active)).json();
 
