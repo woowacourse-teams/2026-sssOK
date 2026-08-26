@@ -17,4 +17,8 @@ public class StoredFileJpaEntity {
 
     @Id
     private Long id;
+
+    public StoredFileJpaEntity(Long id) {
+        this.id = id;
+    }
 }

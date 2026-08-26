@@ -1,5 +1,6 @@
 package com.sssok.infrastructure.persistence.folder;
 
+import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -9,7 +10,19 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
 
     long deleteByFolderId(Long folderId);
 
+    long deleteByMediaIdIn(List<Long> mediaIds);
+
     long countByFolderId(Long folderId);
+
+    @Modifying
+    @Query("delete from FolderMediaJpaEntity f where f.folderId = :folderId and f.mediaId = :mediaId")
+    int deleteIfPresent(@Param("folderId") Long folderId, @Param("mediaId") Long mediaId);
+
+    @Query("select distinct f.mediaId from FolderMediaJpaEntity f where f.mediaId in :mediaIds")
+    List<Long> findDistinctMediaIdsByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
+
+    @Query("select distinct f.folderId from FolderMediaJpaEntity f where f.mediaId in :mediaIds")
+    List<Long> findDistinctFolderIdsByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
 
     // 동시에 같은 조합을 담으려는 요청이 있어도 관계는 하나만 남도록 DB에 맡긴다.
     @Modifying
