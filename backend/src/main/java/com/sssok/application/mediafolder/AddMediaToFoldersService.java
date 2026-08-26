@@ -1,14 +1,10 @@
 package com.sssok.application.mediafolder;
 
-import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -20,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class AddMediaToFoldersService {
 
-    private final FolderRepository folderRepository;
+    private final RoomFolders roomFolders;
     private final FolderMediaRepository folderMediaRepository;
     private final FileRepository fileRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -32,7 +28,7 @@ public class AddMediaToFoldersService {
         List<Long> distinctFolderIds = folderIds.stream().distinct().toList();
         List<Long> distinctMediaIds = mediaIds.stream().distinct().toList();
 
-        List<Folder> folders = requireFoldersInRoom(roomId, distinctFolderIds);
+        List<Folder> folders = roomFolders.requireAllInRoom(roomId, distinctFolderIds);
 
         List<Long> existingMediaIds = fileRepository.findExistingIds(distinctMediaIds);
         List<Long> notFoundMediaIds = distinctMediaIds.stream()
@@ -55,18 +51,6 @@ public class AddMediaToFoldersService {
         if (mediaIds == null || mediaIds.isEmpty() || folderIds == null || folderIds.isEmpty()) {
             throw new InvalidMediaFolderParamException();
         }
-    }
-
-    private List<Folder> requireFoldersInRoom(Long roomId, List<Long> folderIds) {
-        List<Folder> found = folderRepository.findAllById(folderIds).stream()
-            .filter(folder -> folder.belongsTo(roomId))
-            .toList();
-        Set<Long> foundIds = found.stream().map(Folder::getId).collect(Collectors.toSet());
-        List<Long> missing = folderIds.stream().filter(id -> !foundIds.contains(id)).toList();
-        if (!missing.isEmpty()) {
-            throw new FolderNotFoundException(missing);
-        }
-        return found;
     }
 
     private List<FolderSummary> summarize(List<Folder> folders) {
