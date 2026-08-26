@@ -40,6 +40,7 @@ import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,7 +111,7 @@ class RoomControllerTest {
             CREATED_AT,
             null
         );
-        return new RoomDetail(room, "가현", joined);
+        return new RoomDetail(room, "가현", joined, 0, List.of());
     }
 
     @Test

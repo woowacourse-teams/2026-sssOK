@@ -15,6 +15,7 @@ public enum ErrorCode {
     INVALID_ENTRY_PASSWORD(400, "%s"),
     INVALID_FOLDER_NAME(400, "폴더 이름을 입력해주세요"),
     FOLDER_NAME_TOO_LONG(400, "폴더 이름은 12자까지 입력할 수 있어요"),
+    INVALID_PARAM(400, "미디어와 폴더를 선택해 주세요"),
     INVALID_FILE_SIZE(400, "%s"),
     INVALID_STORAGE_KEY(400, "%s"),
     ILLEGAL_ROOM_STATUS_TRANSITION(400, "허용되지 않는 상태 전이입니다: %s -> %s"),

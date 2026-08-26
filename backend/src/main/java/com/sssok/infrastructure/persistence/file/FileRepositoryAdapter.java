@@ -15,8 +15,10 @@ public class FileRepositoryAdapter implements FileRepository {
     private final StoredFileJpaRepository jpaRepository;
 
     @Override
-    public boolean existsById(Long id) {
-        return jpaRepository.existsById(id);
+    public List<Long> findExistingIds(List<Long> ids) {
+        return jpaRepository.findAllById(ids).stream()
+            .map(StoredFileJpaEntity::getId)
+            .toList();
     }
 
     @Override

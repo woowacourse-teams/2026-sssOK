@@ -3,6 +3,7 @@ package com.sssok.infrastructure.persistence.folder;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.FolderName;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,20 @@ public class FolderRepositoryAdapter implements FolderRepository {
     @Override
     public Optional<Folder> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<Folder> findAllById(List<Long> ids) {
+        return jpaRepository.findAllById(ids).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<Folder> findAllByRoomId(Long roomId) {
+        return jpaRepository.findAllByRoomIdOrderByCreatedAtAsc(roomId).stream()
+            .map(this::toDomain)
+            .toList();
     }
 
     @Override

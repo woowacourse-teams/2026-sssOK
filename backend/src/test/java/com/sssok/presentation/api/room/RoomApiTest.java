@@ -50,6 +50,8 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.uploadPolicy").value("everyone"))
             .andExpect(jsonPath("$.data.joined").value(true))
             .andExpect(jsonPath("$.data.expiresAt").value(notNullValue()))
+            .andExpect(jsonPath("$.data.photoCount").value(0))
+            .andExpect(jsonPath("$.data.folders").isEmpty())
             .andReturn();
 
         String code = 값(created, "code");
@@ -58,7 +60,31 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.code").value(code))
             .andExpect(jsonPath("$.data.name").value("우테코 회식"))
-            .andExpect(jsonPath("$.data.hostName").value("가현"));
+            .andExpect(jsonPath("$.data.hostName").value("가현"))
+            .andExpect(jsonPath("$.data.photoCount").value(0))
+            .andExpect(jsonPath("$.data.folders").isEmpty());
+    }
+
+    @Test
+    void 방에_폴더를_만들면_조회_응답의_folders에_담긴다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+
+        MvcResult folderCreated = mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", room.roomId())
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"맛집\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+        long folderId = Long.parseLong(값(folderCreated, "id"));
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.photoCount").value(0))
+            .andExpect(jsonPath("$.data.folders[0].id").value(folderId))
+            .andExpect(jsonPath("$.data.folders[0].name").value("맛집"))
+            .andExpect(jsonPath("$.data.folders[0].createdAt").value(notNullValue()))
+            .andExpect(jsonPath("$.data.folders[0].photoCount").value(0));
     }
 
     @Test
