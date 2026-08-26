@@ -1,10 +1,12 @@
 package com.sssok.application.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
+import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.ArrayList;
@@ -17,6 +19,7 @@ import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 // 방 설정 변경이 조회-수정-저장으로 이뤄져서, 낙관적 락 없이는 동시 요청이 서로를 덮어쓴다.
 @SpringBootTest
@@ -55,6 +58,22 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
         // 성공한 수만큼만 버전이 올라야 한다. 덮어쓰기가 일어나면 이 숫자가 어긋난다.
         assertThat(succeeded).isPositive();
         assertThat(after - before).isEqualTo(succeeded);
+    }
+
+    @Test
+    void 읽은_뒤_삭제된_방에는_수정을_저장할_수_없다() {
+        Long hostId = 방장_생성();
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room stale = roomRepository.findById(room.getId()).orElseThrow();
+
+        deleteRoomService.delete(room.getId(), hostId);
+        stale.updateSettings(hostId, new RoomName("2차 회식"), stale.getExpiration(), stale.getUploadPolicy());
+
+        // 읽어둔 옛 상태를 그대로 저장하면 status·deleted_at 까지 되돌아가 방이 되살아난다.
+        assertThatThrownBy(() -> roomRepository.save(stale))
+            .isInstanceOf(OptimisticLockingFailureException.class);
+        assertThat(roomRepository.findById(room.getId()).orElseThrow().getStatus())
+            .isSameAs(DeletedRoomStatus.INSTANCE);
     }
 
     @Test
