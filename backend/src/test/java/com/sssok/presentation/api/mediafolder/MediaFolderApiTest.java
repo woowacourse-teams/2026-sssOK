@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.mediafolder;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -116,6 +117,110 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         담기(guestToken, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
+    @Test
+    void 지정한_폴더에서만_꺼내면_다른_폴더에_남아있어_루트로_가지_않는다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderA = 폴더_만들기(token, roomId, "맛집");
+        long folderB = 폴더_만들기(token, roomId, "카페");
+        long mediaId = 존재하는_미디어();
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d,%d]}".formatted(mediaId, folderA, folderB))
+            .andExpect(status().isOk());
+
+        꺼내기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderA))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.updatedCount").value(1))
+            .andExpect(jsonPath("$.data.movedToRootMediaIds").isEmpty())
+            .andExpect(jsonPath("$.data.folders[0].id").value(folderA));
+    }
+
+    @Test
+    void 마지막_폴더에서_꺼내면_movedToRootMediaIds에_담긴다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+        long mediaId = 존재하는_미디어();
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+            .andExpect(status().isOk());
+
+        꺼내기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(mediaId));
+    }
+
+    @Test
+    void folderIds를_생략하면_속한_모든_폴더에서_꺼낸다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderA = 폴더_만들기(token, roomId, "맛집");
+        long folderB = 폴더_만들기(token, roomId, "카페");
+        long mediaId = 존재하는_미디어();
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d,%d]}".formatted(mediaId, folderA, folderB))
+            .andExpect(status().isOk());
+
+        꺼내기(token, roomId, "{\"mediaIds\":[%d]}".formatted(mediaId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.updatedCount").value(2))
+            .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(mediaId))
+            .andExpect(jsonPath("$.data.folders", org.hamcrest.Matchers.hasSize(2)));
+    }
+
+    @Test
+    void 꺼내기에서_존재하지_않는_미디어는_notFoundMediaIds로_알려준다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+        long mediaId = 존재하는_미디어();
+        long notFoundMediaId = MEDIA_ID_SEQUENCE.incrementAndGet();
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+            .andExpect(status().isOk());
+
+        꺼내기(token, roomId, "{\"mediaIds\":[%d,%d],\"folderIds\":[%d]}".formatted(mediaId, notFoundMediaId, folderId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.notFoundMediaIds[0]").value(notFoundMediaId));
+    }
+
+    @Test
+    void 꺼내기에서_없는_폴더가_있으면_404() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long mediaId = 존재하는_미디어();
+
+        꺼내기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[-1]}".formatted(mediaId))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
+    @Test
+    void 꺼내기에서_mediaIds가_비어있으면_400과_INVALID_PARAM() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+
+        꺼내기(token, roomId, "{\"mediaIds\":[]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 입장하지_않은_사용자가_꺼내면_403() throws Exception {
+        String hostToken = 익명_인증("가현");
+        String guestToken = 익명_인증("민수");
+        long roomId = 방_만들고_입장(hostToken);
+        long folderId = 폴더_만들기(hostToken, roomId, "맛집");
+        long mediaId = 존재하는_미디어();
+
+        꺼내기(guestToken, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
+    private ResultActions 꺼내기(String token, long roomId, String body) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/folders", roomId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
     }
 
     private long 존재하는_미디어() {

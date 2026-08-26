@@ -3,6 +3,7 @@ package com.sssok.presentation.api.mediafolder;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,6 +12,8 @@ import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.mediafolder.AddMediaToFoldersResult;
 import com.sssok.application.mediafolder.AddMediaToFoldersService;
 import com.sssok.application.mediafolder.FolderSummary;
+import com.sssok.application.mediafolder.RemoveMediaFromFoldersResult;
+import com.sssok.application.mediafolder.RemoveMediaFromFoldersService;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
@@ -50,6 +53,9 @@ class MediaFolderControllerTest {
 
     @MockitoBean
     AddMediaToFoldersService addMediaToFoldersService;
+
+    @MockitoBean
+    RemoveMediaFromFoldersService removeMediaFromFoldersService;
 
     @MockitoBean
     TokenProvider tokenProvider;
@@ -146,8 +152,60 @@ class MediaFolderControllerTest {
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
 
+    @Test
+    void 폴더에서_꺼내면_200과_결과를_반환한다() throws Exception {
+        RemoveMediaFromFoldersResult result = new RemoveMediaFromFoldersResult(
+            2, List.of(5011L), List.of(), List.of(new FolderSummary(31L, "맛집", 7)));
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList())).willReturn(result);
+
+        removeFromFolders("{\"mediaIds\":[5012,5011],\"folderIds\":[31]}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.updatedCount").value(2))
+            .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(5011))
+            .andExpect(jsonPath("$.data.folders[0].id").value(31));
+    }
+
+    @Test
+    void 꺼내기에서_폴더_없이_보내면_null로_전달된다() throws Exception {
+        RemoveMediaFromFoldersResult result =
+            new RemoveMediaFromFoldersResult(1, List.of(5011L), List.of(), List.of());
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), org.mockito.ArgumentMatchers.isNull()))
+            .willReturn(result);
+
+        removeFromFolders("{\"mediaIds\":[5011]}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(5011));
+    }
+
+    @Test
+    void 꺼내기에서_mediaIds가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList()))
+            .willThrow(new InvalidMediaFolderParamException());
+
+        removeFromFolders("{\"mediaIds\":[],\"folderIds\":[31]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 꺼내기도_없는_폴더가_있으면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList()))
+            .willThrow(new FolderNotFoundException(List.of(999L)));
+
+        removeFromFolders("{\"mediaIds\":[1],\"folderIds\":[999]}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
     private ResultActions addToFolders(String body) throws Exception {
         return mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
+            .header("Authorization", BEARER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+    }
+
+    private ResultActions removeFromFolders(String body) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
