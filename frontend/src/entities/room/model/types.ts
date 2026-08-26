@@ -1,4 +1,4 @@
-export type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED";
+export type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED" | "PURGED";
 
 export interface RoomFolder {
   id: number;

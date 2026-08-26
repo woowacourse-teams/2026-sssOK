@@ -69,7 +69,7 @@ describe("라우트", () => {
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "첫째 날 4" }));
+    await user.click(screen.getByRole("button", { name: "첫째 날 12" }));
 
     expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();

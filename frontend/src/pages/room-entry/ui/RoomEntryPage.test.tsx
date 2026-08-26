@@ -5,10 +5,9 @@ import { http, HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
-import { API_PREFIX } from "@/mocks/config";
 import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
-import { ROUTE_PATTERNS } from "@/shared/config";
+import { API_BASE_URL, ROUTE_PATTERNS } from "@/shared/config";
 import { RoomEntryPage } from "./RoomEntryPage";
 
 const FUTURE = "2099-01-01T00:00:00Z";
@@ -22,6 +21,9 @@ const session = (expiresAt: string) => ({
 });
 
 const GALLERY_TEXT = "갤러리 도착";
+
+/** MSW 가 넘겨주는 request.url 은 언제나 절대 URL 이다. 베이스가 상대경로여도 맞춰 볼 수 있게 푼다. */
+const absolute = (path: string) => new URL(path, location.href).href;
 
 const renderAt = (code: string) => {
   const queryClient = new QueryClient({
@@ -78,7 +80,7 @@ describe("RoomEntryPage", () => {
     it("인증 토큰으로 방 입장까지 마친다", async () => {
       let joinRequest: { url: string; authorization: string | null } | null = null;
       server.use(
-        http.post(`${API_PREFIX}/rooms/:roomId/members`, ({ request }) => {
+        http.post(`${API_BASE_URL}/rooms/:roomId/members`, ({ request }) => {
           joinRequest = {
             url: request.url,
             authorization: request.headers.get("Authorization"),
@@ -95,14 +97,14 @@ describe("RoomEntryPage", () => {
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
       expect(joinRequest).toEqual({
         // 입장 API 는 방 코드가 아니라 방 조회 응답의 roomId 를 쓴다
-        url: `${API_PREFIX}/rooms/5031/members`,
+        url: absolute(`${API_BASE_URL}/rooms/5031/members`),
         authorization: "Bearer mock-token-10234",
       });
     });
 
     it("방 입장에 실패하면 저장한 세션을 도로 지우고 에러 화면을 보여준다", async () => {
       server.use(
-        http.post(`${API_PREFIX}/rooms/:roomId/members`, () =>
+        http.post(`${API_BASE_URL}/rooms/:roomId/members`, () =>
           HttpResponse.json({ code: "ROOM_JOIN_FAILED", message: "안돼요" }, { status: 500 }),
         ),
       );
@@ -119,7 +121,7 @@ describe("RoomEntryPage", () => {
 
     it("인증에 실패하면 에러 화면을 보여준다", async () => {
       server.use(
-        http.post(`${API_PREFIX}/auth/anonymous`, () =>
+        http.post(`${API_BASE_URL}/auth/anonymous`, () =>
           HttpResponse.json({ code: "INVALID_NICKNAME", message: "안돼요" }, { status: 400 }),
         ),
       );

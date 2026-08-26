@@ -16,6 +16,7 @@ const ERROR_MESSAGE: Record<string, string> = {
 const STATUS_MESSAGE = {
   EXPIRED: "만료된 방이에요.",
   DELETED: "삭제된 방이에요.",
+  PURGED: "영구 삭제된 방이에요.",
 } as const;
 
 const HomeLink = () => <Link to={ROUTES.home}>홈으로 돌아가기</Link>;
