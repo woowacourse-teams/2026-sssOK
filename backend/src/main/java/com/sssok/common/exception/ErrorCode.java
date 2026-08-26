@@ -1,0 +1,75 @@
+package com.sssok.common.exception;
+
+// 이름이 그대로 응답의 code 가 되므로, 이름을 바꾸면 API 계약이 바뀐다.
+// 상태를 HttpStatus 가 아닌 int 로 두는 건 도메인 예외도 이 열거형을 쓰기 때문이다.
+// 도메인은 Spring 에 의존하지 않아서, HttpStatus 로의 변환은 표현 계층이 맡는다.
+public enum ErrorCode {
+
+    // 400 Bad Request
+    INVALID_NICKNAME(400, "닉네임은 1자 이상 12자 이하여야 합니다"),
+    INVALID_LINK_CODE(400, "코드가 올바르지 않습니다"),
+    INVALID_ROOM_CODE(400, "올바르지 않은 방 코드 형식입니다: %s"),
+    INVALID_ROOM_NAME(400, "올바르지 않은 방 이름입니다: %s"),
+    INVALID_ROOM_EXPIRATION(400, "만료 시간은 24시간 또는 72시간만 선택할 수 있습니다"),
+    INVALID_UPLOAD_POLICY(400, "업로드 권한은 everyone 또는 host 만 선택할 수 있습니다"),
+    INVALID_ENTRY_PASSWORD(400, "%s"),
+    INVALID_FOLDER_NAME(400, "올바르지 않은 폴더 이름입니다: %s"),
+    INVALID_FILE_SIZE(400, "%s"),
+    INVALID_STORAGE_KEY(400, "%s"),
+    ILLEGAL_ROOM_STATUS_TRANSITION(400, "허용되지 않는 상태 전이입니다: %s -> %s"),
+    ILLEGAL_UPLOAD_STATUS(400, "업로드 상태를 %s 에서 %s 로 바꿀 수 없습니다"),
+    EMPTY_PATCH(400, "변경할 항목을 하나 이상 보내주세요"),
+    INVALID_REQUEST_BODY(400, "요청 본문 형식이 올바르지 않습니다"),
+    INVALID_REQUEST_PARAMETER(400, "%s 값의 형식이 올바르지 않습니다"),
+
+    // 401 Unauthorized
+    UNAUTHORIZED(401, "%s"),
+
+    // 403 Forbidden
+    NOT_ROOM_HOST(403, "방장만 수행할 수 있는 작업입니다"),
+    ROOM_MEMBERSHIP_REQUIRED(403, "입장한 방만 구독할 수 있습니다"),
+
+    // 404 Not Found
+    ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
+    LINK_CODE_NOT_FOUND(404, "유효하지 않은 코드입니다"),
+
+    // 405 Method Not Allowed
+    METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
+
+    // 409 Conflict
+    ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
+
+    // 410 Gone
+    ROOM_EXPIRED(410, "이미 사라진 방입니다"),
+    ROOM_ALREADY_DELETED(410, "이미 삭제되었거나 만료된 방입니다"),
+    LINK_CODE_EXPIRED(410, "만료된 코드입니다"),
+
+    // 413 Payload Too Large
+    FILE_SIZE_EXCEEDED(413, "%s 파일은 최대 %d바이트까지 업로드할 수 있습니다. (요청: %d바이트)"),
+
+    // 415 Unsupported Media Type
+    UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
+    UNSUPPORTED_FILE_TYPE(415, "지원하지 않는 파일 형식입니다: %s"),
+
+    // 500 Internal Server Error
+    INTERNAL_SERVER_ERROR(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요");
+
+    private final int status;
+    private final String messageFormat;
+
+    ErrorCode(int status, String messageFormat) {
+        this.status = status;
+        this.messageFormat = messageFormat;
+    }
+
+    public int status() {
+        return status;
+    }
+
+    public String message(Object... args) {
+        if (args.length == 0) {
+            return messageFormat;
+        }
+        return messageFormat.formatted(args);
+    }
+}
