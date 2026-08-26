@@ -26,18 +26,23 @@ spring:
         core-size: 4
         max-size: 8
         queue-capacity: 100
-    # 방 만료 TTL / 30일 보관 후 영구 삭제 @Scheduled 배치
+    # 방 만료 TTL / 보관 기간 경과 후 영구 삭제 @Scheduled 배치
     scheduling:
       thread-name-prefix: batch-
       pool:
         size: 2
 
+jwt:
+  # 시크릿 자체는 실제 값을 커밋하지 않는다 — 로컬은 application-local.yml(gitignored), CI/운영은 환경변수로 공급한다.
+  secret: ${JWT_SECRET}
+  access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30d}
+
 room:
   code-length: 8
   default-ttl: 24h
   expiration-change-limit: 3
-  # soft delete 이후 실제 삭제까지의 보관 기간
-  retention-after-delete: 30d
+  # 수명을 다한 방을 실제로 지우는 시각. 보관 기간 자체는 RetentionPolicy 가 갖는다.
+  purge-cron: "0 0 4 * * *"
 
 upload:
   image-max-size: 10MB

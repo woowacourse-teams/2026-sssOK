@@ -1,8 +1,11 @@
 package com.sssok.domain.room.exception;
 
-public class InvalidRoomExpirationException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
 
-    public InvalidRoomExpirationException(Object value) {
-        super("올바르지 않은 방 만료 시각입니다: " + value);
+public class InvalidRoomExpirationException extends SssOkException {
+
+    public InvalidRoomExpirationException() {
+        super(ErrorCode.INVALID_ROOM_EXPIRATION);
     }
 }

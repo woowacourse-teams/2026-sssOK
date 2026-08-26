@@ -1,8 +1,11 @@
 package com.sssok.domain.room.exception;
 
-public class InvalidRoomCodeException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class InvalidRoomCodeException extends SssOkException {
 
     public InvalidRoomCodeException(String value) {
-        super("올바르지 않은 방 코드 형식입니다: " + value);
+        super(ErrorCode.INVALID_ROOM_CODE, value);
     }
 }

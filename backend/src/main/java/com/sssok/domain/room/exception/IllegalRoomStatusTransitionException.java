@@ -1,10 +1,12 @@
 package com.sssok.domain.room.exception;
 
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 
-public class IllegalRoomStatusTransitionException extends RuntimeException {
+public class IllegalRoomStatusTransitionException extends SssOkException {
 
     public IllegalRoomStatusTransitionException(RoomStatus from, String to) {
-        super("허용되지 않는 상태 전이입니다: " + from.name() + " -> " + to);
+        super(ErrorCode.ILLEGAL_ROOM_STATUS_TRANSITION, from.name(), to);
     }
 }

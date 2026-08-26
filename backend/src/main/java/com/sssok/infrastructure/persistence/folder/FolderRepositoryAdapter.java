@@ -1,0 +1,74 @@
+package com.sssok.infrastructure.persistence.folder;
+
+import com.sssok.application.port.out.FolderRepository;
+import com.sssok.domain.folder.Folder;
+import com.sssok.domain.folder.FolderName;
+import java.util.List;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class FolderRepositoryAdapter implements FolderRepository {
+
+    private final FolderJpaRepository jpaRepository;
+
+    @Override
+    public Folder save(Folder folder) {
+        FolderJpaEntity saved = jpaRepository.save(toEntity(folder));
+        return toDomain(saved);
+    }
+
+    @Override
+    public Optional<Folder> findById(Long id) {
+        return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<Folder> findAllById(List<Long> ids) {
+        return jpaRepository.findAllById(ids).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<Folder> findAllByRoomId(Long roomId) {
+        return jpaRepository.findAllByRoomIdOrderByCreatedAtAsc(roomId).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public Optional<Folder> findByRoomIdAndName(Long roomId, String name) {
+        return jpaRepository.findByRoomIdAndName(roomId, name).map(this::toDomain);
+    }
+
+    @Override
+    public void deleteById(Long id) {
+        jpaRepository.deleteById(id);
+    }
+
+    @Override
+    public void deleteAllByRoomId(Long roomId) {
+        jpaRepository.deleteByRoomId(roomId);
+    }
+
+    private FolderJpaEntity toEntity(Folder folder) {
+        return new FolderJpaEntity(
+            folder.getId(),
+            folder.getRoomId(),
+            folder.getName().value(),
+            folder.getCreatedAt()
+        );
+    }
+
+    private Folder toDomain(FolderJpaEntity entity) {
+        return Folder.reconstruct(
+            entity.getId(),
+            entity.getRoomId(),
+            new FolderName(entity.getName()),
+            entity.getCreatedAt()
+        );
+    }
+}

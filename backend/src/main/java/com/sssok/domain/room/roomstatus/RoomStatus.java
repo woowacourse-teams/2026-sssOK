@@ -13,6 +13,9 @@ public interface RoomStatus {
 
     boolean canUpload(UploadPolicy uploadPolicy, boolean requesterIsHost);
 
+    // 이미 지워졌거나 정리된 상태인지. 만료는 아직 지울 수 있으므로 여기서 거짓이다.
+    boolean isDeleted();
+
     RoomStatus toExpired();
 
     RoomStatus toDeleted();

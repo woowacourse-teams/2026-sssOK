@@ -23,10 +23,6 @@ spring:
     baseline-on-migrate: true
     locations: classpath:db/migration
 
-jwt:
-  secret: ${JWT_SECRET}
-  guest-token-ttl: 24h
-
 storage:
   r2:
     endpoint: ${R2_ENDPOINT}

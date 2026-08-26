@@ -1,8 +1,11 @@
 package com.sssok.domain.file.exception;
 
-public class InvalidStorageKeyException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class InvalidStorageKeyException extends SssOkException {
 
     public InvalidStorageKeyException(String message) {
-        super(message);
+        super(ErrorCode.INVALID_STORAGE_KEY, message);
     }
 }
