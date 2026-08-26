@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
+import { saveRoomSession } from "@/entities/session";
 import { ROUTES } from "@/shared/config";
 import { routes } from "./routes";
 
@@ -27,6 +28,8 @@ const renderAt = (path: string) => {
 };
 
 describe("라우트", () => {
+  beforeEach(() => localStorage.clear());
+
   it("/ 는 홈 화면을 보여준다", () => {
     renderAt(ROUTES.home);
 
@@ -41,10 +44,35 @@ describe("라우트", () => {
     expect(screen.getByText(/불러오는 중/)).toBeInTheDocument();
   });
 
-  it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", () => {
+  it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", async () => {
+    const user = userEvent.setup();
+    saveRoomSession(ROOM_CODE, {
+      accessToken: "mock-token-10234",
+      userId: 10234,
+      nickname: "민수",
+      expiresAt: "2099-01-01T00:00:00Z",
+    });
+
     renderAt(ROUTES.gallery(ROOM_CODE));
 
-    expect(screen.getByText(/갤러리 화면/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(await screen.findByAltText("IMG_0421.jpg")).toBeInTheDocument();
+    expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "내 사진" }));
+
+    expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
+    expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "다른 사람 사진" }));
+
+    expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
+    expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "첫째 날 4" }));
+
+    expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
+    expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();
   });
 
   it("방 생성에 성공하면 생성된 방의 갤러리로 이동한다", async () => {
@@ -55,7 +83,7 @@ describe("라우트", () => {
     await user.type(screen.getByRole("textbox", { name: "방 이름" }), "제주 여행");
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
-    expect(await screen.findByText(/갤러리 화면/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery("7K93QX2S"));
   });
 

@@ -58,6 +58,7 @@ export const GlobalStyles = () => (
         border: 0;
         background: none;
         cursor: pointer;
+        -webkit-tap-highlight-color: transparent;
       }
 
       input,
