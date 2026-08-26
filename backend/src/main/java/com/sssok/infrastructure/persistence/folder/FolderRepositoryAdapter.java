@@ -33,6 +33,13 @@ public class FolderRepositoryAdapter implements FolderRepository {
     }
 
     @Override
+    public List<Folder> findAllByRoomId(Long roomId) {
+        return jpaRepository.findAllByRoomIdOrderByCreatedAtAsc(roomId).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
     public Optional<Folder> findByRoomIdAndName(Long roomId, String name) {
         return jpaRepository.findByRoomIdAndName(roomId, name).map(this::toDomain);
     }

@@ -14,6 +14,9 @@ public interface FolderRepository {
     // 순서·중복 보장 없음 — 존재하는 것만 돌아오므로, 요청한 id와 개수를 비교해 없는 id를 가려내는 용도.
     List<Folder> findAllById(List<Long> ids);
 
+    // 방 조회 응답에 폴더 목록을 실을 때 쓴다. 생성 순서대로 반환한다.
+    List<Folder> findAllByRoomId(Long roomId);
+
     Optional<Folder> findByRoomIdAndName(Long roomId, String name);
 
     void deleteById(Long id);
