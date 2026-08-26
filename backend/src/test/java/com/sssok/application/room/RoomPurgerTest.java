@@ -52,8 +52,8 @@ class RoomPurgerTest {
     @Test
     void 실물을_먼저_지우고_방을_마지막에_지운다() {
         Room room = deletedRoom();
-        StoredFile file = StoredFile.beginUpload(ROOM_ID, HOST_ID, "photo.jpg",
-            FileSize.ofMegabytes(1), null, NOW);
+        StoredFile file = StoredFile.reserve(ROOM_ID, HOST_ID, "photo.jpg", "image/jpeg",
+            FileSize.ofMegabytes(1), NOW);
         given(fileRepository.findAllByRoomId(ROOM_ID)).willReturn(List.of(file));
 
         roomPurger.purge(room);

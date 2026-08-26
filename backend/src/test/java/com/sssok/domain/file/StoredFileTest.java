@@ -17,13 +17,19 @@ class StoredFileTest {
     private static final Long ROOM_ID = 1L;
     private static final Long UPLOADER_ID = 100L;
 
+    // 예약은 MIME 으로 타입을 정하므로, 파일명으로 쓰던 기존 테스트를 위해 확장자에서 뽑아 넘긴다.
     private static StoredFile beginUpload(String fileName, FileSize size, Long folderId) {
-        return StoredFile.beginUpload(ROOM_ID, UPLOADER_ID, fileName, size, folderId, NOW);
+        StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, fileName,
+            MediaType.fromFileName(fileName).contentType(), size, NOW);
+        if (folderId != null) {
+            file.moveToFolder(folderId);
+        }
+        return file;
     }
 
     private static StoredFile uploading() {
         StoredFile file = beginUpload("cat.png", FileSize.ofMegabytes(1), null);
-        file.startUploading();
+        file.startProcessing();
         return file;
     }
 
@@ -34,7 +40,7 @@ class StoredFileTest {
         void 대기_상태로_시작하고_스토리지_키가_발급된다() {
             StoredFile file = beginUpload("cat.png", FileSize.ofMegabytes(1), null);
 
-            assertThat(file.getStatus()).isEqualTo(UploadStatus.PENDING);
+            assertThat(file.getStatus()).isEqualTo(UploadStatus.RESERVED);
             assertThat(file.getMediaType()).isEqualTo(MediaType.PNG);
             assertThat(file.getStorageKey().value()).startsWith("rooms/1/").endsWith(".png");
         }
@@ -97,9 +103,9 @@ class StoredFileTest {
         @Test
         void 대기에서_업로드중을_거쳐_완료된다() {
             StoredFile file = uploading();
-            file.completeUpload();
+            file.markReady();
 
-            assertThat(file.getStatus()).isEqualTo(UploadStatus.COMPLETED);
+            assertThat(file.getStatus()).isEqualTo(UploadStatus.READY);
         }
 
         @Test
@@ -115,17 +121,17 @@ class StoredFileTest {
             StoredFile file = uploading();
             file.failUpload();
 
-            file.retryUpload();
+            file.startProcessing();
 
-            assertThat(file.getStatus()).isEqualTo(UploadStatus.UPLOADING);
+            assertThat(file.getStatus()).isEqualTo(UploadStatus.PROCESSING);
         }
 
         @Test
         void 완료된_파일은_재시도할_수_없다() {
             StoredFile file = uploading();
-            file.completeUpload();
+            file.markReady();
 
-            assertThatThrownBy(file::retryUpload)
+            assertThatThrownBy(file::startProcessing)
                 .isInstanceOf(IllegalUploadStatusException.class);
         }
 
@@ -133,14 +139,14 @@ class StoredFileTest {
         void 대기_상태에서_바로_완료할_수_없다() {
             StoredFile file = beginUpload("cat.png", FileSize.ofMegabytes(1), null);
 
-            assertThatThrownBy(file::completeUpload)
+            assertThatThrownBy(file::markReady)
                 .isInstanceOf(IllegalUploadStatusException.class);
         }
 
         @Test
         void 완료된_파일은_다시_실패할_수_없다() {
             StoredFile file = uploading();
-            file.completeUpload();
+            file.markReady();
 
             assertThatThrownBy(file::failUpload)
                 .isInstanceOf(IllegalUploadStatusException.class);
