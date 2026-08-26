@@ -20,6 +20,11 @@ public class FolderRepositoryAdapter implements FolderRepository {
     }
 
     @Override
+    public Optional<Folder> findById(Long id) {
+        return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
     public Optional<Folder> findByRoomIdAndName(Long roomId, String name) {
         return jpaRepository.findByRoomIdAndName(roomId, name).map(this::toDomain);
     }

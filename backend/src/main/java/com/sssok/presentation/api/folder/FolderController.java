@@ -1,6 +1,7 @@
 package com.sssok.presentation.api.folder;
 
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.folder.RenameFolderService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class FolderController {
 
     private final CreateFolderService createFolderService;
+    private final RenameFolderService renameFolderService;
 
     @Operation(
         summary = "폴더 생성",
@@ -38,5 +41,21 @@ public class FolderController {
         Folder folder = createFolderService.create(roomId, request.name());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.of(FolderResponse.from(folder, 0)));
+    }
+
+    @Operation(
+        summary = "폴더 이름 변경",
+        description = "폴더 이름을 바꾼다. 자기 자신과 같은 이름으로 바꾸는 요청은 중복으로 보지 않고 그대로 "
+            + "허용한다. 없는 폴더는 404, 그 외 실패 케이스(403/404/410/409)는 생성과 동일하다."
+    )
+    @PatchMapping("/{folderId}")
+    public ApiResponse<FolderResponse> renameFolder(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "폴더 생성 응답의 id") @PathVariable Long folderId,
+        @RequestBody RenameFolderRequest request
+    ) {
+        Folder folder = renameFolderService.rename(roomId, folderId, request.name());
+        return ApiResponse.of(FolderResponse.from(folder, 0));
     }
 }

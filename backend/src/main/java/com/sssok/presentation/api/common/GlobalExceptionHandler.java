@@ -4,6 +4,7 @@ import com.sssok.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
+import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.domain.folder.exception.FolderNameTooLongException;
 import com.sssok.domain.folder.exception.InvalidFolderNameException;
@@ -147,6 +148,12 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleDuplicateFolderName(DuplicateFolderNameException e) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
             .body(new ErrorResponse("DUPLICATE_FOLDER_NAME", e.getMessage()));
+    }
+
+    @ExceptionHandler(FolderNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleFolderNotFound(FolderNotFoundException e) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(new ErrorResponse("FOLDER_NOT_FOUND", e.getMessage()));
     }
 
 

@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.folder;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -103,11 +104,68 @@ class FolderApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("FOLDER_NAME_TOO_LONG"));
     }
 
+    @Test
+    void 폴더_이름을_바꾸면_200과_바뀐_이름을_받는다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+
+        폴더_이름변경(token, roomId, folderId, "{\"name\":\"카페\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.id").value(folderId))
+            .andExpect(jsonPath("$.data.name").value("카페"));
+    }
+
+    @Test
+    void 자기_자신과_같은_이름으로_바꾸면_중복이_아니라_200이다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+
+        폴더_이름변경(token, roomId, folderId, "{\"name\":\"맛집\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.name").value("맛집"));
+    }
+
+    @Test
+    void 다른_폴더가_쓰는_이름으로_바꾸면_409() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        폴더_만들기(token, roomId, "카페");
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+
+        폴더_이름변경(token, roomId, folderId, "{\"name\":\"카페\"}")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("DUPLICATE_FOLDER_NAME"));
+    }
+
+    @Test
+    void 없는_폴더를_바꾸면_404() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+
+        폴더_이름변경(token, roomId, -1L, "{\"name\":\"카페\"}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
     private ResultActions 폴더_생성(String token, long roomId, String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", roomId)
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
+    }
+
+    private ResultActions 폴더_이름변경(String token, long roomId, long folderId, String body) throws Exception {
+        return mockMvc.perform(patch("/api/v1/rooms/{roomId}/folders/{folderId}", roomId, folderId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+    }
+
+    private long 폴더_만들기(String token, long roomId, String name) throws Exception {
+        MvcResult created = 폴더_생성(token, roomId, "{\"name\":\"" + name + "\"}").andReturn();
+        return Long.parseLong(값(created, "id"));
     }
 
     private long 방_만들고_입장(String token) throws Exception {

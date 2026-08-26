@@ -3,12 +3,15 @@ package com.sssok.presentation.api.folder;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.folder.RenameFolderService;
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
+import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
@@ -49,6 +52,9 @@ class FolderControllerTest {
 
     @MockitoBean
     CreateFolderService createFolderService;
+
+    @MockitoBean
+    RenameFolderService renameFolderService;
 
     @MockitoBean
     TokenProvider tokenProvider;
@@ -166,8 +172,46 @@ class FolderControllerTest {
             .andExpect(jsonPath("$.code").value("DUPLICATE_FOLDER_NAME"));
     }
 
+    @Test
+    void 이름을_바꾸면_200과_바뀐_폴더_정보를_반환한다() throws Exception {
+        given(renameFolderService.rename(ROOM_ID, 100L, "카페")).willReturn(folder(100L, "카페"));
+
+        renameFolder(100L, "{\"name\":\"카페\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.id").value(100))
+            .andExpect(jsonPath("$.data.name").value("카페"))
+            .andExpect(jsonPath("$.data.photoCount").value(0));
+    }
+
+    @Test
+    void 없는_폴더면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
+        given(renameFolderService.rename(anyLong(), anyLong(), anyString()))
+            .willThrow(new FolderNotFoundException(100L));
+
+        renameFolder(100L, "{\"name\":\"카페\"}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
+    @Test
+    void 이름_변경도_중복되면_409와_DUPLICATE_FOLDER_NAME을_반환한다() throws Exception {
+        given(renameFolderService.rename(anyLong(), anyLong(), anyString()))
+            .willThrow(new DuplicateFolderNameException());
+
+        renameFolder(100L, "{\"name\":\"카페\"}")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("DUPLICATE_FOLDER_NAME"));
+    }
+
     private org.springframework.test.web.servlet.ResultActions createFolder(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", ROOM_ID)
+            .header("Authorization", BEARER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions renameFolder(Long folderId, String body) throws Exception {
+        return mockMvc.perform(patch("/api/v1/rooms/{roomId}/folders/{folderId}", ROOM_ID, folderId)
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));

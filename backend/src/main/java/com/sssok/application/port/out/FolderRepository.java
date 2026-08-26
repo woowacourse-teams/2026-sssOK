@@ -8,5 +8,7 @@ public interface FolderRepository {
 
     Folder save(Folder folder);
 
+    Optional<Folder> findById(Long id);
+
     Optional<Folder> findByRoomIdAndName(Long roomId, String name);
 }
