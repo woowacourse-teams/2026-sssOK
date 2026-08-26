@@ -1,7 +1,7 @@
-import { API_PREFIX } from "../config";
+import { API_BASE_URL } from "@/shared/config";
 import { MOCK_ROOM_CODES } from "./room";
 
-const getRoom = (code: string) => fetch(`${API_PREFIX}/rooms/${code}`);
+const getRoom = (code: string) => fetch(`${API_BASE_URL}/rooms/${code}`);
 
 describe("GET /rooms/{code} 목 핸들러", () => {
   it("활성 방은 200 과 ACTIVE 상태를 내려준다", async () => {

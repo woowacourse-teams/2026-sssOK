@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 
-import { API_PREFIX } from "../config";
+import { API_BASE_URL } from "@/shared/config";
 
 /** 첫 회원은 방 목 데이터의 hostId 와 같다 — 처음 인증한 사람이 방장으로 보인다. */
 const FIRST_USER_ID = 10234;
@@ -15,7 +15,7 @@ const readNextUserId = () => Number(localStorage.getItem(COUNTER_KEY)) || FIRST_
  * 방마다 인증을 새로 하는 구조라, 목도 매번 다른 userId·토큰을 줘야 방별로 다른 사람이 된다.
  */
 export const authHandlers = [
-  http.post(`${API_PREFIX}/auth/anonymous`, async ({ request }) => {
+  http.post(`${API_BASE_URL}/auth/anonymous`, async ({ request }) => {
     const { nickname } = (await request.json()) as { nickname: string };
     const userId = readNextUserId();
 

@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 
-import { API_PREFIX } from "../config";
+import { API_BASE_URL } from "@/shared/config";
 
 /**
  * 방 코드는 8자리다. 혼동하기 쉬운 0, 1, I, O 는 알파벳에서 빠져 있다.
@@ -42,7 +42,7 @@ export const resetJoinedRooms = () => joinedRooms.clear();
 
 export const roomHandlers = [
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
-  http.get(`${API_PREFIX}/rooms/:code`, ({ request, params }) => {
+  http.get(`${API_BASE_URL}/rooms/:code`, ({ request, params }) => {
     const code = String(params.code);
     const token = request.headers.get("Authorization");
     // 토큰이 실렸을 때만 참여 여부를 판정한다. 비로그인 요청은 언제나 false 다.
@@ -77,7 +77,7 @@ export const roomHandlers = [
    * 입장은 멱등이다. 처음이면 201, 이미 입장했으면 200 으로 같은 내용을 돌려준다.
    * 목은 이번 세션에 입장한 방을 기억해 두 번째 호출부터 200 을 준다.
    */
-  http.post(`${API_PREFIX}/rooms/:roomId/members`, ({ request, params }) => {
+  http.post(`${API_BASE_URL}/rooms/:roomId/members`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
 
     if (token === null) {
@@ -106,7 +106,7 @@ export const roomHandlers = [
     );
   }),
 
-  http.post(`${API_PREFIX}/rooms`, async ({ request }) => {
+  http.post(`${API_BASE_URL}/rooms`, async ({ request }) => {
     // 토큰은 인증할 때마다 달라진다. 목은 실렸는지만 본다.
     if (request.headers.get("Authorization") === null) {
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
