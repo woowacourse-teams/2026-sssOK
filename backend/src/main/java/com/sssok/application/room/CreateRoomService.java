@@ -27,11 +27,6 @@ public class CreateRoomService {
     private final RandomGenerator randomGenerator = new SecureRandom();
 
     @Transactional
-    public RoomDetail create(Long hostId, String name) {
-        return create(hostId, name, null, null);
-    }
-
-    @Transactional
     public RoomDetail create(Long hostId, String name, String uploadPolicy, Integer expiryHours) {
         Instant now = Instant.now();
         Room room = Room.create(

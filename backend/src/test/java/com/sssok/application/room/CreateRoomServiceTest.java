@@ -32,7 +32,7 @@ class CreateRoomServiceTest {
 
     @Test
     void uploadPolicy와_expiryHours를_생략하면_기본값이_적용된다() {
-        RoomDetail detail = createRoomService.create(HOST, "우테코 회식");
+        RoomDetail detail = createRoomService.create(HOST, "우테코 회식", null, null);
 
         assertThat(detail.room().getUploadPolicy()).isEqualTo(UploadPolicy.ANYONE);
         assertThat(detail.room().getExpiration().expiresAt())
@@ -62,7 +62,7 @@ class CreateRoomServiceTest {
 
     @Test
     void 방을_생성하면_방장이_자동으로_참여자로_등록된다() {
-        RoomDetail detail = createRoomService.create(HOST, "우테코 회식");
+        RoomDetail detail = createRoomService.create(HOST, "우테코 회식", null, null);
 
         assertThat(roomMemberRepository.findByRoomIdAndMemberId(detail.room().getId(), HOST)).isPresent();
         assertThat(detail.joined()).isTrue();

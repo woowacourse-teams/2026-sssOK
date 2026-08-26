@@ -62,7 +62,7 @@ class UpdateRoomServiceTest {
     }
 
     private Room createRoom() {
-        return createRoomService.create(HOST, "우테코 회식").room();
+        return createRoomService.create(HOST, "우테코 회식", null, null).room();
     }
 
     @Test

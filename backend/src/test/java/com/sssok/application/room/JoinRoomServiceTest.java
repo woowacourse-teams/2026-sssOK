@@ -68,7 +68,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     }
 
     private Room createRoom() {
-        return createRoomService.create(hostId, "우테코 회식").room();
+        return createRoomService.create(hostId, "우테코 회식", null, null).room();
     }
 
 
