@@ -1,14 +1,14 @@
 import "@testing-library/jest-dom";
 
-import { resetJoinedRooms } from "./mocks/handlers/room";
+import { resetRoomHandlers } from "./mocks/handlers/room";
 import { server } from "./mocks/server";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 
 afterEach(() => {
   server.resetHandlers();
-  // 목이 들고 있는 입장 기록까지 지워야 다음 테스트가 첫 입장(201)부터 시작한다
-  resetJoinedRooms();
+  // 핸들러가 들고 있는 입장·수정·삭제 상태를 초기화한다.
+  resetRoomHandlers();
 });
 
 afterAll(() => server.close());
