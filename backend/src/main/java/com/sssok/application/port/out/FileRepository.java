@@ -1,8 +1,15 @@
 package com.sssok.application.port.out;
 
+import com.sssok.domain.file.StoredFile;
+import java.util.List;
+
 // 파일 영속화 출력
 public interface FileRepository {
 
     // 담기/꺼내기에서 mediaId가 실제로 존재하는 미디어인지 확인하는 용도.
     boolean existsById(Long id);
+
+    List<StoredFile> findAllByRoomId(Long roomId);
+
+    void deleteAllByRoomId(Long roomId);
 }

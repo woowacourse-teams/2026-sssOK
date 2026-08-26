@@ -2,6 +2,7 @@ package com.sssok.application.port.out;
 
 import com.sssok.domain.auth.LinkCode;
 import com.sssok.domain.auth.LinkCodeValue;
+import java.util.Collection;
 import java.util.Optional;
 
 // 연결 코드 영속화 출력
@@ -11,6 +12,9 @@ public interface LinkCodeRepository {
 
     // 한 회원은 동시에 최대 1개의 유효한 코드만 가진다 — 새로 발급하기 전에 이전 코드를 무효화한다.
     void deleteAllByMemberId(Long memberId);
+
+    // 회원을 지울 때 그 회원의 코드도 함께 지운다. 남겨두면 없는 회원을 가리키는 행이 된다.
+    void deleteAllByMemberIdIn(Collection<Long> memberIds);
 
     Optional<LinkCode> findByCode(LinkCodeValue code);
 

@@ -7,6 +7,9 @@ import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.domain.room.UploadPolicy;
+import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -31,6 +34,26 @@ public class RoomRepositoryAdapter implements RoomRepository {
     @Override
     public Optional<Room> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<Room> findAllPurgeTargets(Instant threshold) {
+        return jpaRepository.findAllPurgeTargets(threshold).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<Long> findHostIdsIn(Collection<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findHostIdsIn(memberIds);
+    }
+
+    @Override
+    public void delete(Room room) {
+        jpaRepository.deleteById(room.getId());
     }
 
     // 읽어온 version 을 그대로 실어 보내야 "내가 읽은 뒤 바뀌었는지"를 DB가 판정할 수 있다.
