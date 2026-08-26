@@ -1,10 +1,12 @@
 package com.sssok.domain.file.exception;
 
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
 import com.sssok.domain.file.UploadStatus;
 
-public class IllegalUploadStatusException extends RuntimeException {
+public class IllegalUploadStatusException extends SssOkException {
 
     public IllegalUploadStatusException(UploadStatus current, UploadStatus next) {
-        super("업로드 상태를 %s 에서 %s 로 바꿀 수 없습니다.".formatted(current, next));
+        super(ErrorCode.ILLEGAL_UPLOAD_STATUS, current, next);
     }
 }

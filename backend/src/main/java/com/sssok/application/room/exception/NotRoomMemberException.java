@@ -1,8 +1,11 @@
 package com.sssok.application.room.exception;
 
-public class NotRoomMemberException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class NotRoomMemberException extends SssOkException {
 
     public NotRoomMemberException() {
-        super("입장한 방에서만 이용할 수 있습니다");
+        super(ErrorCode.NOT_ROOM_MEMBER);
     }
 }

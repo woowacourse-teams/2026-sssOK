@@ -14,7 +14,7 @@ public record RoomExpiration(Instant expiresAt) {
 
     public RoomExpiration {
         if (expiresAt == null) {
-            throw new InvalidRoomExpirationException(null);
+            throw new InvalidRoomExpirationException();
         }
     }
 
@@ -25,7 +25,7 @@ public record RoomExpiration(Instant expiresAt) {
 
     public static RoomExpiration from(Instant now, int expiryHours) {
         if (!ALLOWED_HOURS.contains(expiryHours)) {
-            throw new InvalidRoomExpirationException(expiryHours + "시간");
+            throw new InvalidRoomExpirationException();
         }
         return new RoomExpiration(now.plus(Duration.ofHours(expiryHours)));
     }

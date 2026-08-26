@@ -1,8 +1,11 @@
 package com.sssok.domain.folder.exception;
 
-public class InvalidFolderNameException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class InvalidFolderNameException extends SssOkException {
 
     public InvalidFolderNameException() {
-        super("폴더 이름을 입력해주세요");
+        super(ErrorCode.INVALID_FOLDER_NAME);
     }
 }

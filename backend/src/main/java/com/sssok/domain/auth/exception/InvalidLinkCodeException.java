@@ -1,8 +1,11 @@
 package com.sssok.domain.auth.exception;
 
-public class InvalidLinkCodeException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class InvalidLinkCodeException extends SssOkException {
 
     public InvalidLinkCodeException(String value) {
-        super("코드 형식이 올바르지 않습니다: " + value);
+        super(ErrorCode.INVALID_LINK_CODE, value);
     }
 }

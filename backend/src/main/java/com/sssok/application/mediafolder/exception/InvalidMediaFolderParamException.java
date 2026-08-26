@@ -1,8 +1,11 @@
 package com.sssok.application.mediafolder.exception;
 
-public class InvalidMediaFolderParamException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class InvalidMediaFolderParamException extends SssOkException {
 
     public InvalidMediaFolderParamException() {
-        super("미디어와 폴더를 선택해 주세요");
+        super(ErrorCode.INVALID_PARAM);
     }
 }

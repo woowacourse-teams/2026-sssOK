@@ -29,13 +29,13 @@ public enum UploadPolicy {
 
     public static UploadPolicy from(String apiValue) {
         if (apiValue == null) {
-            throw new InvalidUploadPolicyException(null);
+            throw new InvalidUploadPolicyException();
         }
         String normalized = apiValue.trim().toLowerCase(Locale.ROOT);
         return Arrays.stream(values())
             .filter(policy -> policy.apiValue.equals(normalized))
             .findFirst()
-            .orElseThrow(() -> new InvalidUploadPolicyException(apiValue));
+            .orElseThrow(InvalidUploadPolicyException::new);
     }
 
     public abstract boolean allows(boolean requesterIsHost);

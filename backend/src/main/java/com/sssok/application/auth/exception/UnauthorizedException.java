@@ -1,8 +1,11 @@
 package com.sssok.application.auth.exception;
 
-public class UnauthorizedException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class UnauthorizedException extends SssOkException {
 
     public UnauthorizedException(String message) {
-        super(message);
+        super(ErrorCode.UNAUTHORIZED, message);
     }
 }
