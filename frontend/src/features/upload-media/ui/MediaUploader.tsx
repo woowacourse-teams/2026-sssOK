@@ -53,12 +53,26 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
     },
   });
 
+  /**
+   * 알림에는 **못 올리는 것만** 남긴다.
+   *
+   * 올라갈 장수는 진행 바가 `0 / 8` 로 말하고 있어서, 그 위에 "8장을 선택했어요" 를 띄우면
+   * 같은 말이 두 번 뜬다. 게다가 업로드가 끝나도 그 문구는 남아, 다 올라간 화면에
+   * 지난 얘기만 덩그러니 놓인다. 시안(12)에도 업로드 중·실패 화면 어디에도 이 알림이 없다.
+   *
+   * 반대로 걸러진 파일은 애초에 업로드에 끼지 않아서 진행 바가 대신 말해주지 못한다.
+   * 그건 알림에 남겨야 사용자가 장수가 줄어든 이유를 안다.
+   */
   const handleSelect = (next: MediaSelection) => {
-    setSelection(next);
+    const hasRejected = next.rejected.length > 0;
 
-    if (next.accepted.length > 0) {
-      upload.start(next.accepted);
+    if (next.accepted.length === 0) {
+      setSelection(hasRejected ? next : null);
+      return;
     }
+
+    setSelection(hasRejected ? { accepted: [], rejected: next.rejected } : null);
+    upload.start(next.accepted);
   };
 
   const handleRetry = () => {

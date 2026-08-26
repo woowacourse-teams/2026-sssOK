@@ -125,13 +125,18 @@ describe("MediaUploader", () => {
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
   });
 
-  it("여러 장을 고르면 선택한 장수를 알린다", async () => {
+  /**
+   * 올라갈 장수는 진행 바가 `0 / 3` 으로 말한다. 알림이 같은 말을 또 하면
+   * 업로드가 끝난 뒤에도 지난 얘기가 화면에 남는다 — 시안(12)에도 그 알림은 없다.
+   */
+  it("전부 올릴 수 있으면 알림 없이 바로 올라간다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("a.jpg"), fileOf("b.png"), fileOf("c.mov")]);
 
-    expect(screen.getByRole("status")).toHaveTextContent("3장을 선택했어요");
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    await settled();
   });
 
   /**
@@ -145,15 +150,15 @@ describe("MediaUploader", () => {
     renderUploader();
     await user.upload(getFileInput(), [fileOf("a.jpg"), fileOf("b.jpg")]);
 
-    expect(screen.getByRole("status")).toHaveTextContent("2장을 선택했어요");
     expect(getFileInput()).toHaveValue("");
+    await settled();
   });
 
   it("알림을 닫으면 사라진다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
-    await user.upload(getFileInput(), [fileOf("a.jpg")]);
+    await user.upload(getFileInput(), [fileOf("IMG_0001.HEIC")]);
     await user.click(screen.getByRole("button", { name: "알림 닫기" }));
 
     expect(screen.getByRole("status")).toBeEmptyDOMElement();
@@ -172,10 +177,14 @@ describe("MediaUploader", () => {
 
     const notice = screen.getByRole("status");
 
-    expect(notice).toHaveTextContent("1장을 선택했어요");
+    // 걸러진 파일은 업로드에 끼지 않아서 진행 바가 대신 말해주지 못한다. 알림에 남아야 한다.
     expect(notice).toHaveTextContent("2장은 올릴 수 없어요");
     expect(notice).toHaveTextContent("이미지와 영상만 올릴 수 있어요 (1장)");
     expect(notice).toHaveTextContent("사진은 10MB까지 올릴 수 있어요 (1장)");
+    // 올라가는 한 장은 진행 바가 센다.
+    expect(notice).not.toHaveTextContent("선택했어요");
+
+    await settled();
   });
 
   it("같은 사유로 걸러진 파일은 한 줄로 묶어 장수만 보여준다", async () => {
