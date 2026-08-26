@@ -17,24 +17,88 @@ export const MOCK_ROOM_CODES = {
   notFound: "NTFUND23",
   /** 두 번째 활성 방. 방마다 다른 이름으로 들어가는 흐름을 손으로 확인할 때 쓴다. */
   second: "QRST6789",
+  /** 방장만 올릴 수 있는 방. 업로드 권한 거절(403)을 손으로 확인할 때 쓴다. */
+  hostOnly: "HSTNLY23",
   /** 형식 자체가 틀린 코드 (O 는 허용 알파벳이 아니다) → 400 */
   invalid: "NOTFOUND",
 } as const;
 
-/** 목이 아는 방은 하나뿐이라 방 번호도 하나다. 업로드 목이 경로와 스토리지 키에 같은 값을 쓴다. */
-export const MOCK_ROOM_ID = 5031;
+/**
+ * 방 번호는 코드마다 다르다 — 실제 서버와 같다.
+ * 조회 응답의 roomId 로 이후 경로(`/rooms/{roomId}/...`)와 스토리지 키가 만들어진다.
+ */
+const ROOM_IDS: Record<string, number> = {
+  [MOCK_ROOM_CODES.active]: 5031,
+  [MOCK_ROOM_CODES.second]: 5032,
+  [MOCK_ROOM_CODES.expired]: 5033,
+  [MOCK_ROOM_CODES.deleted]: 5034,
+  [MOCK_ROOM_CODES.hostOnly]: 5035,
+};
 
-const isKnownRoomCode = (code: string) =>
-  code === MOCK_ROOM_CODES.active || code === MOCK_ROOM_CODES.second;
+/** 목이 아는 방장. 방 데이터의 hostId 이자 auth 목의 첫 회원이다. */
+export const MOCK_HOST_ID = 10234;
+
+/** 방마다 업로드 권한이 다르다. backend UploadPolicy 의 apiValue 와 같은 표기다. */
+const UPLOAD_POLICIES: Record<string, "everyone" | "host"> = {
+  [MOCK_ROOM_CODES.hostOnly]: "host",
+};
+
+const uploadPolicyOf = (code: string) => UPLOAD_POLICIES[code] ?? "everyone";
+
+/** 기본 방(active) 번호. 업로드 목과 수동 확인이 이 방을 쓴다. */
+export const MOCK_ROOM_ID = ROOM_IDS[MOCK_ROOM_CODES.active];
+
+/** 들어갈 수 있는 방. 만료·삭제된 방은 여기 없다. */
+const ACTIVE_ROOM_CODES = [
+  MOCK_ROOM_CODES.active,
+  MOCK_ROOM_CODES.second,
+  MOCK_ROOM_CODES.hostOnly,
+] as string[];
+
+const isActiveRoomCode = (code: string) => ACTIVE_ROOM_CODES.includes(code);
+
+const codeOfRoomId = (roomId: number) =>
+  Object.keys(ROOM_IDS).find((code) => ROOM_IDS[code] === roomId) ?? null;
+
+/** 업로드처럼 방 번호로 들어오는 요청이 열려 있는 방을 가리키는지 본다. */
+export const isActiveRoomId = (roomId: number) =>
+  ACTIVE_ROOM_CODES.some((code) => ROOM_IDS[code] === roomId);
+
+/**
+ * 방 번호로 상태를 본다. 모르는 번호면 null 이다.
+ * 업로드 목이 404(없는 방)와 410(만료·삭제)을 갈라 내려주려고 쓴다.
+ */
+export const roomStatusOfId = (roomId: number): "ACTIVE" | "EXPIRED" | "DELETED" | null => {
+  const code = codeOfRoomId(roomId);
+
+  if (code === null) {
+    return null;
+  }
+  if (code === MOCK_ROOM_CODES.expired) {
+    return "EXPIRED";
+  }
+  if (code === MOCK_ROOM_CODES.deleted) {
+    return "DELETED";
+  }
+
+  return "ACTIVE";
+};
+
+/** 방 번호로 업로드 권한을 본다. 모르는 번호면 null 이다. */
+export const uploadPolicyOfId = (roomId: number) => {
+  const code = codeOfRoomId(roomId);
+
+  return code === null ? null : uploadPolicyOf(code);
+};
 
 const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED", joined = false) => ({
-  roomId: MOCK_ROOM_ID,
+  roomId: ROOM_IDS[code],
   code,
   name: "제주 여행",
   status,
-  hostId: 10234,
+  hostId: MOCK_HOST_ID,
   hostName: "민수",
-  uploadPolicy: "everyone",
+  uploadPolicy: uploadPolicyOf(code),
   joined,
   createdAt: "2026-08-18T05:30:00Z",
   expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
@@ -43,16 +107,21 @@ const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED", joined = f
 /** 입장 멱등성을 흉내내려고 이번 세션의 입장 기록을 들고 있는다. 목 전용 상태다. */
 const joinedRooms = new Set<string>();
 
+/** 토큰마다 따로 센다. 방 번호로 남겨야 조회 핸들러와 키가 맞는다. */
+const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
+
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
 export const resetJoinedRooms = () => joinedRooms.clear();
+
+/** 업로드처럼 참여자만 부를 수 있는 API 가 입장 여부를 확인할 때 쓴다. */
+export const hasJoinedRoom = (token: string, roomId: number) =>
+  joinedRooms.has(joinKey(token, roomId));
 
 export const roomHandlers = [
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
   http.get(`${API_BASE_URL}/rooms/:code`, ({ request, params }) => {
     const code = String(params.code);
     const token = request.headers.get("Authorization");
-    // 토큰이 실렸을 때만 참여 여부를 판정한다. 비로그인 요청은 언제나 false 다.
-    const joined = token !== null && joinedRooms.has(`${token}:${code}`);
 
     if (!ROOM_CODE_PATTERN.test(code)) {
       return HttpResponse.json(
@@ -69,7 +138,11 @@ export const roomHandlers = [
       return HttpResponse.json({ data: room(code, "DELETED") });
     }
 
-    if (isKnownRoomCode(code)) {
+    if (isActiveRoomCode(code)) {
+      // 입장 기록은 방 번호로 남으니 (`POST /rooms/:roomId/members`) 조회도 같은 키로 본다.
+      // 토큰이 실렸을 때만 판정한다. 비로그인 요청은 언제나 false 다.
+      const joined = token !== null && joinedRooms.has(joinKey(token, ROOM_IDS[code]));
+
       return HttpResponse.json({ data: room(code, "ACTIVE", joined) });
     }
 
@@ -94,9 +167,9 @@ export const roomHandlers = [
     }
 
     const roomId = Number(params.roomId);
-    const alreadyJoined = joinedRooms.has(`${token}:${roomId}`);
+    const alreadyJoined = joinedRooms.has(joinKey(token, roomId));
 
-    joinedRooms.add(`${token}:${roomId}`);
+    joinedRooms.add(joinKey(token, roomId));
 
     return HttpResponse.json(
       {
@@ -104,7 +177,7 @@ export const roomHandlers = [
           roomId,
           userId: 10234,
           displayName: "해니",
-          hostId: 10234,
+          hostId: MOCK_HOST_ID,
           joinedAt: "2026-08-18T05:31:00Z",
         },
       },
@@ -130,7 +203,7 @@ export const roomHandlers = [
           roomId: MOCK_ROOM_ID,
           code: MOCK_ROOM_CODES.active,
           name,
-          hostId: 10234,
+          hostId: MOCK_HOST_ID,
           hostName: "민수",
           createdAt: "2026-08-18T05:30:00Z",
           expiresAt: "2026-08-19T05:30:00Z",
