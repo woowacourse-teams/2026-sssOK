@@ -13,7 +13,8 @@ public enum ErrorCode {
     INVALID_ROOM_EXPIRATION(400, "만료 시간은 24시간 또는 72시간만 선택할 수 있습니다"),
     INVALID_UPLOAD_POLICY(400, "업로드 권한은 everyone 또는 host 만 선택할 수 있습니다"),
     INVALID_ENTRY_PASSWORD(400, "%s"),
-    INVALID_FOLDER_NAME(400, "올바르지 않은 폴더 이름입니다: %s"),
+    INVALID_FOLDER_NAME(400, "폴더 이름을 입력해주세요"),
+    FOLDER_NAME_TOO_LONG(400, "폴더 이름은 12자까지 입력할 수 있어요"),
     INVALID_FILE_SIZE(400, "%s"),
     INVALID_STORAGE_KEY(400, "%s"),
     ILLEGAL_ROOM_STATUS_TRANSITION(400, "허용되지 않는 상태 전이입니다: %s -> %s"),
@@ -28,16 +29,19 @@ public enum ErrorCode {
     // 403 Forbidden
     NOT_ROOM_HOST(403, "방장만 수행할 수 있는 작업입니다"),
     ROOM_MEMBERSHIP_REQUIRED(403, "입장한 방만 구독할 수 있습니다"),
+    NOT_ROOM_MEMBER(403, "입장한 방에서만 이용할 수 있습니다"),
 
     // 404 Not Found
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
     LINK_CODE_NOT_FOUND(404, "유효하지 않은 코드입니다"),
+    FOLDER_NOT_FOUND(404, "존재하지 않는 폴더입니다: %s"),
 
     // 405 Method Not Allowed
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
 
     // 409 Conflict
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
+    DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
 
     // 410 Gone
     ROOM_EXPIRED(410, "이미 사라진 방입니다"),

@@ -14,6 +14,8 @@ import com.sssok.application.auth.LinkLoginService;
 import com.sssok.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.domain.member.exception.InvalidNicknameException;
@@ -46,6 +48,14 @@ class AuthControllerTest {
     // AuthMemberArgumentResolver가 의존하는 포트 — Authorization 헤더 파싱 검증에 필요하다.
     @MockitoBean
     TokenProvider tokenProvider;
+
+    // WebConfig가 등록하는 RoomMembershipInterceptor가 요구하는 포트. 이 슬라이스의 경로는
+    // 인터셉터 패턴과 무관하지만, 빈 자체는 컨텍스트에 함께 뜨므로 목으로 채워야 한다.
+    @MockitoBean
+    RoomRepository roomRepository;
+
+    @MockitoBean
+    RoomMemberRepository roomMemberRepository;
 
     @Test
     void 익명_인증에_성공하면_201과_토큰_정보를_반환한다() throws Exception {

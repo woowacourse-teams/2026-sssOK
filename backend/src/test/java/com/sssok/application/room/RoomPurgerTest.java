@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.application.port.out.MemberRepository;
@@ -41,11 +42,12 @@ class RoomPurgerTest {
     private final LinkCodeRepository linkCodeRepository = mock(LinkCodeRepository.class);
     private final FileRepository fileRepository = mock(FileRepository.class);
     private final FolderRepository folderRepository = mock(FolderRepository.class);
+    private final FolderMediaRepository folderMediaRepository = mock(FolderMediaRepository.class);
     private final FileStoragePort fileStoragePort = mock(FileStoragePort.class);
 
     private final RoomPurger roomPurger = new RoomPurger(
         roomRepository, roomMemberRepository, roomEventRepository, memberRepository, linkCodeRepository,
-        fileRepository, folderRepository, fileStoragePort);
+        fileRepository, folderRepository, folderMediaRepository, fileStoragePort);
 
     @Test
     void 실물을_먼저_지우고_방을_마지막에_지운다() {
@@ -56,12 +58,14 @@ class RoomPurgerTest {
 
         roomPurger.purge(room);
 
-        InOrder order = inOrder(fileStoragePort, fileRepository, folderRepository,
+        InOrder order = inOrder(fileStoragePort, fileRepository, folderMediaRepository, folderRepository,
             roomMemberRepository, roomEventRepository, roomRepository, linkCodeRepository, memberRepository);
         // 참여자 명단은 참여 기록을 지우기 전에 확보해야 한다.
         order.verify(roomMemberRepository).findMemberIdsByRoomId(ROOM_ID);
         order.verify(fileStoragePort).delete(file.getStorageKey());
         order.verify(fileRepository).deleteAllByRoomId(ROOM_ID);
+        // folder_media는 folder를 지우기 전에 먼저 관계를 끊어야 고아 행이 안 남는다.
+        order.verify(folderMediaRepository).detachAllByRoomId(ROOM_ID);
         order.verify(folderRepository).deleteAllByRoomId(ROOM_ID);
         order.verify(roomEventRepository).deleteAllByRoomId(ROOM_ID);
         order.verify(roomMemberRepository).deleteAllByRoomId(ROOM_ID);
