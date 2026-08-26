@@ -1,4 +1,5 @@
 import type { Room } from "@/entities/room";
+import { MediaUploader } from "@/features/upload-media";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
 import { PhotoGallery } from "@/widgets/photo-gallery";
@@ -57,6 +58,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
       />
+      <MediaUploader />
       <PhotoGallery
         photos={photos}
         userId={userId}
