@@ -1,8 +1,6 @@
 name: Backend CI
 
 on:
-  # GitHub 쪽 일시적 오류로 실행이 시작되지 못하면 수동으로 다시 돌린다.
-  workflow_dispatch:
   pull_request:
     branches: [ main, deploy ]
     paths:
