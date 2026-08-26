@@ -14,6 +14,11 @@ public enum UploadStatus {
     private static final Set<UploadStatus> FROM_PROCESSING = Set.of(READY, FAILED);
     private static final Set<UploadStatus> FROM_FAILED = Set.of(PROCESSING);
 
+    // 서명 URL 을 다시 발급해도 되는 상태. 이미 올라간 파일을 덮어쓰지 못하게 막는 기준이다.
+    public boolean canReissueUploadUrl() {
+        return this == RESERVED || this == FAILED;
+    }
+
     public boolean canTransitionTo(UploadStatus next) {
         return switch (this) {
             case RESERVED -> FROM_RESERVED.contains(next);
