@@ -295,14 +295,35 @@ const mediaItems: MockMedia[] = [
   }),
 ];
 
-/** 입장 멱등성을 흉내내려고 이번 세션의 입장 기록을 들고 있는다. 목 전용 상태다. */
-const joinedRooms = new Set<string>();
+/**
+ * 입장 멱등성을 흉내내려고 입장 기록을 들고 있는다. 목 전용 상태다.
+ *
+ * **저장소에 둔다.** 메모리에만 두면 새로고침에서 기록만 사라지고 세션(`sssok.auth:*`)은
+ * 남아, "토큰은 멀쩡한데 멤버가 아닌" 상태에 갇힌다 — 입장 화면은 세션이 있으니 갤러리로
+ * 그냥 넘겨서 다시 입장할 길도 없다. 실제 서버는 입장 기록이 남으니 목도 그래야 한다.
+ * `sssok.mock.nextUserId` 와 같은 이유다.
+ */
+const JOINED_ROOMS_KEY = "sssok.mock.joinedRooms";
+
+const readJoinedRooms = (): Set<string> => {
+  try {
+    const raw = localStorage.getItem(JOINED_ROOMS_KEY);
+
+    return new Set(raw === null ? [] : (JSON.parse(raw) as string[]));
+  } catch {
+    // 손상된 값은 되살릴 방법이 없다. 아무도 입장하지 않은 것으로 친다.
+    return new Set();
+  }
+};
+
+const writeJoinedRooms = (rooms: Set<string>) =>
+  localStorage.setItem(JOINED_ROOMS_KEY, JSON.stringify([...rooms]));
 
 /** 토큰마다 따로 센다. 방 번호로 남겨야 조회 핸들러와 키가 맞는다. */
 const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
 
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
-export const resetJoinedRooms = () => joinedRooms.clear();
+export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 
 export const resetRoomHandlers = () => {
   resetJoinedRooms();
@@ -320,7 +341,7 @@ const roomNotFound = () =>
 
 /** 업로드처럼 참여자만 부를 수 있는 API 가 입장 여부를 확인할 때 쓴다. */
 export const hasJoinedRoom = (token: string, roomId: number) =>
-  joinedRooms.has(joinKey(token, roomId));
+  readJoinedRooms().has(joinKey(token, roomId));
 
 export const roomHandlers = [
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
@@ -350,7 +371,7 @@ export const roomHandlers = [
     if (isActiveRoomCode(code)) {
       // 입장 기록은 방 번호로 남으니 (`POST /rooms/:roomId/members`) 조회도 같은 키로 본다.
       // 토큰이 실렸을 때만 판정한다. 비로그인 요청은 언제나 false 다.
-      const joined = token !== null && joinedRooms.has(joinKey(token, ROOM_IDS[code]));
+      const joined = token !== null && hasJoinedRoom(token, ROOM_IDS[code]);
 
       return HttpResponse.json({ data: room(code, "ACTIVE", joined) });
     }
@@ -385,9 +406,11 @@ export const roomHandlers = [
     }
 
     const roomId = Number(params.roomId);
+    const joinedRooms = readJoinedRooms();
     const alreadyJoined = joinedRooms.has(joinKey(token, roomId));
 
     joinedRooms.add(joinKey(token, roomId));
+    writeJoinedRooms(joinedRooms);
 
     return HttpResponse.json(
       {
