@@ -15,7 +15,7 @@ public enum ErrorCode {
     INVALID_ENTRY_PASSWORD(400, "%s"),
     INVALID_FOLDER_NAME(400, "폴더 이름을 입력해주세요"),
     FOLDER_NAME_TOO_LONG(400, "폴더 이름은 12자까지 입력할 수 있어요"),
-    INVALID_PARAM(400, "미디어와 폴더를 선택해 주세요"),
+    INVALID_PARAM(400, "%s"),
     INVALID_FILE_SIZE(400, "%s"),
     INVALID_STORAGE_KEY(400, "%s"),
     ILLEGAL_ROOM_STATUS_TRANSITION(400, "허용되지 않는 상태 전이입니다: %s -> %s"),
@@ -31,6 +31,7 @@ public enum ErrorCode {
     NOT_ROOM_HOST(403, "방장만 수행할 수 있는 작업입니다"),
     ROOM_MEMBERSHIP_REQUIRED(403, "입장한 방만 구독할 수 있습니다"),
     NOT_ROOM_MEMBER(403, "입장한 방에서만 이용할 수 있습니다"),
+    UPLOAD_NOT_ALLOWED(403, "방장만 업로드할 수 있는 방입니다"),
 
     // 404 Not Found
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
@@ -51,6 +52,7 @@ public enum ErrorCode {
 
     // 413 Payload Too Large
     FILE_SIZE_EXCEEDED(413, "%s 파일은 최대 %d바이트까지 업로드할 수 있습니다. (요청: %d바이트)"),
+    FILE_TOO_LARGE(413, "파일 용량이 허용 크기를 초과했습니다"),
 
     // 415 Unsupported Media Type
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),

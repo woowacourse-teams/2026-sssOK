@@ -11,7 +11,7 @@ import org.springframework.http.HttpStatus;
 
 class ErrorCodeTest {
 
-    private static final Set<Integer> ALLOWED_STATUSES = Set.of(400, 401, 403, 404, 405, 409, 410, 413, 415, 500);
+    private static final Set<Integer> ALLOWED_STATUSES = Set.of(400, 401, 403, 404, 405, 409, 410, 413, 415, 429, 500);
 
     @ParameterizedTest
     @EnumSource(ErrorCode.class)
