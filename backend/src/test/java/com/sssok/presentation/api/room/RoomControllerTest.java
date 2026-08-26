@@ -105,7 +105,7 @@ class RoomControllerTest {
 
     @Test
     void 방을_생성하면_201과_roomId를_포함한_방_정보를_반환한다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString()))
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull(), isNull()))
             .willReturn(roomDetail(UploadPolicy.ANYONE, false));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -117,6 +117,20 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.code").value(CODE))
             .andExpect(jsonPath("$.data.hostId").value(HOST_ID))
             .andExpect(jsonPath("$.data.hostName").value("가현"));
+    }
+
+    @Test
+    void 방_생성_시_uploadPolicy와_expiryHours를_보내면_그대로_전달된다() throws Exception {
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host"), eq(72)))
+            .willReturn(roomDetail(UploadPolicy.HOST_ONLY, true));
+
+        mockMvc.perform(post("/api/v1/rooms")
+                .header("Authorization", BEARER)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"우테코 회식\",\"uploadPolicy\":\"host\",\"expiryHours\":72}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.uploadPolicy").value("host"))
+            .andExpect(jsonPath("$.data.joined").value(true));
     }
 
     @Test
