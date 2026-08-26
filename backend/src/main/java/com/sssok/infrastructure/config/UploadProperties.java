@@ -4,5 +4,5 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "upload")
-public record UploadProperties(Duration presignedUrlTtl) {
+public record UploadProperties(Duration presignedUrlTtl, int maxRetryCount) {
 }
