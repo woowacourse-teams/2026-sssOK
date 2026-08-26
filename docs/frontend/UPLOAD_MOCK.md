@@ -1,15 +1,18 @@
 # 업로드 API 목 (MSW)
 
 백엔드 업로드 API 가 나오기 전까지, 프론트가 서버 없이 업로드 기능을 만들 수 있게 하는 목이다.
-팀 API 스펙의 발급·완료 등록·재발급 세 엔드포인트를 그대로 따르고, 동작은 전부 핸들러 테스트로 묶어뒀다.
+이슈 [#76](https://github.com/woowacourse-teams/2026-sssOK/issues/76) 의 발급·완료 등록·재발급 세 엔드포인트를 따르고,
+동작은 전부 핸들러 테스트로 묶어뒀다.
 
-| 무엇이 | 어디에 |
-| --- | --- |
-| 목 핸들러 구현 | `frontend/src/mocks/handlers/upload.ts` |
-| 동작 검증 테스트 | `frontend/src/mocks/handlers/upload.test.ts` |
-| 제약의 근거 (실제 R2 동작 확인) | [R2_PRESIGNED_UPLOAD.md](../backend/R2_PRESIGNED_UPLOAD.md) |
-| 허용 확장자·용량 한도의 출처 | backend `MediaType` enum |
-| 이 목을 쓰는 프론트 업로드 흐름 | [UPLOAD_FLOW.md](./UPLOAD_FLOW.md) |
+| 무엇이                          | 어디에                                                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------- |
+| 목 핸들러 구현                  | `frontend/src/mocks/handlers/upload.ts`                                                 |
+| 동작 검증 테스트                | `frontend/src/mocks/handlers/upload.test.ts`                                            |
+| 제약의 근거 (실제 R2 동작 확인) | [R2_PRESIGNED_UPLOAD.md](../backend/R2_PRESIGNED_UPLOAD.md)                             |
+| 허용 확장자·용량 한도의 출처    | backend `MediaType` enum                                                                |
+| 이 목을 쓰는 프론트 업로드 흐름 | [UPLOAD_FLOW.md](./UPLOAD_FLOW.md)                                                      |
+| API 스펙 원본                   | [#76 미디어 업로드 API 구현](https://github.com/woowacourse-teams/2026-sssOK/issues/76) |
+| 실제 서버 문서                  | http://43.201.47.241:8080/swagger-ui/index.html (업로드 API 는 아직 없음)               |
 
 ---
 
@@ -50,13 +53,13 @@ sequenceDiagram
 
 세 API 모두 아래를 위에서부터 차례로 본다. 하나라도 걸리면 거기서 끝난다.
 
-| # | 조건 | 걸리면 |
-| --- | --- | --- |
-| 1 | 토큰이 실려 있나 | `401 UNAUTHORIZED` |
-| 2 | 열려 있는 방인가 | `404 ROOM_NOT_FOUND` · `410 ROOM_EXPIRED` / `ROOM_ALREADY_DELETED` |
-| 3 | **입장을 마친 사람인가** (`POST /rooms/{roomId}/members`) | `403 ROOM_MEMBERSHIP_REQUIRED` |
-| 4 | **이 방에서 올릴 권한이 있나** — `uploadPolicy=host` 면 방장만 | `403 UPLOAD_NOT_ALLOWED` |
-| 5 | (재발급만) 본인이 발급받은 미디어인가 | `403 MEDIA_FORBIDDEN` |
+| #   | 조건                                                           | 걸리면                                                                                      |
+| --- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 1   | 토큰이 실려 있나                                               | `401 UNAUTHORIZED`                                                                          |
+| 2   | 열려 있는 방인가                                               | `404 ROOM_NOT_FOUND` · `410 ROOM_EXPIRED` / `ROOM_ALREADY_DELETED` (EXPIRED·DELETED·PURGED) |
+| 3   | **입장을 마친 사람인가** (`POST /rooms/{roomId}/members`)      | `403 NOT_ROOM_MEMBER`                                                                       |
+| 4   | **이 방에서 올릴 권한이 있나** — `uploadPolicy=host` 면 방장만 | `403 NOT_ROOM_HOST`                                                                         |
+| 5   | (재발급만) 본인이 발급받은 미디어인가                          | `403 MEDIA_FORBIDDEN`                                                                       |
 
 3번과 4번은 다르다. **입장은 했지만 올릴 권한은 없을 수 있다** — 방장만 업로드하도록 설정한
 방에 들어온 참여자가 그렇다. 사진을 보기는 하되 올리지는 못한다.
@@ -97,8 +100,8 @@ sequenceDiagram
     "rejected": [
       {
         "fileName": "note.pdf",
-        "code": "UNSUPPORTED_MEDIA_TYPE",
-        "message": "이미지와 영상만 업로드할 수 있습니다",
+        "code": "UNSUPPORTED_FILE_TYPE",
+        "message": "지원하지 않는 파일 형식입니다: note.pdf",
       },
     ],
   },
@@ -115,25 +118,25 @@ sequenceDiagram
 
 ### `rejected` 사유 (요청은 200)
 
-| code | 언제 |
-| --- | --- |
-| `UNSUPPORTED_MEDIA_TYPE` | 허용 밖 확장자, 확장자 없는 이름 |
-| `FILE_TOO_LARGE` | 사진 10MB 초과 / 영상 1GB 초과 |
-| `INVALID_PARAM` | 이름이 비었거나 크기가 0 이하 |
+| code                    | 언제                             |
+| ----------------------- | -------------------------------- |
+| `UNSUPPORTED_FILE_TYPE` | 허용 밖 확장자, 확장자 없는 이름 |
+| `FILE_SIZE_EXCEEDED`    | 사진 10MB 초과 / 영상 1GB 초과   |
+| `INVALID_PARAM`         | 이름이 비었거나 크기가 0 이하    |
 
 허용 확장자: `jpg` `jpeg` `png` `gif` `mp4` `webm` `mov` — backend `MediaType` 과 같다.
 
 ### 요청 전체가 실패하는 경우
 
-| HTTP | code | 언제 |
-| --- | --- | --- |
-| 400 | `INVALID_PARAM` | `files` 누락·빈 배열 |
-| 401 | `UNAUTHORIZED` | 토큰 없음 |
-| 403 | `ROOM_MEMBERSHIP_REQUIRED` | 입장하지 않은 방 |
-| 403 | `UPLOAD_NOT_ALLOWED` | `uploadPolicy=host` 인 방에 방장이 아닌 사람이 요청 |
-| 404 | `ROOM_NOT_FOUND` | 없는 방 |
-| 404 | `FOLDER_NOT_FOUND` | 모르는 `folderIds` |
-| 410 | `ROOM_EXPIRED` / `ROOM_ALREADY_DELETED` | 만료·삭제된 방 |
+| HTTP | code                                    | 언제                                                |
+| ---- | --------------------------------------- | --------------------------------------------------- |
+| 400  | `INVALID_PARAM`                         | `files` 누락·빈 배열                                |
+| 401  | `UNAUTHORIZED`                          | 토큰 없음                                           |
+| 403  | `NOT_ROOM_MEMBER`                       | 입장하지 않은 방                                    |
+| 403  | `NOT_ROOM_HOST`                         | `uploadPolicy=host` 인 방에 방장이 아닌 사람이 요청 |
+| 404  | `ROOM_NOT_FOUND`                        | 없는 방                                             |
+| 404  | `FOLDER_NOT_FOUND`                      | 모르는 `folderIds`                                  |
+| 410  | `ROOM_EXPIRED` / `ROOM_ALREADY_DELETED` | 만료·삭제·영구삭제(PURGED)된 방                     |
 
 ---
 
@@ -152,13 +155,13 @@ fetch(issued.uploadUrl, {
 
 성공하면 200. 아래는 전부 403 이다.
 
-| 403 이 나는 경우 | 이유 |
-| --- | --- |
-| `Content-Type` 이 발급값과 다름 | 서명에 들어간 값과 불일치 |
-| `Content-Type` 헤더 없음 | 서명에 든 헤더는 생략도 안 된다 |
-| 만료된 URL (TTL 10분) | URL 의 `X-Amz-Date` + `X-Amz-Expires` 로 판정 |
-| 발급받은 적 없는 키 | ① 을 거치지 않은 주소 |
-| `Authorization` 헤더를 실음 | 서명이 이미 URL 에 있어 토큰이 있으면 오히려 거절 |
+| 403 이 나는 경우                | 이유                                              |
+| ------------------------------- | ------------------------------------------------- |
+| `Content-Type` 이 발급값과 다름 | 서명에 들어간 값과 불일치                         |
+| `Content-Type` 헤더 없음        | 서명에 든 헤더는 생략도 안 된다                   |
+| 만료된 URL (TTL 10분)           | URL 의 `X-Amz-Date` + `X-Amz-Expires` 로 판정     |
+| 발급받은 적 없는 키             | ① 을 거치지 않은 주소                             |
+| `Authorization` 헤더를 실음     | 서명이 이미 URL 에 있어 토큰이 있으면 오히려 거절 |
 
 > ⚠️ **빈 body 로 PUT 해도 200 이 나온다.** 스토리지는 0바이트 객체를 만들 뿐이고,
 > 이건 ③ 에서 `UPLOAD_NOT_COMPLETED` 로 걸러진다. 목도 같게 동작한다.
@@ -212,20 +215,20 @@ PUT 이 끝난 미디어를 방 목록에 노출시킨다. **이 호출이 끝�
 
 ### `failed` 사유 (요청은 201)
 
-| code | 언제 |
-| --- | --- |
-| `UPLOAD_NOT_COMPLETED` | PUT 을 안 했거나 0바이트로 올라감, PUT 이 500 으로 깨짐 |
-| `FILE_TOO_LARGE` | 실제로 올라온 바이트가 한도를 넘음 |
-| `MEDIA_NOT_FOUND` | 발급받은 적 없는 `mediaId`, 다른 방의 미디어 |
-| `UPLOAD_ALREADY_COMPLETED` | 이미 등록이 끝남 |
+| code                       | 언제                                                    |
+| -------------------------- | ------------------------------------------------------- |
+| `UPLOAD_NOT_COMPLETED`     | PUT 을 안 했거나 0바이트로 올라감, PUT 이 500 으로 깨짐 |
+| `FILE_SIZE_EXCEEDED`       | 실제로 올라온 바이트가 한도를 넘음                      |
+| `MEDIA_NOT_FOUND`          | 발급받은 적 없는 `mediaId`, 다른 방의 미디어            |
+| `UPLOAD_ALREADY_COMPLETED` | 이미 등록이 끝남                                        |
 
 ### 요청 전체가 실패하는 경우
 
-| HTTP | code | 언제 |
-| --- | --- | --- |
-| 400 | `INVALID_PARAM` | `mediaIds` 누락·빈 배열 |
-| 401 / 403 / 404 / 410 | ① 과 같음 | 방·권한 |
-| 403 | `MEDIA_FORBIDDEN` | 남이 발급받은 `mediaId` 가 하나라도 섞임 |
+| HTTP                  | code              | 언제                                     |
+| --------------------- | ----------------- | ---------------------------------------- |
+| 400                   | `INVALID_PARAM`   | `mediaIds` 누락·빈 배열                  |
+| 401 / 403 / 404 / 410 | ① 과 같음         | 방·권한                                  |
+| 403                   | `MEDIA_FORBIDDEN` | 남이 발급받은 `mediaId` 가 하나라도 섞임 |
 
 ---
 
@@ -254,14 +257,14 @@ PUT 이 끝난 미디어를 방 목록에 노출시킨다. **이 호출이 끝�
 }
 ```
 
-| HTTP | code | 언제 |
-| --- | --- | --- |
-| 400 | `INVALID_PARAM` | `size` 가 0 이하 |
-| 403 | `MEDIA_FORBIDDEN` | 남이 발급받은 미디어 |
-| 404 | `MEDIA_NOT_FOUND` | 없는 `mediaId` |
-| 409 | `UPLOAD_ALREADY_COMPLETED` | 이미 등록이 끝난 미디어 |
-| 413 | `FILE_TOO_LARGE` | 바뀐 크기가 한도 초과 |
-| 429 | `UPLOAD_RETRY_EXCEEDED` | 5회 초과 — "다시 시도" 대신 "처음부터 다시 올리기" 안내 |
+| HTTP | code                       | 언제                                                    |
+| ---- | -------------------------- | ------------------------------------------------------- |
+| 400  | `INVALID_PARAM`            | `size` 가 0 이하                                        |
+| 403  | `MEDIA_FORBIDDEN`          | 남이 발급받은 미디어                                    |
+| 404  | `MEDIA_NOT_FOUND`          | 없는 `mediaId`                                          |
+| 409  | `UPLOAD_ALREADY_COMPLETED` | 이미 등록이 끝난 미디어                                 |
+| 413  | `FILE_SIZE_EXCEEDED`       | 바뀐 크기가 한도 초과                                   |
+| 429  | `UPLOAD_RETRY_EXCEEDED`    | 5회 초과 — "다시 시도" 대신 "처음부터 다시 올리기" 안내 |
 
 **`mediaId` 는 유지되고 스토리지 키만 새로 나간다.** 그래서 옛 URL 로 뒤늦게 도착한 PUT 이
 새로 올린 파일을 덮어쓰지 못한다 (그 요청은 200 을 받지만 고아 객체가 될 뿐이다).
@@ -272,10 +275,10 @@ PUT 이 끝난 미디어를 방 목록에 노출시킨다. **이 호출이 끝�
 
 파일 **이름에 표식을 넣으면** 목이 일부러 실패한다 (`UPLOAD_MOCK_MARKERS`).
 
-| 표식 | 무슨 일이 생기나 | 확인할 수 있는 흐름 |
-| --- | --- | --- |
-| `__fail__` | 발급은 되고 PUT 이 500 으로 깨진다 | 업로드 실패 UI |
-| `__expired__` | 이미 만료된 URL 이 발급된다 | 만료 403 처리 |
+| 표식          | 무슨 일이 생기나                   | 확인할 수 있는 흐름 |
+| ------------- | ---------------------------------- | ------------------- |
+| `__fail__`    | 발급은 되고 PUT 이 500 으로 깨진다 | 업로드 실패 UI      |
+| `__expired__` | 이미 만료된 URL 이 발급된다        | 만료 403 처리       |
 
 예: `제주-해변__fail__.jpg`
 
@@ -289,10 +292,16 @@ PUT 이 끝난 미디어를 방 목록에 노출시킨다. **이 호출이 끝�
 ```js
 const BASE = "/api/v1";
 const ROOM_ID = 5031; // MOCK_ROOM_CODES.active 방
-const AUTH = { "Content-Type": "application/json", Authorization: "Bearer mock-token-10234" };
+const AUTH = {
+  "Content-Type": "application/json",
+  Authorization: "Bearer mock-token-10234",
+};
 
 // 0) 입장 — 입장을 마쳐야 업로드를 부를 수 있다
-await fetch(`${BASE}/rooms/${ROOM_ID}/members`, { method: "POST", headers: AUTH });
+await fetch(`${BASE}/rooms/${ROOM_ID}/members`, {
+  method: "POST",
+  headers: AUTH,
+});
 
 // 1) 파일 고르기
 const input = document.createElement("input");
@@ -307,7 +316,11 @@ const { data } = await fetch(`${BASE}/rooms/${ROOM_ID}/media/upload-urls`, {
   method: "POST",
   headers: AUTH,
   body: JSON.stringify({
-    files: files.map((f) => ({ fileName: f.name, mimeType: f.type, size: f.size })),
+    files: files.map((f) => ({
+      fileName: f.name,
+      mimeType: f.type,
+      size: f.size,
+    })),
   }),
 }).then((r) => r.json());
 console.log("issued", data.issued, "rejected", data.rejected);
@@ -331,17 +344,17 @@ const done = await fetch(`${BASE}/rooms/${ROOM_ID}/media`, {
 console.log(done);
 ```
 
-`.heic` 를 섞으면 `rejected` 로 갈리고, 10MB 넘는 원본은 `FILE_TOO_LARGE` 로 갈린다.
+`.heic` 를 섞으면 `rejected` 로 갈리고, 10MB 넘는 원본은 `FILE_SIZE_EXCEEDED` 로 갈린다.
 
 ### 목이 아는 값들
 
-| | |
-| --- | --- |
-| 방 (업로드 가능) | `7K93QX2S`(5031), `QRST6789`(5032) |
-| 방 (방장만 업로드) | `HSTNLY23`(5035) — `UPLOAD_NOT_ALLOWED` 확인용 |
-| 방 (만료/삭제) | `EXPRED77`(5033) / `DELETED7`(5034) |
-| 방장 회원 번호 | `10234` — 토큰은 `Bearer mock-token-10234` |
-| 폴더 | `31`, `32` — 그 밖의 번호는 `FOLDER_NOT_FOUND` |
+|                         |                                                                             |
+| ----------------------- | --------------------------------------------------------------------------- |
+| 방 (업로드 가능)        | `7K93QX2S`(5031), `QRST6789`(5032)                                          |
+| 방 (방장만 업로드)      | `HSTNLY23`(5035) — `NOT_ROOM_HOST` 확인용                                   |
+| 방 (만료/삭제/영구삭제) | `EXPRED77`(5033) / `DELETED7`(5034) / `PURGED77`(5036)                      |
+| 방장 회원 번호          | `10234` — 토큰은 `Bearer mock-token-10234`                                  |
+| 폴더                    | 기본 방에 `31`(첫째 날) · `32`(둘째 날) — 그 밖의 번호는 `FOLDER_NOT_FOUND` |
 
 > 목 토큰은 `mock-token-{userId}` 형태여야 한다. 업로더를 가려야 `MEDIA_FORBIDDEN` 을
 > 판정할 수 있어서, 다른 모양의 토큰은 401 로 막는다.
@@ -352,28 +365,61 @@ console.log(done);
 
 스펙 문서와 다르게 구현한 부분이다. **목을 고치기 전에 스펙 쪽이 맞는지 먼저 이야기한다.**
 
-| # | 조정 | 왜 |
-| --- | --- | --- |
-| 1 | 응답을 `{ "data": ... }` 로 한 겹 감쌌다 | backend `ApiResponse<T>` 가 모든 응답을 그렇게 내보내고, `apiClient` 는 `data` 가 없으면 `INVALID_RESPONSE` 를 던진다 |
-| 2 | `413 FILE_TOO_LARGE` 를 실패 표에서 뺐다 | 같은 조건이 `rejected[]` 에도 있어 충돌한다. 파일 단위 사유는 전부 `rejected` 로 모았다 |
-| 3 | `408 UPLOAD_INTERRUPTED` 를 뺐다 | PUT 은 브라우저↔스토리지 구간이라 우리 서버가 관측할 수 없다. 클라이언트가 자체 처리할 상태다 |
-| 4 | 재발급 때 스토리지 키를 새로 만든다 | presigned URL 은 **무효화할 수 없다.** 같은 키를 재사용하면 뒤늦게 도착한 옛 PUT 이 새 파일을 덮는다 |
-| 5 | `③` 의 `failed` 에 `UPLOAD_ALREADY_COMPLETED` 를 추가했다 | 네트워크 재시도로 같은 `mediaIds` 가 두 번 올 수 있는데 스펙에 해당 코드가 없다 |
-| 6 | 공통 에러(401/403/404/410)를 세 API 모두에 넣었다 | 스펙 실패 표에 빠져 있지만 `GlobalExceptionHandler` 에 이미 있는 코드들이다 |
-| 7 | `ROOM_MEMBERSHIP_REQUIRED` 를 강제한다 | 스펙 실패 표엔 없지만 개요의 "권한: 참여자" 를 그대로 지킨 것이다 |
+| #   | 조정                                                      | 왜                                                                                                                                                   |
+| --- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | 응답을 `{ "data": ... }` 로 한 겹 감쌌다                  | backend `ApiResponse<T>` 가 모든 응답을 그렇게 내보내고, `apiClient` 는 `data` 가 없으면 `INVALID_RESPONSE` 를 던진다                                |
+| 2   | `413 FILE_SIZE_EXCEEDED` 를 실패 표에서 뺐다              | 같은 조건이 `rejected[]` 에도 있어 충돌한다. 파일 단위 사유는 전부 `rejected` 로 모았다 — 폴더 API 의 `notFoundMediaIds` 와 같은 원칙이다            |
+| 3   | `408 UPLOAD_INTERRUPTED` 를 뺐다                          | PUT 은 브라우저↔스토리지 구간이라 우리 서버가 관측할 수 없다. 클라이언트가 자체 처리할 상태다                                                        |
+| 4   | 재발급 때 스토리지 키를 새로 만든다                       | presigned URL 은 **무효화할 수 없다.** 같은 키를 재사용하면 뒤늦게 도착한 옛 PUT 이 새 파일을 덮는다                                                 |
+| 5   | `③` 의 `failed` 에 `UPLOAD_ALREADY_COMPLETED` 를 추가했다 | 네트워크 재시도로 같은 `mediaIds` 가 두 번 올 수 있는데 스펙에 해당 코드가 없다                                                                      |
+| 6   | 공통 에러(401/403/404/410)를 세 API 모두에 넣었다         | 스펙 실패 표에 빠져 있지만 `GlobalExceptionHandler` 에 이미 있는 코드들이다                                                                          |
+| 7   | 입장 여부를 강제한다                                      | 스펙 실패 표엔 없지만 개요의 "권한: 참여자" 를 그대로 지킨 것이다. backend `RoomMembershipInterceptor` 가 폴더·미디어 API 에서 이미 같은 검사를 한다 |
+| 8   | 에러 코드를 backend `ErrorCode` enum 이름으로 바꿨다      | 스펙의 `UNSUPPORTED_MEDIA_TYPE`·`FILE_TOO_LARGE` 대신 enum 에 실재하는 `UNSUPPORTED_FILE_TYPE`·`FILE_SIZE_EXCEEDED` 를 쓴다 (아래 표 참고)           |
 
-### 백엔드 코드와 맞춰야 하는 것
+### 배포된 서버로 확인한 것
 
-목은 **스펙 쪽 이름을 따랐다.** 실제 구현 전에 어느 쪽으로 갈지 정해야 한다.
+폴더 API(#48)가 이미 배포돼 있어 아래는 **추측이 아니라 확인된 사실**이다. 목이 그대로 따랐다.
 
-| 스펙 (목이 따름) | 현재 backend 코드 |
-| --- | --- |
-| `uploadPermission` = `HOST` | `uploadPolicy` = `"host"` (소문자) — 목은 backend 표기를 썼다 |
-| `folderIds: Array<Long>` | `StoredFile.beginUpload(..., Long folderId, ...)` — 폴더 **하나** |
-| `status`: RESERVED / PROCESSING / READY | `UploadStatus`: PENDING / UPLOADING / COMPLETED / FAILED |
-| RESERVED 에서도 재시도 허용 | `UploadStatus.isRetryable()` → FAILED 일 때만 |
-| `mimeType` 필수 | `MediaType.fromFileName` — 확장자로 결정, 클라이언트 값은 안 씀 |
-| `UPLOAD_NOT_ALLOWED` | `NOT_ROOM_HOST` 가 이미 있음 |
+| 항목          | 확인 내용                                                                                                        |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 응답 봉투     | `{ "data": ... }` — `ApiResponseFolderResponse` 등 모든 응답이 그렇다                                            |
+| 업로드 권한   | `RoomResponse.uploadPolicy` 가 `"everyone"` / `"host"` — 스펙의 `uploadPermission`/`HOST` 는 틀렸다              |
+| 미디어 손잡이 | 폴더 API 가 이미 `mediaIds` 를 쓴다. `storageKey` 가 아니다                                                      |
+| 미디어↔폴더   | **다대다** — "이미 속해 있던 다른 폴더는 유지", "폴더가 0개가 되어 루트로"                                       |
+| 부분 성공     | 이미 팀 컨벤션이다 — `notFoundMediaIds`, `alreadyInCount`. **항목 실패는 부분, 전제 실패(없는 폴더)는 전체 404** |
+| 권한 검사     | `RoomMembershipInterceptor` 가 "없는 방 404 / 만료 410 / 미입장 403" 을 컨트롤러 앞에서 한다                     |
+| 방 상태       | `ACTIVE / EXPIRED / DELETED / **PURGED**` — 목에도 PURGED 를 넣었다                                              |
+| 방 조회 응답  | `photoCount` 와 `folders[]` 가 추가됐다 — 목도 함께 내려준다                                                     |
+
+### 에러 코드 — 스펙과 backend enum 이 다르다
+
+`ErrorCode` enum(#70)에 실재하는 이름과 스펙의 이름이 어긋난다. **목은 enum 쪽을 따랐다.**
+
+| 스펙 (#76)               | backend `ErrorCode`                                                                                | 목이 쓰는 것            |
+| ------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------- |
+| `UNSUPPORTED_MEDIA_TYPE` | `UNSUPPORTED_FILE_TYPE(415)` — `UNSUPPORTED_MEDIA_TYPE(415)` 은 **HTTP 요청 형식용으로 이미 점유** | `UNSUPPORTED_FILE_TYPE` |
+| `FILE_TOO_LARGE`         | `FILE_SIZE_EXCEEDED(413)`                                                                          | `FILE_SIZE_EXCEEDED`    |
+| (없음)                   | `NOT_ROOM_MEMBER(403)` · `ROOM_MEMBERSHIP_REQUIRED(403)` 은 SSE 전용 메시지                        | `NOT_ROOM_MEMBER`       |
+| `UPLOAD_NOT_ALLOWED`     | `NOT_ROOM_HOST(403)`                                                                               | `NOT_ROOM_HOST`         |
+
+**아직 enum 에 없는 코드**는 #76 구현 때 추가해야 한다 —
+`UPLOAD_NOT_COMPLETED`, `MEDIA_NOT_FOUND`, `MEDIA_FORBIDDEN`, `UPLOAD_ALREADY_COMPLETED`,
+`UPLOAD_RETRY_EXCEEDED`. (`ILLEGAL_UPLOAD_STATUS(400)` 이 일부를 대신할 수도 있다.)
+
+### 아직 정하지 못한 것
+
+| 스펙 (목이 따름)                        | 현재 backend 코드                                                                                          |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `folderIds: Array<Long>`                | `StoredFile.beginUpload(..., Long folderId, ...)` — 폴더 **하나**. 폴더 API 가 다대다라 도메인 쪽이 낡았다 |
+| `status`: RESERVED / PROCESSING / READY | `UploadStatus`: PENDING / UPLOADING / COMPLETED / FAILED                                                   |
+| RESERVED 에서도 재시도 허용             | `UploadStatus.isRetryable()` → FAILED 일 때만                                                              |
+| `mimeType` 필수                         | `MediaType.fromFileName` — 확장자로 결정, 클라이언트 값은 안 씀                                            |
+
+`issued`/`rejected` 에 **요청 순번(`index`)** 을 실어야 원본 `File` 과 짝짓기가 확실해진다.
+지금은 파일명으로 맞춰야 해서 같은 이름이 겹치면 애매하다.
+
+부분 성공을 하려면 `StoredFile.beginUpload` 가 던지는 예외를 **서비스에서 파일 단위로 잡아야** 한다.
+지금 그대로 쓰면 파일 하나가 걸릴 때 요청 전체가 터진다.
 
 `expiresIn`(상대 초)보다 **`expiresAt`(절대 시각)** 이 안전하다는 것도 함께 이야기할 만하다.
 응답을 받은 시점 기준으로 세면 네트워크 지연이 그대로 오차가 된다.
