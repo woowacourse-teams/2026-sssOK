@@ -2,6 +2,8 @@ package com.sssok.infrastructure.persistence.folder;
 
 import com.sssok.application.port.out.FolderMediaRepository;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -49,6 +51,15 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     @Override
     public long countByFolderId(Long folderId) {
         return jpaRepository.countByFolderId(folderId);
+    }
+
+    @Override
+    public Map<Long, Long> countByFolderIds(List<Long> folderIds) {
+        if (folderIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.countGroupByFolderIdIn(folderIds).stream()
+            .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
     }
 
     @Override

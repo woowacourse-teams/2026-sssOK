@@ -14,6 +14,9 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
 
     long countByFolderId(Long folderId);
 
+    @Query("select f.folderId, count(f) from FolderMediaJpaEntity f where f.folderId in :folderIds group by f.folderId")
+    List<Object[]> countGroupByFolderIdIn(@Param("folderIds") List<Long> folderIds);
+
     @Modifying
     @Query("delete from FolderMediaJpaEntity f where f.folderId = :folderId and f.mediaId = :mediaId")
     int deleteIfPresent(@Param("folderId") Long folderId, @Param("mediaId") Long mediaId);

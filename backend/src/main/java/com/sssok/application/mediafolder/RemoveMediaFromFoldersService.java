@@ -1,11 +1,11 @@
 package com.sssok.application.mediafolder;
 
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
-import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -20,50 +20,72 @@ public class RemoveMediaFromFoldersService {
     private final RoomFolders roomFolders;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
-    private final FileRepository fileRepository;
+    private final MediaExistenceResolver mediaExistenceResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public RemoveMediaFromFoldersResult remove(Long roomId, List<Long> mediaIds, List<Long> folderIds) {
         requireValid(mediaIds);
 
-        List<Long> distinctMediaIds = mediaIds.stream().distinct().toList();
-        List<Long> existingMediaIds = fileRepository.findExistingIds(distinctMediaIds);
-        List<Long> notFoundMediaIds = distinctMediaIds.stream()
-            .filter(id -> !existingMediaIds.contains(id))
-            .toList();
+        MediaExistence media = mediaExistenceResolver.resolve(mediaIds);
+        List<Long> hadFolderBefore = mediaIdsWithAnyFolder(media.existingIds());
 
-        List<Long> hadFolderBefore = mediaIdsWithAnyFolder(existingMediaIds);
+        Detachment detachment = isUnscoped(folderIds)
+            ? detachFromEveryFolder(media.existingIds())
+            : detachFromChosenFolders(roomId, folderIds, media.existingIds());
 
-        List<Folder> targetFolders;
-        int updatedCount;
-        if (folderIds == null || folderIds.isEmpty()) {
-            List<Long> affectedFolderIds = existingMediaIds.isEmpty()
-                ? List.of()
-                : folderMediaRepository.findFolderIdsContainingMedia(existingMediaIds);
-            updatedCount = existingMediaIds.isEmpty()
-                ? 0
-                : (int) folderMediaRepository.detachFromAllFolders(existingMediaIds);
-            targetFolders = folderRepository.findAllById(affectedFolderIds);
-        } else {
-            List<Long> distinctFolderIds = folderIds.stream().distinct().toList();
-            targetFolders = roomFolders.requireAllInRoom(roomId, distinctFolderIds);
-            updatedCount = folderMediaRepository.detachFromFolders(distinctFolderIds, existingMediaIds);
+        List<Long> movedToRootMediaIds = movedToRoot(hadFolderBefore, media.existingIds());
+        List<FolderSummary> summaries = summarize(detachment.targetFolders());
+
+        if (!media.existingIds().isEmpty()) {
+            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.removed(roomId, media.existingIds(), summaries));
         }
+        return new RemoveMediaFromFoldersResult(
+            detachment.updatedCount(), movedToRootMediaIds, media.notFoundIds(), summaries);
+    }
 
+    private boolean isUnscoped(List<Long> folderIds) {
+        return folderIds == null || folderIds.isEmpty();
+    }
+
+    // 폴더 지정 없이 꺼내기: 지금 이 미디어들이 속한 폴더를 전부 찾아 관계를 끊는다.
+    private Detachment detachFromEveryFolder(List<Long> existingMediaIds) {
+        if (existingMediaIds.isEmpty()) {
+            return new Detachment(0, List.of());
+        }
+        List<Folder> targetFolders =
+            folderRepository.findAllById(folderMediaRepository.findFolderIdsContainingMedia(existingMediaIds));
+        int updatedCount = (int) folderMediaRepository.detachFromAllFolders(existingMediaIds);
+        return new Detachment(updatedCount, targetFolders);
+    }
+
+    // 폴더를 지정한 꺼내기: 그 폴더들이 이 방 소속인지 먼저 확인하고, 지정된 폴더와의 관계만 끊는다.
+    private Detachment detachFromChosenFolders(Long roomId, List<Long> folderIds, List<Long> existingMediaIds) {
+        List<Long> distinctFolderIds = folderIds.stream().distinct().toList();
+        List<Folder> targetFolders = roomFolders.requireAllInRoom(roomId, distinctFolderIds);
+        int updatedCount = folderMediaRepository.detachFromFolders(distinctFolderIds, existingMediaIds);
+        return new Detachment(updatedCount, targetFolders);
+    }
+
+    private record Detachment(int updatedCount, List<Folder> targetFolders) {
+    }
+
+    // 꺼내기 전에는 폴더가 있었는데 꺼내고 나니 없어진 미디어만 "루트로 이동"한 것이다.
+    // 원래부터 루트였던 미디어는 이번 요청으로 바뀐 게 없으므로 포함하지 않는다.
+    private List<Long> movedToRoot(List<Long> hadFolderBefore, List<Long> existingMediaIds) {
         List<Long> stillHasFolder = mediaIdsWithAnyFolder(existingMediaIds);
-        List<Long> movedToRootMediaIds = hadFolderBefore.stream()
-            .filter(id -> !stillHasFolder.contains(id))
-            .toList();
+        return hadFolderBefore.stream().filter(id -> !stillHasFolder.contains(id)).toList();
+    }
 
-        List<FolderSummary> summaries = targetFolders.stream()
-            .map(folder -> FolderSummary.of(folder, folderMediaRepository.countByFolderId(folder.getId())))
-            .toList();
-
-        if (!existingMediaIds.isEmpty()) {
-            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.removed(roomId, existingMediaIds, summaries));
+    private List<FolderSummary> summarize(List<Folder> folders) {
+        if (folders.isEmpty()) {
+            return List.of();
         }
-        return new RemoveMediaFromFoldersResult(updatedCount, movedToRootMediaIds, notFoundMediaIds, summaries);
+        List<Long> folderIds = folders.stream().map(Folder::getId).toList();
+        Map<Long, Long> photoCounts = folderMediaRepository.countByFolderIds(folderIds);
+        return folders.stream()
+            .map(folder -> FolderSummary.of(folder, photoCounts.getOrDefault(folder.getId(), 0L)))
+            .toList();
     }
 
     private void requireValid(List<Long> mediaIds) {
