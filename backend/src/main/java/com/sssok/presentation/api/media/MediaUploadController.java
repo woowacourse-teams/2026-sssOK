@@ -1,5 +1,7 @@
 package com.sssok.presentation.api.media;
 
+import com.sssok.application.media.CompleteUploadResult;
+import com.sssok.application.media.CompleteUploadService;
 import com.sssok.application.media.IssueUploadUrlsResult;
 import com.sssok.application.media.IssueUploadUrlsService;
 import com.sssok.application.media.UploadFileCommand;
@@ -10,10 +12,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "미디어 업로드", description = "서명 URL 발급 → 스토리지 직접 PUT → 완료 등록으로 이어지는 업로드 파이프라인")
@@ -23,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MediaUploadController {
 
     private final IssueUploadUrlsService issueUploadUrlsService;
+    private final CompleteUploadService completeUploadService;
 
     @Operation(
         summary = "업로드 URL 발급",
@@ -49,5 +54,24 @@ public class MediaUploadController {
         return ApiResponse.of(IssueUploadUrlsResponse.from(result));
     }
 
+    @Operation(
+        summary = "업로드 완료 등록",
+        description = "스토리지 PUT을 마친 미디어를 방 미디어로 등록한다. 서버가 스토리지에 실물이 있는지 "
+            + "직접 확인하고, 발급 때 신고한 크기·MIME과 다르면 거부한다. 통과한 미디어는 "
+            + "RESERVED에서 PROCESSING으로 넘어가고 SSE media.created 이벤트가 나간다. "
+            + "항목별 실패는 failed로 내려주고 요청 전체를 실패시키지 않는다. "
+            + "mediaIds가 비어 있으면 400, 남이 예약한 mediaId가 섞여 있으면 403이 난다."
+    )
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<CompleteUploadResponse> completeUpload(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @RequestBody CompleteUploadRequest request
+    ) {
+        CompleteUploadResult result =
+            completeUploadService.complete(roomId, memberId, request.mediaIds());
+        return ApiResponse.of(CompleteUploadResponse.from(result));
+    }
 
 }
