@@ -3,6 +3,7 @@ package com.sssok.infrastructure.persistence.member;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
+import java.util.Collection;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,14 @@ public class MemberRepositoryAdapter implements MemberRepository {
     @Override
     public Optional<Member> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public void deleteAllByIdIn(Collection<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return;
+        }
+        jpaRepository.deleteAllByIdIn(memberIds);
     }
 
     private MemberJpaEntity toEntity(Member member) {

@@ -8,6 +8,7 @@ import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.domain.room.UploadPolicy;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,14 @@ public class RoomRepositoryAdapter implements RoomRepository {
         return jpaRepository.findAllPurgeTargets(threshold).stream()
             .map(this::toDomain)
             .toList();
+    }
+
+    @Override
+    public List<Long> findHostIdsIn(Collection<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findHostIdsIn(memberIds);
     }
 
     @Override

@@ -1,11 +1,17 @@
 package com.sssok.application.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.auth.AnonymousAuthService;
+import com.sssok.application.auth.IssueLinkCodeService;
+import com.sssok.application.auth.LinkCodeResult;
+import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.domain.auth.LinkCodeValue;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomCode;
@@ -13,6 +19,7 @@ import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import jakarta.persistence.EntityManager;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -49,6 +56,18 @@ class PurgeRoomServiceTest {
 
     @Autowired
     MemberRepository memberRepository;
+
+    @Autowired
+    JoinRoomService joinRoomService;
+
+    @Autowired
+    IssueLinkCodeService issueLinkCodeService;
+
+    @Autowired
+    LinkCodeRepository linkCodeRepository;
+
+    @Autowired
+    EntityManager entityManager;
 
     private Long hostId;
     private Long guestId;
@@ -130,7 +149,7 @@ class PurgeRoomServiceTest {
     }
 
     @Test
-    void 방을_지워도_회원_계정은_남는다() {
+    void 방을_지우면_그_방의_회원도_함께_사라진다() {
         Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
         roomMemberRepository.save(RoomMember.join(room.getId(), guestId, Instant.now()));
         deleteRoomService.delete(room.getId(), hostId);
@@ -138,9 +157,105 @@ class PurgeRoomServiceTest {
 
         purgeRoomService.purgeAll(Instant.now());
 
-        // 회원은 방에 속하지 않는다 — 방 하나가 사라졌다고 계정까지 지우면 다른 방 참여까지 잃는다.
-        assertThat(memberRepository.findById(hostId)).isPresent();
+        // 방마다 익명 인증을 새로 하므로, 방이 사라지면 그 회원으로 다시 인증할 방법이 없다.
+        assertThat(memberRepository.findById(guestId)).isEmpty();
+    }
+
+    @Test
+    void 방장도_함께_사라진다() {
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        deleteRoomService.delete(room.getId(), hostId);
+        오래된_삭제로_되돌리기(room);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        assertThat(memberRepository.findById(hostId)).isEmpty();
+    }
+
+    @Test
+    void 참여_기록이_없는_방장도_함께_사라진다() {
+        // 방장을 참여자로 등록하기 전에 만들어진 방은 host_id 로만 방장을 안다.
+        Room room = 삭제된_방(Instant.now().minus(RETENTION).minus(Duration.ofDays(1)));
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        assertThat(roomRepository.findById(room.getId())).isEmpty();
+        assertThat(memberRepository.findById(hostId)).isEmpty();
+    }
+
+    // 새 테이블이 생겼는데 정리 대상에 넣는 걸 잊으면 여기서 걸린다.
+    @Test
+    void 방을_지우면_그_방과_이어진_행이_어느_테이블에도_남지_않는다() {
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        // joinRoomService 는 PostgreSQL 전용 ON CONFLICT 를 써서 H2 에서 돌지 않는다.
+        roomMemberRepository.save(RoomMember.join(room.getId(), guestId, Instant.now()));
+        issueLinkCodeService.issue(hostId);
+        issueLinkCodeService.issue(guestId);
+        deleteRoomService.delete(room.getId(), hostId);
+        오래된_삭제로_되돌리기(room);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        assertThat(countBy("room", "id", room.getId())).isZero();
+        assertThat(countBy("room_member", "room_id", room.getId())).isZero();
+        assertThat(countBy("member", "id", hostId)).isZero();
+        assertThat(countBy("member", "id", guestId)).isZero();
+        assertThat(countBy("link_code", "member_id", hostId)).isZero();
+        assertThat(countBy("link_code", "member_id", guestId)).isZero();
+    }
+
+    private long countBy(String table, String column, Long value) {
+        return ((Number) entityManager
+            .createNativeQuery("SELECT COUNT(*) FROM " + table + " WHERE " + column + " = :value")
+            .setParameter("value", value)
+            .getSingleResult()).longValue();
+    }
+
+    @Test
+    void 지워진_회원의_토큰은_더_쓸_수_없다() {
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        roomMemberRepository.save(RoomMember.join(room.getId(), guestId, Instant.now()));
+        deleteRoomService.delete(room.getId(), hostId);
+        오래된_삭제로_되돌리기(room);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        // JWT 는 서명만 검증해서 회원을 지워도 토큰 자체는 계속 열린다.
+        // 회원 행이 사라진 것으로 무효가 되어야 한다.
+        Room another = createRoomService.create(hostId, "다음 회식", null, null).room();
+        assertThatThrownBy(() -> joinRoomService.join(another.getId(), guestId))
+            .isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void 방을_지우면_그_회원의_연결_코드도_사라진다() {
+        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        roomMemberRepository.save(RoomMember.join(room.getId(), guestId, Instant.now()));
+        LinkCodeResult code = issueLinkCodeService.issue(guestId);
+        deleteRoomService.delete(room.getId(), hostId);
+        오래된_삭제로_되돌리기(room);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        // 회원만 지우고 코드를 남기면 없는 회원을 가리키는 행이 된다.
+        assertThat(linkCodeRepository.findByCode(new LinkCodeValue(code.linkCode()))).isEmpty();
+    }
+
+    @Test
+    void 다른_방에_남아있는_회원은_지우지_않는다() {
+        Room purged = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room surviving = createRoomService.create(hostId, "다음 회식", null, null).room();
+        roomMemberRepository.save(RoomMember.join(purged.getId(), guestId, Instant.now()));
+        roomMemberRepository.save(RoomMember.join(surviving.getId(), guestId, Instant.now()));
+        deleteRoomService.delete(purged.getId(), hostId);
+        오래된_삭제로_되돌리기(purged);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        assertThat(roomRepository.findById(purged.getId())).isEmpty();
         assertThat(memberRepository.findById(guestId)).isPresent();
+        assertThat(memberRepository.findById(hostId)).isPresent();
+        assertThat(roomRepository.findById(surviving.getId())).isPresent();
     }
 
     @Test

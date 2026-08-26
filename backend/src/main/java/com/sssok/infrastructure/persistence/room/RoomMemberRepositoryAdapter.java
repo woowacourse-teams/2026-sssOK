@@ -3,6 +3,8 @@ package com.sssok.infrastructure.persistence.room;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -32,6 +34,19 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
     @Override
     public void deleteAllByRoomId(Long roomId) {
         jpaRepository.deleteAllByRoomId(roomId);
+    }
+
+    @Override
+    public List<Long> findMemberIdsByRoomId(Long roomId) {
+        return jpaRepository.findMemberIdsByRoomId(roomId);
+    }
+
+    @Override
+    public List<Long> findMemberIdsStillInAnyRoom(Collection<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findMemberIdsStillInAnyRoom(memberIds);
     }
 
     private RoomMemberJpaEntity toEntity(RoomMember roomMember) {
