@@ -3,12 +3,15 @@ package com.sssok.presentation.api.folder;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.folder.DeleteFolderResult;
+import com.sssok.application.folder.DeleteFolderService;
 import com.sssok.application.folder.RenameFolderService;
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
@@ -55,6 +58,9 @@ class FolderControllerTest {
 
     @MockitoBean
     RenameFolderService renameFolderService;
+
+    @MockitoBean
+    DeleteFolderService deleteFolderService;
 
     @MockitoBean
     TokenProvider tokenProvider;
@@ -203,6 +209,35 @@ class FolderControllerTest {
             .andExpect(jsonPath("$.code").value("DUPLICATE_FOLDER_NAME"));
     }
 
+    @Test
+    void 폴더를_삭제하면_200과_삭제된_폴더_id와_분리된_사진_수를_반환한다() throws Exception {
+        given(deleteFolderService.delete(ROOM_ID, 100L)).willReturn(new DeleteFolderResult(100L, 3));
+
+        deleteFolder(100L)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.deletedFolderId").value(100))
+            .andExpect(jsonPath("$.data.detachedPhotoCount").value(3));
+    }
+
+    @Test
+    void 삭제할_폴더가_없으면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
+        given(deleteFolderService.delete(anyLong(), anyLong())).willThrow(new FolderNotFoundException(100L));
+
+        deleteFolder(100L)
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
+    @Test
+    void 삭제도_입장하지_않았으면_403과_NOT_ROOM_MEMBER를_반환한다() throws Exception {
+        given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
+            .willReturn(java.util.Optional.empty());
+
+        deleteFolder(100L)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
     private org.springframework.test.web.servlet.ResultActions createFolder(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", ROOM_ID)
             .header("Authorization", BEARER)
@@ -215,5 +250,10 @@ class FolderControllerTest {
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions deleteFolder(Long folderId) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/folders/{folderId}", ROOM_ID, folderId)
+            .header("Authorization", BEARER));
     }
 }

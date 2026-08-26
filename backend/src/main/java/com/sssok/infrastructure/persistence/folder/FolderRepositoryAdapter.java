@@ -29,6 +29,11 @@ public class FolderRepositoryAdapter implements FolderRepository {
         return jpaRepository.findByRoomIdAndName(roomId, name).map(this::toDomain);
     }
 
+    @Override
+    public void deleteById(Long id) {
+        jpaRepository.deleteById(id);
+    }
+
     private FolderJpaEntity toEntity(Folder folder) {
         return new FolderJpaEntity(
             folder.getId(),

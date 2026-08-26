@@ -1,6 +1,8 @@
 package com.sssok.presentation.api.folder;
 
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.folder.DeleteFolderResult;
+import com.sssok.application.folder.DeleteFolderService;
 import com.sssok.application.folder.RenameFolderService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.presentation.api.common.ApiResponse;
@@ -11,6 +13,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -26,6 +29,7 @@ public class FolderController {
 
     private final CreateFolderService createFolderService;
     private final RenameFolderService renameFolderService;
+    private final DeleteFolderService deleteFolderService;
 
     @Operation(
         summary = "폴더 생성",
@@ -57,5 +61,20 @@ public class FolderController {
     ) {
         Folder folder = renameFolderService.rename(roomId, folderId, request.name());
         return ApiResponse.of(FolderResponse.from(folder, 0));
+    }
+
+    @Operation(
+        summary = "폴더 삭제",
+        description = "폴더만 삭제하고 폴더에 담겨 있던 사진은 지우지 않는다 — 사진들은 폴더 소속만 없어지고 "
+            + "루트로 옮겨진다. 없는 폴더는 404, 그 외 실패 케이스(403/404/410)는 생성과 동일하다."
+    )
+    @DeleteMapping("/{folderId}")
+    public ApiResponse<DeleteFolderResponse> deleteFolder(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "폴더 생성 응답의 id") @PathVariable Long folderId
+    ) {
+        DeleteFolderResult result = deleteFolderService.delete(roomId, folderId);
+        return ApiResponse.of(DeleteFolderResponse.from(result));
     }
 }

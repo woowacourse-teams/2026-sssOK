@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.folder;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -7,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
+import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +30,9 @@ class FolderApiTest extends PostgresContainerSupport {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    FolderMediaJpaRepository folderMediaJpaRepository;
 
     @Test
     void 입장한_사용자가_폴더를_생성하면_201과_폴더_정보를_받는다() throws Exception {
@@ -149,6 +155,64 @@ class FolderApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
+    @Test
+    void 폴더를_삭제하면_200과_삭제된_폴더_id를_받는다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+
+        폴더_삭제(token, roomId, folderId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.deletedFolderId").value(folderId))
+            .andExpect(jsonPath("$.data.detachedPhotoCount").value(0));
+    }
+
+    @Test
+    void 삭제된_폴더_이름으로_다시_생성할_수_있다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+        폴더_삭제(token, roomId, folderId).andExpect(status().isOk());
+
+        폴더_생성(token, roomId, "{\"name\":\"맛집\"}")
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void 담겨있던_미디어와의_관계만_끊고_개수를_반환한다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+        folderMediaJpaRepository.save(new FolderMediaJpaEntity(null, folderId, 1L));
+        folderMediaJpaRepository.save(new FolderMediaJpaEntity(null, folderId, 2L));
+
+        폴더_삭제(token, roomId, folderId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.detachedPhotoCount").value(2));
+    }
+
+    @Test
+    void 없는_폴더를_삭제하면_404() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+
+        폴더_삭제(token, roomId, -1L)
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
+    @Test
+    void 입장하지_않은_사용자가_폴더를_삭제하면_403() throws Exception {
+        String hostToken = 익명_인증("가현");
+        String guestToken = 익명_인증("민수");
+        long roomId = 방_만들고_입장(hostToken);
+        long folderId = 폴더_만들기(hostToken, roomId, "맛집");
+
+        폴더_삭제(guestToken, roomId, folderId)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
     private ResultActions 폴더_생성(String token, long roomId, String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", roomId)
             .header("Authorization", "Bearer " + token)
@@ -161,6 +225,11 @@ class FolderApiTest extends PostgresContainerSupport {
             .header("Authorization", "Bearer " + token)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
+    }
+
+    private ResultActions 폴더_삭제(String token, long roomId, long folderId) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/folders/{folderId}", roomId, folderId)
+            .header("Authorization", "Bearer " + token));
     }
 
     private long 폴더_만들기(String token, long roomId, String name) throws Exception {
