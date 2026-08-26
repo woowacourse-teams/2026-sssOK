@@ -24,8 +24,8 @@ public interface RoomMemberJpaRepository extends JpaRepository<RoomMemberJpaEnti
     // 동시 입장에서도 하나만 통과하도록 DB에 맡긴다.
     @Modifying
     @Query(value = """
-        INSERT INTO room_member (room_id, member_id, joined_at)
-        VALUES (:roomId, :memberId, :joinedAt)
+        INSERT INTO room_member (room_id, member_id, joined_at, created_at, updated_at)
+        VALUES (:roomId, :memberId, :joinedAt, :joinedAt, :joinedAt)
         ON CONFLICT (room_id, member_id) DO NOTHING
         """, nativeQuery = true)
     int insertIfAbsent(
