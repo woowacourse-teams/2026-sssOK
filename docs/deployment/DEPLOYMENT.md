@@ -15,8 +15,10 @@ main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions (
                                             │ 로컬 명령 (SSH 없음)
                                             ▼
                                     EC2 (Docker + compose)
-                                    ├─ sssok-app       (GHCR 에서 pull)
-                                    └─ sssok-postgres  (볼륨 영속)
+                                    └─ sssok-app  (GHCR 에서 pull)
+                                            │
+                                            ▼
+                                    RDS (PostgreSQL)
 ```
 
 - 이미지 빌드는 GitHub-hosted 러너에서, 서버 배포는 **EC2 위에 설치된 self-hosted 러너**에서 실행된다. 배포 잡이 러너 자체이자 배포 대상이므로 SSH/SCP가 필요 없다.
@@ -31,7 +33,7 @@ main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions (
 
 | 파일 | 만드는 주체 | 설명 |
 | --- | --- | --- |
-| `.env` | **사람이 1회 수동 생성** | DB 계정, JWT, R2 자격증명 |
+| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명 |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 태그 |
 | `docker-compose.prod.yml` | CI가 배포마다 전송 | 컨테이너 정의 |
@@ -49,7 +51,15 @@ main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions (
 
 CI(GitHub Actions)는 self-hosted 러너를 통해 EC2 내부에서 직접 실행되므로, 22번 포트를 CI용으로 별도 개방할 필요가 없다.
 
-### 2. Docker 설치
+### 2. RDS 준비
+
+DB는 컨테이너가 아니라 RDS(PostgreSQL)를 쓴다.
+
+- RDS는 퍼블릭 서브넷에 두지 않는다.
+- RDS 보안 그룹의 인바운드에 EC2 보안 그룹발 5432 포트를 허용한다 (EC2가 있는 VPC/서브넷에서만 접근 가능하도록).
+- 마스터 계정과 DB 이름은 `.env`의 `DB_USERNAME`/`DB_PASSWORD`, `DB_URL`의 경로 부분과 일치시킨다.
+
+### 3. Docker 설치
 
 ```bash
 sudo apt-get update
@@ -65,7 +75,7 @@ sudo usermod -aG docker $USER
 
 `usermod` 이후 **SSH 재접속**해야 sudo 없이 docker를 쓸 수 있다. CI 스크립트가 sudo 없이 실행되므로 이 단계는 필수다.
 
-### 3. 배포 디렉터리와 `.env` 생성
+### 4. 배포 디렉터리와 `.env` 생성
 
 ```bash
 mkdir -p ~/app && cd ~/app
@@ -75,9 +85,9 @@ mkdir -p ~/app && cd ~/app
 
 ```bash
 cat > .env <<'EOF'
-DB_NAME=sssok
+DB_URL=jdbc:postgresql://<rds-endpoint>:5432/sssok
 DB_USERNAME=sssok
-DB_PASSWORD=여기에_강한_비밀번호
+DB_PASSWORD=여기에_RDS_마스터_비밀번호
 JWT_SECRET=여기에_openssl_rand_base64_32_결과
 R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 R2_ACCESS_KEY=
@@ -88,7 +98,7 @@ EOF
 chmod 600 .env
 ```
 
-### 4. self-hosted 러너 설치 (EC2 내부)
+### 5. self-hosted 러너 설치 (EC2 내부)
 
 `Settings → Actions → Runners → New self-hosted runner` 에서 OS/아키텍처(Linux, ARM64)를 선택하면
 등록 토큰이 포함된 설치 명령이 나온다. 그 명령을 EC2 에서 그대로 실행한다. 등록 토큰은 1시간 안에 써야 한다.
@@ -112,7 +122,7 @@ sudo ./svc.sh status   # active (running) 확인
 
 > **보안**: self-hosted 러너는 그 서버에서 임의 코드를 실행할 권한을 가진다. 이 워크플로는 `deploy` 브랜치 push(이미 리뷰된 코드)에만 반응하므로 위험이 낮지만, 이 리포에서 외부 기여자의 fork PR을 받게 되면 `Settings → Actions → General` 에서 fork PR의 워크플로 자동 실행을 반드시 막아야 한다.
 
-### 5. GitHub Secrets 등록
+### 6. GitHub Secrets 등록
 
 `Settings → Environments → production → Environment secrets`
 
@@ -122,7 +132,7 @@ sudo ./svc.sh status   # active (running) 확인
 
 DB·JWT·R2 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣지 않는다. (SSH 기반이 아니므로 `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_PORT` 는 더 이상 사용하지 않는다.)
 
-### 6. GHCR 패키지 접근 권한
+### 7. GHCR 패키지 접근 권한
 
 첫 배포 후 패키지가 생성되면
 `https://github.com/orgs/woowacourse-teams/packages` 에서 `2026-sssok/backend` 를 열고
@@ -192,3 +202,4 @@ backend/src/main/resources/db/migration/
 | 헬스체크 실패 후 롤백됨 | `$COMPOSE logs app` 확인. 대부분 `.env` 값 누락 또는 Flyway 마이그레이션 오류 |
 | `Schema-validation: missing table` | 엔티티에 대응하는 마이그레이션 SQL 미작성 |
 | compose 가 `BACKEND_IMAGE` 를 못 찾음 | `image.env` 부재. 최초 배포 전이거나 경로가 틀림 |
+| DB 연결 타임아웃 (`Connection refused`, `timeout`) | RDS 보안 그룹에 EC2 보안 그룹발 5432 인바운드가 없거나, `.env`의 `DB_URL`이 RDS 엔드포인트를 가리키지 않음 |
