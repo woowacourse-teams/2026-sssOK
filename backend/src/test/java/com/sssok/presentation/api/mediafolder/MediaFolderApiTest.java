@@ -20,7 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-// API 인수 테스트 — 방/폴더/미디어를 준비하고 실제 PostgreSQL 위에서 담기를 관통 확인한다.
+// API 인수 테스트 — 방/폴더/미디어를 준비하고 실제 PostgreSQL 위에서 담기·꺼내기를 관통 확인한다.
 @SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
 @AutoConfigureMockMvc
 class MediaFolderApiTest extends PostgresContainerSupport {
@@ -38,32 +38,32 @@ class MediaFolderApiTest extends PostgresContainerSupport {
     JdbcTemplate jdbcTemplate;
 
     @Test
-    void 미디어_여러개를_폴더_여러개에_담으면_200과_카테시안_곱_결과를_받는다() throws Exception {
+    void 미디어_여러개를_폴더_하나에_담으면_200과_결과를_받는다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
-        long folderA = 폴더_만들기(token, roomId, "맛집");
-        long folderB = 폴더_만들기(token, roomId, "카페");
+        long folderId = 폴더_만들기(token, roomId, "맛집");
         long media1 = 존재하는_미디어();
         long media2 = 존재하는_미디어();
 
-        담기(token, roomId, "{\"mediaIds\":[%d,%d],\"folderIds\":[%d,%d]}".formatted(media1, media2, folderA, folderB))
+        담기(token, roomId, "{\"mediaIds\":[%d,%d],\"folderId\":%d}".formatted(media1, media2, folderId))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.updatedCount").value(4))
+            .andExpect(jsonPath("$.data.updatedCount").value(2))
             .andExpect(jsonPath("$.data.alreadyInCount").value(0))
             .andExpect(jsonPath("$.data.notFoundMediaIds").isEmpty())
-            .andExpect(jsonPath("$.data.folders", org.hamcrest.Matchers.hasSize(2)));
+            .andExpect(jsonPath("$.data.folder.id").value(folderId))
+            .andExpect(jsonPath("$.data.folder.photoCount").value(2));
     }
 
     @Test
-    void 같은_조합을_다시_담아도_오류가_아니고_alreadyInCount로_집계된다() throws Exception {
+    void 같은_미디어를_다시_담아도_오류가_아니고_alreadyInCount로_집계된다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
         long folderId = 폴더_만들기(token, roomId, "맛집");
         long mediaId = 존재하는_미디어();
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderId))
             .andExpect(status().isOk());
 
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(0))
             .andExpect(jsonPath("$.data.alreadyInCount").value(1));
@@ -77,20 +77,19 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long mediaId = 존재하는_미디어();
         long notFoundMediaId = MEDIA_ID_SEQUENCE.incrementAndGet();
 
-        담기(token, roomId, "{\"mediaIds\":[%d,%d],\"folderIds\":[%d]}".formatted(mediaId, notFoundMediaId, folderId))
+        담기(token, roomId, "{\"mediaIds\":[%d,%d],\"folderId\":%d}".formatted(mediaId, notFoundMediaId, folderId))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(1))
             .andExpect(jsonPath("$.data.notFoundMediaIds[0]").value(notFoundMediaId));
     }
 
     @Test
-    void 없는_폴더가_하나라도_있으면_404() throws Exception {
+    void 없는_폴더면_404() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
-        long folderId = 폴더_만들기(token, roomId, "맛집");
         long mediaId = 존재하는_미디어();
 
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d,-1]}".formatted(mediaId, folderId))
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":-1}".formatted(mediaId))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
@@ -101,7 +100,18 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long roomId = 방_만들고_입장(token);
         long folderId = 폴더_만들기(token, roomId, "맛집");
 
-        담기(token, roomId, "{\"mediaIds\":[],\"folderIds\":[%d]}".formatted(folderId))
+        담기(token, roomId, "{\"mediaIds\":[],\"folderId\":%d}".formatted(folderId))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void folderId가_없으면_400과_INVALID_PARAM() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long mediaId = 존재하는_미디어();
+
+        담기(token, roomId, "{\"mediaIds\":[%d]}".formatted(mediaId))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
@@ -114,7 +124,7 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long folderId = 폴더_만들기(hostToken, roomId, "맛집");
         long mediaId = 존재하는_미디어();
 
-        담기(guestToken, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+        담기(guestToken, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderId))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
     }
@@ -126,8 +136,8 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long folderA = 폴더_만들기(token, roomId, "맛집");
         long folderB = 폴더_만들기(token, roomId, "카페");
         long mediaId = 존재하는_미디어();
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d,%d]}".formatted(mediaId, folderA, folderB))
-            .andExpect(status().isOk());
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderA)).andExpect(status().isOk());
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderB)).andExpect(status().isOk());
 
         꺼내기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderA))
             .andExpect(status().isOk())
@@ -142,7 +152,7 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long roomId = 방_만들고_입장(token);
         long folderId = 폴더_만들기(token, roomId, "맛집");
         long mediaId = 존재하는_미디어();
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderId))
             .andExpect(status().isOk());
 
         꺼내기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
@@ -157,8 +167,8 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long folderA = 폴더_만들기(token, roomId, "맛집");
         long folderB = 폴더_만들기(token, roomId, "카페");
         long mediaId = 존재하는_미디어();
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d,%d]}".formatted(mediaId, folderA, folderB))
-            .andExpect(status().isOk());
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderA)).andExpect(status().isOk());
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderB)).andExpect(status().isOk());
 
         꺼내기(token, roomId, "{\"mediaIds\":[%d]}".formatted(mediaId))
             .andExpect(status().isOk())
@@ -174,7 +184,7 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long folderId = 폴더_만들기(token, roomId, "맛집");
         long mediaId = 존재하는_미디어();
         long notFoundMediaId = MEDIA_ID_SEQUENCE.incrementAndGet();
-        담기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[%d]}".formatted(mediaId, folderId))
+        담기(token, roomId, "{\"mediaIds\":[%d],\"folderId\":%d}".formatted(mediaId, folderId))
             .andExpect(status().isOk());
 
         꺼내기(token, roomId, "{\"mediaIds\":[%d,%d],\"folderIds\":[%d]}".formatted(mediaId, notFoundMediaId, folderId))

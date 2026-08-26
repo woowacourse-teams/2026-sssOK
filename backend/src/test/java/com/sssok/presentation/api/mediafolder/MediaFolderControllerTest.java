@@ -91,25 +91,25 @@ class MediaFolderControllerTest {
 
     @Test
     void 폴더에_담으면_200과_결과를_반환한다() throws Exception {
-        AddMediaToFoldersResult result = new AddMediaToFoldersResult(
-            4, 0, List.of(), List.of(new FolderSummary(31L, "맛집", 9), new FolderSummary(32L, "단체사진", 13)));
-        given(addMediaToFoldersService.add(anyLong(), anyList(), anyList())).willReturn(result);
+        AddMediaToFoldersResult result =
+            new AddMediaToFoldersResult(2, 0, List.of(), new FolderSummary(31L, "맛집", 9));
+        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong())).willReturn(result);
 
-        addToFolders("{\"mediaIds\":[5012,5011],\"folderIds\":[31,32]}")
+        addToFolders("{\"mediaIds\":[5012,5011],\"folderId\":31}")
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.updatedCount").value(4))
+            .andExpect(jsonPath("$.data.updatedCount").value(2))
             .andExpect(jsonPath("$.data.alreadyInCount").value(0))
             .andExpect(jsonPath("$.data.notFoundMediaIds").isEmpty())
-            .andExpect(jsonPath("$.data.folders[0].id").value(31))
-            .andExpect(jsonPath("$.data.folders[0].name").value("맛집"))
-            .andExpect(jsonPath("$.data.folders[0].photoCount").value(9));
+            .andExpect(jsonPath("$.data.folder.id").value(31))
+            .andExpect(jsonPath("$.data.folder.name").value("맛집"))
+            .andExpect(jsonPath("$.data.folder.photoCount").value(9));
     }
 
     @Test
     void 인증이_없으면_401을_반환한다() throws Exception {
         mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"mediaIds\":[1],\"folderIds\":[31]}"))
+                .content("{\"mediaIds\":[1],\"folderId\":31}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
@@ -118,7 +118,7 @@ class MediaFolderControllerTest {
     void 없는_방이면_404와_ROOM_NOT_FOUND를_반환한다() throws Exception {
         given(roomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
 
-        addToFolders("{\"mediaIds\":[1],\"folderIds\":[31]}")
+        addToFolders("{\"mediaIds\":[1],\"folderId\":31}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
@@ -127,27 +127,27 @@ class MediaFolderControllerTest {
     void 입장하지_않았으면_403과_NOT_ROOM_MEMBER를_반환한다() throws Exception {
         given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID)).willReturn(Optional.empty());
 
-        addToFolders("{\"mediaIds\":[1],\"folderIds\":[31]}")
+        addToFolders("{\"mediaIds\":[1],\"folderId\":31}")
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
     }
 
     @Test
-    void 없는_폴더가_있으면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), anyList(), anyList()))
+    void 없는_폴더면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
+        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong()))
             .willThrow(new FolderNotFoundException(List.of(999L)));
 
-        addToFolders("{\"mediaIds\":[1],\"folderIds\":[999]}")
+        addToFolders("{\"mediaIds\":[1],\"folderId\":999}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
     @Test
-    void mediaIds나_folderIds가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), anyList(), anyList()))
+    void mediaIds나_folderId가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
+        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong()))
             .willThrow(new InvalidMediaFolderParamException());
 
-        addToFolders("{\"mediaIds\":[],\"folderIds\":[31]}")
+        addToFolders("{\"mediaIds\":[],\"folderId\":31}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
