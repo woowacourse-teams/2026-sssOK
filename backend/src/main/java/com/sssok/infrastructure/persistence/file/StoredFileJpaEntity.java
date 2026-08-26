@@ -54,6 +54,16 @@ public class StoredFileJpaEntity extends BaseEntity {
     @Column(name = "retry_count", nullable = false)
     private int retryCount;
 
+    // 썸네일·최적화 워커가 채운다. 그 전까지는 비어 있다.
+    @Column(name = "width")
+    private Integer width;
+
+    @Column(name = "height")
+    private Integer height;
+
+    @Column(name = "duration_seconds")
+    private Integer durationSeconds;
+
     public StoredFileJpaEntity(Long id, Long roomId, Long uploaderId, String originalFileName,
                                String mediaType, Long fileSizeBytes, String storageKey, Long folderId,
                                String status, Instant createdAt, Instant reservedAt, int retryCount) {

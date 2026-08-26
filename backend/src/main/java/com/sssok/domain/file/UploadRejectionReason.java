@@ -6,7 +6,9 @@ public enum UploadRejectionReason {
 
     FILE_TOO_LARGE("파일 용량이 허용 크기를 초과했습니다"),
     UNSUPPORTED_MEDIA_TYPE("이미지와 영상만 업로드할 수 있습니다"),
-    INVALID_PARAM("파일 정보가 올바르지 않습니다");
+    INVALID_PARAM("파일 정보가 올바르지 않습니다"),
+    UPLOAD_NOT_COMPLETED("업로드가 완료되지 않았습니다. 다시 시도해 주세요"),
+    MEDIA_NOT_FOUND("업로드 요청을 찾을 수 없습니다");
 
     private final String message;
 

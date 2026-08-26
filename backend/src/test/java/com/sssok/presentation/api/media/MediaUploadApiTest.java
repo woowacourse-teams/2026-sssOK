@@ -14,12 +14,14 @@ import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.application.port.out.FileStoragePort.UploadedObject;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.JoinRoomService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -92,7 +94,44 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         return root.path("data").path("issued").get(0).path("mediaId").asLong();
     }
 
+    @Test
+    void 발급부터_완료_등록까지_이어진다() throws Exception {
+        String issued = issue(oneImage()).andExpect(status().isOk()).andReturn()
+            .getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
+        given(fileStoragePort.findUploaded(any()))
+            .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
 
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mediaIds\":[%d]}".formatted(mediaId)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.registered[0].mediaId").value(mediaId))
+            .andExpect(jsonPath("$.data.registered[0].status").value("PROCESSING"))
+            .andExpect(jsonPath("$.data.registered[0].type").value("IMAGE"))
+            .andExpect(jsonPath("$.data.registered[0].uploaderName").value("가현"));
+    }
+
+    @Test
+    void 폴더를_지정하면_발급과_동시에_담긴다() throws Exception {
+        Folder folder = createFolderService.create(roomId, "1일차");
+        String body = "{\"files\":[{\"fileName\":\"a.jpg\",\"mimeType\":\"%s\",\"size\":%d}],\"folderIds\":[%d]}"
+            .formatted(MIME, SIZE, folder.getId());
+
+        String issued = issue(body).andExpect(status().isOk()).andReturn()
+            .getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
+        given(fileStoragePort.findUploaded(any()))
+            .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
+
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mediaIds\":[%d]}".formatted(mediaId)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(folder.getId()));
+    }
 
     @Test
     void 없는_폴더를_지정하면_404() throws Exception {
@@ -104,6 +143,20 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
+    @Test
+    void 올리지_않고_등록하면_실패로_보고된다() throws Exception {
+        String issued = issue(oneImage()).andReturn().getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
+        given(fileStoragePort.findUploaded(any())).willReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
+                .header("Authorization", token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mediaIds\":[%d]}".formatted(mediaId)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.registered").isEmpty())
+            .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
+    }
 
 
 

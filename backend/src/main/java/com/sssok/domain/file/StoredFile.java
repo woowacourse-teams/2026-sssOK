@@ -72,6 +72,11 @@ public class StoredFile {
         transitionTo(UploadStatus.PROCESSING);
     }
 
+    // 스토리지에 실제로 올라온 것이 발급 때 신고한 값과 같은지 확인한다.
+    public boolean matchesUploaded(long uploadedBytes, String uploadedMimeType) {
+        return fileSize.bytes() == uploadedBytes && mediaType.contentType().equals(uploadedMimeType);
+    }
+
     public void markReady() {
         transitionTo(UploadStatus.READY);
     }

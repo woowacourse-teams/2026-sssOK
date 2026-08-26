@@ -35,6 +35,14 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findAllByIdIn(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllById(ids).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<Long> findExistingIds(List<Long> ids) {
         return jpaRepository.findAllById(ids).stream()
             .map(StoredFileJpaEntity::getId)

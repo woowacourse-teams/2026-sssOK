@@ -32,6 +32,7 @@ public enum ErrorCode {
     ROOM_MEMBERSHIP_REQUIRED(403, "입장한 방만 구독할 수 있습니다"),
     NOT_ROOM_MEMBER(403, "입장한 방에서만 이용할 수 있습니다"),
     UPLOAD_NOT_ALLOWED(403, "방장만 업로드할 수 있는 방입니다"),
+    MEDIA_FORBIDDEN(403, "본인이 요청한 업로드가 아닙니다"),
 
     // 404 Not Found
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
