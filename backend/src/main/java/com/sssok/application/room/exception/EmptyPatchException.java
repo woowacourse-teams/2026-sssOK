@@ -1,8 +1,11 @@
 package com.sssok.application.room.exception;
 
-public class EmptyPatchException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class EmptyPatchException extends SssOkException {
 
     public EmptyPatchException() {
-        super("변경할 항목을 하나 이상 보내주세요");
+        super(ErrorCode.EMPTY_PATCH);
     }
 }

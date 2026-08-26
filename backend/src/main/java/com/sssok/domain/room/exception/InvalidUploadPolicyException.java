@@ -1,8 +1,11 @@
 package com.sssok.domain.room.exception;
 
-public class InvalidUploadPolicyException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
 
-    public InvalidUploadPolicyException(String value) {
-        super("올바르지 않은 업로드 권한입니다: " + value);
+public class InvalidUploadPolicyException extends SssOkException {
+
+    public InvalidUploadPolicyException() {
+        super(ErrorCode.INVALID_UPLOAD_POLICY);
     }
 }

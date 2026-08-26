@@ -1,8 +1,11 @@
 package com.sssok.application.room.exception;
 
-public class RoomAlreadyDeletedException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class RoomAlreadyDeletedException extends SssOkException {
 
     public RoomAlreadyDeletedException() {
-        super("이미 삭제되었거나 만료된 방입니다");
+        super(ErrorCode.ROOM_ALREADY_DELETED);
     }
 }

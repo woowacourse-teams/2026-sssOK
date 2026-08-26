@@ -9,12 +9,11 @@ public record Nickname(String value) {
 
     public Nickname {
         if (value == null) {
-            throw new InvalidNicknameException("닉네임은 필수입니다.");
+            throw new InvalidNicknameException();
         }
         value = value.trim();
         if (value.length() < MIN_LENGTH || value.length() > MAX_LENGTH) {
-            throw new InvalidNicknameException(
-                    "닉네임은 %d자 이상 %d자 이하여야 합니다.".formatted(MIN_LENGTH, MAX_LENGTH));
+            throw new InvalidNicknameException();
         }
     }
 }

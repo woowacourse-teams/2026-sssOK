@@ -1,8 +1,11 @@
 package com.sssok.application.room.exception;
 
-public class RoomMembershipRequiredException extends RuntimeException {
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.SssOkException;
+
+public class RoomMembershipRequiredException extends SssOkException {
 
     public RoomMembershipRequiredException() {
-        super("입장한 방만 구독할 수 있습니다");
+        super(ErrorCode.ROOM_MEMBERSHIP_REQUIRED);
     }
 }
