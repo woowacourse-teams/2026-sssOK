@@ -39,6 +39,6 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(roomMembershipInterceptor)
-            .addPathPatterns(API_PREFIX + "/rooms/*/folders/**");
+            .addPathPatterns(API_PREFIX + "/rooms/*/folders/**", API_PREFIX + "/rooms/*/media/folders");
     }
 }
