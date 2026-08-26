@@ -6,7 +6,9 @@ import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.FolderName;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 // 폴더 이름 변경. 방 존재/만료/입장 여부는 RoomMembershipInterceptor가 먼저 걸러준다.
 @Service
@@ -15,6 +17,7 @@ public class RenameFolderService {
 
     private final FolderRepository folderRepository;
 
+    @Transactional
     public Folder rename(Long roomId, Long folderId, String newName) {
         Folder folder = folderRepository.findById(folderId)
             .filter(f -> f.belongsTo(roomId))
@@ -28,6 +31,10 @@ public class RenameFolderService {
             });
 
         folder.rename(newFolderName);
-        return folderRepository.save(folder);
+        try {
+            return folderRepository.save(folder);
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateFolderNameException();
+        }
     }
 }

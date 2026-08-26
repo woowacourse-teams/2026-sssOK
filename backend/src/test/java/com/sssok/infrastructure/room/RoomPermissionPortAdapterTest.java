@@ -12,7 +12,9 @@ import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -146,6 +148,27 @@ class RoomPermissionPortAdapterTest {
         @Override
         public Optional<Room> findById(Long id) {
             return Optional.ofNullable(rooms.get(id));
+        }
+
+        @Override
+        public List<Room> findAllPurgeTargets(Instant threshold) {
+            return rooms.values().stream()
+                .filter(room -> room.endedAt().isBefore(threshold))
+                .toList();
+        }
+
+        @Override
+        public List<Long> findHostIdsIn(Collection<Long> memberIds) {
+            return rooms.values().stream()
+                .map(Room::getHostId)
+                .filter(memberIds::contains)
+                .distinct()
+                .toList();
+        }
+
+        @Override
+        public void delete(Room room) {
+            rooms.remove(room.getId());
         }
     }
 }

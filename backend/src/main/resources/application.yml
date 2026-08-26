@@ -41,8 +41,8 @@ room:
   code-length: 8
   default-ttl: 24h
   expiration-change-limit: 3
-  # soft delete 이후 실제 삭제까지의 보관 기간
-  retention-after-delete: 7d
+  # 수명을 다한 방을 실제로 지우는 시각. 보관 기간 자체는 RetentionPolicy 가 갖는다.
+  purge-cron: "0 0 4 * * *"
 
 upload:
   image-max-size: 10MB

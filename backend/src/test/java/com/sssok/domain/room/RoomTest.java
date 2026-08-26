@@ -156,10 +156,17 @@ class RoomTest {
     }
 
     @Test
-    void 삭제되지_않은_방은_퍼지_대상이_아니다() {
+    void 삭제되지_않아도_만료_후_보존_기간이_지나면_퍼지_대상이다() {
         Room room = createRoom();
 
-        assertThat(room.isPurgeable(NOW.plus(Duration.ofDays(365)))).isFalse();
+        assertThat(room.isPurgeable(NOW.plus(Duration.ofDays(365)))).isTrue();
+    }
+
+    @Test
+    void 만료_전에는_퍼지_대상이_아니다() {
+        Room room = createRoom();
+
+        assertThat(room.isPurgeable(NOW.plus(Duration.ofHours(1)))).isFalse();
     }
 
     @Test
@@ -170,6 +177,7 @@ class RoomTest {
 
         assertThat(room.getStatus()).isSameAs(ExpiredRoomStatus.INSTANCE);
     }
+
 
     @Test
     void purge는_DELETED_상태에서만_가능하다() {
@@ -184,10 +192,22 @@ class RoomTest {
     }
 
     @Test
-    void 삭제되지_않은_방은_영구_삭제_예정_시각이_없다() {
+    void 삭제되지_않은_방은_만료_시각을_기준으로_영구_삭제_시각이_잡힌다() {
         Room room = createRoom();
 
-        assertThat(room.purgeAt()).isNull();
+        assertThat(room.endedAt()).isEqualTo(room.getExpiration().expiresAt());
+        assertThat(room.purgeAt()).isEqualTo(room.getExpiration().expiresAt().plus(Duration.ofDays(7)));
+    }
+
+    @Test
+    void 만료된_방을_뒤늦게_지워도_보관_기간이_늘어나지_않는다() {
+        Room room = createRoom();
+        Instant expiresAt = room.getExpiration().expiresAt();
+
+        room.delete(HOST, expiresAt.plus(Duration.ofDays(4)));
+
+        assertThat(room.endedAt()).isEqualTo(expiresAt);
+        assertThat(room.purgeAt()).isEqualTo(expiresAt.plus(Duration.ofDays(7)));
     }
 
     @Test
@@ -197,6 +217,7 @@ class RoomTest {
 
         room.delete(HOST, deletedAt);
 
+        assertThat(room.endedAt()).isEqualTo(deletedAt);
         assertThat(room.purgeAt()).isEqualTo(deletedAt.plus(Duration.ofDays(7)));
     }
 

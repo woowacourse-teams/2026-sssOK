@@ -17,4 +17,6 @@ public interface FolderRepository {
     Optional<Folder> findByRoomIdAndName(Long roomId, String name);
 
     void deleteById(Long id);
+
+    void deleteAllByRoomId(Long roomId);
 }
