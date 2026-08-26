@@ -21,8 +21,14 @@ export const MOCK_ROOM_CODES = {
   invalid: "NOTFOUND",
 } as const;
 
+/** 목이 아는 방은 하나뿐이라 방 번호도 하나다. 업로드 목이 경로와 스토리지 키에 같은 값을 쓴다. */
+export const MOCK_ROOM_ID = 5031;
+
+const isKnownRoomCode = (code: string) =>
+  code === MOCK_ROOM_CODES.active || code === MOCK_ROOM_CODES.second;
+
 const room = (code: string, status: "ACTIVE" | "EXPIRED" | "DELETED", joined = false) => ({
-  roomId: 5031,
+  roomId: MOCK_ROOM_ID,
   code,
   name: "제주 여행",
   status,
@@ -63,7 +69,7 @@ export const roomHandlers = [
       return HttpResponse.json({ data: room(code, "DELETED") });
     }
 
-    if (code === MOCK_ROOM_CODES.active || code === MOCK_ROOM_CODES.second) {
+    if (isKnownRoomCode(code)) {
       return HttpResponse.json({ data: room(code, "ACTIVE", joined) });
     }
 
@@ -121,7 +127,7 @@ export const roomHandlers = [
     return HttpResponse.json(
       {
         data: {
-          roomId: 5031,
+          roomId: MOCK_ROOM_ID,
           code: MOCK_ROOM_CODES.active,
           name,
           hostId: 10234,
