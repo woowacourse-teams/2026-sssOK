@@ -172,10 +172,11 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 다른_사람이_입장해도_내_joined는_그대로다() {
         Room room = createRoom();
+        boolean beforeGuestJoins = getRoomService.getByCode(room.getCode(), hostId).joined();
 
         joinRoomService.join(room.getId(), guestId);
 
-        assertThat(getRoomService.getByCode(room.getCode(), hostId).joined()).isFalse();
+        assertThat(getRoomService.getByCode(room.getCode(), hostId).joined()).isEqualTo(beforeGuestJoins);
     }
 
     @Test
