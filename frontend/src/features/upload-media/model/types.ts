@@ -55,6 +55,13 @@ export interface FailedUpload {
   fileName: string;
   code: UploadFailureCode;
   message: string;
+  /**
+   * 다시 올릴 원본. 재시도(#74)가 이걸 그대로 `uploadFiles` 에 되먹인다.
+   *
+   * 파일명으로 되찾을 수 없어서 여기 싣는다 — 같은 이름이 여럿이면 어느 쪽이 깨졌는지
+   * 이름만으로는 가릴 수 없다 (`pairWithFiles` 가 순서로 짝짓는 것과 같은 이유다).
+   */
+  file: File;
 }
 
 /**

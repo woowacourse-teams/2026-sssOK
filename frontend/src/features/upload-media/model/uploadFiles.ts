@@ -95,6 +95,8 @@ export const uploadFiles = async ({
   const registerResult = await registerMedia(roomId, { mediaIds: uploadedIds }, token);
   const registered: Media[] = registerResult.registered;
 
+  const targetByMediaId = new Map(targets.map((target) => [target.issued.mediaId, target]));
+
   for (const failure of registerResult.failed) {
     // 이미 올라간 것이다. 실패로 보여주면 멀쩡히 올라간 사진을 실패로 보게 된다.
     // 응답에 Media 가 없어서 registered 에는 못 넣는다 — 갤러리를 다시 불러오면 나타난다.
@@ -102,11 +104,20 @@ export const uploadFiles = async ({
       continue;
     }
 
+    const target = targetByMediaId.get(failure.mediaId);
+
+    // 우리가 발급받아 올린 mediaId 만 등록에 실었으므로 못 찾을 수 없다.
+    // 그래도 응답이 어긋나면 빈 파일을 지어내지 않는다 — 재시도가 0바이트를 올리게 된다.
+    if (target === undefined) {
+      continue;
+    }
+
     failed.push({
       mediaId: failure.mediaId,
-      fileName: issued.find((one) => one.mediaId === failure.mediaId)?.fileName ?? "",
+      fileName: target.issued.fileName,
       code: failure.code,
       message: failure.message,
+      file: target.file,
     });
   }
 

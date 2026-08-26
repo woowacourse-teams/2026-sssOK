@@ -253,6 +253,23 @@ describe("uploadFiles", () => {
     expect(result.registered.length + result.failed.length).toBe(5);
   });
 
+  it("이름이 같은 파일이 나란히 깨져도 각자의 원본을 실어 준다", async () => {
+    await enterRoom();
+    // 사진첩에서 같은 이름이 겹치는 건 드문 일이 아니다. 크기로만 서로 구별된다.
+    const first = fileOf("해변.jpg", 3);
+    const second = fileOf("해변.jpg", 7);
+
+    interceptPuts({ statusOf: () => 500 });
+
+    const result = await run([first, second]);
+    const failedFiles = result.failed.map((failure) => failure.file);
+
+    // 이름으로 되찾았다면 둘 중 한 쪽을 두 번 집어, 나머지 한 장은 영영 다시 못 올린다.
+    expect(result.failed).toHaveLength(2);
+    expect(failedFiles.includes(first)).toBe(true);
+    expect(failedFiles.includes(second)).toBe(true);
+  });
+
   it("등록이 이미 완료됐다고 답하면 실패로 세지 않는다", async () => {
     await enterRoom();
 

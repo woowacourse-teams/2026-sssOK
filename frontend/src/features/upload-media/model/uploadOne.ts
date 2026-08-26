@@ -56,7 +56,7 @@ export const uploadOne = async ({
 
   const failWith = (code: UploadFailureCode, message: string): UploadOneResult => ({
     ok: false,
-    failure: { mediaId, fileName, code, message },
+    failure: { mediaId, fileName, code, message, file },
   });
 
   // 재발급을 받으면 URL 과 헤더가 갈린다. mediaId 와 파일은 그대로다.
