@@ -26,3 +26,6 @@ ALTER TABLE link_code ADD COLUMN updated_at TIMESTAMPTZ;
 UPDATE link_code SET created_at = expires_at - INTERVAL '5 minutes', updated_at = expires_at - INTERVAL '5 minutes';
 ALTER TABLE link_code ALTER COLUMN created_at SET NOT NULL;
 ALTER TABLE link_code ALTER COLUMN updated_at SET NOT NULL;
+ALTER TABLE folder ADD COLUMN updated_at TIMESTAMPTZ;
+UPDATE folder SET updated_at = created_at;
+ALTER TABLE folder ALTER COLUMN updated_at SET NOT NULL;
