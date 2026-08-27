@@ -134,6 +134,18 @@ describe("uploadOne", () => {
     });
   });
 
+  it("실패에 원본 File 을 실어 준다 — 재시도가 이걸 그대로 다시 올린다", async () => {
+    const issued = await issueOne("해변.jpg");
+    const file = imageFile("해변.jpg");
+    interceptPut(500);
+
+    const result = await uploadOne({ roomId: MOCK_ROOM_ID, token: TOKEN, issued, file });
+
+    if (result.ok) throw new Error("PUT 을 500 으로 막았으니 실패해야 한다");
+
+    expect(result.failure.file).toBe(file);
+  });
+
   it("실패해도 던지지 않는다 — 나머지 파일이 계속돼야 한다", async () => {
     const issued = await issueOne("해변.jpg");
     interceptPut(500);
