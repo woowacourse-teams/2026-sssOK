@@ -125,6 +125,46 @@ describe("uploadFiles", () => {
     ]);
   });
 
+  it("발급을 통과한 목록을 첫 PUT 전에 한 번 알린다", async () => {
+    await enterRoom();
+    const onStarted = jest.fn();
+    let putSeen = false;
+
+    server.use(
+      http.put(`${MOCK_R2_BASE_URL}/*`, () => {
+        putSeen = true;
+
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+
+    await run([fileOf("메모.txt", 3, "text/plain"), fileOf("첫째.jpg", 5)], {
+      onStarted: (targets) => {
+        // 진행 바의 분모가 잡히는 시점이다. 한 장이라도 나간 뒤면 늦다.
+        expect(putSeen).toBe(false);
+        onStarted(targets);
+      },
+    });
+
+    // 거절된 메모.txt 는 빠지고, 올라갈 파일만 크기와 함께 온다.
+    expect(onStarted).toHaveBeenCalledTimes(1);
+    expect(onStarted).toHaveBeenCalledWith([
+      expect.objectContaining({ fileName: "첫째.jpg", size: 5 }),
+    ]);
+  });
+
+  it("PUT 이 끝난 파일만, 끝나는 대로 하나씩 알린다", async () => {
+    await enterRoom();
+    interceptPuts({ statusOf: (key) => (key.endsWith(".png") ? 500 : 200) });
+    const onUploaded = jest.fn();
+
+    await run([fileOf("첫째.jpg", 3), fileOf("둘째.png", 7, "image/png")], { onUploaded });
+
+    // 재시도를 다 쓰고 실패한 파일은 세지 않는다. 등록을 기다리지도 않는다.
+    expect(onUploaded).toHaveBeenCalledTimes(1);
+    expect(onUploaded).toHaveBeenCalledWith(expect.objectContaining({ fileName: "첫째.jpg" }));
+  });
+
   it("거절된 파일은 쏘지 않고 나머지만 올린다", async () => {
     await enterRoom();
     const { records } = interceptPuts();

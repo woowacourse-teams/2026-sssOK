@@ -13,6 +13,24 @@ export interface UploadProgress {
 }
 
 /**
+ * 발급을 통과해 실제로 올라갈 파일 한 건.
+ * 진행 바는 이걸 받고서야 "몇 장 중 몇 장" 의 분모와 퍼센트의 분모를 확정한다 (#73) —
+ * 고른 파일 전부가 올라가는 게 아니라, 거절분이 빠진 만큼만 올라가기 때문이다.
+ */
+export interface UploadTargetInfo {
+  mediaId: number;
+  fileName: string;
+  /** 원본 `File.size`. 퍼센트의 분모로 쓰인다. */
+  size: number;
+}
+
+/** PUT 이 끝난 파일 한 건. 아직 등록 전이라 갤러리에는 없다. */
+export interface UploadedFile {
+  mediaId: number;
+  fileName: string;
+}
+
+/**
  * 전송이 어쩌다 깨진 것. `rejected` 와 달리 재시도가 의미 있다.
  * 자동 재시도를 다 쓰고도 실패한 것만 여기로 온다.
  */
@@ -61,6 +79,18 @@ export interface UploadFilesOptions {
    */
   onRejected?: (rejected: RejectedFile[]) => void;
   onProgress?: (progress: UploadProgress) => void;
+  /**
+   * 발급을 통과한 파일 목록. `onRejected` 직후, 첫 PUT 이 나가기 전에 한 번 불린다.
+   * 진행 바가 고를 때 잡아둔 잠정 장수·바이트를 여기서 확정값으로 바로잡는다 (#73).
+   */
+  onStarted?: (targets: UploadTargetInfo[]) => void;
+  /**
+   * PUT 한 건이 끝날 때마다. 진행 바의 "완료 장수" 가 여기서 오른다 (#73).
+   *
+   * 진행률 이벤트로는 이걸 대신할 수 없다 — 100% 까지 보내고도 응답이 깨져
+   * 재발급받아 처음부터 다시 올라가는 파일이 있다.
+   */
+  onUploaded?: (uploaded: UploadedFile) => void;
   /**
    * 중단하면 진행 중인 PUT 이 실제로 끊기고, 대기 중이던 파일은 출발하지 않는다.
    * 다만 **이미 올라간 파일은 그대로 등록한다** — 중단은 "아직 안 올린 것을 그만두는" 것이지

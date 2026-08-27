@@ -23,6 +23,8 @@ export const uploadFiles = async ({
   folderIds,
   onRejected,
   onProgress,
+  onStarted,
+  onUploaded,
   signal,
 }: UploadFilesOptions): Promise<UploadResult> => {
   const { issued, rejected } = await issueUploadUrls(
@@ -44,12 +46,34 @@ export const uploadFiles = async ({
     onRejected?.(rejected);
   }
 
-  const results = await runWithLimit(
-    pairWithFiles(files, issued, rejected),
-    UPLOAD_CONCURRENCY,
-    (target) =>
-      uploadOne({ roomId, token, issued: target.issued, file: target.file, signal, onProgress }),
+  const targets = pairWithFiles(files, issued, rejected);
+
+  // 거절분이 빠진 뒤라야 "몇 장 중 몇 장" 의 분모가 맞는다. 첫 PUT 보다 먼저 알린다 (#73).
+  onStarted?.(
+    targets.map(({ issued: one, file }) => ({
+      mediaId: one.mediaId,
+      fileName: one.fileName,
+      size: file.size,
+    })),
   );
+
+  const results = await runWithLimit(targets, UPLOAD_CONCURRENCY, async (target) => {
+    const result = await uploadOne({
+      roomId,
+      token,
+      issued: target.issued,
+      file: target.file,
+      signal,
+      onProgress,
+    });
+
+    // 등록까지 기다리면 마지막 한 번에 몰아서 오른다. 올라간 즉시 세는 게 사용자가 보는 진행이다.
+    if (result.ok) {
+      onUploaded?.({ mediaId: target.issued.mediaId, fileName: target.issued.fileName });
+    }
+
+    return result;
+  });
 
   const uploadedIds: number[] = [];
   const failed: FailedUpload[] = [];
