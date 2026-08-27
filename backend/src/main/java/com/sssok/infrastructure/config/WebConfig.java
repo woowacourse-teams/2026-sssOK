@@ -42,6 +42,8 @@ public class WebConfig implements WebMvcConfigurer {
             .addPathPatterns(
                 API_PREFIX + "/rooms/*/folders/**",
                 API_PREFIX + "/rooms/*/media",
-                API_PREFIX + "/rooms/*/media/**");
+                API_PREFIX + "/rooms/*/media/**",
+                API_PREFIX + "/rooms/*/downloads",
+                API_PREFIX + "/rooms/*/downloads/**");
     }
 }
