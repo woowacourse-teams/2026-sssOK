@@ -16,6 +16,9 @@ public interface DownloadJobRepository {
     long countByRequesterIdAndStatusIn(Long requesterId, List<DownloadJobStatus> statuses);
 
     // 잡 생성 시점에 압축 대상 media id를 그대로 저장해둔다 — 워커가 나중에 다시
-    // 리졸빙하지 않고 이 목록을 그대로 압축하게 하기 위함(PR2에서 읽는다).
+    // 리졸빙하지 않고 이 목록을 그대로 압축하게 하기 위함.
     void saveJobMedia(Long jobId, List<Long> mediaIds);
+
+    // 이 잡이 압축해야 할 media id 목록. 워커가 실제로 무엇을 zip에 담을지 결정할 때 쓴다.
+    List<Long> findMediaIdsByJobId(Long jobId);
 }

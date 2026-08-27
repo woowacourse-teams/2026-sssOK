@@ -40,6 +40,13 @@ public class DownloadJobRepositoryAdapter implements DownloadJobRepository {
         jobMediaJpaRepository.saveAll(entities);
     }
 
+    @Override
+    public List<Long> findMediaIdsByJobId(Long jobId) {
+        return jobMediaJpaRepository.findAllByDownloadJobId(jobId).stream()
+            .map(DownloadJobMediaJpaEntity::getMediaId)
+            .toList();
+    }
+
     private DownloadJobJpaEntity toEntity(DownloadJob job) {
         return new DownloadJobJpaEntity(
             job.getId(),
