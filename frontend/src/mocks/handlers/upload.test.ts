@@ -708,3 +708,19 @@ describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe("__slow__ 표식", () => {
+  /**
+   * 목이 즉시 답하면 진행 바가 31ms 만에 사라져 눈으로 볼 수가 없다.
+   * 이 표식이 응답만 늦춰서 바를 화면에 붙잡아 둔다.
+   */
+  it("PUT 응답이 늦게 온다", async () => {
+    const issued = await issueOne(file("제주-해변__slow__.jpg"));
+    const startedAt = Date.now();
+
+    const response = await putToR2(issued);
+
+    expect(response.status).toBe(200);
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1500);
+  }, 10000);
+});

@@ -30,9 +30,22 @@ features/upload-media/
 
 ## 흐름
 
+버튼 한 번 누름부터 전송이 시작되기까지 **한 줄로** 읽으면 이렇다.
+
+1. 사용자가 버튼을 누른다 → `UploadButton` 이 숨겨둔 `input` 의 `click()` 을 **동기로** 부른다
+2. 기기 기본 선택기가 열리고, 사용자가 고르거나 취소한다
+3. `change` 가 오면 `files` 를 배열로 떠두고 **곧바로 `input.value = ""`**
+4. 고른 게 0장이면 여기서 끝. `onSelect` 조차 부르지 않는다
+5. `selectMediaFiles(files)` 가 `accepted` / `rejected` 로 가른다
+6. `MediaUploader` 가 결과를 받아 **둘을 각각 다르게** 처리한다
+   - `rejected` 가 있으면 → `SelectionNotice` 로 "N장은 올릴 수 없어요"
+   - `accepted` 가 있으면 → `upload.start(accepted)` 로 전송 시작
+
+6번의 두 갈래는 **서로 독립이다.** 8장 중 2장이 걸러지면 알림과 전송이 같이 일어나고,
+8장 전부 걸러지면 알림만 뜨고 전송은 **시작되지 않는다.**
+
 ```mermaid
 sequenceDiagram
-    autonumber
     participant U as 사용자
     participant B as UploadButton
     participant I as input[type=file]
@@ -42,27 +55,30 @@ sequenceDiagram
 
     U->>B: 버튼 누름
     B->>I: click()
-    Note over B,I: 반드시 동기 호출. await·setTimeout 을 끼우면 iOS 에서 안 열린다
+    Note over B,I: 반드시 동기 호출.<br/>await·setTimeout 을 끼우면 iOS 에서 안 열린다
     I-->>U: 기기 기본 사진 선택기
-    U->>I: 여러 장 고르고 확인
-
+    U->>I: 고르고 확인 (또는 취소)
     I->>B: change
-    B->>B: files 를 배열로 떠둔 뒤 input.value = ""
-    Note over B: 비우지 않으면 같은 사진을 두 번째 골랐을 때 change 가 안 온다
 
-    alt 취소해서 0장
-        B-->>B: 아무 일도 안 일어남
+    B->>B: files 를 배열로 떠둔 뒤 input.value = ""
+    Note over B: 비우지 않으면 같은 사진을<br/>두 번째 골랐을 때 change 가 안 온다
+
+    alt 0장 — 취소했다
+        B--xB: 여기서 끝. onSelect 를 부르지 않는다
     else 1장 이상
         B->>S: selectMediaFiles(files)
         S-->>B: { accepted, rejected }
-        B->>M: onSelect(...)
+        B->>M: onSelect({ accepted, rejected })
 
-        opt 걸러진 것이 있으면
-            M->>N: rejected 만 넘김
+        opt rejected 가 있으면
+            M->>N: rejected
             N-->>U: "N장은 올릴 수 없어요" + 사유별 장수
         end
 
-        M->>M: upload.start(accepted) — 여기서부터 UPLOAD_FLOW.md
+        opt accepted 가 있으면
+            M->>M: upload.start(accepted)
+            Note over M: 여기서부터 UPLOAD_FLOW.md
+        end
     end
 ```
 

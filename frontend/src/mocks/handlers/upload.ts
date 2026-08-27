@@ -1,4 +1,4 @@
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
 import {
@@ -55,7 +55,22 @@ export const UPLOAD_MOCK_MARKERS = {
   putFailure: "__fail__",
   /** 이미 만료된 URL 을 발급한다 — 만료 403 흐름 확인용 */
   expiredUrl: "__expired__",
+  /** PUT 응답을 늦춘다 — 진행 바가 화면에 머무는 걸 눈으로 보려고 */
+  slowUpload: "__slow__",
 } as const;
+
+/**
+ * `__slow__` 가 붙은 파일 하나의 PUT 이 늦어지는 시간.
+ *
+ * 목은 네트워크를 타지 않아 즉시 200 을 준다. 그래서 진행 바가 뜨자마자 사라져
+ * (실측 31ms) 눈으로 볼 수가 없다. 이 지연은 **바가 화면에 머무는 것과 완료 장수가
+ * 오르는 것**을 보려는 것이다.
+ *
+ * 퍼센트가 매끄럽게 차오르는 것은 이걸로도 못 본다 — `loaded` 는 브라우저가 요청 본문을
+ * 내보내며 알려주는 값이라, 핸들러가 응답을 늦춰도 이미 다 올라간 뒤다.
+ * 실제 회선에서만 확인된다 (docs/frontend/UPLOAD_FLOW.md 의 "목으로는 확인이 안 되는 것").
+ */
+const SLOW_UPLOAD_DELAY_MS = 2000;
 
 type MediaStatus = "RESERVED" | "PROCESSING" | "READY" | "FAILED";
 
@@ -93,6 +108,8 @@ interface MockMedia {
   storageKey: string;
   status: MediaStatus;
   retryCount: number;
+  /** `__slow__` 표식이 붙었나. PUT 응답을 늦춘다 */
+  slowUpload: boolean;
   /** 현재 storageKey 로 PUT 이 끝난 바이트 수. 아직이면 null 이다. */
   uploadedBytes: number | null;
   /**
@@ -432,6 +449,7 @@ export const uploadHandlers = [
         retryCount: 0,
         uploadedBytes: null,
         uploadedImage: null,
+        slowUpload: file.fileName.includes(UPLOAD_MOCK_MARKERS.slowUpload),
         failOnPut: file.fileName.includes(UPLOAD_MOCK_MARKERS.putFailure),
         expiredUrl: file.fileName.includes(UPLOAD_MOCK_MARKERS.expiredUrl),
       };
@@ -472,6 +490,11 @@ export const uploadHandlers = [
       media.status = "FAILED";
 
       return new HttpResponse(null, { status: 500 });
+    }
+
+    // 실패 표식이 먼저다. 깨질 요청을 2초 기다리게 할 이유가 없다.
+    if (media.slowUpload) {
+      await delay(SLOW_UPLOAD_DELAY_MS);
     }
 
     const uploadedBody = await request.arrayBuffer();
