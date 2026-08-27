@@ -23,7 +23,7 @@ public class ThumbnailTrigger {
 
     private final GenerateThumbnailService generateThumbnailService;
 
-    @Async("thumbnailExecutor")
+    @Async("applicationTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void onMediaCreated(MediaCreatedEvent event) {
         generateThumbnailService.generate(event.media().mediaId());
