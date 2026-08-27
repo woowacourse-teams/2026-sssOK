@@ -8,6 +8,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.media.GetMediaDownloadUrlService;
+import com.sssok.application.media.GetOriginalUrlService;
+import com.sssok.application.media.GetThumbnailUrlService;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.MediaNotReadyException;
 import com.sssok.application.port.out.RoomMemberRepository;
@@ -44,6 +46,12 @@ class MediaDownloadControllerTest {
 
     @MockitoBean
     GetMediaDownloadUrlService getMediaDownloadUrlService;
+
+    @MockitoBean
+    GetThumbnailUrlService getThumbnailUrlService;
+
+    @MockitoBean
+    GetOriginalUrlService getOriginalUrlService;
 
     @MockitoBean
     TokenProvider tokenProvider;
