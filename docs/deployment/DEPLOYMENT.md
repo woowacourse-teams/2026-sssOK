@@ -33,7 +33,7 @@ main  ──PR──▶  deploy  ──push 트리거──▶  GitHub Actions (
 
 | 파일 | 만드는 주체 | 설명 |
 | --- | --- | --- |
-| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명 |
+| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진 |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 태그 |
 | `docker-compose.prod.yml` | CI가 배포마다 전송 | 컨테이너 정의 |
@@ -94,6 +94,7 @@ R2_ACCESS_KEY=
 R2_SECRET_KEY=
 R2_BUCKET=sssok-prod
 R2_PUBLIC_BASE_URL=
+CORS_ALLOWED_ORIGINS=여기에_프론트_배포_오리진(콤마로_여러_개_가능)
 EOF
 chmod 600 .env
 ```
@@ -130,7 +131,7 @@ sudo ./svc.sh status   # active (running) 확인
 | --- | --- |
 | `DEPLOY_PATH` | `/home/ubuntu/app` |
 
-DB·JWT·R2 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣지 않는다. (SSH 기반이 아니므로 `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_PORT` 는 더 이상 사용하지 않는다.)
+DB·JWT·R2·CORS 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣지 않는다. (SSH 기반이 아니므로 `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_PORT` 는 더 이상 사용하지 않는다.)
 
 ### 7. GHCR 패키지 접근 권한
 
