@@ -1,5 +1,6 @@
 import { waitUnlessAborted } from "@/shared/lib";
 import { getDownloadJobProgress } from "../api/getDownloadJobProgress";
+import { POLL_INTERVAL_MS } from "../config";
 import type { DownloadJobProgress } from "../api/types";
 
 /**
@@ -8,9 +9,6 @@ import type { DownloadJobProgress } from "../api/types";
  * 서버가 먼저 알려주지 않아서 화면이 계속 물어봐야 한다. **멈추는 조건이 핵심이다** —
  * `READY`·`FAILED`·`EXPIRED` 셋 중 하나가 되면 그만둔다. 이걸 안 걸면 영원히 돈다.
  */
-
-/** 명세의 "프론트는 1~2초 간격으로 조회한다" 를 따른다. */
-const POLL_INTERVAL_MS = 1500;
 
 /** 더 물어봐도 소용없는 상태. 여기 닿으면 폴링이 끝난다. */
 const SETTLED = ["READY", "FAILED", "EXPIRED"] as const;
