@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
+import { originalUrlOf, registeredMediaOf, thumbnailUrlOf, type GalleryMedia } from "../db";
 
 /**
  * 방 코드는 8자리다. 혼동하기 쉬운 0, 1, I, O 는 알파벳에서 빠져 있다.
@@ -124,23 +125,8 @@ export const uploadPolicyOfId = (roomId: number) => {
 /** backend RoomResponse 의 status 와 같다. PURGED 는 보존 기간이 지나 영구 삭제된 방이다. */
 type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED" | "PURGED";
 
-interface MockMedia {
-  mediaId: number;
-  type: "IMAGE" | "VIDEO";
-  fileName: string;
-  mimeType: string;
-  size: number;
-  thumbnailUrl: string;
-  originalUrl: string;
-  width: number;
-  height: number;
-  duration: number | null;
-  folderIds: number[];
-  uploaderId: number;
-  uploaderName: string;
-  status: "READY";
-  uploadedAt: string;
-}
+/** 업로드 목이 등록한 미디어와 같은 모양이어야 해서 정의를 `mocks/db.ts` 에 둔다. */
+type MockMedia = GalleryMedia;
 
 interface ActiveRoomOverrides {
   name?: string;
@@ -187,11 +173,8 @@ const createMedia = ({
   fileName,
   mimeType: type === "VIDEO" ? "video/mp4" : "image/jpeg",
   size: type === "VIDEO" ? 182452224 : 2912048,
-  thumbnailUrl: `https://picsum.photos/seed/sssok-${mediaId}/600/700`,
-  originalUrl:
-    type === "VIDEO"
-      ? `https://cdn.example.com/rooms/1024/${mediaId}.mp4`
-      : `https://picsum.photos/seed/sssok-${mediaId}/1200/1400`,
+  thumbnailUrl: thumbnailUrlOf(mediaId),
+  originalUrl: originalUrlOf(mediaId, type),
   width: type === "VIDEO" ? 1920 : 3024,
   height: type === "VIDEO" ? 1080 : 4032,
   duration,
@@ -384,11 +367,16 @@ export const roomHandlers = [
       return unauthorized();
     }
 
-    if (Number(params.roomId) !== MOCK_ROOM_ID) {
+    const roomId = Number(params.roomId);
+
+    if (roomId !== MOCK_ROOM_ID) {
       return roomNotFound();
     }
 
-    return HttpResponse.json({ data: { items: mediaItems } });
+    // 이번 세션에 올린 것이 앞에 온다. 갤러리는 최신순이고, 방금 올린 사진이 맨 위여야 한다.
+    return HttpResponse.json({
+      data: { items: [...registeredMediaOf(roomId), ...mediaItems] },
+    });
   }),
 
   /**

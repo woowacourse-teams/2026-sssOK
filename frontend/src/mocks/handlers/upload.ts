@@ -1,6 +1,13 @@
 import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
+import {
+  addRegisteredMedia,
+  originalUrlOf,
+  resetRegisteredMedia,
+  thumbnailUrlOf,
+  type GalleryMedia,
+} from "../db";
 import { nicknameOf } from "./auth";
 import { MOCK_HOST_ID, hasFolder, hasJoinedRoom, roomStatusOfId, uploadPolicyOfId } from "./room";
 
@@ -88,6 +95,14 @@ interface MockMedia {
   retryCount: number;
   /** 현재 storageKey 로 PUT 이 끝난 바이트 수. 아직이면 null 이다. */
   uploadedBytes: number | null;
+  /**
+   * 올라온 사진 자체. 갤러리가 **방금 올린 그 사진**을 보여주려면 있어야 한다 —
+   * 없으면 더미 URL 이 남의 사진을 띄운다.
+   *
+   * 사진만 담는다. 영상은 1GB 까지 허용이라 메모리에 통째로 들고 있기 부담스럽고,
+   * 썸네일도 어차피 프레임을 디코드해야 나온다.
+   */
+  uploadedImage: Blob | null;
   failOnPut: boolean;
   expiredUrl: boolean;
 }
@@ -96,14 +111,16 @@ const mediaById = new Map<number, MockMedia>();
 /** 옛 키까지 남겨둔다. 뒤늦게 도착한 PUT 이 어느 미디어 것이었는지 알아보려면 필요하다. */
 const mediaIdByStorageKey = new Map<string, number>();
 
-let nextMediaId = 5012;
+/** 갤러리 픽스처가 5000~5012 를 이미 쓴다. 겹치면 목록에 같은 mediaId 가 두 번 뜬다. */
+let nextMediaId = 5013;
 let nextKeySequence = 1;
 
 /** 테스트끼리 발급 기록과 번호가 이어지지 않도록 되돌린다. */
 export const resetUploads = () => {
   mediaById.clear();
   mediaIdByStorageKey.clear();
-  nextMediaId = 5012;
+  resetRegisteredMedia();
+  nextMediaId = 5013;
   nextKeySequence = 1;
 };
 
@@ -315,6 +332,42 @@ const mediaPayload = (media: MockMedia) => ({
   uploadedAt: new Date().toISOString(),
 });
 
+/**
+ * 올라온 사진을 화면이 읽을 수 있는 주소로 바꾼다.
+ * jsdom 에는 `createObjectURL` 이 없어서, 테스트에서는 null 로 물러난다.
+ */
+const objectUrlOf = (blob: Blob | null) =>
+  blob !== null && typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : null;
+
+/**
+ * 갤러리 목록이 그릴 수 있는 모양. 등록 응답(`mediaPayload`)과 달리 **파생 URL 이 채워져 있다.**
+ *
+ * 실제로는 워커가 만드는 값이라 등록 직후에는 없는 게 맞다. 목에는 워커가 없어서
+ * 등록과 동시에 만들어 둔다 — 그러지 않으면 올린 사진이 갤러리에 영영 나타나지 않는다.
+ */
+const galleryEntryOf = (media: MockMedia): GalleryMedia => {
+  const type = media.mimeType.startsWith("image/") ? ("IMAGE" as const) : ("VIDEO" as const);
+  // 올린 사진이 있으면 그걸 보여준다. 없을 때만(영상·jsdom) 더미로 물러난다.
+  const uploaded = objectUrlOf(media.uploadedImage);
+
+  return {
+    mediaId: media.mediaId,
+    type,
+    fileName: media.fileName,
+    mimeType: media.mimeType,
+    // 신고값이 아니라 실제로 올라온 바이트다. 등록이 통과했으면 null 일 수 없다.
+    size: media.uploadedBytes ?? media.size,
+    thumbnailUrl: uploaded ?? thumbnailUrlOf(media.mediaId),
+    originalUrl: uploaded ?? originalUrlOf(media.mediaId, type),
+    ...dimensionsOf(media.mimeType),
+    folderIds: media.folderIds,
+    uploaderId: media.uploaderId,
+    uploaderName: nicknameOf(media.uploaderId) ?? `멤버 ${media.uploaderId}`,
+    status: "READY",
+    uploadedAt: new Date().toISOString(),
+  };
+};
+
 export const uploadHandlers = [
   /**
    * 발급: 파일마다 서명 URL 을 내주고 RESERVED 미디어를 미리 만든다.
@@ -378,6 +431,7 @@ export const uploadHandlers = [
         status: "RESERVED",
         retryCount: 0,
         uploadedBytes: null,
+        uploadedImage: null,
         failOnPut: file.fileName.includes(UPLOAD_MOCK_MARKERS.putFailure),
         expiredUrl: file.fileName.includes(UPLOAD_MOCK_MARKERS.expiredUrl),
       };
@@ -420,12 +474,15 @@ export const uploadHandlers = [
       return new HttpResponse(null, { status: 500 });
     }
 
-    const uploadedBytes = (await request.arrayBuffer()).byteLength;
+    const uploadedBody = await request.arrayBuffer();
 
     // 재발급으로 키가 갈린 뒤 뒤늦게 도착한 PUT 이다.
     // 스토리지는 받아주지만(고아 객체) 미디어는 새 키만 본다.
     if (media.storageKey === storageKey) {
-      media.uploadedBytes = uploadedBytes;
+      media.uploadedBytes = uploadedBody.byteLength;
+      media.uploadedImage = media.mimeType.startsWith("image/")
+        ? new Blob([uploadedBody], { type: media.mimeType })
+        : null;
     }
 
     return new HttpResponse(null, { status: 200, headers: { ETag: '"mock-etag"' } });
@@ -516,6 +573,7 @@ export const uploadHandlers = [
 
       media.status = "PROCESSING";
       registered.push(mediaPayload(media));
+      addRegisteredMedia(roomId, galleryEntryOf(media));
     }
 
     return HttpResponse.json({ data: { registered, failed } }, { status: 201 });
