@@ -4,6 +4,8 @@ import com.sssok.application.media.CompleteUploadResult;
 import com.sssok.application.media.CompleteUploadService;
 import com.sssok.application.media.IssueUploadUrlsResult;
 import com.sssok.application.media.IssueUploadUrlsService;
+import com.sssok.application.media.ReissueUploadUrlService;
+import com.sssok.application.media.ReissuedUploadUrl;
 import com.sssok.application.media.UploadFileCommand;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
@@ -28,6 +30,7 @@ public class MediaUploadController {
 
     private final IssueUploadUrlsService issueUploadUrlsService;
     private final CompleteUploadService completeUploadService;
+    private final ReissueUploadUrlService reissueUploadUrlService;
 
     @Operation(
         summary = "업로드 URL 발급",
@@ -74,4 +77,25 @@ public class MediaUploadController {
         return ApiResponse.of(CompleteUploadResponse.from(result));
     }
 
+    @Operation(
+        summary = "업로드 URL 재발급",
+        description = "서명 URL이 만료됐거나 전송이 실패했을 때 같은 미디어 ID로 새 URL을 받는다. "
+            + "업로더 본인만 가능하며 방장도 남의 예약은 재발급하지 못한다. "
+            + "재발급 시점에 방 만료와 업로드 권한을 다시 검사한다. "
+            + "이미 올라간 파일을 덮어쓰지 못하도록 RESERVED·FAILED 상태에서만 허용하고, "
+            + "PROCESSING·READY면 409가 난다. 재시도 횟수가 한도를 넘으면 429가 나며 "
+            + "이때는 처음부터 다시 올려야 한다. 바디는 파일 크기가 바뀐 경우에만 보낸다."
+    )
+    @PostMapping("/{mediaId}/upload-url")
+    public ApiResponse<ReissueUploadUrlResponse> reissueUploadUrl(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "발급 응답의 mediaId") @PathVariable Long mediaId,
+        @RequestBody(required = false) ReissueUploadUrlRequest request
+    ) {
+        Long newSize = request == null ? null : request.size();
+        ReissuedUploadUrl url =
+            reissueUploadUrlService.reissue(roomId, mediaId, memberId, newSize);
+        return ApiResponse.of(ReissueUploadUrlResponse.from(url));
+    }
 }

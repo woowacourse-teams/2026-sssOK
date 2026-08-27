@@ -48,6 +48,8 @@ upload:
   image-max-size: 10MB
   video-max-size: 1GB
   presigned-url-ttl: 10m
+  # 서명 URL 무한 발급을 막는 상한. 넘으면 처음부터 다시 올려야 한다.
+  max-retry-count: 5
 
 media:
   resize-target-width: 1600
