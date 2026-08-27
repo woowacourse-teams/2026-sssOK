@@ -175,8 +175,8 @@ describe("MediaUploader", () => {
     // 사유가 섞였으므로 제목은 어느 한쪽으로 단정하지 않는다.
     expect(screen.getByRole("heading", { name: "2장은 올릴 수 없어요" })).toBeInTheDocument();
     expect(screen.getByText(/IMG_0001\.HEIC/)).toBeInTheDocument();
-    expect(screen.getByText("이미지와 영상만 올릴 수 있어요")).toBeInTheDocument();
-    expect(screen.getByText("이미지 최대 10MB 초과")).toBeInTheDocument();
+    expect(screen.getByText("지원 안 함")).toBeInTheDocument();
+    expect(screen.getByText("용량 초과")).toBeInTheDocument();
 
     await settled();
   });
@@ -205,15 +205,14 @@ describe("MediaUploader", () => {
     expect(screen.getByRole("heading", { name: "파일이 너무 커요" })).toBeInTheDocument();
   });
 
-  // 한도는 파일마다 반복하지 않고 아래에서 한 번만 말한다.
+  // 한도는 파일마다 반복하지 않고 부제에서 한 번만 말한다.
   it("올릴 수 있는 한도를 함께 보여준다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("big.png", MAX_IMAGE_BYTES + 1, "image/png")]);
 
-    expect(screen.getByText("이미지 ~10MB")).toBeInTheDocument();
-    expect(screen.getByText("영상 ~1GB")).toBeInTheDocument();
+    expect(screen.getByText(/이미지 10MB · 영상 1GB 까지 올릴 수 있어요/)).toBeInTheDocument();
   });
 
   it("accept 를 통과한 파일도 확장자로 다시 거른다", async () => {

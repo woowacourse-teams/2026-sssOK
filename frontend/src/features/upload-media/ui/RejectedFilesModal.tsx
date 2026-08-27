@@ -1,24 +1,9 @@
-import { LuFileWarning, LuImage, LuTriangleAlert, LuVideo } from "react-icons/lu";
-
 import { Modal } from "@/shared/ui/modal";
 import { formatBytes } from "../lib/formatBytes";
-import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, mediaKindOf } from "../lib/mediaFileRules";
+import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "../lib/mediaFileRules";
 import type { RejectedSelection } from "../model/selectMediaFiles";
-import {
-  ConfirmAction,
-  Content,
-  FileList,
-  FileName,
-  FileRow,
-  FileTexts,
-  Head,
-  LimitChip,
-  Limits,
-  Reason,
-  Thumb,
-  Title,
-  WarnBadge,
-} from "./RejectedFilesModal.styles";
+import { Actions, Content, Description, PrimaryAction, Title } from "./FailureDialog.styles";
+import { FileReasonList } from "./FileReasonList";
 
 export interface RejectedFilesModalProps {
   /** 못 올리는 파일들. 비어 있으면 부르는 쪽이 아예 렌더링하지 않는다. */
@@ -29,19 +14,13 @@ export interface RejectedFilesModalProps {
 /**
  * 고른 파일 중 **못 올리는 것**을 알린다 (시안 07d).
  *
- * 파일마다 이름·크기·사유를 하나씩 보여준다. 사유별로 접어서 "3장은 올릴 수 없어요" 라고만
- * 하면, 사용자는 **어느 사진이 빠졌는지** 알 수 없어 다시 고를 때 같은 실수를 반복한다.
- *
- * 재시도가 없는 이유는 여기 오는 파일이 전부 **다시 눌러도 똑같이 거절될 것**이라서다.
- * 10MB 넘는 사진은 몇 번을 골라도 10MB 다. 사용자가 할 일은 확인하고 다른 파일을 고르는 것뿐이다.
- * 시도했다가 실패한 것(`UploadFailureModal`)과는 성격이 완전히 다르다.
+ * 실패 모달(`UploadFailureModal`)과 같은 골격을 쓴다 — 사용자가 보는 것은 둘 다
+ * "안 된 파일 목록" 이라 생김새가 다를 이유가 없다. 다른 것은 **재시도가 없다는 점**뿐이다.
+ * 10MB 넘는 사진은 몇 번을 골라도 10MB 라, 할 수 있는 일은 확인하고 다른 파일을 고르는 것뿐이다.
  */
 
-/** 한도는 파일마다 반복하지 않고 아래에서 한 번만 말한다. */
-const LIMITS = [
-  { icon: LuImage, label: `이미지 ~${formatBytes(MAX_IMAGE_BYTES)}` },
-  { icon: LuVideo, label: `영상 ~${formatBytes(MAX_VIDEO_BYTES)}` },
-];
+/** 한도는 파일마다 반복하지 않고 부제에서 한 번만 말한다. */
+const LIMIT_TEXT = `이미지 ${formatBytes(MAX_IMAGE_BYTES)} · 영상 ${formatBytes(MAX_VIDEO_BYTES)} 까지 올릴 수 있어요`;
 
 /**
  * 제목은 걸러진 사유에 따라 달라진다.
@@ -65,58 +44,30 @@ const titleOf = (rejected: RejectedSelection[]) => {
 
 export const RejectedFilesModal = ({ rejected, onClose }: RejectedFilesModalProps) => {
   return (
-    <Modal onClose={onClose}>
+    <Modal onClose={onClose} showClose={false}>
       <Content>
-        <Head>
-          <WarnBadge>
-            <LuTriangleAlert aria-hidden />
-          </WarnBadge>
-          <Title>{titleOf(rejected)}</Title>
-        </Head>
+        <Title>{titleOf(rejected)}</Title>
+        <Description>
+          {LIMIT_TEXT}
+          <br />
+          나머지는 그대로 올라가고 있어요.
+        </Description>
 
-        <FileList>
-          {rejected.map(({ fileName, size, message }) => (
-            <FileRow key={fileName}>
-              <Thumb>
-                <ThumbIcon fileName={fileName} />
-              </Thumb>
-              <FileTexts>
-                <FileName title={fileName}>
-                  {fileName} · {formatBytes(size)}
-                </FileName>
-                <Reason>{message}</Reason>
-              </FileTexts>
-            </FileRow>
-          ))}
-        </FileList>
+        {/* 크기를 파일명에 붙여 보여준다 — 한도를 얼마나 넘었는지가 곧 사유다. */}
+        <FileReasonList
+          items={rejected.map(({ fileName, size, code }) => ({
+            fileName: `${fileName} · ${formatBytes(size)}`,
+            reason: code === "FILE_SIZE_EXCEEDED" ? "용량 초과" : "지원 안 함",
+          }))}
+        />
 
-        <Limits>
-          {LIMITS.map(({ icon: Icon, label }) => (
-            <LimitChip key={label}>
-              <Icon aria-hidden />
-              {label}
-            </LimitChip>
-          ))}
-        </Limits>
-
-        <ConfirmAction variant="primary" size="lg" onClick={onClose}>
-          확인
-        </ConfirmAction>
+        <Actions>
+          {/* 시안의 버튼은 목록 한 줄보다 조금 높은 정도다 — `lg` 는 시안보다 한참 크다. */}
+          <PrimaryAction variant="primary" size="sm" onClick={onClose}>
+            확인
+          </PrimaryAction>
+        </Actions>
       </Content>
     </Modal>
   );
-};
-
-/**
- * 원본을 읽어 썸네일을 만들지 않는다. 여기 오는 파일은 한도를 넘긴 것들이라
- * 2GB 짜리 영상이 섞여 있고, 미리보기를 만들자고 그걸 통째로 읽을 이유가 없다.
- * 확장자로 사진인지 영상인지만 가른다.
- */
-const ThumbIcon = ({ fileName }: { fileName: string }) => {
-  const kind = mediaKindOf(fileName);
-
-  if (kind === "IMAGE") return <LuImage aria-hidden />;
-  if (kind === "VIDEO") return <LuVideo aria-hidden />;
-
-  return <LuFileWarning aria-hidden />;
 };
