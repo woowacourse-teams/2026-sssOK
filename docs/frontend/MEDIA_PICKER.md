@@ -144,18 +144,16 @@ sequenceDiagram
 
 ---
 
-## 버튼을 갈아끼울 때
+## 플로팅 업로드 버튼
 
-`UploadButton.tsx` 의 `InterimButton` 은 누를 수 있다는 것만 알리는 임시 테두리다.
-**그것만 지우고 자리를 넘기면 된다.**
+프로토타입의 `.fab` 을 기준으로 오른쪽 아래에 `+ 올리기` 버튼을 띄운다.
+높이 50px, 좌우 안쪽 여백 24px, 오른쪽 16px, 하단 44px + 안전 영역을 사용한다.
+색상과 글꼴은 기존 디자인 토큰, 기본 동작은 공통 `Button` 을 재사용한다.
 
-```tsx
-// 이 styled 컴포넌트를 지우고
-const InterimButton = styled.button`...`;
-
-// JSX 의 이 줄만 새 버튼으로 바꾼다
-<InterimButton type="button" onClick={() => inputRef.current?.click()}>
-```
+`UploadButton.styles.ts` 의 `Dock` 은 앱 컨테이너 폭(480px / 데스크톱 1180px)에
+맞춰 고정되어 스크롤해도 같은 위치에 남는다. 버튼 밖 영역은 사진 클릭을 막지 않는다.
+사진을 선택하거나 업로드가 진행 중이면 버튼을 숨겨 하단 바와 겹치지 않게 한다.
+버튼을 숨겨도 파일 입력과 업로드 상태는 유지한다.
 
 ### 남겨야 하는 것
 

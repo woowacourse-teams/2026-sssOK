@@ -91,6 +91,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       <MediaUploader
         roomId={room.roomId}
         token={accessToken}
+        hideButton={selectedPhotoIds.length > 0}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         // 올린 사진은 서버에만 있다. 목록을 다시 불러오지 않으면 갤러리에 나타나지 않는다.
         onUploaded={() =>

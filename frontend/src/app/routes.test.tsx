@@ -144,6 +144,26 @@ describe("라우트", () => {
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
 
+  it("사진 선택 중에는 올리기 버튼을 숨기고 선택 해제 후 다시 표시한다", async () => {
+    const user = userEvent.setup();
+    saveRoomSession(ROOM_CODE, {
+      accessToken: "mock-token-10234",
+      userId: 10234,
+      nickname: "민수",
+      expiresAt: "2099-01-01T00:00:00Z",
+    });
+    renderAt(ROUTES.gallery(ROOM_CODE));
+
+    const photo = await screen.findByRole("button", { name: "IMG_0421.jpg 나" });
+    expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
+
+    await user.click(photo);
+    expect(screen.queryByRole("button", { name: "사진 올리기" })).not.toBeInTheDocument();
+
+    await user.click(photo);
+    expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
+  });
+
   it("방 생성에 성공하면 생성된 방의 갤러리로 이동한다", async () => {
     const user = userEvent.setup();
     const router = renderAt(ROUTES.createRoom);

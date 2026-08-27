@@ -1,23 +1,23 @@
 import { useRef, type ChangeEvent } from "react";
-import styled from "@emotion/styled";
+import { LuPlus } from "react-icons/lu";
 
-import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { MEDIA_FILE_ACCEPT } from "../lib/mediaFileRules";
 import { selectMediaFiles, type MediaSelection } from "../model/selectMediaFiles";
+import { Dock, FloatingUploadButton, HiddenFileInput } from "./UploadButton.styles";
 
 export const UPLOAD_BUTTON_LABEL = "사진 올리기";
 
 interface UploadButtonProps {
+  /** 선택/진행 바와 겹치지 않도록 버튼만 숨기고 파일 입력은 유지한다. */
+  hidden?: boolean;
   /** 고른 파일을 검증해 넘긴다. 아무것도 고르지 않고 취소하면 불리지 않는다. */
   onSelect: (selection: MediaSelection) => void;
 }
 
 /**
  * 기기 기본 사진 선택기를 여는 진입점.
- *
- * 여기서 바꿀 게 있다면 `<button>` 을 그것으로 갈아끼우는 것뿐이고, 아래 두 가지는 그대로 둔다.
  */
-export const UploadButton = ({ onSelect }: UploadButtonProps) => {
+export const UploadButton = ({ onSelect, hidden = false }: UploadButtonProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -34,9 +34,18 @@ export const UploadButton = ({ onSelect }: UploadButtonProps) => {
 
   return (
     <>
-      <InterimButton type="button" onClick={() => inputRef.current?.click()}>
-        {UPLOAD_BUTTON_LABEL}
-      </InterimButton>
+      {!hidden && (
+        <Dock>
+          <FloatingUploadButton
+            type="button"
+            aria-label={UPLOAD_BUTTON_LABEL}
+            onClick={() => inputRef.current?.click()}
+          >
+            <LuPlus size={19} aria-hidden="true" focusable="false" />
+            올리기
+          </FloatingUploadButton>
+        </Dock>
+      )}
       {/*
         누름을 받는 건 위 버튼이라 선택기는 접근성 트리에서 뺀다.
         `display: none` 이 아니라 잘라서 숨기는 이유는 사파리가 숨긴 입력의 click() 을
@@ -54,25 +63,3 @@ export const UploadButton = ({ onSelect }: UploadButtonProps) => {
     </>
   );
 };
-
-/** 페어 버튼이 오면 통째로 지운다. */
-const InterimButton = styled.button`
-  padding: ${spacing[8]} ${spacing[16]};
-  border: 1px solid ${colors.borderDefault};
-  border-radius: ${radius[12]};
-  color: ${colors.textStrong};
-
-  ${typography.label5}
-`;
-
-const HiddenFileInput = styled.input`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  border: 0;
-  margin: -1px;
-  clip-path: inset(50%);
-  overflow: hidden;
-  white-space: nowrap;
-`;
