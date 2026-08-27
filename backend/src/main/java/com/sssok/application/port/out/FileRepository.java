@@ -2,7 +2,6 @@ package com.sssok.application.port.out;
 
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -33,8 +32,6 @@ public interface FileRepository {
     List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);
 
-    // 썸네일 회수 배치용. 이 시각보다 오래 PROCESSING 에 남아 있는 미디어 id 를 오래된 순으로 준다.
-    List<Long> findStuckInProcessing(Instant stuckBefore, int limit);
 
     void deleteAllByRoomId(Long roomId);
 }

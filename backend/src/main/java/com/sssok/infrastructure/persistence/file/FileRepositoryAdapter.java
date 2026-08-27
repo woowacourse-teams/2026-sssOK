@@ -2,17 +2,14 @@ package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -81,11 +78,6 @@ public class FileRepositoryAdapter implements FileRepository {
             .toList();
     }
 
-    @Override
-    public List<Long> findStuckInProcessing(Instant stuckBefore, int limit) {
-        return jpaRepository.findStuckInProcessing(
-            UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit));
-    }
 
     @Override
     public void deleteAllByRoomId(Long roomId) {
@@ -110,13 +102,7 @@ public class FileRepositoryAdapter implements FileRepository {
             file.getStatus().name(),
             file.getCreatedAt(),
             file.getReservedAt(),
-            file.getRetryCount(),
-            file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
-            file.getWidth(),
-            file.getHeight(),
-            file.getTakenAt(),
-            file.getLocation() == null ? null : file.getLocation().latitude(),
-            file.getLocation() == null ? null : file.getLocation().longitude()
+            file.getRetryCount()
         );
     }
 
@@ -133,12 +119,7 @@ public class FileRepositoryAdapter implements FileRepository {
             UploadStatus.valueOf(entity.getStatus()),
             entity.getCreatedAt(),
             entity.getReservedAt(),
-            entity.getRetryCount(),
-            entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
-            entity.getWidth(),
-            entity.getHeight(),
-            entity.getTakenAt(),
-            GeoPoint.ofNullable(entity.getLatitude(), entity.getLongitude())
+            entity.getRetryCount()
         );
     }
 }
