@@ -26,6 +26,7 @@ describe("selectMediaFiles", () => {
     expect(rejected).toEqual([
       {
         fileName: "b.txt",
+        size: 10,
         code: "UNSUPPORTED_FILE_TYPE",
         message: "이미지와 영상만 올릴 수 있어요",
       },
@@ -53,8 +54,9 @@ describe("selectMediaFiles", () => {
     expect(rejected).toEqual([
       {
         fileName: "big.png",
+        size: MAX_IMAGE_BYTES + 1,
         code: "FILE_SIZE_EXCEEDED",
-        message: "사진은 10MB까지 올릴 수 있어요",
+        message: "이미지 최대 10MB 초과",
       },
     ]);
   });
@@ -67,7 +69,12 @@ describe("selectMediaFiles", () => {
 
     expect(accepted.map((file) => file.name)).toEqual(["ok.mp4"]);
     expect(rejected).toEqual([
-      { fileName: "big.mp4", code: "FILE_SIZE_EXCEEDED", message: "영상은 1GB까지 올릴 수 있어요" },
+      {
+        fileName: "big.mp4",
+        size: MAX_VIDEO_BYTES + 1,
+        code: "FILE_SIZE_EXCEEDED",
+        message: "영상 최대 1GB 초과",
+      },
     ]);
   });
 
