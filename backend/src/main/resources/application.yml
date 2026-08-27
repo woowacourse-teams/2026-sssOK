@@ -56,6 +56,12 @@ media:
   # GIF는 애니메이션이 깨지므로 리사이즈/압축 대상에서 제외한다
   skip-formats: gif
 
+download:
+  # 단건 다운로드 리다이렉트 대상 서명 URL의 유효기간
+  presigned-get-ttl: 5m
+  # 동일 멤버가 동시에 진행(QUEUED/RUNNING) 중일 수 있는 압축 잡의 최대 개수. 넘으면 429.
+  max-concurrent-jobs-per-requester: 3
+
 springdoc:
   swagger-ui:
     operations-sorter: method
