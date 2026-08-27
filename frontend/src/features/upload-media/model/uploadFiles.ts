@@ -2,7 +2,7 @@ import { issueUploadUrls } from "../api/issueUploadUrls";
 import { registerMedia } from "../api/registerMedia";
 import type { Media } from "@/entities/media";
 import { UPLOAD_CONCURRENCY } from "../config";
-import { runWithLimit } from "../lib/runWithLimit";
+import { runWithLimit } from "@/shared/lib";
 import { pairWithFiles } from "./pairWithFiles";
 import type { FailedUpload, UploadFilesOptions, UploadResult } from "./types";
 import { uploadOne } from "./uploadOne";
