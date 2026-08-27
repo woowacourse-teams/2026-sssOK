@@ -3,3 +3,4 @@ dist/
 coverage/
 storybook-static/
 pnpm-lock.yaml
+public/mockServiceWorker.js
