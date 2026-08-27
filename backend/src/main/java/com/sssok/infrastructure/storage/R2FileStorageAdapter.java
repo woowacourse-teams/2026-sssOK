@@ -3,6 +3,7 @@ package com.sssok.infrastructure.storage;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.R2Properties;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Optional;
@@ -10,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
@@ -85,6 +87,16 @@ public class R2FileStorageAdapter implements FileStoragePort {
         } catch (NoSuchKeyException e) {
             return Optional.empty();
         }
+    }
+
+    // 호출한 쪽이 반드시 닫아야 커넥션이 반환된다. zip 압축 워커가 try-with-resources로 감싸 쓴다.
+    @Override
+    public InputStream openDownloadStream(StorageKey storageKey) {
+        GetObjectRequest get = GetObjectRequest.builder()
+            .bucket(properties.bucket())
+            .key(storageKey.value())
+            .build();
+        return client().getObject(get, ResponseTransformer.toInputStream());
     }
 
     @Override

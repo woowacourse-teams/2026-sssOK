@@ -7,6 +7,7 @@ import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.R2Properties;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -111,6 +112,19 @@ class R2FileStorageAdapterTest {
         assertThat(response.statusCode()).isEqualTo(200);
         assertThat(response.headers().firstValue("content-disposition")).contains(disposition);
         assertThat(response.headers().firstValue("content-type")).contains("image/png");
+    }
+
+    @Test
+    void 올린_파일을_스트림으로_그대로_읽는다() throws IOException {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+        String putUrl = adapter.presignPut(key, "image/png", Duration.ofMinutes(10));
+        assertThat(put(putUrl, "image/png")).isEqualTo(200);
+        uploaded = key;
+
+        try (InputStream in = adapter.openDownloadStream(key)) {
+            assertThat(in.readAllBytes()).isEqualTo(BODY);
+        }
     }
 
     @Test
