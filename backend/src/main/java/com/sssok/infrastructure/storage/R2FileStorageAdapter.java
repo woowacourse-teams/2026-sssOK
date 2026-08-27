@@ -17,9 +17,11 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 // region "auto" 와 path-style 은 R2 의 제약이다. 실제 리전 값을 넣으면 서명 스코프가 어긋나
@@ -48,6 +50,26 @@ public class R2FileStorageAdapter implements FileStoragePort {
         return presigner().presignPutObject(PutObjectPresignRequest.builder()
                 .signatureDuration(ttl)
                 .putObjectRequest(put)
+                .build())
+            .url()
+            .toString();
+    }
+
+    // responseContentDisposition/responseContentType 을 지정하면 스토리지가 원본 메타데이터
+    // 대신 이 값으로 응답 헤더를 채운다 — 업로드 당시 파일명을 그대로 내려주는 데 쓴다.
+    @Override
+    public String presignGet(StorageKey storageKey, String responseContentDisposition,
+                             String responseContentType, Duration ttl) {
+        GetObjectRequest get = GetObjectRequest.builder()
+            .bucket(properties.bucket())
+            .key(storageKey.value())
+            .responseContentDisposition(responseContentDisposition)
+            .responseContentType(responseContentType)
+            .build();
+
+        return presigner().presignGetObject(GetObjectPresignRequest.builder()
+                .signatureDuration(ttl)
+                .getObjectRequest(get)
                 .build())
             .url()
             .toString();
