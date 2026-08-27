@@ -292,5 +292,9 @@ describe("uploadFiles", () => {
     const result = await run([fileOf("첫째.jpg", 3)]);
 
     expect(result.failed).toEqual([]);
+    // 응답에 Media 가 없어 registered 에는 못 담는다. 그래도 서버에는 올라가 있다 —
+    // 이 숫자가 없으면 부르는 쪽이 "아무 일도 없었다" 와 구분할 수 없다.
+    expect(result.registered).toEqual([]);
+    expect(result.alreadyRegistered).toBe(1);
   });
 });

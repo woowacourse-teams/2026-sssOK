@@ -133,6 +133,7 @@ describe("useMediaUpload", () => {
     expect(result.current.progress).toBeNull();
     expect(onSettled).toHaveBeenCalledWith(
       expect.objectContaining({ registered: [expect.objectContaining({ fileName: "첫째.jpg" })] }),
+      { superseded: false },
     );
   });
 
@@ -178,6 +179,8 @@ describe("useMediaUpload", () => {
 
     // 무엇이 등록되고 무엇이 실패했는지는 uploadFiles 가 가른다. 여기서는 결과가 온다는 것만 본다.
     expect(onSettled).toHaveBeenCalledTimes(1);
+    // 다만 이미 밀려난 판이라고 알려줘야 한다 — 부르는 쪽이 지금 떠 있는 모달을 지우면 안 된다.
+    expect(onSettled).toHaveBeenCalledWith(expect.anything(), { superseded: true });
   });
 
   it("취소한 판이 뒤늦게 끝나도 사라진 바를 되살리지 않는다", async () => {

@@ -44,12 +44,17 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
     roomId,
     token,
     folderIds,
-    onSettled: (result) => {
-      if (result.registered.length > 0) {
+    onSettled: (result, { superseded }) => {
+      // `alreadyRegistered` 도 서버에 올라가 있는 것이다. 등록 응답에 Media 가 없어
+      // `registered` 에 못 담길 뿐이라, 이것만 온 판도 목록을 다시 불러와야 나타난다.
+      if (result.registered.length > 0 || result.alreadyRegistered > 0) {
         onUploaded?.();
       }
 
-      failure.settle(result);
+      // 취소했거나 새 판이 시작된 뒤에 끝난 판이다. 지금 떠 있는 모달을 지우면 안 된다.
+      if (!superseded) {
+        failure.settle(result);
+      }
     },
   });
 

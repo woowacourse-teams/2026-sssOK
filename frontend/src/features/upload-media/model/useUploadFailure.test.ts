@@ -17,6 +17,7 @@ const resultOf = (failed: FailedUpload[]): UploadResult => ({
   registered: [],
   failed,
   rejected: [],
+  alreadyRegistered: 0,
 });
 
 describe("useUploadFailure", () => {

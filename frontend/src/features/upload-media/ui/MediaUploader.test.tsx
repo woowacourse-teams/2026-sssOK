@@ -25,7 +25,8 @@ const enterRoom = () =>
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const renderUploader = () => render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} />);
+const renderUploader = (props: { onUploaded?: () => void } = {}) =>
+  render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} {...props} />);
 
 /**
  * 스토리지 키는 파일명을 버리지만 확장자는 남긴다. 그래서 확장자로 "이 파일만 깨진다" 를 만든다.
@@ -283,5 +284,38 @@ describe("MediaUploader", () => {
     await user.click(screen.getByText("닫기"));
 
     expect(failureHeading()).not.toBeInTheDocument();
+  });
+
+  /**
+   * 등록이 "이미 끝났다"고만 답하면 registered 가 빈 배열로 온다 (응답에 Media 가 없다).
+   * 그래도 서버에는 올라가 있으므로 목록을 다시 불러와야 화면에 나타난다.
+   */
+  it("이미 등록된 것만 돌아와도 목록을 다시 불러온다", async () => {
+    const user = userEvent.setup();
+
+    await enterRoom();
+
+    server.use(
+      http.post(`${API_BASE_URL}/rooms/:roomId/media`, () =>
+        HttpResponse.json(
+          {
+            data: {
+              registered: [],
+              failed: [
+                { mediaId: 5013, code: "UPLOAD_ALREADY_COMPLETED", message: "이미 등록됐습니다" },
+              ],
+            },
+          },
+          { status: 201 },
+        ),
+      ),
+    );
+
+    const onUploaded = jest.fn();
+
+    renderUploader({ onUploaded });
+    await user.upload(getFileInput(), [fileOf("한라산.jpg")]);
+
+    await waitFor(() => expect(onUploaded).toHaveBeenCalled());
   });
 });

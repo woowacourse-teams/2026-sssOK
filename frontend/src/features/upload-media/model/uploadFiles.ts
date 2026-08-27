@@ -89,18 +89,20 @@ export const uploadFiles = async ({
   // 중단됐더라도 여기까지 올라간 것은 등록한다 — 중단은 "아직 안 올린 것을 그만두는" 것이지
   // "올린 것을 무르는" 게 아니다 (#73).
   if (uploadedIds.length === 0) {
-    return { registered: [], failed, rejected };
+    return { registered: [], failed, rejected, alreadyRegistered: 0 };
   }
 
   const registerResult = await registerMedia(roomId, { mediaIds: uploadedIds }, token);
   const registered: Media[] = registerResult.registered;
 
   const targetByMediaId = new Map(targets.map((target) => [target.issued.mediaId, target]));
+  let alreadyRegistered = 0;
 
   for (const failure of registerResult.failed) {
     // 이미 올라간 것이다. 실패로 보여주면 멀쩡히 올라간 사진을 실패로 보게 된다.
     // 응답에 Media 가 없어서 registered 에는 못 넣는다 — 갤러리를 다시 불러오면 나타난다.
     if (failure.code === "UPLOAD_ALREADY_COMPLETED") {
+      alreadyRegistered += 1;
       continue;
     }
 
@@ -121,5 +123,5 @@ export const uploadFiles = async ({
     });
   }
 
-  return { registered, failed, rejected };
+  return { registered, failed, rejected, alreadyRegistered };
 };

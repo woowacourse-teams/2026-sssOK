@@ -72,6 +72,14 @@ export interface UploadResult {
   registered: Media[];
   failed: FailedUpload[];
   rejected: RejectedFile[];
+  /**
+   * 등록이 "이미 끝났다"(`UPLOAD_ALREADY_COMPLETED`)고 답한 장수.
+   *
+   * 서버에 올라가 있지만 그 응답에 `Media` 가 없어 `registered` 에 담지 못한 것들이다.
+   * 실패가 아니므로 `failed` 에도 없다 — 그래서 이 값이 없으면 부르는 쪽에서
+   * "아무 일도 없었다" 와 구분할 방법이 사라진다. 갤러리를 다시 불러오면 나타난다.
+   */
+  alreadyRegistered: number;
 }
 
 export interface UploadFilesOptions {

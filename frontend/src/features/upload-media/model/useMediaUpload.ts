@@ -19,8 +19,14 @@ export interface UseMediaUploadOptions {
   folderIds?: number[];
   /** 발급이 거절한 파일. 업로드가 끝나기 전에 먼저 온다. */
   onRejected?: (rejected: RejectedFile[]) => void;
-  /** 등록까지 끝났을 때. 갤러리 갱신과 실패 모달(#74)이 여기서 갈린다. */
-  onSettled?: (result: UploadResult) => void;
+  /**
+   * 등록까지 끝났을 때. 갤러리 갱신과 실패 모달(#74)이 여기서 갈린다.
+   *
+   * 취소했거나 새 판이 시작된 뒤에 끝난 판도 **알린다** — 그때까지 올라간 파일은 그대로
+   * 등록돼 갤러리에 남기 때문이다 (#73). 다만 그런 판은 `superseded` 가 참이고,
+   * **화면 상태를 건드리면 안 된다.** 지금 떠 있는 실패 모달을 지운 판이 그것이다.
+   */
+  onSettled?: (result: UploadResult, context: { superseded: boolean }) => void;
   /** 방·권한 문제라 배치 전체가 못 올라간 경우 (403·410 등). */
   onError?: (error: unknown) => void;
 }
@@ -80,7 +86,8 @@ export const useMediaUpload = ({
       });
 
       // 취소한 판이라도 알린다. 취소 전에 올라간 파일은 그대로 등록돼 갤러리에 남는다 (#73).
-      onSettled?.(result);
+      // 다만 이 판이 이미 밀려났다면 부르는 쪽이 화면을 건드리지 않도록 알려준다.
+      onSettled?.(result, { superseded: !isCurrent() });
     } catch (error) {
       onError?.(error);
     } finally {
