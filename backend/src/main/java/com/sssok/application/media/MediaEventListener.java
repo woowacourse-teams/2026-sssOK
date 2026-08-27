@@ -29,4 +29,10 @@ public class MediaEventListener {
     public void handle(MediaReadyEvent event) {
         eventPublisher.publish(event.roomId(), "media.ready", event.media());
     }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(MediaDeletedEvent event) {
+        eventPublisher.publish(event.roomId(), "media.deleted", event);
+    }
 }
