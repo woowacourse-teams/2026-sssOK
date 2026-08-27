@@ -23,12 +23,6 @@ export const NoticeBody = styled.div`
   min-width: 0;
 `;
 
-export const SelectedCount = styled.p`
-  color: ${colors.textStrong};
-
-  ${typography.label4}
-`;
-
 export const RejectedCount = styled.p`
   color: ${colors.danger};
 
