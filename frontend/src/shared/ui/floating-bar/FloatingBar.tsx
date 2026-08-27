@@ -3,11 +3,12 @@ import styled from "@emotion/styled";
 import { colors, radius, spacing } from "@/shared/styles/tokens";
 
 export interface FloatingBarProps {
+  className?: string;
   children: ReactNode;
 }
 
-export const FloatingBar = ({ children }: FloatingBarProps) => {
-  return <Bar>{children}</Bar>;
+export const FloatingBar = ({ className, children }: FloatingBarProps) => {
+  return <Bar className={className}>{children}</Bar>;
 };
 
 const Bar = styled.div`
