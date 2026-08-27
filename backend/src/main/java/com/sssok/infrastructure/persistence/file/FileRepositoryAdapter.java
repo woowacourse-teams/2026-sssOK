@@ -6,6 +6,7 @@ import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -55,8 +56,37 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses) {
+        return jpaRepository
+            .findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(roomId, names(statuses)).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
+        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
+        // IN () 은 유효한 SQL 이 아니라, 빈 목록을 그대로 넘기면 드라이버가 오류를 낸다.
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository
+            .findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(roomId, ids, names(statuses))
+            .stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+
+    @Override
     public void deleteAllByRoomId(Long roomId) {
         jpaRepository.deleteAllByRoomId(roomId);
+    }
+
+    // 상태를 문자열 컬럼으로 저장하고 있어, 조회 조건도 이름으로 맞춰 넘긴다.
+    private List<String> names(Collection<UploadStatus> statuses) {
+        return statuses.stream().map(UploadStatus::name).toList();
     }
 
     private StoredFileJpaEntity toEntity(StoredFile file) {
