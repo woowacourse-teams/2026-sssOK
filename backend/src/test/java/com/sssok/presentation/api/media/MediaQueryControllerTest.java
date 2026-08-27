@@ -15,10 +15,12 @@ import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.GetMediaListService;
 import com.sssok.application.media.GetMediaService;
 import com.sssok.application.media.MediaDetail;
+import com.sssok.application.media.MediaFullDetail;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
+import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
@@ -26,6 +28,7 @@ import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
@@ -130,9 +133,10 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
+    // 목록 항목의 필드가 단건 응답에도 그대로 펼쳐져야 한다. 한 겹 더 감싸이면 프론트가 갈라진다.
     @Test
     void 단건을_조회하면_200과_미디어를_반환한다() throws Exception {
-        given(getMediaService.get(ROOM_ID, MEDIA_ID)).willReturn(media());
+        given(getMediaService.get(ROOM_ID, MEDIA_ID, MEMBER_ID)).willReturn(fullDetail());
 
         getMedia(MEDIA_ID)
             .andExpect(status().isOk())
@@ -141,17 +145,46 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.folderIds[0]").value(FOLDER_ID));
     }
 
+    @Test
+    void 단건에는_촬영_정보와_삭제_권한이_함께_나온다() throws Exception {
+        given(getMediaService.get(ROOM_ID, MEDIA_ID, MEMBER_ID)).willReturn(fullDetail());
 
+        getMedia(MEDIA_ID)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.takenAt").value("2026-08-01T12:30:00Z"))
+            .andExpect(jsonPath("$.data.location.latitude").value(37.5665))
+            .andExpect(jsonPath("$.data.location.longitude").value(126.978))
+            .andExpect(jsonPath("$.data.location.name").doesNotExist())
+            .andExpect(jsonPath("$.data.canDelete").value(true));
+    }
+
+    // EXIF 가 없는 사진이 훨씬 많다. 그때도 응답 구조가 흔들리면 안 된다.
+    @Test
+    void 촬영_정보가_없으면_location이_통째로_비어_있다() throws Exception {
+        given(getMediaService.get(ROOM_ID, MEDIA_ID, MEMBER_ID))
+            .willReturn(new MediaFullDetail(media(), null, null, false));
+
+        getMedia(MEDIA_ID)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.takenAt").doesNotExist())
+            .andExpect(jsonPath("$.data.location").doesNotExist())
+            .andExpect(jsonPath("$.data.canDelete").value(false));
+    }
 
     @Test
     void 없는_미디어를_조회하면_404() throws Exception {
-        willThrow(new MediaNotFoundException()).given(getMediaService).get(anyLong(), anyLong());
+        willThrow(new MediaNotFoundException())
+            .given(getMediaService).get(anyLong(), anyLong(), anyLong());
 
         getMedia(MEDIA_ID)
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
     }
 
+    private MediaFullDetail fullDetail() {
+        return new MediaFullDetail(media(), Instant.parse("2026-08-01T12:30:00Z"),
+            new GeoPoint(new BigDecimal("37.566500"), new BigDecimal("126.978000")), true);
+    }
 
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
