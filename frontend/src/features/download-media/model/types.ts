@@ -31,5 +31,5 @@ export type DownloadOutcome =
   | { type: "aborted" }
   /** 고른 것 중 한 장도 못 받았다. 실패 목록만 남는다. */
   | { type: "empty"; failed: FailedDownload[] }
-  /** 서버 압축이 실패했다. 프론트가 다시 시도할 수 있는 종류가 아니다. */
-  | { type: "failed"; reason: string };
+  /** 판 전체가 무너졌다. 압축 실패이거나, 잡을 만드는 요청부터 거절당한 경우다. */
+  | { type: "failed"; reason: string; isRetryable: boolean };

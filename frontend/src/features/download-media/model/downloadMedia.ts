@@ -1,6 +1,12 @@
 import { API_BASE_URL } from "@/shared/config";
 import { runWithLimit, waitUnlessAborted } from "@/shared/lib";
 import { createDownloadJob } from "../api/createDownloadJob";
+import {
+  downloadMessageOfError,
+  downloadMessageOfStatus,
+  isRetryableError,
+  isRetryableStatus,
+} from "../lib/downloadErrorMessage";
 import { fetchMediaBlob } from "../lib/fetchMediaBlob";
 import { saveBlob } from "../lib/saveBlob";
 import type { DownloadPhase } from "./downloadProgress";
@@ -96,11 +102,25 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
 
   if (mode === "zip") {
     // 압축은 서버가 한다. 프론트는 잡을 만들고 끝날 때까지 되묻기만 한다.
-    const job = await createDownloadJob({
-      roomId,
-      token,
-      mediaIds: targets.map((target) => target.mediaId),
-    });
+    let job;
+
+    try {
+      job = await createDownloadJob({
+        roomId,
+        token,
+        mediaIds: targets.map((target) => target.mediaId),
+      });
+    } catch (error) {
+      /*
+       * 잡을 만들지도 못했다 (429 동시 3개 초과·410 기한 지남 등).
+       * **폴링을 시작하지 않는다** — 되물을 잡 번호 자체가 없다 (#121 완료 조건).
+       */
+      return {
+        type: "failed",
+        reason: downloadMessageOfError(error),
+        isRetryable: isRetryableError(error),
+      };
+    }
 
     onPhase?.("zipping");
 
@@ -119,7 +139,9 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
     if (settled.status !== "READY" || settled.downloadUrl === null) {
       return {
         type: "failed",
-        reason: settled.failureReason ?? "압축에 실패했어요. 다시 시도해주세요.",
+        reason: settled.failureReason ?? "압축에 실패했어요",
+        // EXPIRED 든 FAILED 든 새 잡을 만들면 된다. 사용자가 고칠 것이 없는 실패다.
+        isRetryable: true,
       };
     }
 
@@ -138,7 +160,11 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
     }
 
     if (zip.type === "failure") {
-      return { type: "failed", reason: "압축 파일을 받지 못했어요." };
+      return {
+        type: "failed",
+        reason: downloadMessageOfStatus(zip.status),
+        isRetryable: isRetryableStatus(zip.status),
+      };
     }
 
     saveBlob(zip.blob, settled.fileName);
