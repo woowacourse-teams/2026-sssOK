@@ -70,7 +70,7 @@ const holdUploads = () => {
   return () => release();
 };
 
-const failureHeading = () => screen.queryByRole("heading", { name: /못올렸어요/ });
+const failureHeading = () => screen.queryByRole("heading", { name: /못 올렸어요/ });
 
 const settled = () =>
   waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
@@ -245,7 +245,7 @@ describe("MediaUploader", () => {
 
     // 고른 건 두 장인데 깨진 건 한 장이다. 장수는 실패분만 센다.
     expect(
-      await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" }),
+      await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" }),
     ).toBeInTheDocument();
   });
 
@@ -256,13 +256,13 @@ describe("MediaUploader", () => {
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("첫째.jpg"), fileOf("둘째.png", 1024, "image/png")]);
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     // 첫 판의 기록은 지우고, 재시도가 새로 쏘는 것만 본다.
     keys.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "재시도" }));
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await user.click(screen.getByRole("button", { name: "실패만 재시도" }));
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     // 멀쩡히 올라간 첫째.jpg 를 또 올리면 갤러리에 같은 사진이 두 장 생긴다.
     expect(keys.length).toBeGreaterThan(0);
@@ -275,11 +275,11 @@ describe("MediaUploader", () => {
     failUploadsOf(".png");
     renderUploader();
     await user.upload(getFileInput(), [fileOf("둘째.png", 1024, "image/png")]);
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     const release = holdUploads();
 
-    await user.click(screen.getByRole("button", { name: "재시도" }));
+    await user.click(screen.getByRole("button", { name: "실패만 재시도" }));
 
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(failureHeading()).not.toBeInTheDocument();
@@ -294,7 +294,7 @@ describe("MediaUploader", () => {
     failUploadsOf(".png");
     renderUploader();
     await user.upload(getFileInput(), [fileOf("둘째.png", 1024, "image/png")]);
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     await user.click(screen.getByText("닫기"));
 

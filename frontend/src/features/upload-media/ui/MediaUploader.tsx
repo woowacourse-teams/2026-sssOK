@@ -97,7 +97,11 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
         <RejectedFilesModal rejected={rejected} onClose={() => setRejected([])} />
       )}
       {failure.isOpen && (
-        <UploadFailureModal count={failure.count} onRetry={handleRetry} onClose={failure.close} />
+        <UploadFailureModal
+          failures={failure.failures}
+          onRetry={handleRetry}
+          onClose={failure.close}
+        />
       )}
     </Stack>
   );

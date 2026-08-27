@@ -17,5 +17,9 @@ const NOT_RETRYABLE: readonly UploadFailureCode[] = ["UPLOAD_ABORTED", "FILE_SIZ
  * `UPLOAD_RETRY_EXCEEDED`(서버 재발급 한도 429)는 여기 **포함된다.** 재시도는 재발급이 아니라
  * 새 발급이라, mediaId 가 새로 생기면서 그 한도도 같이 처음으로 돌아간다.
  */
+export const retryableFailuresOf = (failed: FailedUpload[]): FailedUpload[] =>
+  failed.filter(({ code }) => !NOT_RETRYABLE.includes(code));
+
+/** 재시도가 `uploadFiles` 에 되먹일 원본만. 세는 것과 같은 목록에서 나온다. */
 export const retryableFilesOf = (failed: FailedUpload[]): File[] =>
-  failed.filter(({ code }) => !NOT_RETRYABLE.includes(code)).map(({ file }) => file);
+  retryableFailuresOf(failed).map(({ file }) => file);
