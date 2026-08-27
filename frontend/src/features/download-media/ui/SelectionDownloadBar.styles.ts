@@ -65,6 +65,8 @@ export const DownloadButton = styled.button`
   flex: 1;
   padding: ${spacing[12]} ${spacing[16]};
   border-radius: ${radius.full};
+  /* 좁은 폭에서 "zip 다운로드" 가 두 줄로 갈라지면 바 높이가 통째로 흔들린다. */
+  white-space: nowrap;
   background: ${colors.primary};
   font-size: ${typography.label2.fontSize};
   font-weight: ${typography.label2.fontWeight};
@@ -85,7 +87,9 @@ export const PlainButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: ${spacing[4]};
   flex-shrink: 0;
+  white-space: nowrap;
   color: ${colors.textStrong};
   font-size: ${typography.label2.fontSize};
   font-weight: ${typography.label2.fontWeight};

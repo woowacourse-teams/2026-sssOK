@@ -91,8 +91,8 @@ const nextJobId = () => {
 /**
  * 원본을 하나씩 받아 zip 으로 묶는다. **잡을 만든 뒤 뒤에서 도는 부분이다.**
  *
- * 받다가 실패한 것은 건너뛴다 — 목 데이터의 영상은 없는 도메인(`cdn.example.com`)을 가리켜
- * 항상 실패하는데, 그것 때문에 잡 전체가 무너지면 zip 흐름을 확인할 수가 없다.
+ * 받다가 실패한 것은 건너뛴다. 원본 하나가 깨졌다고 잡 전체를 무너뜨리면 zip 흐름을
+ * 확인할 수가 없다 — 실제 워커도 받은 것까지는 묶는다.
  */
 const runCompression = async (job: DownloadJob, sources: { name: string; url: string }[]) => {
   job.status = "RUNNING";
@@ -311,6 +311,27 @@ export const downloadHandlers = [
         downloadUrl: ready ? `${ZIP_HOST}/${job.jobId}.zip?sig=${Date.now().toString(36)}` : null,
         expiresAt: ready ? new Date((job.readyAt ?? 0) + RETENTION_MS).toISOString() : null,
         failureReason: job.failureReason,
+      },
+    });
+  }),
+
+  /**
+   * 영상 원본 자리 (`originalUrlOf` 가 가리키는 `cdn.example.com`).
+   *
+   * **가로채지 않으면 영상 받기가 항상 실패한다.** 존재하지 않는 호스트라 요청이
+   * 통째로 막히고, 프론트에는 `status: 0` 으로만 보여서 "네트워크를 확인하세요" 가 뜬다.
+   * 목이 서버 역할을 하는 동안은 여기도 바이트를 내줘야 흐름이 이어진다.
+   *
+   * 사진은 `picsum.photos` 가 실제로 응답하므로 가로챌 것이 없다.
+   */
+  http.get("https://cdn.example.com/rooms/:roomId/:fileName", ({ params }) => {
+    const fileName = String(params.fileName);
+
+    // 진짜 영상일 필요는 없다. 받아지는지와 이름이 붙는지만 확인하면 된다.
+    return new HttpResponse(new Blob([new Uint8Array(1024)], { type: "video/mp4" }), {
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
       },
     });
   }),
