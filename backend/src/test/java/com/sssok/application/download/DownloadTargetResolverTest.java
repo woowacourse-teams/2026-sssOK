@@ -8,17 +8,20 @@ import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
+import java.time.Instant;
 import java.util.List;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -35,15 +38,21 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
     FolderMediaRepository folderMediaRepository;
 
     @Autowired
-    JdbcTemplate jdbcTemplate;
+    FileRepository fileRepository;
 
-    private void media(long id, long roomId, String status) {
-        jdbcTemplate.update("""
-            INSERT INTO stored_file
-                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes,
-                 storage_key, status, created_at, updated_at, reserved_at, retry_count)
-            VALUES (?, ?, 1, 'test.jpg', 'JPEG', 1024, ?, ?, now(), now(), now(), 0)
-            """, id, roomId, "test-key-" + id, status);
+    private Long media(long roomId, UploadStatus status) {
+        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now());
+        switch (status) {
+            case PROCESSING -> file.startProcessing();
+            case READY -> {
+                file.startProcessing();
+                file.markReady();
+            }
+            case FAILED -> file.failUpload();
+            default -> {
+            }
+        }
+        return fileRepository.save(file).getId();
     }
 
     @Nested
@@ -51,45 +60,45 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
 
         @Test
         void 요청한_미디어를_그대로_돌려준다() {
-            media(1L, 1L, "READY");
-            media(2L, 1L, "READY");
+            Long media1 = media(1L, UploadStatus.READY);
+            Long media2 = media(1L, UploadStatus.READY);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(1L, 2L), null);
+            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(media1, media2), null);
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(1L, 2L);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(media1, media2);
         }
 
         @Test
         void 다른_방_미디어는_조용히_빠진다() {
-            media(1L, 1L, "READY");
-            media(2L, 2L, "READY");
+            Long inRoom = media(1L, UploadStatus.READY);
+            Long otherRoom = media(2L, UploadStatus.READY);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(1L, 2L), null);
+            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(inRoom, otherRoom), null);
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactly(1L);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactly(inRoom);
         }
 
         @Test
         void READY가_아닌_미디어는_대상에서_빠진다() {
-            media(1L, 1L, "READY");
-            media(2L, 1L, "PROCESSING");
+            Long ready = media(1L, UploadStatus.READY);
+            Long processing = media(1L, UploadStatus.PROCESSING);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(1L, 2L), null);
+            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(ready, processing), null);
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactly(1L);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactly(ready);
         }
 
         @Test
         void 요청한_id가_전부_존재하지만_전부_READY가_아니면_404() {
-            media(1L, 1L, "PROCESSING");
+            Long processing = media(1L, UploadStatus.PROCESSING);
 
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(1L), null))
+            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(processing), null))
                 .isInstanceOf(MediaNotFoundException.class);
         }
 
         @Test
         void 요청한_id가_전부_존재하지_않으면_404() {
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(999L), null))
+            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(999_999L), null))
                 .isInstanceOf(MediaNotFoundException.class);
         }
 
@@ -108,13 +117,13 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
         @Test
         void 폴더에_담긴_미디어_중_READY만_돌려준다() {
             Folder folder = createFolderService.create(1L, "맛집");
-            media(1L, 1L, "READY");
-            media(2L, 1L, "PROCESSING");
-            folderMediaRepository.attachToFolder(folder.getId(), List.of(1L, 2L));
+            Long ready = media(1L, UploadStatus.READY);
+            Long processing = media(1L, UploadStatus.PROCESSING);
+            folderMediaRepository.attachToFolder(folder.getId(), List.of(ready, processing));
 
             List<StoredFile> resolved = downloadTargetResolver.resolve(1L, null, folder.getId());
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactly(1L);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactly(ready);
         }
 
         @Test
@@ -137,14 +146,14 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
 
         @Test
         void 방의_READY_미디어_전체를_돌려준다() {
-            media(1L, 1L, "READY");
-            media(2L, 1L, "READY");
-            media(3L, 1L, "PROCESSING");
-            media(4L, 2L, "READY");
+            Long ready1 = media(1L, UploadStatus.READY);
+            Long ready2 = media(1L, UploadStatus.READY);
+            media(1L, UploadStatus.PROCESSING);
+            media(2L, UploadStatus.READY);
 
             List<StoredFile> resolved = downloadTargetResolver.resolve(1L, null, null);
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(1L, 2L);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready1, ready2);
         }
     }
 
