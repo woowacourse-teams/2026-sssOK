@@ -22,3 +22,9 @@ storage:
 # 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
 jwt:
   secret: mvtcAhMGbXlhpJ4JuIvRWJVF+yMUju6PxRCb/FMojgA=
+
+# 등록 직후 자동으로 도는 썸네일 워커를 끈다. 협력 객체를 목으로 둔 테스트에서 워커 스레드가
+# 같은 목을 동시에 건드리면 검증이 간헐적으로 깨진다. 워커는 직접 호출해서 검증한다.
+media:
+  thumbnail:
+    auto-generate: false

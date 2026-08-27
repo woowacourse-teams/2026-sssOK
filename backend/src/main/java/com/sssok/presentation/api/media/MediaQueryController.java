@@ -43,17 +43,22 @@ public class MediaQueryController {
 
     @Operation(
         summary = "미디어 단건 조회",
-        description = "미디어 하나의 메타데이터를 반환한다. 응답 형태는 목록의 항목과 같다. "
+        description = "미디어 하나의 메타데이터를 반환한다. 목록 항목의 필드를 모두 포함하고 "
+            + "여기에 촬영 시각(takenAt)·촬영 위치(location)·삭제 권한(canDelete)이 더해진다. "
+            + "takenAt과 location은 원본 EXIF에서 읽으며, 카메라가 남기지 않았거나 위치 기록이 "
+            + "꺼져 있었으면 null이다. location.name은 역지오코딩이 붙기 전까지 null이다. "
+            + "canDelete는 보는 사람에 따라 달라져서 목록에는 싣지 않는다 — 올린 본인과 방장만 true다. "
             + "없는 mediaId, 다른 방의 미디어, 아직 실물이 없는 미디어는 모두 404가 난다 — "
             + "다른 방에 그 ID가 있는지 알 수 없도록 구분하지 않는다. "
             + "방 관련 실패 케이스(403/404/410)는 목록 조회와 동일하다."
     )
     @GetMapping("/{mediaId}")
-    public ApiResponse<MediaResponse> getMedia(
+    public ApiResponse<MediaFullResponse> getMedia(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "조회할 미디어 ID") @PathVariable Long mediaId
     ) {
-        return ApiResponse.of(MediaResponse.from(getMediaService.get(roomId, mediaId)));
+        return ApiResponse.of(
+            MediaFullResponse.from(getMediaService.get(roomId, mediaId, memberId)));
     }
 }

@@ -1,6 +1,8 @@
 package com.sssok.presentation.api.media;
 
 import com.sssok.application.media.GetMediaDownloadUrlService;
+import com.sssok.application.media.GetOriginalUrlService;
+import com.sssok.application.media.GetThumbnailUrlService;
 import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class MediaDownloadController {
 
     private final GetMediaDownloadUrlService getMediaDownloadUrlService;
+    private final GetThumbnailUrlService getThumbnailUrlService;
+    private final GetOriginalUrlService getOriginalUrlService;
 
     @Operation(
         summary = "단건 다운로드",
@@ -36,6 +40,42 @@ public class MediaDownloadController {
         @Parameter(description = "다운로드할 미디어 ID") @PathVariable Long mediaId
     ) {
         String url = getMediaDownloadUrlService.getUrl(roomId, mediaId);
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+    }
+
+    @Operation(
+        summary = "썸네일 조회",
+        description = "목록 타일에 그릴 축소본을 내려받는다. 조회 응답의 thumbnailUrl이 가리키는 주소이며, "
+            + "유효기간 5분짜리 서명 URL로 302 리다이렉트한다. 원본과 달리 inline이라 브라우저가 "
+            + "그대로 표시한다 — img 태그에 바로 걸 수 있다. 서명 URL을 조회 응답에 직접 싣지 않고 "
+            + "이 경로를 거치게 한 것은, 목록을 캐싱해도 URL이 만료되지 않게 하고 방 참여자만 "
+            + "볼 수 있도록 하기 위해서다. 아직 워커가 만들지 않았거나 영상이라 썸네일이 없으면 404 "
+            + "THUMBNAIL_NOT_FOUND가 난다. 없는 mediaId나 다른 방의 미디어는 404 MEDIA_NOT_FOUND다."
+    )
+    @GetMapping("/{mediaId}/thumbnail")
+    public ResponseEntity<Void> thumbnail(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "썸네일을 볼 미디어 ID") @PathVariable Long mediaId
+    ) {
+        String url = getThumbnailUrlService.getUrl(roomId, mediaId);
+        return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+    }
+
+    @Operation(
+        summary = "원본 표시",
+        description = "원본을 화면에 크게 띄우기 위한 경로다. 조회 응답의 originalUrl이 가리킨다. "
+            + "단건 다운로드와 같은 파일을 가리키지만 inline으로 서명해 브라우저가 그대로 표시한다 — "
+            + "저장이 목적이면 /download를 쓴다. 유효기간 5분짜리 서명 URL로 302 리다이렉트한다. "
+            + "없는 mediaId나 다른 방의 미디어는 404, 아직 처리 중이면 409가 난다."
+    )
+    @GetMapping("/{mediaId}/original")
+    public ResponseEntity<Void> original(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "표시할 미디어 ID") @PathVariable Long mediaId
+    ) {
+        String url = getOriginalUrlService.getUrl(roomId, mediaId);
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
     }
 }
