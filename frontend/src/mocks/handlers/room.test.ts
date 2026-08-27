@@ -181,3 +181,90 @@ describe("POST /rooms/{roomId}/members 목 핸들러", () => {
     expect(body.code).toBe("UNAUTHORIZED");
   });
 });
+
+describe("GET /rooms/{roomId}/media 목 핸들러", () => {
+  it("인증된 요청에 전체 미디어 목록을 내려준다", async () => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, {
+      headers: { Authorization: TOKEN },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.items).toHaveLength(13);
+    expect(body.data.items[0]).toEqual(
+      expect.objectContaining({
+        mediaId: 5012,
+        type: "IMAGE",
+        folderIds: [31],
+        uploaderId: 10234,
+      }),
+    );
+    expect(body.data).toEqual({ items: expect.any(Array) });
+  });
+
+  it("토큰이 없으면 401을 내려준다", async () => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`);
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.code).toBe("UNAUTHORIZED");
+  });
+});
+
+describe("PATCH /rooms/{roomId} 목 핸들러", () => {
+  it("전달한 필드만 수정한다", async () => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
+      method: "PATCH",
+      headers: { Authorization: TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "제주 3박 4일",
+        uploadPolicy: "host",
+        expiryHours: 12,
+      }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual(
+      expect.objectContaining({
+        roomId: MOCK_ROOM_ID,
+        name: "제주 3박 4일",
+        status: "ACTIVE",
+        uploadPolicy: "host",
+        expiresAt: "2026-08-18T18:00:00.000Z",
+      }),
+    );
+  });
+
+  it("수정할 필드가 없으면 400을 내려준다", async () => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
+      method: "PATCH",
+      headers: { Authorization: TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("EMPTY_PATCH");
+  });
+});
+
+describe("DELETE /rooms/{roomId} 목 핸들러", () => {
+  it("방을 삭제하고 삭제 일정을 내려준다", async () => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
+      method: "DELETE",
+      headers: { Authorization: TOKEN },
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual({
+      code: MOCK_ROOM_CODES.active,
+      status: "DELETED",
+      deletedAt: "2026-08-18T07:00:00Z",
+      purgeAt: "2026-08-25T07:00:00Z",
+    });
+
+    const roomResponse = await getRoom(MOCK_ROOM_CODES.active);
+    expect((await roomResponse.json()).data.status).toBe("DELETED");
+  });
+});

@@ -7,6 +7,7 @@ import { API_BASE_URL } from "@/shared/config";
  * backend 의 RoomCode 값 객체와 같은 규칙이다.
  */
 const ROOM_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
+const MOCK_NOW = new Date("2026-08-18T06:00:00Z");
 
 /** 시나리오별 고정 코드. 테스트와 수동 확인에서 함께 쓴다. */
 export const MOCK_ROOM_CODES = {
@@ -123,22 +124,176 @@ export const uploadPolicyOfId = (roomId: number) => {
 /** backend RoomResponse 의 status 와 같다. PURGED 는 보존 기간이 지나 영구 삭제된 방이다. */
 type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED" | "PURGED";
 
-const room = (code: string, status: RoomStatus, joined = false) => ({
-  roomId: ROOM_IDS[code],
-  code,
-  name: "제주 여행",
-  status,
-  hostId: MOCK_HOST_ID,
-  hostName: "민수",
-  uploadPolicy: uploadPolicyOf(code),
-  joined,
-  createdAt: "2026-08-18T05:30:00Z",
-  expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
-  /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
-  photoCount: foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0),
-  /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
-  folders: foldersOf(code),
+interface MockMedia {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  thumbnailUrl: string;
+  originalUrl: string;
+  width: number;
+  height: number;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  status: "READY";
+  uploadedAt: string;
+}
+
+interface ActiveRoomOverrides {
+  name?: string;
+  status?: RoomStatus;
+  uploadPolicy?: "everyone" | "host";
+  expiresAt?: string;
+}
+
+let activeRoomOverrides: ActiveRoomOverrides = {};
+
+const room = (code: string, status: RoomStatus, joined = false) => {
+  const response = {
+    roomId: ROOM_IDS[code],
+    code,
+    name: "제주 여행",
+    status,
+    hostId: MOCK_HOST_ID,
+    hostName: "민수",
+    uploadPolicy: uploadPolicyOf(code),
+    joined,
+    createdAt: "2026-08-18T05:30:00Z",
+    expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
+    /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
+    photoCount: foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0),
+    /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
+    folders: foldersOf(code),
+  };
+
+  return code === MOCK_ROOM_CODES.active ? { ...response, ...activeRoomOverrides } : response;
+};
+
+const createMedia = ({
+  mediaId,
+  type = "IMAGE",
+  fileName,
+  folderIds = [],
+  uploaderId,
+  uploaderName,
+  duration = null,
+}: Pick<MockMedia, "mediaId" | "fileName" | "uploaderId" | "uploaderName"> &
+  Partial<Pick<MockMedia, "type" | "folderIds" | "duration">>): MockMedia => ({
+  mediaId,
+  type,
+  fileName,
+  mimeType: type === "VIDEO" ? "video/mp4" : "image/jpeg",
+  size: type === "VIDEO" ? 182452224 : 2912048,
+  thumbnailUrl: `https://picsum.photos/seed/sssok-${mediaId}/600/700`,
+  originalUrl:
+    type === "VIDEO"
+      ? `https://cdn.example.com/rooms/1024/${mediaId}.mp4`
+      : `https://picsum.photos/seed/sssok-${mediaId}/1200/1400`,
+  width: type === "VIDEO" ? 1920 : 3024,
+  height: type === "VIDEO" ? 1080 : 4032,
+  duration,
+  folderIds,
+  uploaderId,
+  uploaderName,
+  status: "READY",
+  uploadedAt: `2026-08-18T${String(18 + Math.floor((mediaId - 5000) / 6)).padStart(2, "0")}:00:00+09:00`,
 });
+
+const mediaItems: MockMedia[] = [
+  createMedia({
+    mediaId: 5012,
+    fileName: "IMG_0421.jpg",
+    folderIds: [31],
+    uploaderId: MOCK_HOST_ID,
+    uploaderName: "민수",
+  }),
+  createMedia({
+    mediaId: 5011,
+    type: "VIDEO",
+    fileName: "VID_0032.mp4",
+    uploaderId: 7,
+    uploaderName: "미미",
+    duration: 34,
+  }),
+  createMedia({
+    mediaId: 5010,
+    fileName: "IMG_0419.jpg",
+    folderIds: [31],
+    uploaderId: MOCK_HOST_ID,
+    uploaderName: "민수",
+  }),
+  createMedia({
+    mediaId: 5009,
+    fileName: "IMG_0418.jpg",
+    folderIds: [31],
+    uploaderId: 21,
+    uploaderName: "포키",
+  }),
+  createMedia({
+    mediaId: 5008,
+    type: "VIDEO",
+    fileName: "VID_0031.mp4",
+    folderIds: [31],
+    uploaderId: 7,
+    uploaderName: "미미",
+    duration: 58,
+  }),
+  createMedia({
+    mediaId: 5007,
+    fileName: "IMG_0417.jpg",
+    folderIds: [32],
+    uploaderId: MOCK_HOST_ID,
+    uploaderName: "민수",
+  }),
+  createMedia({
+    mediaId: 5006,
+    fileName: "IMG_0416.jpg",
+    folderIds: [32],
+    uploaderId: 12,
+    uploaderName: "로지",
+  }),
+  createMedia({
+    mediaId: 5005,
+    fileName: "IMG_0415.jpg",
+    uploaderId: 21,
+    uploaderName: "포키",
+  }),
+  createMedia({
+    mediaId: 5004,
+    type: "VIDEO",
+    fileName: "VID_0030.mp4",
+    uploaderId: MOCK_HOST_ID,
+    uploaderName: "민수",
+    duration: 72,
+  }),
+  createMedia({
+    mediaId: 5003,
+    fileName: "IMG_0414.jpg",
+    uploaderId: 7,
+    uploaderName: "미미",
+  }),
+  createMedia({
+    mediaId: 5002,
+    fileName: "IMG_0413.jpg",
+    uploaderId: MOCK_HOST_ID,
+    uploaderName: "민수",
+  }),
+  createMedia({
+    mediaId: 5001,
+    fileName: "IMG_0412.jpg",
+    uploaderId: 12,
+    uploaderName: "로지",
+  }),
+  createMedia({
+    mediaId: 5000,
+    fileName: "IMG_0411.jpg",
+    uploaderId: 21,
+    uploaderName: "포키",
+  }),
+];
 
 /** 입장 멱등성을 흉내내려고 이번 세션의 입장 기록을 들고 있는다. 목 전용 상태다. */
 const joinedRooms = new Set<string>();
@@ -148,6 +303,20 @@ const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
 
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
 export const resetJoinedRooms = () => joinedRooms.clear();
+
+export const resetRoomHandlers = () => {
+  resetJoinedRooms();
+  activeRoomOverrides = {};
+};
+
+const unauthorized = () =>
+  HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다." }, { status: 401 });
+
+const roomNotFound = () =>
+  HttpResponse.json(
+    { code: "ROOM_NOT_FOUND", message: "존재하지 않는 방입니다." },
+    { status: 404 },
+  );
 
 /** 업로드처럼 참여자만 부를 수 있는 API 가 입장 여부를 확인할 때 쓴다. */
 export const hasJoinedRoom = (token: string, roomId: number) =>
@@ -186,10 +355,19 @@ export const roomHandlers = [
       return HttpResponse.json({ data: room(code, "ACTIVE", joined) });
     }
 
-    return HttpResponse.json(
-      { code: "ROOM_NOT_FOUND", message: "존재하지 않는 방입니다." },
-      { status: 404 },
-    );
+    return roomNotFound();
+  }),
+
+  http.get(`${API_BASE_URL}/rooms/:roomId/media`, ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    if (Number(params.roomId) !== MOCK_ROOM_ID) {
+      return roomNotFound();
+    }
+
+    return HttpResponse.json({ data: { items: mediaItems } });
   }),
 
   /**
@@ -255,5 +433,61 @@ export const roomHandlers = [
       },
       { status: 201 },
     );
+  }),
+
+  http.patch(`${API_BASE_URL}/rooms/:roomId`, async ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    if (Number(params.roomId) !== MOCK_ROOM_ID) {
+      return roomNotFound();
+    }
+
+    const updates = (await request.json().catch(() => ({}))) as {
+      name?: string;
+      uploadPolicy?: "everyone" | "host";
+      expiryHours?: number;
+    };
+
+    if (Object.keys(updates).length === 0) {
+      return HttpResponse.json(
+        { code: "EMPTY_PATCH", message: "수정할 항목을 하나 이상 보내주세요." },
+        { status: 400 },
+      );
+    }
+
+    activeRoomOverrides = {
+      ...activeRoomOverrides,
+      name: updates.name ?? activeRoomOverrides.name,
+      uploadPolicy: updates.uploadPolicy ?? activeRoomOverrides.uploadPolicy,
+      expiresAt:
+        updates.expiryHours === undefined
+          ? activeRoomOverrides.expiresAt
+          : new Date(MOCK_NOW.getTime() + updates.expiryHours * 60 * 60 * 1000).toISOString(),
+    };
+
+    return HttpResponse.json({ data: room(MOCK_ROOM_CODES.active, "ACTIVE", true) });
+  }),
+
+  http.delete(`${API_BASE_URL}/rooms/:roomId`, ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    if (Number(params.roomId) !== MOCK_ROOM_ID) {
+      return roomNotFound();
+    }
+
+    activeRoomOverrides = { ...activeRoomOverrides, status: "DELETED" };
+
+    return HttpResponse.json({
+      data: {
+        code: MOCK_ROOM_CODES.active,
+        status: "DELETED",
+        deletedAt: "2026-08-18T07:00:00Z",
+        purgeAt: "2026-08-25T07:00:00Z",
+      },
+    });
   }),
 ];
