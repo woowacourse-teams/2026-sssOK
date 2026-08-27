@@ -10,6 +10,7 @@ import com.sssok.infrastructure.config.DownloadProperties;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +25,7 @@ public class CreateDownloadJobService {
     private final DownloadTargetResolver downloadTargetResolver;
     private final DownloadJobRepository downloadJobRepository;
     private final DownloadProperties downloadProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CreateDownloadJobResult create(Long roomId, Long requesterId, List<Long> mediaIds, Long folderId) {
@@ -40,6 +42,7 @@ public class CreateDownloadJobService {
         DownloadJob job = DownloadJob.create(roomId, requesterId, mediaCount, totalSizeBytes, fileName, Instant.now());
         DownloadJob saved = downloadJobRepository.save(job);
         downloadJobRepository.saveJobMedia(saved.getId(), targets.stream().map(StoredFile::getId).toList());
+        eventPublisher.publishEvent(new DownloadJobRequestedEvent(saved.getId()));
 
         return CreateDownloadJobResult.from(saved);
     }
