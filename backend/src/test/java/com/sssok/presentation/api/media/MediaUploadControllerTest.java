@@ -15,6 +15,8 @@ import com.sssok.application.media.IssueUploadUrlsResult;
 import com.sssok.application.media.IssueUploadUrlsService;
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.media.RejectedFile;
+import com.sssok.application.media.ReissueUploadUrlService;
+import com.sssok.application.media.ReissuedUploadUrl;
 import com.sssok.application.media.UploadUrl;
 import com.sssok.application.media.exception.InvalidUploadParamException;
 import com.sssok.application.media.exception.MediaForbiddenException;
@@ -23,6 +25,8 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.file.UploadRejectionReason;
+import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
+import com.sssok.domain.file.exception.UploadRetryExceededException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
@@ -62,6 +66,9 @@ class MediaUploadControllerTest {
     CompleteUploadService completeUploadService;
 
     @MockitoBean
+    ReissueUploadUrlService reissueUploadUrlService;
+
+    @MockitoBean
     TokenProvider tokenProvider;
 
     @MockitoBean
@@ -94,6 +101,14 @@ class MediaUploadControllerTest {
 
     private ResultActions completeUpload(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/media", ROOM_ID)
+            .header("Authorization", BEARER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+    }
+
+    private ResultActions reissue(String body) throws Exception {
+        return mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url",
+                ROOM_ID, MEDIA_ID)
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
@@ -162,9 +177,51 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.code").value("MEDIA_FORBIDDEN"));
     }
 
+    @Test
+    void 재발급하면_200과_재시도_횟수를_반환한다() throws Exception {
+        ReissuedUploadUrl url = new ReissuedUploadUrl(MEDIA_ID, "a.jpg", "https://storage/new",
+            "PUT", Map.of("Content-Type", "image/jpeg"), 600, 2, 5);
+        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any())).willReturn(url);
 
+        reissue("{\"size\":512}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.mediaId").value(MEDIA_ID))
+            .andExpect(jsonPath("$.data.retryCount").value(2))
+            .andExpect(jsonPath("$.data.maxRetryCount").value(5));
+    }
 
+    @Test
+    void 바디_없이_재발급해도_200이다() throws Exception {
+        ReissuedUploadUrl url = new ReissuedUploadUrl(MEDIA_ID, "a.jpg", "https://storage/new",
+            "PUT", Map.of("Content-Type", "image/jpeg"), 600, 1, 5);
+        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any())).willReturn(url);
 
+        // 대부분의 재시도는 파일이 그대로라 바디 없이 온다.
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", ROOM_ID, MEDIA_ID)
+                .header("Authorization", BEARER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.retryCount").value(1));
+    }
+
+    @Test
+    void 이미_등록된_업로드를_재발급하면_409() throws Exception {
+        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any()))
+            .willThrow(new UploadAlreadyCompletedException());
+
+        reissue("{}")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("UPLOAD_ALREADY_COMPLETED"));
+    }
+
+    @Test
+    void 재시도_한도를_넘기면_429() throws Exception {
+        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any()))
+            .willThrow(new UploadRetryExceededException(5));
+
+        reissue("{}")
+            .andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("$.code").value("UPLOAD_RETRY_EXCEEDED"));
+    }
 
     @Test
     void 인증_없이_요청하면_401() throws Exception {
