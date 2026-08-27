@@ -8,11 +8,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sssok.application.media.CompleteUploadResult;
+import com.sssok.application.media.CompleteUploadService;
+import com.sssok.application.media.FailedMedia;
 import com.sssok.application.media.IssueUploadUrlsResult;
 import com.sssok.application.media.IssueUploadUrlsService;
+import com.sssok.application.media.MediaDetail;
 import com.sssok.application.media.RejectedFile;
 import com.sssok.application.media.UploadUrl;
 import com.sssok.application.media.exception.InvalidUploadParamException;
+import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.UploadNotAllowedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
@@ -54,6 +59,9 @@ class MediaUploadControllerTest {
     IssueUploadUrlsService issueUploadUrlsService;
 
     @MockitoBean
+    CompleteUploadService completeUploadService;
+
+    @MockitoBean
     TokenProvider tokenProvider;
 
     @MockitoBean
@@ -79,6 +87,13 @@ class MediaUploadControllerTest {
 
     private ResultActions issueUploadUrls(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", ROOM_ID)
+            .header("Authorization", BEARER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
+    }
+
+    private ResultActions completeUpload(String body) throws Exception {
+        return mockMvc.perform(post("/api/v1/rooms/{roomId}/media", ROOM_ID)
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
@@ -121,7 +136,31 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.code").value("UPLOAD_NOT_ALLOWED"));
     }
 
+    @Test
+    void 완료_등록하면_201과_registered_failed_를_반환한다() throws Exception {
+        MediaDetail detail = new MediaDetail(MEDIA_ID, "IMAGE", "a.jpg", "image/jpeg", 1024L,
+            null, null, null, null, null, List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now());
+        CompleteUploadResult result = new CompleteUploadResult(List.of(detail),
+            List.of(FailedMedia.of(5013L, UploadRejectionReason.UPLOAD_NOT_COMPLETED)));
+        given(completeUploadService.complete(anyLong(), anyLong(), anyList())).willReturn(result);
 
+        completeUpload("{\"mediaIds\":[5012,5013]}")
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.registered[0].mediaId").value(MEDIA_ID))
+            .andExpect(jsonPath("$.data.registered[0].status").value("PROCESSING"))
+            .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(31))
+            .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
+    }
+
+    @Test
+    void 남의_예약을_등록하면_403과_MEDIA_FORBIDDEN() throws Exception {
+        given(completeUploadService.complete(anyLong(), anyLong(), anyList()))
+            .willThrow(new MediaForbiddenException());
+
+        completeUpload("{\"mediaIds\":[5012]}")
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("MEDIA_FORBIDDEN"));
+    }
 
 
 
