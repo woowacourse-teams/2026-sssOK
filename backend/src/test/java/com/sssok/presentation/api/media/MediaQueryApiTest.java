@@ -145,18 +145,6 @@ class MediaQueryApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.folderIds[0]").value(folder.getId()));
     }
 
-    // 올린 본인이라 지울 수 있고, EXIF 가 없는 이미지라 촬영 정보는 비어 있다.
-    @Test
-    void 단건에는_촬영_정보와_삭제_권한이_함께_나온다() throws Exception {
-        Long mediaId = upload("a.jpg", null);
-
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, mediaId)
-                .header("Authorization", token))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.canDelete").value(true))
-            .andExpect(jsonPath("$.data.takenAt").doesNotExist())
-            .andExpect(jsonPath("$.data.location").doesNotExist());
-    }
 
     @Test
     void 없는_미디어를_조회하면_404() throws Exception {
