@@ -42,7 +42,6 @@ public enum ErrorCode {
     LINK_CODE_NOT_FOUND(404, "유효하지 않은 코드입니다"),
     FOLDER_NOT_FOUND(404, "존재하지 않는 폴더입니다: %s"),
     MEDIA_NOT_FOUND(404, "존재하지 않는 미디어입니다"),
-    THUMBNAIL_NOT_FOUND(404, "썸네일이 아직 준비되지 않았습니다"),
     DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
 
     // 405 Method Not Allowed
