@@ -11,6 +11,12 @@ public interface FileStoragePort {
     // 업로드하는 쪽이 같은 값을 헤더에 실어야 한다 (docs/backend/R2_PRESIGNED_UPLOAD.md).
     String presignPut(StorageKey storageKey, String contentType, Duration ttl);
 
+    // 클라이언트가 직접 GET 할 수 있는 서명 URL. responseContentDisposition/responseContentType 은
+    // 서명에 포함되어, 브라우저가 이 값 그대로 다운로드 헤더를 받는다(스토리지가 원본 메타데이터
+    // 대신 이 값으로 응답하도록 강제).
+    String presignGet(StorageKey storageKey, String responseContentDisposition,
+                      String responseContentType, Duration ttl);
+
     // 실제로 올라왔는지와 올라온 것이 무엇인지 확인한다. 없으면 비어 있다.
     Optional<UploadedObject> findUploaded(StorageKey storageKey);
 

@@ -97,6 +97,23 @@ class R2FileStorageAdapterTest {
     }
 
     @Test
+    void 발급한_다운로드_URL_로_받으면_지정한_응답_헤더가_그대로_내려온다() {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+        String putUrl = adapter.presignPut(key, "image/png", Duration.ofMinutes(10));
+        assertThat(put(putUrl, "image/png")).isEqualTo(200);
+        uploaded = key;
+
+        String disposition = "attachment; filename=\"IMG_0421.png\"; filename*=UTF-8''IMG_0421.png";
+        String url = adapter.presignGet(key, disposition, "image/png", Duration.ofMinutes(5));
+
+        HttpResponse<byte[]> response = get(url);
+        assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("content-disposition")).contains(disposition);
+        assertThat(response.headers().firstValue("content-type")).contains("image/png");
+    }
+
+    @Test
     void 올리지_않은_키는_비어_있다() {
         Optional<UploadedObject> found =
             adapter().findUploaded(StorageKey.generate(1L, MediaType.PNG));
@@ -109,6 +126,18 @@ class R2FileStorageAdapterTest {
     void 없는_키를_지워도_실패하지_않는다() {
         // 정리 배치가 다시 돌아도 안전해야 한다.
         adapter().delete(StorageKey.generate(1L, MediaType.PNG));
+    }
+
+    private HttpResponse<byte[]> get(String url) {
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
+            return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
     }
 
     private static Map<String, String> loadConfig() {
