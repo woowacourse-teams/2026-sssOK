@@ -2,6 +2,7 @@ package com.sssok.application.download;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -16,6 +17,7 @@ import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,7 +89,10 @@ class GetDownloadJobStatusServiceTest {
 
         assertThat(result.status()).isEqualTo(DownloadJobStatus.READY);
         assertThat(result.downloadUrl()).isEqualTo(PRESIGNED);
-        assertThat(result.expiresAt()).isEqualTo(readyAt.plus(Duration.ofHours(1)));
+        // DB 왕복(H2 ready_at 컬럼)에서 나노초 이하가 마이크로초 단위로 반올림되므로,
+        // 나노초까지 꽉 채워 주는 플랫폼(Linux)에서는 정확히 일치하지 않는다. 1ms 오차를 허용한다.
+        assertThat(result.expiresAt())
+            .isCloseTo(readyAt.plus(Duration.ofHours(1)), within(1, ChronoUnit.MILLIS));
         assertThat(result.progress()).isEqualTo(100);
     }
 
