@@ -12,6 +12,31 @@ test("닫기 버튼을 렌더링한다", () => {
   expect(screen.getByRole("button", { name: "닫기" })).toBeInTheDocument();
 });
 
+test("showClose 가 false 면 닫기 버튼을 그리지 않는다", () => {
+  render(
+    <Modal onClose={jest.fn()} showClose={false}>
+      <p>본문</p>
+    </Modal>,
+  );
+
+  expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+});
+
+// X 를 끄더라도 바깥을 눌러 나가는 길은 막지 않는다. 나갈 길이 아예 없는 모달이 되면 안 된다.
+test("showClose 가 false 여도 배경 클릭은 그대로 닫는다", async () => {
+  const user = userEvent.setup();
+  const handleClose = jest.fn();
+  render(
+    <Modal onClose={handleClose} showClose={false}>
+      <p>본문</p>
+    </Modal>,
+  );
+
+  await user.click(screen.getByTestId("modal-overlay"));
+
+  expect(handleClose).toHaveBeenCalledTimes(1);
+});
+
 test("children을 렌더링한다", () => {
   render(
     <Modal onClose={jest.fn()}>
