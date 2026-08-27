@@ -7,14 +7,7 @@ import type { InputProps } from "./Input";
 const InteractiveInput = (props: InputProps) => {
   const [value, setValue] = useState(props.value);
 
-  return (
-    <Input
-      {...props}
-      value={value}
-      readOnly={false}
-      onValueChange={setValue}
-    />
-  );
+  return <Input {...props} value={value} readOnly={false} onValueChange={setValue} />;
 };
 
 const meta = {
