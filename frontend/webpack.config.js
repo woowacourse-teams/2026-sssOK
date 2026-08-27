@@ -51,6 +51,8 @@ module.exports = {
     // 그 밖의 환경변수는 여기서 직접 값으로 치환해야 런타임에 터지지 않는다.
     new webpack.DefinePlugin({
       "process.env.API_BASE_URL": JSON.stringify(process.env.API_BASE_URL),
+      // 목을 어디까지 씌울지 (full | hybrid | off). src/shared/config/mock.ts 참고
+      "process.env.MOCK": JSON.stringify(process.env.MOCK),
     }),
 
     new HtmlWebpackPlugin({
