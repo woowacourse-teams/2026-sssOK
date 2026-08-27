@@ -637,3 +637,90 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
     expect((await response.json()).code).toBe("MEDIA_NOT_FOUND");
   });
 });
+
+/**
+ * 업로드 목과 갤러리 목록 목이 같은 기록(`mocks/db.ts`)을 보는지 본다.
+ * 여기가 끊기면 화면에서는 "올렸는데 갤러리에 아무것도 안 생기는" 것으로 보인다.
+ */
+describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
+  const listMedia = (roomId = MOCK_ROOM_ID, token = HOST_TOKEN) =>
+    fetch(`${API_BASE_URL}/rooms/${roomId}/media`, { headers: { Authorization: token } });
+
+  /** 픽스처로 미리 들어 있는 장수. 등록분은 이 위에 쌓인다. */
+  const SEEDED_COUNT = 13;
+
+  it("등록이 끝나면 목록 맨 앞에 붙는다", async () => {
+    const issued = await issueOne(file("한라산.jpg"));
+
+    await putToR2(issued);
+    await registerMedia([issued.mediaId]);
+
+    const body = await (await listMedia()).json();
+
+    expect(body.data.items).toHaveLength(SEEDED_COUNT + 1);
+    expect(body.data.items[0]).toEqual(
+      expect.objectContaining({ mediaId: issued.mediaId, fileName: "한라산.jpg" }),
+    );
+  });
+
+  /** 등록 응답과 달리 목록은 파생 URL 이 채워져 있어야 한다. 없으면 카드가 안 그려진다. */
+  it("목록에서는 READY 이고 파생 URL 이 채워져 있다", async () => {
+    const issued = await issueOne();
+
+    await putToR2(issued);
+
+    const registered = (await (await registerMedia([issued.mediaId])).json()).data.registered[0];
+    const listed = (await (await listMedia()).json()).data.items[0];
+
+    expect(registered).toEqual(
+      expect.objectContaining({ status: "PROCESSING", thumbnailUrl: null, originalUrl: null }),
+    );
+    expect(listed).toEqual(
+      expect.objectContaining({
+        status: "READY",
+        thumbnailUrl: expect.any(String),
+        originalUrl: expect.any(String),
+      }),
+    );
+  });
+
+  it("등록하지 않으면 목록에 뜨지 않는다", async () => {
+    const issued = await issueOne(file("아직안올린사진.jpg"));
+
+    await putToR2(issued);
+
+    const body = await (await listMedia()).json();
+
+    expect(body.data.items).toHaveLength(SEEDED_COUNT);
+  });
+
+  /** 발급 번호가 픽스처(5000~5012)와 겹치면 같은 mediaId 가 목록에 두 번 뜬다. */
+  it("발급 번호가 픽스처와 겹치지 않는다", async () => {
+    const issued = await issueOne();
+
+    await putToR2(issued);
+    await registerMedia([issued.mediaId]);
+
+    const ids = (await (await listMedia()).json()).data.items.map(
+      (item: { mediaId: number }) => item.mediaId,
+    );
+
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("__slow__ 표식", () => {
+  /**
+   * 목이 즉시 답하면 진행 바가 31ms 만에 사라져 눈으로 볼 수가 없다.
+   * 이 표식이 응답만 늦춰서 바를 화면에 붙잡아 둔다.
+   */
+  it("PUT 응답이 늦게 온다", async () => {
+    const issued = await issueOne(file("제주-해변__slow__.jpg"));
+    const startedAt = Date.now();
+
+    const response = await putToR2(issued);
+
+    expect(response.status).toBe(200);
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1500);
+  }, 10000);
+});

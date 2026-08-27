@@ -11,12 +11,7 @@ const CloseIcon = () => (
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
   >
-    <path
-      d="M5 5L15 15M15 5L5 15"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-    />
+    <path d="M5 5L15 15M15 5L5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 
