@@ -12,10 +12,10 @@ import type { DownloadTarget } from "./types";
 /**
  * 지금 뭘 하는 중인지. 퍼센트만으로는 설명이 안 되는 구간이 있어서 따로 둔다.
  *
- * 서버가 zip 으로 묶는 동안은 네트워크가 조용하다. 퍼센트만 보면 100% 에서
+ * 다 받고 나서 zip 으로 묶는 동안은 네트워크가 조용하다. 퍼센트만 보면 100% 에서
  * 멈춘 것처럼 보여서, 그 구간에는 "묶는 중"이라고 말해줘야 한다.
  */
-export type DownloadPhase = "fetching" | "zipping";
+export type DownloadPhase = "fetching" | "zipping" | "sharing";
 
 export interface DownloadProgressState {
   phase: DownloadPhase;

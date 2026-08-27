@@ -9,6 +9,7 @@ import {
 } from "../lib/downloadErrorMessage";
 import { fetchMediaBlob } from "../lib/fetchMediaBlob";
 import { saveBlob } from "../lib/saveBlob";
+import { shareFiles } from "../lib/shareFiles";
 import type { DownloadPhase } from "./downloadProgress";
 import { pollDownloadJob } from "./pollDownloadJob";
 import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } from "./types";
@@ -17,7 +18,7 @@ import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } fr
  * 고른 미디어를 사용자가 고른 방식으로 넘긴다.
  *
  * **방식에 따라 서버 API 가 완전히 갈린다.**
- * - `individual` → 단건 다운로드(B-6)를 장수만큼. 받아온 바이트를 하나씩 파일로 떨군다.
+ * - `individual`·`share` → 단건 다운로드(B-6)를 장수만큼. 받아온 바이트를 파일로 떨구거나 시트로 넘긴다.
  * - `zip` → 압축 잡(B-7)을 하나 만들고, 서버가 묶는 동안 상태를 되묻는다. 프론트는 압축하지 않는다.
  */
 
@@ -30,7 +31,7 @@ const DOWNLOAD_CONCURRENCY = 4;
 /**
  * 개별 저장 사이의 간격. 브라우저는 짧은 시간에 몰아친 저장을 "원치 않는 다운로드"로 보고
  * 두 번째부터 막는다. 틈을 두면 크롬은 "여러 파일 다운로드를 허용하시겠습니까"를 한 번 묻고
- * 나머지를 통과시킨다.
+ * 나머지를 통과시킨다. (폰에서는 이 방식을 아예 내주지 않는다 — `prefersShareSheet` 참고)
  */
 const INDIVIDUAL_SAVE_GAP_MS = 400;
 
@@ -51,6 +52,10 @@ interface FetchedMedia {
   blob: Blob;
   target: DownloadTarget;
 }
+
+const toFile = ({ blob, target }: FetchedMedia) =>
+  // 공유 시트는 Blob 이 아니라 File 을 요구한다. 이름이 있어야 사진첩에 제대로 들어간다.
+  new File([blob], target.fileName, { type: blob.type || target.mimeType });
 
 /** B-6 은 302 로 스토리지를 가리킨다. fetch 가 그 리다이렉트를 그대로 따라간다. */
 const downloadUrlOf = (roomId: number, mediaId: number) =>
@@ -180,6 +185,24 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
 
   if (fetched.length === 0) {
     return { type: "empty", failed };
+  }
+
+  if (mode === "share") {
+    onPhase?.("sharing");
+
+    const files = fetched.map(toFile);
+    const shared = await shareFiles(files);
+
+    if (shared.type === "shared") {
+      return { type: "saved", savedCount: files.length, failed };
+    }
+
+    if (shared.type === "dismissed") {
+      return { type: "dismissed" };
+    }
+
+    // 시트가 안 열렸다. 받아온 것은 멀쩡하니 버리지 않고, 탭 한 번을 더 받으러 화면으로 넘긴다.
+    return { type: "readyToShare", files, failed };
   }
 
   for (const [index, media] of fetched.entries()) {
