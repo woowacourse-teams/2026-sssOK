@@ -70,7 +70,7 @@ const holdUploads = () => {
   return () => release();
 };
 
-const failureHeading = () => screen.queryByRole("heading", { name: /못올렸어요/ });
+const failureHeading = () => screen.queryByRole("heading", { name: /못 올렸어요/ });
 
 const settled = () =>
   waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
@@ -116,27 +116,23 @@ describe("MediaUploader", () => {
     expect(openPicker).toHaveBeenCalled();
   });
 
-  /**
-   * 라이브 영역이 알림과 같은 순간에 생기면 스크린리더가 변화로 잡지 못한다.
-   * 그래서 "없다" 가 아니라 "있는데 비어 있다" 여야 한다.
-   */
-  it("알림 자리는 고르기 전부터 있고, 비어 있다", () => {
+  it("고르기 전에는 안내 모달이 없다", () => {
     renderUploader();
 
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.queryByRole("heading", { name: /올릴 수 없|너무 커/ })).not.toBeInTheDocument();
   });
 
   /**
-   * 올라갈 장수는 진행 바가 `0 / 3` 으로 말한다. 알림이 같은 말을 또 하면
-   * 업로드가 끝난 뒤에도 지난 얘기가 화면에 남는다 — 시안(12)에도 그 알림은 없다.
+   * 올라갈 장수는 진행 바가 `0 / 3` 으로 말한다. 모달이 같은 말을 또 할 이유가 없고,
+   * 아무 문제 없이 고른 사람의 앞을 막아서도 안 된다.
    */
-  it("전부 올릴 수 있으면 알림 없이 바로 올라간다", async () => {
+  it("전부 올릴 수 있으면 모달 없이 바로 올라간다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("a.jpg"), fileOf("b.png"), fileOf("c.mov")]);
 
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.queryByRole("heading", { name: /올릴 수 없|너무 커/ })).not.toBeInTheDocument();
     await settled();
   });
 
@@ -155,17 +151,17 @@ describe("MediaUploader", () => {
     await settled();
   });
 
-  it("알림을 닫으면 사라진다", async () => {
+  it("확인을 누르면 모달이 사라진다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("IMG_0001.HEIC")]);
-    await user.click(screen.getByRole("button", { name: "알림 닫기" }));
+    await user.click(screen.getByRole("button", { name: "확인" }));
 
-    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+    expect(screen.queryByRole("heading", { name: /올릴 수 없|너무 커/ })).not.toBeInTheDocument();
   });
 
-  it("걸러진 파일이 있으면 몇 장이 왜 제외됐는지 알린다", async () => {
+  it("걸러진 파일이 있으면 파일마다 이름·크기·사유를 보여준다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
@@ -176,26 +172,47 @@ describe("MediaUploader", () => {
       fileOf("big.png", MAX_IMAGE_BYTES + 1, "image/png"),
     ]);
 
-    const notice = screen.getByRole("status");
-
-    // 걸러진 파일은 업로드에 끼지 않아서 진행 바가 대신 말해주지 못한다. 알림에 남아야 한다.
-    expect(notice).toHaveTextContent("2장은 올릴 수 없어요");
-    expect(notice).toHaveTextContent("이미지와 영상만 올릴 수 있어요 (1장)");
-    expect(notice).toHaveTextContent("사진은 10MB까지 올릴 수 있어요 (1장)");
-    // 올라가는 한 장은 진행 바가 센다.
-    expect(notice).not.toHaveTextContent("선택했어요");
+    // 사유가 섞였으므로 제목은 어느 한쪽으로 단정하지 않는다.
+    expect(screen.getByRole("heading", { name: "2장은 올릴 수 없어요" })).toBeInTheDocument();
+    expect(screen.getByText(/IMG_0001\.HEIC/)).toBeInTheDocument();
+    expect(screen.getByText("지원 안 함")).toBeInTheDocument();
+    expect(screen.getByText("용량 초과")).toBeInTheDocument();
 
     await settled();
   });
 
-  it("같은 사유로 걸러진 파일은 한 줄로 묶어 장수만 보여준다", async () => {
+  /**
+   * 사유별로 접어서 "2장" 이라고만 하면 **어느 사진이 빠졌는지** 알 수 없다.
+   * 다시 고를 때 같은 실수를 반복하게 되므로 파일마다 따로 보여준다 (시안 07d).
+   */
+  it("같은 사유로 걸러져도 파일을 각각 보여준다", async () => {
     const user = userEvent.setup();
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("IMG_0001.HEIC"), fileOf("IMG_0002.HEIC")]);
 
-    expect(screen.getByRole("status")).toHaveTextContent("이미지와 영상만 올릴 수 있어요 (2장)");
-    expect(screen.queryByText(/IMG_0001/)).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "올릴 수 없는 형식이에요" })).toBeInTheDocument();
+    expect(screen.getByText(/IMG_0001\.HEIC/)).toBeInTheDocument();
+    expect(screen.getByText(/IMG_0002\.HEIC/)).toBeInTheDocument();
+  });
+
+  it("용량만 넘었으면 제목이 그 사유를 그대로 말한다", async () => {
+    const user = userEvent.setup();
+
+    renderUploader();
+    await user.upload(getFileInput(), [fileOf("big.png", MAX_IMAGE_BYTES + 1, "image/png")]);
+
+    expect(screen.getByRole("heading", { name: "파일이 너무 커요" })).toBeInTheDocument();
+  });
+
+  // 한도는 파일마다 반복하지 않고 부제에서 한 번만 말한다.
+  it("올릴 수 있는 한도를 함께 보여준다", async () => {
+    const user = userEvent.setup();
+
+    renderUploader();
+    await user.upload(getFileInput(), [fileOf("big.png", MAX_IMAGE_BYTES + 1, "image/png")]);
+
+    expect(screen.getByText(/이미지 10MB · 영상 1GB 까지 올릴 수 있어요/)).toBeInTheDocument();
   });
 
   it("accept 를 통과한 파일도 확장자로 다시 거른다", async () => {
@@ -205,10 +222,8 @@ describe("MediaUploader", () => {
     renderUploader();
     await user.upload(getFileInput(), [fileOf("note.txt", 10, "text/plain")]);
 
-    const notice = screen.getByRole("status");
-
-    expect(notice).toHaveTextContent("1장은 올릴 수 없어요");
-    expect(notice).not.toHaveTextContent("선택했어요");
+    expect(screen.getByRole("heading", { name: "올릴 수 없는 형식이에요" })).toBeInTheDocument();
+    expect(screen.getByText(/note\.txt/)).toBeInTheDocument();
   });
 
   it("전부 올라가면 실패 모달이 뜨지 않는다", async () => {
@@ -230,7 +245,7 @@ describe("MediaUploader", () => {
 
     // 고른 건 두 장인데 깨진 건 한 장이다. 장수는 실패분만 센다.
     expect(
-      await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" }),
+      await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" }),
     ).toBeInTheDocument();
   });
 
@@ -241,13 +256,13 @@ describe("MediaUploader", () => {
 
     renderUploader();
     await user.upload(getFileInput(), [fileOf("첫째.jpg"), fileOf("둘째.png", 1024, "image/png")]);
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     // 첫 판의 기록은 지우고, 재시도가 새로 쏘는 것만 본다.
     keys.length = 0;
 
-    await user.click(screen.getByRole("button", { name: "재시도" }));
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await user.click(screen.getByRole("button", { name: "실패만 재시도" }));
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     // 멀쩡히 올라간 첫째.jpg 를 또 올리면 갤러리에 같은 사진이 두 장 생긴다.
     expect(keys.length).toBeGreaterThan(0);
@@ -260,11 +275,11 @@ describe("MediaUploader", () => {
     failUploadsOf(".png");
     renderUploader();
     await user.upload(getFileInput(), [fileOf("둘째.png", 1024, "image/png")]);
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     const release = holdUploads();
 
-    await user.click(screen.getByRole("button", { name: "재시도" }));
+    await user.click(screen.getByRole("button", { name: "실패만 재시도" }));
 
     expect(screen.getByRole("progressbar")).toBeInTheDocument();
     expect(failureHeading()).not.toBeInTheDocument();
@@ -279,7 +294,7 @@ describe("MediaUploader", () => {
     failUploadsOf(".png");
     renderUploader();
     await user.upload(getFileInput(), [fileOf("둘째.png", 1024, "image/png")]);
-    await screen.findByRole("heading", { name: "앗, 1장을 못올렸어요" });
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
 
     await user.click(screen.getByText("닫기"));
 

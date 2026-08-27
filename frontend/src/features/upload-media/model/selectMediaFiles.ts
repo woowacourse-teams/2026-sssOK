@@ -1,3 +1,4 @@
+import { formatBytes } from "../lib/formatBytes";
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, maxBytesOf, mediaKindOf } from "../lib/mediaFileRules";
 
 /**
@@ -9,6 +10,8 @@ export type SelectionRejectionCode = "UNSUPPORTED_FILE_TYPE" | "FILE_SIZE_EXCEED
 
 export interface RejectedSelection {
   fileName: string;
+  /** 실제 크기. 한도를 얼마나 넘었는지 화면이 보여줘야 사용자가 무엇을 뺄지 안다. */
+  size: number;
   code: SelectionRejectionCode;
   message: string;
 }
@@ -19,10 +22,14 @@ export interface MediaSelection {
   rejected: RejectedSelection[];
 }
 
+/**
+ * 사유 문구는 시안(07d)을 따른다. **한도가 아니라 "넘었다"를 말한다** —
+ * 한도 자체는 모달 아래 칩이 항상 보여주고 있어서, 파일마다 반복하면 같은 말이 두 번이다.
+ */
 const UNSUPPORTED_MESSAGE = "이미지와 영상만 올릴 수 있어요";
 const OVERSIZED_MESSAGE: Record<"IMAGE" | "VIDEO", string> = {
-  IMAGE: `사진은 ${MAX_IMAGE_BYTES / 1024 / 1024}MB까지 올릴 수 있어요`,
-  VIDEO: `영상은 ${MAX_VIDEO_BYTES / 1024 / 1024 / 1024}GB까지 올릴 수 있어요`,
+  IMAGE: `이미지 최대 ${formatBytes(MAX_IMAGE_BYTES)} 초과`,
+  VIDEO: `영상 최대 ${formatBytes(MAX_VIDEO_BYTES)} 초과`,
 };
 
 /**
@@ -41,6 +48,7 @@ export const selectMediaFiles = (files: File[]): MediaSelection => {
     if (kind === null) {
       rejected.push({
         fileName: file.name,
+        size: file.size,
         code: "UNSUPPORTED_FILE_TYPE",
         message: UNSUPPORTED_MESSAGE,
       });
@@ -50,6 +58,7 @@ export const selectMediaFiles = (files: File[]): MediaSelection => {
     if (file.size > maxBytesOf(kind)) {
       rejected.push({
         fileName: file.name,
+        size: file.size,
         code: "FILE_SIZE_EXCEEDED",
         message: OVERSIZED_MESSAGE[kind],
       });
