@@ -1,0 +1,128 @@
+package com.sssok.infrastructure.storage;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.sssok.domain.file.MediaType;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.infrastructure.config.R2Properties;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Duration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
+
+// 실제 R2 에 붙어 서명 URL 과 HeadObject 가 동작하는지 확인한다.
+// 자격증명이 없으면 조용히 건너뛰므로 CI 는 이 테스트 없이도 통과한다.
+// 자격증명은 backend/.env 에 두며, 재현 방법은 docs/backend/R2_PRESIGNED_UPLOAD.md 에 있다.
+@EnabledIf("hasCredentials")
+class R2FileStorageAdapterTest {
+
+    private static final Map<String, String> CONFIG = loadConfig();
+    private static final byte[] BODY = {(byte) 0x89, 'P', 'N', 'G'};
+
+    private StorageKey uploaded;
+
+    static boolean hasCredentials() {
+        return List.of("R2_ENDPOINT", "R2_ACCESS_KEY", "R2_SECRET_KEY", "R2_BUCKET").stream()
+            .allMatch(key -> CONFIG.get(key) != null && !CONFIG.get(key).isBlank());
+    }
+
+    private R2FileStorageAdapter adapter() {
+        return new R2FileStorageAdapter(new R2Properties(
+            CONFIG.get("R2_ENDPOINT"), CONFIG.get("R2_ACCESS_KEY"), CONFIG.get("R2_SECRET_KEY"),
+            CONFIG.get("R2_BUCKET"), CONFIG.get("R2_PUBLIC_BASE_URL")));
+    }
+
+    @AfterEach
+    void cleanUp() {
+        if (uploaded != null) {
+            adapter().delete(uploaded);
+            uploaded = null;
+        }
+    }
+
+    private int put(String url, String contentType) {
+        try {
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
+                .PUT(HttpRequest.BodyPublishers.ofByteArray(BODY));
+            if (contentType != null) {
+                request.header("Content-Type", contentType);
+            }
+            HttpResponse<Void> response = HttpClient.newHttpClient()
+                .send(request.build(), HttpResponse.BodyHandlers.discarding());
+            return response.statusCode();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Test
+    void 발급한_URL_로_실제_업로드가_된다() {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+        String url = adapter.presignPut(key, "image/png", Duration.ofMinutes(10));
+
+        assertThat(put(url, "image/png")).isEqualTo(200);
+        uploaded = key;
+    }
+
+    @Test
+    void 서명한_것과_다른_ContentType_은_거부된다() {
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+        String url = adapter().presignPut(key, "image/png", Duration.ofMinutes(10));
+
+        // Content-Type 이 서명 대상이라 값이 다르거나 빠지면 통과하지 못한다.
+        assertThat(put(url, "application/octet-stream")).isEqualTo(403);
+        assertThat(put(url, null)).isEqualTo(403);
+    }
+
+
+    @Test
+    void 없는_키를_지워도_실패하지_않는다() {
+        // 정리 배치가 다시 돌아도 안전해야 한다.
+        adapter().delete(StorageKey.generate(1L, MediaType.PNG));
+    }
+
+    private static Map<String, String> loadConfig() {
+        Map<String, String> config = new HashMap<>();
+        Path envFile = Path.of(".env");
+        if (Files.exists(envFile)) {
+            try {
+                for (String line : Files.readAllLines(envFile)) {
+                    String trimmed = line.trim();
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        continue;
+                    }
+                    int separator = trimmed.indexOf('=');
+                    if (separator > 0) {
+                        config.put(trimmed.substring(0, separator).trim(),
+                            trimmed.substring(separator + 1).trim());
+                    }
+                }
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+        for (String key : List.of("R2_ENDPOINT", "R2_ACCESS_KEY", "R2_SECRET_KEY",
+            "R2_BUCKET", "R2_PUBLIC_BASE_URL")) {
+            String value = System.getenv(key);
+            if (value != null && !value.isBlank()) {
+                config.put(key, value);
+            }
+        }
+        return config;
+    }
+}

@@ -10,6 +10,15 @@ spring:
   flyway:
     enabled: false
 
+# 서명 URL 생성은 네트워크를 타지 않아 형식만 맞으면 된다. 실제 R2 호출은 테스트에서 목으로 대체한다.
+storage:
+  r2:
+    endpoint: https://dummy.r2.cloudflarestorage.com
+    access-key: dummy-access-key
+    secret-key: dummy-secret-key
+    bucket: sssok-test
+    public-base-url: https://dummy.example.com
+
 # 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
 jwt:
   secret: mvtcAhMGbXlhpJ4JuIvRWJVF+yMUju6PxRCb/FMojgA=

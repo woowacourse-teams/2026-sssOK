@@ -2,27 +2,24 @@ package com.sssok.domain.file;
 
 import java.util.Set;
 
+// RESERVED 는 서명 URL 만 나가고 스토리지에는 아직 아무것도 없는 상태라, 목록에 보이면 안 된다.
 public enum UploadStatus {
 
-    PENDING,
-    UPLOADING,
-    COMPLETED,
+    RESERVED,
+    PROCESSING,
+    READY,
     FAILED;
 
-    private static final Set<UploadStatus> FROM_PENDING = Set.of(UPLOADING, FAILED);
-    private static final Set<UploadStatus> FROM_UPLOADING = Set.of(COMPLETED, FAILED);
-    private static final Set<UploadStatus> FROM_FAILED = Set.of(UPLOADING);
+    private static final Set<UploadStatus> FROM_RESERVED = Set.of(PROCESSING, FAILED);
+    private static final Set<UploadStatus> FROM_PROCESSING = Set.of(READY, FAILED);
+    private static final Set<UploadStatus> FROM_FAILED = Set.of(PROCESSING);
 
     public boolean canTransitionTo(UploadStatus next) {
         return switch (this) {
-            case PENDING -> FROM_PENDING.contains(next);
-            case UPLOADING -> FROM_UPLOADING.contains(next);
+            case RESERVED -> FROM_RESERVED.contains(next);
+            case PROCESSING -> FROM_PROCESSING.contains(next);
             case FAILED -> FROM_FAILED.contains(next);
-            case COMPLETED -> false;
+            case READY -> false;
         };
-    }
-
-    public boolean isRetryable() {
-        return this == FAILED;
     }
 }
