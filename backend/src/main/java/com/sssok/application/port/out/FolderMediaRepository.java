@@ -37,4 +37,7 @@ public interface FolderMediaRepository {
     // 주어진 미디어들이 (호출 시점 기준) 속해 있는 폴더 id를 중복 없이 반환한다.
     // 폴더 미지정 꺼내기에서 "영향받은 폴더" 목록을 만드는 용도.
     List<Long> findFolderIdsContainingMedia(List<Long> mediaIds);
+
+    // 미디어별로 담긴 폴더 목록. 어느 폴더에도 없으면 결과에 없다.
+    Map<Long, List<Long>> findFolderIdsByMedia(List<Long> mediaIds);
 }
