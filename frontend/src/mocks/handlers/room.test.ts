@@ -24,6 +24,20 @@ describe("GET /rooms/{code} 목 핸들러", () => {
     expect(body.data.code).toBe(MOCK_ROOM_CODES.active);
   });
 
+  it("1일 방과 3일 방의 만료 시각을 각각 24시간과 72시간 뒤로 내려준다", async () => {
+    const now = Date.now();
+    const active = await (await getRoom(MOCK_ROOM_CODES.active)).json();
+    const second = await (await getRoom(MOCK_ROOM_CODES.second)).json();
+
+    const activeRemainingHours = (Date.parse(active.data.expiresAt) - now) / 3_600_000;
+    const secondRemainingHours = (Date.parse(second.data.expiresAt) - now) / 3_600_000;
+
+    expect(activeRemainingHours).toBeGreaterThan(23.99);
+    expect(activeRemainingHours).toBeLessThanOrEqual(24);
+    expect(secondRemainingHours).toBeGreaterThan(71.99);
+    expect(secondRemainingHours).toBeLessThanOrEqual(72);
+  });
+
   it("만료된 방도 404 가 아니라 200 과 EXPIRED 상태로 내려준다", async () => {
     const response = await getRoom(MOCK_ROOM_CODES.expired);
     const body = await response.json();
@@ -213,13 +227,14 @@ describe("GET /rooms/{roomId}/media 목 핸들러", () => {
 
 describe("PATCH /rooms/{roomId} 목 핸들러", () => {
   it("전달한 필드만 수정한다", async () => {
+    const requestedAt = Date.now();
     const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
       method: "PATCH",
       headers: { Authorization: TOKEN, "Content-Type": "application/json" },
       body: JSON.stringify({
         name: "제주 3박 4일",
         uploadPolicy: "host",
-        expiryHours: 12,
+        expiryHours: 24,
       }),
     });
     const body = await response.json();
@@ -231,9 +246,25 @@ describe("PATCH /rooms/{roomId} 목 핸들러", () => {
         name: "제주 3박 4일",
         status: "ACTIVE",
         uploadPolicy: "host",
-        expiresAt: "2026-08-18T18:00:00.000Z",
       }),
     );
+    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeGreaterThanOrEqual(24 * 3_600_000);
+    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeLessThan(24 * 3_600_000 + 1_000);
+  });
+
+  it("3일로 변경하면 요청 시각으로부터 72시간 뒤로 만료를 연장한다", async () => {
+    const requestedAt = Date.now();
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
+      method: "PATCH",
+      headers: { Authorization: TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({ expiryHours: 72 }),
+    });
+    const body = await response.json();
+
+    expect(body.data.name).toBe("제주 여행");
+    expect(body.data.uploadPolicy).toBe("everyone");
+    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeGreaterThanOrEqual(72 * 3_600_000);
+    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeLessThan(72 * 3_600_000 + 1_000);
   });
 
   it("수정할 필드가 없으면 400을 내려준다", async () => {

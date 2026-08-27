@@ -8,7 +8,7 @@ import { originalUrlOf, registeredMediaOf, thumbnailUrlOf, type GalleryMedia } f
  * backend 의 RoomCode 값 객체와 같은 규칙이다.
  */
 const ROOM_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
-const MOCK_NOW = new Date("2026-08-18T06:00:00Z");
+const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
 
 /** 시나리오별 고정 코드. 테스트와 수동 확인에서 함께 쓴다. */
 export const MOCK_ROOM_CODES = {
@@ -39,6 +39,25 @@ const ROOM_IDS: Record<string, number> = {
   [MOCK_ROOM_CODES.hostOnly]: 5035,
   [MOCK_ROOM_CODES.purged]: 5036,
 };
+
+const ROOM_EXPIRY_HOURS: Record<string, 24 | 72> = {
+  [MOCK_ROOM_CODES.active]: 24,
+  [MOCK_ROOM_CODES.second]: 72,
+  [MOCK_ROOM_CODES.hostOnly]: 24,
+};
+
+const createRoomExpiresAt = () => {
+  const now = Date.now();
+
+  return Object.fromEntries(
+    Object.entries(ROOM_EXPIRY_HOURS).map(([code, expiryHours]) => [
+      code,
+      new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
+    ]),
+  ) as Record<string, string>;
+};
+
+let roomExpiresAt = createRoomExpiresAt();
 
 /**
  * 방마다 가진 폴더. backend `RoomFolderResponse` 와 같은 모양이다.
@@ -152,7 +171,10 @@ const room = (code: string, status: RoomStatus, joined = false) => {
     uploadPolicy: uploadPolicyOf(code),
     joined,
     createdAt: "2026-08-18T05:30:00Z",
-    expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
+    expiresAt:
+      status === "ACTIVE"
+        ? roomExpiresAt[code]
+        : new Date(Date.now() - 24 * HOUR_IN_MILLISECONDS).toISOString(),
     /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
     photoCount: foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0),
     /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
@@ -325,6 +347,7 @@ export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 export const resetRoomHandlers = () => {
   resetJoinedRooms();
   activeRoomOverrides = {};
+  roomExpiresAt = createRoomExpiresAt();
 };
 
 const unauthorized = () =>
@@ -431,11 +454,13 @@ export const roomHandlers = [
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { name, uploadPolicy } = (await request.json()) as {
+    const { name, uploadPolicy, expiryHours } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
       expiryHours: 24 | 72;
     };
+
+    const now = Date.now();
 
     return HttpResponse.json(
       {
@@ -445,8 +470,8 @@ export const roomHandlers = [
           name,
           hostId: MOCK_HOST_ID,
           hostName: "민수",
-          createdAt: "2026-08-18T05:30:00Z",
-          expiresAt: "2026-08-19T05:30:00Z",
+          createdAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,
@@ -481,12 +506,11 @@ export const roomHandlers = [
 
     activeRoomOverrides = {
       ...activeRoomOverrides,
-      name: updates.name ?? activeRoomOverrides.name,
-      uploadPolicy: updates.uploadPolicy ?? activeRoomOverrides.uploadPolicy,
-      expiresAt:
-        updates.expiryHours === undefined
-          ? activeRoomOverrides.expiresAt
-          : new Date(MOCK_NOW.getTime() + updates.expiryHours * 60 * 60 * 1000).toISOString(),
+      ...(updates.name !== undefined && { name: updates.name }),
+      ...(updates.uploadPolicy !== undefined && { uploadPolicy: updates.uploadPolicy }),
+      ...(updates.expiryHours !== undefined && {
+        expiresAt: new Date(Date.now() + updates.expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
+      }),
     };
 
     return HttpResponse.json({ data: room(MOCK_ROOM_CODES.active, "ACTIVE", true) });
