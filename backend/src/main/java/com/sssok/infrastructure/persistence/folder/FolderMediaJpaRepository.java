@@ -24,8 +24,15 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
     @Query("select distinct f.mediaId from FolderMediaJpaEntity f where f.mediaId in :mediaIds")
     List<Long> findDistinctMediaIdsByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
 
+    // 미디어별로 어떤 폴더에 담겼는지. 미디어마다 따로 조회하면 N+1 이 된다.
+    @Query("select f.mediaId, f.folderId from FolderMediaJpaEntity f where f.mediaId in :mediaIds")
+    List<Object[]> findMediaFolderPairs(@Param("mediaIds") List<Long> mediaIds);
+
     @Query("select distinct f.folderId from FolderMediaJpaEntity f where f.mediaId in :mediaIds")
     List<Long> findDistinctFolderIdsByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
+
+    @Query("select f.mediaId from FolderMediaJpaEntity f where f.folderId = :folderId")
+    List<Long> findMediaIdsByFolderId(@Param("folderId") Long folderId);
 
     // folder_media는 folder와 매핑 관계가 없는 순수 인프라 테이블이라(도메인 계층 없음),
     // room_id로 조인해 지우려면 네이티브 쿼리가 필요하다.

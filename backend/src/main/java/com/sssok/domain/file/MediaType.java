@@ -35,6 +35,16 @@ public enum MediaType {
                 .orElseThrow(() -> new UnsupportedMediaTypeException(extension));
     }
 
+    // 클라이언트가 보낸 MIME 은 신뢰하지 않고 허용 목록에 있는지 대조한다.
+    // 여기서 통과한 값 그대로 서명해야 업로드가 깨지지 않는다(R2_PRESIGNED_UPLOAD.md 참고).
+    public static MediaType fromMimeType(String mimeType) {
+        String normalized = normalize(mimeType);
+        return Arrays.stream(values())
+                .filter(type -> type.contentType.equals(normalized))
+                .findFirst()
+                .orElseThrow(() -> new UnsupportedMediaTypeException(mimeType));
+    }
+
     public static MediaType fromFileName(String fileName) {
         if (fileName == null || !fileName.contains(".")) {
             throw new UnsupportedMediaTypeException(fileName);

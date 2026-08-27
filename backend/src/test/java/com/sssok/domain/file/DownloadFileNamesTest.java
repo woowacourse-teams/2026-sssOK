@@ -8,8 +8,39 @@ import org.junit.jupiter.api.Test;
 class DownloadFileNamesTest {
 
     @Test
-    void zip_파일명은_방코드를_포함한다() {
-        assertThat(DownloadFileNames.zipNameOf("A3F9K2M7")).isEqualTo("ShareDrop_A3F9K2M7.zip");
+    void zip_파일명은_방ID를_포함한다() {
+        assertThat(DownloadFileNames.zipNameOf(1024L)).isEqualTo("sssOK_1024.zip");
+    }
+
+    @Test
+    void ASCII_파일명은_그대로_두_형식에_다_쓰인다() {
+        String disposition = DownloadFileNames.contentDispositionOf("IMG_0421.jpg");
+
+        assertThat(disposition).isEqualTo(
+            "attachment; filename=\"IMG_0421.jpg\"; filename*=UTF-8''IMG_0421.jpg");
+    }
+
+    @Test
+    void 한글_파일명은_ASCII_폴백과_UTF8_인코딩을_함께_담는다() {
+        String disposition = DownloadFileNames.contentDispositionOf("사진.jpg");
+
+        assertThat(disposition).isEqualTo(
+            "attachment; filename=\"download.jpg\"; filename*=UTF-8''%EC%82%AC%EC%A7%84.jpg");
+    }
+
+    @Test
+    void 확장자가_없는_비ASCII_파일명은_확장자_없이_폴백한다() {
+        String disposition = DownloadFileNames.contentDispositionOf("사진");
+
+        assertThat(disposition).isEqualTo(
+            "attachment; filename=\"download\"; filename*=UTF-8''%EC%82%AC%EC%A7%84");
+    }
+
+    @Test
+    void ASCII_파일명에_큰따옴표가_있으면_작은따옴표로_치환한다() {
+        String disposition = DownloadFileNames.contentDispositionOf("my \"vacation\".jpg");
+
+        assertThat(disposition).contains("filename=\"my 'vacation'.jpg\"");
     }
 
     @Test
