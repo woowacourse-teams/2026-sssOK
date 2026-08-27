@@ -125,6 +125,46 @@ describe("uploadFiles", () => {
     ]);
   });
 
+  it("발급을 통과한 목록을 첫 PUT 전에 한 번 알린다", async () => {
+    await enterRoom();
+    const onStarted = jest.fn();
+    let putSeen = false;
+
+    server.use(
+      http.put(`${MOCK_R2_BASE_URL}/*`, () => {
+        putSeen = true;
+
+        return new HttpResponse(null, { status: 200 });
+      }),
+    );
+
+    await run([fileOf("메모.txt", 3, "text/plain"), fileOf("첫째.jpg", 5)], {
+      onStarted: (targets) => {
+        // 진행 바의 분모가 잡히는 시점이다. 한 장이라도 나간 뒤면 늦다.
+        expect(putSeen).toBe(false);
+        onStarted(targets);
+      },
+    });
+
+    // 거절된 메모.txt 는 빠지고, 올라갈 파일만 크기와 함께 온다.
+    expect(onStarted).toHaveBeenCalledTimes(1);
+    expect(onStarted).toHaveBeenCalledWith([
+      expect.objectContaining({ fileName: "첫째.jpg", size: 5 }),
+    ]);
+  });
+
+  it("PUT 이 끝난 파일만, 끝나는 대로 하나씩 알린다", async () => {
+    await enterRoom();
+    interceptPuts({ statusOf: (key) => (key.endsWith(".png") ? 500 : 200) });
+    const onUploaded = jest.fn();
+
+    await run([fileOf("첫째.jpg", 3), fileOf("둘째.png", 7, "image/png")], { onUploaded });
+
+    // 재시도를 다 쓰고 실패한 파일은 세지 않는다. 등록을 기다리지도 않는다.
+    expect(onUploaded).toHaveBeenCalledTimes(1);
+    expect(onUploaded).toHaveBeenCalledWith(expect.objectContaining({ fileName: "첫째.jpg" }));
+  });
+
   it("거절된 파일은 쏘지 않고 나머지만 올린다", async () => {
     await enterRoom();
     const { records } = interceptPuts();
@@ -213,6 +253,23 @@ describe("uploadFiles", () => {
     expect(result.registered.length + result.failed.length).toBe(5);
   });
 
+  it("이름이 같은 파일이 나란히 깨져도 각자의 원본을 실어 준다", async () => {
+    await enterRoom();
+    // 사진첩에서 같은 이름이 겹치는 건 드문 일이 아니다. 크기로만 서로 구별된다.
+    const first = fileOf("해변.jpg", 3);
+    const second = fileOf("해변.jpg", 7);
+
+    interceptPuts({ statusOf: () => 500 });
+
+    const result = await run([first, second]);
+    const failedFiles = result.failed.map((failure) => failure.file);
+
+    // 이름으로 되찾았다면 둘 중 한 쪽을 두 번 집어, 나머지 한 장은 영영 다시 못 올린다.
+    expect(result.failed).toHaveLength(2);
+    expect(failedFiles.includes(first)).toBe(true);
+    expect(failedFiles.includes(second)).toBe(true);
+  });
+
   it("등록이 이미 완료됐다고 답하면 실패로 세지 않는다", async () => {
     await enterRoom();
 
@@ -235,5 +292,9 @@ describe("uploadFiles", () => {
     const result = await run([fileOf("첫째.jpg", 3)]);
 
     expect(result.failed).toEqual([]);
+    // 응답에 Media 가 없어 registered 에는 못 담는다. 그래도 서버에는 올라가 있다 —
+    // 이 숫자가 없으면 부르는 쪽이 "아무 일도 없었다" 와 구분할 수 없다.
+    expect(result.registered).toEqual([]);
+    expect(result.alreadyRegistered).toBe(1);
   });
 });
