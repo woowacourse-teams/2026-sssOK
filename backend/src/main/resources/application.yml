@@ -63,6 +63,8 @@ download:
   max-concurrent-jobs-per-requester: 3
   # zip 압축 잡의 보관 기간. READY(압축 완료) 시점부터 센다. 지나면 410, 배치가 실물을 정리한다.
   retention: 1h
+  # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
+  sweep-cron: "0 */10 * * * *"
 
 springdoc:
   swagger-ui:

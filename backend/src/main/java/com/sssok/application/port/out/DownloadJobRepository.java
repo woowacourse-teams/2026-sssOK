@@ -2,6 +2,7 @@ package com.sssok.application.port.out;
 
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,4 +22,7 @@ public interface DownloadJobRepository {
 
     // 이 잡이 압축해야 할 media id 목록. 워커가 실제로 무엇을 zip에 담을지 결정할 때 쓴다.
     List<Long> findMediaIdsByJobId(Long jobId);
+
+    // READY인 채로 threshold(now - retention) 이전에 완료된 잡. 만료 정리 배치가 쓴다.
+    List<DownloadJob> findAllExpiredReady(Instant threshold);
 }

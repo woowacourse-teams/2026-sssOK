@@ -4,6 +4,7 @@ import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,13 @@ public class DownloadJobRepositoryAdapter implements DownloadJobRepository {
     public List<Long> findMediaIdsByJobId(Long jobId) {
         return jobMediaJpaRepository.findAllByDownloadJobId(jobId).stream()
             .map(DownloadJobMediaJpaEntity::getMediaId)
+            .toList();
+    }
+
+    @Override
+    public List<DownloadJob> findAllExpiredReady(Instant threshold) {
+        return jpaRepository.findAllByStatusAndReadyAtBefore(DownloadJobStatus.READY.name(), threshold).stream()
+            .map(this::toDomain)
             .toList();
     }
 
