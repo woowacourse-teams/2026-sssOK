@@ -20,9 +20,11 @@ public enum ErrorCode {
     INVALID_STORAGE_KEY(400, "%s"),
     ILLEGAL_ROOM_STATUS_TRANSITION(400, "허용되지 않는 상태 전이입니다: %s -> %s"),
     ILLEGAL_UPLOAD_STATUS(400, "업로드 상태를 %s 에서 %s 로 바꿀 수 없습니다"),
+    ILLEGAL_DOWNLOAD_JOB_STATUS(400, "다운로드 잡 상태를 %s 에서 %s 로 바꿀 수 없습니다"),
     EMPTY_PATCH(400, "변경할 항목을 하나 이상 보내주세요"),
     INVALID_REQUEST_BODY(400, "요청 본문 형식이 올바르지 않습니다"),
     INVALID_REQUEST_PARAMETER(400, "%s 값의 형식이 올바르지 않습니다"),
+    TOO_MANY_FILES(400, "한 번에 최대 %d개까지 다운로드할 수 있습니다"),
 
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),
@@ -47,6 +49,7 @@ public enum ErrorCode {
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),
+    MEDIA_NOT_READY(409, "아직 처리 중인 미디어입니다"),
 
     // 410 Gone
     ROOM_EXPIRED(410, "이미 사라진 방입니다"),
@@ -59,6 +62,7 @@ public enum ErrorCode {
 
     // 429 Too Many Requests
     UPLOAD_RETRY_EXCEEDED(429, "재시도 횟수를 초과했습니다. 처음부터 다시 올려주세요"),
+    RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
 
     // 415 Unsupported Media Type
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
