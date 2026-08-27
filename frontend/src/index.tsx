@@ -11,7 +11,14 @@ async function enableMocking() {
     return;
   }
   const { startWorker } = await import("@/mocks/browser");
-  await startWorker(MOCK_MODE);
+
+  try {
+    await startWorker(MOCK_MODE);
+  } catch (error) {
+    // 목은 개발 편의일 뿐이라 실패해도 화면은 떠야 한다.
+    // 여기서 던지면 아래 render 가 실행되지 않아 앱이 통째로 백지가 된다.
+    console.error("[MSW] 목을 띄우지 못했습니다. 실서버 응답으로 계속합니다.", error);
+  }
 }
 
 async function bootstrap() {
