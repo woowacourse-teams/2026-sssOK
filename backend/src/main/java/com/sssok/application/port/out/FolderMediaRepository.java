@@ -37,4 +37,7 @@ public interface FolderMediaRepository {
     // 주어진 미디어들이 (호출 시점 기준) 속해 있는 폴더 id를 중복 없이 반환한다.
     // 폴더 미지정 꺼내기에서 "영향받은 폴더" 목록을 만드는 용도.
     List<Long> findFolderIdsContainingMedia(List<Long> mediaIds);
+
+    // 이 폴더에 담긴 미디어 id 전체를 반환한다. 폴더 단위 zip 다운로드의 대상 산정에 쓴다.
+    List<Long> findMediaIdsByFolderId(Long folderId);
 }

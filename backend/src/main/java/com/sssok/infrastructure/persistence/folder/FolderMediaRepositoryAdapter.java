@@ -71,4 +71,9 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     public List<Long> findFolderIdsContainingMedia(List<Long> mediaIds) {
         return jpaRepository.findDistinctFolderIdsByMediaIdIn(mediaIds);
     }
+
+    @Override
+    public List<Long> findMediaIdsByFolderId(Long folderId) {
+        return jpaRepository.findMediaIdsByFolderId(folderId);
+    }
 }
