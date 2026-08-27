@@ -4,6 +4,8 @@ import java.time.Instant;
 
 import com.sssok.domain.file.exception.FileSizeExceededException;
 import com.sssok.domain.file.exception.IllegalUploadStatusException;
+import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
+import com.sssok.domain.file.exception.UploadRetryExceededException;
 import lombok.Getter;
 
 @Getter
@@ -14,7 +16,7 @@ public class StoredFile {
     private final Long uploaderId;
     private final String originalFileName;
     private final MediaType mediaType;
-    private final FileSize fileSize;
+    private FileSize fileSize;
     private final StorageKey storageKey;
     private final Instant createdAt;
 
@@ -70,6 +72,25 @@ public class StoredFile {
 
     public void startProcessing() {
         transitionTo(UploadStatus.PROCESSING);
+    }
+
+    // 이미 올라간 파일을 덮어쓰지 못하게 RESERVED·FAILED 에서만 허용한다.
+    // 정리 배치 기준 시각을 지금으로 미뤄, 재시도 중인 파일이 회수되지 않게 한다.
+    public void reissueUploadUrl(int maxRetryCount, Instant now) {
+        if (!status.canReissueUploadUrl()) {
+            throw new UploadAlreadyCompletedException();
+        }
+        if (retryCount >= maxRetryCount) {
+            throw new UploadRetryExceededException(maxRetryCount);
+        }
+        retryCount++;
+        reservedAt = now;
+    }
+
+    // 재압축해서 다시 올리는 경우에만 크기가 바뀐다.
+    public void changeFileSize(FileSize newFileSize) {
+        validateSize(mediaType, newFileSize);
+        this.fileSize = newFileSize;
     }
 
     // 스토리지에 실제로 올라온 것이 발급 때 신고한 값과 같은지 확인한다.

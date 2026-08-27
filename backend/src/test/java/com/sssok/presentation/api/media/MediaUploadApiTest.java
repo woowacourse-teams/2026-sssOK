@@ -158,7 +158,31 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
     }
 
+    @Test
+    void 재발급하면_같은_미디어_ID로_새_URL을_받는다() throws Exception {
+        String issued = issue(oneImage()).andReturn().getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
 
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", roomId, mediaId)
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.mediaId").value(mediaId))
+            .andExpect(jsonPath("$.data.retryCount").value(1));
+    }
+
+    @Test
+    void 남의_예약은_재발급할_수_없다() throws Exception {
+        String issued = issue(oneImage()).andReturn().getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
+
+        AuthResult guest = anonymousAuthService.authenticate("민수");
+        joinRoomService.join(roomId, guest.userId());
+
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", roomId, mediaId)
+                .header("Authorization", "Bearer " + guest.accessToken()))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("MEDIA_FORBIDDEN"));
+    }
 
     @Test
     void 입장하지_않은_사용자는_발급받을_수_없다() throws Exception {
