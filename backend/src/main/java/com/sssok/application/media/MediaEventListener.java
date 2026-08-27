@@ -21,4 +21,12 @@ public class MediaEventListener {
     public void handle(MediaCreatedEvent event) {
         eventPublisher.publish(event.roomId(), "media.created", event.media());
     }
+
+    // 썸네일이 붙어 목록에 실제로 그릴 수 있게 된 시점. 프론트는 media.created 로 자리를 잡아두고
+    // 이 이벤트로 같은 mediaId 의 항목을 갈아끼운다.
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handle(MediaReadyEvent event) {
+        eventPublisher.publish(event.roomId(), "media.ready", event.media());
+    }
 }

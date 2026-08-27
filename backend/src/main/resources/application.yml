@@ -55,6 +55,13 @@ media:
   resize-target-width: 1600
   # GIF는 애니메이션이 깨지므로 리사이즈/압축 대상에서 제외한다
   skip-formats: gif
+  thumbnail:
+    # 목록 타일 기준 너비. 고해상도 화면에서도 흐리지 않을 만큼만 크게 잡는다
+    max-width: 400
+    # 이 시간이 지나도 PROCESSING이면 재시작·실패로 작업이 사라진 것으로 보고 다시 태운다
+    stuck-after: 10m
+    sweep-batch-size: 50
+    sweep-cron: "0 */5 * * * *"
 
 download:
   # 단건 다운로드 리다이렉트 대상 서명 URL의 유효기간
