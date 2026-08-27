@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/shared/config";
 import { runWithLimit, waitUnlessAborted } from "@/shared/lib";
 import { createDownloadJob } from "../api/createDownloadJob";
+import { DOWNLOAD_CONCURRENCY, INDIVIDUAL_SAVE_GAP_MS } from "../config";
 import {
   downloadMessageOfError,
   downloadMessageOfStatus,
@@ -20,19 +21,6 @@ import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } fr
  * - `individual` → 단건 다운로드(B-6)를 장수만큼. 받아온 바이트를 하나씩 파일로 떨군다.
  * - `zip` → 압축 잡(B-7)을 하나 만들고, 서버가 묶는 동안 상태를 되묻는다. 프론트는 압축하지 않는다.
  */
-
-/**
- * 동시에 4개까지만 받는다. 업로드(`UPLOAD_CONCURRENCY`)와 같은 이유다 —
- * 한꺼번에 30개를 열면 회선을 나눠 갖느라 전부 느려지고, 폰에서는 연결 수 자체가 막힌다.
- */
-const DOWNLOAD_CONCURRENCY = 4;
-
-/**
- * 개별 저장 사이의 간격. 브라우저는 짧은 시간에 몰아친 저장을 "원치 않는 다운로드"로 보고
- * 두 번째부터 막는다. 틈을 두면 크롬은 "여러 파일 다운로드를 허용하시겠습니까"를 한 번 묻고
- * 나머지를 통과시킨다.
- */
-const INDIVIDUAL_SAVE_GAP_MS = 400;
 
 export interface DownloadMediaParams {
   roomId: number;
