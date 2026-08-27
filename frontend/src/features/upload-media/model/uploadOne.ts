@@ -3,7 +3,7 @@ import { reissueUploadUrl } from "../api/reissueUploadUrl";
 import type { IssuedUpload } from "../api/types";
 import { MAX_AUTO_RETRY, RETRY_BACKOFF_MS } from "../config";
 import { putToStorage } from "../lib/putToStorage";
-import { waitUnlessAborted } from "../lib/waitUnlessAborted";
+import { waitUnlessAborted } from "@/shared/lib";
 import type { FailedUpload, UploadFailureCode, UploadProgress } from "./types";
 
 export interface UploadOneParams {
