@@ -1,9 +1,10 @@
-import { HiEllipsisHorizontal, HiLink } from "react-icons/hi2";
+import { HiLink } from "react-icons/hi2";
 
 import { RoomSessionBadge } from "@/entities/session";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Row } from "@/shared/ui/row";
 import { Stack } from "@/shared/ui/stack";
+import { RoomMenuButton } from "./RoomMenuButton";
 import { RoomRemainingTime } from "./RoomRemainingTime";
 import { Header, RoomTitle } from "./RoomSummary.styles";
 
@@ -12,9 +13,18 @@ interface RoomSummaryProps {
   hostId: number;
   expiresAt: string;
   roomName: string;
+  onOpenSettings?: () => void;
+  onDeleteRoom?: () => void;
 }
 
-export const RoomSummary = ({ roomCode, hostId, expiresAt, roomName }: RoomSummaryProps) => {
+export const RoomSummary = ({
+  roomCode,
+  hostId,
+  expiresAt,
+  roomName,
+  onOpenSettings,
+  onDeleteRoom,
+}: RoomSummaryProps) => {
   return (
     <Header>
       <Stack gap={8}>
@@ -29,9 +39,7 @@ export const RoomSummary = ({ roomCode, hostId, expiresAt, roomName }: RoomSumma
             <IconButton size="sm" aria-label="방 링크 복사">
               <HiLink />
             </IconButton>
-            <IconButton size="sm" aria-label="방 메뉴 열기">
-              <HiEllipsisHorizontal />
-            </IconButton>
+            <RoomMenuButton onOpenSettings={onOpenSettings} onDeleteRoom={onDeleteRoom} />
           </Row>
         </Row>
       </Stack>

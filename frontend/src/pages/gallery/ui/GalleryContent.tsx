@@ -1,9 +1,14 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey } from "@/entities/media";
 import type { Room } from "@/entities/room";
+import { removeRoomSession } from "@/entities/session";
+import { DeleteRoomModal } from "@/features/delete-room";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MediaUploader } from "@/features/upload-media";
+import { ROUTES } from "@/shared/config";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
 import { PhotoGallery } from "@/widgets/photo-gallery";
@@ -20,7 +25,13 @@ interface GalleryContentProps {
 }
 
 export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  // 모달
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  // 옵션 선택
   const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
 
   // 사진 조회
@@ -32,6 +43,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     selectedOption,
   });
 
+  // 사진 선택
   const photoIds = photos.map((photo) => photo.mediaId);
   const { selectedPhotoIds, isAllSelected, togglePhoto, toggleAllPhotos, clearSelection } =
     usePhotoSelection(photoIds);
@@ -54,6 +66,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         hostId={room.hostId}
         expiresAt={room.expiresAt}
         roomName={room.name}
+        onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
+        onDeleteRoom={() => setIsDeleteModalOpen(true)}
       />
       <FolderFilter
         totalCount={room.photoCount}
@@ -98,6 +112,20 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         token={accessToken}
         onClearSelection={clearSelection}
       />
+
+      {isDeleteModalOpen && (
+        <DeleteRoomModal
+          roomId={room.roomId}
+          accessToken={accessToken}
+          onClose={() => setIsDeleteModalOpen(false)}
+          onSuccess={() => {
+            removeRoomSession(room.code);
+            queryClient.removeQueries({ queryKey: ["room", room.code] });
+            queryClient.removeQueries({ queryKey: ["photos", room.roomId] });
+            navigate(ROUTES.home, { replace: true });
+          }}
+        />
+      )}
     </Page>
   );
 };
