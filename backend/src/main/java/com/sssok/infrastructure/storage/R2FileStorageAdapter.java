@@ -3,6 +3,7 @@ package com.sssok.infrastructure.storage;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.R2Properties;
+import jakarta.annotation.PreDestroy;
 import java.net.URI;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
@@ -92,6 +93,17 @@ public class R2FileStorageAdapter implements FileStoragePort {
             }
         }
         return local;
+    }
+
+    // S3Client 는 안에 커넥션 풀과 스레드를 들고 있어, 닫지 않으면 종료가 늦어진다.
+    @PreDestroy
+    void closeClients() {
+        if (presigner != null) {
+            presigner.close();
+        }
+        if (client != null) {
+            client.close();
+        }
     }
 
     private StaticCredentialsProvider credentials() {
