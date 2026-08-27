@@ -94,6 +94,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       <SelectionDownloadBar
         targets={downloadTargets}
         roomId={room.roomId}
+        roomCode={room.code}
         token={accessToken}
         onClearSelection={clearSelection}
       />
