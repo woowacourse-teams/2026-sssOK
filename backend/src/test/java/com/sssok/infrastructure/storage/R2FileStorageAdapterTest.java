@@ -2,6 +2,7 @@ package com.sssok.infrastructure.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sssok.application.port.out.FileStoragePort.UploadedObject;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.R2Properties;
@@ -17,6 +18,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
@@ -70,13 +72,18 @@ class R2FileStorageAdapterTest {
     }
 
     @Test
-    void 발급한_URL_로_실제_업로드가_된다() {
+    void 발급한_URL_로_올리고_올라온_것을_되읽는다() {
         R2FileStorageAdapter adapter = adapter();
         StorageKey key = StorageKey.generate(1L, MediaType.PNG);
         String url = adapter.presignPut(key, "image/png", Duration.ofMinutes(10));
 
         assertThat(put(url, "image/png")).isEqualTo(200);
         uploaded = key;
+
+        Optional<UploadedObject> found = adapter.findUploaded(key);
+        assertThat(found).isPresent();
+        assertThat(found.get().sizeBytes()).isEqualTo(BODY.length);
+        assertThat(found.get().contentType()).isEqualTo("image/png");
     }
 
     @Test
@@ -89,6 +96,14 @@ class R2FileStorageAdapterTest {
         assertThat(put(url, null)).isEqualTo(403);
     }
 
+    @Test
+    void 올리지_않은_키는_비어_있다() {
+        Optional<UploadedObject> found =
+            adapter().findUploaded(StorageKey.generate(1L, MediaType.PNG));
+
+        // 완료 등록이 이 결과로 위조를 걸러낸다.
+        assertThat(found).isEmpty();
+    }
 
     @Test
     void 없는_키를_지워도_실패하지_않는다() {

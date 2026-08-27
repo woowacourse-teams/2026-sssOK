@@ -30,7 +30,8 @@ public class RoomEventJpaEntity extends BaseEntity {
     @Column(name = "event_type", nullable = false, length = 50)
     private String eventType;
 
-    @Column(name = "payload", nullable = false)
+    // 마이그레이션은 TEXT 인데 명시하지 않으면 VARCHAR(255) 로 잡혀, 긴 payload 가 잘린다.
+    @Column(name = "payload", nullable = false, columnDefinition = "TEXT")
     private String payload;
 
     public RoomEventJpaEntity(Long roomId, String eventType, String payload, Instant createdAt) {

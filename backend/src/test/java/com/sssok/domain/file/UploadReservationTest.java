@@ -57,4 +57,29 @@ class UploadReservationTest {
     }
 
 
+    @Nested
+    class 실제_업로드_대조 {
+
+        @Test
+        void 크기와_MIME_이_모두_같아야_통과한다() {
+            StoredFile file = reserved();
+
+            assertThat(file.matchesUploaded(FileSize.ofMegabytes(1).bytes(), "image/png")).isTrue();
+        }
+
+        @Test
+        void 크기가_다르면_거부한다() {
+            StoredFile file = reserved();
+
+            assertThat(file.matchesUploaded(FileSize.ofMegabytes(2).bytes(), "image/png")).isFalse();
+        }
+
+        @Test
+        void MIME_이_다르면_거부한다() {
+            StoredFile file = reserved();
+
+            // 신고는 png 로 하고 실제로는 다른 것을 올리는 위조를 막는다.
+            assertThat(file.matchesUploaded(FileSize.ofMegabytes(1).bytes(), "video/mp4")).isFalse();
+        }
+    }
 }
