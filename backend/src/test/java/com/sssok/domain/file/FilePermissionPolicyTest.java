@@ -16,7 +16,7 @@ class FilePermissionPolicyTest {
     private static final boolean NOT_HOST = false;
 
     private static StoredFile fileOf(Long uploaderId) {
-        return StoredFile.beginUpload(1L, uploaderId, "cat.png", FileSize.ofMegabytes(1), null, NOW);
+        return StoredFile.reserve(1L, uploaderId, "cat.png", "image/png", FileSize.ofMegabytes(1), NOW);
     }
 
     @Test

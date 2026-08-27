@@ -34,11 +34,14 @@ public class WebConfig implements WebMvcConfigurer {
             controllerType -> controllerType.getPackageName().startsWith(API_SUB_PACKAGE_PREFIX));
     }
 
-    // 방 존재/만료/입장 여부(404·410·403)를 폴더·미디어-폴더 API 공통으로 검증한다.
+    // 방 존재/만료/입장 여부(404·410·403)를 폴더·미디어 API 공통으로 검증한다.
     // 방 자체를 다루는 RoomController는 호스트 권한으로 별도 판정하므로 대상에서 뺀다.
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(roomMembershipInterceptor)
-            .addPathPatterns(API_PREFIX + "/rooms/*/folders/**", API_PREFIX + "/rooms/*/media/folders");
+            .addPathPatterns(
+                API_PREFIX + "/rooms/*/folders/**",
+                API_PREFIX + "/rooms/*/media",
+                API_PREFIX + "/rooms/*/media/**");
     }
 }

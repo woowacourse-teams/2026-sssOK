@@ -4,3 +4,13 @@
  * 여기 적는 순간 밖에서 써도 된다는 뜻이 되므로, 실제로 쓰는 곳이 생길 때 연다.
  */
 export { MediaUploader } from "./ui/MediaUploader";
+
+export { uploadFiles } from "./model/uploadFiles";
+export type {
+  FailedUpload,
+  UploadFailureCode,
+  UploadFilesOptions,
+  UploadProgress,
+  UploadResult,
+} from "./model/types";
+export type { RejectedFile } from "./api/types";
