@@ -1,5 +1,6 @@
 package com.sssok.infrastructure.storage;
 
+import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.R2Properties;
@@ -97,6 +98,11 @@ public class R2FileStorageAdapter implements FileStoragePort {
             .key(storageKey.value())
             .build();
         return client().getObject(get, ResponseTransformer.toInputStream());
+    }
+
+    @Override
+    public AbortableOutputStream openUploadStream(StorageKey storageKey, String contentType) {
+        return new S3MultipartOutputStream(client(), properties.bucket(), storageKey.value(), contentType);
     }
 
     @Override

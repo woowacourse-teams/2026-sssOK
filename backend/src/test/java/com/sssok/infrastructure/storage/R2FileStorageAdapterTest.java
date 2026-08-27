@@ -2,6 +2,7 @@ package com.sssok.infrastructure.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileStoragePort.UploadedObject;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
@@ -10,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.util.Random;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -125,6 +127,57 @@ class R2FileStorageAdapterTest {
         try (InputStream in = adapter.openDownloadStream(key)) {
             assertThat(in.readAllBytes()).isEqualTo(BODY);
         }
+    }
+
+    @Test
+    void 파트_크기보다_작은_데이터를_멀티파트로_올리고_그대로_받는다() throws IOException {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+        byte[] data = randomBytes(1024);
+
+        AbortableOutputStream out = adapter.openUploadStream(key, "application/zip");
+        out.write(data);
+        out.close();
+        uploaded = key;
+
+        try (InputStream in = adapter.openDownloadStream(key)) {
+            assertThat(in.readAllBytes()).isEqualTo(data);
+        }
+    }
+
+    @Test
+    void 파트_경계를_넘는_큰_데이터를_멀티파트로_올리고_그대로_받는다() throws IOException {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+        // 8MB 파트 크기를 넘겨서 최소 두 파트로 나뉘어 올라가는지 확인한다.
+        byte[] data = randomBytes(9 * 1024 * 1024);
+
+        AbortableOutputStream out = adapter.openUploadStream(key, "application/zip");
+        out.write(data);
+        out.close();
+        uploaded = key;
+
+        try (InputStream in = adapter.openDownloadStream(key)) {
+            assertThat(in.readAllBytes()).isEqualTo(data);
+        }
+    }
+
+    @Test
+    void abort하면_업로드가_완료되지_않고_남지_않는다() throws IOException {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
+
+        AbortableOutputStream out = adapter.openUploadStream(key, "application/zip");
+        out.write(randomBytes(1024), 0, 1024);
+        out.abort();
+
+        assertThat(adapter.findUploaded(key)).isEmpty();
+    }
+
+    private byte[] randomBytes(int size) {
+        byte[] data = new byte[size];
+        new Random(42).nextBytes(data);
+        return data;
     }
 
     @Test
