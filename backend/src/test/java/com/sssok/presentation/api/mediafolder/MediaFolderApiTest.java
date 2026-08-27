@@ -237,8 +237,9 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long mediaId = MEDIA_ID_SEQUENCE.incrementAndGet();
         jdbcTemplate.update("""
             INSERT INTO stored_file
-                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes, storage_key, status, created_at, updated_at)
-            VALUES (?, 1, 1, 'test.jpg', 'JPEG', 1024, ?, 'COMPLETED', now(), now())
+                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes,
+                 storage_key, status, created_at, updated_at, reserved_at, retry_count)
+            VALUES (?, 1, 1, 'test.jpg', 'JPEG', 1024, ?, 'READY', now(), now(), now(), 0)
             """, mediaId, "test-key-" + mediaId);
         return mediaId;
     }

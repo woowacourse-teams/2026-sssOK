@@ -20,10 +20,15 @@ public class StoredFile {
 
     private Long folderId;
     private UploadStatus status;
+    // 서명 URL 을 마지막으로 내준 시각. 고아 정리 배치(#77)가 이 값을 기준으로 회수한다.
+    // createdAt 을 쓰면 재시도 중인 파일이 지워져서 따로 둔다.
+    private Instant reservedAt;
+    private int retryCount;
 
     private StoredFile(Long id, Long roomId, Long uploaderId, String originalFileName,
                        MediaType mediaType, FileSize fileSize, StorageKey storageKey,
-                       Long folderId, UploadStatus status, Instant createdAt) {
+                       Long folderId, UploadStatus status, Instant createdAt,
+                       Instant reservedAt, int retryCount) {
         this.id = id;
         this.roomId = roomId;
         this.uploaderId = uploaderId;
@@ -34,23 +39,27 @@ public class StoredFile {
         this.folderId = folderId;
         this.status = status;
         this.createdAt = createdAt;
+        this.reservedAt = reservedAt;
+        this.retryCount = retryCount;
     }
 
-    public static StoredFile beginUpload(Long roomId, Long uploaderId, String originalFileName,
-                                         FileSize fileSize, Long folderId, Instant now) {
-        MediaType mediaType = MediaType.fromFileName(originalFileName);
+    // 클라이언트가 보낸 MIME 으로 타입을 정한다. 파일명 확장자는 위조하기 쉬워 기준으로 쓰지 않는다.
+    public static StoredFile reserve(Long roomId, Long uploaderId, String originalFileName,
+                                     String mimeType, FileSize fileSize, Instant now) {
+        MediaType mediaType = MediaType.fromMimeType(mimeType);
         validateSize(mediaType, fileSize);
 
         return new StoredFile(null, roomId, uploaderId, originalFileName, mediaType, fileSize,
-                StorageKey.generate(roomId, mediaType), folderId, UploadStatus.PENDING, now);
+                StorageKey.generate(roomId, mediaType), null, UploadStatus.RESERVED, now, now, 0);
     }
 
     public static StoredFile reconstruct(Long id, Long roomId, Long uploaderId,
                                          String originalFileName, MediaType mediaType,
                                          FileSize fileSize, StorageKey storageKey, Long folderId,
-                                         UploadStatus status, Instant createdAt) {
+                                         UploadStatus status, Instant createdAt,
+                                         Instant reservedAt, int retryCount) {
         return new StoredFile(id, roomId, uploaderId, originalFileName, mediaType, fileSize,
-                storageKey, folderId, status, createdAt);
+                storageKey, folderId, status, createdAt, reservedAt, retryCount);
     }
 
     private static void validateSize(MediaType mediaType, FileSize fileSize) {
@@ -59,23 +68,16 @@ public class StoredFile {
         }
     }
 
-    public void startUploading() {
-        transitionTo(UploadStatus.UPLOADING);
+    public void startProcessing() {
+        transitionTo(UploadStatus.PROCESSING);
     }
 
-    public void completeUpload() {
-        transitionTo(UploadStatus.COMPLETED);
+    public void markReady() {
+        transitionTo(UploadStatus.READY);
     }
 
     public void failUpload() {
         transitionTo(UploadStatus.FAILED);
-    }
-
-    public void retryUpload() {
-        if (!status.isRetryable()) {
-            throw new IllegalUploadStatusException(status, UploadStatus.UPLOADING);
-        }
-        transitionTo(UploadStatus.UPLOADING);
     }
 
     private void transitionTo(UploadStatus next) {
