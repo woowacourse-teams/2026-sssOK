@@ -24,10 +24,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
 @SpringBootTest
 @ActiveProfiles("test")
+@Transactional
 class GetDownloadJobStatusServiceTest {
 
     private static final Long ROOM_ID = 1L;
