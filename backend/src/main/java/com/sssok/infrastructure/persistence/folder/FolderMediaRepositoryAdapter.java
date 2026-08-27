@@ -68,6 +68,17 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     }
 
     @Override
+    public Map<Long, List<Long>> findFolderIdsByMedia(List<Long> mediaIds) {
+        if (mediaIds.isEmpty()) {
+            return Map.of();
+        }
+        return jpaRepository.findMediaFolderPairs(mediaIds).stream()
+            .collect(Collectors.groupingBy(
+                pair -> (Long) pair[0],
+                Collectors.mapping(pair -> (Long) pair[1], Collectors.toList())));
+    }
+
+    @Override
     public List<Long> findFolderIdsContainingMedia(List<Long> mediaIds) {
         return jpaRepository.findDistinctFolderIdsByMediaIdIn(mediaIds);
     }
