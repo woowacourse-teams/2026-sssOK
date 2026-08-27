@@ -35,12 +35,14 @@ public enum ErrorCode {
     NOT_ROOM_MEMBER(403, "입장한 방에서만 이용할 수 있습니다"),
     UPLOAD_NOT_ALLOWED(403, "방장만 업로드할 수 있는 방입니다"),
     MEDIA_FORBIDDEN(403, "본인이 요청한 업로드가 아닙니다"),
+    DOWNLOAD_FORBIDDEN(403, "본인이 요청한 다운로드가 아닙니다"),
 
     // 404 Not Found
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
     LINK_CODE_NOT_FOUND(404, "유효하지 않은 코드입니다"),
     FOLDER_NOT_FOUND(404, "존재하지 않는 폴더입니다: %s"),
     MEDIA_NOT_FOUND(404, "업로드 요청을 찾을 수 없습니다"),
+    DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
 
     // 405 Method Not Allowed
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
@@ -55,6 +57,7 @@ public enum ErrorCode {
     ROOM_EXPIRED(410, "이미 사라진 방입니다"),
     ROOM_ALREADY_DELETED(410, "이미 삭제되었거나 만료된 방입니다"),
     LINK_CODE_EXPIRED(410, "만료된 코드입니다"),
+    DOWNLOAD_EXPIRED(410, "다운로드 기한이 지났습니다"),
 
     // 413 Payload Too Large
     FILE_SIZE_EXCEEDED(413, "%s 파일은 최대 %d바이트까지 업로드할 수 있습니다. (요청: %d바이트)"),

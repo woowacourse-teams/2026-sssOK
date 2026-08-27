@@ -2,6 +2,8 @@ package com.sssok.presentation.api.download;
 
 import com.sssok.application.download.CreateDownloadJobResult;
 import com.sssok.application.download.CreateDownloadJobService;
+import com.sssok.application.download.GetDownloadJobStatusResult;
+import com.sssok.application.download.GetDownloadJobStatusService;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
@@ -9,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class DownloadController {
 
     private final CreateDownloadJobService createDownloadJobService;
+    private final GetDownloadJobStatusService getDownloadJobStatusService;
 
     @Operation(
         summary = "zip 다운로드 요청",
@@ -41,5 +45,21 @@ public class DownloadController {
         CreateDownloadJobResult result =
             createDownloadJobService.create(roomId, memberId, request.mediaIds(), request.folderId());
         return ApiResponse.of(CreateDownloadJobResponse.from(result));
+    }
+
+    @Operation(
+        summary = "zip 다운로드 상태 조회",
+        description = "압축 작업의 진행 상태를 조회하고, 완료되면 다운로드 URL을 받는다. 본인이 요청한 잡만 조회할 수 "
+            + "있고, 아니면 403이 난다. 없는 jobId는 404, 보관 기간(기본 1시간, READY 시점부터 계산)이 지났으면 "
+            + "410이 난다. downloadUrl/expiresAt은 READY일 때만 채워지며, 조회할 때마다 새로 서명한다."
+    )
+    @GetMapping("/{jobId}")
+    public ApiResponse<GetDownloadJobStatusResponse> status(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "B-7-1에서 받은 압축 작업 ID") @PathVariable Long jobId
+    ) {
+        GetDownloadJobStatusResult result = getDownloadJobStatusService.getStatus(jobId, memberId);
+        return ApiResponse.of(GetDownloadJobStatusResponse.from(result));
     }
 }

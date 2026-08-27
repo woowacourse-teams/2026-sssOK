@@ -3,12 +3,18 @@ package com.sssok.presentation.api.download;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.download.CreateDownloadJobResult;
 import com.sssok.application.download.CreateDownloadJobService;
+import com.sssok.application.download.GetDownloadJobStatusResult;
+import com.sssok.application.download.GetDownloadJobStatusService;
+import com.sssok.application.download.exception.DownloadExpiredException;
+import com.sssok.application.download.exception.DownloadForbiddenException;
+import com.sssok.application.download.exception.DownloadNotFoundException;
 import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.application.download.exception.InvalidDownloadParamException;
 import com.sssok.application.download.exception.TooManyFilesException;
@@ -48,6 +54,9 @@ class DownloadControllerTest {
 
     @MockitoBean
     CreateDownloadJobService createDownloadJobService;
+
+    @MockitoBean
+    GetDownloadJobStatusService getDownloadJobStatusService;
 
     @MockitoBean
     TokenProvider tokenProvider;
@@ -140,6 +149,63 @@ class DownloadControllerTest {
         mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"mediaIds\":[1]}"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    private ResultActions getJobStatus(Long jobId) throws Exception {
+        return mockMvc.perform(get("/api/v1/rooms/{roomId}/downloads/{jobId}", ROOM_ID, jobId)
+            .header("Authorization", BEARER));
+    }
+
+    @Test
+    void 상태_조회하면_200과_잡_상태를_반환한다() throws Exception {
+        Instant expiresAt = Instant.parse("2026-08-27T12:00:00Z");
+        GetDownloadJobStatusResult result = new GetDownloadJobStatusResult(
+            1L, DownloadJobStatus.READY, 100, 3, "sssOK_10.zip",
+            "https://storage.example.com/zip-signed", expiresAt, null);
+        given(getDownloadJobStatusService.getStatus(anyLong(), anyLong())).willReturn(result);
+
+        getJobStatus(1L)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.jobId").value(1))
+            .andExpect(jsonPath("$.data.status").value("READY"))
+            .andExpect(jsonPath("$.data.progress").value(100))
+            .andExpect(jsonPath("$.data.downloadUrl").value("https://storage.example.com/zip-signed"));
+    }
+
+    @Test
+    void 본인이_아닌_잡을_조회하면_403() throws Exception {
+        given(getDownloadJobStatusService.getStatus(anyLong(), anyLong()))
+            .willThrow(new DownloadForbiddenException());
+
+        getJobStatus(1L)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("DOWNLOAD_FORBIDDEN"));
+    }
+
+    @Test
+    void 없는_잡을_조회하면_404() throws Exception {
+        given(getDownloadJobStatusService.getStatus(anyLong(), anyLong()))
+            .willThrow(new DownloadNotFoundException());
+
+        getJobStatus(999L)
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("DOWNLOAD_NOT_FOUND"));
+    }
+
+    @Test
+    void 보관_기간이_지난_잡을_조회하면_410() throws Exception {
+        given(getDownloadJobStatusService.getStatus(anyLong(), anyLong()))
+            .willThrow(new DownloadExpiredException());
+
+        getJobStatus(1L)
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("DOWNLOAD_EXPIRED"));
+    }
+
+    @Test
+    void 상태_조회도_인증_없이_요청하면_401() throws Exception {
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/downloads/{jobId}", ROOM_ID, 1L))
             .andExpect(status().isUnauthorized());
     }
 }
