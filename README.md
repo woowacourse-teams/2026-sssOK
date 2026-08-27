@@ -40,8 +40,13 @@ cd backend
 
 ```bash
 cd frontend
-# TODO
+pnpm install
+pnpm start
 ```
+
+`pnpm start` 는 실제 서버(`https://api.ssssok.com/api/v1`)에 붙는다.
+서버 없이 목만으로 돌리려면 `pnpm start:mock` 을 쓴다.
+자세히: [백엔드 API 연동](./docs/frontend/BACKEND_INTEGRATION.md)
 
 ## 협업 문서
 
@@ -55,6 +60,7 @@ cd frontend
 | [PR 규칙](./docs/collaboration/PR_GUIDE.md) | PR 생성 조건, 리뷰, 머지 조건 |
 | [배포 가이드](./docs/deployment/DEPLOYMENT.md) | 서버 세팅, 배포·롤백, DB 마이그레이션 |
 | [트러블슈팅 기록](./docs/troubleshooting/TROUBLESHOOTING.md) | 증상·원인·해결 순서로 정리한 문제 해결 기록 |
+| [백엔드 API 연동](./docs/frontend/BACKEND_INTEGRATION.md) | 서버 주소, 실행 모드, 아직 목으로 메운 구멍 |
 | [요구사항 문서](./docs/requirements/) | PRD, 기능 명세, 화면 정의서 — [PRD.md](./docs/requirements/PRD.md)부터 시작 |
 
 ## 개발 워크플로우 요약
