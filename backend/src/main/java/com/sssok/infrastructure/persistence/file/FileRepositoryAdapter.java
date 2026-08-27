@@ -92,6 +92,13 @@ public class FileRepositoryAdapter implements FileRepository {
         jpaRepository.deleteAllByRoomId(roomId);
     }
 
+    @Override
+    public void deleteAllByIdIn(List<Long> ids) {
+        if (!ids.isEmpty()) {
+            jpaRepository.deleteAllByIdInBatch(ids);
+        }
+    }
+
     // 상태를 문자열 컬럼으로 저장하고 있어, 조회 조건도 이름으로 맞춰 넘긴다.
     private List<String> names(Collection<UploadStatus> statuses) {
         return statuses.stream().map(UploadStatus::name).toList();

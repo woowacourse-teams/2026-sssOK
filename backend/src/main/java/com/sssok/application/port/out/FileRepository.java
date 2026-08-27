@@ -37,4 +37,6 @@ public interface FileRepository {
     List<Long> findStuckInProcessing(Instant stuckBefore, int limit);
 
     void deleteAllByRoomId(Long roomId);
+
+    void deleteAllByIdIn(List<Long> ids);
 }
