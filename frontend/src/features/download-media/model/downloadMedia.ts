@@ -1,5 +1,5 @@
-import { API_BASE_URL } from "@/shared/config";
 import { runWithLimit, waitUnlessAborted } from "@/shared/lib";
+import { createBatchDownload } from "../api/createBatchDownload";
 import { createDownloadJob } from "../api/createDownloadJob";
 import { DOWNLOAD_CONCURRENCY, INDIVIDUAL_SAVE_GAP_MS } from "../config";
 import {
@@ -19,7 +19,8 @@ import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } fr
  * 고른 미디어를 사용자가 고른 방식으로 넘긴다.
  *
  * **방식에 따라 서버 API 가 완전히 갈린다.**
- * - `individual`·`share` → 단건 다운로드(B-6)를 장수만큼. 받아온 바이트를 파일로 떨구거나 시트로 넘긴다.
+ * - `individual`·`share` → 서명 URL 을 한 번에 받아(B-6) 장수만큼 내려받고,
+ *   받아온 바이트를 파일로 떨구거나 공유 시트로 넘긴다.
  * - `zip` → 압축 잡(B-7)을 하나 만들고, 서버가 묶는 동안 상태를 되묻는다. 프론트는 압축하지 않는다.
  */
 
@@ -45,21 +46,32 @@ const toFile = ({ blob, target }: FetchedMedia) =>
   // 공유 시트는 Blob 이 아니라 File 을 요구한다. 이름이 있어야 사진첩에 제대로 들어간다.
   new File([blob], target.fileName, { type: blob.type || target.mimeType });
 
-/** B-6 은 302 로 스토리지를 가리킨다. fetch 가 그 리다이렉트를 그대로 따라간다. */
-const downloadUrlOf = (roomId: number, mediaId: number) =>
-  `${API_BASE_URL}/rooms/${roomId}/downloads/media/${mediaId}`;
-
-/** 장수만큼 단건 다운로드를 돌린다. 실패는 값으로 모으고 나머지는 계속 받는다. */
+/**
+ * 장수만큼 내려받는다. 실패는 값으로 모으고 나머지는 계속 받는다.
+ *
+ * `urlByMediaId` 는 발급받은 서명 URL 이다. **토큰을 넘기지 않는다** —
+ * 우리 서버가 아니라 스토리지로 바로 가는 요청이라, 헤더를 얹으면 서명과 어긋난다
+ * (`createBatchDownload` 주석 참고).
+ */
 const fetchAll = async (
-  { roomId, targets, token, signal, onProgress, onDownloaded }: DownloadMediaParams,
+  { targets, signal, onProgress, onDownloaded }: DownloadMediaParams,
+  urlByMediaId: Map<number, string>,
   failed: FailedDownload[],
 ) => {
   let aborted = false;
 
   const results = await runWithLimit(targets, DOWNLOAD_CONCURRENCY, async (target) => {
+    const url = urlByMediaId.get(target.mediaId);
+
+    if (url === undefined) {
+      // 서버가 대상에서 뺐다 (처리 중이거나 사라진 미디어다). 받아볼 주소 자체가 없다.
+      failed.push({ mediaId: target.mediaId, fileName: target.fileName, status: 404 });
+
+      return null;
+    }
+
     const result = await fetchMediaBlob({
-      url: downloadUrlOf(roomId, target.mediaId),
-      token,
+      url,
       size: target.size,
       signal,
       onProgress: (loaded, total) => onProgress?.({ mediaId: target.mediaId, loaded, total }),
@@ -165,7 +177,29 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
     return { type: "saved", savedCount: settled.mediaCount, failed };
   }
 
-  const { fetched, aborted } = await fetchAll(params, failed);
+  /*
+   * 받기 전에 서명 URL 을 한 번에 발급받는다. 여기서 거절당하면(404 대상 없음·400 등)
+   * 받을 것이 하나도 없으므로 판 전체가 무너진 것으로 본다 — zip 의 잡 생성 실패와 같다.
+   */
+  let issued;
+
+  try {
+    issued = await createBatchDownload({
+      roomId,
+      token,
+      mediaIds: targets.map((target) => target.mediaId),
+    });
+  } catch (error) {
+    return {
+      type: "failed",
+      reason: downloadMessageOfError(error),
+      isRetryable: isRetryableError(error),
+    };
+  }
+
+  const urlByMediaId = new Map(issued.files.map((file) => [file.mediaId, file.downloadUrl]));
+
+  const { fetched, aborted } = await fetchAll(params, urlByMediaId, failed);
 
   if (aborted || signal?.aborted) {
     return { type: "aborted" };
