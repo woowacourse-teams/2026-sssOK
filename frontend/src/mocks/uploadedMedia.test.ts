@@ -96,7 +96,11 @@ describe("하이브리드 목이 챙겨두는 업로드 실물", () => {
 
   it("서명 쿼리가 달라도 같은 경로면 같은 실물이다", () => {
     rememberUploadTarget(1, `${STORAGE}/a.png?X-Amz-Signature=first`);
-    rememberUploadedBytes(`${STORAGE}/a.png?X-Amz-Signature=second`, "image/png", new ArrayBuffer(3));
+    rememberUploadedBytes(
+      `${STORAGE}/a.png?X-Amz-Signature=second`,
+      "image/png",
+      new ArrayBuffer(3),
+    );
 
     expect(uploadedUrlOf(1)).toMatch(/^blob:/);
   });
