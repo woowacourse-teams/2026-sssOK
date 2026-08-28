@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "미디어 조회", description = "방에 올라온 미디어의 메타데이터와, 화면에 그릴 썸네일·원본을 읽는다. 저장 목적의 다운로드는 다운로드 API가 맡는다.")
@@ -41,11 +42,13 @@ public class MediaQueryController {
     @GetMapping
     public ApiResponse<MediaListResponse> getMediaList(
         @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(hidden = true) @RequestHeader("Authorization") String authorization,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "이 폴더에 담긴 미디어만 조회한다. 생략하면 방 전체")
         @RequestParam(required = false) Long folderId
     ) {
-        return ApiResponse.of(MediaListResponse.from(getMediaListService.list(roomId, folderId)));
+        return ApiResponse.of(MediaListResponse.from(
+            getMediaListService.list(roomId, folderId), accessToken(authorization)));
     }
 
     @Operation(
@@ -62,16 +65,19 @@ public class MediaQueryController {
     @GetMapping("/{mediaId}")
     public ApiResponse<MediaFullResponse> getMedia(
         @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(hidden = true) @RequestHeader("Authorization") String authorization,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "조회할 미디어 ID") @PathVariable Long mediaId
     ) {
         return ApiResponse.of(
-            MediaFullResponse.from(getMediaService.get(roomId, mediaId, memberId)));
+            MediaFullResponse.from(
+                getMediaService.get(roomId, mediaId, memberId), accessToken(authorization)));
     }
 
     @Operation(
         summary = "썸네일 표시",
         description = "목록 타일에 그릴 축소본이다. 조회 응답의 thumbnailUrl이 가리키는 주소이며, "
+            + "브라우저 img 태그를 위해 이 경로에서만 token 쿼리 파라미터 인증을 허용한다. "
             + "유효기간 5분짜리 서명 URL로 302 리다이렉트한다. inline이라 브라우저가 그대로 표시하므로 "
             + "img 태그에 바로 걸 수 있다. 서명 URL을 조회 응답에 직접 싣지 않고 이 경로를 거치게 한 것은, "
             + "목록을 캐싱해도 URL이 만료되지 않게 하고 방 참여자만 볼 수 있도록 하기 위해서다. "
@@ -80,7 +86,7 @@ public class MediaQueryController {
     )
     @GetMapping("/{mediaId}/thumbnail")
     public ResponseEntity<Void> thumbnail(
-        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(hidden = true) @AuthMember(allowQueryToken = true) Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "썸네일을 볼 미디어 ID") @PathVariable Long mediaId
     ) {
@@ -107,5 +113,9 @@ public class MediaQueryController {
     // 서버가 바이트를 프록시하지 않고 스토리지 서명 URL 로 넘긴다.
     private ResponseEntity<Void> redirectTo(String url) {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
+    }
+
+    private String accessToken(String authorization) {
+        return authorization.substring("Bearer ".length());
     }
 }

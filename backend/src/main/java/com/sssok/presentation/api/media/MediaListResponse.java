@@ -9,7 +9,9 @@ import java.util.List;
 public record MediaListResponse(
     @Schema(description = "최신순으로 정렬된 미디어 목록") List<MediaResponse> items
 ) {
-    public static MediaListResponse from(List<MediaDetail> details) {
-        return new MediaListResponse(details.stream().map(MediaResponse::from).toList());
+    public static MediaListResponse from(List<MediaDetail> details, String accessToken) {
+        return new MediaListResponse(details.stream()
+            .map(detail -> MediaResponse.from(detail, accessToken))
+            .toList());
     }
 }

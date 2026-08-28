@@ -17,9 +17,9 @@ public record MediaFullResponse(
     @Schema(description = "요청자가 이 미디어를 지울 수 있는지. 올린 본인과 방장만 true")
     boolean canDelete
 ) {
-    public static MediaFullResponse from(MediaFullDetail detail) {
+    public static MediaFullResponse from(MediaFullDetail detail, String accessToken) {
         return new MediaFullResponse(
-            MediaResponse.from(detail.media()),
+            MediaResponse.from(detail.media(), accessToken),
             detail.takenAt(),
             LocationResponse.from(detail.location()),
             detail.canDelete());
