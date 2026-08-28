@@ -89,7 +89,7 @@ class MediaQueryControllerTest {
 
     @Test
     void 목록을_조회하면_200과_items_를_반환한다() throws Exception {
-        given(getMediaListService.list(anyLong(), any())).willReturn(List.of(media()));
+        given(getMediaListService.list(anyLong(), any())).willReturn(List.of(mediaWithThumbnail()));
 
         getMediaList("")
             .andExpect(status().isOk())
@@ -102,7 +102,8 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.items[0].uploaderId").value(7))
             .andExpect(jsonPath("$.data.items[0].uploaderName").value("가현"))
             .andExpect(jsonPath("$.data.items[0].folderIds[0]").value(FOLDER_ID))
-            .andExpect(jsonPath("$.data.items[0].thumbnailUrl").doesNotExist())
+            .andExpect(jsonPath("$.data.items[0].thumbnailUrl")
+                .value("/api/v1/rooms/10/media/5012/thumbnail?token=valid-token"))
             .andExpect(jsonPath("$.data.items[0].uploadedAt").exists());
     }
 
@@ -153,6 +154,8 @@ class MediaQueryControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.mediaId").value(MEDIA_ID))
             .andExpect(jsonPath("$.data.fileName").value("사진.jpg"))
+            .andExpect(jsonPath("$.data.thumbnailUrl")
+                .value("/api/v1/rooms/10/media/5012/thumbnail?token=valid-token"))
             .andExpect(jsonPath("$.data.folderIds[0]").value(FOLDER_ID));
     }
 
@@ -193,7 +196,7 @@ class MediaQueryControllerTest {
     }
 
     private MediaFullDetail fullDetail() {
-        return new MediaFullDetail(media(), Instant.parse("2026-08-01T12:30:00Z"),
+        return new MediaFullDetail(mediaWithThumbnail(), Instant.parse("2026-08-01T12:30:00Z"),
             new GeoPoint(new BigDecimal("37.566500"), new BigDecimal("126.978000")), true);
     }
 
@@ -207,6 +210,25 @@ class MediaQueryControllerTest {
                 .header("Authorization", BEARER))
             .andExpect(status().isFound())
             .andExpect(header().string("Location", "https://storage.example.com/thumb"));
+    }
+
+    @Test
+    void 썸네일은_쿼리_토큰으로도_요청할_수_있다() throws Exception {
+        given(getThumbnailUrlService.getUrl(ROOM_ID, MEDIA_ID))
+            .willReturn("https://storage.example.com/thumb");
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/thumbnail", ROOM_ID, MEDIA_ID)
+                .param("token", "valid-token"))
+            .andExpect(status().isFound())
+            .andExpect(header().string("Location", "https://storage.example.com/thumb"));
+    }
+
+    @Test
+    void 잘못된_Authorization_헤더가_있으면_쿼리_토큰으로_대체하지_않는다() throws Exception {
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/thumbnail", ROOM_ID, MEDIA_ID)
+                .header("Authorization", "Basic invalid-token")
+                .param("token", "valid-token"))
+            .andExpect(status().isUnauthorized());
     }
 
     // 미디어는 있는데 썸네일만 없는 경우다. 없는 미디어와 코드로 구분된다.
@@ -246,6 +268,13 @@ class MediaQueryControllerTest {
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             null, null, null, null, null, List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+    }
+
+    private MediaDetail mediaWithThumbnail() {
+        return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
+            "/api/v1/rooms/10/media/5012/thumbnail",
+            "/api/v1/rooms/10/media/5012/original", 1200, 900, null,
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
     private ResultActions getMediaList(String query) throws Exception {
