@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey } from "@/entities/media";
 import type { Room } from "@/entities/room";
+import { SelectionDownloadBar } from "@/features/download-media";
 import { MediaUploader } from "@/features/upload-media";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -34,6 +35,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const photoIds = photos.map((photo) => photo.mediaId);
   const { selectedPhotoIds, isAllSelected, togglePhoto, toggleAllPhotos, clearSelection } =
     usePhotoSelection(photoIds);
+
+  // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
+  // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
+  const downloadTargets = photos
+    .filter((photo) => selectedPhotoIds.includes(photo.mediaId))
+    .map((photo) => ({
+      mediaId: photo.mediaId,
+      fileName: photo.fileName,
+      size: photo.size,
+      mimeType: photo.mimeType,
+    }));
 
   return (
     <Page>
@@ -78,6 +90,12 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         isPending={isPending}
         isError={isError}
         onTogglePhoto={togglePhoto}
+      />
+      <SelectionDownloadBar
+        targets={downloadTargets}
+        roomId={room.roomId}
+        token={accessToken}
+        onClearSelection={clearSelection}
       />
     </Page>
   );

@@ -1,52 +1,63 @@
-import mascotCrying from "@/shared/assets/mascot-crying.png";
 import { Modal } from "@/shared/ui/modal";
+import { uploadFailureReasonOf } from "../lib/uploadFailureReason";
+import type { FailedUpload } from "../model/types";
 import {
   Actions,
   CloseAction,
   Content,
   Description,
-  Mascot,
-  RetryAction,
+  PrimaryAction,
   Title,
-} from "./UploadFailureModal.styles";
+} from "./FailureDialog.styles";
+import { FileReasonList } from "./FileReasonList";
 
 export interface UploadFailureModalProps {
   /**
-   * 못 올린 장수. **재시도가 실제로 다시 올릴 장수와 같아야 한다** —
-   * `retryableFilesOf` 가 추린 목록의 길이를 그대로 넘긴다.
+   * 다시 올릴 수 있는 실패분. **재시도가 실제로 다시 올릴 목록과 같아야 한다** —
+   * `retryableFailuresOf` 가 추린 그대로를 넘긴다.
    */
-  count: number;
+  failures: FailedUpload[];
   onRetry: () => void;
   onClose: () => void;
 }
 
 /**
- * 업로드가 끝났을 때 깨진 파일이 있으면 뜨는 모달 (#74).
+ * 업로드가 끝났을 때 깨진 파일이 있으면 뜨는 모달 (시안 07g).
  *
- * 띄울지 말지는 정하지 않는다 — 부르는 쪽이 렌더링하지 않는 것으로 닫는다.
- * 사유를 나누지도 않는다. 여기 오는 건 전부 "다시 올리면 될 수도 있는" 실패라서
- * 사용자가 고를 것이 재시도냐 닫기냐 둘뿐이다. 파일 자체가 조건에 안 맞는 것(`rejected`)은
- * 애초에 이 모달에 오지 않는다.
+ * **어느 파일이 왜 깨졌는지까지 말한다.** 장수만 알려주면 사용자는 재시도를 누를지
+ * 말지 판단할 근거가 없다 — 회선 문제면 다시 누르면 되고, 특정 파일만 계속 걸리면
+ * 그 파일을 빼야 한다.
+ *
+ * 여기 오는 건 전부 **다시 올리면 될 수도 있는** 실패다. 파일 자체가 조건에 안 맞는 것
+ * (`RejectedFilesModal`)과 사용자가 직접 누른 취소는 애초에 이 모달에 오지 않는다.
  */
-export const UploadFailureModal = ({ count, onRetry, onClose }: UploadFailureModalProps) => {
+export const UploadFailureModal = ({ failures, onRetry, onClose }: UploadFailureModalProps) => {
   return (
-    <Modal onClose={onClose}>
+    // 카드 안에 닫기가 이미 있다. X 를 또 두면 같은 일을 하는 버튼이 둘이 된다.
+    <Modal onClose={onClose} showClose={false}>
       <Content>
-        {/* 장수는 제목이 말한다. 여기서 또 읽어주면 같은 말을 두 번 듣는다. */}
-        <Mascot src={mascotCrying} alt="" />
-        <Title>앗, {count}장을 못올렸어요</Title>
+        <Title>앗, {failures.length}장을 못 올렸어요</Title>
         <Description>
-          예기치 못한 이유로 업로드에 실패했어요
+          네트워크가 끊겼거나 예기치 못한 이유로 실패했어요.
           <br />
-          다시 시도해주세요.
+          실패한 파일만 다시 시도해보세요!
         </Description>
+
+        <FileReasonList
+          items={failures.map(({ fileName, code }) => ({
+            fileName,
+            reason: uploadFailureReasonOf(code),
+          }))}
+        />
+
         <Actions>
-          <CloseAction variant="default" onClick={onClose}>
+          {/* 거절 모달과 같은 크기를 쓴다. 같은 골격인데 버튼 높이만 다르면 다른 화면처럼 보인다. */}
+          <CloseAction variant="default" size="sm" onClick={onClose}>
             닫기
           </CloseAction>
-          <RetryAction variant="primary" onClick={onRetry}>
-            재시도
-          </RetryAction>
+          <PrimaryAction variant="primary" size="sm" onClick={onRetry}>
+            실패만 재시도
+          </PrimaryAction>
         </Actions>
       </Content>
     </Modal>

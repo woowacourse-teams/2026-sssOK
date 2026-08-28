@@ -51,8 +51,13 @@ export const MOCK_R2_BASE_URL = `${MOCK_R2_ORIGIN}/${MOCK_R2_BUCKET}`;
  * "깨진 뒤 다시 올려 성공하는" 흐름까지 손으로 따라갈 수 있다.
  */
 export const UPLOAD_MOCK_MARKERS = {
-  /** PUT 이 500 으로 깨지고 미디어가 FAILED 로 넘어간다 — 실패 UI·재시도 확인용 */
+  /** PUT 이 500 으로 깨지고 미디어가 FAILED 로 넘어간다 — 자동 재발급 확인용. 재시도하면 성공한다 */
   putFailure: "__fail__",
+  /**
+   * PUT 이 **몇 번을 다시 보내도** 깨진다 — 실패 모달(07g)을 손으로 확인하려면 이게 필요하다.
+   * `__fail__` 은 자동 재발급에서 살아나서 모달까지 가지 않는다.
+   */
+  putFailureAlways: "__fail_always__",
   /** 이미 만료된 URL 을 발급한다 — 만료 403 흐름 확인용 */
   expiredUrl: "__expired__",
   /** PUT 응답을 늦춘다 — 진행 바가 화면에 머무는 걸 눈으로 보려고 */
@@ -121,6 +126,7 @@ interface MockMedia {
    */
   uploadedImage: Blob | null;
   failOnPut: boolean;
+  failOnPutAlways: boolean;
   expiredUrl: boolean;
 }
 
@@ -451,6 +457,7 @@ export const uploadHandlers = [
         uploadedImage: null,
         slowUpload: file.fileName.includes(UPLOAD_MOCK_MARKERS.slowUpload),
         failOnPut: file.fileName.includes(UPLOAD_MOCK_MARKERS.putFailure),
+        failOnPutAlways: file.fileName.includes(UPLOAD_MOCK_MARKERS.putFailureAlways),
         expiredUrl: file.fileName.includes(UPLOAD_MOCK_MARKERS.expiredUrl),
       };
 
@@ -486,7 +493,7 @@ export const uploadHandlers = [
       return new HttpResponse(null, { status: 403 });
     }
 
-    if (media.failOnPut && media.retryCount === 0) {
+    if (media.failOnPutAlways || (media.failOnPut && media.retryCount === 0)) {
       media.status = "FAILED";
 
       return new HttpResponse(null, { status: 500 });

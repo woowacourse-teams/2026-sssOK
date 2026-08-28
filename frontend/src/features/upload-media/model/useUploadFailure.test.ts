@@ -25,7 +25,7 @@ describe("useUploadFailure", () => {
     const { result } = renderHook(() => useUploadFailure());
 
     expect(result.current.isOpen).toBe(false);
-    expect(result.current.count).toBe(0);
+    expect(result.current.failures.length).toBe(0);
   });
 
   it("전부 올라가면 모달을 띄우지 않는다", () => {
@@ -43,7 +43,7 @@ describe("useUploadFailure", () => {
     act(() => result.current.settle(resultOf(failed)));
 
     expect(result.current.isOpen).toBe(true);
-    expect(result.current.count).toBe(2);
+    expect(result.current.failures.length).toBe(2);
     expect(result.current.files).toEqual([failed[0].file, failed[1].file]);
   });
 
@@ -73,7 +73,7 @@ describe("useUploadFailure", () => {
     );
     act(() => result.current.settle(resultOf([failureOf("UPLOAD_FAILED")])));
 
-    expect(result.current.count).toBe(1);
+    expect(result.current.failures.length).toBe(1);
   });
 
   it("재시도한 판이 전부 성공하면 그대로 닫힌다", () => {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 
-import { retryableFilesOf } from "./retryableFiles";
-import type { UploadResult } from "./types";
+import { retryableFailuresOf } from "./retryableFiles";
+import type { FailedUpload, UploadResult } from "./types";
 
 /**
  * 실패 모달이 떠 있는 동안의 상태를 들고 있는다 (#74).
@@ -13,7 +13,7 @@ import type { UploadResult } from "./types";
  * 전부 올라갔으면 그대로 닫힌다 — 몇 번을 돌든 같은 규칙 하나로 정해진다.
  */
 export const useUploadFailure = () => {
-  const [files, setFiles] = useState<File[]>([]);
+  const [failures, setFailures] = useState<FailedUpload[]>([]);
 
   /**
    * 업로드 한 판이 끝날 때마다 부른다.
@@ -21,16 +21,17 @@ export const useUploadFailure = () => {
    * 성공분은 건드리지 않는다. 이미 서버에 등록이 끝나 갤러리에 있는 것이라,
    * 실패가 있다고 해서 무를 것이 아니다 (#74 완료 조건).
    */
-  const settle = (result: UploadResult) => setFiles(retryableFilesOf(result.failed));
+  const settle = (result: UploadResult) => setFailures(retryableFailuresOf(result.failed));
 
-  const close = () => setFiles([]);
+  const close = () => setFailures([]);
 
   return {
-    /** 재시도가 다시 올릴 원본. 모달의 N 은 이 길이다 */
-    files,
-    count: files.length,
+    /** 모달이 파일명과 사유를 여기서 읽는다. 모달의 N 도 이 길이다 */
+    failures,
+    /** 재시도가 다시 올릴 원본. 세는 목록과 같은 곳에서 나와야 결과가 어긋나지 않는다 */
+    files: failures.map(({ file }) => file),
     /** 다시 올려볼 것이 하나도 없으면 모달을 띄우지 않는다 */
-    isOpen: files.length > 0,
+    isOpen: failures.length > 0,
     settle,
     close,
   };
