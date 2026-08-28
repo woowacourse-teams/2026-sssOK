@@ -9,6 +9,7 @@ import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomEventRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -37,8 +38,7 @@ public class RoomPurger {
     public void purge(Room room) {
         Set<Long> members = membersOf(room);
 
-        fileRepository.findAllByRoomId(room.getId())
-            .forEach(file -> fileStoragePort.delete(file.getStorageKey()));
+        fileRepository.findAllByRoomId(room.getId()).forEach(this::deleteFromStorage);
 
         fileRepository.deleteAllByRoomId(room.getId());
         // 폴더가 미디어와 맺은 관계를 먼저 끊어야, 폴더를 지운 뒤 folder_media에 고아 행이 남지 않는다.
@@ -49,6 +49,14 @@ public class RoomPurger {
         roomRepository.delete(room);
 
         purgeMembers(members);
+    }
+
+    // 원본과 썸네일은 서로 다른 키라 각각 지워야 한다. 하나만 지우면 남은 쪽이 영영 요금을 먹는다.
+    private void deleteFromStorage(StoredFile file) {
+        fileStoragePort.delete(file.getStorageKey());
+        if (file.getThumbnailKey() != null) {
+            fileStoragePort.delete(file.getThumbnailKey());
+        }
     }
 
     // 방장도 생성 시점에 참여자로 등록되지만, 그 전에 만들어진 방은 기록이 없어 따로 넣는다.

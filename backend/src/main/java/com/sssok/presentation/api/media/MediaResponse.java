@@ -2,6 +2,8 @@ package com.sssok.presentation.api.media;
 
 import com.sssok.application.media.MediaDetail;
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -12,7 +14,8 @@ public record MediaResponse(
     String fileName,
     String mimeType,
     long size,
-    @Schema(description = "워커가 만들기 전까지 null") String thumbnailUrl,
+    @Schema(description = "워커가 만들기 전까지 null. img 태그에서 바로 쓸 수 있도록 인증 토큰을 포함한다")
+    String thumbnailUrl,
     @Schema(description = "워커가 만들기 전까지 null") String originalUrl,
     Integer width,
     Integer height,
@@ -24,9 +27,24 @@ public record MediaResponse(
     Instant uploadedAt
 ) {
     public static MediaResponse from(MediaDetail detail) {
+        return from(detail, null);
+    }
+
+    public static MediaResponse from(MediaDetail detail, String accessToken) {
         return new MediaResponse(detail.mediaId(), detail.type(), detail.fileName(),
-            detail.mimeType(), detail.size(), detail.thumbnailUrl(), detail.originalUrl(),
+            detail.mimeType(), detail.size(), withToken(detail.thumbnailUrl(), accessToken),
+            detail.originalUrl(),
             detail.width(), detail.height(), detail.duration(), detail.folderIds(),
             detail.uploaderId(), detail.uploaderName(), detail.status(), detail.uploadedAt());
+    }
+
+    private static String withToken(String url, String accessToken) {
+        if (url == null) {
+            return null;
+        }
+        if (accessToken == null) {
+            return url;
+        }
+        return url + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
     }
 }

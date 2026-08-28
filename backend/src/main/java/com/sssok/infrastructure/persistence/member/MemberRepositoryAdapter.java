@@ -4,6 +4,7 @@ import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -23,6 +24,14 @@ public class MemberRepositoryAdapter implements MemberRepository {
     @Override
     public Optional<Member> findById(Long id) {
         return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<Member> findAllByIdIn(Collection<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllById(memberIds).stream().map(this::toDomain).toList();
     }
 
     @Override

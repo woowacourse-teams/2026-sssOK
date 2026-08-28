@@ -2,16 +2,23 @@ package com.sssok.application.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.verify;
 
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.IssueLinkCodeService;
 import com.sssok.application.auth.LinkCodeResult;
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.LinkCodeRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.domain.auth.LinkCodeValue;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.ProcessedMedia;
+import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomCode;
@@ -29,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2)
 @SpringBootTest
@@ -71,6 +79,12 @@ class PurgeRoomServiceTest {
     RoomEventJpaRepository roomEventJpaRepository;
 
     @Autowired
+    FileRepository fileRepository;
+
+    @MockitoBean
+    FileStoragePort fileStoragePort;
+
+    @Autowired
     EntityManager entityManager;
 
     private Long hostId;
@@ -80,6 +94,24 @@ class PurgeRoomServiceTest {
     void setUp() {
         hostId = anonymousAuthService.authenticate("가현").userId();
         guestId = anonymousAuthService.authenticate("민수").userId();
+    }
+
+    // 원본과 썸네일은 서로 다른 키다. 하나만 지우면 남은 쪽이 스토리지에 영영 남아 요금을 먹는다.
+    @Test
+    void 방을_지우면_원본과_썸네일을_모두_스토리지에서_지운다() {
+        Room room = 삭제된_방(Instant.now().minus(RETENTION).minus(Duration.ofDays(1)));
+        StoredFile file = StoredFile.reserve(room.getId(), hostId, "사진.jpg", "image/jpeg",
+            new FileSize(1024), Instant.now());
+        file.startProcessing();
+        StorageKey original = file.getStorageKey();
+        StorageKey thumbnail = original.thumbnail();
+        file.completeProcessing(new ProcessedMedia(thumbnail, 1200, 900, null, null));
+        fileRepository.save(file);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        verify(fileStoragePort).delete(original);
+        verify(fileStoragePort).delete(thumbnail);
     }
 
     @Test

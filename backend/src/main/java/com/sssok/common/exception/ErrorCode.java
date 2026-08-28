@@ -24,7 +24,7 @@ public enum ErrorCode {
     EMPTY_PATCH(400, "변경할 항목을 하나 이상 보내주세요"),
     INVALID_REQUEST_BODY(400, "요청 본문 형식이 올바르지 않습니다"),
     INVALID_REQUEST_PARAMETER(400, "%s 값의 형식이 올바르지 않습니다"),
-    TOO_MANY_FILES(400, "한 번에 최대 %d개까지 다운로드할 수 있습니다"),
+    TOO_MANY_FILES(400, "한 번에 최대 %d개까지 처리할 수 있습니다"),
 
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),
@@ -41,7 +41,8 @@ public enum ErrorCode {
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
     LINK_CODE_NOT_FOUND(404, "유효하지 않은 코드입니다"),
     FOLDER_NOT_FOUND(404, "존재하지 않는 폴더입니다: %s"),
-    MEDIA_NOT_FOUND(404, "업로드 요청을 찾을 수 없습니다"),
+    MEDIA_NOT_FOUND(404, "존재하지 않는 미디어입니다"),
+    THUMBNAIL_NOT_FOUND(404, "썸네일이 아직 준비되지 않았습니다"),
     DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
 
     // 405 Method Not Allowed
