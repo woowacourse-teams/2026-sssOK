@@ -27,10 +27,26 @@ public class StoredFile {
     private Instant reservedAt;
     private int retryCount;
 
+    // 썸네일 워커가 채운다. 그 전까지는 비어 있고, 영상은 끝까지 비어 있다.
+    private StorageKey thumbnailKey;
+    private Integer width;
+    private Integer height;
+
+    // 원본 EXIF 에서 읽는다. 카메라가 남기지 않았거나 편집 과정에서 지워졌으면 비어 있다.
+    private Instant takenAt;
+    private GeoPoint location;
+
     private StoredFile(Long id, Long roomId, Long uploaderId, String originalFileName,
                        MediaType mediaType, FileSize fileSize, StorageKey storageKey,
                        Long folderId, UploadStatus status, Instant createdAt,
-                       Instant reservedAt, int retryCount) {
+                       Instant reservedAt, int retryCount,
+                       StorageKey thumbnailKey, Integer width, Integer height,
+                       Instant takenAt, GeoPoint location) {
+        this.thumbnailKey = thumbnailKey;
+        this.width = width;
+        this.height = height;
+        this.takenAt = takenAt;
+        this.location = location;
         this.id = id;
         this.roomId = roomId;
         this.uploaderId = uploaderId;
@@ -52,16 +68,20 @@ public class StoredFile {
         validateSize(mediaType, fileSize);
 
         return new StoredFile(null, roomId, uploaderId, originalFileName, mediaType, fileSize,
-                StorageKey.generate(roomId, mediaType), null, UploadStatus.RESERVED, now, now, 0);
+                StorageKey.generate(roomId, mediaType), null, UploadStatus.RESERVED, now, now, 0,
+                null, null, null, null, null);
     }
 
     public static StoredFile reconstruct(Long id, Long roomId, Long uploaderId,
                                          String originalFileName, MediaType mediaType,
                                          FileSize fileSize, StorageKey storageKey, Long folderId,
                                          UploadStatus status, Instant createdAt,
-                                         Instant reservedAt, int retryCount) {
+                                         Instant reservedAt, int retryCount,
+                                         StorageKey thumbnailKey, Integer width, Integer height,
+                                         Instant takenAt, GeoPoint location) {
         return new StoredFile(id, roomId, uploaderId, originalFileName, mediaType, fileSize,
-                storageKey, folderId, status, createdAt, reservedAt, retryCount);
+                storageKey, folderId, status, createdAt, reservedAt, retryCount,
+                thumbnailKey, width, height, takenAt, location);
     }
 
     private static void validateSize(MediaType mediaType, FileSize fileSize) {
@@ -100,6 +120,23 @@ public class StoredFile {
 
     public void markReady() {
         transitionTo(UploadStatus.READY);
+    }
+
+    // 썸네일 워커가 일을 마쳤을 때. 결과를 담는 것과 상태를 넘기는 것이 항상 같이 일어나야
+    // 하므로 한 메서드로 묶는다 — 따로 두면 값만 채우고 PROCESSING 에 남는 경우가 생긴다.
+    public void completeProcessing(ProcessedMedia processed) {
+        this.thumbnailKey = processed.thumbnailKey();
+        this.width = processed.width();
+        this.height = processed.height();
+        this.takenAt = processed.takenAt();
+        this.location = processed.location();
+        transitionTo(UploadStatus.READY);
+    }
+
+    // 영상은 썸네일을 뽑지 못한다. 그렇다고 PROCESSING 에 두면 다운로드가 영영 409 로 막히므로
+    // 썸네일 없이 완료로 넘긴다.
+    public boolean canGenerateThumbnail() {
+        return mediaType.isImage();
     }
 
     public void failUpload() {
