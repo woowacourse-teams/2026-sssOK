@@ -31,7 +31,7 @@ const enterRoom = () =>
 const serveBytes = () =>
   server.use(
     http.get(
-      `${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`,
+      `${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`,
       () => new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": "image/jpeg" } }),
     ),
   );
@@ -44,7 +44,7 @@ const serveHeld = () => {
   });
 
   server.use(
-    http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, async () => {
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, async () => {
       await held;
 
       return new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": "image/jpeg" } });

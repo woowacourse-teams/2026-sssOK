@@ -45,7 +45,7 @@ const serveSingle = ({
   let peak = 0;
 
   server.use(
-    http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, async ({ params }) => {
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, async ({ params }) => {
       const status = statusOf(Number(params.mediaId));
 
       if (status !== 200) {
@@ -163,7 +163,7 @@ describe("downloadMedia — zip", () => {
     const singles: number[] = [];
 
     server.use(
-      http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, ({ params }) => {
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, ({ params }) => {
         singles.push(Number(params.mediaId));
 
         return new HttpResponse(new Blob(["x"]));
@@ -183,10 +183,10 @@ describe("downloadMedia — zip", () => {
     const polls: string[] = [];
 
     server.use(
-      http.post(`${API_BASE_URL}/rooms/:roomId/downloads`, () =>
+      http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, () =>
         HttpResponse.json({ code: "RATE_LIMITED", message: "" }, { status: 429 }),
       ),
-      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, ({ params }) => {
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, ({ params }) => {
         polls.push(String(params.jobId));
 
         return HttpResponse.json({ data: {} });
@@ -205,7 +205,7 @@ describe("downloadMedia — zip", () => {
 
   it("기한이 지난 잡은 그 사유로 알린다", async () => {
     server.use(
-      http.post(`${API_BASE_URL}/rooms/:roomId/downloads`, () =>
+      http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, () =>
         HttpResponse.json({ code: "EXPIRED", message: "" }, { status: 410 }),
       ),
     );
@@ -215,7 +215,7 @@ describe("downloadMedia — zip", () => {
 
   it("압축이 실패하면 서버가 준 사유를 그대로 전한다", async () => {
     server.use(
-      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, () =>
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, () =>
         HttpResponse.json({
           data: {
             jobId: "dl_000001",

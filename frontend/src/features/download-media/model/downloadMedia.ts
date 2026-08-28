@@ -47,7 +47,7 @@ const toFile = ({ blob, target }: FetchedMedia) =>
 
 /** B-6 은 302 로 스토리지를 가리킨다. fetch 가 그 리다이렉트를 그대로 따라간다. */
 const downloadUrlOf = (roomId: number, mediaId: number) =>
-  `${API_BASE_URL}/rooms/${roomId}/media/${mediaId}/download`;
+  `${API_BASE_URL}/rooms/${roomId}/downloads/media/${mediaId}`;
 
 /** 장수만큼 단건 다운로드를 돌린다. 실패는 값으로 모으고 나머지는 계속 받는다. */
 const fetchAll = async (

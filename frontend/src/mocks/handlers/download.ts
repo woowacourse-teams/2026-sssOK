@@ -140,7 +140,7 @@ export const downloadHandlers = [
    * B-6 단건 다운로드. 바이트를 프록시하지 않고 **302 로 스토리지를 가리킨다.**
    * 목에서는 목록이 쓰는 원본 URL 이 그 자리다.
    */
-  http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, ({ request, params }) => {
+  http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
     const memberId = memberIdOf(token);
 
@@ -174,7 +174,7 @@ export const downloadHandlers = [
   }),
 
   /** B-7-1 zip 다운로드 요청. 압축을 기다리지 않고 잡 번호만 돌려준다. */
-  http.post(`${API_BASE_URL}/rooms/:roomId/downloads`, async ({ request, params }) => {
+  http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, async ({ request, params }) => {
     const token = request.headers.get("Authorization");
     const memberId = memberIdOf(token);
 
@@ -274,7 +274,7 @@ export const downloadHandlers = [
   }),
 
   /** B-7-2 상태 조회. READY 일 때만 `downloadUrl` 과 `expiresAt` 이 채워진다. */
-  http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, ({ request, params }) => {
+  http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
     const memberId = memberIdOf(token);
 
