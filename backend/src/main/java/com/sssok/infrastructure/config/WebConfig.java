@@ -4,14 +4,17 @@ import com.sssok.presentation.api.common.RoomMembershipInterceptor;
 import com.sssok.presentation.auth.AuthMemberArgumentResolver;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @RequiredArgsConstructor
+@EnableConfigurationProperties(CorsProperties.class)
 public class WebConfig implements WebMvcConfigurer {
 
     // 실제 API 베이스 URL: https://api.ssssok.com/api/v1
@@ -22,6 +25,7 @@ public class WebConfig implements WebMvcConfigurer {
 
     private final AuthMemberArgumentResolver authMemberArgumentResolver;
     private final RoomMembershipInterceptor roomMembershipInterceptor;
+    private final CorsProperties corsProperties;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
@@ -45,5 +49,16 @@ public class WebConfig implements WebMvcConfigurer {
                 API_PREFIX + "/rooms/*/media/**",
                 API_PREFIX + "/rooms/*/downloads",
                 API_PREFIX + "/rooms/*/downloads/**");
+    }
+
+    // 프론트가 API와 다른 오리진에서 서빙되므로 브라우저가 프리플라이트(OPTIONS)를 보낸다.
+    // 인증은 쿠키가 아니라 Authorization 헤더라 credentials는 필요 없다.
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping(API_PREFIX + "/**")
+            .allowedOrigins(corsProperties.allowedOrigins().toArray(new String[0]))
+            .allowedMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
+            .allowedHeaders("*")
+            .maxAge(3600);
     }
 }

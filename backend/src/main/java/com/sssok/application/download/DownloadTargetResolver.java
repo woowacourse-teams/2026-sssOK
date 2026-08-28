@@ -13,7 +13,7 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-// zip 압축 다운로드(POST /rooms/{roomId}/downloads)의 대상을 정한다.
+// zip 압축 다운로드(POST /rooms/{roomId}/downloads/zip)와 다건 다운로드(POST .../downloads/batch)의 대상을 정한다.
 // mediaIds/folderId 중 하나만 쓸 수 있고, 둘 다 생략하면 방 전체가 대상이다.
 // 어느 경로든 마지막엔 READY 상태만 남긴다 — PROCESSING/RESERVED/FAILED는 실물이 없거나
 // 아직 압축할 수 없는 상태라 대상에서 빠지고, 그 결과 대상이 하나도 없으면 404로 본다

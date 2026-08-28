@@ -2,10 +2,10 @@ import { useState } from "react";
 import styled from "@emotion/styled";
 
 import { spacing } from "@/shared/styles/tokens";
-import type { MediaSelection } from "../model/selectMediaFiles";
+import type { MediaSelection, RejectedSelection } from "../model/selectMediaFiles";
 import { useMediaUpload } from "../model/useMediaUpload";
 import { useUploadFailure } from "../model/useUploadFailure";
-import { SelectionNotice } from "./SelectionNotice";
+import { RejectedFilesModal } from "./RejectedFilesModal";
 import { UploadButton } from "./UploadButton";
 import { UploadFailureModal } from "./UploadFailureModal";
 import { UploadProgressBar } from "./UploadProgressBar";
@@ -33,7 +33,7 @@ export interface MediaUploaderProps {
  * 굴리는 것이라, 끝나면 같은 `onSettled` 로 돌아와 또 깨진 게 있으면 모달이 다시 뜬다.
  */
 export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUploaderProps) => {
-  const [selection, setSelection] = useState<MediaSelection | null>(null);
+  const [rejected, setRejected] = useState<RejectedSelection[]>([]);
   const failure = useUploadFailure();
   /*
    * 발급이 거절한 파일(`onRejected`)과 배치 전체가 못 올라간 경우(`onError`, 403·410)는
@@ -59,24 +59,18 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
   });
 
   /**
-   * 알림에는 **못 올리는 것만** 남긴다.
+   * 못 올리는 것만 모달로 알린다 (시안 07d).
    *
    * 올라갈 장수는 진행 바가 `0 / 8` 로 말하고 있어서, 그 위에 "8장을 선택했어요" 를 띄우면
-   * 같은 말이 두 번 뜬다. 게다가 업로드가 끝나도 그 문구는 남아, 다 올라간 화면에
-   * 지난 얘기만 덩그러니 놓인다. 시안(12)에도 업로드 중·실패 화면 어디에도 이 알림이 없다.
+   * 같은 말이 두 번 뜬다. 반대로 걸러진 파일은 애초에 업로드에 끼지 않아서 진행 바가
+   * 대신 말해주지 못한다 — 그것만 알려야 사용자가 장수가 줄어든 이유를 안다.
    *
-   * 반대로 걸러진 파일은 애초에 업로드에 끼지 않아서 진행 바가 대신 말해주지 못한다.
-   * 그건 알림에 남겨야 사용자가 장수가 줄어든 이유를 안다.
+   * **모달을 띄우면서 통과한 것은 이미 올라가기 시작한다.** 걸러진 파일은 사용자가
+   * 결정할 것이 없어서(다시 눌러도 거절된다) 확인을 기다릴 이유가 없고, 기다리게 하면
+   * 멀쩡한 27장이 모달을 닫을 때까지 멈춰 선다.
    */
   const handleSelect = (next: MediaSelection) => {
-    const hasRejected = next.rejected.length > 0;
-
-    if (next.accepted.length === 0) {
-      setSelection(hasRejected ? next : null);
-      return;
-    }
-
-    setSelection(hasRejected ? { accepted: [], rejected: next.rejected } : null);
+    setRejected(next.rejected);
     upload.start(next.accepted);
   };
 
@@ -91,11 +85,6 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
   return (
     <Stack>
       <UploadButton onSelect={handleSelect} />
-      <LiveRegion role="status" aria-live="polite">
-        {selection !== null && (
-          <SelectionNotice selection={selection} onDismiss={() => setSelection(null)} />
-        )}
-      </LiveRegion>
       {upload.progress !== null && (
         <UploadProgressBar
           completedCount={upload.progress.completedCount}
@@ -104,8 +93,15 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
           onCancel={upload.cancel}
         />
       )}
+      {rejected.length > 0 && (
+        <RejectedFilesModal rejected={rejected} onClose={() => setRejected([])} />
+      )}
       {failure.isOpen && (
-        <UploadFailureModal count={failure.count} onRetry={handleRetry} onClose={failure.close} />
+        <UploadFailureModal
+          failures={failure.failures}
+          onRetry={handleRetry}
+          onClose={failure.close}
+        />
       )}
     </Stack>
   );
@@ -116,19 +112,4 @@ const Stack = styled.div`
   flex-direction: column;
   align-items: flex-start;
   padding: 0 ${spacing[16]};
-`;
-
-/**
- * 알림이 뜨기 **전부터** DOM 에 있어야 스크린리더가 읽어준다.
- * 영역과 내용이 같은 순간에 생기면 변화로 잡히지 않아 그냥 지나간다.
- *
- * 그래서 비어 있을 때 자리를 차지하면 안 되고, 위 간격도 `Stack` 의 gap 이 아니라
- * 안쪽 알림이 들고 있어야 한다 — gap 은 빈 영역에도 붙는다.
- */
-const LiveRegion = styled.div`
-  width: 100%;
-
-  > * {
-    margin-top: ${spacing[12]};
-  }
 `;

@@ -42,6 +42,9 @@ jobs:
         env:
           # CI 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
           JWT_SECRET: 5SWYqRqL3JIuYo1c/ecWhbU6RTRd2nWPQfeaDjGJSd0=
+          # application-local.yml은 gitignore 대상이라 CI에는 없다. 로컬 기본값과 맞춰
+          # WebMvcTest(별도 @ActiveProfiles("test") 없이 도는 슬라이스)의 CORS 테스트가 통과하게 한다.
+          CORS_ALLOWED_ORIGINS: http://localhost:3000
 
       - name: 테스트 리포트 업로드
         if: always()

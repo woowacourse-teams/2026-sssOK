@@ -69,6 +69,10 @@ const uploadPolicyOf = (code: string) => UPLOAD_POLICIES[code] ?? "everyone";
 /** 기본 방(active) 번호. 업로드 목과 수동 확인이 이 방을 쓴다. */
 export const MOCK_ROOM_ID = ROOM_IDS[MOCK_ROOM_CODES.active];
 
+/** 방 번호 → 코드. zip 파일명이 코드를 쓴다 (`ShareDrop_{roomCode}.zip`). */
+export const roomCodeOfId = (roomId: number) =>
+  Object.entries(ROOM_IDS).find(([, id]) => id === roomId)?.[0] ?? null;
+
 /** 들어갈 수 있는 방. 만료·삭제된 방은 여기 없다. */
 const ACTIVE_ROOM_CODES = [
   MOCK_ROOM_CODES.active,
@@ -305,6 +309,16 @@ const writeJoinedRooms = (rooms: Set<string>) =>
 /** 토큰마다 따로 센다. 방 번호로 남겨야 조회 핸들러와 키가 맞는다. */
 const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
 
+/**
+ * 방에 있는 미디어 전부. **이번 세션에 올린 것이 앞에 온다** —
+ * 갤러리는 최신순이고, 방금 올린 사진이 맨 위여야 한다.
+ * 다운로드 목도 mediaId 로 원본을 찾을 때 이걸 쓴다.
+ */
+export const mediaOfRoom = (roomId: number) =>
+  roomId === MOCK_ROOM_ID
+    ? [...registeredMediaOf(roomId), ...mediaItems]
+    : registeredMediaOf(roomId);
+
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
 export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 
@@ -373,10 +387,7 @@ export const roomHandlers = [
       return roomNotFound();
     }
 
-    // 이번 세션에 올린 것이 앞에 온다. 갤러리는 최신순이고, 방금 올린 사진이 맨 위여야 한다.
-    return HttpResponse.json({
-      data: { items: [...registeredMediaOf(roomId), ...mediaItems] },
-    });
+    return HttpResponse.json({ data: { items: mediaOfRoom(roomId) } });
   }),
 
   /**
