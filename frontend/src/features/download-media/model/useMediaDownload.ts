@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import { shareFiles } from "../lib/shareFiles";
 import { downloadMedia } from "./downloadMedia";
 import type { DownloadProgressState } from "./downloadProgress";
 import {
@@ -25,6 +26,7 @@ export interface UseMediaDownloadOptions {
  * 받기 한 판을 굴리면서 진행 바가 볼 상태를 들고 있는다.
  *
  * `progress` 가 `null` 이면 받는 중이 아니다 — 바를 띄울지 말지가 이 한 값으로 정해진다.
+ * `pendingShare` 가 차 있으면 바이트는 다 받았는데 공유 시트만 못 연 상태다 (`types.ts` 참고).
  */
 export const useMediaDownload = ({
   roomId,
@@ -33,6 +35,7 @@ export const useMediaDownload = ({
   onError,
 }: UseMediaDownloadOptions) => {
   const [progress, setProgress] = useState<DownloadProgressState | null>(null);
+  const [pendingShare, setPendingShare] = useState<File[] | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   /**
    * 지금 화면이 따라가는 실행. 취소하거나 새로 시작하면 번호가 바뀐다.
@@ -57,6 +60,7 @@ export const useMediaDownload = ({
     const update = (next: (state: DownloadProgressState) => DownloadProgressState) =>
       setProgress((current) => (current === null || !isCurrent() ? current : next(current)));
 
+    setPendingShare(null);
     setProgress(startDownloadProgress(targets));
 
     try {
@@ -78,6 +82,10 @@ export const useMediaDownload = ({
         return;
       }
 
+      if (outcome.type === "readyToShare") {
+        setPendingShare(outcome.files);
+      }
+
       onSettled?.(outcome);
     } catch (error) {
       if (isCurrent()) {
@@ -92,6 +100,36 @@ export const useMediaDownload = ({
   };
 
   /**
+   * 받아둔 파일로 공유 시트를 연다. **버튼 핸들러에서 바로 불러야 한다** —
+   * 여기서 `await` 를 앞세우면 사파리가 제스처를 잃었다고 보고 다시 거절한다.
+   * 그래서 이 함수 안에는 시트를 열기 전 `await` 가 하나도 없다.
+   */
+  const share = async () => {
+    if (pendingShare === null) {
+      return;
+    }
+
+    try {
+      const shared = await shareFiles(pendingShare);
+
+      if (shared.type !== "unsupported") {
+        setPendingShare(null);
+      }
+
+      onSettled?.(
+        shared.type === "shared"
+          ? { type: "saved", savedCount: pendingShare.length, failed: [] }
+          : { type: "dismissed" },
+      );
+    } catch (error) {
+      onError?.(error);
+    }
+  };
+
+  /** 받아둔 것을 버린다. 사진첩에 넣지 않기로 한 경우다. */
+  const dismissShare = () => setPendingShare(null);
+
+  /**
    * 진행 중인 요청을 끊고 바를 곧바로 치운다.
    *
    * 이미 저장이 시작된 파일은 되돌리지 않는다 — 중단은 "아직 안 받은 것을 그만두는" 것이지
@@ -102,11 +140,15 @@ export const useMediaDownload = ({
     abortRef.current = null;
     runIdRef.current += 1;
     setProgress(null);
+    setPendingShare(null);
   };
 
   return {
     progress: progress === null ? null : snapshotOf(progress),
+    pendingShare,
     start,
+    share,
+    dismissShare,
     cancel,
   };
 };
