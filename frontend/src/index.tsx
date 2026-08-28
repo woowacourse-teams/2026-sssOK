@@ -13,7 +13,7 @@ async function enableMocking() {
   const { startWorker } = await import("@/mocks/browser");
 
   try {
-    await startWorker(MOCK_MODE);
+    await startWorker();
   } catch (error) {
     // 목은 개발 편의일 뿐이라 실패해도 화면은 떠야 한다.
     // 여기서 던지면 아래 render 가 실행되지 않아 앱이 통째로 백지가 된다.
