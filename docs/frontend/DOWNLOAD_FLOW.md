@@ -75,6 +75,12 @@ sequenceDiagram
 - **`Authorization` 헤더 때문에 preflight 가 뜬다.** API 서버의 CORS 설정에도 이 헤더가 열려 있어야 한다.
 - **파일명은 서버가 붙인다.** 서명 URL 의 `Content-Disposition` 에 ASCII 폴백(`filename`)과
   RFC 5987 UTF-8(`filename*`)이 함께 실려 있어 한글 파일명도 깨지지 않는다.
+- **저장 이름은 발급 응답의 `files[].fileName` 을 쓴다.** 목록(`photo.fileName`)의 이름이 아니다.
+  같은 이름으로 올라간 사진을 함께 고르면 목록에는 둘 다 같은 이름으로 있어서, 그대로 저장하면
+  뒤엣것이 앞엣것을 덮는다. 서버가 `DownloadFileNames.deduplicate` 로 "이름 (1)" 을 붙여
+  정리해 주는데, 목록 쪽 이름을 쓰면 그 처리가 통째로 버려진다.
+  `Content-Disposition` 은 여기서 소용이 없다 — `<a download>` 와 공유 시트 모두
+  우리가 붙인 이름을 쓴다.
 
 ### 응답과 에러
 
@@ -170,6 +176,16 @@ sequenceDiagram
 
 폰에서 `<a download>` 로 받은 사진은 사진 앱이 아니라 **파일 앱**에 떨어진다. 사람들이 원하는 건
 카메라롤이라, 공유 시트를 거쳐 "이미지 저장"을 누르게 하는 쪽이 실제로 원하는 자리에 놓인다.
+
+### File 의 MIME 은 목록이 알려준 값을 쓴다
+
+스토리지가 `Content-Type` 을 이미지로 내주지 않으면 `blob.type` 이 빈 문자열이 아니라
+`application/octet-stream` 이라, `blob.type || target.mimeType` 같은 폴백은 **영영 걸리지 않는다.**
+그 File 을 iOS 는 이미지로 보지 않아 시트에 "이미지 저장" 항목 자체를 띄우지 않는다 —
+시트는 열리므로 프론트에서는 성공으로 보이고, 사용자만 저장이 안 된다.
+
+`target.mimeType` 은 서버가 허용 목록과 대조해 정한 값이라 스토리지 응답보다 믿을 만하다.
+그래서 `toFile` 은 목록이 알려준 MIME 을 **먼저** 쓴다.
 
 ### 지원하지 않는 기기에서는 버튼을 감춘다
 
