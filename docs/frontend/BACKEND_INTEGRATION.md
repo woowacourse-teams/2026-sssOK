@@ -51,40 +51,42 @@ API_BASE_URL=http://localhost:8080/api/v1 pnpm start
 
 알아둘 것:
 
-- **`thumbnailUrl`·`width`·`duration` 은 워커가 채우기 전까지 `null` 이다.**
-  목록 응답의 파생값은 서버 워커가 만든다 — 없는 동안 프론트가 자리표시로 버텨야 한다.
+- **파생값은 등록 직후 잠깐 `null` 이다.** 등록 응답은 `status: PROCESSING` 에
+  `thumbnailUrl`·`width`·`height` 가 비어 있고, 워커가 처리를 마치면 `READY` 가 되면서 채워진다.
+  실측으로 2초 안쪽이었다. 목록에는 `READY` 만 내려오므로 갤러리는 신경 쓰지 않아도 된다.
 - **`thumbnailUrl`/`originalUrl` 은 상대 경로다** (`/rooms/{roomId}/media/{mediaId}/thumbnail`).
   `<img src>` 에 넣기 전에 `mediaAssetUrl` 로 절대 주소로 풀어야 한다
   ([mediaAssetUrl.ts](../../frontend/src/entities/media/lib/mediaAssetUrl.ts)).
 - **`photoCount` 배지는 업로드 뒤 갱신되지 않는다.** 방 조회를 다시 부르지 않아
   페이지를 열었을 때 값에 머문다.
 
-## 막혀 있는 것 — R2 버킷 CORS
+## R2 버킷 CORS
 
-**브라우저에서는 업로드가 안 된다.** 서명 URL 은 정상 발급되지만, 브라우저가 PUT 전에
-보내는 프리플라이트를 R2 가 거절한다.
+브라우저는 스토리지에 직접 PUT 하고(업로드) 직접 GET 한다(다운로드). 둘 다 크로스 오리진이라
+버킷에 CORS 규칙이 있어야 한다. **지금은 설정돼 있다** — 규칙이 없던 동안에는
+브라우저 업로드·다운로드가 통째로 막혀 있었다.
 
-```
-OPTIONS <presigned-url>
-  Origin: http://localhost:3000
-  Access-Control-Request-Method: PUT
-→ 403 Forbidden
-   <Code>Unauthorized</Code>
-   <Message>CORS not configured for this bucket</Message>
+확인:
+
+```bash
+bash frontend/scripts/check-r2-cors.sh
 ```
 
-서버 쪽 파이프라인 자체는 멀쩡하다. curl 은 CORS 를 따지지 않으므로 그대로 통과한다 —
-발급 200 → R2 PUT 200 → 완료 등록 201 까지 확인했다. 순수하게 **버킷 설정 문제**이고,
-프론트에서 고칠 수 있는 게 없다.
+```
+HTTP/1.1 204 No Content
+Access-Control-Allow-Origin: http://localhost:3000
+Access-Control-Allow-Methods: PUT, GET, HEAD
+Access-Control-Allow-Headers: content-type
+```
 
-`sssok-dev` 버킷에 CORS 규칙이 필요하다. 최소한 이 정도:
+- `PUT` 은 업로드, `GET` 은 다운로드에 쓴다. 다운로드는 `<a download>` 가 크로스 오리진에서
+  안 먹어 프론트가 바이트를 직접 받아야 해서 GET 도 필요하다.
+- `content-type` 은 서명 대상이라 `AllowedHeaders` 에 반드시 있어야 한다. 빠지면 403 이다.
+- 배포 도메인을 추가할 때도 같은 스크립트로 확인할 수 있다 (`check-r2-cors.sh <origin>`).
 
-- `AllowedOrigins`: 개발 `http://localhost:3000`, 배포 프론트 도메인
-- `AllowedMethods`: `PUT`
-- `AllowedHeaders`: `content-type` (서명 대상이라 반드시 포함)
-- `ExposeHeaders`: `ETag`
-
-이게 뚫리기 전까지 업로드를 손으로 확인하려면 `pnpm start:mock` 을 쓴다.
+**증상 구분** — 버킷 CORS 가 빠지면 브라우저에서만 실패하고 서버는 멀쩡해 보인다.
+curl 은 CORS 를 따지지 않아 그대로 통과하기 때문이다. 콘솔에 `ERR_FAILED` 만 뜨고
+스토리지 쪽에는 시도 흔적조차 안 남으면 이걸 의심한다.
 
 ## 요청·응답 규약
 
