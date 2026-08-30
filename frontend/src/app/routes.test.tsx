@@ -1,10 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
+import { http, HttpResponse } from "msw";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
-import { ROUTES } from "@/shared/config";
+import { markMediaDeleted } from "@/mocks/db";
+import { mediaOfRoom, MOCK_ROOM_ID } from "@/mocks/handlers/room";
+import { server } from "@/mocks/server";
+import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { routes } from "./routes";
 
 const ROOM_CODE = "7K93QX2S";
@@ -154,7 +158,7 @@ describe("라우트", () => {
     });
     renderAt(ROUTES.gallery(ROOM_CODE));
 
-    const photo = await screen.findByRole("button", { name: "IMG_0421.jpg 나" });
+    const photo = await screen.findByRole("button", { name: "IMG_0421.jpg 선택" });
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
 
     await user.click(photo);
@@ -162,6 +166,57 @@ describe("라우트", () => {
 
     await user.click(photo);
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
+  });
+
+  it("갤러리와 상세 화면의 체크 상태가 왕복 이동 후에도 연동된다", async () => {
+    const user = userEvent.setup();
+    renderAtGallery();
+    await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+      method: "POST",
+      headers: { Authorization: "Bearer mock-token-10234" },
+    });
+    await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
+    await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
+    const selection = await screen.findByRole("button", { name: "사진 선택" });
+    expect(selection).toHaveAttribute("aria-pressed", "true");
+    await user.click(selection);
+    await user.click(screen.getByRole("button", { name: "갤러리로 돌아가기" }));
+    expect(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("삭제 성공에 JSON 본문이 있어도 갤러리로 돌아가 목록을 다시 조회한다", async () => {
+    const user = userEvent.setup();
+    const listRequests = jest.fn();
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, () => {
+        listRequests();
+        return HttpResponse.json({ data: { items: mediaOfRoom(MOCK_ROOM_ID) } });
+      }),
+      http.delete(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/5012`, () => {
+        markMediaDeleted(MOCK_ROOM_ID, 5012);
+        return HttpResponse.json({ data: null });
+      }),
+    );
+    const router = renderAtGallery();
+    await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+      method: "POST",
+      headers: { Authorization: "Bearer mock-token-10234" },
+    });
+    await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
+    await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
+    const requestsBeforeDelete = listRequests.mock.calls.length;
+    await user.click(await screen.findByRole("button", { name: "사진 삭제" }));
+    expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
+    expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(listRequests.mock.calls.length).toBeGreaterThan(requestsBeforeDelete),
+    );
   });
 
   it("방 생성에 성공하면 생성된 방의 갤러리로 이동한다", async () => {

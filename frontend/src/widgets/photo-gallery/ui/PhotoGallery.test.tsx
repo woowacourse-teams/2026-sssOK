@@ -23,7 +23,7 @@ const photo: MediaItem = {
 };
 
 describe("PhotoGallery", () => {
-  it("사진을 클릭하면 사진 ID를 전달한다", async () => {
+  it("체크 버튼을 클릭하면 선택할 사진 ID를 전달한다", async () => {
     const user = userEvent.setup();
     const onTogglePhoto = jest.fn();
     render(
@@ -37,7 +37,7 @@ describe("PhotoGallery", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: /IMG_0421.jpg/ }));
+    await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 선택" }));
 
     expect(onTogglePhoto).toHaveBeenCalledWith(5012);
   });

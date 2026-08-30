@@ -1,8 +1,9 @@
 import styled from "@emotion/styled";
 
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
+import { MediaImage } from "./MediaImage";
 
-export const CardButton = styled.button<{ $selected: boolean }>`
+export const Card = styled.div<{ $selected: boolean }>`
   position: relative;
   display: block;
   width: 100%;
@@ -21,7 +22,18 @@ export const CardButton = styled.button<{ $selected: boolean }>`
   }
 `;
 
-export const Thumbnail = styled.img`
+export const CardButton = styled.button`
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  &:focus-visible {
+    outline: 3px solid ${colors.primary};
+    outline-offset: -3px;
+  }
+`;
+
+export const Thumbnail = styled(MediaImage)`
   display: block;
   width: 100%;
   height: 100%;
@@ -29,7 +41,7 @@ export const Thumbnail = styled.img`
   pointer-events: none;
 `;
 
-export const SelectionMark = styled.span<{ $selected: boolean }>`
+export const SelectionMark = styled.button<{ $selected: boolean }>`
   position: absolute;
   top: ${spacing[8]};
   right: ${spacing[8]};
@@ -41,6 +53,11 @@ export const SelectionMark = styled.span<{ $selected: boolean }>`
   background-color: ${({ $selected }) =>
     $selected ? colors.primary : "rgba(255, 255, 255, 0.88)"};
   color: ${({ $selected }) => ($selected ? colors.textInverse : colors.textSecondary)};
+
+  &:focus-visible {
+    outline: 2px solid ${colors.primary};
+    outline-offset: 3px;
+  }
 
   svg {
     width: 15px;
