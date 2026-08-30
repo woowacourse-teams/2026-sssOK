@@ -1,5 +1,15 @@
 export { getPhotos } from "./api/getPhotos";
+export { getMedia } from "./api/getMedia";
 export { mediaAssetUrl } from "./lib/mediaAssetUrl";
+export { mediaQueryKey, useMediaQuery } from "./model/useMediaQuery";
 export { photosQueryKey, usePhotosQuery } from "./model/usePhotosQuery";
-export type { Media, MediaItem, MediaList, MediaStatus, PhotoFilter } from "./model/types";
+export type {
+  Media,
+  MediaDetail,
+  MediaItem,
+  MediaList,
+  MediaStatus,
+  PhotoFilter,
+} from "./model/types";
 export { MediaCard } from "./ui/MediaCard";
+export { MediaImage } from "./ui/MediaImage";

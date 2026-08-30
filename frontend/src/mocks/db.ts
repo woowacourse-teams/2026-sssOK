@@ -42,6 +42,18 @@ export const originalUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
 
 /** 방 번호 → 이번 세션에 등록된 미디어. 최신이 앞이다. */
 const registeredByRoom = new Map<number, GalleryMedia[]>();
+const deletedIdsByRoom = new Map<number, Set<number>>();
+
+export const isDeletedMedia = (roomId: number, mediaId: number) =>
+  deletedIdsByRoom.get(roomId)?.has(mediaId) ?? false;
+
+export const markMediaDeleted = (roomId: number, mediaId: number) => {
+  const ids = deletedIdsByRoom.get(roomId) ?? new Set<number>();
+  ids.add(mediaId);
+  deletedIdsByRoom.set(roomId, ids);
+};
+
+export const resetDeletedMedia = () => deletedIdsByRoom.clear();
 
 /**
  * 완료 등록이 끝난 미디어를 목록에 올린다.
