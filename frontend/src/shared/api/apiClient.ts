@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/shared/config";
 import { ApiError } from "./ApiError";
+import { notifyUnauthorized } from "./unauthorized";
 
 interface ApiClientOptions extends RequestInit {
   token?: string;
@@ -48,6 +49,17 @@ export const apiClient = async <T>(
 
   if (!response.ok) {
     const error = await getErrorResponse(response);
+
+    /*
+     * 인증 자체가 깨졌다 — 토큰이 만료됐거나 서명이 맞지 않거나 형식이 틀렸다.
+     * 이 토큰으로는 무엇을 불러도 같은 답이 오므로, 던지기 전에 한 번 알린다 (#149).
+     *
+     * 화면마다 알아보게 두면 하나씩 빠뜨린다. 인가 실패(403)와 달리 401 은 사용자가
+     * 그 화면에서 할 수 있는 일이 없어서, 판단이 갈릴 여지도 없다.
+     */
+    if (response.status === 401 && token) {
+      notifyUnauthorized(token);
+    }
 
     throw new ApiError(
       response.status,
