@@ -16,10 +16,10 @@ const Bar = styled.div`
   display: flex;
   align-items: center;
   gap: ${spacing[8]};
-  min-height: 68px;
+  min-height: 76px;
   width: 100%;
   max-width: 520px;
-  padding: 13px 22px;
+  padding: 11px 28px;
   background: ${colors.backgroundDefault};
   border: 1.25px solid #e5ded1;
   border-radius: ${radius.full};
@@ -27,6 +27,7 @@ const Bar = styled.div`
 
   @media (max-width: 400px) {
     gap: 6px;
-    padding-inline: ${spacing[12]};
+    min-height: 68px;
+    padding: 10px ${spacing[16]};
   }
 `;
