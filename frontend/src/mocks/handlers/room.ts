@@ -70,12 +70,18 @@ let roomExpiresAt = createRoomExpiresAt();
  * 방마다 가진 폴더. backend `RoomFolderResponse` 와 같은 모양이다.
  * 업로드 목이 발급 요청의 folderIds 를 이 목록과 대조한다.
  */
-const ROOM_FOLDERS: Record<string, { id: number; name: string; photoCount: number }[]> = {
-  [MOCK_ROOM_CODES.active]: [
-    { id: 31, name: "첫째 날", photoCount: 12 },
-    { id: 32, name: "둘째 날", photoCount: 4 },
-  ],
+const INITIAL_ROOM_FOLDERS = [
+  { id: 31, name: "첫째 날", createdAt: "2026-08-18T06:10:00Z", photoCount: 12 },
+  { id: 32, name: "둘째 날", createdAt: "2026-08-18T06:20:00Z", photoCount: 4 },
+];
+
+const ROOM_FOLDERS: Record<
+  string,
+  { id: number; name: string; createdAt: string; photoCount: number }[]
+> = {
+  [MOCK_ROOM_CODES.active]: [...INITIAL_ROOM_FOLDERS],
 };
+const DETACHED_PHOTO_COUNTS: Record<string, number> = {};
 
 const foldersOf = (code: string) => ROOM_FOLDERS[code] ?? [];
 
@@ -201,7 +207,9 @@ const room = (code: string, status: RoomStatus, joined = false) => {
     /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
     photoCount: Math.max(
       0,
-      foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0) + countChange(),
+      foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0) +
+        (DETACHED_PHOTO_COUNTS[code] ?? 0) +
+        countChange(),
     ),
     /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
     folders: foldersOf(code).map((folder) => ({
@@ -379,6 +387,8 @@ export const resetRoomHandlers = () => {
   resetDeletedMedia();
   activeRoomOverrides = {};
   roomExpiresAt = createRoomExpiresAt();
+  ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
+  DETACHED_PHOTO_COUNTS[MOCK_ROOM_CODES.active] = 0;
 };
 
 const unauthorized = () =>
@@ -477,6 +487,99 @@ export const roomHandlers = [
       },
       { status: alreadyJoined ? 200 : 201 },
     );
+  }),
+
+  http.post(`${API_BASE_URL}/rooms/:roomId/folders`, async ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    const roomId = Number(params.roomId);
+    const code = codeOfRoomId(roomId);
+    if (code === null || !isActiveRoomCode(code)) {
+      return roomNotFound();
+    }
+
+    const { name } = (await request.json().catch(() => ({}))) as { name?: string };
+    const trimmedName = name?.trim() ?? "";
+    if (!trimmedName || trimmedName.length > 12) {
+      return HttpResponse.json(
+        { code: "INVALID_FOLDER_NAME", message: "폴더 이름은 1자 이상 12자 이하여야 합니다." },
+        { status: 400 },
+      );
+    }
+
+    const folders = ROOM_FOLDERS[code] ?? (ROOM_FOLDERS[code] = []);
+    const folder = {
+      id: Math.max(500, ...folders.map(({ id }) => id)) + 1,
+      name: trimmedName,
+      createdAt: new Date().toISOString(),
+      photoCount: 0,
+    };
+    folders.push(folder);
+
+    return HttpResponse.json({ data: folder }, { status: 201 });
+  }),
+
+  http.patch(`${API_BASE_URL}/rooms/:roomId/folders/:folderId`, async ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    const code = codeOfRoomId(Number(params.roomId));
+    if (code === null || !isActiveRoomCode(code)) {
+      return roomNotFound();
+    }
+
+    const folder = foldersOf(code).find(({ id }) => id === Number(params.folderId));
+    if (!folder) {
+      return HttpResponse.json(
+        { code: "FOLDER_NOT_FOUND", message: "존재하지 않는 폴더입니다." },
+        { status: 404 },
+      );
+    }
+
+    const { name } = (await request.json().catch(() => ({}))) as { name?: string };
+    const trimmedName = name?.trim() ?? "";
+    if (!trimmedName || trimmedName.length > 12) {
+      return HttpResponse.json(
+        { code: "INVALID_FOLDER_NAME", message: "폴더 이름은 1자 이상 12자 이하여야 합니다." },
+        { status: 400 },
+      );
+    }
+
+    folder.name = trimmedName;
+    return HttpResponse.json({ data: folder });
+  }),
+
+  http.delete(`${API_BASE_URL}/rooms/:roomId/folders/:folderId`, ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    const code = codeOfRoomId(Number(params.roomId));
+    if (code === null || !isActiveRoomCode(code)) {
+      return roomNotFound();
+    }
+
+    const folders = foldersOf(code);
+    const folderIndex = folders.findIndex(({ id }) => id === Number(params.folderId));
+    if (folderIndex < 0) {
+      return HttpResponse.json(
+        { code: "FOLDER_NOT_FOUND", message: "존재하지 않는 폴더입니다." },
+        { status: 404 },
+      );
+    }
+
+    const [deletedFolder] = folders.splice(folderIndex, 1);
+    DETACHED_PHOTO_COUNTS[code] = (DETACHED_PHOTO_COUNTS[code] ?? 0) + deletedFolder.photoCount;
+
+    return HttpResponse.json({
+      data: {
+        deletedFolderId: deletedFolder.id,
+        detachedPhotoCount: deletedFolder.photoCount,
+      },
+    });
   }),
 
   http.post(`${API_BASE_URL}/rooms`, async ({ request }) => {

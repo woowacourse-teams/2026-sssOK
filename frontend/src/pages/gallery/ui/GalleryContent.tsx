@@ -3,12 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey } from "@/entities/media";
-import type { Room } from "@/entities/room";
+import { roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { DeleteRoomModal } from "@/features/delete-room";
+import { CreateFolderBottomSheet } from "@/features/create-folder";
+import { DeleteFolderModal } from "@/features/delete-folder";
+import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
+import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
 import { PhotoGallery } from "@/widgets/photo-gallery";
@@ -30,9 +34,14 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
   // 모달
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [isEditFolderOpen, setIsEditFolderOpen] = useState(false);
+  const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
+  const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
+  const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
   const { photos, isPending, isError } = useGalleryPhotos({
@@ -66,8 +75,13 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         hostId={room.hostId}
         expiresAt={room.expiresAt}
         roomName={room.name}
+        isHost={userId === room.hostId}
+        hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
         onDeleteRoom={() => setIsDeleteModalOpen(true)}
+        onAddFolder={() => setIsCreateFolderOpen(true)}
+        onEditFolder={() => setIsEditFolderOpen(true)}
+        onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
       <FolderFilter
         totalCount={room.photoCount}
@@ -77,6 +91,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           selectFolder(folderId);
           clearSelection();
         }}
+        onAddFolder={() => setIsCreateFolderOpen(true)}
       />
       <GalleryOptions
         selectedOption={selectedOption}
@@ -126,6 +141,73 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             queryClient.removeQueries({ queryKey: ["photos", room.roomId] });
             navigate(ROUTES.home, { replace: true });
           }}
+        />
+      )}
+
+      {isCreateFolderOpen && (
+        <CreateFolderBottomSheet
+          roomId={room.roomId}
+          accessToken={accessToken}
+          onClose={() => setIsCreateFolderOpen(false)}
+          onSuccess={async (folder) => {
+            setIsCreateFolderOpen(false);
+            selectFolder(folder.id);
+            clearSelection();
+            await queryClient.invalidateQueries({
+              queryKey: roomQueryKey(room.code, userId),
+              exact: true,
+            });
+          }}
+        />
+      )}
+
+      {isEditFolderOpen && selectedFolder && (
+        <EditFolderBottomSheet
+          roomId={room.roomId}
+          folder={selectedFolder}
+          accessToken={accessToken}
+          onClose={() => setIsEditFolderOpen(false)}
+          onSuccess={async () => {
+            setIsEditFolderOpen(false);
+            await queryClient.invalidateQueries({
+              queryKey: roomQueryKey(room.code, userId),
+              exact: true,
+            });
+          }}
+        />
+      )}
+
+      {isDeleteFolderOpen && selectedFolder && (
+        <DeleteFolderModal
+          roomId={room.roomId}
+          folderId={selectedFolder.id}
+          folderName={selectedFolder.name}
+          accessToken={accessToken}
+          onClose={() => setIsDeleteFolderOpen(false)}
+          onSuccess={async () => {
+            const folderName = selectedFolder.name;
+            setIsDeleteFolderOpen(false);
+            selectFolder(null);
+            clearSelection();
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: roomQueryKey(room.code, userId),
+                exact: true,
+              }),
+              queryClient.invalidateQueries({
+                queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
+              }),
+            ]);
+            setDeletedFolderName(folderName);
+          }}
+        />
+      )}
+
+      {deletedFolderName && (
+        <Toast
+          message={`‘${deletedFolderName}’ 폴더를 삭제했어요.`}
+          onClose={() => setDeletedFolderName(null)}
         />
       )}
     </Page>

@@ -8,7 +8,7 @@ describe("RoomMenuButton", () => {
     const user = userEvent.setup();
     const onOpenSettings = jest.fn();
 
-    render(<RoomMenuButton onOpenSettings={onOpenSettings} />);
+    render(<RoomMenuButton isHost onOpenSettings={onOpenSettings} />);
 
     await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
 
@@ -19,6 +19,19 @@ describe("RoomMenuButton", () => {
 
     expect(onOpenSettings).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "방 설정" })).not.toBeInTheDocument();
+  });
+
+  it("일반 참여자에게는 폴더 메뉴만 보여준다", async () => {
+    const user = userEvent.setup();
+    render(<RoomMenuButton />);
+
+    await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
+
+    expect(screen.queryByRole("button", { name: "방 설정" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "방 삭제" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "폴더 추가" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "폴더 설정" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "폴더 삭제" })).toBeDisabled();
   });
 
   it("메뉴 바깥을 누르면 닫는다", async () => {
