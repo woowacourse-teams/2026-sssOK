@@ -1,6 +1,5 @@
 export { getPhotos } from "./api/getPhotos";
 export { getMedia } from "./api/getMedia";
-export { mediaAssetUrl } from "./lib/mediaAssetUrl";
 export { mediaQueryKey, useMediaQuery } from "./model/useMediaQuery";
 export { photosQueryKey, usePhotosQuery } from "./model/usePhotosQuery";
 export type {
