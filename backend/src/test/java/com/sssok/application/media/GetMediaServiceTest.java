@@ -2,9 +2,13 @@ package com.sssok.application.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
@@ -15,6 +19,7 @@ import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 방 존재·만료·입장 여부는 RoomMembershipInterceptor 가
 // 컨트롤러 앞에서 거른다.
@@ -32,6 +38,7 @@ import org.springframework.test.context.ActiveProfiles;
 class GetMediaServiceTest {
 
     private static final Long OTHER_ROOM_ID = 711L;
+    private static final String PRESIGNED = "https://storage.example.com/signed";
 
     @Autowired
     GetMediaService getMediaService;
@@ -48,6 +55,9 @@ class GetMediaServiceTest {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
+    @MockitoBean
+    FileStoragePort fileStoragePort;
+
     private Long hostId;
     private Long uploaderId;
     private Long roomId;
@@ -57,6 +67,8 @@ class GetMediaServiceTest {
         hostId = memberRepository.save(Member.register(new Nickname("방장"), Instant.now())).getId();
         uploaderId = memberRepository.save(Member.register(new Nickname("가현"), Instant.now())).getId();
         roomId = createRoomService.create(hostId, "우테코 회식", null, null).room().getId();
+        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+            .willReturn(PRESIGNED);
     }
 
     @Test
@@ -132,7 +144,9 @@ class GetMediaServiceTest {
         MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
 
         assertThat(media.thumbnailUrl()).isNull();
+        assertThat(media.thumbnailUrlExpiresAt()).isNull();
         assertThat(media.originalUrl()).isNull();
+        assertThat(media.originalUrlExpiresAt()).isNull();
         assertThat(media.width()).isNull();
         assertThat(media.height()).isNull();
         assertThat(media.duration()).isNull();
@@ -144,10 +158,10 @@ class GetMediaServiceTest {
 
         MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
 
-        assertThat(media.thumbnailUrl())
-            .isEqualTo("/api/v1/rooms/%d/media/%d/thumbnail".formatted(roomId, file.getId()));
-        assertThat(media.originalUrl())
-            .isEqualTo("/api/v1/rooms/%d/media/%d/original".formatted(roomId, file.getId()));
+        assertThat(media.thumbnailUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.thumbnailUrlExpiresAt()).isNotNull();
+        assertThat(media.originalUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.originalUrlExpiresAt()).isNotNull();
         assertThat(media.width()).isEqualTo(1200);
         assertThat(media.height()).isEqualTo(900);
     }
