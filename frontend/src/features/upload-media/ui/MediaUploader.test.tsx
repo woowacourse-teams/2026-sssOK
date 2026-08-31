@@ -25,7 +25,7 @@ const enterRoom = () =>
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const renderUploader = (props: { onUploaded?: () => void } = {}) =>
+const renderUploader = (props: { onUploaded?: () => void; hideButton?: boolean } = {}) =>
   render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} {...props} />);
 
 /**
@@ -95,6 +95,39 @@ const getFileInput = () => {
 
 describe("MediaUploader", () => {
   beforeEach(enterRoom);
+
+  it("올리기 버튼은 숨겨도 파일 입력을 유지하고 다시 표시할 수 있다", () => {
+    const { rerender } = renderUploader();
+    const input = getFileInput();
+
+    expect(getUploadButton()).toHaveTextContent("올리기");
+
+    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} hideButton />);
+
+    expect(screen.queryByRole("button", { name: UPLOAD_BUTTON_LABEL })).not.toBeInTheDocument();
+    expect(getFileInput()).toBe(input);
+
+    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} />);
+
+    expect(getUploadButton()).toBeInTheDocument();
+  });
+
+  it("업로드 진행 중에는 올리기 버튼을 숨기고 완료 후 다시 표시한다", async () => {
+    const user = userEvent.setup();
+    const release = holdUploads();
+    renderUploader();
+
+    try {
+      await user.upload(getFileInput(), fileOf("a.jpg"));
+      expect(await screen.findByRole("progressbar")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: UPLOAD_BUTTON_LABEL })).not.toBeInTheDocument();
+    } finally {
+      release();
+    }
+
+    await settled();
+    expect(getUploadButton()).toBeInTheDocument();
+  });
 
   it("사진과 영상을 여러 장 고를 수 있는 선택기를 둔다", () => {
     renderUploader();

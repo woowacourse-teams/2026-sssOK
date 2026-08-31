@@ -9,13 +9,14 @@ import { Badge } from "@/shared/ui/badge";
  */
 export const Dock = styled.div`
   position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   justify-content: center;
-  /* 아이폰 홈 인디케이터에 바가 물리지 않게 한다. */
-  padding: ${spacing[16]} ${spacing[16]} calc(${spacing[16]} + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: 480px;
+  padding: 0 ${spacing[16]};
   z-index: 900;
   /* 바 바깥은 갤러리가 그대로 눌려야 한다. */
   pointer-events: none;
@@ -23,13 +24,20 @@ export const Dock = styled.div`
   > * {
     pointer-events: auto;
   }
+
+  @media (min-width: 768px) {
+    max-width: 1180px;
+  }
 `;
 
 export const Count = styled.span`
   flex-shrink: 0;
   color: ${colors.textStrong};
+  margin-right: auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 
-  ${typography.label2}
+  ${typography.caption2}
 `;
 
 /**
@@ -39,20 +47,22 @@ export const Count = styled.span`
  *
  * 덮어쓰는 것들은 배지로 안 되는 부분이다. Badge 는 내용만큼만 차지하고 `position` 이 없어서,
  * 그대로 두면 바를 가로지르지도 채움 띠를 담지도 못한다.
- * 높이와 글자 크기도 배지 기본값(24px·caption2)이 아니라 디자인에 맞춘 값이다.
+ * 높이와 글자 크기는 프로토타입의 전송 바(40px·12px)에 맞춘다.
  */
 export const Status = styled(Badge)`
-  position: relative;
-  flex: 1;
-  height: auto;
-  gap: ${spacing[4]};
-  padding: ${spacing[8]} ${spacing[12]};
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 40px;
+  gap: ${spacing[8]};
+  padding: 0 14px;
+  font-variant-numeric: tabular-nums;
 
-  ${typography.caption1}
+  ${typography.caption2}
 
   svg {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
 `;
 
@@ -66,8 +76,12 @@ export const Fill = styled.div`
   bottom: 0;
   left: 0;
   background: ${colors.primary};
-  opacity: 0.24;
-  transition: width 0.2s ease-out;
+  opacity: 0.18;
+  transition: width 60ms linear;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 `;
 
 /** 채움 위에 얹는다. 같은 칸을 쓰므로 쌓임 순서를 명시한다. */
@@ -75,21 +89,34 @@ export const StatusText = styled.span`
   position: relative;
   display: flex;
   align-items: center;
-  gap: ${spacing[4]};
+  gap: ${spacing[8]};
 `;
 
 export const CancelButton = styled.button`
   flex-shrink: 0;
+  min-height: 40px;
+  margin-left: auto;
   color: ${colors.textStrong};
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
 
-  ${typography.label2}
+  &:hover {
+    color: ${colors.primaryPressed};
+  }
 `;
 
 export const Spinner = styled.span`
   display: flex;
 
   svg {
-    animation: spin 1s linear infinite;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    svg {
+      animation: none;
+    }
   }
 
   @keyframes spin {

@@ -9,21 +9,31 @@ import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 export const Dock = styled.div`
   position: fixed;
   /* 아이폰 홈 인디케이터에 가리지 않게 안전 영역만큼 더 띄운다. */
-  bottom: calc(${spacing[16]} + env(safe-area-inset-bottom, 0px));
+  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
   width: 100%;
+  max-width: 480px;
   padding: 0 ${spacing[16]};
   z-index: 900;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+
+  @media (min-width: 768px) {
+    max-width: 1180px;
+  }
 `;
 
 export const Count = styled.span`
   flex-shrink: 0;
-  font-size: ${typography.label2.fontSize};
-  font-weight: ${typography.label2.fontWeight};
-  line-height: ${typography.label2.lineHeight};
+  ${typography.caption2}
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   color: ${colors.textStrong};
 `;
 
@@ -31,23 +41,32 @@ export const Status = styled.span`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: ${spacing[4]};
+  gap: ${spacing[8]};
   flex: 1;
-  padding: ${spacing[8]} ${spacing[12]};
+  min-width: 0;
+  height: 40px;
+  padding: 0 14px;
   border-radius: ${radius.full};
   background: ${colors.primarySubtle};
-  font-size: ${typography.caption1.fontSize};
-  font-weight: ${typography.caption1.fontWeight};
-  line-height: ${typography.caption1.lineHeight};
+  ${typography.caption2}
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   color: ${colors.textAccent};
 
   svg {
-    width: 16px;
-    height: 16px;
+    flex: none;
+    width: 14px;
+    height: 14px;
   }
 
   .spin {
-    animation: spin 1s linear infinite;
+    animation: spin 0.7s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spin {
+      animation: none;
+    }
   }
 
   @keyframes spin {
@@ -61,25 +80,32 @@ export const DownloadButton = styled.button`
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: ${spacing[8]};
+  gap: 6px;
   flex: 1;
-  padding: ${spacing[12]} ${spacing[16]};
-  border-radius: ${radius.full};
+  height: 40px;
+  padding: 0 ${spacing[12]};
+  border-radius: ${radius[12]};
   /* 좁은 폭에서 "zip 다운로드" 가 두 줄로 갈라지면 바 높이가 통째로 흔들린다. */
   white-space: nowrap;
   background: ${colors.primary};
-  font-size: ${typography.label2.fontSize};
-  font-weight: ${typography.label2.fontWeight};
-  line-height: ${typography.label2.lineHeight};
+  ${typography.caption2}
   color: ${colors.textInverse};
 
+  &:hover,
   &:active {
     background: ${colors.primaryPressed};
   }
 
   svg {
-    width: 18px;
-    height: 18px;
+    flex: none;
+    width: 16px;
+    height: 16px;
+  }
+
+  @media (max-width: 360px) {
+    gap: ${spacing[4]};
+    padding-inline: ${spacing[8]};
+    font-size: 11px;
   }
 `;
 
@@ -89,14 +115,25 @@ export const PlainButton = styled.button`
   justify-content: center;
   gap: ${spacing[4]};
   flex-shrink: 0;
+  min-width: 24px;
+  min-height: 40px;
+  border-radius: ${radius[12]};
   white-space: nowrap;
   color: ${colors.textStrong};
-  font-size: ${typography.label2.fontSize};
-  font-weight: ${typography.label2.fontWeight};
-  line-height: ${typography.label2.lineHeight};
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+
+  &:hover {
+    background: ${colors.interactiveHover};
+  }
 
   svg {
     width: 18px;
     height: 18px;
+  }
+
+  @media (max-width: 360px) {
+    font-size: 11px;
   }
 `;
