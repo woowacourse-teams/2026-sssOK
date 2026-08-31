@@ -31,11 +31,11 @@ export const MoveMediaFolderBottomSheet = ({
   onClose,
   onSuccess,
 }: MoveMediaFolderBottomSheetProps) => {
-  const [folderIds, setFolderIds] = useState<number[]>([]);
+  const [folderId, setFolderId] = useState<number | null>(null);
   const mutation = useMutation({
-    mutationFn: (targetFolderIds: number[]) =>
-      addMediaToFolder({ roomId, mediaIds, folderIds: targetFolderIds, token }),
-    onSuccess: (_, targetFolderIds) => onSuccess(targetFolderIds[0]),
+    mutationFn: (targetFolderId: number) =>
+      addMediaToFolder({ roomId, mediaIds, folderId: targetFolderId, token }),
+    onSuccess: (_, targetFolderId) => onSuccess(targetFolderId),
   });
   const removeMutation = useMutation({
     mutationFn: (folderId: number) => removeMediaFromFolder({ roomId, mediaIds, folderId, token }),
@@ -51,20 +51,14 @@ export const MoveMediaFolderBottomSheet = ({
       <Stack gap={16}>
         <FolderList>
           {folders.map((folder) => {
-            const selected = folderIds.includes(folder.id);
+            const selected = folderId === folder.id;
             return (
               <FolderButton
                 key={folder.id}
                 type="button"
                 $selected={selected}
                 disabled={isPending}
-                onClick={() =>
-                  setFolderIds((current) =>
-                    current.includes(folder.id)
-                      ? current.filter((id) => id !== folder.id)
-                      : [...current, folder.id],
-                  )
-                }
+                onClick={() => setFolderId((current) => (current === folder.id ? null : folder.id))}
               >
                 <FolderIcon>
                   <LuFolder />
@@ -82,7 +76,7 @@ export const MoveMediaFolderBottomSheet = ({
           })}
         </FolderList>
         {folders.length === 0 && <Empty>먼저 폴더를 만들어 주세요.</Empty>}
-        {folders.length > 0 && <Notice>사진은 여러 폴더에 함께 담을 수 있어요.</Notice>}
+        {folders.length > 0 && <Notice>사진을 담을 폴더 하나를 선택해 주세요.</Notice>}
         {currentFolderId !== null && (
           <Button
             variant="default"
@@ -107,8 +101,8 @@ export const MoveMediaFolderBottomSheet = ({
           </ErrorMessage>
         )}
         <Button
-          disabled={folderIds.length === 0 || isPending}
-          onClick={() => folderIds.length > 0 && mutation.mutate(folderIds)}
+          disabled={folderId === null || isPending}
+          onClick={() => folderId !== null && mutation.mutate(folderId)}
         >
           {mutation.isPending ? "이동 중..." : "여기로 이동"}
         </Button>
