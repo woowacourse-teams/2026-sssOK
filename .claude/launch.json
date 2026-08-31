@@ -4,13 +4,31 @@
     {
       "name": "frontend-dev",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "frontend", "start"],
+      "runtimeArgs": [
+        "--dir",
+        "frontend",
+        "start"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "frontend-dev-full-mock",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "--dir",
+        "frontend",
+        "start:mock"
+      ],
       "port": 3000
     },
     {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["--dir", "frontend", "storybook"],
+      "runtimeArgs": [
+        "--dir",
+        "frontend",
+        "storybook"
+      ],
       "port": 6006
     }
   ]

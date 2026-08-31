@@ -19,8 +19,9 @@ export interface Media {
   /** 워커가 만드는 값이라 PROCESSING 동안은 null 이다. */
   thumbnailUrl: string | null;
   originalUrl: string | null;
-  width: number;
-  height: number;
+  /** 치수도 워커가 채운다. PROCESSING 동안은 null 이다. */
+  width: number | null;
+  height: number | null;
   /** 영상만 값이 있다. */
   duration: number | null;
   folderIds: number[];
@@ -37,6 +38,8 @@ export interface Media {
 export interface MediaItem extends Media {
   thumbnailUrl: string;
   originalUrl: string;
+  width: number;
+  height: number;
   status: "READY";
 }
 

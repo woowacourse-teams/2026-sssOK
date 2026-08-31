@@ -1,5 +1,6 @@
 import { HiCheck, HiPlay } from "react-icons/hi2";
 
+import { mediaAssetUrl } from "../lib/mediaAssetUrl";
 import type { MediaItem } from "../model/types";
 import {
   CardButton,
@@ -29,7 +30,12 @@ export const MediaCard = ({ media, isMine, isSelected, onToggle }: MediaCardProp
 
   return (
     <CardButton type="button" $selected={isSelected} onClick={onToggle}>
-      <Thumbnail src={media.thumbnailUrl} alt={media.fileName} loading="lazy" draggable={false} />
+      <Thumbnail
+        src={mediaAssetUrl(media.thumbnailUrl)}
+        alt={media.fileName}
+        loading="lazy"
+        draggable={false}
+      />
 
       {isVideo && (
         <>

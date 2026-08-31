@@ -140,7 +140,7 @@ export const downloadHandlers = [
    * B-6 단건 다운로드. 바이트를 프록시하지 않고 **302 로 스토리지를 가리킨다.**
    * 목에서는 목록이 쓰는 원본 URL 이 그 자리다.
    */
-  http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, ({ request, params }) => {
+  http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
     const memberId = memberIdOf(token);
 
@@ -173,8 +173,60 @@ export const downloadHandlers = [
     return new HttpResponse(null, { status: 302, headers: { Location: location } });
   }),
 
+  /**
+   * B-6 다건 다운로드 URL 발급. 압축하지 않고 파일마다 서명 URL 을 즉시 돌려준다.
+   * 처리 중인 미디어는 대상에서 빠지므로 `files` 가 요청한 장수보다 적을 수 있다.
+   */
+  http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+    const token = request.headers.get("Authorization");
+    const memberId = memberIdOf(token);
+
+    if (token === null || memberId === null) {
+      return error(401, "UNAUTHORIZED", "인증이 필요합니다.");
+    }
+
+    const roomId = Number(params.roomId);
+    const denied = guardRoom(roomId, token);
+
+    if (denied !== null) {
+      return denied;
+    }
+
+    const { mediaIds, folderId } = (await request.json()) as {
+      mediaIds?: number[];
+      folderId?: number;
+    };
+
+    if (mediaIds !== undefined && folderId !== undefined) {
+      return error(400, "INVALID_PARAM", "mediaIds 와 folderId 는 함께 보낼 수 없습니다");
+    }
+
+    const all = mediaOfRoom(roomId);
+    const chosen =
+      mediaIds === undefined ? all : all.filter((media) => mediaIds.includes(media.mediaId));
+    const ready = chosen.filter((media) => media.status === "READY");
+
+    if (ready.length === 0) {
+      return error(404, "MEDIA_NOT_FOUND", "받을 수 있는 미디어가 없습니다");
+    }
+
+    const files = ready.map((media) => {
+      const disposition = `attachment; filename="${media.fileName}"; filename*=UTF-8''${encodeURIComponent(media.fileName)}`;
+
+      return {
+        mediaId: media.mediaId,
+        fileName: media.fileName,
+        // 실서버는 스토리지 서명 URL 이다. 목은 목록이 쓰는 원본 URL 로 그 자리를 대신한다.
+        downloadUrl: `${media.originalUrl}${media.originalUrl.includes("?") ? "&" : "?"}response-content-disposition=${encodeURIComponent(disposition)}`,
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      };
+    });
+
+    return HttpResponse.json({ data: { files } });
+  }),
+
   /** B-7-1 zip 다운로드 요청. 압축을 기다리지 않고 잡 번호만 돌려준다. */
-  http.post(`${API_BASE_URL}/rooms/:roomId/downloads`, async ({ request, params }) => {
+  http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, async ({ request, params }) => {
     const token = request.headers.get("Authorization");
     const memberId = memberIdOf(token);
 
@@ -274,7 +326,7 @@ export const downloadHandlers = [
   }),
 
   /** B-7-2 상태 조회. READY 일 때만 `downloadUrl` 과 `expiresAt` 이 채워진다. */
-  http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, ({ request, params }) => {
+  http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
     const memberId = memberIdOf(token);
 
