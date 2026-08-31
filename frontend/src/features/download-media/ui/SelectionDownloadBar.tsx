@@ -1,14 +1,33 @@
 import { useState } from "react";
-import { LuDownload, LuImageDown, LuLoaderCircle, LuX } from "react-icons/lu";
+import {
+  LuCheck,
+  LuDownload,
+  LuFolderInput,
+  LuImageDown,
+  LuLoaderCircle,
+  LuTrash2,
+  LuX,
+} from "react-icons/lu";
 
 import { FloatingBar } from "@/shared/ui/floating-bar";
+import { IconButton } from "@/shared/ui/icon-button";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
 import { useMediaDownload } from "../model/useMediaDownload";
 import type { DownloadMode, DownloadOutcome, DownloadTarget } from "../model/types";
 import { DownloadFailureModal } from "./DownloadFailureModal";
 import { DownloadModeSheet } from "./DownloadModeSheet";
-import { Count, DownloadButton, Dock, PlainButton, Status } from "./SelectionDownloadBar.styles";
+import {
+  ActionGroup,
+  Count,
+  DownloadButton,
+  Dock,
+  PlainButton,
+  SelectionCheck,
+  SelectionLayout,
+  SelectionSummary,
+  Status,
+} from "./SelectionDownloadBar.styles";
 
 /**
  * 사진을 하나라도 고르면 나타나는 바 (003-selection-download).
@@ -27,6 +46,8 @@ interface SelectionDownloadBarProps {
   roomCode: string;
   token: string;
   onClearSelection: () => void;
+  onDeleteSelection?: () => void;
+  onMoveSelection?: () => void;
   /** 한 판이 끝났을 때. 실패 안내는 부르는 쪽이 띄운다. */
   onSettled?: (outcome: DownloadOutcome) => void;
 }
@@ -47,6 +68,8 @@ export const SelectionDownloadBar = ({
   roomCode,
   token,
   onClearSelection,
+  onDeleteSelection,
+  onMoveSelection,
   onSettled,
 }: SelectionDownloadBarProps) => {
   const [isSheetOpen, setSheetOpen] = useState(false);
@@ -132,16 +155,35 @@ export const SelectionDownloadBar = ({
                 </PlainButton>
               </>
             ) : (
-              <>
-                <Count>선택 {targets.length}개</Count>
-                <PlainButton type="button" aria-label="선택 해제" onClick={onClearSelection}>
-                  <LuX />
-                </PlainButton>
+              <SelectionLayout>
+                <SelectionSummary>
+                  <SelectionCheck aria-hidden="true">
+                    <LuCheck />
+                  </SelectionCheck>
+                  <Count>{targets.length}개</Count>
+                </SelectionSummary>
                 <DownloadButton type="button" onClick={() => setSheetOpen(true)}>
                   <LuDownload />
                   다운로드
                 </DownloadButton>
-              </>
+                <ActionGroup>
+                  <IconButton
+                    size="sm"
+                    variant="danger"
+                    aria-label="선택한 사진 삭제"
+                    onClick={onDeleteSelection}
+                  >
+                    <LuTrash2 />
+                  </IconButton>
+                  <IconButton
+                    size="sm"
+                    aria-label="선택한 사진 폴더 이동"
+                    onClick={onMoveSelection}
+                  >
+                    <LuFolderInput />
+                  </IconButton>
+                </ActionGroup>
+              </SelectionLayout>
             )}
           </FloatingBar>
         </Dock>

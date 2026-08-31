@@ -6,6 +6,7 @@ import { photosQueryKey } from "@/entities/media";
 import { roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { DeleteRoomModal } from "@/features/delete-room";
+import { DeleteSelectedMediaModal } from "@/features/delete-media";
 import { CreateFolderBottomSheet } from "@/features/create-folder";
 import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
@@ -37,6 +38,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [isEditFolderOpen, setIsEditFolderOpen] = useState(false);
   const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
+  const [isDeleteSelectionOpen, setIsDeleteSelectionOpen] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
@@ -128,7 +130,31 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         roomCode={room.code}
         token={accessToken}
         onClearSelection={clearSelection}
+        onDeleteSelection={() => setIsDeleteSelectionOpen(true)}
       />
+
+      {isDeleteSelectionOpen && (
+        <DeleteSelectedMediaModal
+          roomId={room.roomId}
+          mediaIds={selectedPhotoIds}
+          token={accessToken}
+          onClose={() => setIsDeleteSelectionOpen(false)}
+          onSuccess={async () => {
+            setIsDeleteSelectionOpen(false);
+            clearSelection();
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
+              }),
+              queryClient.invalidateQueries({
+                queryKey: roomQueryKey(room.code, userId),
+                exact: true,
+              }),
+            ]);
+          }}
+        />
+      )}
 
       {isDeleteModalOpen && (
         <DeleteRoomModal

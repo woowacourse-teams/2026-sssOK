@@ -37,6 +37,45 @@ export const Count = styled.span`
   color: ${colors.textStrong};
 `;
 
+export const SelectionLayout = styled.div`
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+  gap: ${spacing[16]};
+`;
+
+export const SelectionSummary = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing[8]};
+  justify-self: start;
+`;
+
+export const SelectionCheck = styled.span`
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: ${radius.full};
+  background: ${colors.primary};
+  color: ${colors.textInverse};
+
+  svg {
+    width: 12px;
+    height: 12px;
+    stroke-width: 2.5;
+  }
+`;
+
+export const ActionGroup = styled.div`
+  display: flex;
+  align-items: center;
+  justify-self: end;
+  gap: 0;
+`;
+
 export const Status = styled.span`
   display: flex;
   align-items: center;
@@ -81,14 +120,16 @@ export const DownloadButton = styled.button`
   align-items: center;
   justify-content: center;
   gap: 6px;
-  flex: 1;
+  justify-self: center;
+  width: 132px;
   height: 40px;
-  padding: 0 ${spacing[12]};
+  padding: 0 ${spacing[16]};
   border-radius: ${radius[12]};
   /* 좁은 폭에서 "zip 다운로드" 가 두 줄로 갈라지면 바 높이가 통째로 흔들린다. */
   white-space: nowrap;
   background: ${colors.primary};
-  ${typography.caption2}
+  ${typography.label5}
+  font-size: 12px;
   color: ${colors.textInverse};
 
   &:hover,
@@ -98,14 +139,15 @@ export const DownloadButton = styled.button`
 
   svg {
     flex: none;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
   }
 
   @media (max-width: 360px) {
     gap: ${spacing[4]};
+    width: 124px;
     padding-inline: ${spacing[8]};
-    font-size: 11px;
+    font-size: 12px;
   }
 `;
 

@@ -105,7 +105,7 @@ describe("SelectionDownloadBar", () => {
   it("고른 장수를 보여준다", () => {
     renderBar([targetOf(5000)]);
 
-    expect(screen.getByText("선택 1개")).toBeInTheDocument();
+    expect(screen.getByText("1개")).toBeInTheDocument();
   });
 
   it("다운로드를 누르면 시트가 열린다", async () => {
