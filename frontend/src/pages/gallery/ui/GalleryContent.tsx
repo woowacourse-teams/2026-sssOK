@@ -11,6 +11,7 @@ import { CreateFolderBottomSheet } from "@/features/create-folder";
 import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
+import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
 import { Toast } from "@/shared/ui/toast";
@@ -39,6 +40,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [isEditFolderOpen, setIsEditFolderOpen] = useState(false);
   const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
   const [isDeleteSelectionOpen, setIsDeleteSelectionOpen] = useState(false);
+  const [isMoveSelectionOpen, setIsMoveSelectionOpen] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
@@ -131,6 +133,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         token={accessToken}
         onClearSelection={clearSelection}
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}
+        onMoveSelection={() => setIsMoveSelectionOpen(true)}
       />
 
       {isDeleteSelectionOpen && (
@@ -141,6 +144,32 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           onClose={() => setIsDeleteSelectionOpen(false)}
           onSuccess={async () => {
             setIsDeleteSelectionOpen(false);
+            clearSelection();
+            await Promise.all([
+              queryClient.invalidateQueries({
+                queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
+              }),
+              queryClient.invalidateQueries({
+                queryKey: roomQueryKey(room.code, userId),
+                exact: true,
+              }),
+            ]);
+          }}
+        />
+      )}
+
+      {isMoveSelectionOpen && (
+        <MoveMediaFolderBottomSheet
+          roomId={room.roomId}
+          mediaIds={selectedPhotoIds}
+          folders={room.folders}
+          currentFolderId={selectedFolderId}
+          token={accessToken}
+          onClose={() => setIsMoveSelectionOpen(false)}
+          onSuccess={async (folderId) => {
+            setIsMoveSelectionOpen(false);
+            selectFolder(folderId);
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
