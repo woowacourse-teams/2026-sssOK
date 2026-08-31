@@ -20,6 +20,7 @@ public class MediaRegistrar {
 
     private final FileRepository fileRepository;
     private final FolderMediaRepository folderMediaRepository;
+    private final MediaUrlResolver mediaUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -35,7 +36,7 @@ public class MediaRegistrar {
             file.startProcessing();
             StoredFile saved = fileRepository.save(file);
             registered.add(MediaDetail.of(saved, uploaderName,
-                folderIds.getOrDefault(saved.getId(), List.of())));
+                folderIds.getOrDefault(saved.getId(), List.of()), mediaUrlResolver.resolve(saved)));
         }
         registered.forEach(media -> eventPublisher.publishEvent(new MediaCreatedEvent(roomId, media)));
         return registered;
