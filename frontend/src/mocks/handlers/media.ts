@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import type { MediaDetail } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
 import { markMediaDeleted, type GalleryMedia } from "../db";
-import { hasJoinedRoom, mediaOfRoom, MOCK_HOST_ID, roomStatusOfId } from "./room";
+import { hasFolder, hasJoinedRoom, mediaOfRoom, MOCK_HOST_ID, roomStatusOfId } from "./room";
 
 const error = (status: number, code: string, message: string) =>
   HttpResponse.json({ code, message }, { status });
@@ -29,6 +29,124 @@ const forbidden = () =>
   error(403, "MEDIA_FORBIDDEN", "다른 사람이 올린 파일이라 삭제할 수 없습니다");
 
 export const mediaHandlers = [
+  http.put(`${API_BASE_URL}/rooms/:roomId/media/folders`, async ({ request, params }) => {
+    const roomId = Number(params.roomId);
+    const auth = authorize(request, roomId);
+    if (typeof auth !== "number") return auth;
+    const body: unknown = await request.json().catch(() => null);
+    if (
+      !body ||
+      typeof body !== "object" ||
+      !("mediaIds" in body) ||
+      !Array.isArray(body.mediaIds) ||
+      body.mediaIds.length === 0 ||
+      (!("folderIds" in body) && !("folderId" in body))
+    ) {
+      return error(400, "INVALID_PARAM", "미디어와 폴더를 선택해 주세요.");
+    }
+    const requestedFolderIds =
+      "folderIds" in body && Array.isArray(body.folderIds)
+        ? body.folderIds
+        : "folderId" in body && typeof body.folderId === "number"
+          ? [body.folderId]
+          : [];
+    if (
+      requestedFolderIds.length === 0 ||
+      !requestedFolderIds.every((id: unknown) => typeof id === "number")
+    ) {
+      return error(400, "INVALID_PARAM", "미디어와 폴더를 선택해 주세요.");
+    }
+    const folderIds = [...new Set<number>(requestedFolderIds)];
+    if (folderIds.some((folderId) => !hasFolder(roomId, folderId))) {
+      return error(404, "FOLDER_NOT_FOUND", "폴더를 찾을 수 없습니다.");
+    }
+
+    const mediaById = new Map(mediaOfRoom(roomId).map((media) => [media.mediaId, media]));
+    let updatedCount = 0;
+    let alreadyInCount = 0;
+    const notFoundMediaIds: number[] = [];
+    for (const mediaId of [...new Set<number>(body.mediaIds)]) {
+      const media = mediaById.get(mediaId);
+      if (!media) {
+        notFoundMediaIds.push(mediaId);
+      } else {
+        for (const folderId of folderIds) {
+          if (media.folderIds.includes(folderId)) {
+            alreadyInCount += 1;
+          } else {
+            media.folderIds.push(folderId);
+            updatedCount += 1;
+          }
+        }
+      }
+    }
+
+    const folders = folderIds.map((folderId) => ({
+      id: folderId,
+      name: "폴더",
+      photoCount: mediaOfRoom(roomId).filter((media) => media.folderIds.includes(folderId)).length,
+    }));
+    const data = { updatedCount, alreadyInCount, notFoundMediaIds };
+
+    return HttpResponse.json({
+      data: "folderId" in body ? { ...data, folder: folders[0] } : { ...data, folders },
+    });
+  }),
+
+  http.delete(`${API_BASE_URL}/rooms/:roomId/media/folders`, async ({ request, params }) => {
+    const roomId = Number(params.roomId);
+    const auth = authorize(request, roomId);
+    if (typeof auth !== "number") return auth;
+    const body: unknown = await request.json().catch(() => null);
+    if (
+      !body ||
+      typeof body !== "object" ||
+      !("mediaIds" in body) ||
+      !Array.isArray(body.mediaIds) ||
+      body.mediaIds.length === 0 ||
+      !("folderIds" in body) ||
+      !Array.isArray(body.folderIds) ||
+      body.folderIds.length === 0
+    ) {
+      return error(400, "INVALID_PARAM", "미디어와 폴더를 선택해 주세요.");
+    }
+
+    const folderIds = [...new Set<number>(body.folderIds)];
+    if (folderIds.some((folderId) => !hasFolder(roomId, folderId))) {
+      return error(404, "FOLDER_NOT_FOUND", "폴더를 찾을 수 없습니다.");
+    }
+
+    const mediaById = new Map(mediaOfRoom(roomId).map((media) => [media.mediaId, media]));
+    let updatedCount = 0;
+    const movedToRootMediaIds: number[] = [];
+    const notFoundMediaIds: number[] = [];
+    for (const mediaId of [...new Set<number>(body.mediaIds)]) {
+      const media = mediaById.get(mediaId);
+      if (!media) {
+        notFoundMediaIds.push(mediaId);
+        continue;
+      }
+      const before = media.folderIds.length;
+      media.folderIds = media.folderIds.filter((folderId) => !folderIds.includes(folderId));
+      updatedCount += before - media.folderIds.length;
+      if (before > 0 && media.folderIds.length === 0) movedToRootMediaIds.push(mediaId);
+    }
+
+    return HttpResponse.json({
+      data: {
+        updatedCount,
+        movedToRootMediaIds,
+        notFoundMediaIds,
+        folders: folderIds.map((folderId) => ({
+          id: folderId,
+          name: "폴더",
+          photoCount: mediaOfRoom(roomId).filter((media) => media.folderIds.includes(folderId))
+            .length,
+        })),
+      },
+    });
+  }),
+
   http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId`, ({ request, params }) => {
     const roomId = Number(params.roomId);
     const auth = authorize(request, roomId);
