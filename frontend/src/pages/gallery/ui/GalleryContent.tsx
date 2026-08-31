@@ -105,6 +105,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         isPending={isPending}
         isError={isError}
         onTogglePhoto={togglePhoto}
+        onOpenPhoto={(photo) => navigate(ROUTES.mediaDetail(room.code, photo.mediaId))}
       />
       <SelectionDownloadBar
         targets={downloadTargets}
