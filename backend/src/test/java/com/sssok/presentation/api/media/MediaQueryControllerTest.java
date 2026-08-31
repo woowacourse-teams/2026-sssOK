@@ -8,20 +8,15 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.GetMediaListService;
 import com.sssok.application.media.GetMediaService;
-import com.sssok.application.media.GetOriginalUrlService;
-import com.sssok.application.media.GetThumbnailUrlService;
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.media.MediaFullDetail;
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.MediaNotReadyException;
-import com.sssok.application.media.exception.ThumbnailNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
@@ -54,6 +49,8 @@ class MediaQueryControllerTest {
     private static final Long MEDIA_ID = 5012L;
     private static final Long FOLDER_ID = 31L;
     private static final String BEARER = "Bearer valid-token";
+    private static final String THUMBNAIL_URL = "https://r2.example.com/signed-thumbnail";
+    private static final String ORIGINAL_URL = "https://r2.example.com/signed-original";
 
     @Autowired
     MockMvc mockMvc;
@@ -63,12 +60,6 @@ class MediaQueryControllerTest {
 
     @MockitoBean
     GetMediaService getMediaService;
-
-    @MockitoBean
-    GetThumbnailUrlService getThumbnailUrlService;
-
-    @MockitoBean
-    GetOriginalUrlService getOriginalUrlService;
 
     @MockitoBean
     TokenProvider tokenProvider;
@@ -102,8 +93,10 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.items[0].uploaderId").value(7))
             .andExpect(jsonPath("$.data.items[0].uploaderName").value("가현"))
             .andExpect(jsonPath("$.data.items[0].folderIds[0]").value(FOLDER_ID))
-            .andExpect(jsonPath("$.data.items[0].thumbnailUrl")
-                .value("/api/v1/rooms/10/media/5012/thumbnail?token=valid-token"))
+            .andExpect(jsonPath("$.data.items[0].thumbnailUrl").value(THUMBNAIL_URL))
+            .andExpect(jsonPath("$.data.items[0].thumbnailUrlExpiresAt").exists())
+            .andExpect(jsonPath("$.data.items[0].originalUrl").value(ORIGINAL_URL))
+            .andExpect(jsonPath("$.data.items[0].originalUrlExpiresAt").exists())
             .andExpect(jsonPath("$.data.items[0].uploadedAt").exists());
     }
 
@@ -154,8 +147,7 @@ class MediaQueryControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.mediaId").value(MEDIA_ID))
             .andExpect(jsonPath("$.data.fileName").value("사진.jpg"))
-            .andExpect(jsonPath("$.data.thumbnailUrl")
-                .value("/api/v1/rooms/10/media/5012/thumbnail?token=valid-token"))
+            .andExpect(jsonPath("$.data.thumbnailUrl").value(THUMBNAIL_URL))
             .andExpect(jsonPath("$.data.folderIds[0]").value(FOLDER_ID));
     }
 
@@ -200,80 +192,18 @@ class MediaQueryControllerTest {
             new GeoPoint(new BigDecimal("37.566500"), new BigDecimal("126.978000")), true);
     }
 
-    // 조회 응답이 thumbnailUrl 로 내려준 경로가 실제로 서명 URL 로 넘겨주는지.
-    @Test
-    void 썸네일을_요청하면_302로_서명_URL에_넘긴다() throws Exception {
-        given(getThumbnailUrlService.getUrl(ROOM_ID, MEDIA_ID))
-            .willReturn("https://storage.example.com/thumb");
-
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/thumbnail", ROOM_ID, MEDIA_ID)
-                .header("Authorization", BEARER))
-            .andExpect(status().isFound())
-            .andExpect(header().string("Location", "https://storage.example.com/thumb"));
-    }
-
-    @Test
-    void 썸네일은_쿼리_토큰으로도_요청할_수_있다() throws Exception {
-        given(getThumbnailUrlService.getUrl(ROOM_ID, MEDIA_ID))
-            .willReturn("https://storage.example.com/thumb");
-
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/thumbnail", ROOM_ID, MEDIA_ID)
-                .param("token", "valid-token"))
-            .andExpect(status().isFound())
-            .andExpect(header().string("Location", "https://storage.example.com/thumb"));
-    }
-
-    @Test
-    void 잘못된_Authorization_헤더가_있으면_쿼리_토큰으로_대체하지_않는다() throws Exception {
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/thumbnail", ROOM_ID, MEDIA_ID)
-                .header("Authorization", "Basic invalid-token")
-                .param("token", "valid-token"))
-            .andExpect(status().isUnauthorized());
-    }
-
-    // 미디어는 있는데 썸네일만 없는 경우다. 없는 미디어와 코드로 구분된다.
-    @Test
-    void 아직_썸네일이_없으면_404_THUMBNAIL_NOT_FOUND() throws Exception {
-        willThrow(new ThumbnailNotFoundException())
-            .given(getThumbnailUrlService).getUrl(anyLong(), anyLong());
-
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/thumbnail", ROOM_ID, MEDIA_ID)
-                .header("Authorization", BEARER))
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.code").value("THUMBNAIL_NOT_FOUND"));
-    }
-
-    @Test
-    void 원본을_요청하면_302로_서명_URL에_넘긴다() throws Exception {
-        given(getOriginalUrlService.getUrl(ROOM_ID, MEDIA_ID))
-            .willReturn("https://storage.example.com/original");
-
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/original", ROOM_ID, MEDIA_ID)
-                .header("Authorization", BEARER))
-            .andExpect(status().isFound())
-            .andExpect(header().string("Location", "https://storage.example.com/original"));
-    }
-
-    @Test
-    void 아직_처리_중인_원본을_요청하면_409() throws Exception {
-        willThrow(new MediaNotReadyException())
-            .given(getOriginalUrlService).getUrl(anyLong(), anyLong());
-
-        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}/original", ROOM_ID, MEDIA_ID)
-                .header("Authorization", BEARER))
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value("MEDIA_NOT_READY"));
-    }
-
+    // 아직 워커가 만들지 않았거나 영상이라 썸네일·원본이 없는 경우다.
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
-            null, null, null, null, null, List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+            null, null, null, null, null, null, null,
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
     private MediaDetail mediaWithThumbnail() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
-            "/api/v1/rooms/10/media/5012/thumbnail",
-            "/api/v1/rooms/10/media/5012/original", 1200, 900, null,
+            THUMBNAIL_URL, Instant.now().plusSeconds(1800),
+            ORIGINAL_URL, Instant.now().plusSeconds(300),
+            1200, 900, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
