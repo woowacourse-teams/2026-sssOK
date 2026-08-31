@@ -46,3 +46,14 @@ export interface MediaItem extends Media {
 export interface MediaList {
   items: MediaItem[];
 }
+
+/** 단일 조회에는 썸네일 대신 원본과 촬영 정보·삭제 권한이 내려온다. */
+export interface MediaDetail extends Omit<Media, "thumbnailUrl"> {
+  takenAt: string | null;
+  location: {
+    latitude: number;
+    longitude: number;
+    name: string;
+  } | null;
+  canDelete: boolean;
+}

@@ -1,7 +1,14 @@
 import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
-import { originalUrlOf, registeredMediaOf, thumbnailUrlOf, type GalleryMedia } from "../db";
+import {
+  isDeletedMedia,
+  originalUrlOf,
+  registeredMediaOf,
+  resetDeletedMedia,
+  thumbnailUrlOf,
+  type GalleryMedia,
+} from "../db";
 
 /**
  * 방 코드는 8자리다. 혼동하기 쉬운 0, 1, I, O 는 알파벳에서 빠져 있다.
@@ -127,6 +134,9 @@ export const roomStatusOfId = (roomId: number): RoomStatus | null => {
   if (code === MOCK_ROOM_CODES.purged) {
     return "PURGED";
   }
+  if (code === MOCK_ROOM_CODES.active && activeRoomOverrides.status) {
+    return activeRoomOverrides.status;
+  }
 
   return "ACTIVE";
 };
@@ -161,6 +171,19 @@ interface ActiveRoomOverrides {
 let activeRoomOverrides: ActiveRoomOverrides = {};
 
 const room = (code: string, status: RoomStatus, joined = false) => {
+  const roomId = ROOM_IDS[code];
+  const uploaded = registeredMediaOf(roomId);
+  const seeded = roomId === MOCK_ROOM_ID ? mediaItems : [];
+  const countChange = (folderId?: number) => {
+    const inFolder = (media: MockMedia) =>
+      folderId === undefined || media.folderIds.includes(folderId);
+    return (
+      uploaded.filter(inFolder).length -
+      [...seeded, ...uploaded].filter(
+        (media) => inFolder(media) && isDeletedMedia(roomId, media.mediaId),
+      ).length
+    );
+  };
   const response = {
     roomId: ROOM_IDS[code],
     code,
@@ -176,9 +199,15 @@ const room = (code: string, status: RoomStatus, joined = false) => {
         ? roomExpiresAt[code]
         : new Date(Date.now() - 24 * HOUR_IN_MILLISECONDS).toISOString(),
     /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
-    photoCount: foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0),
+    photoCount: Math.max(
+      0,
+      foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0) + countChange(),
+    ),
     /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
-    folders: foldersOf(code),
+    folders: foldersOf(code).map((folder) => ({
+      ...folder,
+      photoCount: Math.max(0, folder.photoCount + countChange(folder.id)),
+    })),
   };
 
   return code === MOCK_ROOM_CODES.active ? { ...response, ...activeRoomOverrides } : response;
@@ -337,15 +366,17 @@ const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
  * 다운로드 목도 mediaId 로 원본을 찾을 때 이걸 쓴다.
  */
 export const mediaOfRoom = (roomId: number) =>
-  roomId === MOCK_ROOM_ID
+  (roomId === MOCK_ROOM_ID
     ? [...registeredMediaOf(roomId), ...mediaItems]
-    : registeredMediaOf(roomId);
+    : registeredMediaOf(roomId)
+  ).filter((media) => !isDeletedMedia(roomId, media.mediaId));
 
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
 export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 
 export const resetRoomHandlers = () => {
   resetJoinedRooms();
+  resetDeletedMedia();
   activeRoomOverrides = {};
   roomExpiresAt = createRoomExpiresAt();
 };
