@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "미디어 조회", description = "방에 올라온 미디어의 메타데이터와, 화면에 그릴 썸네일·원본을 읽는다. 저장 목적의 다운로드는 다운로드 API가 맡는다.")
@@ -42,13 +41,11 @@ public class MediaQueryController {
     @GetMapping
     public ApiResponse<MediaListResponse> getMediaList(
         @Parameter(hidden = true) @AuthMember Long memberId,
-        @Parameter(hidden = true) @RequestHeader("Authorization") String authorization,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "이 폴더에 담긴 미디어만 조회한다. 생략하면 방 전체")
         @RequestParam(required = false) Long folderId
     ) {
-        return ApiResponse.of(MediaListResponse.from(
-            getMediaListService.list(roomId, folderId), accessToken(authorization)));
+        return ApiResponse.of(MediaListResponse.from(getMediaListService.list(roomId, folderId)));
     }
 
     @Operation(
@@ -65,13 +62,10 @@ public class MediaQueryController {
     @GetMapping("/{mediaId}")
     public ApiResponse<MediaFullResponse> getMedia(
         @Parameter(hidden = true) @AuthMember Long memberId,
-        @Parameter(hidden = true) @RequestHeader("Authorization") String authorization,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "조회할 미디어 ID") @PathVariable Long mediaId
     ) {
-        return ApiResponse.of(
-            MediaFullResponse.from(
-                getMediaService.get(roomId, mediaId, memberId), accessToken(authorization)));
+        return ApiResponse.of(MediaFullResponse.from(getMediaService.get(roomId, mediaId, memberId)));
     }
 
     @Operation(
@@ -113,9 +107,5 @@ public class MediaQueryController {
     // 서버가 바이트를 프록시하지 않고 스토리지 서명 URL 로 넘긴다.
     private ResponseEntity<Void> redirectTo(String url) {
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(url)).build();
-    }
-
-    private String accessToken(String authorization) {
-        return authorization.substring("Bearer ".length());
     }
 }
