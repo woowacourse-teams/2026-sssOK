@@ -11,8 +11,13 @@ interface RoomSummaryProps {
   hostId: number;
   expiresAt: string;
   roomName: string;
+  isHost?: boolean;
+  hasSelectedFolder?: boolean;
   onOpenSettings?: () => void;
   onDeleteRoom?: () => void;
+  onAddFolder?: () => void;
+  onEditFolder?: () => void;
+  onDeleteFolder?: () => void;
 }
 
 export const RoomSummary = ({
@@ -20,8 +25,13 @@ export const RoomSummary = ({
   hostId,
   expiresAt,
   roomName,
+  isHost = false,
+  hasSelectedFolder = false,
   onOpenSettings,
   onDeleteRoom,
+  onAddFolder,
+  onEditFolder,
+  onDeleteFolder,
 }: RoomSummaryProps) => {
   return (
     <Header>
@@ -35,7 +45,15 @@ export const RoomSummary = ({
           <RoomTitle>{roomName}</RoomTitle>
           <Row align="center" gap={4}>
             <RoomShareButton roomCode={roomCode} />
-            <RoomMenuButton onOpenSettings={onOpenSettings} onDeleteRoom={onDeleteRoom} />
+            <RoomMenuButton
+              isHost={isHost}
+              hasSelectedFolder={hasSelectedFolder}
+              onOpenSettings={onOpenSettings}
+              onDeleteRoom={onDeleteRoom}
+              onAddFolder={onAddFolder}
+              onEditFolder={onEditFolder}
+              onDeleteFolder={onDeleteFolder}
+            />
           </Row>
         </Row>
       </Stack>

@@ -36,6 +36,13 @@ export const DropdownMenuItem = ({
   );
 };
 
+export const DropdownMenuDivider = styled.hr`
+  width: 100%;
+  margin: ${spacing[8]} 0;
+  border: 0;
+  border-top: 1px solid ${colors.borderDefault};
+`;
+
 const Overlay = styled.div`
   position: fixed;
   inset: 0;
@@ -81,5 +88,11 @@ const Item = styled.button<{ $tone: "default" | "danger" }>`
         ? `color-mix(in srgb, ${colors.danger} 10%, white)`
         : colors.primarySubtle};
     color: ${({ $tone }) => ($tone === "danger" ? colors.danger : colors.primary)};
+  }
+
+  &:disabled {
+    background: transparent;
+    color: ${colors.disabled};
+    cursor: not-allowed;
   }
 `;
