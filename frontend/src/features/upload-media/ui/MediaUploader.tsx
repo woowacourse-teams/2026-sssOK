@@ -1,7 +1,4 @@
 import { useState } from "react";
-import styled from "@emotion/styled";
-
-import { spacing } from "@/shared/styles/tokens";
 import type { MediaSelection, RejectedSelection } from "../model/selectMediaFiles";
 import { useMediaUpload } from "../model/useMediaUpload";
 import { useUploadFailure } from "../model/useUploadFailure";
@@ -13,6 +10,8 @@ import { UploadProgressBar } from "./UploadProgressBar";
 export interface MediaUploaderProps {
   roomId: number;
   token: string;
+  /** 갤러리 선택 바가 표시될 때 플로팅 업로드 버튼을 숨긴다. */
+  hideButton?: boolean;
   /** 지금 열어둔 폴더. 없으면 루트로 올라간다. */
   folderIds?: number[];
   /**
@@ -32,7 +31,13 @@ export interface MediaUploaderProps {
  * 있고 여기는 둘을 이어 붙이기만 한다. 재시도가 그 이음매다: 실패분을 그대로 다시 한 판
  * 굴리는 것이라, 끝나면 같은 `onSettled` 로 돌아와 또 깨진 게 있으면 모달이 다시 뜬다.
  */
-export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUploaderProps) => {
+export const MediaUploader = ({
+  roomId,
+  token,
+  folderIds,
+  onUploaded,
+  hideButton = false,
+}: MediaUploaderProps) => {
   const [rejected, setRejected] = useState<RejectedSelection[]>([]);
   const failure = useUploadFailure();
   /*
@@ -83,8 +88,8 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
   };
 
   return (
-    <Stack>
-      <UploadButton onSelect={handleSelect} />
+    <>
+      <UploadButton onSelect={handleSelect} hidden={hideButton || upload.progress !== null} />
       {upload.progress !== null && (
         <UploadProgressBar
           completedCount={upload.progress.completedCount}
@@ -103,13 +108,6 @@ export const MediaUploader = ({ roomId, token, folderIds, onUploaded }: MediaUpl
           onClose={failure.close}
         />
       )}
-    </Stack>
+    </>
   );
 };
-
-const Stack = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding: 0 ${spacing[16]};
-`;

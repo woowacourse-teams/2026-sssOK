@@ -21,6 +21,7 @@ public class MediaFinisher {
     private final FileRepository fileRepository;
     private final FolderMediaRepository folderMediaRepository;
     private final MemberRepository memberRepository;
+    private final MediaUrlResolver mediaUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -44,6 +45,6 @@ public class MediaFinisher {
         List<Long> folderIds = folderMediaRepository
             .findFolderIdsByMedia(List.of(file.getId()))
             .getOrDefault(file.getId(), List.of());
-        return MediaDetail.of(file, uploaderName, folderIds);
+        return MediaDetail.of(file, uploaderName, folderIds, mediaUrlResolver.resolve(file));
     }
 }

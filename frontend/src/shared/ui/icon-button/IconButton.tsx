@@ -1,8 +1,9 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 
 import { StyledIconButton } from "./IconButton.styles";
 
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  ref?: Ref<HTMLButtonElement>;
   size?: "sm" | "md";
   variant?: "default" | "danger";
   children: ReactNode;

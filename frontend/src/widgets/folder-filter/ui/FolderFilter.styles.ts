@@ -2,6 +2,32 @@ import styled from "@emotion/styled";
 
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
+export const FolderScrollArea = styled.div`
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+
+  &::before,
+  &::after {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
+    width: ${spacing[16]};
+    background: ${colors.backgroundDefault};
+    content: "";
+    pointer-events: none;
+  }
+
+  &::before {
+    left: 0;
+  }
+
+  &::after {
+    right: 0;
+  }
+`;
+
 export const FolderList = styled.div`
   display: flex;
   flex: none;
@@ -25,11 +51,16 @@ export const FolderList = styled.div`
   }
 `;
 
+export const AddFolderButtonItem = styled.div`
+  display: flex;
+  flex: none;
+`;
+
 export const FolderButton = styled.button<{ $active: boolean }>`
   display: inline-flex;
   flex: none;
   align-items: center;
-  gap: ${spacing[8]};
+  gap: ${spacing[4]};
   padding: ${spacing[4]};
   color: ${({ $active }) => ($active ? colors.textStrong : colors.textSecondary)};
   white-space: nowrap;

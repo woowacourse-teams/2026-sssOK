@@ -34,7 +34,7 @@ const serveSequence = (sequence: ReturnType<typeof progressOf>[]) => {
   const calls: number[] = [];
 
   server.use(
-    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, () => {
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, () => {
       const index = Math.min(calls.length, sequence.length - 1);
 
       calls.push(index);

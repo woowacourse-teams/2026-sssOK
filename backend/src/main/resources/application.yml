@@ -67,6 +67,8 @@ media:
     stuck-after: 10m
     sweep-batch-size: 50
     sweep-cron: "0 */5 * * * *"
+    # 목록 조회 응답에 직접 싣는 썸네일 서명 URL의 유효기간. 다운로드용(5분)보다 길게 잡는다.
+    display-url-ttl: 30m
 
 download:
   # 단건 다운로드 리다이렉트 대상 서명 URL의 유효기간

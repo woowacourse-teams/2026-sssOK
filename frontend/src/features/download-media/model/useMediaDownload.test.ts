@@ -30,8 +30,24 @@ const enterRoom = () =>
 
 const serveBytes = () =>
   server.use(
+    // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
+    http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+      return HttpResponse.json({
+        data: {
+          files: mediaIds.map((mediaId) => ({
+            mediaId,
+            fileName: `IMG_${mediaId}.jpg`,
+            downloadUrl: `${API_BASE_URL}/rooms/${params.roomId}/downloads/media/${mediaId}`,
+            expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          })),
+        },
+      });
+    }),
+
     http.get(
-      `${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`,
+      `${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`,
       () => new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": "image/jpeg" } }),
     ),
   );
@@ -44,7 +60,23 @@ const serveHeld = () => {
   });
 
   server.use(
-    http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, async () => {
+    // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
+    http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+      return HttpResponse.json({
+        data: {
+          files: mediaIds.map((mediaId) => ({
+            mediaId,
+            fileName: `IMG_${mediaId}.jpg`,
+            downloadUrl: `${API_BASE_URL}/rooms/${params.roomId}/downloads/media/${mediaId}`,
+            expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          })),
+        },
+      });
+    }),
+
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, async () => {
       await held;
 
       return new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": "image/jpeg" } });

@@ -1,14 +1,21 @@
 import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
-import { originalUrlOf, registeredMediaOf, thumbnailUrlOf, type GalleryMedia } from "../db";
+import {
+  isDeletedMedia,
+  originalUrlOf,
+  registeredMediaOf,
+  resetDeletedMedia,
+  thumbnailUrlOf,
+  type GalleryMedia,
+} from "../db";
 
 /**
  * 방 코드는 8자리다. 혼동하기 쉬운 0, 1, I, O 는 알파벳에서 빠져 있다.
  * backend 의 RoomCode 값 객체와 같은 규칙이다.
  */
 const ROOM_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
-const MOCK_NOW = new Date("2026-08-18T06:00:00Z");
+const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
 
 /** 시나리오별 고정 코드. 테스트와 수동 확인에서 함께 쓴다. */
 export const MOCK_ROOM_CODES = {
@@ -40,16 +47,41 @@ const ROOM_IDS: Record<string, number> = {
   [MOCK_ROOM_CODES.purged]: 5036,
 };
 
+const ROOM_EXPIRY_HOURS: Record<string, 24 | 72> = {
+  [MOCK_ROOM_CODES.active]: 24,
+  [MOCK_ROOM_CODES.second]: 72,
+  [MOCK_ROOM_CODES.hostOnly]: 24,
+};
+
+const createRoomExpiresAt = () => {
+  const now = Date.now();
+
+  return Object.fromEntries(
+    Object.entries(ROOM_EXPIRY_HOURS).map(([code, expiryHours]) => [
+      code,
+      new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
+    ]),
+  ) as Record<string, string>;
+};
+
+let roomExpiresAt = createRoomExpiresAt();
+
 /**
  * 방마다 가진 폴더. backend `RoomFolderResponse` 와 같은 모양이다.
  * 업로드 목이 발급 요청의 folderIds 를 이 목록과 대조한다.
  */
-const ROOM_FOLDERS: Record<string, { id: number; name: string; photoCount: number }[]> = {
-  [MOCK_ROOM_CODES.active]: [
-    { id: 31, name: "첫째 날", photoCount: 12 },
-    { id: 32, name: "둘째 날", photoCount: 4 },
-  ],
+const INITIAL_ROOM_FOLDERS = [
+  { id: 31, name: "첫째 날", createdAt: "2026-08-18T06:10:00Z", photoCount: 12 },
+  { id: 32, name: "둘째 날", createdAt: "2026-08-18T06:20:00Z", photoCount: 4 },
+];
+
+const ROOM_FOLDERS: Record<
+  string,
+  { id: number; name: string; createdAt: string; photoCount: number }[]
+> = {
+  [MOCK_ROOM_CODES.active]: [...INITIAL_ROOM_FOLDERS],
 };
+const DETACHED_PHOTO_COUNTS: Record<string, number> = {};
 
 const foldersOf = (code: string) => ROOM_FOLDERS[code] ?? [];
 
@@ -108,6 +140,9 @@ export const roomStatusOfId = (roomId: number): RoomStatus | null => {
   if (code === MOCK_ROOM_CODES.purged) {
     return "PURGED";
   }
+  if (code === MOCK_ROOM_CODES.active && activeRoomOverrides.status) {
+    return activeRoomOverrides.status;
+  }
 
   return "ACTIVE";
 };
@@ -142,6 +177,19 @@ interface ActiveRoomOverrides {
 let activeRoomOverrides: ActiveRoomOverrides = {};
 
 const room = (code: string, status: RoomStatus, joined = false) => {
+  const roomId = ROOM_IDS[code];
+  const uploaded = registeredMediaOf(roomId);
+  const seeded = roomId === MOCK_ROOM_ID ? mediaItems : [];
+  const countChange = (folderId?: number) => {
+    const inFolder = (media: MockMedia) =>
+      folderId === undefined || media.folderIds.includes(folderId);
+    return (
+      uploaded.filter(inFolder).length -
+      [...seeded, ...uploaded].filter(
+        (media) => inFolder(media) && isDeletedMedia(roomId, media.mediaId),
+      ).length
+    );
+  };
   const response = {
     roomId: ROOM_IDS[code],
     code,
@@ -152,11 +200,22 @@ const room = (code: string, status: RoomStatus, joined = false) => {
     uploadPolicy: uploadPolicyOf(code),
     joined,
     createdAt: "2026-08-18T05:30:00Z",
-    expiresAt: status === "ACTIVE" ? "2026-09-30T05:30:00Z" : "2026-08-01T05:30:00Z",
+    expiresAt:
+      status === "ACTIVE"
+        ? roomExpiresAt[code]
+        : new Date(Date.now() - 24 * HOUR_IN_MILLISECONDS).toISOString(),
     /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
-    photoCount: foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0),
+    photoCount: Math.max(
+      0,
+      foldersOf(code).reduce((sum, folder) => sum + folder.photoCount, 0) +
+        (DETACHED_PHOTO_COUNTS[code] ?? 0) +
+        countChange(),
+    ),
     /** 생성 순 폴더 목록. 갓 만든 방은 빈 배열이다. */
-    folders: foldersOf(code),
+    folders: foldersOf(code).map((folder) => ({
+      ...folder,
+      photoCount: Math.max(0, folder.photoCount + countChange(folder.id)),
+    })),
   };
 
   return code === MOCK_ROOM_CODES.active ? { ...response, ...activeRoomOverrides } : response;
@@ -315,16 +374,21 @@ const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
  * 다운로드 목도 mediaId 로 원본을 찾을 때 이걸 쓴다.
  */
 export const mediaOfRoom = (roomId: number) =>
-  roomId === MOCK_ROOM_ID
+  (roomId === MOCK_ROOM_ID
     ? [...registeredMediaOf(roomId), ...mediaItems]
-    : registeredMediaOf(roomId);
+    : registeredMediaOf(roomId)
+  ).filter((media) => !isDeletedMedia(roomId, media.mediaId));
 
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
 export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 
 export const resetRoomHandlers = () => {
   resetJoinedRooms();
+  resetDeletedMedia();
   activeRoomOverrides = {};
+  roomExpiresAt = createRoomExpiresAt();
+  ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
+  DETACHED_PHOTO_COUNTS[MOCK_ROOM_CODES.active] = 0;
 };
 
 const unauthorized = () =>
@@ -425,17 +489,112 @@ export const roomHandlers = [
     );
   }),
 
+  http.post(`${API_BASE_URL}/rooms/:roomId/folders`, async ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    const roomId = Number(params.roomId);
+    const code = codeOfRoomId(roomId);
+    if (code === null || !isActiveRoomCode(code)) {
+      return roomNotFound();
+    }
+
+    const { name } = (await request.json().catch(() => ({}))) as { name?: string };
+    const trimmedName = name?.trim() ?? "";
+    if (!trimmedName || trimmedName.length > 12) {
+      return HttpResponse.json(
+        { code: "INVALID_FOLDER_NAME", message: "폴더 이름은 1자 이상 12자 이하여야 합니다." },
+        { status: 400 },
+      );
+    }
+
+    const folders = ROOM_FOLDERS[code] ?? (ROOM_FOLDERS[code] = []);
+    const folder = {
+      id: Math.max(500, ...folders.map(({ id }) => id)) + 1,
+      name: trimmedName,
+      createdAt: new Date().toISOString(),
+      photoCount: 0,
+    };
+    folders.push(folder);
+
+    return HttpResponse.json({ data: folder }, { status: 201 });
+  }),
+
+  http.patch(`${API_BASE_URL}/rooms/:roomId/folders/:folderId`, async ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    const code = codeOfRoomId(Number(params.roomId));
+    if (code === null || !isActiveRoomCode(code)) {
+      return roomNotFound();
+    }
+
+    const folder = foldersOf(code).find(({ id }) => id === Number(params.folderId));
+    if (!folder) {
+      return HttpResponse.json(
+        { code: "FOLDER_NOT_FOUND", message: "존재하지 않는 폴더입니다." },
+        { status: 404 },
+      );
+    }
+
+    const { name } = (await request.json().catch(() => ({}))) as { name?: string };
+    const trimmedName = name?.trim() ?? "";
+    if (!trimmedName || trimmedName.length > 12) {
+      return HttpResponse.json(
+        { code: "INVALID_FOLDER_NAME", message: "폴더 이름은 1자 이상 12자 이하여야 합니다." },
+        { status: 400 },
+      );
+    }
+
+    folder.name = trimmedName;
+    return HttpResponse.json({ data: folder });
+  }),
+
+  http.delete(`${API_BASE_URL}/rooms/:roomId/folders/:folderId`, ({ request, params }) => {
+    if (request.headers.get("Authorization") === null) {
+      return unauthorized();
+    }
+
+    const code = codeOfRoomId(Number(params.roomId));
+    if (code === null || !isActiveRoomCode(code)) {
+      return roomNotFound();
+    }
+
+    const folders = foldersOf(code);
+    const folderIndex = folders.findIndex(({ id }) => id === Number(params.folderId));
+    if (folderIndex < 0) {
+      return HttpResponse.json(
+        { code: "FOLDER_NOT_FOUND", message: "존재하지 않는 폴더입니다." },
+        { status: 404 },
+      );
+    }
+
+    const [deletedFolder] = folders.splice(folderIndex, 1);
+    DETACHED_PHOTO_COUNTS[code] = (DETACHED_PHOTO_COUNTS[code] ?? 0) + deletedFolder.photoCount;
+
+    return HttpResponse.json({
+      data: {
+        deletedFolderId: deletedFolder.id,
+        detachedPhotoCount: deletedFolder.photoCount,
+      },
+    });
+  }),
+
   http.post(`${API_BASE_URL}/rooms`, async ({ request }) => {
     // 토큰은 인증할 때마다 달라진다. 목은 실렸는지만 본다.
     if (request.headers.get("Authorization") === null) {
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { name, uploadPolicy } = (await request.json()) as {
+    const { name, uploadPolicy, expiryHours } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
       expiryHours: 24 | 72;
     };
+
+    const now = Date.now();
 
     return HttpResponse.json(
       {
@@ -445,8 +604,8 @@ export const roomHandlers = [
           name,
           hostId: MOCK_HOST_ID,
           hostName: "민수",
-          createdAt: "2026-08-18T05:30:00Z",
-          expiresAt: "2026-08-19T05:30:00Z",
+          createdAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,
@@ -481,12 +640,11 @@ export const roomHandlers = [
 
     activeRoomOverrides = {
       ...activeRoomOverrides,
-      name: updates.name ?? activeRoomOverrides.name,
-      uploadPolicy: updates.uploadPolicy ?? activeRoomOverrides.uploadPolicy,
-      expiresAt:
-        updates.expiryHours === undefined
-          ? activeRoomOverrides.expiresAt
-          : new Date(MOCK_NOW.getTime() + updates.expiryHours * 60 * 60 * 1000).toISOString(),
+      ...(updates.name !== undefined && { name: updates.name }),
+      ...(updates.uploadPolicy !== undefined && { uploadPolicy: updates.uploadPolicy }),
+      ...(updates.expiryHours !== undefined && {
+        expiresAt: new Date(Date.now() + updates.expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
+      }),
     };
 
     return HttpResponse.json({ data: room(MOCK_ROOM_CODES.active, "ACTIVE", true) });

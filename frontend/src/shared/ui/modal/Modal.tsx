@@ -47,22 +47,25 @@ const Overlay = styled.div`
 `;
 
 const Card = styled.div`
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: ${spacing[16]};
   width: 100%;
   max-width: 330px;
   padding: ${spacing[20]};
   background: ${colors.backgroundDefault};
-  border-radius: ${radius[16]};
+  border-radius: ${radius[24]};
   box-shadow: ${shadow.modal};
 `;
 
 const Header = styled.div`
+  position: absolute;
+  top: ${spacing[16]};
+  right: ${spacing[16]};
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: ${spacing[12]};
+  z-index: 1;
 `;
 
 const CloseButton = styled.button`

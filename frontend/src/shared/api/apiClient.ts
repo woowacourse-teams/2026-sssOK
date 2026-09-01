@@ -3,6 +3,7 @@ import { ApiError } from "./ApiError";
 
 interface ApiClientOptions extends RequestInit {
   token?: string;
+  responseType?: "json" | "empty";
 }
 
 interface ErrorResponse {
@@ -26,7 +27,7 @@ const getErrorResponse = async (response: Response): Promise<ErrorResponse> => {
 /** path 는 접두사를 뺀 경로다 — 접두사는 여기서 한 번만 붙인다. */
 export const apiClient = async <T>(
   path: string,
-  { token, headers, ...options }: ApiClientOptions = {},
+  { token, headers, responseType = "json", ...options }: ApiClientOptions = {},
 ): Promise<T> => {
   const requestHeaders = new Headers(headers);
 
@@ -53,6 +54,15 @@ export const apiClient = async <T>(
       error.code ?? "UNKNOWN_ERROR",
       error.message ?? "API 요청에 실패했습니다.",
     );
+  }
+
+  // 삭제는 성공 상태 코드로 판정한다. 서버가 빈 본문 대신 JSON을 보내도 무시한다.
+  if (responseType === "empty") {
+    // 개발 서버의 HTML fallback까지 삭제 성공으로 오인하지는 않는다.
+    if (response.headers.get("content-type")?.includes("text/html")) {
+      throw new ApiError(response.status, "INVALID_RESPONSE", "서버 응답을 이해하지 못했어요.");
+    }
+    return undefined as T;
   }
 
   const body: unknown = await response.json().catch(() => null);

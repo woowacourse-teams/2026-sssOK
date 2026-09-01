@@ -15,21 +15,21 @@ const join = (token = TOKEN) =>
   });
 
 const downloadOne = (mediaId: number, token: string | null = TOKEN) =>
-  fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/${mediaId}/download`, {
+  fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/media/${mediaId}`, {
     // 브라우저는 302 를 자동으로 따라가지만, 여기서는 Location 자체를 확인해야 한다.
     redirect: "manual",
     headers: token === null ? undefined : { Authorization: token },
   });
 
 const createJob = (body: object, token = TOKEN) =>
-  fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads`, {
+  fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/zip`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
 const jobStatus = (jobId: string, token = TOKEN) =>
-  fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/${jobId}`, {
+  fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/zip/${jobId}`, {
     headers: { Authorization: token },
   });
 
@@ -163,7 +163,7 @@ describe("POST /rooms/{roomId}/downloads — zip 요청 (B-7-1)", () => {
   });
 });
 
-describe("GET /rooms/{roomId}/downloads/{jobId} — 상태 조회 (B-7-2)", () => {
+describe("GET /rooms/{roomId}/downloads/zip/{jobId} — 상태 조회 (B-7-2)", () => {
   it("READY 가 되면 downloadUrl 과 expiresAt 이 채워진다", async () => {
     stubOriginals();
 

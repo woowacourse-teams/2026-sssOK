@@ -9,6 +9,7 @@ interface PhotoGalleryProps {
   isPending: boolean;
   isError: boolean;
   onTogglePhoto: (photoId: number) => void;
+  onOpenPhoto?: (photo: MediaItem) => void;
 }
 
 export const PhotoGallery = ({
@@ -18,6 +19,7 @@ export const PhotoGallery = ({
   isPending,
   isError,
   onTogglePhoto,
+  onOpenPhoto,
 }: PhotoGalleryProps) => {
   if (isPending) return <StateMessage>사진을 불러오는 중이에요.</StateMessage>;
   if (isError) return <StateMessage>사진을 불러오지 못했어요.</StateMessage>;
@@ -36,6 +38,7 @@ export const PhotoGallery = ({
               isMine={photo.uploaderId === userId}
               isSelected={isSelected}
               onToggle={() => onTogglePhoto(photo.mediaId)}
+              onOpen={photo.type === "IMAGE" && onOpenPhoto ? () => onOpenPhoto(photo) : undefined}
             />
           );
         })}

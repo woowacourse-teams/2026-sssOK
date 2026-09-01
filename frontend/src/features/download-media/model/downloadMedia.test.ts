@@ -45,7 +45,23 @@ const serveSingle = ({
   let peak = 0;
 
   server.use(
-    http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, async ({ params }) => {
+    // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
+    http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+      return HttpResponse.json({
+        data: {
+          files: mediaIds.map((mediaId) => ({
+            mediaId,
+            fileName: `IMG_${mediaId}.jpg`,
+            downloadUrl: `${API_BASE_URL}/rooms/${params.roomId}/downloads/media/${mediaId}`,
+            expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          })),
+        },
+      });
+    }),
+
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, async ({ params }) => {
       const status = statusOf(Number(params.mediaId));
 
       if (status !== 200) {
@@ -163,7 +179,7 @@ describe("downloadMedia — zip", () => {
     const singles: number[] = [];
 
     server.use(
-      http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/download`, ({ params }) => {
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, ({ params }) => {
         singles.push(Number(params.mediaId));
 
         return new HttpResponse(new Blob(["x"]));
@@ -183,10 +199,10 @@ describe("downloadMedia — zip", () => {
     const polls: string[] = [];
 
     server.use(
-      http.post(`${API_BASE_URL}/rooms/:roomId/downloads`, () =>
+      http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, () =>
         HttpResponse.json({ code: "RATE_LIMITED", message: "" }, { status: 429 }),
       ),
-      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, ({ params }) => {
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, ({ params }) => {
         polls.push(String(params.jobId));
 
         return HttpResponse.json({ data: {} });
@@ -205,7 +221,7 @@ describe("downloadMedia — zip", () => {
 
   it("기한이 지난 잡은 그 사유로 알린다", async () => {
     server.use(
-      http.post(`${API_BASE_URL}/rooms/:roomId/downloads`, () =>
+      http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, () =>
         HttpResponse.json({ code: "EXPIRED", message: "" }, { status: 410 }),
       ),
     );
@@ -215,7 +231,7 @@ describe("downloadMedia — zip", () => {
 
   it("압축이 실패하면 서버가 준 사유를 그대로 전한다", async () => {
     server.use(
-      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/:jobId`, () =>
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, () =>
         HttpResponse.json({
           data: {
             jobId: "dl_000001",
@@ -237,5 +253,120 @@ describe("downloadMedia — zip", () => {
       isRetryable: true,
     });
     expect(saveBlobMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * #146 — 아이폰에서 공유 시트는 떴는데 사진첩에 아무것도 안 남던 건.
+ *
+ * 스토리지가 `Content-Type` 을 이미지로 안 내주면 `blob.type` 이 빈 문자열이 아니라
+ * `application/octet-stream` 이라 폴백이 걸리지 않는다. 그대로 넘긴 File 을 iOS 는
+ * 이미지로 보지 않아 공유 시트에 **"이미지 저장" 항목을 아예 띄우지 않는다** —
+ * 시트는 열리므로 프론트에서는 성공으로 보이고, 사용자만 저장이 안 된다.
+ */
+describe("downloadMedia — 사진첩에 저장", () => {
+  const sharedFilesOf = async (contentType: string) => {
+    const shared: File[] = [];
+
+    server.use(
+      http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+        const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+        return HttpResponse.json({
+          data: {
+            files: mediaIds.map((mediaId) => ({
+              mediaId,
+              fileName: `IMG_${mediaId}.jpg`,
+              downloadUrl: `${API_BASE_URL}/rooms/${params.roomId}/downloads/media/${mediaId}`,
+              expiresAt: new Date(Date.now() + 300_000).toISOString(),
+            })),
+          },
+        });
+      }),
+
+      http.get(
+        `${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`,
+        () => new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": contentType } }),
+      ),
+    );
+
+    Object.defineProperty(navigator, "canShare", { value: () => true, configurable: true });
+    Object.defineProperty(navigator, "share", {
+      value: async ({ files }: { files: File[] }) => void shared.push(...files),
+      configurable: true,
+    });
+
+    const outcome = await downloadMedia({
+      roomId: MOCK_ROOM_ID,
+      targets: [targetOf(5000)],
+      mode: "share",
+      token: TOKEN,
+    });
+
+    return { outcome, shared };
+  };
+
+  afterEach(() => {
+    Object.defineProperty(navigator, "canShare", { value: undefined, configurable: true });
+    Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+  });
+
+  it("스토리지가 이미지 MIME 을 내주면 그대로 넘긴다", async () => {
+    const { outcome, shared } = await sharedFilesOf("image/jpeg");
+
+    expect(outcome).toEqual({ type: "saved", savedCount: 1, failed: [] });
+    expect(shared[0].type).toBe("image/jpeg");
+    expect(shared[0].name).toBe("IMG_5000.jpg");
+  });
+
+  it("스토리지가 octet-stream 을 내줘도 목록이 알려준 MIME 으로 넘긴다", async () => {
+    const { shared } = await sharedFilesOf("application/octet-stream");
+
+    expect(shared[0].type).toBe("image/jpeg");
+  });
+});
+
+/**
+ * 같은 이름으로 올라간 사진을 함께 고른 경우. 서버가 `DownloadFileNames.deduplicate` 로
+ * "이름 (1)" 을 붙여 내려주는데, 프론트가 목록의 이름을 그대로 쓰면 그 처리가 버려진다.
+ * 개별 저장은 뒤엣것이 앞엣것을 덮고, 공유 시트에는 같은 이름 둘이 한 번에 넘어간다.
+ */
+describe("downloadMedia — 이름이 겹치는 사진", () => {
+  const serveDuplicates = () =>
+    server.use(
+      http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+        const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+        return HttpResponse.json({
+          data: {
+            files: mediaIds.map((mediaId, index) => ({
+              mediaId,
+              // 서버가 정리해 준 이름. 둘째부터 " (1)" 이 붙는다.
+              fileName: index === 0 ? "사진.jpg" : `사진 (${index}).jpg`,
+              downloadUrl: `${API_BASE_URL}/rooms/${params.roomId}/downloads/media/${mediaId}`,
+              expiresAt: new Date(Date.now() + 300_000).toISOString(),
+            })),
+          },
+        });
+      }),
+
+      http.get(
+        `${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`,
+        () => new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": "image/jpeg" } }),
+      ),
+    );
+
+  /** 목록에는 둘 다 같은 이름으로 있다. 서버가 준 이름을 써야만 갈린다. */
+  const sameName = (mediaId: number): DownloadTarget => ({
+    ...targetOf(mediaId),
+    fileName: "사진.jpg",
+  });
+
+  it("개별 저장은 서버가 정리해 준 이름으로 저장한다", async () => {
+    serveDuplicates();
+
+    await run([sameName(5000), sameName(5001)], "individual");
+
+    expect(saveBlobMock.mock.calls.map(([, name]) => name)).toEqual(["사진.jpg", "사진 (1).jpg"]);
   });
 });

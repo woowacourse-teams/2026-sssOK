@@ -29,4 +29,22 @@ describe("FolderFilter", () => {
 
     expect(onSelectFolder).toHaveBeenCalledWith(501);
   });
+
+  it("추가 버튼을 누르면 폴더 생성 동작을 호출한다", async () => {
+    const user = userEvent.setup();
+    const onAddFolder = jest.fn();
+
+    render(
+      <FolderFilter
+        totalCount={13}
+        folders={folders}
+        selectedFolderId={null}
+        onSelectFolder={jest.fn()}
+        onAddFolder={onAddFolder}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "폴더 추가" }));
+    expect(onAddFolder).toHaveBeenCalledTimes(1);
+  });
 });

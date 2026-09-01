@@ -19,6 +19,7 @@ public class MediaDetailAssembler {
 
     private final FolderMediaRepository folderMediaRepository;
     private final MemberRepository memberRepository;
+    private final MediaUrlResolver mediaUrlResolver;
 
     public List<MediaDetail> assemble(List<StoredFile> files) {
         if (files.isEmpty()) {
@@ -32,7 +33,8 @@ public class MediaDetailAssembler {
             .map(file -> MediaDetail.of(
                 file,
                 uploaderNames.get(file.getUploaderId()),
-                folderIds.getOrDefault(file.getId(), List.of())))
+                folderIds.getOrDefault(file.getId(), List.of()),
+                mediaUrlResolver.resolve(file)))
             .toList();
     }
 

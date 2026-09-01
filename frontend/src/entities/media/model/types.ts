@@ -19,8 +19,9 @@ export interface Media {
   /** 워커가 만드는 값이라 PROCESSING 동안은 null 이다. */
   thumbnailUrl: string | null;
   originalUrl: string | null;
-  width: number;
-  height: number;
+  /** 치수도 워커가 채운다. PROCESSING 동안은 null 이다. */
+  width: number | null;
+  height: number | null;
   /** 영상만 값이 있다. */
   duration: number | null;
   folderIds: number[];
@@ -37,9 +38,22 @@ export interface Media {
 export interface MediaItem extends Media {
   thumbnailUrl: string;
   originalUrl: string;
+  width: number;
+  height: number;
   status: "READY";
 }
 
 export interface MediaList {
   items: MediaItem[];
+}
+
+/** 단일 조회에는 썸네일 대신 원본과 촬영 정보·삭제 권한이 내려온다. */
+export interface MediaDetail extends Omit<Media, "thumbnailUrl"> {
+  takenAt: string | null;
+  location: {
+    latitude: number;
+    longitude: number;
+    name: string;
+  } | null;
+  canDelete: boolean;
 }

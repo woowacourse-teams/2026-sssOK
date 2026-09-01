@@ -8,7 +8,6 @@ import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
-import com.sssok.presentation.auth.AuthMember;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.time.Instant;
@@ -38,7 +37,7 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         }
 
         Long roomId = extractRoomId(request);
-        Long memberId = extractMemberId(request, (HandlerMethod) handler);
+        Long memberId = extractMemberId(request);
 
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
@@ -58,30 +57,11 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         return Long.valueOf(pathVariables.get("roomId"));
     }
 
-    private Long extractMemberId(HttpServletRequest request, HandlerMethod handler) {
+    private Long extractMemberId(HttpServletRequest request) {
         String authorizationHeader = request.getHeader("Authorization");
-        if (authorizationHeader != null && !authorizationHeader.isBlank()) {
-            if (!authorizationHeader.startsWith(BEARER_PREFIX)) {
-                throw new UnauthorizedException("다시 접속해주세요");
-            }
-            return tokenProvider.parse(authorizationHeader.substring(BEARER_PREFIX.length()));
+        if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
+            throw new UnauthorizedException("다시 접속해주세요");
         }
-        if (allowsQueryToken(handler)) {
-            String token = request.getParameter("token");
-            if (token != null && !token.isBlank()) {
-                return tokenProvider.parse(token);
-            }
-        }
-        throw new UnauthorizedException("다시 접속해주세요");
-    }
-
-    private boolean allowsQueryToken(HandlerMethod handler) {
-        for (var parameter : handler.getMethodParameters()) {
-            AuthMember authMember = parameter.getParameterAnnotation(AuthMember.class);
-            if (authMember != null && authMember.allowQueryToken()) {
-                return true;
-            }
-        }
-        return false;
+        return tokenProvider.parse(authorizationHeader.substring(BEARER_PREFIX.length()));
     }
 }

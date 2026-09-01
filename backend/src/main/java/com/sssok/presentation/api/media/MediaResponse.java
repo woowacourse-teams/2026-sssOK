@@ -2,8 +2,6 @@ package com.sssok.presentation.api.media;
 
 import com.sssok.application.media.MediaDetail;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -14,9 +12,11 @@ public record MediaResponse(
     String fileName,
     String mimeType,
     long size,
-    @Schema(description = "워커가 만들기 전까지 null. img 태그에서 바로 쓸 수 있도록 인증 토큰을 포함한다")
+    @Schema(description = "워커가 만들기 전까지 null. R2 서명 URL이라 <img src>에 바로 쓸 수 있다")
     String thumbnailUrl,
-    @Schema(description = "워커가 만들기 전까지 null") String originalUrl,
+    @Schema(description = "thumbnailUrl의 만료 시각. 지나면 목록을 다시 받아야 한다") Instant thumbnailUrlExpiresAt,
+    @Schema(description = "READY가 아니면 null. R2 서명 URL이라 <img src>에 바로 쓸 수 있다") String originalUrl,
+    @Schema(description = "originalUrl의 만료 시각. 지나면 목록을 다시 받아야 한다") Instant originalUrlExpiresAt,
     Integer width,
     Integer height,
     @Schema(description = "영상 재생 시간(초)") Integer duration,
@@ -27,24 +27,10 @@ public record MediaResponse(
     Instant uploadedAt
 ) {
     public static MediaResponse from(MediaDetail detail) {
-        return from(detail, null);
-    }
-
-    public static MediaResponse from(MediaDetail detail, String accessToken) {
         return new MediaResponse(detail.mediaId(), detail.type(), detail.fileName(),
-            detail.mimeType(), detail.size(), withToken(detail.thumbnailUrl(), accessToken),
-            detail.originalUrl(),
+            detail.mimeType(), detail.size(), detail.thumbnailUrl(), detail.thumbnailUrlExpiresAt(),
+            detail.originalUrl(), detail.originalUrlExpiresAt(),
             detail.width(), detail.height(), detail.duration(), detail.folderIds(),
             detail.uploaderId(), detail.uploaderName(), detail.status(), detail.uploadedAt());
-    }
-
-    private static String withToken(String url, String accessToken) {
-        if (url == null) {
-            return null;
-        }
-        if (accessToken == null) {
-            return url;
-        }
-        return url + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
     }
 }

@@ -10,12 +10,16 @@ public record ThumbnailProperties(
     // 이 시간이 지나도 PROCESSING 이면 워커가 죽었거나 서버가 재시작된 것으로 보고 다시 태운다.
     Duration stuckAfter,
     // 한 번에 회수할 개수. 밀린 작업이 많아도 배치 한 번이 서버를 독점하지 않게 한다.
-    Integer sweepBatchSize
+    Integer sweepBatchSize,
+    // 목록 조회 응답에 직접 싣는 썸네일 서명 URL의 유효기간. 다운로드용(5분)보다 길게 잡아,
+    // 목록 화면을 잠시 보고 있어도 썸네일이 깨지지 않게 한다.
+    Duration displayUrlTtl
 ) {
 
     public ThumbnailProperties {
         maxWidth = maxWidth == null ? 400 : maxWidth;
         stuckAfter = stuckAfter == null ? Duration.ofMinutes(10) : stuckAfter;
         sweepBatchSize = sweepBatchSize == null ? 50 : sweepBatchSize;
+        displayUrlTtl = displayUrlTtl == null ? Duration.ofMinutes(30) : displayUrlTtl;
     }
 }
