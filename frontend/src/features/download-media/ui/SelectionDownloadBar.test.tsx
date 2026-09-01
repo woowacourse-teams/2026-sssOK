@@ -116,6 +116,41 @@ describe("SelectionDownloadBar", () => {
     expect(screen.getByText("2개를 어떻게 받을까요?")).toBeInTheDocument();
   });
 
+  /**
+   * 숫자만 있는 바는 폰에서 거의 안 읽힌다. 업로드 바와 같은 자리에 같은 알약으로 뜨는데
+   * 한쪽만 차오르면 받기가 멈춘 것으로 읽힌다 — 띠와 진행률 의미를 함께 내준다.
+   */
+  it("받는 동안 차오르는 띠를 진행률만큼 그린다", async () => {
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+
+    serveSingle();
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, async () => {
+        await held;
+
+        return new HttpResponse(new Blob(["bytes"]), {
+          headers: { "Content-Type": "image/jpeg" },
+        });
+      }),
+    );
+
+    renderBar([targetOf(5000)]);
+    await downloadIndividually();
+
+    const bar = await screen.findByRole("progressbar", { name: "다운로드 진행률" });
+
+    expect(bar).toHaveAttribute("aria-valuenow", "0");
+    // 띠는 알약 안에 있고, 너비가 곧 퍼센트다.
+    expect(bar.firstElementChild).toHaveStyle({ width: "0%" });
+
+    release();
+
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+  });
+
   it("다 받으면 고른 상태를 풀어준다", async () => {
     serveSingle();
 

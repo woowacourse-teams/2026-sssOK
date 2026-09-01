@@ -5,6 +5,8 @@ import {
   withDownloaded,
   withPhase,
   withProgress,
+  withZipBytes,
+  withZipProgress,
 } from "./downloadProgress";
 import type { DownloadTarget } from "./types";
 
@@ -86,5 +88,37 @@ describe("withPhase", () => {
       totalCount: 2,
       percent: 4,
     });
+  });
+});
+
+describe("withZipBytes", () => {
+  it("압축이 100% 로 끝난 뒤에도 바가 계속 움직인다 — 묶인 zip 을 받는 시간이 통째로 남아 있다", () => {
+    let state = withPhase(startDownloadProgress([PHOTO, VIDEO]), "zipping");
+
+    state = withZipProgress(state, 100);
+    expect(percentOf(state)).toBe(100);
+
+    // 서버가 다 묶었다고 알려온 순간부터가 실제 전송이다. 여기서 다시 0 부터 오른다.
+    state = withPhase(state, "receiving");
+    state = withZipBytes(state, { loaded: 0, total: 83_400_000 });
+    expect(percentOf(state)).toBe(0);
+
+    state = withZipBytes(state, { loaded: 41_700_000, total: 83_400_000 });
+    expect(percentOf(state)).toBe(50);
+  });
+
+  it("분모를 모르면 100 으로 둔다 — 0 으로 나누지도, 0% 로 되돌아가지도 않는다", () => {
+    const state = withZipBytes(startDownloadProgress([PHOTO]), { loaded: 0, total: 0 });
+
+    expect(percentOf(state)).toBe(100);
+  });
+
+  it("낱장 받기가 세던 바이트에 가려지지 않는다", () => {
+    let state = startDownloadProgress([PHOTO, VIDEO]);
+
+    state = withDownloaded(state, PHOTO.mediaId);
+    state = withZipBytes(state, { loaded: 20_850_000, total: 83_400_000 });
+
+    expect(snapshotOf(state).percent).toBe(25);
   });
 });

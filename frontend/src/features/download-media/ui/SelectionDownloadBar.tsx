@@ -14,6 +14,7 @@ import { IconButton } from "@/shared/ui/icon-button";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
 import { useMediaDownload } from "../model/useMediaDownload";
+import type { DownloadPhase } from "../model/downloadProgress";
 import type { DownloadMode, DownloadOutcome, DownloadTarget } from "../model/types";
 import { DownloadFailureModal } from "./DownloadFailureModal";
 import { DownloadModeSheet } from "./DownloadModeSheet";
@@ -22,11 +23,13 @@ import {
   Count,
   DownloadButton,
   Dock,
+  Fill,
   PlainButton,
   SelectionCheck,
   SelectionLayout,
   SelectionSummary,
   Status,
+  StatusText,
 } from "./SelectionDownloadBar.styles";
 
 /**
@@ -56,9 +59,10 @@ interface SelectionDownloadBarProps {
  * 단계마다 사용자가 기다리는 것이 다르다. 회선을 기다리는지, 서버가 묶기를 기다리는지,
  * 사진첩으로 넘어가기를 기다리는지 — 같은 스피너라도 무엇을 기다리는지는 말해줘야 한다.
  */
-const STATUS_TEXT: Record<string, string> = {
+const STATUS_TEXT: Record<DownloadPhase, string> = {
   fetching: "다운로드 중",
   zipping: "압축 중",
+  receiving: "zip 받는 중",
   sharing: "사진첩으로 보내는 중",
 };
 
@@ -132,11 +136,26 @@ export const SelectionDownloadBar = ({
                     ? `${progress.completedCount} / ${progress.totalCount}`
                     : `${progress.totalCount}장`}
                 </Count>
-                <Status>
-                  <LuLoaderCircle className="spin" />
-                  {STATUS_TEXT[progress.phase]}...
-                  {/* 공유 시트로 넘기는 순간은 길이를 알 수 없다. 나머지는 퍼센트가 실제로 움직인다. */}
-                  {progress.phase !== "sharing" && ` ${progress.percent}%`}
+                {/*
+                  공유 시트로 넘기는 순간은 길이를 알 수 없다 — 그 구간만 퍼센트도 채움도 없이
+                  돌아가는 스피너로 둔다. 나머지 구간은 값이 실제로 움직이므로 업로드 바와
+                  똑같이 숫자와 띠를 함께 보여준다.
+                */}
+                <Status
+                  role="progressbar"
+                  aria-label="다운로드 진행률"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress.phase === "sharing" ? undefined : progress.percent}
+                >
+                  {progress.phase !== "sharing" && (
+                    <Fill style={{ width: `${progress.percent}%` }} />
+                  )}
+                  <StatusText>
+                    <LuLoaderCircle className="spin" />
+                    {STATUS_TEXT[progress.phase]}...
+                    {progress.phase !== "sharing" && ` ${progress.percent}%`}
+                  </StatusText>
                 </Status>
                 <PlainButton type="button" onClick={cancel}>
                   취소
