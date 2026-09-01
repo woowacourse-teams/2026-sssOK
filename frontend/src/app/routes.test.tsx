@@ -12,6 +12,12 @@ import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { routes } from "./routes";
 
 const ROOM_CODE = "7K93QX2S";
+/** 다른 방 세션까지 함께 지우지 않는지 보는 데 쓴다. */
+const OTHER_ROOM_CODE = "QRST6789";
+
+/** 토큰이 만료됐거나 서명이 맞지 않을 때 서버가 주는 응답이다. */
+const unauthorized = () =>
+  HttpResponse.json({ code: "UNAUTHORIZED", message: "다시 접속해주세요" }, { status: 401 });
 
 const renderAt = (path: string) => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
@@ -273,6 +279,65 @@ describe("라우트", () => {
 
     expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery("7K93QX2S"));
+  });
+
+  /**
+   * 세션은 아직 살아 있어 보이는데 서버가 토큰을 거절한다 (#149) — 만료됐거나 서명이
+   * 맞지 않는 경우다. 손상된 세션을 그대로 두면 다음 요청도 같은 토큰으로 나가 401 만
+   * 되풀이하고, 갤러리는 에러 문구만 띄운 채 돌아갈 길을 내주지 않는다.
+   *
+   * 이름만 다시 받으면 이어갈 수 있으니, 세션을 지우고 그 방 입장 화면까지 데려다준다.
+   */
+  it("방 조회가 401 이면 그 방 세션을 지우고 입장 화면으로 되돌린다", async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/${ROOM_CODE}`, ({ request }) =>
+        request.headers.get("Authorization") === null ? undefined : unauthorized(),
+      ),
+    );
+    const router = renderAtGallery();
+
+    expect(
+      await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+    ).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    expect(getRoomSession(ROOM_CODE)).toBeNull();
+  });
+
+  /**
+   * 방은 멀쩡히 조회되고 사진 목록만 401 인 경우다. 화면에는 "사진을 불러오지 못했어요" 로
+   * 다른 실패와 똑같이 보이지만, 여기서 사용자가 할 수 있는 일은 다시 입장하는 것뿐이다.
+   */
+  it("사진 목록이 401 이어도 실패 문구 대신 입장 화면으로 되돌린다", async () => {
+    server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, unauthorized));
+    const router = renderAtGallery();
+
+    expect(
+      await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("사진을 불러오지 못했어요.")).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    expect(getRoomSession(ROOM_CODE)).toBeNull();
+  });
+
+  // 방마다 세션이 따로 있다. 한 방이 401 이라고 다른 방까지 이름부터 다시 묻게 하면 안 된다.
+  it("401 을 만나도 다른 방 세션은 그대로 둔다", async () => {
+    saveRoomSession(OTHER_ROOM_CODE, {
+      accessToken: "mock-token-10235",
+      userId: 10235,
+      nickname: "지은",
+      expiresAt: "2099-01-01T00:00:00Z",
+    });
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/${ROOM_CODE}`, ({ request }) =>
+        request.headers.get("Authorization") === null ? undefined : unauthorized(),
+      ),
+    );
+    renderAtGallery();
+
+    expect(
+      await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+    ).toBeInTheDocument();
+    expect(getRoomSession(OTHER_ROOM_CODE)).not.toBeNull();
   });
 
   it("알 수 없는 주소는 홈으로 보낸다", () => {
