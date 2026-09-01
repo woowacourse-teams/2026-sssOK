@@ -58,7 +58,7 @@ sequenceDiagram
 | 1   | 토큰이 실려 있나                                               | `401 UNAUTHORIZED`                                                                          |
 | 2   | 열려 있는 방인가                                               | `404 ROOM_NOT_FOUND` · `410 ROOM_EXPIRED` / `ROOM_ALREADY_DELETED` (EXPIRED·DELETED·PURGED) |
 | 3   | **입장을 마친 사람인가** (`POST /rooms/{roomId}/members`)      | `403 NOT_ROOM_MEMBER`                                                                       |
-| 4   | **이 방에서 올릴 권한이 있나** — `uploadPolicy=host` 면 방장만 | `403 NOT_ROOM_HOST`                                                                         |
+| 4   | **이 방에서 올릴 권한이 있나** — `uploadPolicy=host` 면 방장만 | `403 UPLOAD_NOT_ALLOWED`                                                                    |
 | 5   | (재발급만) 본인이 발급받은 미디어인가                          | `403 MEDIA_FORBIDDEN`                                                                       |
 
 3번과 4번은 다르다. **입장은 했지만 올릴 권한은 없을 수 있다** — 방장만 업로드하도록 설정한
@@ -133,7 +133,7 @@ sequenceDiagram
 | 400  | `INVALID_PARAM`                         | `files` 누락·빈 배열                                |
 | 401  | `UNAUTHORIZED`                          | 토큰 없음                                           |
 | 403  | `NOT_ROOM_MEMBER`                       | 입장하지 않은 방                                    |
-| 403  | `NOT_ROOM_HOST`                         | `uploadPolicy=host` 인 방에 방장이 아닌 사람이 요청 |
+| 403  | `UPLOAD_NOT_ALLOWED`                    | `uploadPolicy=host` 인 방에 방장이 아닌 사람이 요청 |
 | 404  | `ROOM_NOT_FOUND`                        | 없는 방                                             |
 | 404  | `FOLDER_NOT_FOUND`                      | 모르는 `folderIds`                                  |
 | 410  | `ROOM_EXPIRED` / `ROOM_ALREADY_DELETED` | 만료·삭제·영구삭제(PURGED)된 방                     |
@@ -366,7 +366,7 @@ console.log(done);
 |                         |                                                                             |
 | ----------------------- | --------------------------------------------------------------------------- |
 | 방 (업로드 가능)        | `7K93QX2S`(5031), `QRST6789`(5032)                                          |
-| 방 (방장만 업로드)      | `HSTNLY23`(5035) — `NOT_ROOM_HOST` 확인용                                   |
+| 방 (방장만 업로드)      | `HSTNLY23`(5035) — `UPLOAD_NOT_ALLOWED` 확인용                              |
 | 방 (만료/삭제/영구삭제) | `EXPRED77`(5033) / `DELETED7`(5034) / `PURGED77`(5036)                      |
 | 방장 회원 번호          | `10234` — 토큰은 `Bearer mock-token-10234`                                  |
 | 폴더                    | 기본 방에 `31`(첫째 날) · `32`(둘째 날) — 그 밖의 번호는 `FOLDER_NOT_FOUND` |
@@ -415,11 +415,16 @@ console.log(done);
 | `UNSUPPORTED_MEDIA_TYPE` | `UNSUPPORTED_FILE_TYPE(415)` — `UNSUPPORTED_MEDIA_TYPE(415)` 은 **HTTP 요청 형식용으로 이미 점유** | `UNSUPPORTED_FILE_TYPE` |
 | `FILE_TOO_LARGE`         | `FILE_SIZE_EXCEEDED(413)`                                                                          | `FILE_SIZE_EXCEEDED`    |
 | (없음)                   | `NOT_ROOM_MEMBER(403)` · `ROOM_MEMBERSHIP_REQUIRED(403)` 은 SSE 전용 메시지                        | `NOT_ROOM_MEMBER`       |
-| `UPLOAD_NOT_ALLOWED`     | `NOT_ROOM_HOST(403)`                                                                               | `NOT_ROOM_HOST`         |
+| `UPLOAD_NOT_ALLOWED`     | `UPLOAD_NOT_ALLOWED(403)` — enum 에 추가됐다                                                        | `UPLOAD_NOT_ALLOWED`    |
 
-**아직 enum 에 없는 코드**는 #76 구현 때 추가해야 한다 —
-`UPLOAD_NOT_COMPLETED`, `MEDIA_NOT_FOUND`, `MEDIA_FORBIDDEN`, `UPLOAD_ALREADY_COMPLETED`,
-`UPLOAD_RETRY_EXCEEDED`. (`ILLEGAL_UPLOAD_STATUS(400)` 이 일부를 대신할 수도 있다.)
+`UPLOAD_NOT_ALLOWED` 는 한때 목이 `NOT_ROOM_HOST` 로 대신했다. enum 에 실물이 생긴 뒤로
+목도 그 이름을 쓴다 (#148) — 목에서만 통하는 분기를 프론트가 짜는 것을 막으려는 것이다.
+`NOT_ROOM_HOST(403)` 는 그대로 남아 있지만 **방 수정·삭제의 코드**다. 업로드 세 API 는
+서비스가 직접 `UploadNotAllowedException` 을 던진다.
+
+**아직 enum 에 없는 코드**는 `UPLOAD_NOT_COMPLETED` 하나뿐이다.
+`MEDIA_NOT_FOUND(404)` · `MEDIA_FORBIDDEN(403)` · `UPLOAD_ALREADY_COMPLETED(409)` ·
+`UPLOAD_RETRY_EXCEEDED(429)` 는 모두 추가됐다.
 
 ### 아직 정하지 못한 것
 

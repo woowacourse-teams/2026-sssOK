@@ -17,7 +17,11 @@ export interface UploadFailureModalProps {
    * `retryableFailuresOf` 가 추린 그대로를 넘긴다.
    */
   failures: FailedUpload[];
-  onRetry: () => void;
+  /**
+   * 다시 올릴 길. **없으면 재시도 버튼을 내주지 않는다** — 올릴 권한을 잃은 뒤라
+   * 눌러봐야 서버가 막는다. 눌리는데 아무 일도 없는 버튼이 제일 나쁘다.
+   */
+  onRetry?: () => void;
   onClose: () => void;
 }
 
@@ -39,8 +43,12 @@ export const UploadFailureModal = ({ failures, onRetry, onClose }: UploadFailure
         <Title>앗, {failures.length}장을 못 올렸어요</Title>
         <Description>
           네트워크가 끊겼거나 예기치 못한 이유로 실패했어요.
-          <br />
-          실패한 파일만 다시 시도해보세요!
+          {onRetry && (
+            <>
+              <br />
+              실패한 파일만 다시 시도해보세요!
+            </>
+          )}
         </Description>
 
         <FileReasonList
@@ -55,9 +63,11 @@ export const UploadFailureModal = ({ failures, onRetry, onClose }: UploadFailure
           <CloseAction variant="default" size="sm" onClick={onClose}>
             닫기
           </CloseAction>
-          <PrimaryAction variant="primary" size="sm" onClick={onRetry}>
-            실패만 재시도
-          </PrimaryAction>
+          {onRetry && (
+            <PrimaryAction variant="primary" size="sm" onClick={onRetry}>
+              실패만 재시도
+            </PrimaryAction>
+          )}
         </Actions>
       </Content>
     </Modal>

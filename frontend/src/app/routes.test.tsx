@@ -168,6 +168,50 @@ describe("라우트", () => {
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
   });
 
+  /**
+   * 방이 사라진 걸 **업로드가 먼저 알아차리는** 경우다 (#148).
+   *
+   * 갤러리는 들어올 때 받아둔 ACTIVE 를 들고 있어서 스스로는 모른다. 그 캐시를 버리지 않고
+   * 입장 화면으로 보내면 **화면이 한 번 튄다** — 입장 화면이 아직 ACTIVE 인 캐시를 보고
+   * 갤러리로 되돌려보내고, 갤러리가 그제야 다시 조회해 사라진 걸 알아차리고 또 입장 화면으로
+   * 보낸다. 끝은 같지만 사용자는 갤러리가 한 번 번쩍이는 걸 본다.
+   *
+   * 그래서 도착지만 보지 않고 **지나온 자리**를 함께 센다. 도착지만 보면 튕겨도 통과한다.
+   */
+  it("업로드가 방이 사라졌다고 답하면 갤러리를 거치지 않고 입장 화면으로 돌아간다", async () => {
+    const user = userEvent.setup();
+    const router = renderAtGallery();
+    const visited: string[] = [];
+
+    await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+      method: "POST",
+      headers: { Authorization: "Bearer mock-token-10234" },
+    });
+    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+
+    // 갤러리를 보고 있는 사이에 방이 사라졌다. 화면은 아직 그 사실을 모른다.
+    await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer mock-token-10234" },
+    });
+    expect(screen.getByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+
+    const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
+
+    if (fileInput === null) throw new Error("파일 입력을 찾지 못했다");
+
+    const unsubscribe = router.subscribe(({ location }) => visited.push(location.pathname));
+
+    await user.upload(fileInput, new File(["x"], "한라산.jpg", { type: "image/jpeg" }));
+
+    expect(await screen.findByText(/삭제된 방이에요/)).toBeInTheDocument();
+    unsubscribe();
+
+    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    // 갤러리로 되돌아갔다가 다시 나온 자취가 없어야 한다.
+    expect(visited).toEqual([ROUTES.roomEntry(ROOM_CODE)]);
+  });
+
   it("갤러리와 상세 화면의 체크 상태가 왕복 이동 후에도 연동된다", async () => {
     const user = userEvent.setup();
     renderAtGallery();
