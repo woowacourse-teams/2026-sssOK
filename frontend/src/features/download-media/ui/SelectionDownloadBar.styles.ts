@@ -76,16 +76,22 @@ export const ActionGroup = styled.div`
   gap: 0;
 `;
 
+/**
+ * 진행률 알약. **채움 띠를 담는 그릇이라 `position` 과 `overflow` 가 붙어 있다** —
+ * 업로드 바(`UploadProgressBar.styles`)의 `Status` 와 같은 이유다.
+ * `overflow: hidden` 이 없으면 채움이 알약 모서리 밖으로 새어 나온다.
+ */
 export const Status = styled.span`
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: ${spacing[8]};
   flex: 1;
   min-width: 0;
   height: 40px;
   padding: 0 14px;
   border-radius: ${radius.full};
+  overflow: hidden;
   background: ${colors.primarySubtle};
   ${typography.caption2}
   white-space: nowrap;
@@ -178,4 +184,31 @@ export const PlainButton = styled.button`
   @media (max-width: 360px) {
     font-size: 11px;
   }
+`;
+
+/**
+ * 퍼센트만큼 차오르는 띠. 업로드 바의 `Fill` 과 같은 값·같은 모양이다 —
+ * 두 바가 같은 자리에 같은 알약으로 뜨는데 한쪽만 차오르면 다른 것으로 읽힌다.
+ * 너비는 진행률 이벤트마다 바뀌므로 클래스가 아니라 인라인 스타일로 준다.
+ */
+export const Fill = styled.div`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: ${colors.primary};
+  opacity: 0.18;
+  transition: width 60ms linear;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`;
+
+/** 채움 위에 얹는다. 같은 칸을 쓰므로 쌓임 순서를 명시한다. */
+export const StatusText = styled.span`
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: ${spacing[8]};
 `;
