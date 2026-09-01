@@ -9,6 +9,7 @@ import {
   withDownloaded,
   withPhase,
   withProgress,
+  withZipBytes,
   withZipProgress,
 } from "./downloadProgress";
 import type { DownloadMode, DownloadOutcome, DownloadTarget } from "./types";
@@ -74,6 +75,7 @@ export const useMediaDownload = ({
         onDownloaded: (mediaId) => update((state) => withDownloaded(state, mediaId)),
         onPhase: (phase) => update((state) => withPhase(state, phase)),
         onZipProgress: (percent) => update((state) => withZipProgress(state, percent)),
+        onZipBytes: (bytes) => update((state) => withZipBytes(state, bytes)),
       });
 
       // 밀려난 판의 결말은 알리지 않는다. 업로드와 달리 받기는 서버에 남는 흔적이 없어,

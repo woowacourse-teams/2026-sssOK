@@ -175,6 +175,29 @@ describe("downloadMedia — zip", () => {
     expect(saveBlobMock.mock.calls[0][0].size).toBeGreaterThan(0);
   });
 
+  it("압축이 끝난 뒤 zip 을 받는 동안에도 진행률이 오른다 — 100% 에 붙어 멈추지 않는다", async () => {
+    const phases: string[] = [];
+    const zipBytes: { loaded: number; total: number }[] = [];
+
+    await downloadMedia({
+      roomId: MOCK_ROOM_ID,
+      targets: [targetOf(5000), targetOf(5001)],
+      mode: "zip",
+      token: TOKEN,
+      onPhase: (phase) => phases.push(phase),
+      onZipBytes: (bytes) => zipBytes.push(bytes),
+    });
+
+    // 서버가 다 묶었다고 알려온 다음이 실제 전송 구간이다. 단계가 따로 있어야 문구도 갈린다.
+    expect(phases).toEqual(["zipping", "receiving"]);
+    expect(zipBytes.length).toBeGreaterThan(0);
+
+    const last = zipBytes[zipBytes.length - 1];
+
+    expect(last.total).toBeGreaterThan(0);
+    expect(last.loaded).toBeGreaterThan(0);
+  });
+
   it("zip 을 고르면 단건 다운로드 요청이 나가지 않는다", async () => {
     const singles: number[] = [];
 
