@@ -1,3 +1,7 @@
+# pnpm version 이 커밋과 태그를 임의로 만들지 않게 막는다.
+# 태그는 배포가 성공한 뒤 fe-v<버전> 형식으로 릴리스를 만들면서 붙인다.
+gitTagVersion: false
+
 allowBuilds:
   "@swc/core": true
   esbuild: true
