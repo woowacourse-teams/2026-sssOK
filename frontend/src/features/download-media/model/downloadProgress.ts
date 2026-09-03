@@ -14,8 +14,12 @@ import type { DownloadTarget } from "./types";
  *
  * 다 받고 나서 zip 으로 묶는 동안은 네트워크가 조용하다. 퍼센트만 보면 100% 에서
  * 멈춘 것처럼 보여서, 그 구간에는 "묶는 중"이라고 말해줘야 한다.
+ *
+ * `zipping` 다음에 `receiving` 이 따로 있는 이유도 같다. 서버가 다 묶었다고 알려온 뒤에도
+ * **그 zip 을 실제로 내려받는 시간이 통째로 남아 있다.** 폰에서는 이쪽이 오히려 더 긴데,
+ * 압축 진행률만 보고 있으면 그 구간 내내 100% 에 붙어 멈춘 것처럼 보인다.
  */
-export type DownloadPhase = "fetching" | "zipping" | "sharing";
+export type DownloadPhase = "fetching" | "zipping" | "receiving" | "sharing";
 
 export interface DownloadProgressState {
   phase: DownloadPhase;
@@ -36,6 +40,11 @@ export interface DownloadProgressState {
    * 받은 바이트로 세는 `loadedByMediaId` 와 분리해 둔다 — 세는 대상이 아예 다르다.
    */
   zipPercent: number | null;
+  /**
+   * 다 묶인 zip 을 내려받는 동안의 바이트. `zipPercent` 와 분리해 둔다 —
+   * 압축이 100% 로 끝난 뒤에 0 부터 다시 시작하는, 세는 대상이 아예 다른 구간이다.
+   */
+  zipBytes: { loaded: number; total: number } | null;
 }
 
 export const startDownloadProgress = (targets: DownloadTarget[]): DownloadProgressState => ({
@@ -46,6 +55,7 @@ export const startDownloadProgress = (targets: DownloadTarget[]): DownloadProgre
   totalByMediaId: Object.fromEntries(targets.map((target) => [target.mediaId, target.size])),
   loadedByMediaId: {},
   zipPercent: null,
+  zipBytes: null,
 });
 
 export const withPhase = (
@@ -83,6 +93,13 @@ export const withZipProgress = (
   percent: number,
 ): DownloadProgressState => ({ ...state, zipPercent: Math.min(Math.max(percent, 0), 100) });
 
+export const withZipBytes = (
+  state: DownloadProgressState,
+  { loaded, total }: { loaded: number; total: number },
+): DownloadProgressState => ({ ...state, zipBytes: { loaded, total } });
+
+const clampPercent = (percent: number) => Math.min(Math.max(percent, 0), 100);
+
 export const loadedBytesOf = (state: DownloadProgressState) =>
   Object.values(state.loadedByMediaId).reduce((sum, loaded) => sum + loaded, 0);
 
@@ -91,6 +108,16 @@ export const loadedBytesOf = (state: DownloadProgressState) =>
  * 3.4MB 사진과 80MB 영상을 같은 한 장으로 세면 바가 영상 구간에서 통째로 멈춘다.
  */
 export const percentOf = (state: DownloadProgressState) => {
+  // 묶인 zip 을 받는 중이라면 그쪽이 지금 움직이는 유일한 값이다. 압축 진행률보다 뒤에 오므로
+  // 먼저 본다 — 이걸 뒤에 두면 100% 로 끝난 `zipPercent` 에 가려 바가 다시 멈춘다.
+  if (state.zipBytes !== null) {
+    if (state.zipBytes.total <= 0) {
+      return 100;
+    }
+
+    return clampPercent(Math.floor((state.zipBytes.loaded / state.zipBytes.total) * 100));
+  }
+
   // zip 은 서버가 진행률을 알려준다. 우리가 받은 바이트로 세면 압축 구간이 통째로 빠진다.
   if (state.zipPercent !== null) {
     return state.zipPercent;
@@ -100,9 +127,7 @@ export const percentOf = (state: DownloadProgressState) => {
     return 0;
   }
 
-  const percent = Math.floor((loadedBytesOf(state) / state.totalBytes) * 100);
-
-  return Math.min(Math.max(percent, 0), 100);
+  return clampPercent(Math.floor((loadedBytesOf(state) / state.totalBytes) * 100));
 };
 
 /** 화면이 실제로 읽는 값. 내부 장부는 바깥으로 나가지 않는다. */

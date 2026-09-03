@@ -260,6 +260,38 @@ describe("useMediaUpload", () => {
     expect(result.current.progress).toBeNull();
     expect(onError).toHaveBeenCalledWith(expect.objectContaining({ code: "NOT_ROOM_MEMBER" }));
   });
+
+  /**
+   * `onSettled` 는 갤러리 갱신과 실패 모달을 부른다. 그쪽이 던진 것을 `onError` 가 받으면
+   * **멀쩡히 다 올라간 판이 업로드 실패로 둔갑한다** — 사용자는 올라간 사진을 두고
+   * "못 올렸다" 를 읽는다.
+   */
+  it("onSettled 가 던져도 업로드 실패로 바꿔 부르지 않는다", async () => {
+    await enterRoom();
+
+    const onError = jest.fn();
+    const { result } = renderUpload({
+      onError,
+      onSettled: () => {
+        throw new Error("갤러리 갱신이 깨졌다");
+      },
+    });
+
+    let thrown: unknown = null;
+
+    await act(async () => {
+      await result.current.start([fileOf("첫째.jpg", 3)]).catch((error: unknown) => {
+        thrown = error;
+      });
+    });
+
+    // 던진 것은 그대로 밖으로 나간다. 삼키면 화면 쪽 사고가 조용히 묻힌다.
+    expect(thrown).toEqual(new Error("갤러리 갱신이 깨졌다"));
+
+    expect(onError).not.toHaveBeenCalled();
+    // 던진 쪽과 상관없이 바는 치워져 있어야 한다. 남으면 끝나지 않은 판으로 보인다.
+    expect(result.current.progress).toBeNull();
+  });
 });
 
 afterEach(() => server.events.removeAllListeners());

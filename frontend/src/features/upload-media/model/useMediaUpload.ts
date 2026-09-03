@@ -72,8 +72,10 @@ export const useMediaUpload = ({
     // 발급 왕복을 기다리지 않고 먼저 띄운다. 장수와 바이트는 잠정값이다.
     setProgress(startUploadProgress(files));
 
+    let result: UploadResult | null = null;
+
     try {
-      const result = await uploadFiles({
+      result = await uploadFiles({
         roomId,
         files,
         token,
@@ -84,10 +86,6 @@ export const useMediaUpload = ({
         onProgress: (one) => update((state) => withProgress(state, one)),
         onUploaded: (one) => update((state) => withUploaded(state, one)),
       });
-
-      // 취소한 판이라도 알린다. 취소 전에 올라간 파일은 그대로 등록돼 갤러리에 남는다 (#73).
-      // 다만 이 판이 이미 밀려났다면 부르는 쪽이 화면을 건드리지 않도록 알려준다.
-      onSettled?.(result, { superseded: !isCurrent() });
     } catch (error) {
       onError?.(error);
     } finally {
@@ -95,6 +93,18 @@ export const useMediaUpload = ({
         abortRef.current = null;
         setProgress(null);
       }
+    }
+
+    /*
+     * 취소한 판이라도 알린다. 취소 전에 올라간 파일은 그대로 등록돼 갤러리에 남는다 (#73).
+     * 다만 이 판이 이미 밀려났다면 부르는 쪽이 화면을 건드리지 않도록 알려준다.
+     *
+     * **try 밖이다.** 안에 두면 이 콜백이 던진 것까지 `onError` 가 받아, 멀쩡히 다 올라간
+     * 판이 업로드 실패로 둔갑한다 — 갤러리 갱신이나 실패 모달 쪽 사고를 업로드 탓으로
+     * 돌리는 셈이다.
+     */
+    if (result !== null) {
+      onSettled?.(result, { superseded: !isCurrent() });
     }
   };
 

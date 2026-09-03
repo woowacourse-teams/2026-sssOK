@@ -269,13 +269,13 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect((await response.json()).code).toBe("NOT_ROOM_MEMBER");
   });
 
-  it("방장만 올릴 수 있는 방에 참여자가 부르면 403 NOT_ROOM_HOST 다", async () => {
+  it("방장만 올릴 수 있는 방에 참여자가 부르면 403 UPLOAD_NOT_ALLOWED 다", async () => {
     const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.hostOnly), GUEST_TOKEN);
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId, token: GUEST_TOKEN });
 
     expect(response.status).toBe(403);
-    expect((await response.json()).code).toBe("NOT_ROOM_HOST");
+    expect((await response.json()).code).toBe("UPLOAD_NOT_ALLOWED");
   });
 
   it("방장만 올릴 수 있는 방이어도 방장은 발급받는다", async () => {

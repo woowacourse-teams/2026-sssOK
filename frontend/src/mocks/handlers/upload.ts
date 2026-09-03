@@ -277,8 +277,10 @@ const guardRoom = (roomId: number, memberId: number, token: string) => {
     return error(403, "NOT_ROOM_MEMBER", "입장한 방에서만 이용할 수 있습니다");
   }
 
+  // 방 수정·삭제의 NOT_ROOM_HOST 와 다른 코드다. 업로드 세 API 는 서비스가 직접
+  // UploadNotAllowedException 을 던진다 (IssueUploadUrls·ReissueUploadUrl·CompleteUpload).
   if (uploadPolicyOfId(roomId) === "host" && memberId !== MOCK_HOST_ID) {
-    return error(403, "NOT_ROOM_HOST", "방장만 수행할 수 있는 작업입니다");
+    return error(403, "UPLOAD_NOT_ALLOWED", "방장만 업로드할 수 있는 방입니다");
   }
 
   return null;

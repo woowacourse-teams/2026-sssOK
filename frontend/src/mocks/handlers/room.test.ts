@@ -134,9 +134,22 @@ describe("GET /rooms/{code} 목 핸들러", () => {
   it("입장 기록은 토큰마다 따로다 — 다른 토큰은 joined 가 false 다", async () => {
     await joinRoom(TOKEN);
 
-    const body = await (await getRoom(MOCK_ROOM_CODES.active, "Bearer other-token")).json();
+    const body = await (await getRoom(MOCK_ROOM_CODES.active, "Bearer mock-token-99999")).json();
 
     expect(body.data.joined).toBe(false);
+  });
+
+  /*
+   * 실제 서버는 토큰을 보냈는데 형식이 틀리면 401 이다 (`AuthMemberArgumentResolver`).
+   * 목이 이걸 흉내 내야 개발자도구에서 `sssok.auth:{방코드}` 를 망가뜨려
+   * 세션 만료 처리를 손으로 확인할 수 있다 (#149).
+   */
+  it("형식이 틀린 토큰은 401 UNAUTHORIZED 로 내려준다", async () => {
+    const response = await getRoom(MOCK_ROOM_CODES.active, "Bearer broken-token");
+    const body = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(body.code).toBe("UNAUTHORIZED");
   });
 
   it("입장했어도 토큰 없는 조회는 joined 가 false 다", async () => {
@@ -222,6 +235,14 @@ describe("GET /rooms/{roomId}/media 목 핸들러", () => {
 
     expect(response.status).toBe(401);
     expect(body.code).toBe("UNAUTHORIZED");
+  });
+
+  it("형식이 틀린 토큰도 401 을 내려준다", async () => {
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, {
+      headers: { Authorization: "Bearer broken-token" },
+    });
+
+    expect(response.status).toBe(401);
   });
 });
 

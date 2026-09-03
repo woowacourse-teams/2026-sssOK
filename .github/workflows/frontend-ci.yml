@@ -27,6 +27,22 @@ jobs:
     steps:
       - name: 저장소 체크아웃
         uses: actions/checkout@v4
+        with:
+          # 직전 릴리스 태그와 비교해야 하므로 얕은 클론으로는 부족하다.
+          fetch-depth: 0
+
+      # 배포 PR에서만 검사한다. 버전은 사람이 직접 올리고, 여기서는 올렸는지만 확인한다.
+      # 의존성 설치보다 앞에 둬서 빠뜨렸을 때 빌드까지 가지 않고 끝나게 한다.
+      - name: 버전 상승 확인
+        if: github.base_ref == 'deploy'
+        run: |
+          CURRENT=$(node -p "require('./package.json').version")
+          LAST=$(git tag -l 'fe-v*' --sort=-v:refname | head -1 | sed 's/^fe-v//')
+          if [ "$CURRENT" = "$LAST" ]; then
+            echo "::error::프론트 버전이 $LAST 그대로다. package.json 의 version 을 올려야 한다."
+            exit 1
+          fi
+          echo "${LAST:-없음} -> $CURRENT"
 
       - name: pnpm 설정
         uses: pnpm/action-setup@v4

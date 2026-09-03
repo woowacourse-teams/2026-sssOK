@@ -25,8 +25,22 @@ const enterRoom = () =>
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const renderUploader = (props: { onUploaded?: () => void; hideButton?: boolean } = {}) =>
-  render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} {...props} />);
+const renderUploader = (
+  props: {
+    onUploaded?: () => void;
+    onLeaveRoom?: () => void;
+    hideButton?: boolean;
+    canUpload?: boolean;
+  } = {},
+) => render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} canUpload {...props} />);
+
+/** 발급을 배치 전체 실패로 답하게 한다. 방·권한·회선 문제가 전부 이 모양으로 온다. */
+const failIssueWith = (status: number, code: string, message: string) =>
+  server.use(
+    http.post(`${API_BASE_URL}/rooms/:roomId/media/upload-urls`, () =>
+      HttpResponse.json({ code, message }, { status }),
+    ),
+  );
 
 /**
  * 스토리지 키는 파일명을 버리지만 확장자는 남긴다. 그래서 확장자로 "이 파일만 깨진다" 를 만든다.
@@ -86,12 +100,14 @@ const getUploadButton = () => screen.getByRole("button", { name: UPLOAD_BUTTON_L
 
 /** 선택기는 접근성 트리에 없다. 버튼이 열어주는 자리라 DOM 에서 직접 집는다. */
 const getFileInput = () => {
-  const input = document.querySelector<HTMLInputElement>('input[type="file"]');
+  const input = queryFileInput();
 
   if (input === null) throw new Error("파일 입력을 찾지 못했다");
 
   return input;
 };
+
+const queryFileInput = () => document.querySelector<HTMLInputElement>('input[type="file"]');
 
 describe("MediaUploader", () => {
   beforeEach(enterRoom);
@@ -102,14 +118,110 @@ describe("MediaUploader", () => {
 
     expect(getUploadButton()).toHaveTextContent("올리기");
 
-    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} hideButton />);
+    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} canUpload hideButton />);
 
     expect(screen.queryByRole("button", { name: UPLOAD_BUTTON_LABEL })).not.toBeInTheDocument();
     expect(getFileInput()).toBe(input);
 
-    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} />);
+    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} canUpload />);
 
     expect(getUploadButton()).toBeInTheDocument();
+  });
+
+  /**
+   * 방장만 올리는 방의 참여자다. 서버는 발급을 403(`UPLOAD_NOT_ALLOWED`)으로 막는데,
+   * 버튼을 내주면 눌러 고르는 수고 끝에 실패만 돌려받게 된다 (#148).
+   */
+  it("올릴 수 없으면 버튼도 선택기도 내주지 않는다", () => {
+    renderUploader({ canUpload: false });
+
+    expect(screen.queryByRole("button", { name: UPLOAD_BUTTON_LABEL })).not.toBeInTheDocument();
+    // `hideButton` 과 다른 점이다 — 그건 자리만 비우고 입력은 남긴다.
+    expect(queryFileInput()).toBeNull();
+  });
+
+  /**
+   * 올리는 중에 방장이 정책을 "방장만" 으로 바꾸면 이 화면이 된다.
+   * 재시도를 남겨두면 눌러도 아무 일이 없거나 403 으로 되돌아온다.
+   */
+  it("올리는 도중에 권한을 잃으면 실패 모달의 재시도를 거둔다", async () => {
+    const user = userEvent.setup();
+
+    failUploadsOf(".png");
+
+    const { rerender } = renderUploader();
+
+    await user.upload(getFileInput(), [fileOf("둘째.png", 1024, "image/png")]);
+    await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" });
+
+    rerender(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} canUpload={false} />);
+
+    // 무엇이 깨졌는지는 그대로 보여준다. 다시 올릴 길만 사라진다.
+    expect(failureHeading()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "실패만 재시도" })).not.toBeInTheDocument();
+    expect(screen.getByText("닫기")).toBeInTheDocument();
+  });
+
+  /**
+   * 이 이슈의 증상 그 자체다 (#148). 발급이 막히면 진행 바가 잠깐 떴다 사라지기만 하고
+   * 아무 말도 남지 않았다 — 이제 그 자리를 이유가 대신한다.
+   */
+  it("배치 전체가 못 올라가면 이유를 알린다", async () => {
+    const user = userEvent.setup();
+
+    failIssueWith(403, "UPLOAD_NOT_ALLOWED", "방장만 업로드할 수 있는 방입니다");
+    renderUploader();
+    await user.upload(getFileInput(), fileOf("a.jpg"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("방장만 사진을 올릴 수 있어요.");
+    // 파일이 깨진 게 아니라 방·권한 문제다. 파일 이름을 늘어놓는 모달은 할 말이 없다.
+    expect(failureHeading()).not.toBeInTheDocument();
+    await settled();
+  });
+
+  it("회선이 끊겨도 말없이 끝나지 않는다", async () => {
+    const user = userEvent.setup();
+
+    server.use(
+      http.post(`${API_BASE_URL}/rooms/:roomId/media/upload-urls`, () => HttpResponse.error()),
+    );
+    renderUploader();
+    await user.upload(getFileInput(), fileOf("a.jpg"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "네트워크가 끊겼어요. 연결을 확인하고 다시 올려 주세요.",
+    );
+  });
+
+  /** 방이 사라졌으면 알릴 게 아니라 내보내야 한다. 남겨두면 눌러도 같은 실패만 돌아온다. */
+  it("방이 사라졌으면 알리는 대신 방을 떠난다", async () => {
+    const user = userEvent.setup();
+    const onLeaveRoom = jest.fn();
+
+    failIssueWith(410, "ROOM_EXPIRED", "이미 사라진 방입니다");
+    renderUploader({ onLeaveRoom });
+    await user.upload(getFileInput(), fileOf("a.jpg"));
+
+    await waitFor(() => expect(onLeaveRoom).toHaveBeenCalled());
+    // 곧 화면이 바뀐다. 토스트는 이동하면서 같이 사라져 읽히지 않는다.
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("다시 올리기 시작하면 지난 판의 이유를 지운다", async () => {
+    const user = userEvent.setup();
+
+    failIssueWith(403, "UPLOAD_NOT_ALLOWED", "방장만 업로드할 수 있는 방입니다");
+    renderUploader();
+    await user.upload(getFileInput(), fileOf("a.jpg"));
+    await screen.findByRole("alert");
+
+    // 목을 원래대로 돌려 이번 판은 올라가게 둔다.
+    server.resetHandlers();
+    await enterRoom();
+    await user.upload(getFileInput(), fileOf("b.jpg"));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await settled();
   });
 
   it("업로드 진행 중에는 올리기 버튼을 숨기고 완료 후 다시 표시한다", async () => {

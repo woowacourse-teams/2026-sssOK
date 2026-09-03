@@ -14,7 +14,7 @@ const FUTURE = "2099-01-01T00:00:00Z";
 const PAST = "2020-01-01T00:00:00Z";
 
 const session = (expiresAt: string) => ({
-  accessToken: "abc",
+  accessToken: "mock-token-99999",
   userId: 10234,
   nickname: "민수",
   expiresAt,
@@ -146,7 +146,10 @@ describe("RoomEntryPage", () => {
 
       expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
       // 방마다 인증을 새로 하므로 방마다 다른 member 가 방 코드별로 나란히 쌓인다
-      expect(getRoomSession("ABCD2345")).toMatchObject({ accessToken: "abc", nickname: "민수" });
+      expect(getRoomSession("ABCD2345")).toMatchObject({
+        accessToken: "mock-token-99999",
+        nickname: "민수",
+      });
       expect(getRoomSession(MOCK_ROOM_CODES.active)).toMatchObject({
         accessToken: "mock-token-10234",
         nickname: "해니",

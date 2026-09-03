@@ -36,6 +36,8 @@ export interface DownloadMediaParams {
   onPhase?: (phase: DownloadPhase) => void;
   /** 서버 압축 진행률(0~100). zip 일 때만 온다. */
   onZipProgress?: (percent: number) => void;
+  /** 다 묶인 zip 을 내려받는 동안의 바이트. zip 일 때만 온다. */
+  onZipBytes?: (bytes: { loaded: number; total: number }) => void;
 }
 
 interface FetchedMedia {
@@ -119,7 +121,7 @@ const fetchAll = async (
 };
 
 export const downloadMedia = async (params: DownloadMediaParams): Promise<DownloadOutcome> => {
-  const { roomId, targets, mode, token, signal, onPhase, onZipProgress } = params;
+  const { roomId, targets, mode, token, signal, onPhase, onZipProgress, onZipBytes } = params;
   const failed: FailedDownload[] = [];
 
   if (mode === "zip") {
@@ -174,8 +176,19 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
      * `Content-Disposition: attachment` 가 실려 있어 이동만으로 저장되고, 그러면
      * 스토리지 CORS 도 필요 없고 수 GB 짜리 zip 을 메모리에 올리지도 않는다.
      * 지금 받아오는 이유는 목(MSW)이 다른 오리진의 이동을 가로챌 수 없어서다.
+     *
+     * **여기서도 진행률을 흘린다.** 압축이 끝났다고 기다림이 끝난 게 아니다 — 폰에서는
+     * 이 구간이 압축보다 길 때가 많은데, 알리지 않으면 바가 100% 에 붙어 멈춰 보인다.
+     * 분모는 잡이 알려준 원본 합계다. Content-Length 가 오면 `fetchMediaBlob` 이 그쪽을 쓴다.
      */
-    const zip = await fetchMediaBlob({ url: settled.downloadUrl, size: 0, signal });
+    onPhase?.("receiving");
+
+    const zip = await fetchMediaBlob({
+      url: settled.downloadUrl,
+      size: job.totalSize,
+      signal,
+      onProgress: (loaded, total) => onZipBytes?.({ loaded, total }),
+    });
 
     if (zip.type === "aborted") {
       return { type: "aborted" };

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey } from "@/entities/media";
-import { roomQueryKey, type Room } from "@/entities/room";
+import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { DeleteRoomModal } from "@/features/delete-room";
 import { DeleteSelectedMediaModal } from "@/features/delete-media";
@@ -110,12 +110,28 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       <MediaUploader
         roomId={room.roomId}
         token={accessToken}
+        // 방장만 올리는 방의 참여자에게는 버튼을 아예 내주지 않는다. 서버가 발급에서
+        // 403 으로 막는 것을, 누르기 전에 화면이 먼저 말해주는 셈이다 (#148).
+        canUpload={canUploadTo(room, userId)}
         hideButton={selectedPhotoIds.length > 0}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         // 올린 사진은 서버에만 있다. 목록을 다시 불러오지 않으면 갤러리에 나타나지 않는다.
         onUploaded={() =>
           queryClient.invalidateQueries({ queryKey: photosQueryKey(room.roomId, userId) })
         }
+        /*
+         * 업로드가 "이 방은 이제 없다" 고 답했다 (만료·삭제·세션 만료). 갤러리에 남겨두면
+         * 무엇을 눌러도 같은 실패만 돌려받는다.
+         *
+         * **캐시부터 버린다.** 들고 있는 방 정보는 아직 ACTIVE 라, 그대로 두고 보내면
+         * 입장 화면이 멀쩡한 방으로 알고 갤러리로 되돌려보낸다. 결국은 갤러리가 다시
+         * 조회해 사라진 걸 알아차리고 또 내보내지만, 그 사이 **갤러리가 한 번 번쩍인다.**
+         * 지우면 입장 화면이 처음부터 새로 물어보고 "삭제된 방이에요" 를 말한다.
+         */
+        onLeaveRoom={() => {
+          queryClient.removeQueries({ queryKey: roomQueryKey(room.code, userId) });
+          navigate(ROUTES.roomEntry(room.code), { replace: true });
+        }}
       />
       <PhotoGallery
         photos={photos}

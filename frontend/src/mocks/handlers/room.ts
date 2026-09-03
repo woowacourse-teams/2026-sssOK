@@ -394,6 +394,20 @@ export const resetRoomHandlers = () => {
 const unauthorized = () =>
   HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다." }, { status: 401 });
 
+/** 목 인증(`POST /auth/anonymous`)이 내주는 토큰 모양. */
+const TOKEN_PATTERN = /^Bearer mock-token-\d+$/;
+
+/**
+ * 헤더는 보냈는데 형식이 틀린 토큰이면 401 이다 — 실제 서버와 같다
+ * (`AuthMemberArgumentResolver`). 이게 있어야 개발자도구에서 `sssok.auth:{방코드}` 의
+ * 토큰을 망가뜨려 세션 만료 처리를 손으로 확인할 수 있다 (#149).
+ *
+ * 헤더가 아예 없는 것은 여기서 가리지 않는다. 방 조회처럼 비로그인도 부를 수 있는 API 가 있어
+ * "안 보낸 것" 과 "잘못 보낸 것" 의 처리가 다르다.
+ */
+const isBrokenToken = (authorization: string | null) =>
+  authorization !== null && !TOKEN_PATTERN.test(authorization);
+
 const roomNotFound = () =>
   HttpResponse.json(
     { code: "ROOM_NOT_FOUND", message: "존재하지 않는 방입니다." },
@@ -409,6 +423,10 @@ export const roomHandlers = [
   http.get(`${API_BASE_URL}/rooms/:code`, ({ request, params }) => {
     const code = String(params.code);
     const token = request.headers.get("Authorization");
+
+    if (isBrokenToken(token)) {
+      return unauthorized();
+    }
 
     if (!ROOM_CODE_PATTERN.test(code)) {
       return HttpResponse.json(
@@ -441,7 +459,9 @@ export const roomHandlers = [
   }),
 
   http.get(`${API_BASE_URL}/rooms/:roomId/media`, ({ request, params }) => {
-    if (request.headers.get("Authorization") === null) {
+    const token = request.headers.get("Authorization");
+
+    if (token === null || isBrokenToken(token)) {
       return unauthorized();
     }
 
