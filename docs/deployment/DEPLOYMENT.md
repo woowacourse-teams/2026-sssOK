@@ -139,15 +139,100 @@ DB·JWT·R2·CORS 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣�
 `https://github.com/orgs/woowacourse-teams/packages` 에서 `2026-sssok/backend` 를 열고
 **Package settings → Manage Actions access** 에서 이 저장소에 `Write` 권한이 있는지 확인한다.
 
-## 배포하기
+## 개발(dev) 서버 세팅 (1회만)
 
-```bash
-git checkout deploy
-git merge main
-git push origin deploy
+`develop` 브랜치에 `backend/**` 변경이 병합될 때마다 자동 배포되는 백엔드 dev 서버다. 운영과
+**물리적으로 다른 EC2**에서 돌고, DB는 운영과 **같은 RDS 인스턴스**를 쓰되 데이터베이스만 분리한다.
+
+### 1. EC2 준비
+
+운영과 별도의 EC2 인스턴스를 새로 띄운다. 보안 그룹은 운영과 동일하게 구성한다 (위 "1. EC2 준비" 표 참고).
+
+### 2. RDS에 dev용 데이터베이스 생성
+
+새 RDS 인스턴스를 만들지 않고, 운영이 쓰는 기존 RDS 안에 데이터베이스만 하나 더 만든다.
+
+```sql
+-- 운영 RDS의 마스터 계정으로 접속해서 실행
+CREATE DATABASE sssok_dev;
 ```
 
-`backend/**` 변경이 있으면 워크플로가 자동 실행된다. 변경이 없을 때는 Actions 탭에서 `Backend Deploy` → `Run workflow` 로 수동 실행한다.
+- 접속 계정(`DB_USERNAME`)은 운영과 같은 마스터 계정을 그대로 써도 되고, dev 전용 계정을 새로 파도 된다.
+- `sssok_dev`는 운영 DB(`sssok`)와 완전히 분리된 스키마 공간이라, dev에서 무슨 짓을 해도 운영 데이터에는
+  영향이 없다. Flyway 마이그레이션도 이 DB에 독립적으로 처음부터 적용된다.
+
+### 3. Docker 설치
+
+운영과 동일 (위 "3. Docker 설치" 참고).
+
+### 4. 배포 디렉터리와 `.env` 생성
+
+```bash
+mkdir -p ~/app && cd ~/app
+```
+
+`.env` 를 만들고 아래 값을 채운다 (`backend/.env.dev.example` 참고).
+
+```bash
+cat > .env <<'EOF'
+DB_URL=jdbc:postgresql://<rds-endpoint>:5432/sssok_dev
+DB_USERNAME=sssok
+DB_PASSWORD=여기에_RDS_마스터_비밀번호
+JWT_SECRET=여기에_openssl_rand_base64_32_결과(운영과_다른_값)
+R2_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+R2_ACCESS_KEY=
+R2_SECRET_KEY=
+R2_BUCKET=sssok-dev
+R2_PUBLIC_BASE_URL=
+CORS_ALLOWED_ORIGINS=여기에_dev_프론트_오리진(콤마로_여러_개_가능)
+EOF
+chmod 600 .env
+```
+
+`DB_URL`의 데이터베이스 이름(`sssok_dev`)과 `R2_BUCKET`(`sssok-dev`)만 운영과 다르다 —
+엔드포인트·계정 등 나머지는 운영과 같은 자원을 공유해도 된다.
+
+### 5. self-hosted 러너 설치 (dev EC2 내부)
+
+운영과 같은 방식으로 설치하되, **`--labels dev`를 추가**해서 운영 러너와 구분한다.
+
+```bash
+mkdir -p ~/actions-runner && cd ~/actions-runner
+curl -o actions-runner-linux-arm64.tar.gz -L https://github.com/actions/runner/releases/download/<버전>/actions-runner-linux-arm64-<버전>.tar.gz
+tar xzf ./actions-runner-linux-arm64.tar.gz
+./config.sh --url https://github.com/woowacourse-teams/2026-sssOK --token <등록_토큰> --labels dev
+```
+
+서비스 등록은 운영과 동일 (`sudo ./svc.sh install && sudo ./svc.sh start`).
+
+> dev 배포 워크플로(`deploy-dev.yml`)는 `runs-on: [self-hosted, linux, ARM64, dev]`처럼
+> `dev` 라벨을 지정해서, 운영 배포 워크플로(`runs-on: [self-hosted, linux, ARM64]`)가 실수로 dev
+> 러너에서 돌거나 그 반대가 되는 일이 없게 한다.
+
+### 6. GitHub Secrets 등록
+
+`Settings → Environments → development → Environment secrets`
+
+| 이름 | 예시 |
+| --- | --- |
+| `DEPLOY_PATH` | `/home/ubuntu/app` |
+
+운영과 마찬가지로 DB·JWT·R2·CORS 값은 dev 서버 `.env`에 있으므로 GitHub Secret으로 넣지 않는다.
+
+## 배포하기
+
+`main`, `develop`, `deploy` 모두 브랜치 보호가 걸려 있어 직접 push가 안 된다 — PR로만 반영한다.
+
+1. `develop`이 릴리즈할 만큼 쌓이고 안정적이면 `develop → main` PR을 만들어 머지한다
+   (merge commit, squash 아님 — [BRANCH_STRATEGY.md](../collaboration/BRANCH_STRATEGY.md) 참고)
+2. `main`이 안정적이면 `main → deploy` PR을 만들어 머지한다
+
+```bash
+gh pr create --base deploy --head main --title "deploy: 운영 배포" --body "main 최신 반영"
+```
+
+이 PR이 머지되면 `backend/**` 변경이 있을 때 워크플로가 자동 실행된다. 변경이 없을 때는 Actions 탭에서
+`Backend Prod Deploy` → `Run workflow` 로 수동 실행한다.
 
 ## 운영 명령어
 
