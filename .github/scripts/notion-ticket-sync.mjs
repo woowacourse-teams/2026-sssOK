@@ -153,14 +153,19 @@ async function main() {
     return;
   }
 
+  const status = resolveStatus(issue);
   const logins = (issue.assignees ?? []).map((assignee) => assignee.login);
   const playerIds = await findPlayerPageIds(logins, playerDbId);
   const properties = buildProperties(issue, playerIds);
   const existing = await findTicketPage(issue.number, ticketDbId);
 
-  // 이미 Clear 인 티켓의 Player 와 완료일은 건드리지 않는다. 완료 기록은 "그때 누가
+  // Clear 인 채로 머무는 티켓의 Player 와 완료일은 건드리지 않는다. 완료 기록은 "그때 누가
   // 끝냈는지"가 핵심이라, 나중에 이슈 담당자를 바꿨다고 과거 기록까지 따라 바뀌면 안 된다.
-  if (existing?.properties?.Status?.select?.name === STATUS_CLEAR) {
+  //
+  // 반대로 Clear 에서 빠져나오는 경우(재오픈)는 동결하지 않는다. 동결해 버리면 완료일이
+  // 지워지지 않아 "진행 중인데 완료일이 박혀 있는" 티켓이 남는다.
+  const wasClear = existing?.properties?.Status?.select?.name === STATUS_CLEAR;
+  if (wasClear && status === STATUS_CLEAR) {
     delete properties.Player;
     delete properties["Cleared At"];
   }
