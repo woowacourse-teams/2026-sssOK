@@ -2,13 +2,11 @@ name: Frontend CI
 
 on:
   pull_request:
-    branches: [main, deploy]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-ci.yml"
+    branches: [main, develop, deploy]
 
 permissions:
   contents: read
+  pull-requests: read
 
 # pr에 새로운 커밋 올라올 시 이전 작업 취소
 concurrency:
@@ -16,8 +14,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    name: 변경 경로 확인
+    runs-on: ubuntu-latest
+    outputs:
+      # frontend/** 가 안 바뀐 PR은 검증을 건너뛴다. paths 필터를 워크플로우 트리거가 아니라
+      # 여기서 거는 이유: 트리거에 걸면 워크플로우 자체가 안 돌아서, "프론트엔드 검증"을 브랜치
+      # 보호 규칙의 필수 체크로 걸었을 때 그 PR은 체크가 영영 안 생겨 머지가 막혀버린다.
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: 경로 필터
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/frontend-ci.yml'
+
   frontend-ci:
     name: 프론트엔드 검증
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
 
     defaults:
@@ -71,3 +89,20 @@ jobs:
 
       - name: 타입 검사 및 프로덕션 빌드
         run: pnpm build
+
+  ci-ok:
+    name: 프론트엔드 CI 결과
+    needs: [ changes, frontend-ci ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      # frontend-ci가 스킵됐으면(frontend 미변경) 통과로 본다. 브랜치 보호 규칙의 필수 체크는
+      # 이 job("프론트엔드 CI 결과")을 지정한다 — frontend-ci 자체를 지정하면 스킵된 PR에서
+      # 체크가 안 생겨 머지가 막힌다.
+      - name: 결과 판정
+        run: |
+          if [ "${{ needs.frontend-ci.result }}" = "failure" ]; then
+            echo "::error::프론트엔드 검증 실패"
+            exit 1
+          fi
+          echo "통과 (frontend 변경 여부: ${{ needs.changes.outputs.frontend }}, 결과: ${{ needs.frontend-ci.result }})"
