@@ -82,7 +82,9 @@ jobs:
     needs: build
     # 러너 자체가 배포 대상 EC2 위에서 돈다 (self-hosted).
     # 그래서 SSH/SCP 없이 로컬 명령으로 바로 배포한다.
-    runs-on: [self-hosted, linux, ARM64]
+    # prod 러너가 여러 대(기존 인스턴스 → dev 전환 중, 신규 인스턴스)가 되는 과도기라
+    # 'prod' 라벨로 신규 인스턴스를 명시적으로 지목한다.
+    runs-on: [self-hosted, linux, ARM64, prod]
     environment: production
 
     steps:
