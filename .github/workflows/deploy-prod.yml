@@ -1,11 +1,11 @@
-name: Backend Deploy
+name: Backend Prod Deploy
 
 on:
   push:
     branches: [ deploy ]
     paths:
       - 'backend/**'
-      - '.github/workflows/deploy.yml'
+      - '.github/workflows/deploy-prod.yml'
   workflow_dispatch:
 
 permissions:
