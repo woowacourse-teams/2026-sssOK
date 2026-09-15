@@ -1,0 +1,141 @@
+name: Backend Dev Deploy
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: backend-dev-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 이미지 빌드 및 푸시
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 이미지 태그 결정
+        id: meta
+        run: |
+          # GHCR 은 소문자 경로만 허용한다. dev는 릴리즈 태그가 없으니 커밋 해시로만 식별한다.
+          REPO_LOWER=$(echo "ghcr.io/${GITHUB_REPOSITORY}/backend" | tr '[:upper:]' '[:lower:]')
+          echo "repo=${REPO_LOWER}" >> "$GITHUB_OUTPUT"
+          echo "image=${REPO_LOWER}:dev-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: JDK 21 설정
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Gradle 설정
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: JAR 빌드 (네이티브)
+        working-directory: backend
+        run: ./gradlew bootJar -x test --no-daemon
+
+      - name: QEMU 설정 (크로스 아키텍처 빌드용)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: GHCR 로그인
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 이미지 빌드 및 푸시
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ${{ steps.meta.outputs.image }}
+            ${{ steps.meta.outputs.repo }}:dev-latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: dev 서버 배포
+    needs: build
+    # dev 러너에만 명시적으로 보낸다 (prod 러너와 섞이지 않도록).
+    runs-on: [self-hosted, linux, ARM64, dev]
+    environment: development
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: compose 파일 배치
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          mkdir -p "$DEPLOY_PATH"
+          cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
+
+      - name: 이미지 교체 및 헬스체크
+        env:
+          NEW_IMAGE: ${{ needs.build.outputs.image }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -eu
+          cd "$DEPLOY_PATH"
+
+          COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml"
+
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+          # 롤백 대비로 직전 이미지 태그를 보관한다.
+          if [ -f image.env ]; then
+            cp image.env image.env.prev
+          fi
+          echo "BACKEND_IMAGE=$NEW_IMAGE" > image.env
+
+          $COMPOSE pull
+          $COMPOSE up -d
+
+          echo "헬스체크 시작"
+          # dev는 ALB/nginx 없이 인스턴스에 직접 붙으므로 8080을 바로 확인한다.
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
+              echo "헬스체크 성공 ($i번째 시도)"
+              docker image prune -f > /dev/null 2>&1 || true
+              docker logout ghcr.io > /dev/null 2>&1 || true
+              exit 0
+            fi
+            sleep 5
+          done
+
+          echo "헬스체크 실패 - 직전 버전으로 롤백한다"
+          $COMPOSE logs --tail 100 app || true
+
+          if [ -f image.env.prev ]; then
+            mv image.env.prev image.env
+            $COMPOSE up -d
+            echo "롤백 완료"
+          else
+            echo "직전 버전이 없어 롤백하지 못했다 (최초 배포로 추정)"
+          fi
+
+          docker logout ghcr.io > /dev/null 2>&1 || true
+          exit 1
