@@ -97,6 +97,7 @@ jobs:
         run: |
           mkdir -p "$DEPLOY_PATH"
           cp backend/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
+          cp backend/nginx.conf "$DEPLOY_PATH/nginx.conf"
 
       - name: 이미지 교체 및 헬스체크
         env:
@@ -122,8 +123,9 @@ jobs:
           $COMPOSE up -d
 
           echo "헬스체크 시작"
+          # 8080이 아니라 80(nginx)을 확인한다 — ALB가 실제로 타는 경로 그대로 검증한다.
           for i in $(seq 1 30); do
-            if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
+            if curl -fsS http://localhost/health > /dev/null 2>&1; then
               echo "헬스체크 성공 ($i번째 시도)"
               docker image prune -f > /dev/null 2>&1 || true
               docker logout ghcr.io > /dev/null 2>&1 || true
