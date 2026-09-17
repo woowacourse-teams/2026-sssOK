@@ -1,7 +1,8 @@
 import { Navigate, useParams } from "react-router-dom";
 
-import { useRoomQuery } from "@/entities/room";
+import { useRoomQuery, type Room } from "@/entities/room";
 import { readValidRoomSession } from "@/entities/session";
+import { useRoomEvents } from "@/features/subscribe-room-events";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { GalleryContent } from "./GalleryContent";
@@ -10,6 +11,18 @@ import { PageState } from "./GalleryPage.styles";
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
   ROOM_NOT_FOUND: "존재하지 않는 방이에요.",
+};
+
+interface ActiveGalleryProps {
+  room: Room;
+  accessToken: string;
+  userId: number;
+}
+
+const ActiveGallery = ({ room, accessToken, userId }: ActiveGalleryProps) => {
+  useRoomEvents({ roomId: room.roomId, userId, token: accessToken });
+
+  return <GalleryContent room={room} accessToken={accessToken} userId={userId} />;
 };
 
 export const GalleryPage = () => {
@@ -43,7 +56,7 @@ export const GalleryPage = () => {
   }
 
   return (
-    <GalleryContent
+    <ActiveGallery
       room={roomQuery.data}
       accessToken={session.accessToken}
       userId={session.userId}

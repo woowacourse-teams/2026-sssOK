@@ -6,6 +6,18 @@ import { resetRoomHandlers } from "./mocks/handlers/room";
 import { resetUploads } from "./mocks/handlers/upload";
 import { server } from "./mocks/server";
 
+class MockEventSource {
+  addEventListener = jest.fn();
+  removeEventListener = jest.fn();
+  close = jest.fn();
+}
+
+Object.defineProperty(globalThis, "EventSource", {
+  writable: true,
+  configurable: true,
+  value: MockEventSource,
+});
+
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 
 afterEach(() => {
