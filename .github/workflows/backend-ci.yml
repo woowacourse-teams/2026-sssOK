@@ -4,17 +4,37 @@ on:
   # GitHub 쪽 일시적 오류로 실행이 시작되지 못하면 수동으로 다시 돌린다.
   workflow_dispatch:
   pull_request:
-    branches: [ main, deploy ]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/ci.yml'
+    branches: [ main, develop, deploy ]
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
+  changes:
+    name: 변경 경로 확인
+    runs-on: ubuntu-latest
+    outputs:
+      # backend/** 가 안 바뀐 PR은 build를 건너뛴다. paths 필터를 워크플로우 트리거가 아니라
+      # 여기서 거는 이유: 트리거에 걸면 워크플로우 자체가 안 돌아서, "빌드 및 테스트"를 브랜치
+      # 보호 규칙의 필수 체크로 걸었을 때 그 PR은 체크가 영영 안 생겨 머지가 막혀버린다.
+      # workflow_dispatch(수동 재실행)는 경로와 무관하게 항상 backend=true로 취급한다.
+      backend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backend == 'true' }}
+    steps:
+      - name: 경로 필터
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/backend-ci.yml'
+
   build:
     name: 빌드 및 테스트
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
 
     defaults:
@@ -53,3 +73,20 @@ jobs:
           name: test-report
           path: backend/build/reports/tests/test
           retention-days: 7
+
+  ci-ok:
+    name: 백엔드 CI 결과
+    needs: [ changes, build ]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      # build가 스킵됐으면(backend 미변경) 통과로 본다. 브랜치 보호 규칙의 필수 체크는
+      # 이 job("백엔드 CI 결과")을 지정한다 — build 자체를 지정하면 스킵된 PR에서 체크가
+      # 안 생겨 머지가 막힌다.
+      - name: 결과 판정
+        run: |
+          if [ "${{ needs.build.result }}" = "failure" ]; then
+            echo "::error::백엔드 빌드/테스트 실패"
+            exit 1
+          fi
+          echo "통과 (backend 변경 여부: ${{ needs.changes.outputs.backend }}, build 결과: ${{ needs.build.result }})"

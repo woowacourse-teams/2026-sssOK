@@ -7,11 +7,14 @@
 ## 작업 순서
 
 1. 이슈부터 생성한다 (작업 먼저 하고 이슈를 나중에 만들지 않는다)
-2. `main` 에서 작업 브랜치를 만든다
+2. `develop` 에서 작업 브랜치를 만든다 (`hotfix` 만 `main` 에서 분기)
 3. 커밋한다
-4. `main` 대상 PR을 만든다 (셀프 머지 금지, 리뷰·CI 통과 후 사람이 머지)
+4. `develop` 대상 PR을 만든다 (`hotfix` 는 `main` 대상, 셀프 머지 금지, 리뷰·CI 통과 후 사람이 머지)
 
 이슈 번호가 브랜치·커밋·PR을 관통하는 유일한 추적 키다. 각 단계로 그대로 넘긴다.
+
+`develop` 에 쌓인 변경을 운영에 반영하려면 별도로 `develop → main → deploy` 승격 절차를 거친다
+(아래 "배포" 섹션 참고). 이건 개별 작업 단위가 아니라 릴리즈 단위로 묶어서 하는 절차다.
 
 ## 이슈
 
@@ -27,7 +30,8 @@
 - 타입: `feature` `fix` `refactor` `chore` `hotfix`
 - 영역: `be` `fe` `common`
 - 설명은 3~5단어 이내, 소문자 + 하이픈만 (공백·언더스코어 금지)
-- `main` 에서 분기한다. `hotfix` 만 `deploy` 에서 분기한다
+- `develop` 에서 분기한다. `hotfix` 만 `main` 에서 분기한다 (운영 긴급 반영 후 `main`·`develop` 양쪽에 반영)
+- `main`, `develop`, `deploy` 모두 보호 브랜치라 직접 push 가 막혀 있다 — 반드시 PR 을 거친다
 - 자세히: [docs/collaboration/BRANCH_STRATEGY.md](docs/collaboration/BRANCH_STRATEGY.md)
 
 ## 커밋
@@ -41,27 +45,36 @@
 
 ## PR
 
-- 대상 브랜치: `main`
+- 대상 브랜치: 평소엔 `develop` (`hotfix` 만 `main`)
 - 제목: 커밋과 같은 타입 접두사 (예: `feat: 결제 원장 등록 API 구현`)
 - 본문: `.github/pull_request_template.md` 구조를 그대로 쓰고, `Closes #이슈번호` 필수
 - 하나의 PR은 하나의 관심사만 다룬다. diff 500줄 이내 권장
-- 머지 조건: CodeRabbit 1차 리뷰 + 사람 승인 + CI 통과 + `main` 최신 동기화
+- 머지 조건: CodeRabbit 1차 리뷰 + CI 통과 + 대상 브랜치 최신 동기화, 그리고 대상별 승인 수
+  - `develop` 대상: 승인 1명 필수
+  - `main` 대상(`hotfix` 또는 `develop → main` 승격): 승인 없이도 머지 가능하지만, `hotfix → main` 은 관행으로 승인을 받는다
 - 리뷰어는 CODEOWNERS 로 자동 지정되므로 직접 지정하지 않는다
 - 자세히: [docs/collaboration/PR_GUIDE.md](docs/collaboration/PR_GUIDE.md)
 
 ## 배포
 
-- `main` 이 안정적이라고 판단되면 `main → deploy` PR을 만든다
-- 이미 리뷰된 코드이므로 재리뷰 없이 담당자가 머지한다
-- `deploy` 머지가 CD 파이프라인을 트리거해 실제 서버에 배포된다
+**백엔드 dev 배포(자동)**: `develop` 에 `backend/**` 변경이 병합되면 dev 서버로 자동 배포된다
+(`deploy-dev.yml`). PR 을 따로 만들 필요 없다 — 머지 자체가 트리거다.
+
+**운영 배포(수동, 2단계)**:
+1. `develop` 가 릴리즈할 만큼 쌓이고 안정적이라고 판단되면 `develop → main` PR을 만든다
+   (merge commit 사용, 릴리즈 단위 이력 보존 목적 — squash 아님)
+2. `main` 이 안정적이라고 판단되면 `main → deploy` PR을 만든다
+3. 두 PR 모두 이미 리뷰된 코드이므로 재리뷰 없이 담당자가 머지한다
+4. `deploy` 머지가 CD 파이프라인을 트리거해 실제 운영 서버(`deploy-prod.yml`)에 배포된다
+
 - 자세히: [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md)
 
 ## 하지 말아야 할 것
 
-- `main` / `deploy` 에 직접 커밋·푸시
+- `main` / `develop` / `deploy` 에 직접 커밋·푸시 (셋 다 보호 브랜치, PR만 허용)
 - 이슈 없이 브랜치부터 생성
 - 본인 PR 셀프 승인·머지
-- `main → deploy` 배포 PR을 사용자 확인 없이 병합
+- `develop → main`, `main → deploy` 배포/승격 PR을 사용자 확인 없이 병합
 - 커밋 메시지·PR 본문에 에이전트 서명이나 `Co-Authored-By` 트레일러 삽입 (공개 저장소다)
 - 사용자가 요청하지 않은 커밋·푸시·PR 생성
 
@@ -71,4 +84,4 @@
 
 - 커밋, 푸시, PR 생성, 이슈 생성
 - 브랜치 삭제, 강제 푸시, 히스토리 재작성
-- 배포 PR 병합
+- `develop → main` 승격 PR 병합, `main → deploy` 배포 PR 병합

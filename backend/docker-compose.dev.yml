@@ -1,0 +1,47 @@
+# dev 서버용 compose. CI가 develop 브랜치에 backend/** 변경이 병합되면 이 파일을 dev 서버로
+# 전송한 뒤
+#   docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml up -d
+# 형태로 실행한다.
+#
+# .env       : dev 서버에서 최초 1회 수동 생성 (DB 접속 정보, JWT, R2 자격증명, CORS 오리진)
+# image.env  : 배포마다 CI가 덮어씀 (BACKEND_IMAGE=ghcr.io/...:<커밋SHA> — 운영과 달리 태그가 아니라
+#              커밋 해시로 식별한다)
+#
+# 운영과 물리적으로 다른 EC2에서 돈다. DB는 운영과 같은 RDS 인스턴스를 쓰되, DB_URL의 데이터베이스
+# 이름만 dev용(sssok_dev)으로 다르게 줘서 데이터를 분리한다 — 인스턴스 자체를 새로 만들지 않는다.
+
+services:
+  app:
+    image: ${BACKEND_IMAGE}
+    container_name: sssok-app-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      R2_ENDPOINT: ${R2_ENDPOINT}
+      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
+      R2_SECRET_KEY: ${R2_SECRET_KEY}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sssok
+
+networks:
+  sssok:

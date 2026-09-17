@@ -8,8 +8,11 @@ description: main 을 deploy 브랜치로 올려 실서버 배포를 트리거�
 배포 전에 저장소 루트의 `AGENTS.md` 를 읽고 "배포" 섹션 규칙을 따른다.
 (세부 배경이 필요하면 `docs/deployment/DEPLOYMENT.md` 도 함께 읽는다.)
 
-**`deploy` 브랜치에 병합되는 순간 CD 파이프라인이 돌아 실제 서버에 배포된다.**
+**`deploy` 브랜치에 병합되는 순간 CD 파이프라인(`deploy-prod.yml`)이 돌아 실제 서버에 배포된다.**
 되돌리기 어려운 동작이므로 절차를 건너뛰지 않는다.
+
+이 스킬은 **`main → deploy`** 전용이다. `develop` 에 쌓인 걸 `main` 으로 올리는 그 앞 단계는
+`promote-to-main` 스킬을 쓴다 — 이 스킬을 시작하기 전에 `main` 이 이미 원하는 상태인지 먼저 확인한다.
 
 ## 작업 절차
 
