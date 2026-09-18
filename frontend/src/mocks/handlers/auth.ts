@@ -40,7 +40,7 @@ export const authHandlers = [
           accessToken: `mock-token-${userId}`,
           userId,
           nickname,
-          expiresAt: "2026-09-17T05:30:00Z",
+          expiresAt: "9999-12-31T23:59:59Z",
         },
       },
       { status: 201 },

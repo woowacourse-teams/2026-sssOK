@@ -11,7 +11,7 @@ describe("RoomSessionBadge", () => {
       accessToken: "mock-token",
       userId: 10234,
       nickname: "윤돌",
-      expiresAt: "2026-09-17T05:30:00Z",
+      expiresAt: "9999-12-31T23:59:59Z",
     });
 
     render(<RoomSessionBadge roomCode="7K93QX2S" hostId={20000} />);
@@ -25,7 +25,7 @@ describe("RoomSessionBadge", () => {
       accessToken: "mock-token",
       userId: 10234,
       nickname: "윤돌",
-      expiresAt: "2026-09-17T05:30:00Z",
+      expiresAt: "9999-12-31T23:59:59Z",
     });
 
     render(<RoomSessionBadge roomCode="7K93QX2S" hostId={10234} />);
