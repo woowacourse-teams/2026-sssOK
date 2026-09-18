@@ -1,6 +1,13 @@
+const fs = require("fs");
 const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+
+const envPath = path.resolve(__dirname, ".env");
+
+if (fs.existsSync(envPath)) {
+  process.loadEnvFile(envPath);
+}
 
 module.exports = {
   mode: "development",
