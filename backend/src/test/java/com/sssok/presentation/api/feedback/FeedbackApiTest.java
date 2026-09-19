@@ -1,6 +1,7 @@
 package com.sssok.presentation.api.feedback;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -8,9 +9,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.application.port.out.MemberRepository;
+import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.room.PurgeRoomService;
+import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaEntity;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
+import java.time.Duration;
+import java.time.Instant;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +37,8 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 class FeedbackApiTest extends PostgresContainerSupport {
 
+    private static final Duration RETENTION = Duration.ofDays(7);
+
     private static final String CHROME_UA =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
             + "Chrome/140.0.0.0 Safari/537.36";
@@ -42,6 +51,15 @@ class FeedbackApiTest extends PostgresContainerSupport {
 
     @Autowired
     FeedbackJpaRepository feedbackJpaRepository;
+
+    @Autowired
+    PurgeRoomService purgeRoomService;
+
+    @Autowired
+    RoomRepository roomRepository;
+
+    @Autowired
+    MemberRepository memberRepository;
 
     @Test
     void 입장한_사용자가_의견을_남기면_201과_식별자를_받는다() throws Exception {
@@ -144,6 +162,42 @@ class FeedbackApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 삭제된_방에_의견을_남기면_410() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+
+        방_삭제(token, roomId).andExpect(status().isOk());
+
+        의견_등록(token, roomId, "{\"content\":\"이미 끝난 방\"}", CHROME_UA)
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+    
+    @Test
+    void 방을_purge_해도_의견과_맥락_값이_남는다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long feedbackId = 의견_남기기(token, roomId, "방이 사라져도 이 의견은 남아야 해요", CHROME_UA);
+        Long memberId = feedbackJpaRepository.findById(feedbackId).orElseThrow().getMemberId();
+
+        방_삭제(token, roomId).andExpect(status().isOk());
+        보존_기간이_지난_삭제로_되돌리기(roomId);
+
+        purgeRoomService.purgeAll(Instant.now());
+
+        assertThat(roomRepository.findById(roomId)).isEmpty();
+        assertThat(memberRepository.findById(memberId)).isEmpty();
+
+        FeedbackJpaEntity survived = feedbackJpaRepository.findById(feedbackId).orElseThrow();
+        assertThat(survived.getContent()).isEqualTo("방이 사라져도 이 의견은 남아야 해요");
+        assertThat(survived.getRoomId()).isEqualTo(roomId);
+        assertThat(survived.getRoomName()).isEqualTo("우테코 회식");
+        assertThat(survived.getMemberId()).isEqualTo(memberId);
+        assertThat(survived.getNickname()).isEqualTo("가현");
+        assertThat(survived.getCreatedAt()).isNotNull();
+    }
+
+    @Test
     void 인증_없이_의견을_남기면_401() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
@@ -187,6 +241,27 @@ class FeedbackApiTest extends PostgresContainerSupport {
             .header("Authorization", "Bearer " + token));
 
         return roomId;
+    }
+
+    private ResultActions 방_삭제(String token, long roomId) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}", roomId)
+            .header("Authorization", "Bearer " + token));
+    }
+
+    private void 보존_기간이_지난_삭제로_되돌리기(long roomId) {
+        Room stored = roomRepository.findById(roomId).orElseThrow();
+        roomRepository.save(Room.reconstruct(
+            stored.getId(),
+            stored.getVersion(),
+            stored.getCode(),
+            stored.getName(),
+            stored.getStatus(),
+            stored.getExpiration(),
+            stored.getUploadPolicy(),
+            stored.getHostId(),
+            stored.getCreatedAt(),
+            Instant.now().minus(RETENTION).minus(Duration.ofDays(1))
+        ));
     }
 
     private String 값(MvcResult result, String field) throws Exception {
