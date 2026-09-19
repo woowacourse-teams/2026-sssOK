@@ -19,6 +19,7 @@ import com.sssok.application.media.MediaFullDetail;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.room.Room;
@@ -63,6 +64,9 @@ class MediaQueryControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;
