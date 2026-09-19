@@ -47,6 +47,9 @@ dependencies {
     // EXIF 촬영 시각·GPS 추출
     implementation 'com.drewnoakes:metadata-extractor:2.19.0'
 
+    // 관리자 비밀번호 해싱. 시큐리티 필터 체인은 쓰지 않으므로 starter 대신 crypto 모듈만 가져온다.
+    implementation 'org.springframework.security:spring-security-crypto'
+
     // JWT
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
@@ -76,3 +79,4 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
