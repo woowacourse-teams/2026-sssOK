@@ -15,12 +15,16 @@ const readNextUserId = () => Number(localStorage.getItem(COUNTER_KEY)) || FIRST_
  * 인증을 거치지 않고 손으로 만든 토큰은 여기 없으니 부르는 쪽에서 대비해야 한다.
  */
 const nicknameByUserId = new Map<number, string>();
+let activeLinkCode: string | null = null;
 
 /** 인증을 거치지 않은 회원 번호면 null 이다. */
 export const nicknameOf = (userId: number) => nicknameByUserId.get(userId) ?? null;
 
 /** 테스트끼리 이름이 이어지지 않도록 되돌린다. */
-export const resetNicknames = () => nicknameByUserId.clear();
+export const resetNicknames = () => {
+  nicknameByUserId.clear();
+  activeLinkCode = null;
+};
 
 /**
  * 실제 서버는 호출할 때마다 새 member 를 만든다.
@@ -56,6 +60,8 @@ export const authHandlers = [
       );
     }
 
+    activeLinkCode = "483920";
+
     return HttpResponse.json(
       {
         data: {
@@ -65,5 +71,25 @@ export const authHandlers = [
       },
       { status: 201 },
     );
+  }),
+  http.post(`${API_BASE_URL}/auth/link`, async ({ request }) => {
+    const { linkCode } = (await request.json()) as { linkCode: string };
+
+    if (linkCode !== activeLinkCode) {
+      return HttpResponse.json(
+        { code: "LINK_CODE_NOT_FOUND", message: "유효하지 않은 코드입니다." },
+        { status: 404 },
+      );
+    }
+
+    activeLinkCode = null;
+    return HttpResponse.json({
+      data: {
+        accessToken: "mock-token-10234",
+        userId: 10234,
+        nickname: "민수",
+        expiresAt: "9999-12-31T23:59:59Z",
+      },
+    });
   }),
 ];
