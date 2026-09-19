@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.persistence.feedback;
 
 import com.sssok.application.port.out.FeedbackRepository;
+import com.sssok.domain.feedback.AppVersion;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
 import com.sssok.domain.feedback.UserAgent;
@@ -36,6 +37,7 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
             feedback.getMemberId(),
             feedback.getNickname(),
             feedback.getUserAgent().value(),
+            feedback.getAppVersion().value(),
             feedback.getCreatedAt()
         );
     }
@@ -49,6 +51,7 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
             entity.getMemberId(),
             entity.getNickname(),
             UserAgent.from(entity.getUserAgent()),
+            AppVersion.from(entity.getAppVersion()),
             entity.getCreatedAt()
         );
     }
