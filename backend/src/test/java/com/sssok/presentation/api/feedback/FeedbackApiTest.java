@@ -42,7 +42,7 @@ class FeedbackApiTest extends PostgresContainerSupport {
     private static final String CHROME_UA =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
             + "Chrome/140.0.0.0 Safari/537.36";
-    private static final String APP_VERSION = "fe-v0.1.0";
+    private static final String FRONTEND_VERSION = "fe-v0.1.0";
 
     @Autowired
     MockMvc mockMvc;
@@ -86,7 +86,7 @@ class FeedbackApiTest extends PostgresContainerSupport {
         assertThat(saved.getRoomName()).isEqualTo("우테코 회식");
         assertThat(saved.getMemberId()).isNotNull();
         assertThat(saved.getNickname()).isEqualTo("가현");
-        assertThat(saved.getAppVersion()).isEqualTo(APP_VERSION);
+        assertThat(saved.getFrontendVersion()).isEqualTo(FRONTEND_VERSION);
         assertThat(saved.getCreatedAt()).isNotNull();
     }
 
@@ -131,7 +131,7 @@ class FeedbackApiTest extends PostgresContainerSupport {
         long feedbackId = 의견_남기기(token, roomId, "0.1.0 에서 겪은 일이에요", CHROME_UA);
 
         FeedbackJpaEntity saved = feedbackJpaRepository.findById(feedbackId).orElseThrow();
-        assertThat(saved.getAppVersion()).isEqualTo(APP_VERSION);
+        assertThat(saved.getFrontendVersion()).isEqualTo(FRONTEND_VERSION);
     }
 
     @Test
@@ -146,7 +146,7 @@ class FeedbackApiTest extends PostgresContainerSupport {
 
         FeedbackJpaEntity saved = feedbackJpaRepository
             .findById(Long.parseLong(값(created, "feedbackId"))).orElseThrow();
-        assertThat(saved.getAppVersion()).isNull();
+        assertThat(saved.getFrontendVersion()).isNull();
     }
 
     @Test
@@ -160,7 +160,7 @@ class FeedbackApiTest extends PostgresContainerSupport {
 
         FeedbackJpaEntity saved = feedbackJpaRepository
             .findById(Long.parseLong(값(created, "feedbackId"))).orElseThrow();
-        assertThat(saved.getAppVersion()).hasSize(32);
+        assertThat(saved.getFrontendVersion()).hasSize(32);
     }
 
     @Test
@@ -254,11 +254,11 @@ class FeedbackApiTest extends PostgresContainerSupport {
 
     private ResultActions 의견_등록(String token, long roomId, String body, String userAgent)
         throws Exception {
-        return 의견_등록(token, roomId, body, userAgent, APP_VERSION);
+        return 의견_등록(token, roomId, body, userAgent, FRONTEND_VERSION);
     }
 
     private ResultActions 의견_등록(
-        String token, long roomId, String body, String userAgent, String appVersion
+        String token, long roomId, String body, String userAgent, String frontendVersion
     ) throws Exception {
         var request = post("/api/v1/rooms/{roomId}/feedbacks", roomId)
             .header("Authorization", "Bearer " + token)
@@ -267,8 +267,8 @@ class FeedbackApiTest extends PostgresContainerSupport {
         if (userAgent != null) {
             request = request.header(HttpHeaders.USER_AGENT, userAgent);
         }
-        if (appVersion != null) {
-            request = request.header("X-App-Version", appVersion);
+        if (frontendVersion != null) {
+            request = request.header("X-App-Version", frontendVersion);
         }
         return mockMvc.perform(request);
     }

@@ -41,8 +41,8 @@ public class FeedbackJpaEntity extends BaseEntity {
     @Column(name = "user_agent", length = 512)
     private String userAgent;
 
-    @Column(name = "app_version", length = 32)
-    private String appVersion;
+    @Column(name = "frontend_version", length = 32)
+    private String frontendVersion;
 
     public FeedbackJpaEntity(
         Long id,
@@ -52,7 +52,7 @@ public class FeedbackJpaEntity extends BaseEntity {
         Long memberId,
         String nickname,
         String userAgent,
-        String appVersion,
+        String frontendVersion,
         Instant createdAt
     ) {
         super(createdAt);
@@ -63,6 +63,6 @@ public class FeedbackJpaEntity extends BaseEntity {
         this.memberId = memberId;
         this.nickname = nickname;
         this.userAgent = userAgent;
-        this.appVersion = appVersion;
+        this.frontendVersion = frontendVersion;
     }
 }

@@ -14,7 +14,7 @@ public class Feedback {
     private final Long memberId;
     private final String nickname;
     private final UserAgent userAgent;
-    private final AppVersion appVersion;
+    private final FrontendVersion frontendVersion;
     private final Instant createdAt;
 
     private Feedback(
@@ -25,7 +25,7 @@ public class Feedback {
         Long memberId,
         String nickname,
         UserAgent userAgent,
-        AppVersion appVersion,
+        FrontendVersion frontendVersion,
         Instant createdAt
     ) {
         this.id = id;
@@ -35,7 +35,7 @@ public class Feedback {
         this.memberId = memberId;
         this.nickname = nickname;
         this.userAgent = userAgent;
-        this.appVersion = appVersion;
+        this.frontendVersion = frontendVersion;
         this.createdAt = createdAt;
     }
 
@@ -46,10 +46,10 @@ public class Feedback {
         Long memberId,
         String nickname,
         UserAgent userAgent,
-        AppVersion appVersion,
+        FrontendVersion frontendVersion,
         Instant now
     ) {
-        return new Feedback(null, content, roomId, roomName, memberId, nickname, userAgent, appVersion, now);
+        return new Feedback(null, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, now);
     }
 
     public static Feedback reconstruct(
@@ -60,9 +60,9 @@ public class Feedback {
         Long memberId,
         String nickname,
         UserAgent userAgent,
-        AppVersion appVersion,
+        FrontendVersion frontendVersion,
         Instant createdAt
     ) {
-        return new Feedback(id, content, roomId, roomName, memberId, nickname, userAgent, appVersion, createdAt);
+        return new Feedback(id, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, createdAt);
     }
 }

@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class FeedbackController {
 
     // 표준 헤더가 아니라 우리가 정한 이름이라 상수로 둔다.
-    private static final String APP_VERSION_HEADER = "X-App-Version";
+    private static final String FRONTEND_VERSION_HEADER = "X-App-Version";
 
     private final CreateFeedbackService createFeedbackService;
 
@@ -56,12 +56,12 @@ public class FeedbackController {
         @Parameter(hidden = true) @RequestHeader(value = HttpHeaders.USER_AGENT, required = false)
         String userAgent,
         @Parameter(description = "프론트 버전 태그. 예: fe-v0.1.0")
-        @RequestHeader(value = APP_VERSION_HEADER, required = false) String appVersion,
+        @RequestHeader(value = FRONTEND_VERSION_HEADER, required = false) String frontendVersion,
         @RequestBody CreateFeedbackRequest request
     ) {
         String content = request == null ? null : request.content();
         Feedback feedback =
-            createFeedbackService.create(roomId, memberId, content, userAgent, appVersion);
+            createFeedbackService.create(roomId, memberId, content, userAgent, frontendVersion);
         return ApiResponse.of(CreateFeedbackResponse.from(feedback));
     }
 }

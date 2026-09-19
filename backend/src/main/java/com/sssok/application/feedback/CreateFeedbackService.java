@@ -5,7 +5,7 @@ import com.sssok.application.port.out.FeedbackRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomNotFoundException;
-import com.sssok.domain.feedback.AppVersion;
+import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
 import com.sssok.domain.feedback.UserAgent;
@@ -39,7 +39,7 @@ public class CreateFeedbackService {
         Long memberId,
         String content,
         String rawUserAgent,
-        String rawAppVersion
+        String rawFrontendVersion
     ) {
         FeedbackContent feedbackContent = new FeedbackContent(content);
         requireNotTooFrequent(memberId);
@@ -58,7 +58,7 @@ public class CreateFeedbackService {
             memberId,
             nickname,
             UserAgent.from(rawUserAgent),
-            AppVersion.from(rawAppVersion),
+            FrontendVersion.from(rawFrontendVersion),
             Instant.now()
         ));
     }
