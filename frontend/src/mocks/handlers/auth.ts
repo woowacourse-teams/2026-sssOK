@@ -46,4 +46,24 @@ export const authHandlers = [
       { status: 201 },
     );
   }),
+  http.post(`${API_BASE_URL}/auth/link-code`, ({ request }) => {
+    const authorization = request.headers.get("Authorization");
+
+    if (!authorization?.startsWith("Bearer mock-token-")) {
+      return HttpResponse.json(
+        { code: "UNAUTHORIZED", message: "인증이 필요합니다." },
+        { status: 401 },
+      );
+    }
+
+    return HttpResponse.json(
+      {
+        data: {
+          linkCode: "483920",
+          expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        },
+      },
+      { status: 201 },
+    );
+  }),
 ];
