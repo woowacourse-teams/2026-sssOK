@@ -17,6 +17,7 @@ import com.sssok.application.mediafolder.RemoveMediaFromFoldersService;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.domain.room.Room;
@@ -59,6 +60,9 @@ class MediaFolderControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;
