@@ -25,9 +25,14 @@ public enum ErrorCode {
     INVALID_REQUEST_BODY(400, "요청 본문 형식이 올바르지 않습니다"),
     INVALID_REQUEST_PARAMETER(400, "%s 값의 형식이 올바르지 않습니다"),
     TOO_MANY_FILES(400, "한 번에 최대 %d개까지 처리할 수 있습니다"),
+    INVALID_ADMIN_LOGIN_ID(400, "아이디는 4~20자의 영소문자·숫자·밑줄만 쓸 수 있습니다"),
+    INVALID_ADMIN_PASSWORD(400, "비밀번호는 8자 이상이어야 합니다"),
+    INVALID_ADMIN_NAME(400, "이름은 1자 이상 20자 이하여야 합니다"),
+    INVALID_ADMIN_ROLE(400, "올바르지 않은 역할입니다: %s"),
 
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),
+    INVALID_CREDENTIALS(401, "아이디 또는 비밀번호가 올바르지 않습니다"),
 
     // 403 Forbidden
     NOT_ROOM_HOST(403, "방장만 수행할 수 있는 작업입니다"),
@@ -36,6 +41,8 @@ public enum ErrorCode {
     UPLOAD_NOT_ALLOWED(403, "방장만 업로드할 수 있는 방입니다"),
     MEDIA_FORBIDDEN(403, "본인이 요청한 업로드가 아닙니다"),
     DOWNLOAD_FORBIDDEN(403, "본인이 요청한 다운로드가 아닙니다"),
+    ADMIN_FORBIDDEN(403, "권한이 없습니다"),
+    SUPER_ADMIN_REQUIRED(403, "슈퍼관리자만 수행할 수 있는 작업입니다"),
 
     // 404 Not Found
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
@@ -43,6 +50,7 @@ public enum ErrorCode {
     FOLDER_NOT_FOUND(404, "존재하지 않는 폴더입니다: %s"),
     MEDIA_NOT_FOUND(404, "존재하지 않는 미디어입니다"),
     DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
+    ADMIN_NOT_FOUND(404, "존재하지 않는 관리자입니다"),
 
     // 405 Method Not Allowed
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
@@ -52,6 +60,8 @@ public enum ErrorCode {
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),
     MEDIA_NOT_READY(409, "아직 처리 중인 미디어입니다"),
+    DUPLICATE_ADMIN_LOGIN_ID(409, "이미 사용 중인 아이디입니다"),
+    LAST_SUPER_ADMIN(409, "마지막 슈퍼관리자는 삭제하거나 역할을 바꿀 수 없습니다"),
 
     // 410 Gone
     ROOM_EXPIRED(410, "이미 사라진 방입니다"),
@@ -66,6 +76,7 @@ public enum ErrorCode {
     // 429 Too Many Requests
     UPLOAD_RETRY_EXCEEDED(429, "재시도 횟수를 초과했습니다. 처음부터 다시 올려주세요"),
     RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
+    ADMIN_LOGIN_RATE_LIMITED(429, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요"),
 
     // 415 Unsupported Media Type
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
