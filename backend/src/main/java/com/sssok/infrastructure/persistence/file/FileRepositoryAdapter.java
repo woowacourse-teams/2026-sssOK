@@ -80,6 +80,11 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public long countByRoomIdAndStatusIn(Long roomId, Collection<UploadStatus> statuses) {
+        return jpaRepository.countByRoomIdAndStatusIn(roomId, names(statuses));
+    }
+
+    @Override
     public List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
         // IN () 은 유효한 SQL 이 아니라, 빈 목록을 그대로 넘기면 드라이버가 오류를 낸다.

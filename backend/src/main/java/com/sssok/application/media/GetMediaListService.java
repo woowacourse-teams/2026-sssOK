@@ -1,6 +1,7 @@
 package com.sssok.application.media;
 
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
@@ -16,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class GetMediaListService {
 
+    private static final int MIN_PAGE_SIZE = 1;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final FileRepository fileRepository;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
@@ -24,6 +28,36 @@ public class GetMediaListService {
     @Transactional(readOnly = true)
     public List<MediaDetail> list(Long roomId, Long folderId) {
         return assembler.assemble(find(roomId, folderId));
+    }
+
+    @Transactional(readOnly = true)
+    public MediaPage pageRoom(Long roomId, int size, MediaCursor cursor) {
+        requireValidSize(size);
+        List<StoredFile> candidates = fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
+            roomId,
+            UploadStatus.visibleStatuses(),
+            cursor == null ? null : cursor.lastCreatedAt(),
+            cursor == null ? null : cursor.lastMediaId(),
+            size + 1);
+
+        boolean hasNext = candidates.size() > size;
+        List<StoredFile> files = candidates.subList(0, Math.min(size, candidates.size()));
+        MediaCursor nextCursor = hasNext ? nextCursor(roomId, files) : null;
+        long totalCount = fileRepository.countByRoomIdAndStatusIn(
+            roomId, UploadStatus.visibleStatuses());
+
+        return new MediaPage(assembler.assemble(files), nextCursor, hasNext, totalCount);
+    }
+
+    private MediaCursor nextCursor(Long roomId, List<StoredFile> files) {
+        StoredFile last = files.getLast();
+        return new MediaCursor(roomId, null, last.getCreatedAt(), last.getId());
+    }
+
+    private void requireValidSize(int size) {
+        if (size < MIN_PAGE_SIZE || size > MAX_PAGE_SIZE) {
+            throw new InvalidPageSizeException();
+        }
     }
 
     private List<StoredFile> find(Long roomId, Long folderId) {

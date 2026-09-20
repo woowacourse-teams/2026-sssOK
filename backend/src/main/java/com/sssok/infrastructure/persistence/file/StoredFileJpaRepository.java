@@ -33,6 +33,8 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
         @Param("lastMediaId") Long lastMediaId,
         Limit limit);
 
+    long countByRoomIdAndStatusIn(Long roomId, Collection<String> statuses);
+
     List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<Long> ids, Collection<String> statuses);
 

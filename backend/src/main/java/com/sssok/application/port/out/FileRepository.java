@@ -33,6 +33,8 @@ public interface FileRepository {
         Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
         Long lastMediaId, int limit);
 
+    long countByRoomIdAndStatusIn(Long roomId, Collection<UploadStatus> statuses);
+
     // 위와 같지만 대상을 주어진 id 로 한정한다(폴더 필터).
     List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);

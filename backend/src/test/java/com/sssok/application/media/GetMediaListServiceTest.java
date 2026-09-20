@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
@@ -134,6 +135,44 @@ class GetMediaListServiceTest {
         assertThat(page).extracting(StoredFile::getId)
             .containsExactly(first.getId(), older.getId())
             .doesNotContain(third.getId(), second.getId());
+    }
+
+    @Test
+    void 요청한_크기보다_한_건이_더_있으면_다음_페이지_커서를_반환한다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+
+        MediaPage page = getMediaListService.pageRoom(ROOM_ID, 3, null);
+
+        assertThat(page.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(newest.getId(), third.getId(), second.getId());
+        assertThat(page.hasNext()).isTrue();
+        assertThat(page.nextCursor()).isEqualTo(new MediaCursor(
+            ROOM_ID, null, second.getCreatedAt(), second.getId()));
+        assertThat(page.totalCount()).isEqualTo(4);
+    }
+
+    @Test
+    void 마지막_페이지이면_다음_커서를_반환하지_않는다() {
+        save(ROOM_ID, UploadStatus.READY, Instant.parse("2026-08-01T00:00:00Z"));
+
+        MediaPage page = getMediaListService.pageRoom(ROOM_ID, 3, null);
+
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.hasNext()).isFalse();
+        assertThat(page.nextCursor()).isNull();
+        assertThat(page.totalCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 페이지_크기가_허용_범위를_벗어나면_예외가_발생한다() {
+        assertThatThrownBy(() -> getMediaListService.pageRoom(ROOM_ID, 0, null))
+            .isInstanceOf(InvalidPageSizeException.class);
+        assertThatThrownBy(() -> getMediaListService.pageRoom(ROOM_ID, 101, null))
+            .isInstanceOf(InvalidPageSizeException.class);
     }
 
     // 발급만 받고 올리지 않았거나 업로드에 실패한 미디어는 스토리지에 실물이 없다.
