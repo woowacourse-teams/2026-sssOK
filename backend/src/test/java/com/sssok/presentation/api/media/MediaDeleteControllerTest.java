@@ -14,6 +14,7 @@ import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
@@ -50,6 +51,9 @@ class MediaDeleteControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;

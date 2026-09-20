@@ -14,6 +14,7 @@ import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.SubscribeRoomEventsService;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -36,6 +37,9 @@ class RoomEventControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     SubscribeRoomEventsService subscribeRoomEventsService;

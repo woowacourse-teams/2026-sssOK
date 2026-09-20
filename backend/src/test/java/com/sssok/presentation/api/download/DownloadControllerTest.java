@@ -26,6 +26,7 @@ import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.MediaNotReadyException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.room.Room;
@@ -73,6 +74,9 @@ class DownloadControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;
