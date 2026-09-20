@@ -51,7 +51,8 @@ public class WebConfig implements WebMvcConfigurer {
                 API_PREFIX + "/rooms/*/media",
                 API_PREFIX + "/rooms/*/media/**",
                 API_PREFIX + "/rooms/*/downloads",
-                API_PREFIX + "/rooms/*/downloads/**");
+                API_PREFIX + "/rooms/*/downloads/**",
+                API_PREFIX + "/rooms/*/feedbacks");
     }
 
     // 프론트가 API와 다른 오리진에서 서빙되므로 브라우저가 프리플라이트(OPTIONS)를 보낸다.
