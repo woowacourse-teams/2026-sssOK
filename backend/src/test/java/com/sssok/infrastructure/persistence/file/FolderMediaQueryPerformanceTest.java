@@ -80,6 +80,33 @@ class FolderMediaQueryPerformanceTest extends PostgresContainerSupport {
         printSingleStatementPlans("밀집 폴더 90% / 깊은 커서", 3L, DEEP_CURSOR_AT, DEEP_CURSOR_ID);
     }
 
+    @Test
+    void 깊은_커서의_OR_조건과_튜플_조건을_비교한다() {
+        prepareData();
+        createCursorPaginationIndex();
+
+        long orMedian = medianMillis(() -> queryWithJoin(3L, DEEP_CURSOR_AT, DEEP_CURSOR_ID));
+        long tupleMedian = medianMillis(() -> queryWithTupleCursorJoin(
+            3L, DEEP_CURSOR_AT, DEEP_CURSOR_ID));
+
+        System.out.printf("""
+            밀집 폴더 90%% / 깊은 커서
+              OR 조건: %d ms
+              튜플 조건: %d ms%n
+            """, orMedian, tupleMedian);
+
+        System.out.println("[OR 커서 조건]");
+        printPlan(explainSingleStatement("""
+            SELECT sf.id FROM benchmark_folder_media fm
+            JOIN benchmark_stored_file sf ON sf.id = fm.media_id
+            WHERE fm.folder_id = ? AND sf.room_id = ?
+              AND sf.status IN ('PROCESSING', 'READY')
+            """, 3L, DEEP_CURSOR_AT, DEEP_CURSOR_ID));
+
+        System.out.println("[튜플 커서 조건]");
+        printPlan(explainTupleCursorJoin(3L, DEEP_CURSOR_AT, DEEP_CURSOR_ID));
+    }
+
     private void prepareData() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS benchmark_folder_media");
         jdbcTemplate.execute("DROP TABLE IF EXISTS benchmark_stored_file");
@@ -321,6 +348,54 @@ class FolderMediaQueryPerformanceTest extends PostgresContainerSupport {
                 WHERE fm.folder_id = ? AND fm.media_id = sf.id
               )
             """, folderId, cursorAt, cursorId);
+    }
+
+    private void queryWithTupleCursorJoin(
+        Long folderId, Instant cursorAt, Long cursorId) {
+        jdbcTemplate.execute((ConnectionCallback<Void>) connection -> {
+            String sql = """
+                SELECT sf.id FROM benchmark_folder_media fm
+                JOIN benchmark_stored_file sf ON sf.id = fm.media_id
+                WHERE fm.folder_id = ? AND sf.room_id = ?
+                  AND sf.status IN ('PROCESSING', 'READY')
+                  AND (sf.created_at, sf.id) < (?, ?)
+                ORDER BY sf.created_at DESC, sf.id DESC
+                LIMIT ?
+                """;
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setLong(1, folderId);
+                statement.setLong(2, ROOM_ID);
+                statement.setTimestamp(3, Timestamp.from(cursorAt));
+                statement.setLong(4, cursorId);
+                statement.setInt(5, PAGE_LIMIT);
+                consume(statement);
+            }
+            return null;
+        });
+    }
+
+    private List<String> explainTupleCursorJoin(
+        Long folderId, Instant cursorAt, Long cursorId) {
+        return jdbcTemplate.execute((ConnectionCallback<List<String>>) connection -> {
+            String sql = """
+                EXPLAIN (ANALYZE, BUFFERS)
+                SELECT sf.id FROM benchmark_folder_media fm
+                JOIN benchmark_stored_file sf ON sf.id = fm.media_id
+                WHERE fm.folder_id = ? AND sf.room_id = ?
+                  AND sf.status IN ('PROCESSING', 'READY')
+                  AND (sf.created_at, sf.id) < (?, ?)
+                ORDER BY sf.created_at DESC, sf.id DESC
+                LIMIT ?
+                """;
+            try (PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setLong(1, folderId);
+                statement.setLong(2, ROOM_ID);
+                statement.setTimestamp(3, Timestamp.from(cursorAt));
+                statement.setLong(4, cursorId);
+                statement.setInt(5, PAGE_LIMIT);
+                return readPlan(statement);
+            }
+        });
     }
 
     private void querySingleStatement(String prefix, Long folderId, Instant cursorAt, Long cursorId) {
