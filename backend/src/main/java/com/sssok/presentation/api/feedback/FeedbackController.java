@@ -24,6 +24,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class FeedbackController {
 
+    // 표준 헤더가 아니라 우리가 정한 이름이라 상수로 둔다.
+    private static final String FRONTEND_VERSION_HEADER = "X-App-Version";
+
     private final CreateFeedbackService createFeedbackService;
 
     @Operation(
@@ -32,11 +35,13 @@ public class FeedbackController {
             방에 입장한 사용자가 서비스에 대한 의견을 남긴다. 본문은 1~1000자여야 하며 \
             공백만으로 이루어지면 400이 난다.
 
-            클라이언트가 보내는 값은 content 하나뿐이다. 서버가 방 번호·방 이름·회원 번호·\
-            닉네임·User-Agent·작성 시각을 함께 저장한다. 
+            클라이언트가 본문으로 보내는 값은 content 하나뿐이다. 서버가 방 번호·방 이름·회원 번호·\
+            닉네임·User-Agent·앱 버전·작성 시각을 함께 저장한다.
 
             방 이름과 닉네임은 참조가 아니라 작성 시점의 값 복사본으로 저장한다. 방은 만료 7일 뒤 \
             영구 삭제되지만 의견은 그 뒤에도 팀이 봐야 해서, 참조로 걸면 맥락이 함께 사라진다.
+
+            기기·버전 정보는 헤더로 받는다. 
 
             같은 회원이 짧은 시간에 연속으로 등록하면 429가 나고 Retry-After 헤더에 다시 시도할 수 \
             있는 시각까지의 초가 담긴다. 입장하지 않은 사용자는 403, 없는 방은 404, \
@@ -50,10 +55,13 @@ public class FeedbackController {
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(hidden = true) @RequestHeader(value = HttpHeaders.USER_AGENT, required = false)
         String userAgent,
+        @Parameter(description = "프론트 버전 태그. 예: fe-v0.1.0")
+        @RequestHeader(value = FRONTEND_VERSION_HEADER, required = false) String frontendVersion,
         @RequestBody CreateFeedbackRequest request
     ) {
         String content = request == null ? null : request.content();
-        Feedback feedback = createFeedbackService.create(roomId, memberId, content, userAgent);
+        Feedback feedback =
+            createFeedbackService.create(roomId, memberId, content, userAgent, frontendVersion);
         return ApiResponse.of(CreateFeedbackResponse.from(feedback));
     }
 }
