@@ -1,4 +1,5 @@
 export { createAnonymous } from "./api/createAnonymous";
+export { loginWithLinkCode } from "./api/loginWithLinkCode";
 export {
   findRoomCodeByToken,
   getRoomSession,
