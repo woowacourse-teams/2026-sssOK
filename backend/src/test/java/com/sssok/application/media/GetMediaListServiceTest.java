@@ -138,6 +138,23 @@ class GetMediaListServiceTest {
     }
 
     @Test
+    void 방_미디어의_createdAt이_같으면_mediaId로_다음_페이지를_구분한다() {
+        Instant sameMoment = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile first = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, sameMoment);
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, null, 2, null);
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, null, 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(third.getId(), second.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(first.getId());
+    }
+
+    @Test
     void 요청한_크기보다_한_건이_더_있으면_다음_페이지_커서를_반환한다() {
         Instant base = Instant.parse("2026-08-01T00:00:00Z");
         save(ROOM_ID, UploadStatus.READY, base);

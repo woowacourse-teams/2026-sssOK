@@ -75,7 +75,7 @@ public class FileRepositoryAdapter implements FileRepository {
             ? jpaRepository.findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
                 roomId, names(statuses), Limit.of(limit))
             : jpaRepository.findNextPageByRoomIdAndStatusInOrderByNewest(
-                roomId, names(statuses), lastCreatedAt, lastMediaId, Limit.of(limit));
+                roomId, names(statuses), lastCreatedAt, lastMediaId, limit);
         return entities.stream().map(this::toDomain).toList();
     }
 
