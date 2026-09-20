@@ -1,9 +1,11 @@
 package com.sssok.presentation.api.common;
 
+import com.sssok.application.feedback.exception.FeedbackRateLimitedException;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -16,6 +18,15 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // 연속 등록 제한만 Retry-After 를 함께 내려준다.
+    @ExceptionHandler(FeedbackRateLimitedException.class)
+    public ResponseEntity<ErrorResponse> handleFeedbackRateLimited(FeedbackRateLimitedException e) {
+        ErrorCode errorCode = e.errorCode();
+        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+            .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+            .body(new ErrorResponse(errorCode.name(), e.getMessage()));
+    }
 
     // 메시지는 예외를 만들 때 이미 완성돼 있어 ErrorCode 가 아닌 예외에서 꺼낸다.
     @ExceptionHandler(SssOkException.class)

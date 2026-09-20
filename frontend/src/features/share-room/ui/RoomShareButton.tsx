@@ -1,9 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { HiLink, HiQrCode } from "react-icons/hi2";
+import { HiArrowsRightLeft, HiLink, HiQrCode } from "react-icons/hi2";
 
+import { getRoomSession } from "@/entities/session";
 import { ROUTES } from "@/shared/config";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Toast, type ToastProps } from "@/shared/ui/toast";
+import { issueLinkCode } from "../api/issueLinkCode";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 
 interface RoomShareButtonProps {
@@ -13,6 +15,7 @@ interface RoomShareButtonProps {
 export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
+  const [isCreatingDeviceLink, setIsCreatingDeviceLink] = useState(false);
   const [notice, setNotice] = useState<Pick<ToastProps, "message" | "tone"> | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -78,6 +81,34 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     }
   };
 
+  const copyDeviceLink = async () => {
+    if (isCreatingDeviceLink) return;
+
+    const accessToken = getRoomSession(roomCode)?.accessToken;
+    if (!accessToken) {
+      setNotice({ message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.", tone: "error" });
+      return;
+    }
+
+    setIsCreatingDeviceLink(true);
+    setNotice(null);
+    try {
+      const { linkCode } = await issueLinkCode(accessToken);
+      const url = new URL(ROUTES.roomEntry(roomCode), window.location.origin);
+      url.searchParams.set("linkCode", linkCode);
+      await navigator.clipboard.writeText(url.href);
+      setNotice({ message: "다른 기기에서 이어할 링크를 복사했어요.", tone: "success" });
+      closeMenu();
+    } catch {
+      setNotice({
+        message: "이어하기 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
+        tone: "error",
+      });
+    } finally {
+      setIsCreatingDeviceLink(false);
+    }
+  };
+
   return (
     <>
       <Anchor
@@ -134,6 +165,18 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
               <span>
                 QR 및 코드 공유
                 <Description>QR 코드 및 코드로 참여 · 준비 중</Description>
+              </span>
+            </MenuItem>
+            <MenuItem
+              type="button"
+              role="menuitem"
+              disabled={isCreatingDeviceLink}
+              onClick={() => void copyDeviceLink()}
+            >
+              <HiArrowsRightLeft aria-hidden="true" />
+              <span>
+                다른 기기에서 이어하기
+                <Description>내 이름과 권한을 그대로 이어가요</Description>
               </span>
             </MenuItem>
           </Menu>
