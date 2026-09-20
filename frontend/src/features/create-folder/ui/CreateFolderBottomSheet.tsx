@@ -44,7 +44,7 @@ export const CreateFolderBottomSheet = ({
   };
 
   return (
-    <BottomSheet title="새 폴더 만들기" onClose={onClose}>
+    <BottomSheet title="새 폴더 만들기" onClose={mutation.isPending ? undefined : onClose}>
       <form onSubmit={submit}>
         <Stack gap={16}>
           <Input
