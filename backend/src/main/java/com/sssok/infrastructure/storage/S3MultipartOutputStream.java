@@ -1,10 +1,9 @@
 package com.sssok.infrastructure.storage;
 
 import com.sssok.application.port.out.AbortableOutputStream;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
@@ -29,8 +28,7 @@ class S3MultipartOutputStream extends AbortableOutputStream {
     private final String uploadId;
     private final List<CompletedPart> completedParts = new ArrayList<>();
 
-    private final byte[] buffer = new byte[PART_SIZE];
-    private int bufferedBytes = 0;
+    private ByteArrayOutputStream buffer = new ByteArrayOutputStream(PART_SIZE);
     private int partNumber = 1;
     private boolean finished = false;
 
@@ -53,25 +51,15 @@ class S3MultipartOutputStream extends AbortableOutputStream {
 
     @Override
     public void write(byte[] b, int off, int len) {
-        Objects.checkFromIndexSize(off, len, b.length);
-
-        int position = off;
-        int remaining = len;
-        while (remaining > 0) {
-            int bytesToCopy = Math.min(remaining, PART_SIZE - bufferedBytes);
-            System.arraycopy(b, position, buffer, bufferedBytes, bytesToCopy);
-            bufferedBytes += bytesToCopy;
-            position += bytesToCopy;
-            remaining -= bytesToCopy;
-
-            if (bufferedBytes == PART_SIZE) {
-                flushPart();
-            }
+        buffer.write(b, off, len);
+        if (buffer.size() >= PART_SIZE) {
+            flushPart();
         }
     }
 
     private void flushPart() {
-        byte[] data = Arrays.copyOf(buffer, bufferedBytes);
+        byte[] data = buffer.toByteArray();
+        buffer.reset();
 
         UploadPartResponse response = client.uploadPart(
             UploadPartRequest.builder()
@@ -84,7 +72,6 @@ class S3MultipartOutputStream extends AbortableOutputStream {
 
         completedParts.add(CompletedPart.builder().partNumber(partNumber).eTag(response.eTag()).build());
         partNumber++;
-        bufferedBytes = 0;
     }
 
     // 버퍼에 남은 마지막 조각을 올리고 멀티파트 업로드를 완료한다.
@@ -96,7 +83,7 @@ class S3MultipartOutputStream extends AbortableOutputStream {
         finished = true;
         // 파트가 하나도 안 나갔으면(전체가 PART_SIZE 미만) 완료에 최소 1개는 있어야 하므로
         // 버퍼가 비어 있어도 그대로 마지막 파트로 올린다.
-        if (bufferedBytes > 0 || completedParts.isEmpty()) {
+        if (buffer.size() > 0 || completedParts.isEmpty()) {
             flushPart();
         }
         client.completeMultipartUpload(CompleteMultipartUploadRequest.builder()
