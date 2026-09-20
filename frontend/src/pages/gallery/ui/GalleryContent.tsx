@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { photosQueryKey } from "@/entities/media";
 import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
+import { FeedbackButton } from "@/features/create-feedback";
 import { DeleteRoomModal } from "@/features/delete-room";
 import { DeleteSelectedMediaModal } from "@/features/delete-media";
 import { DeleteFolderModal } from "@/features/delete-folder";
@@ -115,6 +116,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
       />
+      <FeedbackButton hidden={selectedPhotoIds.length > 0} />
       <MediaUploader
         roomId={room.roomId}
         token={accessToken}
