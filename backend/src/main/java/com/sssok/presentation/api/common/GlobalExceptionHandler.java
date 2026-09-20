@@ -1,6 +1,7 @@
 package com.sssok.presentation.api.common;
 
 import com.sssok.application.admin.exception.AdminLoginRateLimitedException;
+import com.sssok.application.feedback.exception.FeedbackRateLimitedException;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,15 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    // 연속 등록 제한만 Retry-After 를 함께 내려준다.
+    @ExceptionHandler(FeedbackRateLimitedException.class)
+    public ResponseEntity<ErrorResponse> handleFeedbackRateLimited(FeedbackRateLimitedException e) {
+        ErrorCode errorCode = e.errorCode();
+        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+            .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+            .body(new ErrorResponse(errorCode.name(), e.getMessage()));
+    }
 
     @ExceptionHandler(AdminLoginRateLimitedException.class)
     public ResponseEntity<ErrorResponse> handleAdminLoginRateLimited(AdminLoginRateLimitedException e) {

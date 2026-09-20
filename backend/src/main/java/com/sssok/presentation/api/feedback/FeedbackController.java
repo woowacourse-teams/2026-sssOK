@@ -1,0 +1,59 @@
+package com.sssok.presentation.api.feedback;
+
+import com.sssok.application.feedback.CreateFeedbackService;
+import com.sssok.domain.feedback.Feedback;
+import com.sssok.presentation.api.common.ApiResponse;
+import com.sssok.presentation.auth.AuthMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpHeaders;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@Tag(name = "의견", description = "사용자가 서비스에 대해 남기는 의견")
+@RestController
+@RequestMapping("/rooms/{roomId}/feedbacks")
+@RequiredArgsConstructor
+public class FeedbackController {
+
+    private final CreateFeedbackService createFeedbackService;
+
+    @Operation(
+        summary = "의견 등록",
+        description = """
+            방에 입장한 사용자가 서비스에 대한 의견을 남긴다. 본문은 1~1000자여야 하며 \
+            공백만으로 이루어지면 400이 난다.
+
+            클라이언트가 보내는 값은 content 하나뿐이다. 서버가 방 번호·방 이름·회원 번호·\
+            닉네임·User-Agent·작성 시각을 함께 저장한다. 
+
+            방 이름과 닉네임은 참조가 아니라 작성 시점의 값 복사본으로 저장한다. 방은 만료 7일 뒤 \
+            영구 삭제되지만 의견은 그 뒤에도 팀이 봐야 해서, 참조로 걸면 맥락이 함께 사라진다.
+
+            같은 회원이 짧은 시간에 연속으로 등록하면 429가 나고 Retry-After 헤더에 다시 시도할 수 \
+            있는 시각까지의 초가 담긴다. 입장하지 않은 사용자는 403, 없는 방은 404, \
+            만료·삭제된 방은 410이 난다.\
+            """
+    )
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<CreateFeedbackResponse> createFeedback(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(hidden = true) @RequestHeader(value = HttpHeaders.USER_AGENT, required = false)
+        String userAgent,
+        @RequestBody CreateFeedbackRequest request
+    ) {
+        String content = request == null ? null : request.content();
+        Feedback feedback = createFeedbackService.create(roomId, memberId, content, userAgent);
+        return ApiResponse.of(CreateFeedbackResponse.from(feedback));
+    }
+}
