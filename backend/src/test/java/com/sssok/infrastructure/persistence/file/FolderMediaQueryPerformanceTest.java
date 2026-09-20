@@ -107,6 +107,19 @@ class FolderMediaQueryPerformanceTest extends PostgresContainerSupport {
         printPlan(explainTupleCursorJoin(3L, DEEP_CURSOR_AT, DEEP_CURSOR_ID));
     }
 
+    @Test
+    void 실시간_totalCount의_폴더_밀도별_비용을_측정한다() {
+        prepareData();
+        createCursorPaginationIndex();
+
+        benchmarkCount("희소 폴더 1%", 1L);
+        benchmarkCount("일반 폴더 50%", 2L);
+        benchmarkCount("밀집 폴더 90%", 3L);
+
+        printCountPlan("희소 폴더 1%", 1L);
+        printCountPlan("밀집 폴더 90%", 3L);
+    }
+
     private void prepareData() {
         jdbcTemplate.execute("DROP TABLE IF EXISTS benchmark_folder_media");
         jdbcTemplate.execute("DROP TABLE IF EXISTS benchmark_stored_file");
@@ -159,6 +172,35 @@ class FolderMediaQueryPerformanceTest extends PostgresContainerSupport {
 
         System.out.printf("%s%n  JOIN: %d ms%n  EXISTS: %d ms%n",
             scenario, joinMedian, existsMedian);
+    }
+
+    private void benchmarkCount(String scenario, Long folderId) {
+        long median = medianMillis(() -> queryCount(folderId));
+        System.out.printf("%s%n  COUNT: %d ms%n", scenario, median);
+    }
+
+    private void queryCount(Long folderId) {
+        jdbcTemplate.queryForObject("""
+            SELECT COUNT(*)
+            FROM benchmark_stored_file sf
+            JOIN benchmark_folder_media fm ON fm.media_id = sf.id
+            WHERE sf.room_id = ?
+              AND fm.folder_id = ?
+              AND sf.status IN ('PROCESSING', 'READY')
+            """, Long.class, ROOM_ID, folderId);
+    }
+
+    private void printCountPlan(String scenario, Long folderId) {
+        System.out.printf("%n=== COUNT 실행 계획: %s ===%n", scenario);
+        printPlan(jdbcTemplate.queryForList("""
+            EXPLAIN (ANALYZE, BUFFERS)
+            SELECT COUNT(*)
+            FROM benchmark_stored_file sf
+            JOIN benchmark_folder_media fm ON fm.media_id = sf.id
+            WHERE sf.room_id = ?
+              AND fm.folder_id = ?
+              AND sf.status IN ('PROCESSING', 'READY')
+            """, String.class, ROOM_ID, folderId));
     }
 
     private void createCursorPaginationIndex() {
