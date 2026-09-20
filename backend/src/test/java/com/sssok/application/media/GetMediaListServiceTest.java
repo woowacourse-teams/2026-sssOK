@@ -202,6 +202,27 @@ class GetMediaListServiceTest {
         assertThat(secondPage.totalCount()).isEqualTo(3);
     }
 
+    @Test
+    void 폴더_미디어의_createdAt이_같으면_mediaId로_다음_페이지를_구분한다() {
+        Instant sameMoment = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile first = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        Folder folder = createFolderService.create(ROOM_ID, "같은 시각");
+        attach(folder.getId(), first.getId());
+        attach(folder.getId(), second.getId());
+        attach(folder.getId(), third.getId());
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, folder.getId(), 2, null);
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, folder.getId(), 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(third.getId(), second.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(first.getId());
+    }
+
     // 발급만 받고 올리지 않았거나 업로드에 실패한 미디어는 스토리지에 실물이 없다.
     // 목록에 내려보내면 클라이언트가 열 수 없는 빈 항목을 그린다.
     @Test

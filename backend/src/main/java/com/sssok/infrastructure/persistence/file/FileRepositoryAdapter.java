@@ -99,27 +99,22 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
-    public List<StoredFile> findPageByRoomIdAndIdInAndStatusInOrderByNewest(
-        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses,
+    public List<StoredFile> findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses,
         Instant lastCreatedAt, Long lastMediaId, int limit) {
-        if (ids.isEmpty()) {
-            return List.of();
-        }
         List<StoredFileJpaEntity> entities = lastCreatedAt == null
-            ? jpaRepository.findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
-                roomId, ids, names(statuses), Limit.of(limit))
-            : jpaRepository.findNextPageByRoomIdAndIdInAndStatusInOrderByNewest(
-                roomId, ids, names(statuses), lastCreatedAt, lastMediaId, Limit.of(limit));
+            ? jpaRepository.findFirstPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+                roomId, folderId, names(statuses), limit)
+            : jpaRepository.findNextPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+                roomId, folderId, names(statuses), lastCreatedAt, lastMediaId, limit);
         return entities.stream().map(this::toDomain).toList();
     }
 
     @Override
-    public long countByRoomIdAndIdInAndStatusIn(
-        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
-        if (ids.isEmpty()) {
-            return 0;
-        }
-        return jpaRepository.countByRoomIdAndIdInAndStatusIn(roomId, ids, names(statuses));
+    public long countByRoomIdAndFolderIdAndStatusIn(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses) {
+        return jpaRepository.countByRoomIdAndFolderIdAndStatusIn(
+            roomId, folderId, names(statuses));
     }
 
     @Override

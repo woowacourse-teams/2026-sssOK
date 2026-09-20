@@ -38,28 +38,53 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
     List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<Long> ids, Collection<String> statuses);
 
-    List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
-        Long roomId, Collection<Long> ids, Collection<String> statuses, Limit limit);
-
-    @Query("""
-        select f from StoredFileJpaEntity f
-        where f.roomId = :roomId
-          and f.id in :ids
-          and f.status in :statuses
-          and (f.createdAt < :lastCreatedAt
-            or (f.createdAt = :lastCreatedAt and f.id < :lastMediaId))
-        order by f.createdAt desc, f.id desc
-        """)
-    List<StoredFileJpaEntity> findNextPageByRoomIdAndIdInAndStatusInOrderByNewest(
+    @Query(value = """
+        SELECT sf.*
+        FROM stored_file sf
+        JOIN folder_media fm ON fm.media_id = sf.id
+        WHERE sf.room_id = :roomId
+          AND fm.folder_id = :folderId
+          AND sf.status IN (:statuses)
+        ORDER BY sf.created_at DESC, sf.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<StoredFileJpaEntity> findFirstPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
         @Param("roomId") Long roomId,
-        @Param("ids") Collection<Long> ids,
+        @Param("folderId") Long folderId,
+        @Param("statuses") Collection<String> statuses,
+        @Param("limit") int limit);
+
+    @Query(value = """
+        SELECT sf.*
+        FROM stored_file sf
+        JOIN folder_media fm ON fm.media_id = sf.id
+        WHERE sf.room_id = :roomId
+          AND fm.folder_id = :folderId
+          AND sf.status IN (:statuses)
+          AND (sf.created_at, sf.id) < (:lastCreatedAt, :lastMediaId)
+        ORDER BY sf.created_at DESC, sf.id DESC
+        LIMIT :limit
+        """, nativeQuery = true)
+    List<StoredFileJpaEntity> findNextPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+        @Param("roomId") Long roomId,
+        @Param("folderId") Long folderId,
         @Param("statuses") Collection<String> statuses,
         @Param("lastCreatedAt") Instant lastCreatedAt,
         @Param("lastMediaId") Long lastMediaId,
-        Limit limit);
+        @Param("limit") int limit);
 
-    long countByRoomIdAndIdInAndStatusIn(
-        Long roomId, Collection<Long> ids, Collection<String> statuses);
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM stored_file sf
+        JOIN folder_media fm ON fm.media_id = sf.id
+        WHERE sf.room_id = :roomId
+          AND fm.folder_id = :folderId
+          AND sf.status IN (:statuses)
+        """, nativeQuery = true)
+    long countByRoomIdAndFolderIdAndStatusIn(
+        @Param("roomId") Long roomId,
+        @Param("folderId") Long folderId,
+        @Param("statuses") Collection<String> statuses);
 
     // 오래된 것부터 가져와, 밀린 작업이 뒤에서 계속 굶지 않게 한다.
     @Query("""

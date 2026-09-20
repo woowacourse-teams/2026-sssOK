@@ -39,12 +39,12 @@ public interface FileRepository {
     List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);
 
-    List<StoredFile> findPageByRoomIdAndIdInAndStatusInOrderByNewest(
-        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses,
+    List<StoredFile> findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses,
         Instant lastCreatedAt, Long lastMediaId, int limit);
 
-    long countByRoomIdAndIdInAndStatusIn(
-        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);
+    long countByRoomIdAndFolderIdAndStatusIn(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses);
 
     // 썸네일 회수 배치용. 이 시각보다 오래 PROCESSING 에 남아 있는 미디어 id 를 오래된 순으로 준다.
     List<Long> findStuckInProcessing(Instant stuckBefore, int limit);
