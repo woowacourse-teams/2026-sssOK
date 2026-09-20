@@ -31,27 +31,53 @@ public class GetMediaListService {
     }
 
     @Transactional(readOnly = true)
-    public MediaPage pageRoom(Long roomId, int size, MediaCursor cursor) {
+    public MediaPage page(Long roomId, Long folderId, int size, MediaCursor cursor) {
         requireValidSize(size);
-        List<StoredFile> candidates = fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
-            roomId,
-            UploadStatus.visibleStatuses(),
-            cursor == null ? null : cursor.lastCreatedAt(),
-            cursor == null ? null : cursor.lastMediaId(),
-            size + 1);
+        List<Long> mediaIds = mediaIds(roomId, folderId);
+        List<StoredFile> candidates = findPage(roomId, mediaIds, size, cursor);
 
         boolean hasNext = candidates.size() > size;
         List<StoredFile> files = candidates.subList(0, Math.min(size, candidates.size()));
-        MediaCursor nextCursor = hasNext ? nextCursor(roomId, files) : null;
-        long totalCount = fileRepository.countByRoomIdAndStatusIn(
-            roomId, UploadStatus.visibleStatuses());
+        MediaCursor nextCursor = hasNext ? nextCursor(roomId, folderId, files) : null;
+        long totalCount = count(roomId, mediaIds);
 
         return new MediaPage(assembler.assemble(files), nextCursor, hasNext, totalCount);
     }
 
-    private MediaCursor nextCursor(Long roomId, List<StoredFile> files) {
+    private List<Long> mediaIds(Long roomId, Long folderId) {
+        if (folderId == null) {
+            return null;
+        }
+        requireFolderInRoom(roomId, folderId);
+        return folderMediaRepository.findMediaIdsByFolderId(folderId);
+    }
+
+    private List<StoredFile> findPage(Long roomId, List<Long> mediaIds, int size,
+                                      MediaCursor cursor) {
+        if (mediaIds == null) {
+            return fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
+                roomId, UploadStatus.visibleStatuses(),
+                cursor == null ? null : cursor.lastCreatedAt(),
+                cursor == null ? null : cursor.lastMediaId(), size + 1);
+        }
+        return fileRepository.findPageByRoomIdAndIdInAndStatusInOrderByNewest(
+            roomId, mediaIds, UploadStatus.visibleStatuses(),
+            cursor == null ? null : cursor.lastCreatedAt(),
+            cursor == null ? null : cursor.lastMediaId(), size + 1);
+    }
+
+    private long count(Long roomId, List<Long> mediaIds) {
+        if (mediaIds == null) {
+            return fileRepository.countByRoomIdAndStatusIn(
+                roomId, UploadStatus.visibleStatuses());
+        }
+        return fileRepository.countByRoomIdAndIdInAndStatusIn(
+            roomId, mediaIds, UploadStatus.visibleStatuses());
+    }
+
+    private MediaCursor nextCursor(Long roomId, Long folderId, List<StoredFile> files) {
         StoredFile last = files.getLast();
-        return new MediaCursor(roomId, null, last.getCreatedAt(), last.getId());
+        return new MediaCursor(roomId, folderId, last.getCreatedAt(), last.getId());
     }
 
     private void requireValidSize(int size) {

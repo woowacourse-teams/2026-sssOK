@@ -99,6 +99,30 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findPageByRoomIdAndIdInAndStatusInOrderByNewest(
+        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses,
+        Instant lastCreatedAt, Long lastMediaId, int limit) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
+                roomId, ids, names(statuses), Limit.of(limit))
+            : jpaRepository.findNextPageByRoomIdAndIdInAndStatusInOrderByNewest(
+                roomId, ids, names(statuses), lastCreatedAt, lastMediaId, Limit.of(limit));
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndIdInAndStatusIn(
+        Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
+        if (ids.isEmpty()) {
+            return 0;
+        }
+        return jpaRepository.countByRoomIdAndIdInAndStatusIn(roomId, ids, names(statuses));
+    }
+
+    @Override
     public List<Long> findStuckInProcessing(Instant stuckBefore, int limit) {
         return jpaRepository.findStuckInProcessing(
             UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit));

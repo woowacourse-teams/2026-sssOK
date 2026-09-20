@@ -38,6 +38,29 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
     List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<Long> ids, Collection<String> statuses);
 
+    List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
+        Long roomId, Collection<Long> ids, Collection<String> statuses, Limit limit);
+
+    @Query("""
+        select f from StoredFileJpaEntity f
+        where f.roomId = :roomId
+          and f.id in :ids
+          and f.status in :statuses
+          and (f.createdAt < :lastCreatedAt
+            or (f.createdAt = :lastCreatedAt and f.id < :lastMediaId))
+        order by f.createdAt desc, f.id desc
+        """)
+    List<StoredFileJpaEntity> findNextPageByRoomIdAndIdInAndStatusInOrderByNewest(
+        @Param("roomId") Long roomId,
+        @Param("ids") Collection<Long> ids,
+        @Param("statuses") Collection<String> statuses,
+        @Param("lastCreatedAt") Instant lastCreatedAt,
+        @Param("lastMediaId") Long lastMediaId,
+        Limit limit);
+
+    long countByRoomIdAndIdInAndStatusIn(
+        Long roomId, Collection<Long> ids, Collection<String> statuses);
+
     // 오래된 것부터 가져와, 밀린 작업이 뒤에서 계속 굶지 않게 한다.
     @Query("""
         select f.id from StoredFileJpaEntity f

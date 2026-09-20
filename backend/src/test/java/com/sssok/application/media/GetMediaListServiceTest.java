@@ -145,7 +145,7 @@ class GetMediaListServiceTest {
         StoredFile third = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
         StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
 
-        MediaPage page = getMediaListService.pageRoom(ROOM_ID, 3, null);
+        MediaPage page = getMediaListService.page(ROOM_ID, null, 3, null);
 
         assertThat(page.items()).extracting(MediaDetail::mediaId)
             .containsExactly(newest.getId(), third.getId(), second.getId());
@@ -159,7 +159,7 @@ class GetMediaListServiceTest {
     void 마지막_페이지이면_다음_커서를_반환하지_않는다() {
         save(ROOM_ID, UploadStatus.READY, Instant.parse("2026-08-01T00:00:00Z"));
 
-        MediaPage page = getMediaListService.pageRoom(ROOM_ID, 3, null);
+        MediaPage page = getMediaListService.page(ROOM_ID, null, 3, null);
 
         assertThat(page.items()).hasSize(1);
         assertThat(page.hasNext()).isFalse();
@@ -169,10 +169,37 @@ class GetMediaListServiceTest {
 
     @Test
     void 페이지_크기가_허용_범위를_벗어나면_예외가_발생한다() {
-        assertThatThrownBy(() -> getMediaListService.pageRoom(ROOM_ID, 0, null))
+        assertThatThrownBy(() -> getMediaListService.page(ROOM_ID, null, 0, null))
             .isInstanceOf(InvalidPageSizeException.class);
-        assertThatThrownBy(() -> getMediaListService.pageRoom(ROOM_ID, 101, null))
+        assertThatThrownBy(() -> getMediaListService.page(ROOM_ID, null, 101, null))
             .isInstanceOf(InvalidPageSizeException.class);
+    }
+
+    @Test
+    void 폴더_미디어도_커서로_페이지를_조회한다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile oldest = save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile middle = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+        save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+        Folder folder = createFolderService.create(ROOM_ID, "회식");
+        attach(folder.getId(), oldest.getId());
+        attach(folder.getId(), middle.getId());
+        attach(folder.getId(), newest.getId());
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, folder.getId(), 2, null);
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, folder.getId(), 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(newest.getId(), middle.getId());
+        assertThat(firstPage.hasNext()).isTrue();
+        assertThat(firstPage.totalCount()).isEqualTo(3);
+        assertThat(firstPage.nextCursor().folderId()).isEqualTo(folder.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(oldest.getId());
+        assertThat(secondPage.hasNext()).isFalse();
+        assertThat(secondPage.totalCount()).isEqualTo(3);
     }
 
     // 발급만 받고 올리지 않았거나 업로드에 실패한 미디어는 스토리지에 실물이 없다.
