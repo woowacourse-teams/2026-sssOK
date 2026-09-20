@@ -25,6 +25,25 @@ const getErrorResponse = async (response: Response): Promise<ErrorResponse> => {
   }
 };
 
+/**
+ * `Retry-After` 를 초로 읽는다. 읽히지 않으면 undefined 다.
+ *
+ * 서버는 초 단위 숫자를 보내지만(HTTP 명세는 날짜도 허용한다), 프록시가 헤더를 떨어뜨리거나
+ * 값이 깨져 올 수 있다. 그때 0 으로 떨어뜨리면 화면이 "0초 후 재시도" 로 굳으므로,
+ * 못 읽은 것과 "0초" 를 구분해 부르는 쪽이 카운트다운을 포기할 수 있게 한다.
+ */
+const getRetryAfterSeconds = (response: Response): number | undefined => {
+  const raw = response.headers.get("Retry-After");
+
+  if (raw === null) return undefined;
+
+  const seconds = Number(raw.trim());
+
+  if (!Number.isFinite(seconds) || seconds < 0) return undefined;
+
+  return seconds;
+};
+
 /** path 는 접두사를 뺀 경로다 — 접두사는 여기서 한 번만 붙인다. */
 export const apiClient = async <T>(
   path: string,
@@ -65,6 +84,7 @@ export const apiClient = async <T>(
       response.status,
       error.code ?? "UNKNOWN_ERROR",
       error.message ?? "API 요청에 실패했습니다.",
+      getRetryAfterSeconds(response),
     );
   }
 
