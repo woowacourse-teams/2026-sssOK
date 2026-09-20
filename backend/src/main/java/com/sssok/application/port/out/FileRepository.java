@@ -29,6 +29,10 @@ public interface FileRepository {
     List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses);
 
+    List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
+        Long lastMediaId, int limit);
+
     // 위와 같지만 대상을 주어진 id 로 한정한다(폴더 필터).
     List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);

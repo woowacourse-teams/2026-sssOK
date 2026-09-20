@@ -15,6 +15,24 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
     List<StoredFileJpaEntity> findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<String> statuses);
 
+    List<StoredFileJpaEntity> findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
+        Long roomId, Collection<String> statuses, Limit limit);
+
+    @Query("""
+        select f from StoredFileJpaEntity f
+        where f.roomId = :roomId
+          and f.status in :statuses
+          and (f.createdAt < :lastCreatedAt
+            or (f.createdAt = :lastCreatedAt and f.id < :lastMediaId))
+        order by f.createdAt desc, f.id desc
+        """)
+    List<StoredFileJpaEntity> findNextPageByRoomIdAndStatusInOrderByNewest(
+        @Param("roomId") Long roomId,
+        @Param("statuses") Collection<String> statuses,
+        @Param("lastCreatedAt") Instant lastCreatedAt,
+        @Param("lastMediaId") Long lastMediaId,
+        Limit limit);
+
     List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<Long> ids, Collection<String> statuses);
 

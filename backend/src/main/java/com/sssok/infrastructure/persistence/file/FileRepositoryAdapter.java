@@ -68,6 +68,18 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
+        Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
+                roomId, names(statuses), Limit.of(limit))
+            : jpaRepository.findNextPageByRoomIdAndStatusInOrderByNewest(
+                roomId, names(statuses), lastCreatedAt, lastMediaId, Limit.of(limit));
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
         // IN () 은 유효한 SQL 이 아니라, 빈 목록을 그대로 넘기면 드라이버가 오류를 낸다.

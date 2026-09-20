@@ -103,6 +103,39 @@ class GetMediaListServiceTest {
             .containsExactly(third.getId(), second.getId(), first.getId());
     }
 
+    @Test
+    void 첫_페이지는_요청한_개수만큼_최신순으로_조회한다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile oldest = save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+
+        List<StoredFile> page = fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
+            ROOM_ID, UploadStatus.visibleStatuses(), null, null, 3);
+
+        assertThat(page).extracting(StoredFile::getId)
+            .containsExactly(newest.getId(), third.getId(), second.getId())
+            .doesNotContain(oldest.getId());
+    }
+
+    @Test
+    void 다음_페이지는_createdAt과_mediaId가_커서보다_작은_미디어를_조회한다() {
+        Instant olderMoment = Instant.parse("2026-08-01T00:00:00Z");
+        Instant sameMoment = olderMoment.plusSeconds(60);
+        StoredFile older = save(ROOM_ID, UploadStatus.READY, olderMoment);
+        StoredFile first = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, sameMoment);
+
+        List<StoredFile> page = fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
+            ROOM_ID, UploadStatus.visibleStatuses(), second.getCreatedAt(), second.getId(), 3);
+
+        assertThat(page).extracting(StoredFile::getId)
+            .containsExactly(first.getId(), older.getId())
+            .doesNotContain(third.getId(), second.getId());
+    }
+
     // 발급만 받고 올리지 않았거나 업로드에 실패한 미디어는 스토리지에 실물이 없다.
     // 목록에 내려보내면 클라이언트가 열 수 없는 빈 항목을 그린다.
     @Test
