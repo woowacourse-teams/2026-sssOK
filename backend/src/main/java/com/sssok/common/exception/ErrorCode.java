@@ -25,6 +25,8 @@ public enum ErrorCode {
     INVALID_REQUEST_BODY(400, "요청 본문 형식이 올바르지 않습니다"),
     INVALID_REQUEST_PARAMETER(400, "%s 값의 형식이 올바르지 않습니다"),
     TOO_MANY_FILES(400, "한 번에 최대 %d개까지 처리할 수 있습니다"),
+    INVALID_FEEDBACK_CONTENT(400, "의견을 입력해주세요"),
+    FEEDBACK_TOO_LONG(400, "의견은 %d자까지 입력할 수 있습니다"),
     INVALID_ADMIN_LOGIN_ID(400, "아이디는 4~20자의 영소문자·숫자·밑줄만 쓸 수 있습니다"),
     INVALID_ADMIN_PASSWORD(400, "비밀번호는 8자 이상이어야 합니다"),
     INVALID_ADMIN_NAME(400, "이름은 1자 이상 20자 이하여야 합니다"),
@@ -76,6 +78,7 @@ public enum ErrorCode {
     // 429 Too Many Requests
     UPLOAD_RETRY_EXCEEDED(429, "재시도 횟수를 초과했습니다. 처음부터 다시 올려주세요"),
     RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
+    FEEDBACK_RATE_LIMITED(429, "의견을 너무 자주 보내고 있습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_LOGIN_RATE_LIMITED(429, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요"),
 
     // 415 Unsupported Media Type

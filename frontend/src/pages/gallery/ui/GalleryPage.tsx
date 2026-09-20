@@ -6,6 +6,7 @@ import { useRoomEvents } from "@/features/subscribe-room-events";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { GalleryContent } from "./GalleryContent";
+import { GalleryModalProvider } from "./GalleryModalProvider";
 import { PageState } from "./GalleryPage.styles";
 
 const ERROR_MESSAGE: Record<string, string> = {
@@ -22,7 +23,11 @@ interface ActiveGalleryProps {
 const ActiveGallery = ({ room, accessToken, userId }: ActiveGalleryProps) => {
   useRoomEvents({ roomId: room.roomId, userId, token: accessToken });
 
-  return <GalleryContent room={room} accessToken={accessToken} userId={userId} />;
+  return (
+    <GalleryModalProvider>
+      <GalleryContent room={room} accessToken={accessToken} userId={userId} />
+    </GalleryModalProvider>
+  );
 };
 
 export const GalleryPage = () => {

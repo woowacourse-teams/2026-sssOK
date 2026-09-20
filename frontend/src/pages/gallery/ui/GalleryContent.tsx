@@ -7,7 +7,6 @@ import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { DeleteRoomModal } from "@/features/delete-room";
 import { DeleteSelectedMediaModal } from "@/features/delete-media";
-import { CreateFolderBottomSheet } from "@/features/create-folder";
 import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
@@ -19,9 +18,11 @@ import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
 import { PhotoGallery } from "@/widgets/photo-gallery";
 import { RoomSummary } from "@/widgets/room-summary";
+import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
 import { usePhotoSelection } from "../model/usePhotoSelection";
+import { GalleryModalHost } from "./GalleryModalHost";
 import { Page } from "./GalleryPage.styles";
 
 interface GalleryContentProps {
@@ -36,7 +37,6 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
   // 모달
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [isEditFolderOpen, setIsEditFolderOpen] = useState(false);
   const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
   const [isDeleteSelectionOpen, setIsDeleteSelectionOpen] = useState(false);
@@ -61,6 +61,14 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const { selectedPhotoIds, isAllSelected, togglePhoto, toggleAllPhotos, clearSelection } =
     usePhotoSelection(photoIds);
 
+  // 폴더 생성 흐름
+  const { handleCreateFolder } = useCreateFolderAction({
+    roomCode: room.code,
+    userId,
+    selectFolder,
+    clearSelection,
+  });
+
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
   const downloadTargets = photos
@@ -83,7 +91,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
         onDeleteRoom={() => setIsDeleteModalOpen(true)}
-        onAddFolder={() => setIsCreateFolderOpen(true)}
+        onAddFolder={handleCreateFolder}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
@@ -95,7 +103,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           selectFolder(folderId);
           clearSelection();
         }}
-        onAddFolder={() => setIsCreateFolderOpen(true)}
+        onAddFolder={handleCreateFolder}
       />
       <GalleryOptions
         selectedOption={selectedOption}
@@ -215,22 +223,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         />
       )}
 
-      {isCreateFolderOpen && (
-        <CreateFolderBottomSheet
-          roomId={room.roomId}
-          accessToken={accessToken}
-          onClose={() => setIsCreateFolderOpen(false)}
-          onSuccess={async (folder) => {
-            setIsCreateFolderOpen(false);
-            selectFolder(folder.id);
-            clearSelection();
-            await queryClient.invalidateQueries({
-              queryKey: roomQueryKey(room.code, userId),
-              exact: true,
-            });
-          }}
-        />
-      )}
+      <GalleryModalHost roomId={room.roomId} accessToken={accessToken} />
 
       {isEditFolderOpen && selectedFolder && (
         <EditFolderBottomSheet
