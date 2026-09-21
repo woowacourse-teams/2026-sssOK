@@ -10,6 +10,7 @@ export { useMediaUpload } from "./model/useMediaUpload";
 export { UploadProgressBar } from "./ui/UploadProgressBar";
 export type {
   FailedUpload,
+  PendingMedia,
   UploadFailureCode,
   UploadFilesOptions,
   UploadProgress,

@@ -9,7 +9,7 @@ import {
   withTargets,
   withUploaded,
 } from "./uploadProgress";
-import type { UploadResult } from "./types";
+import type { PendingMedia, UploadResult } from "./types";
 import { uploadFiles } from "./uploadFiles";
 
 export interface UseMediaUploadOptions {
@@ -19,6 +19,8 @@ export interface UseMediaUploadOptions {
   folderIds?: number[];
   /** 발급이 거절한 파일. 업로드가 끝나기 전에 먼저 온다. */
   onRejected?: (rejected: RejectedFile[]) => void;
+  /** 파일 한 건이 스토리지에 올라간 직후. */
+  onPreviewReady?: (media: PendingMedia) => void;
   /**
    * 등록까지 끝났을 때. 갤러리 갱신과 실패 모달(#74)이 여기서 갈린다.
    *
@@ -41,6 +43,7 @@ export const useMediaUpload = ({
   token,
   folderIds,
   onRejected,
+  onPreviewReady,
   onSettled,
   onError,
 }: UseMediaUploadOptions) => {
@@ -85,6 +88,7 @@ export const useMediaUpload = ({
         onStarted: (targets) => update((state) => withTargets(state, targets)),
         onProgress: (one) => update((state) => withProgress(state, one)),
         onUploaded: (one) => update((state) => withUploaded(state, one)),
+        onPreviewReady,
       });
     } catch (error) {
       onError?.(error);
