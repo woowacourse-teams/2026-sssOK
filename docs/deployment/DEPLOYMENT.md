@@ -289,4 +289,4 @@ backend/src/main/resources/db/migration/
 | compose 가 `BACKEND_IMAGE` 를 못 찾음 | `image.env` 부재. 최초 배포 전이거나 경로가 틀림 |
 | DB 연결 타임아웃 (`Connection refused`, `timeout`) | RDS 보안 그룹에 EC2 보안 그룹발 5432 인바운드가 없거나, `.env`의 `DB_URL`이 RDS 엔드포인트를 가리키지 않음 |
 | `database "sssok-dev" does not exist` | DB 이름의 하이픈/언더스코어가 불일치한 경우다. dev `.env`의 `DB_URL`을 실제 생성한 `sssok_dev`와 일치시킨다. |
-| `No space left on device` | EC2 루트 디스크 여유 공간이 부족하다. `df -h`, `docker system df`로 원인을 확인하고, 사용하지 않는 이미지를 정리하거나 디스크 용량을 확장한다. |
+| `No space left on device` | EC2 루트 디스크 여유 공간이 부족하다. `df -h`, `docker system df`로 원인을 확인한다. 배포 워크플로는 pull 전과 종료 시 현재·직전 이미지를 제외한 이전 백엔드 이미지를 정리하지만, Docker 외 파일이 원인이거나 정리 후에도 공간이 부족하면 로그를 정리하거나 디스크 용량을 확장한다. |

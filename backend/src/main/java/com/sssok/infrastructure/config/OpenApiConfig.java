@@ -1,5 +1,6 @@
 package com.sssok.infrastructure.config;
 
+import com.sssok.presentation.auth.AuthAdmin;
 import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -35,12 +36,14 @@ public class OpenApiConfig {
                     .bearerFormat("JWT")));
     }
 
-    // 컨트롤러 메서드 파라미터에 @AuthMember가 붙어 있으면 자동으로 잠금 표시를 붙임
+    // 컨트롤러 메서드 파라미터에 @AuthMember·@AuthAdmin 이 붙어 있으면 자동으로 잠금 표시를 붙임.
+    // 관리자 API 도 Authorization 헤더가 필수라 문서에 같이 드러나야 한다.
     @Bean
     public OperationCustomizer authMemberSecurityCustomizer() {
         return (operation, handlerMethod) -> {
             boolean requiresAuth = Arrays.stream(handlerMethod.getMethodParameters())
-                .anyMatch(parameter -> parameter.hasParameterAnnotation(AuthMember.class));
+                .anyMatch(parameter -> parameter.hasParameterAnnotation(AuthMember.class)
+                    || parameter.hasParameterAnnotation(AuthAdmin.class));
             if (requiresAuth) {
                 operation.addSecurityItem(new SecurityRequirement().addList(BEARER_AUTH));
             }
