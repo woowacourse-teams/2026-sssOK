@@ -32,7 +32,10 @@ const serveBytes = () =>
   server.use(
     // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
     http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
-      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+      const { selection } = (await request.json()) as {
+        selection: { mode: "include"; ids: number[] };
+      };
+      const mediaIds = selection.ids;
 
       return HttpResponse.json({
         data: {
@@ -62,7 +65,10 @@ const serveHeld = () => {
   server.use(
     // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
     http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
-      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+      const { selection } = (await request.json()) as {
+        selection: { mode: "include"; ids: number[] };
+      };
+      const mediaIds = selection.ids;
 
       return HttpResponse.json({
         data: {
