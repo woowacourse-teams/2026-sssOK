@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
 
 import com.sssok.application.download.CreateDownloadJobService;
 import com.sssok.application.download.DownloadCompressionWorker;
@@ -13,11 +12,13 @@ import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.MemberRepository;
+import com.sssok.application.port.out.OrphanObjectRepository;
 import com.sssok.application.port.out.VideoFrameExtractorPort;
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
+import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
@@ -79,6 +80,9 @@ class VideoMediaOperationsTest {
 
     @Autowired
     FileRepository fileRepository;
+
+    @Autowired
+    OrphanObjectRepository orphanObjectRepository;
 
     @MockitoBean
     FileStoragePort fileStoragePort;
@@ -180,8 +184,11 @@ class VideoMediaOperationsTest {
 
         deleteMediaService.deleteOne(roomId, video.getId(), uploaderId);
 
-        verify(fileStoragePort).delete(original);
-        verify(fileStoragePort).delete(original.thumbnail());
+        List<StorageKey> pendingKeys = orphanObjectRepository
+            .findStale(Instant.now().plusSeconds(60), 1000).stream()
+            .map(OrphanObject::storageKey)
+            .toList();
+        assertThat(pendingKeys).contains(original, original.thumbnail());
     }
 
     // 워커를 실제로 돌려 READY 까지 보낸다 — 썸네일 키가 붙은 상태가 이 테스트의 출발점이다.
