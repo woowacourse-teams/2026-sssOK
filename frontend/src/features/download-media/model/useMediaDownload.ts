@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
 import { shareFiles } from "../lib/shareFiles";
+import type { MediaSelectionRequest } from "@/features/select-media";
 import { downloadMedia } from "./downloadMedia";
 import type { DownloadProgressState } from "./downloadProgress";
 import {
@@ -45,9 +46,28 @@ export const useMediaDownload = ({
    */
   const runIdRef = useRef(0);
 
-  const start = async (targets: DownloadTarget[], mode: DownloadMode) => {
+  function start(targets: DownloadTarget[], mode: DownloadMode): Promise<void>;
+  function start(
+    selection: MediaSelectionRequest,
+    targets: DownloadTarget[],
+    selectedCount: number,
+    mode: DownloadMode,
+  ): Promise<void>;
+  async function start(
+    selectionOrTargets: MediaSelectionRequest | DownloadTarget[],
+    targetsOrMode: DownloadTarget[] | DownloadMode,
+    count = Array.isArray(selectionOrTargets) ? selectionOrTargets.length : 0,
+    selectedMode?: DownloadMode,
+  ) {
+    const isLegacyCall = Array.isArray(selectionOrTargets);
+    const targets = isLegacyCall ? selectionOrTargets : (targetsOrMode as DownloadTarget[]);
+    const mode = isLegacyCall ? (targetsOrMode as DownloadMode) : selectedMode!;
+    const selection = isLegacyCall
+      ? { mode: "include" as const, ids: targets.map((target) => target.mediaId) }
+      : selectionOrTargets;
+    const selectedCount = isLegacyCall ? targets.length : count;
     // 이미 한 판이 돌고 있다. 두 판을 겹치면 진행 바가 어느 쪽을 세는지 알 수 없다.
-    if (targets.length === 0 || abortRef.current !== null) {
+    if (selectedCount === 0 || abortRef.current !== null) {
       return;
     }
 
@@ -62,11 +82,12 @@ export const useMediaDownload = ({
       setProgress((current) => (current === null || !isCurrent() ? current : next(current)));
 
     setPendingShare(null);
-    setProgress(startDownloadProgress(targets));
+    setProgress(startDownloadProgress(targets, selectedCount));
 
     try {
       const outcome = await downloadMedia({
         roomId,
+        selection,
         targets,
         mode,
         token,
@@ -99,7 +120,7 @@ export const useMediaDownload = ({
         setProgress(null);
       }
     }
-  };
+  }
 
   /**
    * 받아둔 파일로 공유 시트를 연다. **버튼 핸들러에서 바로 불러야 한다** —

@@ -23,22 +23,26 @@ export const useCreateFolderAction = ({
   const queryClient = useQueryClient();
   const { openModal } = useGalleryModal();
 
-  const handleCreateFolder = async (source: CreateFolderSource) => {
-    track("Folder Create Started", { source });
-
+  const requestCreateFolder = async () => {
     const folder = await openModal({ type: "create-folder" });
-    if (!folder) return;
-
-    track("Folder Created", { source });
+    if (!folder) return null;
 
     await queryClient.invalidateQueries({
       queryKey: roomQueryKey(roomCode, userId),
       exact: true,
     });
+    return folder;
+  };
 
+  const handleCreateFolder = async (source: CreateFolderSource) => {
+    track("Folder Create Started", { source });
+    const folder = await requestCreateFolder();
+    if (!folder) return;
+
+    track("Folder Created", { source });
     selectFolder(folder.id);
     clearSelection();
   };
 
-  return { handleCreateFolder };
+  return { handleCreateFolder, requestCreateFolder };
 };

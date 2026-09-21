@@ -3,6 +3,7 @@ package com.sssok.application.mediafolder;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.application.media.MediaSelection;
 import com.sssok.application.media.MediaSelectionResolver;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.ResolvedMediaSelection;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.domain.folder.Folder;
@@ -24,11 +25,13 @@ public class AddMediaToFoldersService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public AddMediaToFoldersResult add(Long roomId, MediaSelection selection, Long folderId) {
+    public AddMediaToFoldersResult add(Long roomId, MediaSelection selection, Long folderId,
+                                       Long requesterId, MediaUploaderFilter uploader) {
         requireFolder(folderId);
 
         Folder folder = roomFolders.requireAllInRoom(roomId, List.of(folderId)).get(0);
-        ResolvedMediaSelection media = mediaSelectionResolver.resolve(roomId, selection);
+        ResolvedMediaSelection media =
+            mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
 
         int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
