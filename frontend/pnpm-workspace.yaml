@@ -4,6 +4,7 @@ gitTagVersion: false
 
 allowBuilds:
   "@swc/core": true
+  core-js: false
   esbuild: true
   msw: true
   unrs-resolver: true
