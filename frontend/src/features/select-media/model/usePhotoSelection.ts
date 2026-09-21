@@ -3,7 +3,10 @@ import { useContext, useState } from "react";
 import { PhotoSelectionContext } from "./PhotoSelectionContext";
 import { emptySelection, type SelectionState } from "./types";
 
-export const usePhotoSelection = (visiblePhotoIds: number[], totalCount = visiblePhotoIds.length) => {
+export const usePhotoSelection = (
+  visiblePhotoIds: number[],
+  totalCount = visiblePhotoIds.length,
+) => {
   const shared = useContext(PhotoSelectionContext);
   // 단독 사용(스토리·단위 테스트)은 로컬 상태로 동작한다.
   const [localSelection, setLocalSelection] = useState<SelectionState>(emptySelection);

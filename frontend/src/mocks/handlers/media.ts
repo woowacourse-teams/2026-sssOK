@@ -51,7 +51,9 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
     const mediaIds =
-      body && typeof body === "object" ? selectedIdsOf(body as Record<string, unknown>, roomId) : null;
+      body && typeof body === "object"
+        ? selectedIdsOf(body as Record<string, unknown>, roomId)
+        : null;
     if (
       !body ||
       typeof body !== "object" ||
@@ -115,7 +117,9 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
     const mediaIds =
-      body && typeof body === "object" ? selectedIdsOf(body as Record<string, unknown>, roomId) : null;
+      body && typeof body === "object"
+        ? selectedIdsOf(body as Record<string, unknown>, roomId)
+        : null;
     if (
       !body ||
       typeof body !== "object" ||
@@ -212,14 +216,14 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
     const mediaIds =
-      body && typeof body === "object" ? selectedIdsOf(body as Record<string, unknown>, roomId) : null;
+      body && typeof body === "object"
+        ? selectedIdsOf(body as Record<string, unknown>, roomId)
+        : null;
     if (
       !body ||
       typeof body !== "object" ||
       mediaIds === null ||
-      !mediaIds.every(
-        (id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0,
-      )
+      !mediaIds.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0)
     ) {
       return error(400, "INVALID_MEDIA_IDS", "삭제할 미디어 ID 목록을 확인해 주세요.");
     }

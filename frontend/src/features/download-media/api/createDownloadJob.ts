@@ -16,7 +16,12 @@ interface CreateDownloadJobParams {
  *
  * 둘 다 생략하면 방 전체가 대상이다.
  */
-export const createDownloadJob = ({ roomId, token, selection, folderId }: CreateDownloadJobParams) =>
+export const createDownloadJob = ({
+  roomId,
+  token,
+  selection,
+  folderId,
+}: CreateDownloadJobParams) =>
   apiClient<DownloadJob>(`/rooms/${roomId}/downloads/zip`, {
     method: "POST",
     token,

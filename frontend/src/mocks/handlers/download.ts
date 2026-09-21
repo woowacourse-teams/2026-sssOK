@@ -263,7 +263,10 @@ export const downloadHandlers = [
       folderId?: number;
     };
 
-    if ((body.mediaIds !== undefined || body.selection !== undefined) && body.folderId !== undefined) {
+    if (
+      (body.mediaIds !== undefined || body.selection !== undefined) &&
+      body.folderId !== undefined
+    ) {
       return error(400, "INVALID_PARAM", "다운로드 조건이 올바르지 않습니다");
     }
 
@@ -297,8 +300,8 @@ export const downloadHandlers = [
         : body.selection !== undefined
           ? selectMedia(all, body.selection)
           : body.folderId !== undefined
-          ? all.filter((media) => media.folderIds.includes(body.folderId as number))
-          : all;
+            ? all.filter((media) => media.folderIds.includes(body.folderId as number))
+            : all;
 
     // 처리 중인 미디어는 대상에서 빼고 mediaCount 에도 안 센다.
     const targets = scoped.filter((media) => media.status === "READY");
