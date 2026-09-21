@@ -64,15 +64,15 @@ export const Name = styled.span`
   ${typography.caption1}
 `;
 
-export const RoleBadge = styled.span<{ emphasized: boolean }>`
+export const RoleBadge = styled.span`
   ${desktopOnly}
 
   align-items: center;
   height: 24px;
   padding-inline: 10px;
   border-radius: ${radius.full};
-  background: ${({ emphasized }) => (emphasized ? colors.primarySubtle : colors.backgroundSubtle)};
-  color: ${({ emphasized }) => (emphasized ? colors.textAccent : colors.textSecondary)};
+  background: ${colors.primarySubtle};
+  color: ${colors.textAccent};
   white-space: nowrap;
 
   ${typography.caption2}
