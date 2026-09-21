@@ -34,12 +34,16 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
 
     // StoredFileJpaEntity는 존재 확인용 최소 매핑(id만)이라 나머지 NOT NULL 컬럼은 직접 채워야 한다.
     private Long existingMedia(long id) {
+        return existingMedia(id, "READY");
+    }
+
+    private Long existingMedia(long id, String status) {
         jdbcTemplate.update("""
             INSERT INTO stored_file
                 (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes,
                  storage_key, status, created_at, updated_at, reserved_at, retry_count)
-            VALUES (?, 1, 1, 'test.jpg', 'JPEG', 1024, ?, 'READY', now(), now(), now(), 0)
-            """, id, "test-key-" + id);
+            VALUES (?, 1, 1, 'test.jpg', 'JPEG', 1024, ?, ?, now(), now(), now(), 0)
+            """, id, "test-key-" + id, status);
         return id;
     }
 
@@ -67,6 +71,18 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.alreadyInCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 썸네일이_아직_없는_PROCESSING_미디어도_담을_수_있다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+        existingMedia(1L, "PROCESSING");
+
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L)), folder.getId());
+
+        assertThat(result.updatedCount()).isEqualTo(1);
+        assertThat(result.notFoundMediaIds()).isEmpty();
+        assertThat(result.folder().photoCount()).isEqualTo(1);
     }
 
     @Test

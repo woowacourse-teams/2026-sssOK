@@ -51,6 +51,16 @@ class DeleteMediaServiceTest {
     }
 
     @Test
+    void 썸네일이_아직_없는_PROCESSING_미디어도_지울_수_있다() {
+        StoredFile file = file(1L, ROOM_ID, REQUESTER_ID, UploadStatus.PROCESSING);
+        given(fileRepository.findById(file.getId())).willReturn(Optional.of(file));
+        given(roomPermissionPort.isHost(ROOM_ID, REQUESTER_ID)).willReturn(false);
+
+        assertThat(service.deleteOne(ROOM_ID, file.getId(), REQUESTER_ID)).isEqualTo(file.getId());
+        verify(mediaDeleter).delete(ROOM_ID, List.of(file));
+    }
+
+    @Test
     void 올린_본인은_단건_삭제할_수_있다() {
         StoredFile file = file(1L, ROOM_ID, REQUESTER_ID);
         given(fileRepository.findById(file.getId())).willReturn(Optional.of(file));
@@ -145,9 +155,13 @@ class DeleteMediaServiceTest {
     }
 
     private StoredFile file(Long id, Long roomId, Long uploaderId) {
+        return file(id, roomId, uploaderId, UploadStatus.READY);
+    }
+
+    private StoredFile file(Long id, Long roomId, Long uploaderId, UploadStatus status) {
         Instant now = Instant.now();
         return StoredFile.reconstruct(id, roomId, uploaderId, "사진.jpg", MediaType.JPEG,
             new FileSize(1024), new StorageKey("rooms/%d/%d.jpg".formatted(roomId, id)), null,
-            UploadStatus.READY, now, now, 0, null, null, null, null, null, null);
+            status, now, now, 0, null, null, null, null, null, null);
     }
 }

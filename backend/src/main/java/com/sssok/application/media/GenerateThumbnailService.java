@@ -74,7 +74,7 @@ public class GenerateThumbnailService {
             // FAILED 로 내리면 원본이 멀쩡한데 목록에서 사라지고, PROCESSING 에 두면 회수 배치가
             // 영영 다시 집어 드므로, 썸네일 없이 완료로 넘긴다.
             log.warn("영상에서 프레임을 뽑지 못했습니다. 썸네일 없이 완료합니다. mediaId={}", file.getId());
-            mediaFinisher.finish(file, ProcessedMedia.none());
+            mediaFinisher.finish(file.getId(), ProcessedMedia.none());
             return;
         }
 
@@ -82,7 +82,7 @@ public class GenerateThumbnailService {
         StorageKey thumbnailKey = file.getStorageKey().thumbnail();
         upload(thumbnailKey, frame.content(), file.thumbnailContentType());
 
-        mediaFinisher.finish(file, ProcessedMedia.ofVideo(
+        mediaFinisher.finish(file.getId(), ProcessedMedia.ofVideo(
             thumbnailKey, frame.width(), frame.height(), frame.durationSeconds(),
             frame.takenAt(), frame.location()));
     }
@@ -99,7 +99,7 @@ public class GenerateThumbnailService {
             // 파일이 깨졌거나 확장자와 실제 내용이 다르다. 다시 시도해도 결과가 같으므로
             // 여기서만 FAILED 로 확정한다 — 되풀이해도 소용없는 유일한 경우다.
             log.warn("이미지를 읽을 수 없습니다. mediaId={}", file.getId());
-            mediaFinisher.markFailed(file);
+            mediaFinisher.markFailed(file.getId());
             return;
         }
 
@@ -111,7 +111,7 @@ public class GenerateThumbnailService {
         CaptureInfo capture = imageProcessor.readCaptureInfo(original);
 
         // 크기는 썸네일이 아니라 원본의 것을 저장한다. 클라이언트가 자리를 미리 잡는 데 쓴다.
-        mediaFinisher.finish(file, ProcessedMedia.ofImage(thumbnailKey,
+        mediaFinisher.finish(file.getId(), ProcessedMedia.ofImage(thumbnailKey,
             image.sourceWidth(), image.sourceHeight(), capture.takenAt(), capture.location()));
     }
 
