@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { photosQueryKey } from "@/entities/media";
 import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
+import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
 import { DeleteRoomModal } from "@/features/delete-room";
 import { DeleteSelectedMediaModal } from "@/features/delete-media";
 import { DeleteFolderModal } from "@/features/delete-folder";
@@ -41,6 +42,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
   const [isDeleteSelectionOpen, setIsDeleteSelectionOpen] = useState(false);
   const [isMoveSelectionOpen, setIsMoveSelectionOpen] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isFeedbackSuccess, setIsFeedbackSuccess] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
@@ -123,6 +126,10 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         isAllSelected={isAllSelected}
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
+      />
+      <FeedbackButton
+        hidden={selectedPhotoIds.length > 0}
+        onClick={() => setIsFeedbackOpen(true)}
       />
       <MediaUploader
         roomId={room.roomId}
@@ -237,6 +244,15 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
       <GalleryModalHost roomId={room.roomId} accessToken={accessToken} />
 
+      {isFeedbackOpen && (
+        <FeedbackBottomSheet
+          roomId={room.roomId}
+          accessToken={accessToken}
+          onClose={() => setIsFeedbackOpen(false)}
+          onSuccess={() => setIsFeedbackSuccess(true)}
+        />
+      )}
+
       {isEditFolderOpen && selectedFolder && (
         <EditFolderBottomSheet
           roomId={room.roomId}
@@ -285,6 +301,10 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           message={`‘${deletedFolderName}’ 폴더를 삭제했어요.`}
           onClose={() => setDeletedFolderName(null)}
         />
+      )}
+
+      {isFeedbackSuccess && (
+        <Toast message="문의를 보냈어요." onClose={() => setIsFeedbackSuccess(false)} />
       )}
     </Page>
   );
