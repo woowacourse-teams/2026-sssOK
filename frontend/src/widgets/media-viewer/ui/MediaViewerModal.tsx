@@ -314,9 +314,7 @@ const ViewerFooter = ({
         </Subtitle>
         {deletion.isError && (
           <ErrorMessage role="alert">
-            {isApiError(deletion.error)
-              ? deletion.error.message
-              : "사진을 삭제하지 못했어요."}
+            {isApiError(deletion.error) ? deletion.error.message : "사진을 삭제하지 못했어요."}
           </ErrorMessage>
         )}
         {download.isError && <ErrorMessage role="alert">{download.error.message}</ErrorMessage>}
