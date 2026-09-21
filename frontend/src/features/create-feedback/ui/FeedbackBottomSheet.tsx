@@ -12,16 +12,25 @@ interface FeedbackBottomSheetProps {
   roomId: number;
   accessToken: string;
   onClose: () => void;
+  onSuccess: () => void;
 }
 
 const MAX_FEEDBACK_LENGTH = 300;
 
-export const FeedbackBottomSheet = ({ roomId, accessToken, onClose }: FeedbackBottomSheetProps) => {
+export const FeedbackBottomSheet = ({
+  roomId,
+  accessToken,
+  onClose,
+  onSuccess,
+}: FeedbackBottomSheetProps) => {
   const [content, setContent] = useState("");
   const mutation = useMutation({
     mutationFn: (feedbackContent: string) =>
       createFeedback({ roomId, accessToken, content: feedbackContent }),
-    onSuccess: onClose,
+    onSuccess: () => {
+      onClose();
+      onSuccess();
+    },
   });
 
   const trimmedContent = content.trim();

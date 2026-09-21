@@ -43,6 +43,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [isDeleteSelectionOpen, setIsDeleteSelectionOpen] = useState(false);
   const [isMoveSelectionOpen, setIsMoveSelectionOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [isFeedbackSuccess, setIsFeedbackSuccess] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
@@ -236,6 +237,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           roomId={room.roomId}
           accessToken={accessToken}
           onClose={() => setIsFeedbackOpen(false)}
+          onSuccess={() => setIsFeedbackSuccess(true)}
         />
       )}
 
@@ -287,6 +289,10 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           message={`‘${deletedFolderName}’ 폴더를 삭제했어요.`}
           onClose={() => setDeletedFolderName(null)}
         />
+      )}
+
+      {isFeedbackSuccess && (
+        <Toast message="문의를 보냈어요." onClose={() => setIsFeedbackSuccess(false)} />
       )}
     </Page>
   );
