@@ -143,7 +143,7 @@ class GenerateThumbnailServiceTest {
         assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("jpeg");
     }
 
-    // 프레임을 뽑으려면 별도 도구가 필요하다. PROCESSING 에 두면 다운로드가 영영 409 로 막힌다.
+    // 프레임을 뽑으려면 별도 도구가 필요하다. PROCESSING 에 두면 회수 배치가 영영 다시 집어 든다.
     @Test
     void 영상은_썸네일_없이_READY로_넘긴다() {
         StoredFile file = processing("영상.mp4", "video/mp4");
