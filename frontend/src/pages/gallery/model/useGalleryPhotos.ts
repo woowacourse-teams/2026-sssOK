@@ -30,14 +30,21 @@ export const useGalleryPhotos = ({
   selectedFolderId,
   selectedOption,
 }: UseGalleryPhotosParams) => {
-  const { data, isPending, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    usePhotosQuery({
-      roomId,
-      token: accessToken,
-      userId,
-      folderId: selectedFolderId ?? undefined,
-      uploader: UPLOADER_OF[selectedOption],
-    });
+  const {
+    data,
+    isPending,
+    isError,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+  } = usePhotosQuery({
+    roomId,
+    token: accessToken,
+    userId,
+    folderId: selectedFolderId ?? undefined,
+    uploader: UPLOADER_OF[selectedOption],
+  });
 
   const photos = useMemo(
     () =>
@@ -59,6 +66,7 @@ export const useGalleryPhotos = ({
     isError,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
     loadMore,
   };
 };
