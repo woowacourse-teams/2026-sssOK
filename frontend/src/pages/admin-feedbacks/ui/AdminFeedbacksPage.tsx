@@ -5,8 +5,8 @@ import { readValidAdminSession, removeAdminSession } from "@/entities/admin-sess
 import { FeedbackItem, useAdminFeedbacksQuery } from "@/entities/feedback";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
+import { useInfiniteScroll } from "@/shared/hooks";
 import { Button } from "@/shared/ui/button";
-import { useInfiniteScroll } from "../model/useInfiniteScroll";
 import { useVersionFilter } from "../model/useVersionFilter";
 import { FeedbackDetailModal } from "./FeedbackDetailModal";
 import { List, LoadingMore, Notice, Page, Sentinel, Title } from "./AdminFeedbacksPage.styles";
