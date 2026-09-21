@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.meta.outputs.image }}
+      release-version: ${{ steps.version.outputs.release }}
+      backend-version: ${{ steps.version.outputs.backend }}
 
     steps:
       - name: 코드 체크아웃
@@ -34,6 +36,16 @@ jobs:
           REPO_LOWER=$(echo "ghcr.io/${GITHUB_REPOSITORY}/backend" | tr '[:upper:]' '[:lower:]')
           echo "repo=${REPO_LOWER}" >> "$GITHUB_OUTPUT"
           echo "image=${REPO_LOWER}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: 버전 정보 읽기
+        id: version
+        run: |
+          set -eu
+          RELEASE_VERSION="$(tr -d ' \t\r\n' < VERSION)"
+          BACKEND_VERSION="$(sed -n 's/^version=//p' backend/gradle.properties | tail -n 1 | tr -d ' \t\r')"
+          echo "release=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "backend=${BACKEND_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "통합 릴리스 ${RELEASE_VERSION} / 백엔드 ${BACKEND_VERSION} / 커밋 ${GITHUB_SHA}"
 
       - name: JDK 21 설정
         uses: actions/setup-java@v4
@@ -71,9 +83,18 @@ jobs:
           # 이미지 조립은 미리 빌드된 JAR을 복사만 하므로,
           # QEMU 에뮬레이션 비용 없이 두 아키텍처 모두 빠르게 빌드된다.
           platforms: linux/amd64,linux/arm64
+          # 배포·롤백에는 변하지 않는 커밋 SHA 태그를 쓴다.
+          # 버전 태그는 "지금 운영에 나간 게 어느 릴리스인지" 사람이 훑어보기 위한 별칭이다.
           tags: |
             ${{ steps.meta.outputs.image }}
+            ${{ steps.meta.outputs.repo }}:backend-v${{ steps.version.outputs.backend }}
+            ${{ steps.meta.outputs.repo }}:release-v${{ steps.version.outputs.release }}
             ${{ steps.meta.outputs.repo }}:latest
+          build-args: |
+            RELEASE_VERSION=${{ steps.version.outputs.release }}
+            BACKEND_VERSION=${{ steps.version.outputs.backend }}
+            GIT_SHA=${{ github.sha }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -102,6 +123,9 @@ jobs:
       - name: 이미지 교체 및 헬스체크
         env:
           NEW_IMAGE: ${{ needs.build.outputs.image }}
+          APP_RELEASE_VERSION: ${{ needs.build.outputs.release-version }}
+          APP_BACKEND_VERSION: ${{ needs.build.outputs.backend-version }}
+          APP_GIT_SHA: ${{ github.sha }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -142,7 +166,14 @@ jobs:
           if [ -f image.env ]; then
             cp image.env image.env.prev
           fi
-          echo "BACKEND_IMAGE=$NEW_IMAGE" > image.env
+          # 이미지와 버전을 한 파일에 같이 둔다 — 롤백으로 image.env.prev 를 되돌리면
+          # 그 이미지가 실제로 배포됐을 때의 버전 정보도 같이 돌아간다.
+          {
+            echo "BACKEND_IMAGE=$NEW_IMAGE"
+            echo "APP_RELEASE_VERSION=$APP_RELEASE_VERSION"
+            echo "APP_BACKEND_VERSION=$APP_BACKEND_VERSION"
+            echo "APP_GIT_SHA=$APP_GIT_SHA"
+          } > image.env
 
           $COMPOSE pull
           $COMPOSE up -d
@@ -169,3 +200,71 @@ jobs:
           fi
 
           exit 1
+
+  tag:
+    name: 릴리스 태그 생성
+    needs: deploy
+    # 운영 헬스체크까지 성공한 뒤에만 찍는다. 배포가 실패하면 그 버전의 성공 태그는 남지 않는다.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          # 직전 릴리스 태그와 비교해야 하므로 얕은 클론으로는 부족하다.
+          fetch-depth: 0
+
+      - name: 태그 및 릴리스 생성
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+
+          RELEASE_VERSION="$(tr -d ' \t\r\n' < VERSION)"
+          BACKEND_VERSION="$(sed -n 's/^version=//p' backend/gradle.properties | tail -n 1 | tr -d ' \t\r')"
+          FRONTEND_VERSION="$(node -p "require('./frontend/package.json').version")"
+          RELEASE_TAG="release-v${RELEASE_VERSION}"
+
+          if git rev-parse -q --verify "refs/tags/${RELEASE_TAG}" > /dev/null; then
+            echo "::notice::${RELEASE_TAG} 가 이미 있다. 버전을 올리지 않은 재배포로 보고 태그 생성을 건너뛴다."
+            exit 0
+          fi
+
+          # 직전 통합 릴리스 이후 실제로 바뀐 서비스에만 서비스 태그를 새로 만든다.
+          # 첫 릴리스라 비교 대상이 없으면 양쪽 모두 만든다.
+          PREVIOUS_RELEASE="$(git tag -l 'release-v*' --sort=-v:refname | head -1)"
+          changed() {
+            [ -z "$PREVIOUS_RELEASE" ] && return 0
+            ! git diff --quiet "$PREVIOUS_RELEASE" "$GITHUB_SHA" -- "$1"
+          }
+
+          TAGS="$RELEASE_TAG"
+          changed backend/ && TAGS="$TAGS backend-v${BACKEND_VERSION}"
+          changed frontend/ && TAGS="$TAGS frontend-v${FRONTEND_VERSION}"
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          for TAG in $TAGS; do
+            if git rev-parse -q --verify "refs/tags/${TAG}" > /dev/null; then
+              echo "::notice::${TAG} 가 이미 있어 건너뛴다."
+              continue
+            fi
+            git tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+            echo "$TAG 생성"
+          done
+
+          {
+            echo "통합 릴리스: ${RELEASE_VERSION}"
+            echo "프론트엔드: ${FRONTEND_VERSION}"
+            echo "백엔드: ${BACKEND_VERSION}"
+            echo "배포 커밋: ${GITHUB_SHA}"
+          } > release-notes.md
+
+          gh release create "$RELEASE_TAG" \
+            --title "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" \
+            --notes-file release-notes.md
