@@ -68,6 +68,23 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
+        Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
+                roomId, names(statuses), Limit.of(limit))
+            : jpaRepository.findNextPageByRoomIdAndStatusInOrderByNewest(
+                roomId, names(statuses), lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndStatusIn(Long roomId, Collection<UploadStatus> statuses) {
+        return jpaRepository.countByRoomIdAndStatusIn(roomId, names(statuses));
+    }
+
+    @Override
     public List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
         // IN () 은 유효한 SQL 이 아니라, 빈 목록을 그대로 넘기면 드라이버가 오류를 낸다.
@@ -79,6 +96,25 @@ public class FileRepositoryAdapter implements FileRepository {
             .stream()
             .map(this::toDomain)
             .toList();
+    }
+
+    @Override
+    public List<StoredFile> findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses,
+        Instant lastCreatedAt, Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findFirstPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+                roomId, folderId, names(statuses), limit)
+            : jpaRepository.findNextPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+                roomId, folderId, names(statuses), lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndFolderIdAndStatusIn(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses) {
+        return jpaRepository.countByRoomIdAndFolderIdAndStatusIn(
+            roomId, folderId, names(statuses));
     }
 
     @Override

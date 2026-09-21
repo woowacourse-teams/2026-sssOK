@@ -6,8 +6,10 @@ import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
 import com.sssok.domain.feedback.UserAgent;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Limit;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -22,10 +24,29 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
     }
 
     @Override
+    public Optional<Feedback> findById(Long id) {
+        return jpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<Feedback> findLatest(int limit) {
+        return toDomains(jpaRepository.findAllByOrderByCreatedAtDescIdDesc(Limit.of(limit)));
+    }
+
+    @Override
+    public List<Feedback> findLatestBefore(Instant createdAt, Long id, int limit) {
+        return toDomains(jpaRepository.findAllBefore(createdAt, id, Limit.of(limit)));
+    }
+
+    @Override
     public Optional<Feedback> findLatestByMemberIdSince(Long memberId, Instant since) {
         return jpaRepository
             .findFirstByMemberIdAndCreatedAtAfterOrderByCreatedAtDesc(memberId, since)
             .map(this::toDomain);
+    }
+
+    private List<Feedback> toDomains(List<FeedbackJpaEntity> entities) {
+        return entities.stream().map(this::toDomain).toList();
     }
 
     private FeedbackJpaEntity toEntity(Feedback feedback) {
