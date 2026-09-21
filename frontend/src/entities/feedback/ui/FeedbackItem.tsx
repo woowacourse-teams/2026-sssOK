@@ -6,11 +6,9 @@ import { Content, Item, Meta, MetaText } from "./FeedbackItem.styles";
 
 interface FeedbackItemProps {
   feedback: AdminFeedback;
-  /** 불러온 의견 중 가장 최신 버전이면 배지를 강조한다. */
-  isLatestVersion?: boolean;
 }
 
-export const FeedbackItem = ({ feedback, isLatestVersion = false }: FeedbackItemProps) => {
+export const FeedbackItem = ({ feedback }: FeedbackItemProps) => {
   const { device, browser } = describeUserAgent(feedback.userAgent);
 
   /*
@@ -33,7 +31,7 @@ export const FeedbackItem = ({ feedback, isLatestVersion = false }: FeedbackItem
       <Meta>
         <MetaText>{meta.join(" · ")}</MetaText>
         {feedback.frontendVersion !== null && (
-          <Badge size="sm" variant={isLatestVersion ? "soft" : "neutral"}>
+          <Badge size="sm" variant="soft">
             {feedback.frontendVersion}
           </Badge>
         )}

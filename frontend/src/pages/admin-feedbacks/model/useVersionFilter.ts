@@ -25,8 +25,6 @@ export const useVersionFilter = (feedbacks: AdminFeedback[]) => {
     versions,
     selectedVersion,
     visibleFeedbacks,
-    /** 가장 최신 버전. 배지를 강조할 기준이다. */
-    latestVersion: versions[0] ?? null,
     // 같은 칩을 다시 누르면 선택을 푼다 — 전체로 돌아갈 다른 버튼이 디자인에 없다.
     toggleVersion: (version: string) =>
       setSelectedVersion((current) => (current === version ? null : version)),

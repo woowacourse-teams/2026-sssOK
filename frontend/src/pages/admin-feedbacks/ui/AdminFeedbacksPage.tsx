@@ -20,7 +20,7 @@ export const AdminFeedbacksPage = () => {
     useAdminFeedbacksQuery(session?.accessToken ?? "");
 
   const feedbacks = useMemo(() => data?.pages.flatMap((page) => page.feedbacks) ?? [], [data]);
-  const { versions, selectedVersion, visibleFeedbacks, latestVersion, toggleVersion } =
+  const { versions, selectedVersion, visibleFeedbacks, toggleVersion } =
     useVersionFilter(feedbacks);
 
   const sentinel = useRef<HTMLDivElement>(null);
@@ -85,7 +85,6 @@ export const AdminFeedbacksPage = () => {
           <FeedbackItem
             key={feedback.feedbackId}
             feedback={feedback}
-            isLatestVersion={feedback.frontendVersion === latestVersion}
           />
         ))}
       </List>
