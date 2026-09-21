@@ -24,6 +24,10 @@ public interface FileRepository {
 
     List<StoredFile> findAllByRoomId(Long roomId);
 
+    List<StoredFile> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids);
+
+    List<StoredFile> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids);
+
     // 조회 API 전용. 같은 업로드 요청에 묶인 파일은 createdAt 이 전부 같아서, id 까지 봐야
     // 순서가 호출마다 흔들리지 않는다.
     List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
