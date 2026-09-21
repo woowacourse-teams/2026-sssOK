@@ -6,7 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.media.exception.InvalidMediaDeleteParamException;
+import com.sssok.application.media.exception.InvalidMediaSelectionException;
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.TooManyMediaException;
@@ -46,7 +46,8 @@ class DeleteMediaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new DeleteMediaService(fileRepository, roomPermissionPort, mediaDeleter);
+        service = new DeleteMediaService(
+            fileRepository, roomPermissionPort, mediaDeleter, new MediaSelectionResolver(fileRepository));
     }
 
     @Test
@@ -94,11 +95,11 @@ class DeleteMediaServiceTest {
         StoredFile first = file(1L, ROOM_ID, REQUESTER_ID);
         StoredFile second = file(2L, ROOM_ID, REQUESTER_ID);
         StoredFile otherRoom = file(3L, 20L, REQUESTER_ID);
-        given(fileRepository.findAllByIdIn(List.of(1L, 999L, 2L, 3L)))
-            .willReturn(List.of(second, otherRoom, first));
+        given(fileRepository.findAllByRoomIdAndIdIn(ROOM_ID, List.of(1L, 999L, 2L, 3L)))
+            .willReturn(List.of(second, first));
 
         DeleteMediaResult result = service.deleteAll(
-            ROOM_ID, List.of(1L, 999L, 2L, 1L, 3L), REQUESTER_ID);
+            ROOM_ID, MediaSelection.include(List.of(1L, 999L, 2L, 1L, 3L)), REQUESTER_ID);
 
         assertThat(result.deletedMediaIds()).containsExactly(1L, 2L);
         assertThat(result.notFoundMediaIds()).containsExactly(999L, 3L);
@@ -110,31 +111,36 @@ class DeleteMediaServiceTest {
     void 다건에_남의_미디어가_섞이면_전체를_거부한다() {
         StoredFile mine = file(1L, ROOM_ID, REQUESTER_ID);
         StoredFile others = file(2L, ROOM_ID, 99L);
-        given(fileRepository.findAllByIdIn(List.of(1L, 2L))).willReturn(List.of(mine, others));
+        given(fileRepository.findAllByRoomIdAndIdIn(ROOM_ID, List.of(1L, 2L))).willReturn(List.of(mine, others));
 
-        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, List.of(1L, 2L), REQUESTER_ID))
+        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, MediaSelection.include(List.of(1L, 2L)), REQUESTER_ID))
             .isInstanceOf(MediaForbiddenException.class);
         verify(mediaDeleter, never()).delete(ROOM_ID, List.of(mine, others));
     }
 
     @Test
-    void 빈_목록은_거부한다() {
-        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, List.of(), REQUESTER_ID))
-            .isInstanceOf(InvalidMediaDeleteParamException.class);
+    void include의_빈_목록은_아무것도_삭제하지_않는다() {
+        DeleteMediaResult result = service.deleteAll(
+            ROOM_ID, MediaSelection.include(List.of()), REQUESTER_ID);
+
+        assertThat(result.deletedCount()).isZero();
     }
 
     @Test
     void null_ID가_섞인_목록은_거부한다() {
         assertThatThrownBy(() -> service.deleteAll(
-            ROOM_ID, java.util.Arrays.asList(1L, null), REQUESTER_ID))
-            .isInstanceOf(InvalidMediaDeleteParamException.class);
+            ROOM_ID, MediaSelection.include(java.util.Arrays.asList(1L, null)), REQUESTER_ID))
+            .isInstanceOf(InvalidMediaSelectionException.class);
     }
 
     @Test
     void 최대_개수를_넘으면_거부한다() {
         List<Long> ids = LongStream.rangeClosed(1, 501).boxed().toList();
 
-        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, ids, REQUESTER_ID))
+        given(fileRepository.findAllByRoomIdAndIdIn(ROOM_ID, ids))
+            .willReturn(ids.stream().map(id -> file(id, ROOM_ID, REQUESTER_ID)).toList());
+
+        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, MediaSelection.include(ids), REQUESTER_ID))
             .isInstanceOf(TooManyMediaException.class);
     }
 

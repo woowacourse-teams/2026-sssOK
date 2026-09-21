@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
+import com.sssok.application.media.MediaSelection;
 import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.List;
@@ -48,7 +49,7 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
         existingMedia(1L);
         existingMedia(2L);
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L, 2L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L, 2L)), folder.getId());
 
         assertThat(result.updatedCount()).isEqualTo(2);
         assertThat(result.alreadyInCount()).isZero();
@@ -60,9 +61,9 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     void 이미_담긴_미디어는_alreadyInCount로_집계되고_오류가_아니다() {
         Folder folder = createFolderService.create(1L, "맛집");
         existingMedia(1L);
-        addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L)), folder.getId());
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L)), folder.getId());
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.alreadyInCount()).isEqualTo(1);
@@ -73,7 +74,7 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
         Folder folder = createFolderService.create(1L, "맛집");
         existingMedia(1L);
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L, 999L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L, 999L)), folder.getId());
 
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(result.notFoundMediaIds()).containsExactly(999L);
@@ -83,7 +84,7 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     void 없는_폴더면_예외() {
         existingMedia(1L);
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(1L), -1L))
+        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L)), -1L))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
@@ -92,23 +93,40 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
         Folder folder = createFolderService.create(2L, "맛집");
         existingMedia(1L);
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(1L), folder.getId()))
+        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L)), folder.getId()))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
     @Test
-    void mediaIds가_비어있으면_예외() {
+    void include의_ids가_비어있으면_아무것도_담지_않는다() {
         Folder folder = createFolderService.create(1L, "맛집");
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(), folder.getId()))
-            .isInstanceOf(InvalidMediaFolderParamException.class);
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(
+            1L, MediaSelection.include(List.of()), folder.getId());
+
+        assertThat(result.updatedCount()).isZero();
+    }
+
+    @Test
+    void exclude는_방_전체에서_지정한_미디어를_제외하고_담는다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+        existingMedia(1L);
+        existingMedia(2L);
+        existingMedia(3L);
+
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(
+            1L, MediaSelection.exclude(List.of(2L)), folder.getId());
+
+        assertThat(result.updatedCount()).isEqualTo(2);
+        assertThat(result.notFoundMediaIds()).isEmpty();
+        assertThat(result.folder().photoCount()).isEqualTo(2);
     }
 
     @Test
     void folderId가_없으면_예외() {
         existingMedia(1L);
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(1L), null))
+        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, MediaSelection.include(List.of(1L)), null))
             .isInstanceOf(InvalidMediaFolderParamException.class);
     }
 }
