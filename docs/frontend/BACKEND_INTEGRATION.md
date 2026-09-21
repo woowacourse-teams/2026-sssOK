@@ -51,9 +51,15 @@ API_BASE_URL=http://localhost:8080/api/v1 pnpm start
 
 알아둘 것:
 
-- **파생값은 등록 직후 잠깐 `null` 이다.** 등록 응답은 `status: PROCESSING` 에
+- **워커가 채우는 값만 등록 직후 잠깐 `null` 이다.** 등록 응답은 `status: PROCESSING` 에
   `thumbnailUrl`·`width`·`height` 가 비어 있고, 워커가 처리를 마치면 `READY` 가 되면서 채워진다.
-  실측으로 2초 안쪽이었다. 목록에는 `READY` 만 내려오므로 갤러리는 신경 쓰지 않아도 된다.
+  실측으로 2초 안쪽이었다. **`originalUrl` 은 이 구간에도 채워진다** — 워커는 원본을 읽기만 해서
+  원본이 바뀌지 않는다([#255](https://github.com/woowacourse-teams/2026-sssOK/issues/255)).
+- **목록에는 `PROCESSING` 도 내려온다.** 실물이 있는 상태(`PROCESSING`·`READY`)가 대상이라,
+  갤러리는 썸네일이 아직 없는 항목을 만날 수 있다. 실물이 없는 `RESERVED`·`FAILED` 만 빠진다.
+- **`PROCESSING` 미디어도 다운로드·삭제·폴더 담기가 된다.** 단건 다운로드는 302 를 주고
+  (409 `MEDIA_NOT_READY` 는 없어졌다), zip·다건 대상에도 포함된다. 업로드 직후 미리보기 카드에서
+  바로 눌러도 된다는 뜻이다.
 - **`thumbnailUrl`/`originalUrl` 은 상대 경로다** (`/rooms/{roomId}/media/{mediaId}/thumbnail`).
   `<img src>` 에 넣기 전에 `mediaAssetUrl` 로 절대 주소로 풀어야 한다
   ([mediaAssetUrl.ts](../../frontend/src/entities/media/lib/mediaAssetUrl.ts)).

@@ -50,12 +50,12 @@ public class GenerateThumbnailService {
 
     private void process(StoredFile file) {
         // 영상은 프레임을 뽑으려면 별도 도구가 필요하다. 썸네일 없이 완료로 넘긴다 —
-        // PROCESSING 에 두면 다운로드가 영영 409 로 막힌다.
+        // PROCESSING 에 두면 회수 배치가 영영 다시 집어 든다.
         //
         // 원본을 내려받지도 않는다. 영상은 최대 1GB 라, 길이 하나 읽자고 통째로 메모리에 올리면
         // 서버가 죽는다. duration 은 스트리밍으로 읽는 도구가 붙은 뒤에 채운다.
         if (!file.canGenerateThumbnail()) {
-            mediaFinisher.finish(file, ProcessedMedia.none());
+            mediaFinisher.finish(file.getId(), ProcessedMedia.none());
             return;
         }
 
@@ -70,7 +70,7 @@ public class GenerateThumbnailService {
             // 파일이 깨졌거나 확장자와 실제 내용이 다르다. 다시 시도해도 결과가 같으므로
             // 여기서만 FAILED 로 확정한다 — 되풀이해도 소용없는 유일한 경우다.
             log.warn("이미지를 읽을 수 없습니다. mediaId={}", file.getId());
-            mediaFinisher.markFailed(file);
+            mediaFinisher.markFailed(file.getId());
             return;
         }
 
@@ -82,7 +82,7 @@ public class GenerateThumbnailService {
         CaptureInfo capture = imageProcessor.readCaptureInfo(original);
 
         // 크기는 썸네일이 아니라 원본의 것을 저장한다. 클라이언트가 자리를 미리 잡는 데 쓴다.
-        mediaFinisher.finish(file, new ProcessedMedia(thumbnailKey,
+        mediaFinisher.finish(file.getId(), new ProcessedMedia(thumbnailKey,
             image.sourceWidth(), image.sourceHeight(), capture.takenAt(), capture.location()));
     }
 

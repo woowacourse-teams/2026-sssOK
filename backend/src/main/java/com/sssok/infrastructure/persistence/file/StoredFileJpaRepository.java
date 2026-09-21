@@ -1,14 +1,21 @@
 package com.sssok.infrastructure.persistence.file;
 
+import jakarta.persistence.LockModeType;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEntity, Long> {
+
+    // 행을 지우는 트랜잭션이 잡은 배타 락을 기다렸다가 최신 상태를 읽는다.
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<StoredFileJpaEntity> findWithLockById(Long id);
 
     List<StoredFileJpaEntity> findAllByRoomId(Long roomId);
 

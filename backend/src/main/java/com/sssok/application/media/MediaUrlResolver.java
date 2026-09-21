@@ -2,7 +2,6 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
 import com.sssok.infrastructure.config.DownloadProperties;
 import com.sssok.infrastructure.config.ThumbnailProperties;
 import java.time.Instant;
@@ -32,8 +31,8 @@ public class MediaUrlResolver {
 
         String originalUrl = null;
         Instant originalUrlExpiresAt = null;
-        // 워커가 손대는 중(PROCESSING)이면 원본이 바뀌는 중일 수 있어, READY가 아니면 비운다.
-        if (file.getStatus() == UploadStatus.READY) {
+        // 실물이 없는 RESERVED·FAILED 에서만 비운다.
+        if (file.getStatus().isDownloadable()) {
             originalUrl = fileStoragePort.presignGet(file.getStorageKey(), "inline",
                 file.getMediaType().contentType(), downloadProperties.presignedGetTtl());
             originalUrlExpiresAt = now.plus(downloadProperties.presignedGetTtl());

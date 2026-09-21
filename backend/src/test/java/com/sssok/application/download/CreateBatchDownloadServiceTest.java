@@ -95,7 +95,7 @@ class CreateBatchDownloadServiceTest {
     }
 
     @Test
-    void 처리중인_미디어는_대상에서_빠진다() {
+    void 처리중인_미디어도_원본은_그대로라_대상에_들어간다() {
         StoredFile processing = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "processing.jpg", "image/jpeg",
             new FileSize(1024), Instant.now());
         processing.startProcessing();
@@ -105,6 +105,7 @@ class CreateBatchDownloadServiceTest {
         List<BatchDownloadFile> files =
             createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(processingId, readyId)), null);
 
-        assertThat(files).extracting(BatchDownloadFile::mediaId).containsExactly(readyId);
+        assertThat(files).extracting(BatchDownloadFile::mediaId)
+            .containsExactlyInAnyOrder(processingId, readyId);
     }
 }

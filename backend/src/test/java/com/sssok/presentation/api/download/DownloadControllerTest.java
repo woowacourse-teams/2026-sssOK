@@ -23,7 +23,6 @@ import com.sssok.application.download.exception.InvalidDownloadParamException;
 import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.media.GetMediaDownloadUrlService;
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.MediaNotReadyException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
@@ -124,16 +123,6 @@ class DownloadControllerTest {
         downloadMedia()
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
-    }
-
-    @Test
-    void 단건_다운로드에서_처리중인_미디어면_409() throws Exception {
-        given(getMediaDownloadUrlService.getUrl(anyLong(), anyLong()))
-            .willThrow(new MediaNotReadyException());
-
-        downloadMedia()
-            .andExpect(status().isConflict())
-            .andExpect(jsonPath("$.code").value("MEDIA_NOT_READY"));
     }
 
     @Test
