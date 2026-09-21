@@ -646,8 +646,8 @@ describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
   const listMedia = (roomId = MOCK_ROOM_ID, token = HOST_TOKEN) =>
     fetch(`${API_BASE_URL}/rooms/${roomId}/media`, { headers: { Authorization: token } });
 
-  /** 픽스처로 미리 들어 있는 장수. 등록분은 이 위에 쌓인다. */
-  const SEEDED_COUNT = 13;
+  /** 픽스처로 미리 들어 있는 장수. 등록분은 이 위에 쌓인다. 첫 페이지(30장)보다 많다. */
+  const SEEDED_COUNT = 33;
 
   it("등록이 끝나면 목록 맨 앞에 붙는다", async () => {
     const issued = await issueOne(file("한라산.jpg"));
@@ -657,7 +657,7 @@ describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
 
     const body = await (await listMedia()).json();
 
-    expect(body.data.items).toHaveLength(SEEDED_COUNT + 1);
+    expect(body.data.totalCount).toBe(SEEDED_COUNT + 1);
     expect(body.data.items[0]).toEqual(
       expect.objectContaining({ mediaId: issued.mediaId, fileName: "한라산.jpg" }),
     );
@@ -691,7 +691,7 @@ describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
 
     const body = await (await listMedia()).json();
 
-    expect(body.data.items).toHaveLength(SEEDED_COUNT);
+    expect(body.data.totalCount).toBe(SEEDED_COUNT);
   });
 
   /** 발급 번호가 픽스처(5000~5012)와 겹치면 같은 mediaId 가 목록에 두 번 뜬다. */
