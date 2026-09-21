@@ -1,0 +1,29 @@
+name: Release Check
+
+on:
+  # 릴리스로 가는 두 PR(develop → main, main → deploy)에서만 검사한다.
+  # 일반 작업 브랜치 → develop PR 마다 버전을 올리게 하면 실익 없이 충돌만 늘어난다.
+  pull_request:
+    branches: [ main, deploy ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  version-check:
+    name: 버전 검증
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          # 직전 릴리스 태그와 비교해야 하므로 얕은 클론으로는 부족하다.
+          fetch-depth: 0
+
+      - name: 버전 형식·증가·태그 중복 검증
+        run: bash .github/scripts/check-release-versions.sh

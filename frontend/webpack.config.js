@@ -60,6 +60,9 @@ module.exports = {
       "process.env.API_BASE_URL": JSON.stringify(process.env.API_BASE_URL),
       // 목을 어디까지 씌울지 (full | hybrid | off). src/shared/config/mock.ts 참고
       "process.env.MOCK": JSON.stringify(process.env.MOCK),
+      // PostHog 프로젝트를 바꿔 보낼 때만 넘긴다. src/shared/config/analytics.ts 참고
+      "process.env.POSTHOG_KEY": JSON.stringify(process.env.POSTHOG_KEY),
+      "process.env.POSTHOG_HOST": JSON.stringify(process.env.POSTHOG_HOST),
     }),
 
     new HtmlWebpackPlugin({

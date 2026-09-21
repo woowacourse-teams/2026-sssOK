@@ -37,6 +37,15 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30d}
 
+release:
+  # 통합 릴리스 버전(저장소 루트 VERSION)과 배포 대상 커밋. 배포 파이프라인이 image.env 에 쓰고
+  # docker-compose 가 컨테이너 환경변수로 넘긴다.
+  # 로컬·IDE 실행에는 주입이 없으므로 unknown 으로 떨어뜨린다.
+  version: ${APP_RELEASE_VERSION:unknown}
+  git-sha: ${APP_GIT_SHA:unknown}
+  # 백엔드 버전의 1순위는 JAR 안의 build-info 다. 이 값은 build-info 가 없을 때만 쓰인다.
+  backend-version: ${APP_BACKEND_VERSION:unknown}
+
 cors:
   # 브라우저에서 API를 호출할 수 있는 오리진. 콤마로 구분한다.
   # 로컬 기본값은 application-local.yml, 운영값은 환경변수로 공급한다.
@@ -69,6 +78,34 @@ media:
     sweep-cron: "0 */5 * * * *"
     # 목록 조회 응답에 직접 싣는 썸네일 서명 URL의 유효기간. 다운로드용(5분)보다 길게 잡는다.
     display-url-ttl: 30m
+  video:
+    # 어느 지점의 프레임을 쓸지. 맨 첫 프레임이 검은 화면인 영상이 많아 조금 뒤를 집는다
+    frame-at: 1s
+    # 이 시간을 넘기면 포기하고 썸네일 없이 완료한다
+    timeout: 20s
+    # 이미지 썸네일과 같은 너비여야 한 줄에 섞여도 크기가 맞는다
+    thumbnail-max-width: 400
+    # ffmpeg에 넘길 원본 서명 URL의 유효기간. timeout보다 넉넉해야 추출 도중에 만료되지 않는다
+    source-url-ttl: 10m
+    worker:
+      # ffmpeg 작업이 사진 썸네일·ZIP 압축의 공용 풀을 점유하지 않도록 별도 풀을 쓴다
+      core-size: 2
+      max-size: 2
+      queue-capacity: 50
+
+feedback:
+  # 같은 회원이 이 간격 안에 다시 의견을 보내면 429. 오타를 고쳐 다시 쓰는 정도는 막지 않으면서
+  # 자동화된 반복 등록은 걸러내는 선으로 잡았다.
+  rate-limit-window: 1m
+
+storage:
+  cleanup:
+    # 삭제 커밋 뒤 오브젝트 정리를 비동기로 띄울지. 협력 객체를 목으로 둔 테스트에서만 끈다.
+    auto-purge: true
+    # 이 시간이 지나도 정리 대기열에 남아 있으면 비동기 정리가 유실된 것으로 보고 다시 태운다
+    retry-after: 5m
+    sweep-batch-size: 200
+    sweep-cron: "0 */10 * * * *"
 
 download:
   # 단건 다운로드 리다이렉트 대상 서명 URL의 유효기간

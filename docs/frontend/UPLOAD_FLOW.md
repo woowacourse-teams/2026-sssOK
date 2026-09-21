@@ -484,3 +484,5 @@ JPEG 크기는 **소스 파일 크기가 아니라 장면의 실제 디테일**�
 - **대용량** — 1GB 단일 PUT이 현실적인지 미확인. multipart가 필요할 수 있다.
 - **`PROCESSING → READY`** — 워커도 SSE도 없어서 등록 직후 `PROCESSING` 에 머문다.
   썸네일이 붙는 순간의 화면 갱신은 목으로 못 만든다.
+  이 구간의 원본 다운로드도 목은 409 로 막지만 실서버는 302 를 준다
+  ([#255](https://github.com/woowacourse-teams/2026-sssOK/issues/255)).

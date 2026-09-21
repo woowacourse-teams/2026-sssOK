@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -237,13 +237,14 @@ describe("라우트", () => {
     );
   });
 
-  it("삭제 성공에 JSON 본문이 있어도 갤러리로 돌아가 목록을 다시 조회한다", async () => {
+  it("삭제 성공에 JSON 본문이 있어도 모달 목록에서 사진을 제거한다", async () => {
     const user = userEvent.setup();
-    const listRequests = jest.fn();
     server.use(
       http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, () => {
-        listRequests();
-        return HttpResponse.json({ data: { items: mediaOfRoom(MOCK_ROOM_ID) } });
+        const items = mediaOfRoom(MOCK_ROOM_ID);
+        return HttpResponse.json({
+          data: { items, nextCursor: null, hasNext: false, totalCount: items.length },
+        });
       }),
       http.delete(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/5012`, () => {
         markMediaDeleted(MOCK_ROOM_ID, 5012);
@@ -257,16 +258,12 @@ describe("라우트", () => {
     });
     await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
     await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
-    const requestsBeforeDelete = listRequests.mock.calls.length;
     await user.click(await screen.findByRole("button", { name: "사진 삭제" }));
     expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
-    await waitFor(() =>
-      expect(listRequests.mock.calls.length).toBeGreaterThan(requestsBeforeDelete),
-    );
   });
 
   it("방 생성에 성공하면 생성된 방의 갤러리로 이동한다", async () => {

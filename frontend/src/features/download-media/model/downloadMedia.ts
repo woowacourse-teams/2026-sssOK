@@ -1,4 +1,6 @@
 import { runWithLimit, waitUnlessAborted } from "@/shared/lib";
+import type { MediaUploaderFilter } from "@/entities/media";
+import type { MediaSelectionRequest } from "@/features/select-media";
 import { createBatchDownload } from "../api/createBatchDownload";
 import type { BatchDownloadFile } from "../api/types";
 import { createDownloadJob } from "../api/createDownloadJob";
@@ -27,6 +29,8 @@ import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } fr
 
 export interface DownloadMediaParams {
   roomId: number;
+  selection?: MediaSelectionRequest;
+  uploader?: MediaUploaderFilter;
   targets: DownloadTarget[];
   mode: DownloadMode;
   token: string;
@@ -74,20 +78,19 @@ const toFile = ({ blob, target, fileName }: FetchedMedia) =>
  */
 const fetchAll = async (
   { targets, signal, onProgress, onDownloaded }: DownloadMediaParams,
-  issuedByMediaId: Map<number, BatchDownloadFile>,
+  issuedFiles: BatchDownloadFile[],
   failed: FailedDownload[],
 ) => {
   let aborted = false;
 
-  const results = await runWithLimit(targets, DOWNLOAD_CONCURRENCY, async (target) => {
-    const issuedFile = issuedByMediaId.get(target.mediaId);
-
-    if (issuedFile === undefined) {
-      // 서버가 대상에서 뺐다 (처리 중이거나 사라진 미디어다). 받아볼 주소 자체가 없다.
-      failed.push({ mediaId: target.mediaId, fileName: target.fileName, status: 404 });
-
-      return null;
-    }
+  const targetByMediaId = new Map(targets.map((target) => [target.mediaId, target]));
+  const results = await runWithLimit(issuedFiles, DOWNLOAD_CONCURRENCY, async (issuedFile) => {
+    const target = targetByMediaId.get(issuedFile.mediaId) ?? {
+      mediaId: issuedFile.mediaId,
+      fileName: issuedFile.fileName,
+      size: 0,
+      mimeType: "",
+    };
 
     const result = await fetchMediaBlob({
       url: issuedFile.downloadUrl,
@@ -121,7 +124,12 @@ const fetchAll = async (
 };
 
 export const downloadMedia = async (params: DownloadMediaParams): Promise<DownloadOutcome> => {
-  const { roomId, targets, mode, token, signal, onPhase, onZipProgress, onZipBytes } = params;
+  const { roomId, targets, mode, token, signal, uploader, onPhase, onZipProgress, onZipBytes } =
+    params;
+  const selection = params.selection ?? {
+    mode: "include" as const,
+    ids: targets.map((target) => target.mediaId),
+  };
   const failed: FailedDownload[] = [];
 
   if (mode === "zip") {
@@ -132,7 +140,8 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
       job = await createDownloadJob({
         roomId,
         token,
-        mediaIds: targets.map((target) => target.mediaId),
+        selection,
+        uploader,
       });
     } catch (error) {
       /*
@@ -217,7 +226,8 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
     issued = await createBatchDownload({
       roomId,
       token,
-      mediaIds: targets.map((target) => target.mediaId),
+      selection,
+      uploader,
     });
   } catch (error) {
     return {
@@ -227,9 +237,14 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
     };
   }
 
-  const issuedByMediaId = new Map(issued.files.map((file) => [file.mediaId, file]));
+  const issuedIds = new Set(issued.files.map((file) => file.mediaId));
+  for (const target of targets) {
+    if (!issuedIds.has(target.mediaId)) {
+      failed.push({ mediaId: target.mediaId, fileName: target.fileName, status: 404 });
+    }
+  }
 
-  const { fetched, aborted } = await fetchAll(params, issuedByMediaId, failed);
+  const { fetched, aborted } = await fetchAll(params, issued.files, failed);
 
   if (aborted || signal?.aborted) {
     return { type: "aborted" };

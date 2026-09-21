@@ -2,6 +2,7 @@ package com.sssok.application.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -11,7 +12,11 @@ import static org.mockito.Mockito.verify;
 import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.application.port.out.VideoFrameExtractorPort;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
@@ -23,6 +28,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.Optional;
@@ -54,11 +60,19 @@ class GenerateThumbnailServiceTest {
     @MockitoBean
     FileStoragePort fileStoragePort;
 
+    // ffmpeg 실행 파일은 테스트가 도는 환경에 없을 수 있다. 추출기 자체는
+    // FfmpegVideoFrameExtractorTest 가 실물로 검증하고, 여기서는 워커의 분기만 본다.
+    @MockitoBean
+    VideoFrameExtractorPort videoFrameExtractor;
+
     private ByteArrayOutputStream uploaded;
 
     @BeforeEach
     void setUp() {
         uploaded = new ByteArrayOutputStream();
+        // 영상 경로는 원본을 내려받는 대신 이 주소를 추출기에 넘긴다.
+        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any()))
+            .willReturn("https://r2.example.com/원본?sig=아무거나");
         given(fileStoragePort.openUploadStream(any(), anyString()))
             .willReturn(new AbortableOutputStream() {
                 @Override
@@ -143,17 +157,133 @@ class GenerateThumbnailServiceTest {
         assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("jpeg");
     }
 
-    // 프레임을 뽑으려면 별도 도구가 필요하다. PROCESSING 에 두면 다운로드가 영영 409 로 막힌다.
     @Test
-    void 영상은_썸네일_없이_READY로_넘긴다() {
+    void 영상은_뽑아낸_프레임을_썸네일로_올리고_READY로_넘긴다() {
         StoredFile file = processing("영상.mp4", "video/mp4");
+        givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
+        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().thumbnail());
+    }
+
+    // 클라이언트가 자리를 미리 잡는 데 쓰는 값이라, 썸네일이 아니라 원본 영상의 크기여야 한다.
+    @Test
+    void 영상은_썸네일이_아니라_원본의_크기를_저장한다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getWidth()).isEqualTo(1920);
+        assertThat(after.getHeight()).isEqualTo(1080);
+    }
+
+    @Test
+    void 영상은_재생시간을_저장한다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        assertThat(reload(file).getDurationSeconds()).isEqualTo(12);
+    }
+
+    // 세로로 찍은 영상이 가로로 눕지 않아야 한다. 추출기가 회전을 반영해 알려준 대로 저장한다.
+    @Test
+    void 세로로_찍은_영상은_세로_크기로_저장한다() {
+        StoredFile file = processing("세로영상.mov", "video/quicktime");
+        givenExtractedFrame(new ExtractedFrame(1080, 1920, 5, null, null, image(400, 711, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getWidth()).isEqualTo(1080);
+        assertThat(after.getHeight()).isEqualTo(1920);
+    }
+
+    // 원본이 video/mp4 여도 썸네일 자체는 JPEG 다. 원본 타입으로 올리면 브라우저가 그리지 못한다.
+    @Test
+    void 영상_썸네일은_JPEG로_올린다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        verify(fileStoragePort).openUploadStream(any(), eq("image/jpeg"));
+    }
+
+    // 영상은 최대 1GB 라, 통째로 내려받으면 힙이 터진다. 서명 URL 만 넘겨야 한다.
+    @Test
+    void 영상_원본은_통째로_내려받지_않는다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        verify(fileStoragePort, never()).openDownloadStream(any());
+    }
+
+    // FAILED 로 내리면 원본이 멀쩡한데 목록에서 사라지고, PROCESSING 에 두면 회수 배치가
+    // 같은 결과를 내는 작업을 5분마다 영원히 다시 집어 든다.
+    @Test
+    void 프레임을_뽑지_못한_영상은_썸네일_없이_READY로_넘긴다() {
+        StoredFile file = processing("깨진영상.mp4", "video/mp4");
+        given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
+            .willReturn(ExtractionResult.unreadable());
 
         generateThumbnailService.generate(file.getId());
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
         assertThat(after.getThumbnailKey()).isNull();
-        verify(fileStoragePort, never()).openDownloadStream(any());
+        assertThat(after.getDurationSeconds()).isNull();
+    }
+
+    // 위와 짝이 되는 경우다. R2 가 잠깐 흔들린 것까지 READY 로 확정하면 멀쩡한 영상이
+    // 썸네일 없이 굳어 손으로 고칠 방법이 없다.
+    @Test
+    void 일시적인_실패로_프레임을_못_뽑은_영상은_PROCESSING으로_남긴다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
+            .willReturn(ExtractionResult.retryLater());
+
+        generateThumbnailService.generate(file.getId());
+
+        assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.PROCESSING);
+    }
+
+    // 상세 화면이 사진인지 영상인지 가리지 않고 같은 필드를 읽도록, 사진의 EXIF 와 같은 자리에 담는다.
+    @Test
+    void 영상의_촬영_시각과_좌표를_저장한다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        Instant takenAt = Instant.parse("2026-09-20T14:30:00Z");
+        GeoPoint location = GeoPoint.ofNullable(
+            new BigDecimal("37.566500"), new BigDecimal("126.978000"));
+        givenExtractedFrame(new ExtractedFrame(
+            1920, 1080, 12, takenAt, location, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getTakenAt()).isEqualTo(takenAt);
+        assertThat(after.getLocation()).isEqualTo(location);
+    }
+
+    // 컨테이너가 재생시간을 적어두지 않아도 썸네일까지 포기할 이유는 없다.
+    @Test
+    void 재생시간을_모르는_영상도_썸네일은_만든다() {
+        StoredFile file = processing("영상.webm", "video/webm");
+        givenExtractedFrame(new ExtractedFrame(1280, 720, null, null, null, image(400, 225, "jpg")));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getThumbnailKey()).isNotNull();
+        assertThat(after.getDurationSeconds()).isNull();
     }
 
     // 다시 시도해도 결과가 같은 유일한 경우다.
@@ -192,7 +322,7 @@ class GenerateThumbnailServiceTest {
     @Test
     void 이미_READY인_미디어는_건드리지_않는다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
-        file.completeProcessing(new ProcessedMedia(file.getStorageKey().thumbnail(), 100, 100, null, null));
+        file.completeProcessing(ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), 100, 100, null, null));
         fileRepository.save(file);
 
         generateThumbnailService.generate(file.getId());
@@ -228,6 +358,11 @@ class GenerateThumbnailServiceTest {
     private void givenOriginal(StorageKey key, byte[] content) {
         given(fileStoragePort.openDownloadStream(key))
             .willAnswer(call -> new ByteArrayInputStream(content));
+    }
+
+    private void givenExtractedFrame(ExtractedFrame frame) {
+        given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
+            .willReturn(ExtractionResult.extracted(frame));
     }
 
     private void givenOriginal(byte[] content) {

@@ -136,7 +136,7 @@ class GetMediaServiceTest {
         assertThat(getMediaService.get(roomId, file.getId(), other).canDelete()).isFalse();
     }
 
-    // 워커가 손대는 중이면 원본이 바뀌는 중일 수 있어 표시용 주소를 주지 않는다.
+    // 썸네일은 워커가 붙이기 전까지 없지만, 원본은 PROCESSING 구간에도 그대로 있어 내려준다.
     @Test
     void 워커가_채우는_값은_처리_전까지_비어_있다() {
         StoredFile file = save(roomId, UploadStatus.PROCESSING);
@@ -145,11 +145,19 @@ class GetMediaServiceTest {
 
         assertThat(media.thumbnailUrl()).isNull();
         assertThat(media.thumbnailUrlExpiresAt()).isNull();
-        assertThat(media.originalUrl()).isNull();
-        assertThat(media.originalUrlExpiresAt()).isNull();
         assertThat(media.width()).isNull();
         assertThat(media.height()).isNull();
         assertThat(media.duration()).isNull();
+    }
+
+    @Test
+    void 처리_중이어도_원본_주소는_내려준다() {
+        StoredFile file = save(roomId, UploadStatus.PROCESSING);
+
+        MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
+
+        assertThat(media.originalUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.originalUrlExpiresAt()).isNotNull();
     }
 
     @Test
@@ -190,7 +198,7 @@ class GetMediaServiceTest {
             .isInstanceOf(MediaNotFoundException.class);
     }
 
-    // 아직 처리 중이어도 실물은 스토리지에 있어 목록·단건에는 나온다. 다운로드만 409 로 막는다.
+    // 아직 처리 중이어도 실물은 스토리지에 있어 목록·단건에 나오고, 원본 다운로드도 된다.
     @Test
     void PROCESSING_상태도_조회된다() {
         StoredFile file = save(roomId, UploadStatus.PROCESSING);
@@ -229,7 +237,7 @@ class GetMediaServiceTest {
     // 워커가 처리를 마친 상태. 썸네일 키와 크기, 촬영 정보가 채워져 있다.
     private StoredFile processed(Long targetRoomId, Instant takenAt, GeoPoint location) {
         StoredFile file = save(targetRoomId, UploadStatus.PROCESSING);
-        file.completeProcessing(new ProcessedMedia(
+        file.completeProcessing(ProcessedMedia.ofImage(
             file.getStorageKey().thumbnail(), 1200, 900, takenAt, location));
         return fileRepository.save(file);
     }

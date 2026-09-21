@@ -46,7 +46,8 @@ public class DownloadController {
         description = "미디어 원본을 업로드 당시 파일명 그대로 내려받는다. 유효기간 5분짜리 스토리지 서명 URL로 302 "
             + "리다이렉트하며, 바디는 없다. 서명 URL의 Content-Disposition에는 ASCII 폴백(filename)과 RFC 5987 "
             + "UTF-8 인코딩(filename*)이 함께 실려 있어 한글 파일명도 깨지지 않는다. 없는 mediaId, 삭제됨, 다른 방의 "
-            + "미디어면 404가 나고, 아직 처리 중인 미디어면 409가 난다."
+            + "미디어면 404가 난다. 원본 업로드가 끝난 PROCESSING·READY 미디어는 다운로드할 수 있고, 실물이 없는 "
+            + "RESERVED·FAILED 미디어는 404가 난다."
     )
     @GetMapping("/media/{mediaId}")
     public ResponseEntity<Void> downloadMedia(
@@ -60,10 +61,16 @@ public class DownloadController {
 
     @Operation(
         summary = "다건 다운로드 URL 발급",
-        description = "선택한 미디어들을 압축 없이 파일마다 서명 다운로드 URL로 즉시 받는다. mediaIds와 folderId를 "
-            + "동시에 보내면 400, mediaIds가 1000개를 초과하면 400이 난다. 둘 다 생략하면 방 전체 미디어가 대상이다. "
-            + "처리 중인 미디어는 대상에서 제외되며, 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 "
-            + "다운로드와 같다(기본 5분)."
+        description = "선택한 미디어들을 압축 없이 파일마다 서명 다운로드 URL로 즉시 받는다. selection.mode가 include면 "
+            + "ids만, exclude면 방 전체에서 ids를 제외한다. include+빈 ids는 빈 선택, exclude+빈 ids는 전체 선택이다. "
+            + "selection과 folderId를 동시에 보내면 400이며 둘 다 생략해도 400이다. 해석된 실제 대상이 1000개를 "
+            + "초과하면 400이 난다. 다른 방 또는 존재하지 않는 ID는 대상에서 제외한다. "
+            + "원본 업로드가 끝난 PROCESSING·READY 미디어는 대상에 포함하고, 실물이 없는 RESERVED·FAILED 미디어는 "
+            + "제외한다. 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 다운로드와 같다(기본 5분). "
+            + "uploader는 ALL(전체)·ME(내가 올린 것)·OTHERS(남이 올린 것)로 대상을 좁히며 "
+            + "생략하면 ALL, 지원하지 않는 값은 400이다. "
+            + "selection과 folderId 중 어느 쪽을 쓰든 uploader는 그 위에 함께 적용된다. "
+            + "예: {\"folderId\":31,\"uploader\":\"ME\"} 는 31번 폴더에서 내가 올린 미디어만 받는다."
     )
     @PostMapping("/batch")
     public ApiResponse<CreateBatchDownloadResponse> createBatch(
@@ -72,16 +79,26 @@ public class DownloadController {
         @RequestBody CreateBatchDownloadRequest request
     ) {
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(roomId, request.mediaIds(), request.folderId());
+            createBatchDownloadService.create(roomId, memberId,
+                request == null || request.selection() == null ? null : request.selection().toSelection(),
+                request == null ? null : request.folderId(),
+                request == null ? null : request.uploader());
         return ApiResponse.of(CreateBatchDownloadResponse.from(files));
     }
 
     @Operation(
         summary = "zip 다운로드 요청",
         description = "선택한 미디어들을 하나의 zip으로 압축하는 작업을 생성한다. 즉시 완료되지 않고 jobId를 돌려준다. "
-            + "mediaIds와 folderId를 동시에 보내면 400, mediaIds가 1000개를 초과하면 400이 난다. "
-            + "둘 다 생략하면 방 전체 미디어가 대상이다. 처리 중인 미디어는 압축 대상과 mediaCount에서 제외되며, "
-            + "그 결과 대상이 하나도 없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다."
+            + "selection.mode가 include면 ids만, exclude면 방 전체에서 ids를 제외한다. include+빈 ids는 빈 선택, "
+            + "exclude+빈 ids는 전체 선택이다. selection과 folderId를 동시에 보내거나 둘 다 생략하면 400이며, "
+            + "해석된 실제 대상이 1000개를 초과하면 400이 난다. 원본 업로드가 끝난 PROCESSING·READY 미디어는 "
+            + "압축 대상과 mediaCount에 포함하고, 실물이 없는 RESERVED·FAILED 미디어는 제외한다. 그 결과 대상이 하나도 "
+            + "없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다. "
+            + "uploader는 ALL(전체)·ME(내가 올린 것)·OTHERS(남이 올린 것)로 대상을 좁히며 "
+            + "생략하면 ALL, 지원하지 않는 값은 400이다. "
+            + "selection과 folderId 중 어느 쪽을 쓰든 uploader는 그 위에 함께 적용된다. "
+            + "mediaCount는 uploader까지 적용한 최종 대상 수이며, 실제 압축 대상과 항상 같다. "
+            + "예: {\"folderId\":31,\"uploader\":\"ME\"} 는 31번 폴더에서 내가 올린 미디어만 압축한다."
     )
     @PostMapping("/zip")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -91,7 +108,10 @@ public class DownloadController {
         @RequestBody CreateDownloadJobRequest request
     ) {
         CreateDownloadJobResult result =
-            createDownloadJobService.create(roomId, memberId, request.mediaIds(), request.folderId());
+            createDownloadJobService.create(roomId, memberId,
+                request == null || request.selection() == null ? null : request.selection().toSelection(),
+                request == null ? null : request.folderId(),
+                request == null ? null : request.uploader());
         return ApiResponse.of(CreateDownloadJobResponse.from(result));
     }
 

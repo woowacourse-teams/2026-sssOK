@@ -42,6 +42,7 @@ export const Default: Story = {
     targets: [targetOf(5000)],
     roomId: MOCK_ROOM_ID,
     roomCode: ROOM_CODE,
+    roomPhotoCount: 10,
     token: TOKEN,
     onClearSelection: () => {},
   },
@@ -53,6 +54,7 @@ export const ManySelected: Story = {
     targets: Array.from({ length: 132 }, (_, index) => targetOf(5000 + index)),
     roomId: MOCK_ROOM_ID,
     roomCode: ROOM_CODE,
+    roomPhotoCount: 10,
     token: TOKEN,
     onClearSelection: () => {},
   },
@@ -64,6 +66,7 @@ export const NothingSelected: Story = {
     targets: [],
     roomId: MOCK_ROOM_ID,
     roomCode: ROOM_CODE,
+    roomPhotoCount: 10,
     token: TOKEN,
     onClearSelection: () => {},
   },
@@ -115,6 +118,7 @@ const LiveDownload = () => {
       targets={targets}
       roomId={MOCK_ROOM_ID}
       roomCode={ROOM_CODE}
+      roomPhotoCount={10}
       token={TOKEN}
       onClearSelection={() => setTargets([])}
     />
@@ -127,6 +131,7 @@ export const LiveRun: Story = {
     targets: [],
     roomId: MOCK_ROOM_ID,
     roomCode: ROOM_CODE,
+    roomPhotoCount: 10,
     token: TOKEN,
     onClearSelection: () => {},
   },

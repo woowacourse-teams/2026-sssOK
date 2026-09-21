@@ -2,7 +2,6 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
 import com.sssok.infrastructure.config.DownloadProperties;
 import com.sssok.infrastructure.config.ThumbnailProperties;
 import java.time.Instant;
@@ -23,17 +22,19 @@ public class MediaUrlResolver {
         Instant now = Instant.now();
         String thumbnailUrl = null;
         Instant thumbnailUrlExpiresAt = null;
-        // 워커가 아직 만들지 않았거나(PROCESSING) 영상이라 만들 수 없으면 비운다.
+        // 워커가 아직 만들지 않았거나(PROCESSING) 추출에 실패했으면 비운다.
+        // 서명에는 썸네일 자체의 형식을 쓴다 — 영상 썸네일을 video/mp4 로 서명하면
+        // 브라우저가 <img> 로 그리지 못한다.
         if (file.getThumbnailKey() != null) {
             thumbnailUrl = fileStoragePort.presignGet(file.getThumbnailKey(), "inline",
-                file.getMediaType().contentType(), thumbnailProperties.displayUrlTtl());
+                file.thumbnailContentType(), thumbnailProperties.displayUrlTtl());
             thumbnailUrlExpiresAt = now.plus(thumbnailProperties.displayUrlTtl());
         }
 
         String originalUrl = null;
         Instant originalUrlExpiresAt = null;
-        // 워커가 손대는 중(PROCESSING)이면 원본이 바뀌는 중일 수 있어, READY가 아니면 비운다.
-        if (file.getStatus() == UploadStatus.READY) {
+        // 실물이 없는 RESERVED·FAILED 에서만 비운다.
+        if (file.getStatus().isDownloadable()) {
             originalUrl = fileStoragePort.presignGet(file.getStorageKey(), "inline",
                 file.getMediaType().contentType(), downloadProperties.presignedGetTtl());
             originalUrlExpiresAt = now.plus(downloadProperties.presignedGetTtl());

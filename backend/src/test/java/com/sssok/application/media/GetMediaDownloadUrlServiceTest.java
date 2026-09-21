@@ -9,7 +9,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.MediaNotReadyException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.FileSize;
@@ -87,11 +86,12 @@ class GetMediaDownloadUrlServiceTest {
     }
 
     @Test
-    void PROCESSING_상태면_409() {
+    void 썸네일이_아직_없는_PROCESSING_상태여도_원본_URL을_내려준다() {
         StoredFile file = save(ROOM_ID, UploadStatus.PROCESSING);
 
-        assertThatThrownBy(() -> getMediaDownloadUrlService.getUrl(ROOM_ID, file.getId()))
-            .isInstanceOf(MediaNotReadyException.class);
+        String url = getMediaDownloadUrlService.getUrl(ROOM_ID, file.getId());
+
+        assertThat(url).isEqualTo(PRESIGNED);
     }
 
     @Test

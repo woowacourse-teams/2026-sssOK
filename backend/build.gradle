@@ -5,8 +5,14 @@ plugins {
 }
 
 group = 'com'
-version = '0.0.1-SNAPSHOT'
+// version 은 gradle.properties 가 갖는다 (릴리스 때 그 파일만 고치면 되도록).
 description = 'sssOK'
+
+springBoot {
+    // JAR 안에 META-INF/build-info.properties 를 넣어, 실행 중인 앱이 자기 버전과 빌드 시각을 읽게 한다.
+    // 로컬·IDE 실행에는 이 파일이 없을 수 있으므로 읽는 쪽에서 부재를 허용한다 (VersionConfig).
+    buildInfo()
+}
 
 java {
     toolchain {
@@ -47,6 +53,9 @@ dependencies {
     // EXIF 촬영 시각·GPS 추출
     implementation 'com.drewnoakes:metadata-extractor:2.19.0'
 
+    // 관리자 비밀번호 해싱. 시큐리티 필터 체인은 쓰지 않으므로 starter 대신 crypto 모듈만 가져온다.
+    implementation 'org.springframework.security:spring-security-crypto'
+
     // JWT
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
@@ -76,3 +85,4 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+

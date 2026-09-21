@@ -22,6 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       image: ${{ steps.meta.outputs.image }}
+      repo: ${{ steps.meta.outputs.repo }}
+      release-version: ${{ steps.version.outputs.release }}
+      backend-version: ${{ steps.version.outputs.backend }}
 
     steps:
       - name: 코드 체크아웃
@@ -34,6 +37,16 @@ jobs:
           REPO_LOWER=$(echo "ghcr.io/${GITHUB_REPOSITORY}/backend" | tr '[:upper:]' '[:lower:]')
           echo "repo=${REPO_LOWER}" >> "$GITHUB_OUTPUT"
           echo "image=${REPO_LOWER}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: 버전 정보 읽기
+        id: version
+        run: |
+          set -eu
+          RELEASE_VERSION="$(tr -d ' \t\r\n' < VERSION)"
+          BACKEND_VERSION="$(sed -n 's/^version=//p' backend/gradle.properties | tail -n 1 | tr -d ' \t\r')"
+          echo "release=${RELEASE_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "backend=${BACKEND_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "통합 릴리스 ${RELEASE_VERSION} / 백엔드 ${BACKEND_VERSION} / 커밋 ${GITHUB_SHA}"
 
       - name: JDK 21 설정
         uses: actions/setup-java@v4
@@ -71,9 +84,16 @@ jobs:
           # 이미지 조립은 미리 빌드된 JAR을 복사만 하므로,
           # QEMU 에뮬레이션 비용 없이 두 아키텍처 모두 빠르게 빌드된다.
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ steps.meta.outputs.image }}
-            ${{ steps.meta.outputs.repo }}:latest
+          # 여기서는 변하지 않는 커밋 SHA 태그만 올린다.
+          # backend-v*·release-v*·latest 는 "지금 운영에 나가 있는 이미지"를 가리키는 별칭이라,
+          # 헬스체크가 성공한 뒤 별도 잡에서 붙인다 — 배포가 실패해 롤백됐는데 별칭만 새 이미지를
+          # 가리키면 레지스트리가 운영 상태를 잘못 알려주게 된다.
+          tags: ${{ steps.meta.outputs.image }}
+          build-args: |
+            RELEASE_VERSION=${{ steps.version.outputs.release }}
+            BACKEND_VERSION=${{ steps.version.outputs.backend }}
+            GIT_SHA=${{ github.sha }}
+            SOURCE_URL=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -102,6 +122,9 @@ jobs:
       - name: 이미지 교체 및 헬스체크
         env:
           NEW_IMAGE: ${{ needs.build.outputs.image }}
+          APP_RELEASE_VERSION: ${{ needs.build.outputs.release-version }}
+          APP_BACKEND_VERSION: ${{ needs.build.outputs.backend-version }}
+          APP_GIT_SHA: ${{ github.sha }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -110,6 +133,31 @@ jobs:
           cd "$DEPLOY_PATH"
 
           COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml"
+          IMAGE_REPOSITORY="${NEW_IMAGE%:*}"
+
+          cleanup_old_images() {
+            CURRENT_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env 2>/dev/null | tail -n 1)"
+            PREVIOUS_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env.prev 2>/dev/null | tail -n 1)"
+
+            echo "미사용 이전 이미지 정리 시작 (현재·직전 이미지는 보존)"
+            docker image ls "$IMAGE_REPOSITORY" --format '{{.Repository}}:{{.Tag}}' |
+              while IFS= read -r IMAGE; do
+                [ "$IMAGE" = "$CURRENT_IMAGE" ] && continue
+                [ "$IMAGE" = "$PREVIOUS_IMAGE" ] && continue
+                [ "${IMAGE##*:}" = '<none>' ] && continue
+                docker image rm "$IMAGE" || true
+              done
+            docker image prune -f > /dev/null 2>&1 || true
+          }
+
+          finish() {
+            cleanup_old_images
+            docker logout ghcr.io > /dev/null 2>&1 || true
+          }
+          trap finish EXIT
+
+          # pull 전에 공간을 확보해 디스크 부족으로 배포가 시작조차 못 하는 상황을 막는다.
+          cleanup_old_images
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
@@ -117,7 +165,14 @@ jobs:
           if [ -f image.env ]; then
             cp image.env image.env.prev
           fi
-          echo "BACKEND_IMAGE=$NEW_IMAGE" > image.env
+          # 이미지와 버전을 한 파일에 같이 둔다 — 롤백으로 image.env.prev 를 되돌리면
+          # 그 이미지가 실제로 배포됐을 때의 버전 정보도 같이 돌아간다.
+          {
+            echo "BACKEND_IMAGE=$NEW_IMAGE"
+            echo "APP_RELEASE_VERSION=$APP_RELEASE_VERSION"
+            echo "APP_BACKEND_VERSION=$APP_BACKEND_VERSION"
+            echo "APP_GIT_SHA=$APP_GIT_SHA"
+          } > image.env
 
           $COMPOSE pull
           $COMPOSE up -d
@@ -127,8 +182,6 @@ jobs:
           for i in $(seq 1 30); do
             if curl -fsS http://localhost/health > /dev/null 2>&1; then
               echo "헬스체크 성공 ($i번째 시도)"
-              docker image prune -f > /dev/null 2>&1 || true
-              docker logout ghcr.io > /dev/null 2>&1 || true
               exit 0
             fi
             sleep 5
@@ -145,5 +198,123 @@ jobs:
             echo "직전 버전이 없어 롤백하지 못했다 (최초 배포로 추정)"
           fi
 
-          docker logout ghcr.io > /dev/null 2>&1 || true
           exit 1
+
+  alias:
+    name: 이미지 버전 별칭 발행
+    needs: [ build, deploy ]
+    # 헬스체크까지 성공한 이미지에만 별칭을 옮긴다. 배포가 실패해 롤백되면 별칭은 직전 이미지에
+    # 그대로 남아, 레지스트리가 실제 운영 상태와 어긋나지 않는다.
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+
+    steps:
+      - name: Buildx 설정
+        uses: docker/setup-buildx-action@v3
+
+      - name: GHCR 로그인
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 별칭 태그 붙이기
+        env:
+          IMAGE: ${{ needs.build.outputs.image }}
+          REPO: ${{ needs.build.outputs.repo }}
+          RELEASE_VERSION: ${{ needs.build.outputs.release-version }}
+          BACKEND_VERSION: ${{ needs.build.outputs.backend-version }}
+        run: |
+          set -eu
+          # 이미지를 다시 빌드하거나 받지 않고 레지스트리의 매니페스트에 이름만 더 붙인다.
+          # (imagetools 는 멀티아키 매니페스트 리스트를 그대로 보존한다)
+          docker buildx imagetools create \
+            --tag "${REPO}:backend-v${BACKEND_VERSION}" \
+            --tag "${REPO}:release-v${RELEASE_VERSION}" \
+            --tag "${REPO}:latest" \
+            "$IMAGE"
+          echo "별칭 발행 완료: backend-v${BACKEND_VERSION}, release-v${RELEASE_VERSION}, latest -> ${IMAGE}"
+
+  tag:
+    name: 릴리스 태그 생성
+    needs: deploy
+    # 운영 헬스체크까지 성공한 뒤에만 찍는다. 배포가 실패하면 그 버전의 성공 태그는 남지 않는다.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          # 직전 릴리스 태그와 비교해야 하므로 얕은 클론으로는 부족하다.
+          fetch-depth: 0
+
+      - name: 태그 및 릴리스 생성
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+
+          RELEASE_VERSION="$(tr -d ' \t\r\n' < VERSION)"
+          BACKEND_VERSION="$(sed -n 's/^version=//p' backend/gradle.properties | tail -n 1 | tr -d ' \t\r')"
+          FRONTEND_VERSION="$(node -p "require('./frontend/package.json').version")"
+          RELEASE_TAG="release-v${RELEASE_VERSION}"
+
+          # 직전 통합 릴리스 이후 실제로 바뀐 서비스에만 서비스 태그를 만든다.
+          # 이번 릴리스 태그 자신은 비교 대상에서 뺀다 — 일부만 만들어진 채 실패한 뒤 재실행하면
+          # 자기 자신이 "직전 릴리스"로 잡혀 변경 없음으로 오판하게 된다.
+          PREVIOUS_RELEASE="$(git tag -l 'release-v*' --sort=-v:refname | grep -vx "$RELEASE_TAG" | head -1 || true)"
+          changed() {
+            [ -z "$PREVIOUS_RELEASE" ] && return 0
+            ! git diff --quiet "$PREVIOUS_RELEASE" "$GITHUB_SHA" -- "$1"
+          }
+
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # 이미 있으면 이번 배포 커밋을 가리키는지 확인하고, 없을 때만 만든다.
+          # 태그·릴리스를 각각 판정하므로 일부만 만들어진 상태에서 재실행하면 나머지가 채워진다.
+          MISMATCH=0
+          ensure_tag() {
+            TAG="$1"
+            if git rev-parse -q --verify "refs/tags/${TAG}" > /dev/null; then
+              TAGGED_SHA="$(git rev-list -n 1 "refs/tags/${TAG}")"
+              if [ "$TAGGED_SHA" != "$GITHUB_SHA" ]; then
+                echo "::error::${TAG} 가 이번 배포 커밋이 아니라 ${TAGGED_SHA} 를 가리킨다. 버전을 올리지 않고 배포했을 가능성이 높다."
+                MISMATCH=1
+                return
+              fi
+              echo "${TAG}: 이미 이번 배포 커밋을 가리킨다"
+              return
+            fi
+            git tag -a "$TAG" -m "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+            echo "${TAG}: 생성"
+          }
+
+          ensure_tag "$RELEASE_TAG"
+          changed backend/ && ensure_tag "backend-v${BACKEND_VERSION}"
+          changed frontend/ && ensure_tag "frontend-v${FRONTEND_VERSION}"
+
+          if [ "$MISMATCH" -ne 0 ]; then
+            echo "::error::태그가 이번 배포 커밋과 어긋나 릴리스 생성을 중단한다. 루트 VERSION 을 올렸는지 확인한다."
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            echo "${RELEASE_TAG}: 릴리스가 이미 있다"
+            exit 0
+          fi
+
+          {
+            echo "통합 릴리스: ${RELEASE_VERSION}"
+            echo "프론트엔드: ${FRONTEND_VERSION}"
+            echo "백엔드: ${BACKEND_VERSION}"
+            echo "배포 커밋: ${GITHUB_SHA}"
+          } > release-notes.md
+
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file release-notes.md
+          echo "${RELEASE_TAG}: 릴리스 생성"

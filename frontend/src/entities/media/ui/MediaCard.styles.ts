@@ -49,10 +49,10 @@ export const SelectionMark = styled.button<{ $selected: boolean }>`
   place-items: center;
   width: 26px;
   height: 26px;
+  border: 1px solid ${({ $selected }) => ($selected ? colors.primary : colors.borderDisabled)};
   border-radius: ${radius.full};
-  background-color: ${({ $selected }) =>
-    $selected ? colors.primary : "rgba(255, 255, 255, 0.88)"};
-  color: ${({ $selected }) => ($selected ? colors.textInverse : colors.textSecondary)};
+  background-color: ${({ $selected }) => ($selected ? colors.primary : colors.backgroundDefault)};
+  color: ${({ $selected }) => ($selected ? colors.textInverse : colors.borderDisabled)};
 
   &:focus-visible {
     outline: 2px solid ${colors.primary};

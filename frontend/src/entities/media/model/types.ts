@@ -1,5 +1,8 @@
 export type PhotoFilter = "all" | "mine" | "others";
 
+/** 목록 조회의 `uploader` 파라미터. backend 표기 그대로다. */
+export type MediaUploaderFilter = "ALL" | "ME" | "OTHERS";
+
 /** backend MediaStatus 와 같다. 워커가 처리를 마치면 READY 가 된다. */
 export type MediaStatus = "RESERVED" | "PROCESSING" | "READY" | "FAILED";
 
@@ -43,9 +46,25 @@ export interface MediaItem extends Media {
   status: "READY";
 }
 
+/**
+ * 목록 조회 한 페이지. 서버가 최신순으로 잘라 내려준다.
+ *
+ * `nextCursor` 는 **문자열**이다 — 서버가 필터(폴더·업로더)와 묶어 서명한 값이라
+ * 필터를 바꾼 뒤 이전 커서를 보내면 400 `INVALID_CURSOR` 가 난다.
+ */
 export interface MediaList {
   items: MediaItem[];
+  /** 마지막 페이지면 null 이다. */
+  nextCursor: string | null;
+  hasNext: boolean;
+  /** 요청 시점에 조건을 만족하는 전체 개수. 페이지를 넘기는 동안 달라질 수 있다. */
+  totalCount: number;
 }
+
+/** 갤러리와 뷰어가 공유하는 사진 한 자리. */
+export type GalleryItem =
+  | { mediaId: number; type: "local"; file: File; folderIds: number[] }
+  | { mediaId: number; type: "server"; media: MediaItem; folderIds: number[] };
 
 /** 단일 조회에는 썸네일 대신 원본과 촬영 정보·삭제 권한이 내려온다. */
 export interface MediaDetail extends Omit<Media, "thumbnailUrl"> {

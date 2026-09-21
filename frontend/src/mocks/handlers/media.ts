@@ -28,18 +28,36 @@ const notFound = () => error(404, "MEDIA_NOT_FOUND", "미디어를 찾을 수 �
 const forbidden = () =>
   error(403, "MEDIA_FORBIDDEN", "다른 사람이 올린 파일이라 삭제할 수 없습니다");
 
+const selectedIdsOf = (body: Record<string, unknown>, roomId: number) => {
+  if (Array.isArray(body.mediaIds)) return [...new Set<number>(body.mediaIds)];
+  if (!body.selection || typeof body.selection !== "object") return null;
+  const selection = body.selection as Record<string, unknown>;
+  if (!Array.isArray(selection.ids)) return null;
+  const ids = [...new Set<number>(selection.ids)];
+  if (selection.mode === "include") return ids;
+  if (selection.mode === "exclude") {
+    const excluded = new Set(ids);
+    return mediaOfRoom(roomId)
+      .map((media) => media.mediaId)
+      .filter((mediaId) => !excluded.has(mediaId));
+  }
+  return null;
+};
+
 export const mediaHandlers = [
   http.put(`${API_BASE_URL}/rooms/:roomId/media/folders`, async ({ request, params }) => {
     const roomId = Number(params.roomId);
     const auth = authorize(request, roomId);
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
+    const mediaIds =
+      body && typeof body === "object"
+        ? selectedIdsOf(body as Record<string, unknown>, roomId)
+        : null;
     if (
       !body ||
       typeof body !== "object" ||
-      !("mediaIds" in body) ||
-      !Array.isArray(body.mediaIds) ||
-      body.mediaIds.length === 0 ||
+      mediaIds === null ||
       (!("folderIds" in body) && !("folderId" in body))
     ) {
       return error(400, "INVALID_PARAM", "미디어와 폴더를 선택해 주세요.");
@@ -65,7 +83,7 @@ export const mediaHandlers = [
     let updatedCount = 0;
     let alreadyInCount = 0;
     const notFoundMediaIds: number[] = [];
-    for (const mediaId of [...new Set<number>(body.mediaIds)]) {
+    for (const mediaId of mediaIds) {
       const media = mediaById.get(mediaId);
       if (!media) {
         notFoundMediaIds.push(mediaId);
@@ -98,12 +116,14 @@ export const mediaHandlers = [
     const auth = authorize(request, roomId);
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
+    const mediaIds =
+      body && typeof body === "object"
+        ? selectedIdsOf(body as Record<string, unknown>, roomId)
+        : null;
     if (
       !body ||
       typeof body !== "object" ||
-      !("mediaIds" in body) ||
-      !Array.isArray(body.mediaIds) ||
-      body.mediaIds.length === 0 ||
+      mediaIds === null ||
       !("folderIds" in body) ||
       !Array.isArray(body.folderIds) ||
       body.folderIds.length === 0
@@ -120,7 +140,7 @@ export const mediaHandlers = [
     let updatedCount = 0;
     const movedToRootMediaIds: number[] = [];
     const notFoundMediaIds: number[] = [];
-    for (const mediaId of [...new Set<number>(body.mediaIds)]) {
+    for (const mediaId of mediaIds) {
       const media = mediaById.get(mediaId);
       if (!media) {
         notFoundMediaIds.push(mediaId);
@@ -195,19 +215,18 @@ export const mediaHandlers = [
     const auth = authorize(request, roomId);
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
+    const mediaIds =
+      body && typeof body === "object"
+        ? selectedIdsOf(body as Record<string, unknown>, roomId)
+        : null;
     if (
       !body ||
       typeof body !== "object" ||
-      !("mediaIds" in body) ||
-      !Array.isArray(body.mediaIds) ||
-      body.mediaIds.length === 0 ||
-      !body.mediaIds.every(
-        (id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0,
-      )
+      mediaIds === null ||
+      !mediaIds.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0)
     ) {
       return error(400, "INVALID_MEDIA_IDS", "삭제할 미디어 ID 목록을 확인해 주세요.");
     }
-    const mediaIds = [...new Set<number>(body.mediaIds)];
     const deleted: number[] = [];
     const skipped: { mediaId: number; code: string; message: string }[] = [];
     const mediaById = new Map(mediaOfRoom(roomId).map((media) => [media.mediaId, media]));

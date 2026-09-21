@@ -3,6 +3,7 @@ package com.sssok.application.port.out;
 import com.sssok.domain.file.StorageKey;
 import java.io.InputStream;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 // 오브젝트 스토리지 출력
@@ -31,6 +32,14 @@ public interface FileStoragePort {
 
     // 없는 키를 지워도 성공으로 본다 — 배치가 다시 돌아도 안전해야 한다.
     void delete(StorageKey storageKey);
+
+    // 여러 키를 한 번에 지운다. 삭제할 파일 수만큼 네트워크를 왕복하면 미디어 500장 삭제가
+    // 최대 1000 회의 직렬 요청이 되므로, 스토리지가 제공하는 배치 삭제를 쓴다.
+    //
+    // 없는 키를 지워도 성공으로 보는 계약은 단건 delete 와 같다.
+    // 지우지 못한 키만 돌려준다 — 부분 실패가 예외가 아니라 응답으로 오기 때문에,
+    // 호출한 쪽이 실패한 것만 골라 다시 태울 수 있어야 한다. 전부 성공하면 빈 목록이다.
+    List<StorageKey> deleteAll(List<StorageKey> storageKeys);
 
     record UploadedObject(long sizeBytes, String contentType) {
     }

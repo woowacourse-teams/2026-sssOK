@@ -1,4 +1,6 @@
 import { apiClient } from "@/shared/api";
+import type { MediaUploaderFilter } from "@/entities/media";
+import type { MediaSelectionRequest } from "@/features/select-media";
 
 interface RemoveMediaFromFolderResponse {
   updatedCount: number;
@@ -13,18 +15,20 @@ interface RemoveMediaFromFolderResponse {
 
 export const removeMediaFromFolder = ({
   roomId,
-  mediaIds,
+  selection,
   folderId,
+  uploader,
   token,
 }: {
   roomId: number;
-  mediaIds: number[];
+  selection: MediaSelectionRequest;
   folderId: number;
+  uploader?: MediaUploaderFilter;
   token: string;
 }) =>
   apiClient<RemoveMediaFromFolderResponse>(`/rooms/${roomId}/media/folders`, {
     method: "DELETE",
     token,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mediaIds, folderIds: [folderId] }),
+    body: JSON.stringify({ selection, folderIds: [folderId], uploader }),
   });
