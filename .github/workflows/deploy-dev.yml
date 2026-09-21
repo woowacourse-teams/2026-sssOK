@@ -102,6 +102,31 @@ jobs:
           cd "$DEPLOY_PATH"
 
           COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml"
+          IMAGE_REPOSITORY="${NEW_IMAGE%:*}"
+
+          cleanup_old_images() {
+            CURRENT_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env 2>/dev/null | tail -n 1)"
+            PREVIOUS_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env.prev 2>/dev/null | tail -n 1)"
+
+            echo "미사용 이전 이미지 정리 시작 (현재·직전 이미지는 보존)"
+            docker image ls "$IMAGE_REPOSITORY" --format '{{.Repository}}:{{.Tag}}' |
+              while IFS= read -r IMAGE; do
+                [ "$IMAGE" = "$CURRENT_IMAGE" ] && continue
+                [ "$IMAGE" = "$PREVIOUS_IMAGE" ] && continue
+                [ "${IMAGE##*:}" = '<none>' ] && continue
+                docker image rm "$IMAGE" || true
+              done
+            docker image prune -f > /dev/null 2>&1 || true
+          }
+
+          finish() {
+            cleanup_old_images
+            docker logout ghcr.io > /dev/null 2>&1 || true
+          }
+          trap finish EXIT
+
+          # pull 전에 공간을 확보해 디스크 부족으로 배포가 시작조차 못 하는 상황을 막는다.
+          cleanup_old_images
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
@@ -119,8 +144,6 @@ jobs:
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
               echo "헬스체크 성공 ($i번째 시도)"
-              docker image prune -f > /dev/null 2>&1 || true
-              docker logout ghcr.io > /dev/null 2>&1 || true
               exit 0
             fi
             sleep 5
@@ -137,5 +160,4 @@ jobs:
             echo "직전 버전이 없어 롤백하지 못했다 (최초 배포로 추정)"
           fi
 
-          docker logout ghcr.io > /dev/null 2>&1 || true
           exit 1
