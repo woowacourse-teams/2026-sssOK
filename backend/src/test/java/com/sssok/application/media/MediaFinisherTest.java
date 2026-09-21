@@ -22,6 +22,7 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Instant;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +62,19 @@ class MediaFinisherTest extends PostgresContainerSupport {
     @MockitoBean
     EventSubscriberPort eventSubscriberPort;
 
+    // 커밋된 결과를 봐야 해서 @Transactional 을 걸 수 없다. 남긴 행은 직접 치운다 —
+    // 두면 고정 id 로 미디어를 넣는 다른 테스트와 id 가 부딪힌다.
+    @AfterEach
+    void cleanUp() {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            List<Long> mediaIds = fileRepository.findAllByRoomId(ROOM_ID).stream()
+                .map(StoredFile::getId)
+                .toList();
+            folderMediaRepository.detachFromAllFolders(mediaIds);
+            fileRepository.deleteAllByIdIn(mediaIds);
+        });
+    }
+
     @Test
     void 처리가_끝나면_READY로_넘기고_media_ready를_발행한다() {
         StoredFile file = processing();
@@ -76,12 +90,11 @@ class MediaFinisherTest extends PostgresContainerSupport {
     void 지워진_미디어는_되살리지_않고_이벤트도_내보내지_않는다() {
         StoredFile file = processing();
         fileRepository.deleteAllByIdIn(List.of(file.getId()));
-        int before = fileRepository.findAllByRoomId(ROOM_ID).size();
 
         mediaFinisher.finish(file.getId(), processed(file));
 
-        // 되살아난다면 새 id 로 들어오므로 id 가 아니라 방의 행 수로 확인한다.
-        assertThat(fileRepository.findAllByRoomId(ROOM_ID)).hasSize(before);
+        // 되살아난다면 새 id 로 들어오므로 id 가 아니라 방 전체로 확인한다.
+        assertThat(fileRepository.findAllByRoomId(ROOM_ID)).isEmpty();
         verify(eventPublisherPort, never()).publish(any(), anyString(), any());
     }
 
@@ -97,15 +110,28 @@ class MediaFinisherTest extends PostgresContainerSupport {
         verify(fileStoragePort).delete(thumbnailKey);
     }
 
+    // ThumbnailSweeper 는 분산 락도 중복 실행 방지도 없어 같은 미디어에 워커를 하나 더 태울 수 있다.
+    // 두 워커의 썸네일 키는 원본에서 유도되어 같으므로, 늦게 끝난 쪽이 지우면 살아 있는 행의 썸네일이 사라진다.
+    @Test
+    void 다른_워커가_먼저_끝냈으면_썸네일을_지우지_않는다() {
+        StoredFile file = processing();
+        mediaFinisher.finish(file.getId(), processed(file));
+
+        mediaFinisher.finish(file.getId(), processed(file));
+
+        assertThat(fileRepository.findById(file.getId()).orElseThrow().getThumbnailKey())
+            .isEqualTo(file.getStorageKey().thumbnail());
+        verify(fileStoragePort, never()).delete(any());
+    }
+
     @Test
     void 지워진_미디어는_실패_처리로도_되살아나지_않는다() {
         StoredFile file = processing();
         fileRepository.deleteAllByIdIn(List.of(file.getId()));
-        int before = fileRepository.findAllByRoomId(ROOM_ID).size();
 
         mediaFinisher.markFailed(file.getId());
 
-        assertThat(fileRepository.findAllByRoomId(ROOM_ID)).hasSize(before);
+        assertThat(fileRepository.findAllByRoomId(ROOM_ID)).isEmpty();
     }
 
     // 워커 트랜잭션이 커밋되기 전에 폴더 담기가 끼어드는 상황.
