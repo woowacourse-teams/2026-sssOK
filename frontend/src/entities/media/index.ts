@@ -8,6 +8,7 @@ export type {
   MediaItem,
   MediaList,
   MediaStatus,
+  MediaUploaderFilter,
   PhotoFilter,
 } from "./model/types";
 export { MediaCard } from "./ui/MediaCard";
