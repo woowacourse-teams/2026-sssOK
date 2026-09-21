@@ -67,12 +67,18 @@ describe("관리자 헤더", () => {
     );
   });
 
-  it("계정 탭은 보이지만 누를 수 없다", () => {
+  it("계정 탭을 누르면 계정 화면으로 가고 계정 탭이 선택된다", async () => {
+    const user = userEvent.setup();
     saveAdminSession(sessionWith("ADMIN"));
-    renderAt(ROUTES.adminFeedbacks);
+    const { router } = renderAt(ROUTES.adminFeedbacks);
 
-    expect(within(header()).getByText("계정")).toHaveAttribute("aria-disabled", "true");
-    expect(within(header()).queryByRole("link", { name: "계정" })).not.toBeInTheDocument();
+    await user.click(within(header()).getByRole("link", { name: "계정" }));
+
+    expect(router.state.location.pathname).toBe(ROUTES.adminAccounts);
+    expect(within(header()).getByRole("link", { name: "계정" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("로그아웃하면 세션을 지우고 로그인 화면으로 보낸다", async () => {

@@ -3,16 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 import { type AdminSession, removeAdminSession } from "@/entities/admin-session";
 import { ROUTES } from "@/shared/config";
-import {
-  DisabledNavItem,
-  Divider,
-  Header,
-  LogoutButton,
-  Me,
-  Name,
-  Nav,
-  NavItem,
-} from "./AdminHeader.styles";
+import { Divider, Header, LogoutButton, Me, Name, Nav, NavItem } from "./AdminHeader.styles";
 import { AdminRoleBadge } from "./AdminRoleBadge";
 
 interface AdminHeaderProps {
@@ -45,8 +36,7 @@ export const AdminHeader = ({ session }: AdminHeaderProps) => {
     <Header>
       <Nav aria-label="관리자 메뉴">
         <NavItem to={ROUTES.adminFeedbacks}>의견</NavItem>
-        {/* 계정 화면은 아직 없다. 계정 화면 이슈에서 링크로 바꾼다. */}
-        <DisabledNavItem aria-disabled="true">계정</DisabledNavItem>
+        <NavItem to={ROUTES.adminAccounts}>계정</NavItem>
       </Nav>
 
       <Me>

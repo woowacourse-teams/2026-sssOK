@@ -31,14 +31,6 @@ export const NavItem = styled(NavLink)`
   }
 `;
 
-/** 갈 화면이 아직 없는 탭. 자리는 보여주되 누를 수 없다. */
-export const DisabledNavItem = styled.span`
-  color: ${colors.textSecondary};
-  cursor: default;
-
-  ${typography.label5}
-`;
-
 /**
  * 모바일에서도 이름·역할·로그아웃을 모두 보여준다. 누구로 들어왔는지와 나가는 길은
  * 좁은 화면에서도 둘 다 필요하다. 폭이 모자라면 이름만 줄어든다.
