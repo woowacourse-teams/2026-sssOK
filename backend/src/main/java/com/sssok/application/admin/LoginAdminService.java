@@ -43,7 +43,7 @@ public class LoginAdminService {
 
         loginAttemptLimiter.reset(normalizedLoginId);
         Admin admin = found.get();
-        IssuedAdminToken token = adminTokenProvider.issue(admin.getId(), admin.getRole(), now);
+        IssuedAdminToken token = adminTokenProvider.issue(admin.getId(), now);
         return AdminAuthResult.of(admin, token.value(), token.expiresAt());
     }
 
