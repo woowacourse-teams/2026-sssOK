@@ -57,6 +57,17 @@ jobs:
       - name: gradlew 실행 권한 부여
         run: chmod +x gradlew
 
+      # 영상 썸네일 추출기 테스트가 실물 ffmpeg 로 돈다. 없으면 그 테스트들이 조용히
+      # 건너뛰어져, 깨진 채로 머지돼도 CI 가 초록으로 통과한다.
+      # 운영 이미지에도 같은 패키지가 깔린다(backend/Dockerfile).
+      - name: ffmpeg 설치
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          # 설치가 조용히 실패하면 여기서 잡는다 — 테스트 스킵으로 흘러가지 않게 한다.
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
       - name: 빌드 및 테스트
         run: ./gradlew build
         env:

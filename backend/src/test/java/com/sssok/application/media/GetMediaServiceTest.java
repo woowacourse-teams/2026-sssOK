@@ -237,7 +237,7 @@ class GetMediaServiceTest {
     // 워커가 처리를 마친 상태. 썸네일 키와 크기, 촬영 정보가 채워져 있다.
     private StoredFile processed(Long targetRoomId, Instant takenAt, GeoPoint location) {
         StoredFile file = save(targetRoomId, UploadStatus.PROCESSING);
-        file.completeProcessing(new ProcessedMedia(
+        file.completeProcessing(ProcessedMedia.ofImage(
             file.getStorageKey().thumbnail(), 1200, 900, takenAt, location));
         return fileRepository.save(file);
     }

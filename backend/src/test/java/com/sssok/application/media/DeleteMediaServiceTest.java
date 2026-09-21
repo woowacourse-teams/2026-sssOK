@@ -191,6 +191,6 @@ class DeleteMediaServiceTest {
         Instant now = Instant.now();
         return StoredFile.reconstruct(id, roomId, uploaderId, "사진.jpg", MediaType.JPEG,
             new FileSize(1024), new StorageKey("rooms/%d/%d.jpg".formatted(roomId, id)), null,
-            status, now, now, 0, null, null, null, null, null);
+            status, now, now, 0, null, null, null, null, null, null);
     }
 }

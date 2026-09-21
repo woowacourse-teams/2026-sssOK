@@ -77,7 +77,7 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 수정과_삭제가_동시에_들어와도_한쪽만_반영되고_저장된_상태와_결과가_항상_일치한다() throws Exception {
+    void 수정과_삭제가_동시에_들어와도_저장된_상태와_결과가_항상_일치한다() throws Exception {
         Long hostId = 방장_생성();
 
         for (int round = 0; round < ROUNDS; round++) {
@@ -94,9 +94,9 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
             boolean updateSucceeded = outcomes.get(0) instanceof RoomDetail;
             boolean deleteSucceeded = outcomes.get(1) instanceof DeleteRoomResult;
 
-            // 낙관적 락 덕분에 둘 중 어느 쪽이 이기든 정확히 하나만 반영된다 —
-            // 둘 다 성공하거나(마지막에 쓴 쪽이 상대 결과를 덮어씀) 둘 다 실패할 수는 없다.
-            assertThat(updateSucceeded ^ deleteSucceeded).isTrue();
+            // 같은 버전을 읽으면 낙관적 락으로 하나만 성공한다. 다만 수정이 먼저 커밋된 뒤 삭제가
+            // 새 버전을 읽은 경우에는 두 요청이 순서대로 모두 성공하는 것도 올바른 결과다.
+            assertThat(updateSucceeded || deleteSucceeded).isTrue();
 
             Room reloaded = roomRepository.findById(room.getId()).orElseThrow();
             if (deleteSucceeded) {

@@ -12,8 +12,10 @@ import java.time.Instant;
 @Schema(description = "미디어 단건 상세")
 public record MediaFullResponse(
     @JsonUnwrapped MediaResponse media,
-    @Schema(description = "EXIF 촬영 시각. 카메라가 남기지 않았으면 null") Instant takenAt,
-    @Schema(description = "EXIF 좌표. 위치 기록이 꺼져 있었으면 null") LocationResponse location,
+    @Schema(description = "촬영 시각. 사진은 EXIF, 영상은 컨테이너 메타데이터에서 읽는다. "
+        + "기기가 남기지 않았으면 null") Instant takenAt,
+    @Schema(description = "촬영 좌표. 사진은 EXIF, 영상은 컨테이너 메타데이터에서 읽는다. "
+        + "위치 기록이 꺼져 있었으면 null") LocationResponse location,
     @Schema(description = "요청자가 이 미디어를 지울 수 있는지. 올린 본인과 방장만 true")
     boolean canDelete
 ) {

@@ -216,14 +216,16 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
         @Param("uploader") String uploader);
 
     // 오래된 것부터 가져와, 밀린 작업이 뒤에서 계속 굶지 않게 한다.
+    // 엔티티가 아니라 두 컬럼만 집는다 — 회수는 id 와 종류만 있으면 된다.
     @Query("""
-        select f.id from StoredFileJpaEntity f
+        select new com.sssok.infrastructure.persistence.file.StuckMediaRow(f.id, f.mediaType)
+        from StoredFileJpaEntity f
         where f.status = :status and f.createdAt < :stuckBefore
         order by f.createdAt asc
         """)
-    List<Long> findStuckInProcessing(@Param("status") String status,
-                                     @Param("stuckBefore") Instant stuckBefore,
-                                     Limit limit);
+    List<StuckMediaRow> findStuckInProcessing(@Param("status") String status,
+                                              @Param("stuckBefore") Instant stuckBefore,
+                                              Limit limit);
 
     void deleteAllByRoomId(Long roomId);
 }

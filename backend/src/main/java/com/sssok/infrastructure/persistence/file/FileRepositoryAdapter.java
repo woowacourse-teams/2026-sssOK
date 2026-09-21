@@ -2,6 +2,7 @@ package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FileRepository.StuckMedia;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.MediaType;
@@ -182,9 +183,11 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
-    public List<Long> findStuckInProcessing(Instant stuckBefore, int limit) {
+    public List<StuckMedia> findStuckInProcessing(Instant stuckBefore, int limit) {
         return jpaRepository.findStuckInProcessing(
-            UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit));
+                UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit)).stream()
+            .map(row -> new StuckMedia(row.id(), MediaType.valueOf(row.mediaType())))
+            .toList();
     }
 
     @Override
@@ -221,6 +224,7 @@ public class FileRepositoryAdapter implements FileRepository {
             file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
             file.getWidth(),
             file.getHeight(),
+            file.getDurationSeconds(),
             file.getTakenAt(),
             file.getLocation() == null ? null : file.getLocation().latitude(),
             file.getLocation() == null ? null : file.getLocation().longitude()
@@ -244,6 +248,7 @@ public class FileRepositoryAdapter implements FileRepository {
             entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
             entity.getWidth(),
             entity.getHeight(),
+            entity.getDurationSeconds(),
             entity.getTakenAt(),
             GeoPoint.ofNullable(entity.getLatitude(), entity.getLongitude())
         );

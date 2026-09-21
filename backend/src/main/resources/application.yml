@@ -78,6 +78,20 @@ media:
     sweep-cron: "0 */5 * * * *"
     # 목록 조회 응답에 직접 싣는 썸네일 서명 URL의 유효기간. 다운로드용(5분)보다 길게 잡는다.
     display-url-ttl: 30m
+  video:
+    # 어느 지점의 프레임을 쓸지. 맨 첫 프레임이 검은 화면인 영상이 많아 조금 뒤를 집는다
+    frame-at: 1s
+    # 이 시간을 넘기면 포기하고 썸네일 없이 완료한다
+    timeout: 20s
+    # 이미지 썸네일과 같은 너비여야 한 줄에 섞여도 크기가 맞는다
+    thumbnail-max-width: 400
+    # ffmpeg에 넘길 원본 서명 URL의 유효기간. timeout보다 넉넉해야 추출 도중에 만료되지 않는다
+    source-url-ttl: 10m
+    worker:
+      # ffmpeg 작업이 사진 썸네일·ZIP 압축의 공용 풀을 점유하지 않도록 별도 풀을 쓴다
+      core-size: 2
+      max-size: 2
+      queue-capacity: 50
 
 feedback:
   # 같은 회원이 이 간격 안에 다시 의견을 보내면 429. 오타를 고쳐 다시 쓰는 정도는 막지 않으면서
