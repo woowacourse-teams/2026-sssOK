@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.MediaSelection;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.FileSize;
@@ -29,6 +30,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 class CreateBatchDownloadServiceTest {
 
     private static final Long ROOM_ID = 1L;
+    // 업로더 필터를 쓰지 않는 기존 검증들이라 요청자가 누구인지는 결과에 영향이 없다.
+    private static final Long REQUESTER_ID = 100L;
     private static final Long UPLOADER_ID = 100L;
     private static final String PRESIGNED = "https://storage.example.com/signed";
 
@@ -60,7 +63,7 @@ class CreateBatchDownloadServiceTest {
         Long media1 = media("IMG_0421.jpg");
         Long media2 = media("IMG_0420.jpg");
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(media1, media2)), null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, MediaSelection.include(List.of(media1, media2)), null, MediaUploaderFilter.ALL);
 
         assertThat(files).hasSize(2);
         assertThat(files).extracting(BatchDownloadFile::downloadUrl).containsOnly(PRESIGNED);
@@ -72,7 +75,7 @@ class CreateBatchDownloadServiceTest {
         Long media1 = media("IMG_0421.jpg");
         Long media2 = media("IMG_0421.jpg");
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(media1, media2)), null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, MediaSelection.include(List.of(media1, media2)), null, MediaUploaderFilter.ALL);
 
         assertThat(files).extracting(BatchDownloadFile::fileName)
             .containsExactlyInAnyOrder("IMG_0421.jpg", "IMG_0421 (1).jpg");
@@ -83,14 +86,14 @@ class CreateBatchDownloadServiceTest {
         Long media = media("IMG_0421.jpg");
         Instant before = Instant.now();
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(media)), null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, MediaSelection.include(List.of(media)), null, MediaUploaderFilter.ALL);
 
         assertThat(files.get(0).expiresAt()).isAfter(before);
     }
 
     @Test
     void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
-        assertThatThrownBy(() -> createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(999_999L)), null))
+        assertThatThrownBy(() -> createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, MediaSelection.include(List.of(999_999L)), null, MediaUploaderFilter.ALL))
             .isInstanceOf(MediaNotFoundException.class);
     }
 
@@ -103,7 +106,7 @@ class CreateBatchDownloadServiceTest {
         Long readyId = media("ready.jpg");
 
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(processingId, readyId)), null);
+            createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, MediaSelection.include(List.of(processingId, readyId)), null, MediaUploaderFilter.ALL);
 
         assertThat(files).extracting(BatchDownloadFile::mediaId)
             .containsExactlyInAnyOrder(processingId, readyId);

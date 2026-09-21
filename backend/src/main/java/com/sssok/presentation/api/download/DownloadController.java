@@ -66,7 +66,11 @@ public class DownloadController {
             + "selection과 folderId를 동시에 보내면 400이며 둘 다 생략해도 400이다. 해석된 실제 대상이 1000개를 "
             + "초과하면 400이 난다. 다른 방 또는 존재하지 않는 ID는 대상에서 제외한다. "
             + "원본 업로드가 끝난 PROCESSING·READY 미디어는 대상에 포함하고, 실물이 없는 RESERVED·FAILED 미디어는 "
-            + "제외한다. 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 다운로드와 같다(기본 5분)."
+            + "제외한다. 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 다운로드와 같다(기본 5분). "
+            + "uploader는 ALL(전체)·ME(내가 올린 것)·OTHERS(남이 올린 것)로 대상을 좁히며 "
+            + "생략하면 ALL, 지원하지 않는 값은 400이다. "
+            + "selection과 folderId 중 어느 쪽을 쓰든 uploader는 그 위에 함께 적용된다. "
+            + "예: {\"folderId\":31,\"uploader\":\"ME\"} 는 31번 폴더에서 내가 올린 미디어만 받는다."
     )
     @PostMapping("/batch")
     public ApiResponse<CreateBatchDownloadResponse> createBatch(
@@ -75,9 +79,10 @@ public class DownloadController {
         @RequestBody CreateBatchDownloadRequest request
     ) {
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(roomId,
+            createBatchDownloadService.create(roomId, memberId,
                 request == null || request.selection() == null ? null : request.selection().toSelection(),
-                request == null ? null : request.folderId());
+                request == null ? null : request.folderId(),
+                request == null ? null : request.uploader());
         return ApiResponse.of(CreateBatchDownloadResponse.from(files));
     }
 
@@ -88,7 +93,12 @@ public class DownloadController {
             + "exclude+빈 ids는 전체 선택이다. selection과 folderId를 동시에 보내거나 둘 다 생략하면 400이며, "
             + "해석된 실제 대상이 1000개를 초과하면 400이 난다. 원본 업로드가 끝난 PROCESSING·READY 미디어는 "
             + "압축 대상과 mediaCount에 포함하고, 실물이 없는 RESERVED·FAILED 미디어는 제외한다. 그 결과 대상이 하나도 "
-            + "없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다."
+            + "없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다. "
+            + "uploader는 ALL(전체)·ME(내가 올린 것)·OTHERS(남이 올린 것)로 대상을 좁히며 "
+            + "생략하면 ALL, 지원하지 않는 값은 400이다. "
+            + "selection과 folderId 중 어느 쪽을 쓰든 uploader는 그 위에 함께 적용된다. "
+            + "mediaCount는 uploader까지 적용한 최종 대상 수이며, 실제 압축 대상과 항상 같다. "
+            + "예: {\"folderId\":31,\"uploader\":\"ME\"} 는 31번 폴더에서 내가 올린 미디어만 압축한다."
     )
     @PostMapping("/zip")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -100,7 +110,8 @@ public class DownloadController {
         CreateDownloadJobResult result =
             createDownloadJobService.create(roomId, memberId,
                 request == null || request.selection() == null ? null : request.selection().toSelection(),
-                request == null ? null : request.folderId());
+                request == null ? null : request.folderId(),
+                request == null ? null : request.uploader());
         return ApiResponse.of(CreateDownloadJobResponse.from(result));
     }
 

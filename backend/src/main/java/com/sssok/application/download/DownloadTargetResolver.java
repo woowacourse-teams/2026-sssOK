@@ -6,6 +6,7 @@ import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.MediaSelection;
 import com.sssok.application.media.MediaSelectionResolver;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
@@ -29,18 +30,21 @@ class DownloadTargetResolver {
     private final FolderMediaRepository folderMediaRepository;
     private final MediaSelectionResolver mediaSelectionResolver;
 
-    List<StoredFile> resolveSelection(Long roomId, MediaSelection selection, Long folderId) {
+    List<StoredFile> resolveSelection(Long roomId, MediaSelection selection, Long folderId,
+                                      Long requesterId, MediaUploaderFilter uploader) {
         if (selection != null && folderId != null || selection == null && folderId == null) {
             throw new InvalidDownloadParamException();
         }
         if (selection != null) {
-            List<StoredFile> selected = mediaSelectionResolver.resolve(roomId, selection).files();
+            List<StoredFile> selected =
+                mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader).files();
             if (selected.size() > MAX_MEDIA_IDS) {
                 throw new TooManyFilesException(MAX_MEDIA_IDS);
             }
             return requireDownloadable(selected);
         }
-        return resolveByFolderId(roomId, folderId);
+        return requireDownloadable(mediaSelectionResolver.filterByUploader(
+            resolveByFolderId(roomId, folderId), requesterId, uploader));
     }
 
     List<StoredFile> resolve(Long roomId, List<Long> mediaIds, Long folderId) {
@@ -51,7 +55,7 @@ class DownloadTargetResolver {
             return resolveByMediaIds(roomId, mediaIds);
         }
         if (folderId != null) {
-            return resolveByFolderId(roomId, folderId);
+            return requireDownloadable(resolveByFolderId(roomId, folderId));
         }
         return requireDownloadable(fileRepository.findAllByRoomId(roomId));
     }
@@ -75,7 +79,7 @@ class DownloadTargetResolver {
             .orElseThrow(() -> new FolderNotFoundException(folderId));
 
         List<Long> mediaIds = folderMediaRepository.findMediaIdsByFolderId(folderId);
-        return requireDownloadable(fileRepository.findAllByIdIn(mediaIds));
+        return fileRepository.findAllByIdIn(mediaIds);
     }
 
     private List<StoredFile> requireDownloadable(List<StoredFile> files) {
