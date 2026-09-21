@@ -41,7 +41,6 @@ export const useGalleryPhotos = ({
 
   const photos = useMemo(
     () =>
-      // 썸네일 생성 전(null·빈 경로)인 항목은 카드와 선택 대상에서 제외한다.
       (data?.pages.flatMap((page) => page.items) ?? []).filter(
         (photo) => typeof photo.thumbnailUrl === "string" && photo.thumbnailUrl.trim().length > 0,
       ),
