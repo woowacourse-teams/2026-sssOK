@@ -201,6 +201,43 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
+    @Test
+    void 전체_목록을_조회하면_페이지네이션_필드_없이_items를_반환한다() throws Exception {
+        given(getMediaListService.list(ROOM_ID, null))
+            .willReturn(List.of(mediaWithThumbnail()));
+
+        getAllMedia("")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(MEDIA_ID))
+            .andExpect(jsonPath("$.data.items[0].fileName").value("사진.jpg"))
+            .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+            .andExpect(jsonPath("$.data.hasNext").doesNotExist())
+            .andExpect(jsonPath("$.data.totalCount").doesNotExist());
+
+        verify(getMediaListService).list(ROOM_ID, null);
+    }
+
+    @Test
+    void 전체_목록의_folderId를_서비스에_전달한다() throws Exception {
+        given(getMediaListService.list(ROOM_ID, FOLDER_ID)).willReturn(List.of());
+
+        getAllMedia("?folderId=" + FOLDER_ID)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items").isEmpty());
+
+        verify(getMediaListService).list(ROOM_ID, FOLDER_ID);
+    }
+
+    @Test
+    void 전체_목록을_없는_폴더로_필터하면_404() throws Exception {
+        willThrow(new FolderNotFoundException(FOLDER_ID))
+            .given(getMediaListService).list(ROOM_ID, FOLDER_ID);
+
+        getAllMedia("?folderId=" + FOLDER_ID)
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
     // 목록 항목의 필드가 단건 응답에도 그대로 펼쳐져야 한다. 한 겹 더 감싸이면 프론트가 갈라진다.
     @Test
     void 단건을_조회하면_200과_미디어를_반환한다() throws Exception {
@@ -272,6 +309,11 @@ class MediaQueryControllerTest {
 
     private ResultActions getMediaList(String query) throws Exception {
         return mockMvc.perform(get("/api/v1/rooms/" + ROOM_ID + "/media" + query)
+            .header("Authorization", BEARER));
+    }
+
+    private ResultActions getAllMedia(String query) throws Exception {
+        return mockMvc.perform(get("/api/v1/rooms/" + ROOM_ID + "/media/all" + query)
             .header("Authorization", BEARER));
     }
 
