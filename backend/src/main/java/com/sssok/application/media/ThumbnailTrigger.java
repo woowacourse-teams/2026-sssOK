@@ -24,8 +24,18 @@ public class ThumbnailTrigger {
     private final GenerateThumbnailService generateThumbnailService;
 
     @Async("applicationTaskExecutor")
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void onMediaCreated(MediaCreatedEvent event) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT,
+        condition = "#event.media().type() == 'IMAGE'")
+    public void onImageCreated(MediaCreatedEvent event) {
+        generateThumbnailService.generate(event.media().mediaId());
+    }
+
+    // ffmpeg는 파일 하나에도 수십 초가 걸릴 수 있다. ZIP 압축·사진 썸네일과 같은 풀을 쓰면
+    // 영상 몇 개만으로 공용 풀이 차므로, 영상만 별도 풀에서 처리한다.
+    @Async("videoThumbnailTaskExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT,
+        condition = "#event.media().type() == 'VIDEO'")
+    public void onVideoCreated(MediaCreatedEvent event) {
         generateThumbnailService.generate(event.media().mediaId());
     }
 }
