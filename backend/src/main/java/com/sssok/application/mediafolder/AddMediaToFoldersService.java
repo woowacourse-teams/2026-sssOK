@@ -1,6 +1,9 @@
 package com.sssok.application.mediafolder;
 
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
+import com.sssok.application.media.MediaSelection;
+import com.sssok.application.media.MediaSelectionResolver;
+import com.sssok.application.media.ResolvedMediaSelection;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
@@ -16,29 +19,30 @@ import org.springframework.transaction.annotation.Transactional;
 public class AddMediaToFoldersService {
 
     private final RoomFolders roomFolders;
-    private final MediaExistenceResolver mediaExistenceResolver;
+    private final MediaSelectionResolver mediaSelectionResolver;
     private final FolderMediaRepository folderMediaRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public AddMediaToFoldersResult add(Long roomId, List<Long> mediaIds, Long folderId) {
-        requireNotEmpty(mediaIds, folderId);
+    public AddMediaToFoldersResult add(Long roomId, MediaSelection selection, Long folderId) {
+        requireFolder(folderId);
 
         Folder folder = roomFolders.requireAllInRoom(roomId, List.of(folderId)).get(0);
-        MediaExistence media = mediaExistenceResolver.resolve(mediaIds);
+        ResolvedMediaSelection media = mediaSelectionResolver.resolve(roomId, selection);
+        List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
 
-        int updatedCount = folderMediaRepository.attachToFolder(folderId, media.existingIds());
-        int alreadyInCount = media.existingIds().size() - updatedCount;
+        int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
+        int alreadyInCount = mediaIds.size() - updatedCount;
         FolderSummary summary = FolderSummary.of(folder, folderMediaRepository.countByFolderId(folderId));
 
-        if (!media.existingIds().isEmpty()) {
-            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, media.existingIds(), List.of(summary)));
+        if (!mediaIds.isEmpty()) {
+            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, mediaIds, List.of(summary)));
         }
         return new AddMediaToFoldersResult(updatedCount, alreadyInCount, media.notFoundIds(), summary);
     }
 
-    private void requireNotEmpty(List<Long> mediaIds, Long folderId) {
-        if (mediaIds == null || mediaIds.isEmpty() || folderId == null) {
+    private void requireFolder(Long folderId) {
+        if (folderId == null) {
             throw new InvalidMediaFolderParamException();
         }
     }

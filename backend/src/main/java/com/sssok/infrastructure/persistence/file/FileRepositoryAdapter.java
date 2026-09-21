@@ -60,6 +60,22 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllByRoomIdAndIdIn(roomId, ids).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<StoredFile> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return findAllByRoomId(roomId);
+        }
+        return jpaRepository.findAllByRoomIdAndIdNotIn(roomId, ids).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses) {
         return jpaRepository

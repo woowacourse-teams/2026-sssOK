@@ -1,6 +1,9 @@
 package com.sssok.application.mediafolder;
 
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
+import com.sssok.application.media.MediaSelection;
+import com.sssok.application.media.MediaSelectionResolver;
+import com.sssok.application.media.ResolvedMediaSelection;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
@@ -20,25 +23,24 @@ public class RemoveMediaFromFoldersService {
     private final RoomFolders roomFolders;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
-    private final MediaExistenceResolver mediaExistenceResolver;
+    private final MediaSelectionResolver mediaSelectionResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public RemoveMediaFromFoldersResult remove(Long roomId, List<Long> mediaIds, List<Long> folderIds) {
-        requireValid(mediaIds);
-
-        MediaExistence media = mediaExistenceResolver.resolve(mediaIds);
-        List<Long> hadFolderBefore = mediaIdsWithAnyFolder(media.existingIds());
+    public RemoveMediaFromFoldersResult remove(Long roomId, MediaSelection selection, List<Long> folderIds) {
+        ResolvedMediaSelection media = mediaSelectionResolver.resolve(roomId, selection);
+        List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
+        List<Long> hadFolderBefore = mediaIdsWithAnyFolder(mediaIds);
 
         Detachment detachment = isUnscoped(folderIds)
-            ? detachFromEveryFolder(media.existingIds())
-            : detachFromChosenFolders(roomId, folderIds, media.existingIds());
+            ? detachFromEveryFolder(mediaIds)
+            : detachFromChosenFolders(roomId, folderIds, mediaIds);
 
-        List<Long> movedToRootMediaIds = movedToRoot(hadFolderBefore, media.existingIds());
+        List<Long> movedToRootMediaIds = movedToRoot(hadFolderBefore, mediaIds);
         List<FolderSummary> summaries = summarize(detachment.targetFolders());
 
-        if (!media.existingIds().isEmpty()) {
-            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.removed(roomId, media.existingIds(), summaries));
+        if (!mediaIds.isEmpty()) {
+            eventPublisher.publishEvent(MediaFoldersUpdatedEvent.removed(roomId, mediaIds, summaries));
         }
         return new RemoveMediaFromFoldersResult(
             detachment.updatedCount(), movedToRootMediaIds, media.notFoundIds(), summaries);
@@ -86,12 +88,6 @@ public class RemoveMediaFromFoldersService {
         return folders.stream()
             .map(folder -> FolderSummary.of(folder, photoCounts.getOrDefault(folder.getId(), 0L)))
             .toList();
-    }
-
-    private void requireValid(List<Long> mediaIds) {
-        if (mediaIds == null || mediaIds.isEmpty()) {
-            throw new InvalidMediaFolderParamException();
-        }
     }
 
     // folder_media를 빈 목록으로 조회하면 안 되므로(IN 절에 빈 컬렉션 불가) 미리 걸러준다.
