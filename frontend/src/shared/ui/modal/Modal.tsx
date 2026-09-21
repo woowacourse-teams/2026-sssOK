@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LuX } from "react-icons/lu";
 import { colors, radius, shadow, spacing } from "@/shared/styles/tokens";
@@ -14,13 +14,34 @@ export interface ModalProps {
    * 바깥을 눌러 닫는 길은 이 값과 상관없이 그대로 열려 있다.
    */
   showClose?: boolean;
+  /**
+   * 카드 너비. 기본(`sm`)은 모바일 확인 모달 크기다.
+   * `lg` 는 관리자 화면처럼 긴 본문과 표를 한 번에 읽어야 하는 자리에 쓴다.
+   */
+  size?: "sm" | "lg";
   children: ReactNode;
 }
 
-export const Modal = ({ onClose, showClose = true, children }: ModalProps) => {
+export const Modal = ({ onClose, showClose = true, size = "sm", children }: ModalProps) => {
+  // 바깥 클릭과 같은 길이다. 닫으면 안 되는 순간은 부르는 쪽이 onClose 를 비워서 막는다.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return createPortal(
     <Overlay data-testid="modal-overlay" onClick={onClose}>
-      <Card onClick={(event) => event.stopPropagation()}>
+      <Card
+        role="dialog"
+        aria-modal="true"
+        size={size}
+        onClick={(event) => event.stopPropagation()}
+      >
         {showClose && (
           <Header>
             <CloseButton type="button" onClick={onClose} aria-label="닫기">
@@ -46,13 +67,15 @@ const Overlay = styled.div`
   z-index: 1000;
 `;
 
-const Card = styled.div`
+const Card = styled.div<{ size: NonNullable<ModalProps["size"]> }>`
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 330px;
-  padding: ${spacing[20]};
+  max-width: ${({ size }) => (size === "lg" ? "560px" : "330px")};
+  max-height: 100%;
+  overflow-y: auto;
+  padding: ${({ size }) => (size === "lg" ? "28px" : spacing[20])};
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]};
   box-shadow: ${shadow.modal};

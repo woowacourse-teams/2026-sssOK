@@ -88,3 +88,32 @@ test("카드 내부를 클릭해도 onClose가 호출되지 않는다", async ()
 
   expect(handleClose).not.toHaveBeenCalled();
 });
+
+test("ESC 를 누르면 onClose가 호출된다", async () => {
+  const user = userEvent.setup();
+  const handleClose = jest.fn();
+  render(
+    <Modal onClose={handleClose}>
+      <p>본문</p>
+    </Modal>,
+  );
+
+  await user.keyboard("{Escape}");
+
+  expect(handleClose).toHaveBeenCalledTimes(1);
+});
+
+test("닫힌 뒤에는 ESC 에 반응하지 않는다", async () => {
+  const user = userEvent.setup();
+  const handleClose = jest.fn();
+  const { unmount } = render(
+    <Modal onClose={handleClose}>
+      <p>본문</p>
+    </Modal>,
+  );
+
+  unmount();
+  await user.keyboard("{Escape}");
+
+  expect(handleClose).not.toHaveBeenCalled();
+});
