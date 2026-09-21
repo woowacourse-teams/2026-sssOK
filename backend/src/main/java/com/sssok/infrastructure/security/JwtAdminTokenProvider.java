@@ -2,42 +2,43 @@ package com.sssok.infrastructure.security;
 
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.domain.admin.AdminRole;
 import com.sssok.infrastructure.config.JwtProperties;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
 import javax.crypto.SecretKey;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 // 회원 토큰과 같은 키로 서명하되 주체 구분 클레임으로 갈라 둔다.
+//
+// 역할은 토큰에 담지 않는다.
 @Component
-@RequiredArgsConstructor
 public class JwtAdminTokenProvider implements AdminTokenProvider {
 
-    public static final String SUBJECT_TYPE_CLAIM = "typ";
-    public static final String ADMIN_SUBJECT_TYPE = "admin";
-    private static final String ROLE_CLAIM = "role";
-
     private final JwtProperties jwtProperties;
+    private final Duration tokenTtl;
 
     // 관리자는 권한이 세서 회원 토큰보다 짧게 잡는다.
-    @Value("${admin.token-ttl:1d}")
-    private java.time.Duration tokenTtl;
+    public JwtAdminTokenProvider(
+        JwtProperties jwtProperties,
+        @Value("${admin.token-ttl:1d}") Duration tokenTtl
+    ) {
+        this.jwtProperties = jwtProperties;
+        this.tokenTtl = tokenTtl;
+    }
 
     @Override
-    public IssuedAdminToken issue(Long adminId, AdminRole role, Instant now) {
+    public IssuedAdminToken issue(Long adminId, Instant now) {
         Instant expiresAt = now.plus(tokenTtl);
         String token = Jwts.builder()
             .subject(String.valueOf(adminId))
-            .claim(SUBJECT_TYPE_CLAIM, ADMIN_SUBJECT_TYPE)
-            .claim(ROLE_CLAIM, role.name())
+            .claim(TokenSubjectType.CLAIM_NAME, TokenSubjectType.ADMIN.claimValue())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiresAt))
             .signWith(secretKey())
@@ -53,11 +54,17 @@ public class JwtAdminTokenProvider implements AdminTokenProvider {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-            if (!ADMIN_SUBJECT_TYPE.equals(claims.get(SUBJECT_TYPE_CLAIM, String.class))) {
-                throw new UnauthorizedException("다시 로그인해주세요");
-            }
+            requireAdminSubject(claims);
             return Long.valueOf(claims.getSubject());
         } catch (JwtException | IllegalArgumentException e) {
+            throw new UnauthorizedException("다시 로그인해주세요");
+        }
+    }
+
+    // 관리자 토큰만 통과시킨다. 회원 토큰, 모르는 타입, 타입 클레임이 없는 토큰 모두 거부한다
+    private void requireAdminSubject(Claims claims) {
+        String claimValue = claims.get(TokenSubjectType.CLAIM_NAME, String.class);
+        if (TokenSubjectType.from(claimValue).orElse(null) != TokenSubjectType.ADMIN) {
             throw new UnauthorizedException("다시 로그인해주세요");
         }
     }
