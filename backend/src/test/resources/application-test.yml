@@ -12,6 +12,10 @@ spring:
 
 # 서명 URL 생성은 네트워크를 타지 않아 형식만 맞으면 된다. 실제 R2 호출은 테스트에서 목으로 대체한다.
 storage:
+  # 삭제 커밋 뒤 자동으로 도는 오브젝트 정리를 끈다. 썸네일 워커와 같은 이유로, 목을 동시에
+  # 건드리는 스레드를 없애 검증을 결정적으로 만든다. 정리는 직접 호출해서 검증한다.
+  cleanup:
+    auto-purge: false
   r2:
     endpoint: https://dummy.r2.cloudflarestorage.com
     access-key: dummy-access-key

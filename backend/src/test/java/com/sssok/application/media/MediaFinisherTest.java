@@ -13,6 +13,7 @@ import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.application.storage.OrphanObjectCollector;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
@@ -57,6 +58,9 @@ class MediaFinisherTest extends PostgresContainerSupport {
     FileStoragePort fileStoragePort;
 
     @MockitoBean
+    OrphanObjectCollector orphanObjectCollector;
+
+    @MockitoBean
     EventPublisherPort eventPublisherPort;
 
     @MockitoBean
@@ -98,16 +102,18 @@ class MediaFinisherTest extends PostgresContainerSupport {
         verify(eventPublisherPort, never()).publish(any(), anyString(), any());
     }
 
-    // 행이 없으면 ThumbnailSweeper 도 못 찾아 R2 에 영영 남는다.
+    // 행이 없으면 ThumbnailSweeper 도 못 찾아 R2 에 영영 남는다. 트랜잭션 안에서 직접 지우지 않고
+    // 회수 대기열에 남겨 커밋 뒤 정리한다.
     @Test
-    void 지워진_미디어면_방금_올린_썸네일을_지운다() {
+    void 지워진_미디어면_방금_올린_썸네일을_정리_대기열에_남긴다() {
         StoredFile file = processing();
         StorageKey thumbnailKey = file.getStorageKey().thumbnail();
         fileRepository.deleteAllByIdIn(List.of(file.getId()));
 
         mediaFinisher.finish(file.getId(), processed(file));
 
-        verify(fileStoragePort).delete(thumbnailKey);
+        verify(orphanObjectCollector).enqueue(List.of(thumbnailKey));
+        verify(fileStoragePort, never()).delete(any());
     }
 
     // ThumbnailSweeper 는 분산 락도 중복 실행 방지도 없어 같은 미디어에 워커를 하나 더 태울 수 있다.

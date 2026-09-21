@@ -84,6 +84,15 @@ feedback:
   # 자동화된 반복 등록은 걸러내는 선으로 잡았다.
   rate-limit-window: 1m
 
+storage:
+  cleanup:
+    # 삭제 커밋 뒤 오브젝트 정리를 비동기로 띄울지. 협력 객체를 목으로 둔 테스트에서만 끈다.
+    auto-purge: true
+    # 이 시간이 지나도 정리 대기열에 남아 있으면 비동기 정리가 유실된 것으로 보고 다시 태운다
+    retry-after: 5m
+    sweep-batch-size: 200
+    sweep-cron: "0 */10 * * * *"
+
 download:
   # 단건 다운로드 리다이렉트 대상 서명 URL의 유효기간
   presigned-get-ttl: 5m
