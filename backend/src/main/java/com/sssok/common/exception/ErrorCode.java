@@ -24,6 +24,8 @@ public enum ErrorCode {
     EMPTY_PATCH(400, "변경할 항목을 하나 이상 보내주세요"),
     INVALID_REQUEST_BODY(400, "요청 본문 형식이 올바르지 않습니다"),
     INVALID_REQUEST_PARAMETER(400, "%s 값의 형식이 올바르지 않습니다"),
+    INVALID_CURSOR(400, "유효하지 않은 커서입니다"),
+    INVALID_PAGE_SIZE(400, "페이지 크기는 1 이상 100 이하여야 합니다"),
     TOO_MANY_FILES(400, "한 번에 최대 %d개까지 처리할 수 있습니다"),
     INVALID_FEEDBACK_CONTENT(400, "의견을 입력해주세요"),
     FEEDBACK_TOO_LONG(400, "의견은 %d자까지 입력할 수 있습니다"),
