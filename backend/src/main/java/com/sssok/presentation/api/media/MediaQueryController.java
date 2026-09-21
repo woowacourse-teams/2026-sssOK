@@ -4,6 +4,7 @@ import com.sssok.application.media.GetMediaListService;
 import com.sssok.application.media.GetMediaService;
 import com.sssok.application.media.MediaCursor;
 import com.sssok.application.media.MediaPage;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,6 +36,8 @@ public class MediaQueryController {
             + "마지막 페이지의 nextCursor는 null이다. totalCount는 각 요청 시점에 조회 조건을 만족하는 "
             + "실시간 전체 개수라 페이지를 탐색하는 동안 달라질 수 있다. "
             + "folderId를 주면 그 폴더에 담긴 것만, 생략하면 방 전체를 조회한다. "
+            + "uploader는 ALL(전체)·ME(내가 올린 미디어)·OTHERS(다른 사람이 올린 미디어)를 "
+            + "지원하며, 생략하면 ALL이다. "
             + "아직 스토리지에 실물이 없는 미디어(발급만 받고 올리지 않았거나 "
             + "업로드에 실패한 것)는 목록에 나오지 않는다. thumbnailUrl·width·duration은 워커가 채우기 "
             + "전까지 null이다. thumbnailUrl·originalUrl은 R2 서명 URL이라 각각 만료 시각(thumbnailUrlExpiresAt·"
@@ -48,6 +51,8 @@ public class MediaQueryController {
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "이 폴더에 담긴 미디어만 조회한다. 생략하면 방 전체")
         @RequestParam(required = false) Long folderId,
+        @Parameter(description = "업로더 필터. ALL(전체), ME(내 미디어), OTHERS(다른 사람 미디어)")
+        @RequestParam(defaultValue = "ALL") MediaUploaderFilter uploader,
         @Parameter(description = "직전 응답의 nextCursor. 첫 페이지는 생략")
         @RequestParam(required = false) String cursor,
         @Parameter(description = "페이지 크기. 기본 30, 최대 100")
@@ -55,8 +60,9 @@ public class MediaQueryController {
     ) {
         MediaCursor decodedCursor = cursor == null
             ? null
-            : mediaCursorCodec.decode(cursor, roomId, folderId);
-        MediaPage page = getMediaListService.page(roomId, folderId, size, decodedCursor);
+            : mediaCursorCodec.decode(cursor, roomId, folderId, memberId, uploader);
+        MediaPage page = getMediaListService.page(
+            roomId, folderId, memberId, uploader, size, decodedCursor);
         String nextCursor = page.nextCursor() == null
             ? null
             : mediaCursorCodec.encode(page.nextCursor());
