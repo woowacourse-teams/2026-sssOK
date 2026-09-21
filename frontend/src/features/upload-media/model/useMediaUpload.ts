@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 
+import { getAnalyticsRoom } from "@/shared/lib";
+
 import type { RejectedFile } from "../api/types";
 import type { UploadProgressState } from "./uploadProgress";
 import {
@@ -9,6 +11,7 @@ import {
   withTargets,
   withUploaded,
 } from "./uploadProgress";
+import { trackUpload, trackUploadError } from "./trackUpload";
 import type { PendingMedia, UploadResult } from "./types";
 import { uploadFiles } from "./uploadFiles";
 
@@ -76,6 +79,9 @@ export const useMediaUpload = ({
     setProgress(startUploadProgress(files));
 
     let result: UploadResult | null = null;
+    const startedAt = performance.now();
+    // 끝나기 전에 갤러리를 떠나도 이 판이 어느 방 것인지 남도록 시작할 때 잡아 둔다
+    const analyticsRoom = getAnalyticsRoom();
 
     try {
       result = await uploadFiles({
@@ -91,6 +97,7 @@ export const useMediaUpload = ({
         onPreviewReady,
       });
     } catch (error) {
+      trackUploadError(files.length, analyticsRoom);
       onError?.(error);
     } finally {
       if (isCurrent()) {
@@ -108,6 +115,7 @@ export const useMediaUpload = ({
      * 돌리는 셈이다.
      */
     if (result !== null) {
+      trackUpload(result, performance.now() - startedAt, analyticsRoom);
       onSettled?.(result, { superseded: !isCurrent() });
     }
   };

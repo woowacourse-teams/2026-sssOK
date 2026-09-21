@@ -1,9 +1,59 @@
 import type { PostHog } from "posthog-js";
 
 import { POSTHOG_HOST, POSTHOG_KEY } from "@/shared/config";
+import type { AnalyticsEventName, AnalyticsEvents, AnalyticsRoomContext } from "./analyticsEvents";
 
 const INTERNAL_PARAM = "internal";
 const INTERNAL_PROPERTY = "is_internal";
+
+/** SDK 를 받는 동안 쌓아둘 이벤트 상한. 초기화가 끝내 실패해도 메모리가 새지 않게 한다. */
+const MAX_PENDING_EVENTS = 100;
+
+type Properties = Record<string, unknown>;
+
+let client: PostHog | null = null;
+let pendingEvents: [AnalyticsEventName, Properties][] = [];
+let roomContext: AnalyticsRoomContext | null = null;
+
+/**
+ * 지금 보고 있는 방. 방 안에서 보내는 이벤트마다 `room_code`·`role` 을 붙인다.
+ *
+ * PostHog `register` 로 두지 않는 이유 — 그건 기기에 저장돼 탭끼리 공유된다.
+ * 두 탭에서 서로 다른 방을 열면 한쪽 이벤트에 다른 방 코드가 붙는다.
+ */
+export const setAnalyticsRoom = (context: AnalyticsRoomContext | null) => {
+  roomContext = context;
+};
+
+/** 지금 방. 끝나는 데 오래 걸리는 작업은 시작할 때 이 값을 잡아 뒀다가 `track` 에 넘긴다. */
+export const getAnalyticsRoom = () => roomContext;
+
+/**
+ * 이벤트를 보낸다. 배포 빌드가 아니면 아무 일도 하지 않는다.
+ * SDK 는 늦게 받으므로, 그 전에 난 이벤트는 모아 뒀다가 초기화가 끝나면 보낸다.
+ *
+ * `room` 을 넘기면 지금 방 대신 그 방으로 남긴다. 업로드처럼 시작한 뒤 갤러리를 떠나도
+ * 끝까지 도는 작업이 쓴다 — 끝나는 시점에는 방 정보가 이미 지워져 있을 수 있다.
+ */
+export const track = <E extends AnalyticsEventName>(
+  event: E,
+  properties: AnalyticsEvents[E],
+  room: AnalyticsRoomContext | null = roomContext,
+) => {
+  if (process.env.NODE_ENV !== "production") {
+    return;
+  }
+
+  const merged: Properties = { ...room, ...properties };
+
+  if (client) {
+    client.capture(event, merged);
+    return;
+  }
+  if (pendingEvents.length < MAX_PENDING_EVENTS) {
+    pendingEvents.push([event, merged]);
+  }
+};
 
 /**
  * `?internal=1` 이면 팀원 기기로 표시하고, `?internal=0` 이면 표시를 푼다.
@@ -59,4 +109,8 @@ export const initAnalytics = async () => {
     },
   });
   applyInternalFlag(posthog);
+
+  client = posthog;
+  pendingEvents.forEach(([event, properties]) => posthog.capture(event, properties));
+  pendingEvents = [];
 };

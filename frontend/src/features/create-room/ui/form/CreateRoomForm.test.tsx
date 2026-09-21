@@ -6,7 +6,13 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { track } from "@/shared/lib/analytics";
 import { CreateRoomForm } from "./CreateRoomForm";
+
+jest.mock("@/shared/lib/analytics", () => ({
+  ...jest.requireActual("@/shared/lib/analytics"),
+  track: jest.fn(),
+}));
 
 const renderForm = (props: ComponentProps<typeof CreateRoomForm> = {}) => {
   const queryClient = new QueryClient({
@@ -98,5 +104,29 @@ describe("CreateRoomForm", () => {
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("닉네임을 입력해주세요");
+  });
+
+  describe("방 만들기 퍼널 이벤트", () => {
+    it("폼이 뜨면 방 만들기 시작을 남긴다", () => {
+      renderForm();
+
+      expect(track).toHaveBeenCalledWith("Room Create Started", {});
+    });
+
+    it("방을 만들면 방 코드·만료 시간·업로드 권한을 남긴다", async () => {
+      const handleSuccess = jest.fn();
+      renderForm({ onSuccess: handleSuccess });
+      const user = await fillRequiredFields();
+
+      await user.click(screen.getByRole("button", { name: "방 만들기" }));
+      await waitFor(() => expect(handleSuccess).toHaveBeenCalled());
+
+      const [room] = handleSuccess.mock.calls[0];
+      expect(track).toHaveBeenCalledWith("Room Created", {
+        room_code: room.code,
+        expiry_hours: 24,
+        upload_policy: "everyone",
+      });
+    });
   });
 });
