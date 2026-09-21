@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
@@ -101,6 +102,164 @@ class GetMediaListServiceTest {
 
         assertThat(media).extracting(MediaDetail::mediaId)
             .containsExactly(third.getId(), second.getId(), first.getId());
+    }
+
+    @Test
+    void 첫_페이지는_요청한_개수만큼_최신순으로_조회한다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile oldest = save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+
+        List<StoredFile> page = fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
+            ROOM_ID, UploadStatus.visibleStatuses(), null, null, 3);
+
+        assertThat(page).extracting(StoredFile::getId)
+            .containsExactly(newest.getId(), third.getId(), second.getId())
+            .doesNotContain(oldest.getId());
+    }
+
+    @Test
+    void 다음_페이지는_createdAt과_mediaId가_커서보다_작은_미디어를_조회한다() {
+        Instant olderMoment = Instant.parse("2026-08-01T00:00:00Z");
+        Instant sameMoment = olderMoment.plusSeconds(60);
+        StoredFile older = save(ROOM_ID, UploadStatus.READY, olderMoment);
+        StoredFile first = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, sameMoment);
+
+        List<StoredFile> page = fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
+            ROOM_ID, UploadStatus.visibleStatuses(), second.getCreatedAt(), second.getId(), 3);
+
+        assertThat(page).extracting(StoredFile::getId)
+            .containsExactly(first.getId(), older.getId())
+            .doesNotContain(third.getId(), second.getId());
+    }
+
+    @Test
+    void 방_미디어의_createdAt이_같으면_mediaId로_다음_페이지를_구분한다() {
+        Instant sameMoment = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile first = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, sameMoment);
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, null, 2, null);
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, null, 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(third.getId(), second.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(first.getId());
+    }
+
+    @Test
+    void 첫_페이지_조회_후_새_미디어가_추가돼도_기존_페이지_경계가_유지된다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile oldest = save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile middle = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, null, 2, null);
+        StoredFile addedAfterFirstPage = save(
+            ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, null, 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(newest.getId(), middle.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(oldest.getId())
+            .doesNotContain(newest.getId(), middle.getId(), addedAfterFirstPage.getId());
+        assertThat(firstPage.totalCount()).isEqualTo(3);
+        assertThat(secondPage.totalCount()).isEqualTo(4);
+    }
+
+    @Test
+    void 요청한_크기보다_한_건이_더_있으면_다음_페이지_커서를_반환한다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+
+        MediaPage page = getMediaListService.page(ROOM_ID, null, 3, null);
+
+        assertThat(page.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(newest.getId(), third.getId(), second.getId());
+        assertThat(page.hasNext()).isTrue();
+        assertThat(page.nextCursor()).isEqualTo(new MediaCursor(
+            ROOM_ID, null, second.getCreatedAt(), second.getId()));
+        assertThat(page.totalCount()).isEqualTo(4);
+    }
+
+    @Test
+    void 마지막_페이지이면_다음_커서를_반환하지_않는다() {
+        save(ROOM_ID, UploadStatus.READY, Instant.parse("2026-08-01T00:00:00Z"));
+
+        MediaPage page = getMediaListService.page(ROOM_ID, null, 3, null);
+
+        assertThat(page.items()).hasSize(1);
+        assertThat(page.hasNext()).isFalse();
+        assertThat(page.nextCursor()).isNull();
+        assertThat(page.totalCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 페이지_크기가_허용_범위를_벗어나면_예외가_발생한다() {
+        assertThatThrownBy(() -> getMediaListService.page(ROOM_ID, null, 0, null))
+            .isInstanceOf(InvalidPageSizeException.class);
+        assertThatThrownBy(() -> getMediaListService.page(ROOM_ID, null, 101, null))
+            .isInstanceOf(InvalidPageSizeException.class);
+    }
+
+    @Test
+    void 폴더_미디어도_커서로_페이지를_조회한다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile oldest = save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile middle = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+        save(ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+        Folder folder = createFolderService.create(ROOM_ID, "회식");
+        attach(folder.getId(), oldest.getId());
+        attach(folder.getId(), middle.getId());
+        attach(folder.getId(), newest.getId());
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, folder.getId(), 2, null);
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, folder.getId(), 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(newest.getId(), middle.getId());
+        assertThat(firstPage.hasNext()).isTrue();
+        assertThat(firstPage.totalCount()).isEqualTo(3);
+        assertThat(firstPage.nextCursor().folderId()).isEqualTo(folder.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(oldest.getId());
+        assertThat(secondPage.hasNext()).isFalse();
+        assertThat(secondPage.totalCount()).isEqualTo(3);
+    }
+
+    @Test
+    void 폴더_미디어의_createdAt이_같으면_mediaId로_다음_페이지를_구분한다() {
+        Instant sameMoment = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile first = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile second = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        StoredFile third = save(ROOM_ID, UploadStatus.READY, sameMoment);
+        Folder folder = createFolderService.create(ROOM_ID, "같은 시각");
+        attach(folder.getId(), first.getId());
+        attach(folder.getId(), second.getId());
+        attach(folder.getId(), third.getId());
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, folder.getId(), 2, null);
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, folder.getId(), 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(third.getId(), second.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(first.getId());
     }
 
     // 발급만 받고 올리지 않았거나 업로드에 실패한 미디어는 스토리지에 실물이 없다.
