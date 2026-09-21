@@ -1,11 +1,8 @@
 package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -19,32 +16,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class MediaFinisher {
 
     private final FileRepository fileRepository;
-    private final FolderMediaRepository folderMediaRepository;
-    private final MemberRepository memberRepository;
-    private final MediaUrlResolver mediaUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void finish(StoredFile file, ProcessedMedia processed) {
         file.completeProcessing(processed);
         StoredFile saved = fileRepository.save(file);
-        eventPublisher.publishEvent(new MediaReadyEvent(saved.getRoomId(), detailOf(saved)));
+        eventPublisher.publishEvent(new MediaReadyEvent(saved.getRoomId(), saved.getId()));
     }
 
     @Transactional
     public void markFailed(StoredFile file) {
         file.failUpload();
         fileRepository.save(file);
-    }
-
-    // SSE 로 나가는 payload 는 목록 항목과 같은 모양이어야 프론트가 그대로 갈아끼울 수 있다.
-    private MediaDetail detailOf(StoredFile file) {
-        String uploaderName = memberRepository.findById(file.getUploaderId())
-            .map(member -> member.getDisplayName().value())
-            .orElse(null);
-        List<Long> folderIds = folderMediaRepository
-            .findFolderIdsByMedia(List.of(file.getId()))
-            .getOrDefault(file.getId(), List.of());
-        return MediaDetail.of(file, uploaderName, folderIds, mediaUrlResolver.resolve(file));
     }
 }
