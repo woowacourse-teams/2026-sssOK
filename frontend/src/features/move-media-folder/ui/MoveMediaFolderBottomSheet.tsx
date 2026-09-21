@@ -3,6 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import styled from "@emotion/styled";
 import { LuCheck, LuFolder, LuFolderPlus } from "react-icons/lu";
 
+import type { MediaUploaderFilter } from "@/entities/media";
 import type { RoomFolder } from "@/entities/room";
 import type { MediaSelectionRequest } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
@@ -19,6 +20,7 @@ interface MoveMediaFolderBottomSheetProps {
   selectedCount: number;
   folders: RoomFolder[];
   currentFolderId: number | null;
+  uploader: MediaUploaderFilter;
   token: string;
   onCreateFolder: () => Promise<RoomFolder | null>;
   onClose: () => void;
@@ -31,6 +33,7 @@ export const MoveMediaFolderBottomSheet = ({
   selectedCount,
   folders,
   currentFolderId,
+  uploader,
   token,
   onCreateFolder,
   onClose,
@@ -40,11 +43,12 @@ export const MoveMediaFolderBottomSheet = ({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const mutation = useMutation({
     mutationFn: (targetFolderId: number) =>
-      addMediaToFolder({ roomId, selection, folderId: targetFolderId, token }),
+      addMediaToFolder({ roomId, selection, folderId: targetFolderId, uploader, token }),
     onSuccess: (_, targetFolderId) => onSuccess(targetFolderId),
   });
   const removeMutation = useMutation({
-    mutationFn: (folderId: number) => removeMediaFromFolder({ roomId, selection, folderId, token }),
+    mutationFn: (folderId: number) =>
+      removeMediaFromFolder({ roomId, selection, folderId, uploader, token }),
     onSuccess: (_, folderId) => onSuccess(folderId),
   });
   const createAndMoveMutation = useMutation({
@@ -52,7 +56,7 @@ export const MoveMediaFolderBottomSheet = ({
       const folder = await onCreateFolder();
       if (!folder) return null;
 
-      await addMediaToFolder({ roomId, selection, folderId: folder.id, token });
+      await addMediaToFolder({ roomId, selection, folderId: folder.id, uploader, token });
       return folder.id;
     },
     onSuccess: (createdFolderId) => {

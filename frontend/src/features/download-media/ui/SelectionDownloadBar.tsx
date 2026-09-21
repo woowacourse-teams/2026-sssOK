@@ -9,6 +9,7 @@ import {
   LuX,
 } from "react-icons/lu";
 
+import type { MediaUploaderFilter } from "@/entities/media";
 import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import type { MediaSelectionRequest } from "@/features/select-media";
@@ -57,6 +58,7 @@ interface SelectionDownloadBarProps {
   /** 지금 선택이 "전체 선택" 으로 고른 것인지 */
   isAllSelected?: boolean;
   token: string;
+  uploader?: MediaUploaderFilter;
   onClearSelection: () => void;
   onDeleteSelection?: () => void;
   onMoveSelection?: () => void;
@@ -84,6 +86,7 @@ export const SelectionDownloadBar = ({
   roomPhotoCount,
   isAllSelected = false,
   token,
+  uploader,
   onClearSelection,
   onDeleteSelection,
   onMoveSelection,
@@ -137,6 +140,7 @@ export const SelectionDownloadBar = ({
   const { progress, pendingShare, start, share, dismissShare, cancel } = useMediaDownload({
     roomId,
     token,
+    uploader,
     onSettled: (outcome) => {
       settleFailure(outcome, lastRun.targets, lastRun.mode);
       trackRun(outcome);
@@ -237,7 +241,11 @@ export const SelectionDownloadBar = ({
             ) : (
               <SelectionLayout>
                 <SelectionSummary>
-                  <SelectionCheck aria-hidden="true">
+                  <SelectionCheck
+                    type="button"
+                    aria-label="선택 모두 해제"
+                    onClick={onClearSelection}
+                  >
                     <LuCheck />
                   </SelectionCheck>
                   <Count>{selectedCount}개</Count>
