@@ -69,6 +69,11 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       state: activeMediaId === null ? { galleryViewer: true } : location.state,
     });
   };
+  const closeMediaViewerAfterDelete = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("media");
+    setSearchParams(next, { replace: true, state: null });
+  };
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditFolderOpen, setIsEditFolderOpen] = useState(false);
   const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
@@ -258,10 +263,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           onClose={() => setActiveMediaId(null)}
           onToggle={togglePhoto}
           onDeleted={(mediaId) => {
-            const index = viewerItems.findIndex((item) => item.mediaId === mediaId);
-            setActiveMediaId(
-              viewerItems[index + 1]?.mediaId ?? viewerItems[index - 1]?.mediaId ?? null,
-            );
+            closeMediaViewerAfterDelete();
             removePendingMedia([mediaId]);
             if (selectedPhotoIds.includes(mediaId)) togglePhoto(mediaId);
             queryClient.setQueriesData<InfiniteData<MediaList>>(

@@ -13,6 +13,7 @@ import {
 
 import type { GalleryItem } from "@/entities/media";
 import { deleteMedia } from "@/features/delete-media";
+import { downloadMedia } from "@/features/download-media";
 import { isApiError } from "@/shared/api";
 import { colors } from "@/shared/styles/tokens";
 
@@ -275,12 +276,34 @@ const ViewerFooter = ({
   canDelete: boolean;
   onDeleted: (mediaId: number) => void;
 }) => {
+  const media = item.type === "server" ? item.media : undefined;
+  const fileName = item.type === "local" ? item.file.name : item.media.fileName;
   const deletion = useMutation({
     mutationFn: () => deleteMedia({ roomId, mediaId: item.mediaId, token }),
     onSuccess: () => onDeleted(item.mediaId),
   });
-  const media = item.type === "server" ? item.media : undefined;
-  const fileName = item.type === "local" ? item.file.name : item.media.fileName;
+  const download = useMutation({
+    mutationFn: async () => {
+      if (!media) return;
+
+      const outcome = await downloadMedia({
+        roomId,
+        targets: [
+          {
+            mediaId: media.mediaId,
+            fileName: media.fileName,
+            size: media.size,
+            mimeType: media.mimeType,
+          },
+        ],
+        mode: "individual",
+        token,
+      });
+
+      if (outcome.type === "failed") throw new Error(outcome.reason);
+      if (outcome.type === "empty") throw new Error("사진을 다운로드하지 못했어요.");
+    },
+  });
 
   return (
     <Footer>
@@ -291,9 +314,12 @@ const ViewerFooter = ({
         </Subtitle>
         {deletion.isError && (
           <ErrorMessage role="alert">
-            {isApiError(deletion.error) ? deletion.error.message : "사진을 삭제하지 못했어요."}
+            {isApiError(deletion.error)
+              ? deletion.error.message
+              : "사진을 삭제하지 못했어요."}
           </ErrorMessage>
         )}
+        {download.isError && <ErrorMessage role="alert">{download.error.message}</ErrorMessage>}
       </Metadata>
       <ActionButton
         type="button"
@@ -306,7 +332,14 @@ const ViewerFooter = ({
       >
         <HiOutlineTrash size={21} />
       </ActionButton>
-      <ActionButton type="button" aria-label="사진 다운로드 (준비 중)" title="준비 중" disabled>
+      <ActionButton
+        type="button"
+        aria-label="사진 다운로드"
+        title={media ? "사진 다운로드" : "업로드가 끝난 뒤 다운로드할 수 있어요"}
+        disabled={!media || download.isPending}
+        aria-busy={download.isPending}
+        onClick={() => download.mutate()}
+      >
         <HiArrowDownTray size={21} />
       </ActionButton>
     </Footer>
