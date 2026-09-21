@@ -70,6 +70,27 @@ public class MediaQueryController {
     }
 
     @Operation(
+        summary = "미디어 전체 목록 조회",
+        description = "페이지네이션 없이 방에 올라온 미디어 전체를 createdAt·mediaId 기준 최신순으로 "
+            + "내려준다. folderId를 주면 그 폴더에 담긴 것만, 생략하면 방 전체를 반환한다. "
+            + "응답 크기와 서버 메모리 사용량이 미디어 수에 비례하므로 전체 목록이 반드시 필요한 "
+            + "기능에서만 사용한다. 일부 목록만 필요한 화면은 커서 페이지네이션 API를 사용한다. "
+            + "아직 스토리지에 실물이 없는 미디어는 목록에 나오지 않는다. "
+            + "없는 폴더나 다른 방 폴더로 필터하면 404, 입장하지 않은 사용자는 403, "
+            + "없는 방은 404, 만료·삭제된 방은 410이 난다."
+    )
+    @GetMapping("/all")
+    public ApiResponse<AllMediaListResponse> getAllMedia(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @Parameter(description = "이 폴더에 담긴 미디어만 조회한다. 생략하면 방 전체")
+        @RequestParam(required = false) Long folderId
+    ) {
+        return ApiResponse.of(AllMediaListResponse.from(
+            getMediaListService.list(roomId, folderId)));
+    }
+
+    @Operation(
         summary = "미디어 단건 조회",
         description = "미디어 하나의 메타데이터를 반환한다. 목록 항목의 필드를 모두 포함하고 "
             + "여기에 촬영 시각(takenAt)·촬영 위치(location)·삭제 권한(canDelete)이 더해진다. "
