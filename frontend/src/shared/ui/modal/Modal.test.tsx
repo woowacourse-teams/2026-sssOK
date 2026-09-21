@@ -117,3 +117,30 @@ test("닫힌 뒤에는 ESC 에 반응하지 않는다", async () => {
 
   expect(handleClose).not.toHaveBeenCalled();
 });
+
+test("title 을 넘기면 제목과 닫기 버튼을 함께 그린다", async () => {
+  const user = userEvent.setup();
+  const handleClose = jest.fn();
+  render(
+    <Modal onClose={handleClose} title={<h2>의견 #41</h2>}>
+      <p>본문</p>
+    </Modal>,
+  );
+
+  expect(screen.getByRole("heading", { name: "의견 #41" })).toBeInTheDocument();
+
+  await user.click(screen.getByRole("button", { name: "닫기" }));
+
+  expect(handleClose).toHaveBeenCalledTimes(1);
+});
+
+test("title 이 있어도 showClose 가 false 면 닫기 버튼을 그리지 않는다", () => {
+  render(
+    <Modal onClose={jest.fn()} title={<h2>의견 #41</h2>} showClose={false}>
+      <p>본문</p>
+    </Modal>,
+  );
+
+  expect(screen.getByRole("heading", { name: "의견 #41" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+});

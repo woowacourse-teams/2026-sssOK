@@ -19,10 +19,15 @@ export interface ModalProps {
    * `lg` 는 관리자 화면처럼 긴 본문과 표를 한 번에 읽어야 하는 자리에 쓴다.
    */
   size?: "sm" | "lg";
+  /**
+   * 넘기면 카드 맨 위에 제목과 X 를 한 줄로 두고, 본문이 길어도 이 줄은 스크롤되지 않는다.
+   * 긴 내용을 내려 읽다가도 닫을 곳을 찾으러 다시 올라갈 필요가 없다.
+   */
+  title?: ReactNode;
   children: ReactNode;
 }
 
-export const Modal = ({ onClose, showClose = true, size = "sm", children }: ModalProps) => {
+export const Modal = ({ onClose, showClose = true, size = "sm", title, children }: ModalProps) => {
   // 바깥 클릭과 같은 길이다. 닫으면 안 되는 순간은 부르는 쪽이 onClose 를 비워서 막는다.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -42,12 +47,23 @@ export const Modal = ({ onClose, showClose = true, size = "sm", children }: Moda
         size={size}
         onClick={(event) => event.stopPropagation()}
       >
-        {showClose && (
-          <Header>
-            <CloseButton type="button" onClick={onClose} aria-label="닫기">
-              <LuX />
-            </CloseButton>
-          </Header>
+        {title !== undefined ? (
+          <TitleBar size={size}>
+            {title}
+            {showClose && (
+              <CloseButton type="button" onClick={onClose} aria-label="닫기">
+                <LuX />
+              </CloseButton>
+            )}
+          </TitleBar>
+        ) : (
+          showClose && (
+            <Header>
+              <CloseButton type="button" onClick={onClose} aria-label="닫기">
+                <LuX />
+              </CloseButton>
+            </Header>
+          )
         )}
         <Body>{children}</Body>
       </Card>
@@ -90,6 +106,15 @@ const Header = styled.div`
   align-items: center;
   justify-content: flex-end;
   z-index: 1;
+`;
+
+const TitleBar = styled.div<{ size: NonNullable<ModalProps["size"]> }>`
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${spacing[12]};
+  margin-bottom: ${({ size }) => (size === "lg" ? spacing[20] : spacing[16])};
 `;
 
 const CloseButton = styled.button`

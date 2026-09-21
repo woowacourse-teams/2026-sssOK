@@ -15,32 +15,10 @@ export const Content = styled.div`
   gap: ${spacing[20]};
 `;
 
-export const Top = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${spacing[12]};
-`;
-
 export const Title = styled.h2`
   color: ${colors.textStrong};
 
   ${typography.heading3}
-`;
-
-export const CloseButton = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  flex-shrink: 0;
-  color: ${colors.textSecondary};
-
-  svg {
-    width: 100%;
-    height: 100%;
-  }
 `;
 
 export const Body = styled.p`

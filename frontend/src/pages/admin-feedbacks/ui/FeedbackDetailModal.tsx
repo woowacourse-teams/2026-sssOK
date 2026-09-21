@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import { LuX } from "react-icons/lu";
 
 import {
   type AdminFeedbackDetail,
@@ -13,7 +12,6 @@ import { Button } from "@/shared/ui/button";
 import { Modal } from "@/shared/ui/modal";
 import {
   Body,
-  CloseButton,
   Content,
   MetaLabel,
   MetaList,
@@ -22,7 +20,6 @@ import {
   Notice,
   RawUserAgent,
   Title,
-  Top,
 } from "./FeedbackDetailModal.styles";
 
 interface FeedbackDetailModalProps {
@@ -54,15 +51,8 @@ export const FeedbackDetailModal = ({
   }, [status, onUnauthorized]);
 
   return (
-    <Modal size="lg" showClose={false} onClose={onClose}>
+    <Modal size="lg" title={<Title>의견 #{feedbackId}</Title>} onClose={onClose}>
       <Content>
-        <Top>
-          <Title>의견 #{feedbackId}</Title>
-          <CloseButton type="button" onClick={onClose} aria-label="닫기">
-            <LuX />
-          </CloseButton>
-        </Top>
-
         {isPending && <Notice>의견을 불러오고 있어요.</Notice>}
 
         {/* 로그인 화면으로 옮기는 중이라 여기서 또 안내하지 않는다. */}
