@@ -29,6 +29,12 @@ class MediaCursorCodecTest {
     }
 
     @Test
+    void JSON_null인_커서이면_예외가_발생한다() {
+        assertThatThrownBy(() -> codec.decode("bnVsbA", 1L, 10L))
+            .isInstanceOf(InvalidCursorException.class);
+    }
+
+    @Test
     void 다른_방에서_발급한_커서이면_예외가_발생한다() {
         String encoded = codec.encode(new MediaCursor(
             1L, 10L, Instant.parse("2026-09-20T02:00:00Z"), 103L));

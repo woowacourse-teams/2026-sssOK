@@ -37,7 +37,8 @@ public class MediaCursorCodec {
     }
 
     private void requireValid(MediaCursor cursor, Long roomId, Long folderId) {
-        if (cursor.roomId() == null
+        if (cursor == null
+            || cursor.roomId() == null
             || cursor.lastCreatedAt() == null
             || cursor.lastMediaId() == null
             || cursor.lastMediaId() <= 0

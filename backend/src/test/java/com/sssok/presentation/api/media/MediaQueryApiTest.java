@@ -131,6 +131,13 @@ class MediaQueryApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void JSON_null인_커서는_400() throws Exception {
+        getMediaList("?cursor=bnVsbA")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_CURSOR"));
+    }
+
+    @Test
     void 페이지_크기가_허용_범위를_벗어나면_400() throws Exception {
         getMediaList("?size=101")
             .andExpect(status().isBadRequest())
