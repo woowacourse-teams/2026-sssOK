@@ -1,8 +1,9 @@
-import { track } from "@/shared/lib";
+import { type AnalyticsDownloadSource, track } from "@/shared/lib";
 import type { DownloadMode, DownloadOutcome } from "./types";
 
 interface DownloadRun {
   mode: DownloadMode;
+  source: AnalyticsDownloadSource;
   /** 이번 판에 고른 장수 */
   selectedCount: number;
   /** 방 전체 장수. 고른 장수와 견줘 골라 받기(H5)를 본다. */
@@ -21,6 +22,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
     case "saved":
       track("Photo Downloaded", {
         mode: run.mode,
+        source: run.source,
         photo_count: outcome.savedCount,
         failed_count: outcome.failed.length,
         total_count: run.roomPhotoCount,
@@ -30,6 +32,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
     case "empty":
       track("Photo Download Failed", {
         mode: run.mode,
+        source: run.source,
         reason: "all_failed",
         failed_count: outcome.failed.length,
       });
@@ -37,6 +40,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
     case "failed":
       track("Photo Download Failed", {
         mode: run.mode,
+        source: run.source,
         reason: outcome.reason,
         failed_count: run.selectedCount,
       });

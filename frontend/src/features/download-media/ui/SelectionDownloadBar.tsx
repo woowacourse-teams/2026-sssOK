@@ -102,6 +102,7 @@ export const SelectionDownloadBar = ({
       settleFailure(outcome, lastRun.targets, lastRun.mode);
       trackDownload(outcome, {
         mode: lastRun.mode,
+        source: "gallery",
         selectedCount: lastRun.targets.length,
         roomPhotoCount,
       });
@@ -119,7 +120,12 @@ export const SelectionDownloadBar = ({
       const reason = downloadMessageOfError(error);
       trackDownload(
         { type: "failed", reason, isRetryable: false },
-        { mode: lastRun.mode, selectedCount: lastRun.targets.length, roomPhotoCount },
+        {
+          mode: lastRun.mode,
+          source: "gallery",
+          selectedCount: lastRun.targets.length,
+          roomPhotoCount,
+        },
       );
       failWith(reason, lastRun.targets, lastRun.mode);
     },

@@ -1,5 +1,6 @@
 export { initAnalytics, setAnalyticsRoom, track } from "./analytics";
 export type {
+  AnalyticsDownloadSource,
   AnalyticsEntrySource,
   AnalyticsRoomContext,
 } from "./analyticsEvents";

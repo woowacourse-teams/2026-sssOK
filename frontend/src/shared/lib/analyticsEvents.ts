@@ -21,6 +21,8 @@ export interface AnalyticsEvents {
   "Photo Upload Failed": { reason: string; failed_count: number };
   "Photo Downloaded": {
     mode: "individual" | "zip" | "share";
+    /** 갤러리에서 골라 받았는지, 사진 한 장을 크게 본 화면에서 받았는지 */
+    source: AnalyticsDownloadSource;
     photo_count: number;
     failed_count: number;
     /** 방 전체 장수. 고른 장수와 비교해 골라 받기(H5)를 본다. */
@@ -29,6 +31,7 @@ export interface AnalyticsEvents {
   };
   "Photo Download Failed": {
     mode: "individual" | "zip" | "share";
+    source: AnalyticsDownloadSource;
     reason: string;
     failed_count: number;
   };
@@ -47,6 +50,12 @@ export type AnalyticsEventName = keyof AnalyticsEvents;
 
 /** 방에 들어온 경로. 공유 링크로 왔는지, 코드를 직접 입력했는지 */
 export type AnalyticsEntrySource = "link" | "code";
+
+/**
+ * 다운로드를 누른 자리. 지금은 갤러리 선택 바뿐이고,
+ * 사진 한 장 보기 화면의 다운로드 버튼은 준비 중이라 `viewer` 는 아직 오지 않는다.
+ */
+export type AnalyticsDownloadSource = "gallery" | "viewer";
 
 /** 방 안에서 일어난 이벤트에 공통으로 붙는 속성 */
 export interface AnalyticsRoomContext {
