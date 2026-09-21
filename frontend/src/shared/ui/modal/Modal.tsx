@@ -74,7 +74,8 @@ const Card = styled.div<{ size: NonNullable<ModalProps["size"]> }>`
   width: 100%;
   max-width: ${({ size }) => (size === "lg" ? "560px" : "330px")};
   max-height: 100%;
-  overflow-y: auto;
+  /* 카드는 화면 높이에서 멈추고, 넘치는 내용은 Body 가 스크롤한다. X 는 제자리에 남는다. */
+  overflow: hidden;
   padding: ${({ size }) => (size === "lg" ? "28px" : spacing[20])};
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]};
@@ -108,4 +109,10 @@ const CloseButton = styled.button`
 
 const Body = styled.div`
   width: 100%;
+  /* flex 자식은 기본 최소 높이가 내용 높이라, 0 으로 풀어야 카드 안에서 줄어들며 스크롤된다. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* 끝까지 내린 뒤의 스크롤이 뒤 화면으로 넘어가지 않게 막는다. 닫았을 때 보던 자리가 그대로여야 한다. */
+  overscroll-behavior: contain;
 `;
