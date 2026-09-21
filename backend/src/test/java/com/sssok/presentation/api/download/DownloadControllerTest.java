@@ -2,6 +2,10 @@ package com.sssok.presentation.api.download;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -22,6 +26,7 @@ import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.application.download.exception.InvalidDownloadParamException;
 import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.media.GetMediaDownloadUrlService;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
@@ -133,6 +138,58 @@ class DownloadControllerTest {
 
     // --- 다건 다운로드: POST /downloads/batch ---
 
+
+    // #275: 요청의 uploader 가 서비스까지 그대로 전달되는지 본다.
+    @Test
+    void 다건_다운로드의_업로더_필터를_전달한다() throws Exception {
+        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class))).willReturn(List.of());
+
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"ME\"}")
+            .andExpect(status().isOk());
+
+        verify(createBatchDownloadService).create(eq(ROOM_ID), anyLong(), any(),
+            nullable(Long.class), eq(MediaUploaderFilter.ME));
+    }
+
+    @Test
+    void 다건_다운로드에_업로더를_생략하면_null로_전달한다() throws Exception {
+        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class))).willReturn(List.of());
+
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]}}")
+            .andExpect(status().isOk());
+
+        verify(createBatchDownloadService).create(eq(ROOM_ID), anyLong(), any(),
+            nullable(Long.class), isNull());
+    }
+
+    @Test
+    void 다건_다운로드의_지원하지_않는_업로더_필터는_400() throws Exception {
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"UNKNOWN\"}")
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void zip_요청의_업로더_필터를_전달한다() throws Exception {
+        CreateDownloadJobResult result =
+            new CreateDownloadJobResult(1L, DownloadJobStatus.QUEUED, 1, 100L, "sssOK_10.zip");
+        given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
+
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"OTHERS\"}")
+            .andExpect(status().isAccepted());
+
+        verify(createDownloadJobService).create(eq(ROOM_ID), anyLong(), any(),
+            nullable(Long.class), eq(MediaUploaderFilter.OTHERS));
+    }
+
+    @Test
+    void zip_요청의_지원하지_않는_업로더_필터는_400() throws Exception {
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"UNKNOWN\"}")
+            .andExpect(status().isBadRequest());
+    }
+
     private ResultActions createBatch(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads/batch", ROOM_ID)
             .header("Authorization", BEARER)
@@ -146,7 +203,8 @@ class DownloadControllerTest {
         List<BatchDownloadFile> files = List.of(
             new BatchDownloadFile(5012L, "IMG_0421.jpg", "https://storage.example.com/5012", expiresAt),
             new BatchDownloadFile(5011L, "IMG_0420.jpg", "https://storage.example.com/5011", expiresAt));
-        given(createBatchDownloadService.create(anyLong(), any(), any())).willReturn(files);
+        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class))).willReturn(files);
 
         createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]}}")
             .andExpect(status().isOk())
@@ -158,7 +216,8 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드에서_selection과_folderId를_함께_보내면_400() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), any(), any()))
+        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new InvalidDownloadParamException());
 
         createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":2}")
@@ -168,7 +227,8 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드에서_개수가_상한을_초과하면_400() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), any(), any()))
+        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new TooManyFilesException(1000));
 
         createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
@@ -178,7 +238,8 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드에서_대상_미디어가_없으면_404() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), any(), any()))
+        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new MediaNotFoundException());
 
         createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[999]}}")
@@ -207,7 +268,8 @@ class DownloadControllerTest {
     void 압축_요청하면_202와_잡_정보를_반환한다() throws Exception {
         CreateDownloadJobResult result =
             new CreateDownloadJobResult(1L, DownloadJobStatus.QUEUED, 3, 741843619L, "sssOK_10.zip");
-        given(createDownloadJobService.create(anyLong(), anyLong(), any(), any())).willReturn(result);
+        given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
 
         createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011,5008]}}")
             .andExpect(status().isAccepted())
@@ -220,7 +282,8 @@ class DownloadControllerTest {
 
     @Test
     void zip_요청에서_selection과_folderId를_함께_보내면_400() throws Exception {
-        given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
+        given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new InvalidDownloadParamException());
 
         createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":2}")
@@ -230,7 +293,8 @@ class DownloadControllerTest {
 
     @Test
     void zip_요청에서_개수가_상한을_초과하면_400() throws Exception {
-        given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
+        given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new TooManyFilesException(1000));
 
         createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
@@ -240,7 +304,8 @@ class DownloadControllerTest {
 
     @Test
     void zip_요청에서_대상_미디어가_없으면_404() throws Exception {
-        given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
+        given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new MediaNotFoundException());
 
         createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[999]}}")
@@ -250,7 +315,8 @@ class DownloadControllerTest {
 
     @Test
     void zip_요청에서_동시_진행_중인_잡이_많으면_429() throws Exception {
-        given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
+        given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new DownloadRateLimitedException());
 
         createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")

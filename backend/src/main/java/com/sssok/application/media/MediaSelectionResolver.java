@@ -16,11 +16,17 @@ public class MediaSelectionResolver {
     private final FileRepository fileRepository;
 
     public ResolvedMediaSelection resolve(Long roomId, MediaSelection selection) {
+        return resolve(roomId, selection, null, MediaUploaderFilter.ALL);
+    }
+
+    public ResolvedMediaSelection resolve(Long roomId, MediaSelection selection,
+                                          Long requesterId, MediaUploaderFilter uploader) {
         validate(selection);
         List<Long> distinctIds = selection.ids().stream().distinct().toList();
         if (selection.mode() == MediaSelectionMode.EXCLUDE) {
             return new ResolvedMediaSelection(
-                fileRepository.findAllByRoomIdAndIdNotIn(roomId, distinctIds), List.of());
+                filterByUploader(fileRepository.findAllByRoomIdAndIdNotIn(roomId, distinctIds),
+                    requesterId, uploader), List.of());
         }
 
         Map<Long, StoredFile> filesById = new LinkedHashMap<>();
@@ -33,7 +39,16 @@ public class MediaSelectionResolver {
         List<Long> notFoundIds = distinctIds.stream()
             .filter(id -> !filesById.containsKey(id))
             .toList();
-        return new ResolvedMediaSelection(files, notFoundIds);
+        return new ResolvedMediaSelection(
+            filterByUploader(files, requesterId, uploader), notFoundIds);
+    }
+
+    public List<StoredFile> filterByUploader(List<StoredFile> files, Long requesterId,
+                                             MediaUploaderFilter uploader) {
+        MediaUploaderFilter normalized = MediaUploaderFilter.defaultIfNull(uploader);
+        return files.stream()
+            .filter(file -> normalized.includes(file.getUploaderId(), requesterId))
+            .toList();
     }
 
     private void validate(MediaSelection selection) {

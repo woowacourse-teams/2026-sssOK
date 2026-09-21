@@ -3,6 +3,7 @@ package com.sssok.application.download;
 import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.media.MediaSelection;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.DownloadFileNames;
@@ -30,12 +31,19 @@ public class CreateDownloadJobService {
 
     @Transactional
     public CreateDownloadJobResult create(Long roomId, Long requesterId, MediaSelection selection, Long folderId) {
+        return create(roomId, requesterId, selection, folderId, MediaUploaderFilter.ALL);
+    }
+
+    @Transactional
+    public CreateDownloadJobResult create(Long roomId, Long requesterId, MediaSelection selection,
+                                          Long folderId, MediaUploaderFilter uploader) {
         long activeJobCount = downloadJobRepository.countByRequesterIdAndStatusIn(requesterId, ACTIVE_STATUSES);
         if (activeJobCount >= downloadProperties.maxConcurrentJobsPerRequester()) {
             throw new DownloadRateLimitedException();
         }
 
-        List<StoredFile> targets = downloadTargetResolver.resolveSelection(roomId, selection, folderId);
+        List<StoredFile> targets = downloadTargetResolver.resolveSelection(
+            roomId, selection, folderId, requesterId, uploader);
         int mediaCount = targets.size();
         long totalSizeBytes = targets.stream().mapToLong(file -> file.getFileSize().bytes()).sum();
         String fileName = DownloadFileNames.zipNameOf(roomId);
