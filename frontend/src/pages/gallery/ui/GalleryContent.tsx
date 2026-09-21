@@ -55,12 +55,6 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   useAnalyticsRoom(room.code, userId === room.hostId);
   const { uploadSlots, addPendingMedia, removePendingMedia, replacePendingMedia } =
     usePendingMedia();
-  useRoomEvents({
-    roomId: room.roomId,
-    userId,
-    token: accessToken,
-    onMediaReady: replacePendingMedia,
-  });
   // 모달
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -158,6 +152,26 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     clearSelection,
   } = usePhotoSelection(photoIds, totalCount ?? photoIds.length);
   const selectionRequest = toMediaSelectionRequest(selection);
+
+  useRoomEvents({
+    roomId: room.roomId,
+    userId,
+    token: accessToken,
+    onMediaReady: replacePendingMedia,
+    onMediaDeleted: (mediaIds) => {
+      removePendingMedia(mediaIds);
+      mediaIds.forEach((mediaId) => {
+        if (selectedPhotoIds.includes(mediaId)) togglePhoto(mediaId);
+      });
+      if (activeMediaId !== null && mediaIds.includes(activeMediaId)) {
+        setActiveMediaId(null);
+      }
+      void queryClient.invalidateQueries({
+        queryKey: roomQueryKey(room.code, userId),
+        exact: true,
+      });
+    },
+  });
 
   // 폴더 생성 흐름
   const { handleCreateFolder, requestCreateFolder } = useCreateFolderAction({
