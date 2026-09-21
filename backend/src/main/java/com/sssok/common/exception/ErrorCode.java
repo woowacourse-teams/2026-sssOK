@@ -64,7 +64,6 @@ public enum ErrorCode {
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),
-    MEDIA_NOT_READY(409, "아직 처리 중인 미디어입니다"),
     DUPLICATE_ADMIN_LOGIN_ID(409, "이미 사용 중인 아이디입니다"),
     LAST_SUPER_ADMIN(409, "마지막 슈퍼관리자는 삭제하거나 역할을 바꿀 수 없습니다"),
 

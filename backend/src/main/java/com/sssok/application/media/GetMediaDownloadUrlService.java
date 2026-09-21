@@ -1,12 +1,10 @@
 package com.sssok.application.media;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.MediaNotReadyException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
 import com.sssok.infrastructure.config.DownloadProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -25,11 +23,8 @@ public class GetMediaDownloadUrlService {
             .filter(found -> found.getRoomId().equals(roomId))
             .orElseThrow(MediaNotFoundException::new);
 
-        if (file.getStatus() == UploadStatus.PROCESSING) {
-            throw new MediaNotReadyException();
-        }
         // RESERVED/FAILED는 실물이 스토리지에 없는 상태라, 존재하지 않는 것과 동일하게 취급한다.
-        if (file.getStatus() != UploadStatus.READY) {
+        if (!file.getStatus().isDownloadable()) {
             throw new MediaNotFoundException();
         }
 

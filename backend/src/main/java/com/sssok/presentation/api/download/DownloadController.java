@@ -46,7 +46,8 @@ public class DownloadController {
         description = "미디어 원본을 업로드 당시 파일명 그대로 내려받는다. 유효기간 5분짜리 스토리지 서명 URL로 302 "
             + "리다이렉트하며, 바디는 없다. 서명 URL의 Content-Disposition에는 ASCII 폴백(filename)과 RFC 5987 "
             + "UTF-8 인코딩(filename*)이 함께 실려 있어 한글 파일명도 깨지지 않는다. 없는 mediaId, 삭제됨, 다른 방의 "
-            + "미디어면 404가 나고, 아직 처리 중인 미디어면 409가 난다."
+            + "미디어면 404가 난다. 원본 업로드가 끝난 PROCESSING·READY 미디어는 다운로드할 수 있고, 실물이 없는 "
+            + "RESERVED·FAILED 미디어는 404가 난다."
     )
     @GetMapping("/media/{mediaId}")
     public ResponseEntity<Void> downloadMedia(
@@ -64,8 +65,8 @@ public class DownloadController {
             + "ids만, exclude면 방 전체에서 ids를 제외한다. include+빈 ids는 빈 선택, exclude+빈 ids는 전체 선택이다. "
             + "selection과 folderId를 동시에 보내면 400이며 둘 다 생략해도 400이다. 해석된 실제 대상이 1000개를 "
             + "초과하면 400이 난다. 다른 방 또는 존재하지 않는 ID는 대상에서 제외한다. "
-            + "처리 중인 미디어는 대상에서 제외되며, 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 "
-            + "다운로드와 같다(기본 5분)."
+            + "원본 업로드가 끝난 PROCESSING·READY 미디어는 대상에 포함하고, 실물이 없는 RESERVED·FAILED 미디어는 "
+            + "제외한다. 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 다운로드와 같다(기본 5분)."
     )
     @PostMapping("/batch")
     public ApiResponse<CreateBatchDownloadResponse> createBatch(
@@ -85,8 +86,9 @@ public class DownloadController {
         description = "선택한 미디어들을 하나의 zip으로 압축하는 작업을 생성한다. 즉시 완료되지 않고 jobId를 돌려준다. "
             + "selection.mode가 include면 ids만, exclude면 방 전체에서 ids를 제외한다. include+빈 ids는 빈 선택, "
             + "exclude+빈 ids는 전체 선택이다. selection과 folderId를 동시에 보내거나 둘 다 생략하면 400이며, "
-            + "해석된 실제 대상이 1000개를 초과하면 400이 난다. 처리 중인 미디어는 압축 대상과 mediaCount에서 제외되며, "
-            + "그 결과 대상이 하나도 없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다."
+            + "해석된 실제 대상이 1000개를 초과하면 400이 난다. 원본 업로드가 끝난 PROCESSING·READY 미디어는 "
+            + "압축 대상과 mediaCount에 포함하고, 실물이 없는 RESERVED·FAILED 미디어는 제외한다. 그 결과 대상이 하나도 "
+            + "없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다."
     )
     @PostMapping("/zip")
     @ResponseStatus(HttpStatus.ACCEPTED)

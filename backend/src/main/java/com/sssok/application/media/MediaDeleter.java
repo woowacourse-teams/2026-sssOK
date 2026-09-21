@@ -30,14 +30,16 @@ public class MediaDeleter {
     private final OrphanObjectCollector orphanObjectCollector;
     private final ApplicationEventPublisher eventPublisher;
 
+    // 행을 먼저 지우고 스토리지를 정리한다. 순서를 뒤집으면 스토리지를 치운 뒤 행이 지워지기
+    // 전에 워커가 썸네일을 올려 고아 객체가 남는다.
     @Transactional
     public void delete(Long roomId, List<StoredFile> files) {
         List<StorageKey> orphaned = orphanedKeysOf(files);
         orphanObjectCollector.enqueue(orphaned);
-
         List<Long> mediaIds = files.stream().map(StoredFile::getId).toList();
         folderMediaRepository.detachFromAllFolders(mediaIds);
         fileRepository.deleteAllByIdIn(mediaIds);
+
         eventPublisher.publishEvent(new MediaDeletedEvent(roomId, mediaIds));
         eventPublisher.publishEvent(new ObjectsOrphanedEvent(orphaned));
     }

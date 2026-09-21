@@ -40,6 +40,11 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public Optional<StoredFile> findByIdForUpdate(Long id) {
+        return jpaRepository.findWithLockById(id).map(this::toDomain);
+    }
+
+    @Override
     public List<StoredFile> findAllByIdIn(List<Long> ids) {
         if (ids.isEmpty()) {
             return List.of();

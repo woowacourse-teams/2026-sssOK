@@ -133,7 +133,7 @@ public class StoredFile {
         transitionTo(UploadStatus.READY);
     }
 
-    // 영상은 썸네일을 뽑지 못한다. 그렇다고 PROCESSING 에 두면 다운로드가 영영 409 로 막히므로
+    // 영상은 썸네일을 뽑지 못한다. 그렇다고 PROCESSING 에 두면 회수 배치가 영영 다시 집어 들므로
     // 썸네일 없이 완료로 넘긴다.
     public boolean canGenerateThumbnail() {
         return mediaType.isImage();

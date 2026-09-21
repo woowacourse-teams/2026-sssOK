@@ -26,6 +26,14 @@ Object.defineProperty(globalThis, "EventSource", {
 // jsdom 에 없는 API 라, 무한 스크롤을 쓰는 화면은 렌더링만 해도 터진다.
 installIntersectionObserverMock();
 
+// jsdom 에 없는 dialog API를 실제 브라우저의 open 상태만큼 흉내 낸다.
+HTMLDialogElement.prototype.showModal = function showModal() {
+  this.setAttribute("open", "");
+};
+HTMLDialogElement.prototype.close = function close() {
+  this.removeAttribute("open");
+};
+
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 
 afterEach(() => {

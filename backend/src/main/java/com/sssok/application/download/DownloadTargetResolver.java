@@ -10,16 +10,14 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 // zip 압축 다운로드(POST /rooms/{roomId}/downloads/zip)와 다건 다운로드(POST .../downloads/batch)의 대상을 정한다.
 // mediaIds/folderId 중 하나만 쓸 수 있고, 둘 다 생략하면 방 전체가 대상이다.
-// 어느 경로든 마지막엔 READY 상태만 남긴다 — PROCESSING/RESERVED/FAILED는 실물이 없거나
-// 아직 압축할 수 없는 상태라 대상에서 빠지고, 그 결과 대상이 하나도 없으면 404로 본다
-// (요청한 id가 전부 없는 경우와, 존재는 하지만 전부 READY가 아닌 경우를 같은 경로로 처리).
+// 어느 경로든 마지막엔 UploadStatus.isDownloadable() 인 것만 남긴다.
+// 대상이 하나도 없으면 404로 본다 — 요청한 id가 전부 없는 경우와 같은 경로로 처리한다.
 @Component
 @RequiredArgsConstructor
 class DownloadTargetResolver {
@@ -40,7 +38,7 @@ class DownloadTargetResolver {
             if (selected.size() > MAX_MEDIA_IDS) {
                 throw new TooManyFilesException(MAX_MEDIA_IDS);
             }
-            return requireReady(selected);
+            return requireDownloadable(selected);
         }
         return resolveByFolderId(roomId, folderId);
     }
@@ -55,7 +53,7 @@ class DownloadTargetResolver {
         if (folderId != null) {
             return resolveByFolderId(roomId, folderId);
         }
-        return requireReady(fileRepository.findAllByRoomId(roomId));
+        return requireDownloadable(fileRepository.findAllByRoomId(roomId));
     }
 
     private List<StoredFile> resolveByMediaIds(Long roomId, List<Long> mediaIds) {
@@ -68,7 +66,7 @@ class DownloadTargetResolver {
         List<StoredFile> inRoom = fileRepository.findAllByIdIn(distinctIds).stream()
             .filter(file -> file.getRoomId().equals(roomId))
             .toList();
-        return requireReady(inRoom);
+        return requireDownloadable(inRoom);
     }
 
     private List<StoredFile> resolveByFolderId(Long roomId, Long folderId) {
@@ -77,16 +75,16 @@ class DownloadTargetResolver {
             .orElseThrow(() -> new FolderNotFoundException(folderId));
 
         List<Long> mediaIds = folderMediaRepository.findMediaIdsByFolderId(folderId);
-        return requireReady(fileRepository.findAllByIdIn(mediaIds));
+        return requireDownloadable(fileRepository.findAllByIdIn(mediaIds));
     }
 
-    private List<StoredFile> requireReady(List<StoredFile> files) {
-        List<StoredFile> ready = files.stream()
-            .filter(file -> file.getStatus() == UploadStatus.READY)
+    private List<StoredFile> requireDownloadable(List<StoredFile> files) {
+        List<StoredFile> downloadable = files.stream()
+            .filter(file -> file.getStatus().isDownloadable())
             .toList();
-        if (ready.isEmpty()) {
+        if (downloadable.isEmpty()) {
             throw new MediaNotFoundException();
         }
-        return ready;
+        return downloadable;
     }
 }

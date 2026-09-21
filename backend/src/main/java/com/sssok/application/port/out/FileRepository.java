@@ -17,6 +17,9 @@ public interface FileRepository {
 
     Optional<StoredFile> findById(Long id);
 
+    // 삭제 트랜잭션과 순서를 강제하는 잠금 조회. 썸네일 워커가 완료를 반영하기 직전에 쓴다.
+    Optional<StoredFile> findByIdForUpdate(Long id);
+
     List<StoredFile> findAllByIdIn(List<Long> ids);
 
     // 담기/꺼내기에서 어떤 mediaId가 실제로 존재하는지 확인하는 용도.

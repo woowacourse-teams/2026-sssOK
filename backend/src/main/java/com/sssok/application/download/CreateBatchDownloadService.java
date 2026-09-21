@@ -12,8 +12,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 // 압축 없이 선택한 파일마다 서명 GET URL을 즉시 발급한다. 대상 선정 규칙(mediaIds/folderId,
-// 최대 개수, READY만 대상)은 zip 압축(CreateDownloadJobService)과 같아 DownloadTargetResolver를
-// 그대로 재사용한다. 잡을 만들지 않는 동기 흐름이라 별도 상태 조회가 필요 없다.
+// 최대 개수, 다운로드 가능한 상태만)은 zip 압축(CreateDownloadJobService)과 같아
+// DownloadTargetResolver를 그대로 재사용한다. 잡을 만들지 않는 동기 흐름이라 별도 상태 조회가 필요 없다.
 @Service
 @RequiredArgsConstructor
 public class CreateBatchDownloadService {
