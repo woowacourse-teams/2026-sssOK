@@ -23,10 +23,12 @@ public class MediaUrlResolver {
         Instant now = Instant.now();
         String thumbnailUrl = null;
         Instant thumbnailUrlExpiresAt = null;
-        // 워커가 아직 만들지 않았거나(PROCESSING) 영상이라 만들 수 없으면 비운다.
+        // 워커가 아직 만들지 않았거나(PROCESSING) 추출에 실패했으면 비운다.
+        // 서명에는 썸네일 자체의 형식을 쓴다 — 영상 썸네일을 video/mp4 로 서명하면
+        // 브라우저가 <img> 로 그리지 못한다.
         if (file.getThumbnailKey() != null) {
             thumbnailUrl = fileStoragePort.presignGet(file.getThumbnailKey(), "inline",
-                file.getMediaType().contentType(), thumbnailProperties.displayUrlTtl());
+                file.thumbnailContentType(), thumbnailProperties.displayUrlTtl());
             thumbnailUrlExpiresAt = now.plus(thumbnailProperties.displayUrlTtl());
         }
 

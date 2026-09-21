@@ -216,6 +216,7 @@ public class FileRepositoryAdapter implements FileRepository {
             file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
             file.getWidth(),
             file.getHeight(),
+            file.getDurationSeconds(),
             file.getTakenAt(),
             file.getLocation() == null ? null : file.getLocation().latitude(),
             file.getLocation() == null ? null : file.getLocation().longitude()
@@ -239,6 +240,7 @@ public class FileRepositoryAdapter implements FileRepository {
             entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
             entity.getWidth(),
             entity.getHeight(),
+            entity.getDurationSeconds(),
             entity.getTakenAt(),
             GeoPoint.ofNullable(entity.getLatitude(), entity.getLongitude())
         );

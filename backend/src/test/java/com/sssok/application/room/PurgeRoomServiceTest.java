@@ -105,7 +105,7 @@ class PurgeRoomServiceTest {
         file.startProcessing();
         StorageKey original = file.getStorageKey();
         StorageKey thumbnail = original.thumbnail();
-        file.completeProcessing(new ProcessedMedia(thumbnail, 1200, 900, null, null));
+        file.completeProcessing(ProcessedMedia.ofImage(thumbnail, 1200, 900, null, null));
         fileRepository.save(file);
 
         purgeRoomService.purgeAll(Instant.now());
