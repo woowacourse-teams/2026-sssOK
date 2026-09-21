@@ -22,6 +22,11 @@ LABEL org.opencontainers.image.version="${BACKEND_VERSION}" \
 
 WORKDIR /app
 
+# 영상 썸네일용. 자바 라이브러리 대신 실행 파일을 쓰는 이유는, 자바 의존성이 늘지 않고
+# 깨진 영상에 디코더가 죽어도 별도 프로세스라 서버가 멀쩡하기 때문이다.
+# ffprobe 도 같은 패키지에 들어 있다 — 원본 크기와 재생시간을 읽는 데 쓴다.
+RUN apk add --no-cache ffmpeg
+
 RUN addgroup -S app && adduser -S app -G app
 
 COPY --chown=app:app build/libs/*.jar app.jar
