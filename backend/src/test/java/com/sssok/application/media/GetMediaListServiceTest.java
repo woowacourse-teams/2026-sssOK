@@ -155,6 +155,28 @@ class GetMediaListServiceTest {
     }
 
     @Test
+    void 첫_페이지_조회_후_새_미디어가_추가돼도_기존_페이지_경계가_유지된다() {
+        Instant base = Instant.parse("2026-08-01T00:00:00Z");
+        StoredFile oldest = save(ROOM_ID, UploadStatus.READY, base);
+        StoredFile middle = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(1));
+        StoredFile newest = save(ROOM_ID, UploadStatus.READY, base.plusSeconds(2));
+
+        MediaPage firstPage = getMediaListService.page(ROOM_ID, null, 2, null);
+        StoredFile addedAfterFirstPage = save(
+            ROOM_ID, UploadStatus.READY, base.plusSeconds(3));
+        MediaPage secondPage = getMediaListService.page(
+            ROOM_ID, null, 2, firstPage.nextCursor());
+
+        assertThat(firstPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(newest.getId(), middle.getId());
+        assertThat(secondPage.items()).extracting(MediaDetail::mediaId)
+            .containsExactly(oldest.getId())
+            .doesNotContain(newest.getId(), middle.getId(), addedAfterFirstPage.getId());
+        assertThat(firstPage.totalCount()).isEqualTo(3);
+        assertThat(secondPage.totalCount()).isEqualTo(4);
+    }
+
+    @Test
     void 요청한_크기보다_한_건이_더_있으면_다음_페이지_커서를_반환한다() {
         Instant base = Instant.parse("2026-08-01T00:00:00Z");
         save(ROOM_ID, UploadStatus.READY, base);
