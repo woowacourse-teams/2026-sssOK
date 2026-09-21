@@ -23,6 +23,10 @@ export const GalleryGrid = styled.div`
   @media (min-width: 860px) {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+
+  @media (min-width: 1080px) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
 `;
 
 export const StateMessage = styled.div`
