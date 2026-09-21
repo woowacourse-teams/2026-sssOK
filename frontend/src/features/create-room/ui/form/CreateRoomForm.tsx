@@ -1,6 +1,7 @@
-import type { FormEvent } from "react";
+import { type FormEvent, useEffect } from "react";
 
 import { ApiError } from "@/shared/api";
+import { track } from "@/shared/lib";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { RadioGroup } from "@/shared/ui/radio-group";
@@ -17,6 +18,11 @@ interface CreateRoomFormProps {
 export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
   const { formValues, updateField, isValid } = useCreateRoomForm();
   const { mutate, isPending, error } = useCreateRoomMutation();
+
+  // 방 만들기 퍼널의 첫 단계. 폼까지 와서 만들지 않고 떠나는 사람을 본다.
+  useEffect(() => {
+    track("Room Create Started", {});
+  }, []);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

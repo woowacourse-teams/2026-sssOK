@@ -3,11 +3,13 @@ export { getMedia } from "./api/getMedia";
 export { mediaQueryKey, useMediaQuery } from "./model/useMediaQuery";
 export { photosQueryKey, usePhotosQuery } from "./model/usePhotosQuery";
 export type {
+  GalleryItem,
   Media,
   MediaDetail,
   MediaItem,
   MediaList,
   MediaStatus,
+  MediaUploaderFilter,
   PhotoFilter,
 } from "./model/types";
 export { MediaCard } from "./ui/MediaCard";

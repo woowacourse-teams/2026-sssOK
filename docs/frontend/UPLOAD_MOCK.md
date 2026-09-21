@@ -452,7 +452,8 @@ console.log(done);
   브라우저의 크로스 오리진 PUT 이 막힌다. **연동 시점의 첫 관문이다.**
 - **업로드 진행률** — 목은 즉시 응답한다. 진행 바를 만들려면 `XMLHttpRequest.upload.onprogress` 가 필요하다.
 - **`PROCESSING → READY` 전이** — 워커도 SSE 도 없어서 등록 직후 `PROCESSING` 에 머문다.
-  `thumbnailUrl` / `originalUrl` 은 계속 `null` 이다.
+  `thumbnailUrl` 은 계속 `null` 이다. `originalUrl` 도 목은 비워 두지만, **실서버는 이 구간에도 채운다**
+  ([#255](https://github.com/woowacourse-teams/2026-sssOK/issues/255)) — 목을 맞추는 건 FE 과제로 남아 있다.
 - **미디어 목록 조회** — 아직 핸들러가 없다. 등록한 미디어를 다시 꺼내 볼 창구가 없다.
 - **파일 내용** — 목은 바이트를 세기만 하고 버린다. 실제 치수를 모르므로
   `width`/`height`/`duration` 은 타입별 고정 더미값이다.

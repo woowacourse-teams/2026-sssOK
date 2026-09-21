@@ -8,6 +8,8 @@ import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.media.MediaSelection;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.domain.file.FileSize;
@@ -41,7 +43,12 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
     FileRepository fileRepository;
 
     private Long media(long roomId, UploadStatus status) {
-        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now());
+        return media(roomId, 1L, status);
+    }
+
+    private Long media(long roomId, long uploaderId, UploadStatus status) {
+        StoredFile file = StoredFile.reserve(
+            roomId, uploaderId, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now());
         switch (status) {
             case PROCESSING -> file.startProcessing();
             case READY -> {
@@ -79,20 +86,31 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
         }
 
         @Test
-        void READY가_아닌_미디어는_대상에서_빠진다() {
+        void 썸네일이_아직_없는_PROCESSING_미디어도_대상에_포함한다() {
             Long ready = media(1L, UploadStatus.READY);
             Long processing = media(1L, UploadStatus.PROCESSING);
 
             List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(ready, processing), null);
 
+            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready, processing);
+        }
+
+        @Test
+        void 실물이_없는_상태는_대상에서_빠진다() {
+            Long ready = media(1L, UploadStatus.READY);
+            Long reserved = media(1L, UploadStatus.RESERVED);
+            Long failed = media(1L, UploadStatus.FAILED);
+
+            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(ready, reserved, failed), null);
+
             assertThat(resolved).extracting(StoredFile::getId).containsExactly(ready);
         }
 
         @Test
-        void 요청한_id가_전부_존재하지만_전부_READY가_아니면_404() {
-            Long processing = media(1L, UploadStatus.PROCESSING);
+        void 요청한_id가_전부_존재하지만_전부_다운로드할_수_없는_상태면_404() {
+            Long reserved = media(1L, UploadStatus.RESERVED);
 
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(processing), null))
+            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(reserved), null))
                 .isInstanceOf(MediaNotFoundException.class);
         }
 
@@ -112,18 +130,70 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
     }
 
     @Nested
+    class selection_모드 {
+
+        @Test
+        void exclude는_방_전체에서_ID를_제외하고_다운로드할_수_있는_것만_돌려준다() {
+            Long included = media(1L, UploadStatus.READY);
+            Long excluded = media(1L, UploadStatus.READY);
+            Long processing = media(1L, UploadStatus.PROCESSING);
+            media(1L, UploadStatus.RESERVED);
+            media(2L, UploadStatus.READY);
+
+            List<StoredFile> resolved = downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.exclude(List.of(excluded)), null, null, MediaUploaderFilter.ALL);
+
+            assertThat(resolved).extracting(StoredFile::getId)
+                .containsExactlyInAnyOrder(included, processing);
+        }
+
+        @Test
+        void exclude의_빈_ID는_방_전체_미디어를_돌려준다() {
+            Long first = media(1L, UploadStatus.READY);
+            Long second = media(1L, UploadStatus.READY);
+
+            List<StoredFile> resolved = downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.exclude(List.of()), null, null, MediaUploaderFilter.ALL);
+
+            assertThat(resolved).extracting(StoredFile::getId)
+                .containsExactlyInAnyOrder(first, second);
+        }
+
+        @Test
+        void selection과_folderId를_모두_주거나_모두_생략하면_예외() {
+            assertThatThrownBy(() -> downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.include(List.of(1L)), 1L, null, MediaUploaderFilter.ALL))
+                .isInstanceOf(InvalidDownloadParamException.class);
+            assertThatThrownBy(() -> downloadTargetResolver.resolveSelection(1L, null, null, null, MediaUploaderFilter.ALL))
+                .isInstanceOf(InvalidDownloadParamException.class);
+        }
+
+        @Test
+        void selection에_ME_필터를_함께_적용한다() {
+            Long mine = media(1L, 7L, UploadStatus.READY);
+            media(1L, 8L, UploadStatus.READY);
+
+            List<StoredFile> resolved = downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.exclude(List.of()), null, 7L, MediaUploaderFilter.ME);
+
+            assertThat(resolved).extracting(StoredFile::getId).containsExactly(mine);
+        }
+    }
+
+    @Nested
     class folderId_모드 {
 
         @Test
-        void 폴더에_담긴_미디어_중_READY만_돌려준다() {
+        void 폴더에_담긴_미디어_중_다운로드할_수_있는_것만_돌려준다() {
             Folder folder = createFolderService.create(1L, "맛집");
             Long ready = media(1L, UploadStatus.READY);
             Long processing = media(1L, UploadStatus.PROCESSING);
-            folderMediaRepository.attachToFolder(folder.getId(), List.of(ready, processing));
+            Long reserved = media(1L, UploadStatus.RESERVED);
+            folderMediaRepository.attachToFolder(folder.getId(), List.of(ready, processing, reserved));
 
             List<StoredFile> resolved = downloadTargetResolver.resolve(1L, null, folder.getId());
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactly(ready);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready, processing);
         }
 
         @Test
@@ -139,21 +209,34 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, null, folder.getId()))
                 .isInstanceOf(FolderNotFoundException.class);
         }
+
+        @Test
+        void 폴더와_OTHERS_필터를_함께_적용한다() {
+            Folder folder = createFolderService.create(1L, "맛집");
+            Long mine = media(1L, 7L, UploadStatus.READY);
+            Long others = media(1L, 8L, UploadStatus.READY);
+            folderMediaRepository.attachToFolder(folder.getId(), List.of(mine, others));
+
+            List<StoredFile> resolved = downloadTargetResolver.resolveSelection(
+                1L, null, folder.getId(), 7L, MediaUploaderFilter.OTHERS);
+
+            assertThat(resolved).extracting(StoredFile::getId).containsExactly(others);
+        }
     }
 
     @Nested
     class 둘_다_생략하면_방_전체 {
 
         @Test
-        void 방의_READY_미디어_전체를_돌려준다() {
-            Long ready1 = media(1L, UploadStatus.READY);
-            Long ready2 = media(1L, UploadStatus.READY);
-            media(1L, UploadStatus.PROCESSING);
+        void 방의_다운로드할_수_있는_미디어_전체를_돌려준다() {
+            Long ready = media(1L, UploadStatus.READY);
+            Long processing = media(1L, UploadStatus.PROCESSING);
+            media(1L, UploadStatus.RESERVED);
             media(2L, UploadStatus.READY);
 
             List<StoredFile> resolved = downloadTargetResolver.resolve(1L, null, null);
 
-            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready1, ready2);
+            assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready, processing);
         }
     }
 

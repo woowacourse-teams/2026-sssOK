@@ -1,6 +1,8 @@
 package com.sssok.infrastructure.persistence.file;
 
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FileRepository.StuckMedia;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.MediaType;
@@ -39,6 +41,11 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public Optional<StoredFile> findByIdForUpdate(Long id) {
+        return jpaRepository.findWithLockById(id).map(this::toDomain);
+    }
+
+    @Override
     public List<StoredFile> findAllByIdIn(List<Long> ids) {
         if (ids.isEmpty()) {
             return List.of();
@@ -59,12 +66,66 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.findAllByRoomIdAndIdIn(roomId, ids).stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<StoredFile> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids) {
+        if (ids.isEmpty()) {
+            return findAllByRoomId(roomId);
+        }
+        return jpaRepository.findAllByRoomIdAndIdNotIn(roomId, ids).stream().map(this::toDomain).toList();
+    }
+
+    @Override
     public List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses) {
         return jpaRepository
             .findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(roomId, names(statuses)).stream()
             .map(this::toDomain)
             .toList();
+    }
+
+    @Override
+    public List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
+        Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
+                roomId, names(statuses), Limit.of(limit))
+            : jpaRepository.findNextPageByRoomIdAndStatusInOrderByNewest(
+                roomId, names(statuses), lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndStatusIn(Long roomId, Collection<UploadStatus> statuses) {
+        return jpaRepository.countByRoomIdAndStatusIn(roomId, names(statuses));
+    }
+
+    @Override
+    public List<StoredFile> findPageByRoomIdAndUploaderOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader, Instant lastCreatedAt, Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findFirstPageByRoomIdAndUploaderOrderByNewest(
+                roomId, names(statuses), requesterId, uploader.name(), limit)
+            : jpaRepository.findNextPageByRoomIdAndUploaderOrderByNewest(
+                roomId, names(statuses), requesterId, uploader.name(),
+                lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndUploader(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.countByRoomIdAndUploader(
+            roomId, names(statuses), requesterId, uploader.name());
     }
 
     @Override
@@ -82,9 +143,51 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
-    public List<Long> findStuckInProcessing(Instant stuckBefore, int limit) {
+    public List<StoredFile> findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses,
+        Instant lastCreatedAt, Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findFirstPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+                roomId, folderId, names(statuses), limit)
+            : jpaRepository.findNextPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+                roomId, folderId, names(statuses), lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndFolderIdAndStatusIn(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses) {
+        return jpaRepository.countByRoomIdAndFolderIdAndStatusIn(
+            roomId, folderId, names(statuses));
+    }
+
+    @Override
+    public List<StoredFile> findPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader, Instant lastCreatedAt, Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findFirstPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+                roomId, folderId, names(statuses), requesterId, uploader.name(), limit)
+            : jpaRepository.findNextPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+                roomId, folderId, names(statuses), requesterId, uploader.name(),
+                lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndFolderIdAndUploader(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.countByRoomIdAndFolderIdAndUploader(
+            roomId, folderId, names(statuses), requesterId, uploader.name());
+    }
+
+    @Override
+    public List<StuckMedia> findStuckInProcessing(Instant stuckBefore, int limit) {
         return jpaRepository.findStuckInProcessing(
-            UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit));
+                UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit)).stream()
+            .map(row -> new StuckMedia(row.id(), MediaType.valueOf(row.mediaType())))
+            .toList();
     }
 
     @Override
@@ -121,6 +224,7 @@ public class FileRepositoryAdapter implements FileRepository {
             file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
             file.getWidth(),
             file.getHeight(),
+            file.getDurationSeconds(),
             file.getTakenAt(),
             file.getLocation() == null ? null : file.getLocation().latitude(),
             file.getLocation() == null ? null : file.getLocation().longitude()
@@ -144,6 +248,7 @@ public class FileRepositoryAdapter implements FileRepository {
             entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
             entity.getWidth(),
             entity.getHeight(),
+            entity.getDurationSeconds(),
             entity.getTakenAt(),
             GeoPoint.ofNullable(entity.getLatitude(), entity.getLongitude())
         );

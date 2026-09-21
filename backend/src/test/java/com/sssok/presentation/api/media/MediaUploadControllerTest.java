@@ -23,6 +23,7 @@ import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.UploadNotAllowedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.file.UploadRejectionReason;
 import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
@@ -70,6 +71,9 @@ class MediaUploadControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;

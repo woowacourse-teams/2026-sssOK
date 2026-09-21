@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomService;
@@ -29,12 +30,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 // WebConfig가 등록하는 CORS 설정을 검증한다. 특정 컨트롤러의 기능이 아니라 WebConfig 자체를
 // 확인하는 것이므로, 인증이 필요 없는 기존 엔드포인트(RoomController)에 붙여 테스트한다.
 @WebMvcTest(RoomController.class)
+@ActiveProfiles("test")
 class WebConfigCorsTest {
 
     private static final String CODE = "A3F9K2M7";
@@ -63,6 +66,9 @@ class WebConfigCorsTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;

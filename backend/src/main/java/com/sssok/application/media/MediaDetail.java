@@ -12,8 +12,7 @@ public record MediaDetail(Long mediaId, String type, String fileName, String mim
                           Integer duration, List<Long> folderIds, Long uploaderId,
                           String uploaderName, String status, Instant uploadedAt) {
 
-    // 썸네일·크기는 워커가 채우기 전까지, 영상은 끝까지 비어 있다.
-    // duration 은 영상 길이라, 스트리밍으로 읽는 도구가 붙기 전까지 비어 있다.
+    // 썸네일·크기·재생시간은 워커가 채우기 전까지 비어 있다. duration 은 사진이면 항상 비어 있다.
     public static MediaDetail of(StoredFile file, String uploaderName, List<Long> folderIds, MediaUrls urls) {
         return new MediaDetail(
             file.getId(),
@@ -27,7 +26,7 @@ public record MediaDetail(Long mediaId, String type, String fileName, String mim
             urls.originalUrlExpiresAt(),
             file.getWidth(),
             file.getHeight(),
-            null,
+            file.getDurationSeconds(),
             folderIds,
             file.getUploaderId(),
             uploaderName,

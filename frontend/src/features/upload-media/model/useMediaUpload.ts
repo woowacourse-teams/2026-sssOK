@@ -1,5 +1,7 @@
 import { useRef, useState } from "react";
 
+import { getAnalyticsRoom } from "@/shared/lib";
+
 import type { RejectedFile } from "../api/types";
 import type { UploadProgressState } from "./uploadProgress";
 import {
@@ -9,7 +11,8 @@ import {
   withTargets,
   withUploaded,
 } from "./uploadProgress";
-import type { UploadResult } from "./types";
+import { trackUpload, trackUploadError } from "./trackUpload";
+import type { PendingMedia, UploadResult } from "./types";
 import { uploadFiles } from "./uploadFiles";
 
 export interface UseMediaUploadOptions {
@@ -19,6 +22,8 @@ export interface UseMediaUploadOptions {
   folderIds?: number[];
   /** 발급이 거절한 파일. 업로드가 끝나기 전에 먼저 온다. */
   onRejected?: (rejected: RejectedFile[]) => void;
+  /** 파일 한 건이 스토리지에 올라간 직후. */
+  onPreviewReady?: (media: PendingMedia) => void;
   /**
    * 등록까지 끝났을 때. 갤러리 갱신과 실패 모달(#74)이 여기서 갈린다.
    *
@@ -41,6 +46,7 @@ export const useMediaUpload = ({
   token,
   folderIds,
   onRejected,
+  onPreviewReady,
   onSettled,
   onError,
 }: UseMediaUploadOptions) => {
@@ -73,6 +79,9 @@ export const useMediaUpload = ({
     setProgress(startUploadProgress(files));
 
     let result: UploadResult | null = null;
+    const startedAt = performance.now();
+    // 끝나기 전에 갤러리를 떠나도 이 판이 어느 방 것인지 남도록 시작할 때 잡아 둔다
+    const analyticsRoom = getAnalyticsRoom();
 
     try {
       result = await uploadFiles({
@@ -85,8 +94,10 @@ export const useMediaUpload = ({
         onStarted: (targets) => update((state) => withTargets(state, targets)),
         onProgress: (one) => update((state) => withProgress(state, one)),
         onUploaded: (one) => update((state) => withUploaded(state, one)),
+        onPreviewReady,
       });
     } catch (error) {
+      trackUploadError(files.length, analyticsRoom);
       onError?.(error);
     } finally {
       if (isCurrent()) {
@@ -104,6 +115,7 @@ export const useMediaUpload = ({
      * 돌리는 셈이다.
      */
     if (result !== null) {
+      trackUpload(result, performance.now() - startedAt, analyticsRoom);
       onSettled?.(result, { superseded: !isCurrent() });
     }
   };

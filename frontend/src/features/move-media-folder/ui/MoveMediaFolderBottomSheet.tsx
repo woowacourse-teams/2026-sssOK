@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import styled from "@emotion/styled";
-import { LuCheck, LuFolder } from "react-icons/lu";
+import { LuCheck, LuFolder, LuFolderPlus } from "react-icons/lu";
 
+import type { MediaUploaderFilter } from "@/entities/media";
 import type { RoomFolder } from "@/entities/room";
+import type { MediaSelectionRequest } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
@@ -14,38 +16,61 @@ import { removeMediaFromFolder } from "../api/removeMediaFromFolder";
 
 interface MoveMediaFolderBottomSheetProps {
   roomId: number;
-  mediaIds: number[];
+  selection: MediaSelectionRequest;
+  selectedCount: number;
   folders: RoomFolder[];
   currentFolderId: number | null;
+  uploader: MediaUploaderFilter;
   token: string;
+  onCreateFolder: () => Promise<RoomFolder | null>;
   onClose: () => void;
   onSuccess: (folderId: number | null) => void | Promise<void>;
 }
 
 export const MoveMediaFolderBottomSheet = ({
   roomId,
-  mediaIds,
+  selection,
+  selectedCount,
   folders,
   currentFolderId,
+  uploader,
   token,
+  onCreateFolder,
   onClose,
   onSuccess,
 }: MoveMediaFolderBottomSheetProps) => {
   const [folderId, setFolderId] = useState<number | null>(null);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const mutation = useMutation({
     mutationFn: (targetFolderId: number) =>
-      addMediaToFolder({ roomId, mediaIds, folderId: targetFolderId, token }),
+      addMediaToFolder({ roomId, selection, folderId: targetFolderId, uploader, token }),
     onSuccess: (_, targetFolderId) => onSuccess(targetFolderId),
   });
   const removeMutation = useMutation({
-    mutationFn: (folderId: number) => removeMediaFromFolder({ roomId, mediaIds, folderId, token }),
+    mutationFn: (folderId: number) =>
+      removeMediaFromFolder({ roomId, selection, folderId, uploader, token }),
     onSuccess: (_, folderId) => onSuccess(folderId),
   });
-  const isPending = mutation.isPending || removeMutation.isPending;
+  const createAndMoveMutation = useMutation({
+    mutationFn: async () => {
+      const folder = await onCreateFolder();
+      if (!folder) return null;
+
+      await addMediaToFolder({ roomId, selection, folderId: folder.id, uploader, token });
+      return folder.id;
+    },
+    onSuccess: (createdFolderId) => {
+      if (createdFolderId !== null) void onSuccess(createdFolderId);
+    },
+  });
+  const isPending =
+    mutation.isPending || removeMutation.isPending || createAndMoveMutation.isPending;
+
+  if (isCreatingFolder) return null;
 
   return (
     <BottomSheet
-      title={`${mediaIds.length}개를 어디로 옮길까요?`}
+      title={`${selectedCount}개를 어디로 옮길까요?`}
       onClose={isPending ? undefined : onClose}
     >
       <Stack gap={16}>
@@ -74,8 +99,23 @@ export const MoveMediaFolderBottomSheet = ({
               </FolderButton>
             );
           })}
+          <FolderButton
+            type="button"
+            $selected={false}
+            disabled={isPending}
+            onClick={() => {
+              setIsCreatingFolder(true);
+              createAndMoveMutation.mutate(undefined, {
+                onSettled: () => setIsCreatingFolder(false),
+              });
+            }}
+          >
+            <FolderIcon>
+              <LuFolderPlus />
+            </FolderIcon>
+            <FolderName>새 폴더 만들어 옮기기</FolderName>
+          </FolderButton>
         </FolderList>
-        {folders.length === 0 && <Empty>먼저 폴더를 만들어 주세요.</Empty>}
         {folders.length > 0 && <Notice>사진을 담을 폴더 하나를 선택해 주세요.</Notice>}
         {currentFolderId !== null && (
           <Button
@@ -98,6 +138,13 @@ export const MoveMediaFolderBottomSheet = ({
             {isApiError(removeMutation.error)
               ? removeMutation.error.message
               : "사진을 폴더에서 꺼내지 못했어요."}
+          </ErrorMessage>
+        )}
+        {createAndMoveMutation.isError && (
+          <ErrorMessage role="alert">
+            {isApiError(createAndMoveMutation.error)
+              ? createAndMoveMutation.error.message
+              : "새 폴더를 만들고 사진을 옮기지 못했어요."}
           </ErrorMessage>
         )}
         <Button
@@ -173,13 +220,6 @@ const CheckSlot = styled.span`
 const Notice = styled.p`
   color: ${colors.textSecondary};
   ${typography.caption3}
-`;
-
-const Empty = styled.p`
-  padding: ${spacing[24]} 0;
-  color: ${colors.textSecondary};
-  text-align: center;
-  ${typography.body}
 `;
 
 const ErrorMessage = styled.p`

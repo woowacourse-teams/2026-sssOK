@@ -8,20 +8,29 @@ import jakarta.annotation.PreDestroy;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -32,6 +41,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 //
 // 클라이언트를 생성자가 아니라 처음 쓸 때 만든다. 생성자에서 만들면 자격증명이 없는 환경에서
 // 스프링 컨텍스트 자체가 뜨지 않아, R2 를 쓰지 않는 테스트까지 전부 함께 죽는다.
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class R2FileStorageAdapter implements FileStoragePort {
@@ -112,6 +122,57 @@ public class R2FileStorageAdapter implements FileStoragePort {
             .bucket(properties.bucket())
             .key(storageKey.value())
             .build());
+    }
+
+    // 키 1000 개마다 요청 한 번이다. 없는 키가 섞여 있어도 DeleteObjects 는 성공으로 처리하므로
+    // 단건 delete 와 같은 계약이 유지된다.
+    @Override
+    public List<StorageKey> deleteAll(List<StorageKey> storageKeys) {
+        if (storageKeys.isEmpty()) {
+            return List.of();
+        }
+        List<StorageKey> failed = new ArrayList<>();
+        for (List<StorageKey> chunk : StorageKeyBatches.chunk(storageKeys)) {
+            failed.addAll(deleteChunk(chunk));
+        }
+        return List.copyOf(failed);
+    }
+
+    // 한 청크가 통째로 실패해도 나머지 청크는 계속 시도한다. 여기서 예외를 그대로 띄우면
+    // 1000 개 중 앞쪽 하나가 터졌다는 이유로 뒤쪽 수천 개가 영영 남는다.
+    private List<StorageKey> deleteChunk(List<StorageKey> chunk) {
+        try {
+            DeleteObjectsResponse response = client().deleteObjects(DeleteObjectsRequest.builder()
+                .bucket(properties.bucket())
+                .delete(Delete.builder()
+                    // 성공 목록은 쓰지 않는다. 1000 건을 돌려받아 버리기만 할 이유가 없다.
+                    .quiet(true)
+                    .objects(chunk.stream()
+                        .map(key -> ObjectIdentifier.builder().key(key.value()).build())
+                        .toList())
+                    .build())
+                .build());
+            return failedKeysOf(response);
+        } catch (SdkException e) {
+            log.warn("오브젝트 배치 삭제 요청이 실패했습니다. 회수 배치가 다시 시도합니다. keys={}",
+                chunk.size(), e);
+            return chunk;
+        }
+    }
+
+    // 부분 실패는 예외가 아니라 응답의 errors 로 온다. 이것을 보지 않으면 지워지지 않은 키를
+    // 지운 것으로 착각해 회수 대상에서 놓친다.
+    private List<StorageKey> failedKeysOf(DeleteObjectsResponse response) {
+        if (!response.hasErrors() || response.errors().isEmpty()) {
+            return List.of();
+        }
+        for (S3Error error : response.errors()) {
+            log.warn("오브젝트를 지우지 못했습니다. key={}, code={}, message={}",
+                error.key(), error.code(), error.message());
+        }
+        return response.errors().stream()
+            .map(error -> new StorageKey(error.key()))
+            .toList();
     }
 
     private S3Presigner presigner() {

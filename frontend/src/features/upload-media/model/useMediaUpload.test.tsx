@@ -5,7 +5,13 @@ import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { MOCK_R2_BASE_URL } from "@/mocks/handlers/upload";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { setAnalyticsRoom, track } from "@/shared/lib/analytics";
 import { useMediaUpload } from "./useMediaUpload";
+
+jest.mock("@/shared/lib/analytics", () => ({
+  ...jest.requireActual("@/shared/lib/analytics"),
+  track: jest.fn(),
+}));
 
 const TOKEN = "mock-token-10234";
 
@@ -291,6 +297,23 @@ describe("useMediaUpload", () => {
     expect(onError).not.toHaveBeenCalled();
     // 던진 쪽과 상관없이 바는 치워져 있어야 한다. 남으면 끝나지 않은 판으로 보인다.
     expect(result.current.progress).toBeNull();
+  });
+
+  it("올리는 도중 갤러리를 떠나도 올리기를 시작한 방으로 결과를 남긴다", async () => {
+    await enterRoom();
+    const room = { room_code: "7K93QX2S", role: "guest" } as const;
+    setAnalyticsRoom(room);
+    const hold = holdPuts();
+    const { result } = renderUpload();
+
+    const running = startUpload(result, [fileOf("a.jpg", 10)]);
+    await waitFor(() => expect(result.current.progress).not.toBeNull());
+    // 올라가는 동안 갤러리를 떠나 방 정보가 지워졌다
+    setAnalyticsRoom(null);
+    hold.open();
+    await act(() => running);
+
+    expect(track).toHaveBeenCalledWith(expect.any(String), expect.anything(), room);
   });
 });
 
