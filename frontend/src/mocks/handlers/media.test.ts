@@ -85,10 +85,10 @@ describe("미디어 단일 조회·삭제 및 다중 삭제 목", () => {
     ).rejects.toMatchObject({ code: "MEDIA_NOT_FOUND" });
   });
 
-  it("빈 다중 삭제 목록은 거절한다", async () => {
+  it("빈 include 선택은 아무것도 삭제하지 않는다", async () => {
     await join(HOST);
     await expect(
       deleteMediaBatch({ roomId: MOCK_ROOM_ID, mediaIds: [], token: HOST }),
-    ).rejects.toMatchObject({ code: "INVALID_MEDIA_IDS" });
+    ).resolves.toEqual({ deleted: [], skipped: [], deletedCount: 0 });
   });
 });
