@@ -3,6 +3,7 @@ import { HiArrowsRightLeft, HiLink, HiQrCode } from "react-icons/hi2";
 
 import { getRoomSession } from "@/entities/session";
 import { ROUTES } from "@/shared/config";
+import { track } from "@/shared/lib";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Toast, type ToastProps } from "@/shared/ui/toast";
 import { issueLinkCode } from "../api/issueLinkCode";
@@ -69,9 +70,11 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
       // 쿼리나 해시에 담긴 일시적인 상태는 공유하지 않는다.
       const url = new URL(ROUTES.gallery(roomCode), window.location.origin).href;
       await navigator.clipboard.writeText(url);
+      track("Invite Link Copied", { is_success: true });
       setNotice({ message: "공유 링크를 복사했어요.", tone: "success" });
       closeMenu();
     } catch {
+      track("Invite Link Copied", { is_success: false });
       setNotice({
         message: "링크를 복사하지 못했어요. 브라우저 권한을 확인하거나 주소창에서 복사해 주세요.",
         tone: "error",
@@ -97,9 +100,11 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
       const url = new URL(ROUTES.roomEntry(roomCode), window.location.origin);
       url.searchParams.set("linkCode", linkCode);
       await navigator.clipboard.writeText(url.href);
+      track("Device Link Copied", { is_success: true });
       setNotice({ message: "다른 기기에서 이어할 링크를 복사했어요.", tone: "success" });
       closeMenu();
     } catch {
+      track("Device Link Copied", { is_success: false });
       setNotice({
         message: "이어하기 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
         tone: "error",

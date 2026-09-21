@@ -1,11 +1,12 @@
 import { apiClient } from "@/shared/api";
+import type { MediaSelectionRequest } from "@/features/select-media";
 import type { BatchDownload } from "./types";
 
 interface CreateBatchDownloadParams {
   roomId: number;
   token: string;
   /** 고른 미디어. `folderId` 와 함께 보내면 400 이다. */
-  mediaIds?: number[];
+  selection?: MediaSelectionRequest;
   folderId?: number;
 }
 
@@ -23,12 +24,12 @@ interface CreateBatchDownloadParams {
 export const createBatchDownload = ({
   roomId,
   token,
-  mediaIds,
+  selection,
   folderId,
 }: CreateBatchDownloadParams) =>
   apiClient<BatchDownload>(`/rooms/${roomId}/downloads/batch`, {
     method: "POST",
     token,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mediaIds, folderId }),
+    body: JSON.stringify({ selection, folderId }),
   });

@@ -124,6 +124,35 @@ class MediaQueryApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 전체_목록은_모든_미디어를_페이지네이션_필드_없이_반환한다() throws Exception {
+        Long first = upload("a.jpg", null);
+        Long second = upload("b.jpg", null);
+        Long third = upload("c.jpg", null);
+
+        getAllMedia("")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items.length()").value(3))
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(third))
+            .andExpect(jsonPath("$.data.items[1].mediaId").value(second))
+            .andExpect(jsonPath("$.data.items[2].mediaId").value(first))
+            .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+            .andExpect(jsonPath("$.data.hasNext").doesNotExist())
+            .andExpect(jsonPath("$.data.totalCount").doesNotExist());
+    }
+
+    @Test
+    void 전체_목록도_폴더로_필터할_수_있다() throws Exception {
+        Folder folder = createFolderService.create(roomId, "1일차");
+        Long inFolder = upload("a.jpg", folder.getId());
+        upload("b.jpg", null);
+
+        getAllMedia("?folderId=" + folder.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items.length()").value(1))
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(inFolder));
+    }
+
+    @Test
     void 올바르지_않은_커서는_400() throws Exception {
         getMediaList("?cursor=invalid-cursor")
             .andExpect(status().isBadRequest())
@@ -225,6 +254,11 @@ class MediaQueryApiTest extends PostgresContainerSupport {
 
     private ResultActions getMediaList(String query) throws Exception {
         return mockMvc.perform(get("/api/v1/rooms/" + roomId + "/media" + query)
+            .header("Authorization", token));
+    }
+
+    private ResultActions getAllMedia(String query) throws Exception {
+        return mockMvc.perform(get("/api/v1/rooms/" + roomId + "/media/all" + query)
             .header("Authorization", token));
     }
 

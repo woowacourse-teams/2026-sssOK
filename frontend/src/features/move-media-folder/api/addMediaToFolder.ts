@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/api";
+import type { MediaSelectionRequest } from "@/features/select-media";
 
 interface AddMediaToFolderResponse {
   updatedCount: number;
@@ -13,12 +14,12 @@ interface AddMediaToFolderResponse {
 
 export const addMediaToFolder = ({
   roomId,
-  mediaIds,
+  selection,
   folderId,
   token,
 }: {
   roomId: number;
-  mediaIds: number[];
+  selection: MediaSelectionRequest;
   folderId: number;
   token: string;
 }) =>
@@ -26,5 +27,5 @@ export const addMediaToFolder = ({
     method: "PUT",
     token,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mediaIds, folderId }),
+    body: JSON.stringify({ selection, folderId }),
   });

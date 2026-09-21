@@ -18,6 +18,7 @@ export const usePendingMedia = () => {
   };
 
   const replacePendingMedia = (media: MediaItem) => {
+    const hasPendingMedia = uploadSlots.some((slot) => slot.mediaId === media.mediaId);
     setUploadSlots((current) =>
       current.map((slot) => {
         return slot.mediaId !== media.mediaId
@@ -25,6 +26,7 @@ export const usePendingMedia = () => {
           : { mediaId: media.mediaId, type: "server", media, folderIds: media.folderIds };
       }),
     );
+    return hasPendingMedia;
   };
 
   return {

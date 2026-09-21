@@ -82,7 +82,7 @@ export const PendingMediaCard = ({ slot, isSelected, onToggle, onOpen }: Pending
         aria-label={`${fileName} 선택`}
         aria-pressed={isSelected}
       >
-        {isSelected && <HiCheck />}
+        <HiCheck />
       </SelectionMark>
     </Card>
   );

@@ -3,6 +3,10 @@ package com.sssok.presentation.api.mediafolder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -10,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.mediafolder.AddMediaToFoldersResult;
 import com.sssok.application.mediafolder.AddMediaToFoldersService;
 import com.sssok.application.mediafolder.FolderSummary;
@@ -98,7 +103,8 @@ class MediaFolderControllerTest {
     void 폴더에_담으면_200과_결과를_반환한다() throws Exception {
         AddMediaToFoldersResult result =
             new AddMediaToFoldersResult(2, 0, List.of(), new FolderSummary(31L, "맛집", 9));
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong())).willReturn(result);
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
 
         addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]},\"folderId\":31}")
             .andExpect(status().isOk())
@@ -139,7 +145,8 @@ class MediaFolderControllerTest {
 
     @Test
     void 없는_폴더면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong()))
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new FolderNotFoundException(List.of(999L)));
 
         addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":999}")
@@ -149,7 +156,8 @@ class MediaFolderControllerTest {
 
     @Test
     void mediaIds나_folderId가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong()))
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new InvalidMediaFolderParamException());
 
         addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[]},\"folderId\":31}")
@@ -161,7 +169,8 @@ class MediaFolderControllerTest {
     void 폴더에서_꺼내면_200과_결과를_반환한다() throws Exception {
         RemoveMediaFromFoldersResult result = new RemoveMediaFromFoldersResult(
             2, List.of(5011L), List.of(), List.of(new FolderSummary(31L, "맛집", 7)));
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList())).willReturn(result);
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
 
         removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]},\"folderIds\":[31]}")
             .andExpect(status().isOk())
@@ -174,7 +183,8 @@ class MediaFolderControllerTest {
     void 꺼내기에서_폴더_없이_보내면_null로_전달된다() throws Exception {
         RemoveMediaFromFoldersResult result =
             new RemoveMediaFromFoldersResult(1, List.of(5011L), List.of(), List.of());
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), org.mockito.ArgumentMatchers.isNull()))
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), org.mockito.ArgumentMatchers.isNull(),
+            anyLong(), nullable(MediaUploaderFilter.class)))
             .willReturn(result);
 
         removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5011]}}")
@@ -184,7 +194,8 @@ class MediaFolderControllerTest {
 
     @Test
     void 꺼내기에서_selection이_없으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList()))
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new InvalidMediaFolderParamException());
 
         removeFromFolders("{\"folderIds\":[31]}")
@@ -194,12 +205,69 @@ class MediaFolderControllerTest {
 
     @Test
     void 꺼내기도_없는_폴더가_있으면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList()))
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
+            nullable(MediaUploaderFilter.class)))
             .willThrow(new FolderNotFoundException(List.of(999L)));
 
         removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderIds\":[999]}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+    }
+
+
+    // #275: 요청의 uploader 가 서비스까지 그대로 전달되는지 본다.
+    @Test
+    void 폴더_담기의_업로더_필터를_전달한다() throws Exception {
+        AddMediaToFoldersResult result =
+            new AddMediaToFoldersResult(1, 0, List.of(), new FolderSummary(31L, "맛집", 1));
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
+
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderId\":31,\"uploader\":\"ME\"}")
+            .andExpect(status().isOk());
+
+        verify(addMediaToFoldersService).add(eq(ROOM_ID), any(), eq(31L), anyLong(),
+            eq(MediaUploaderFilter.ME));
+    }
+
+    @Test
+    void 폴더_담기에_업로더를_생략하면_null로_전달한다() throws Exception {
+        AddMediaToFoldersResult result =
+            new AddMediaToFoldersResult(1, 0, List.of(), new FolderSummary(31L, "맛집", 1));
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
+
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderId\":31}")
+            .andExpect(status().isOk());
+
+        verify(addMediaToFoldersService).add(eq(ROOM_ID), any(), eq(31L), anyLong(),
+            isNull());
+    }
+
+    @Test
+    void 폴더_담기의_지원하지_않는_업로더_필터는_400() throws Exception {
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderId\":31,\"uploader\":\"UNKNOWN\"}")
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 폴더_꺼내기의_업로더_필터를_전달한다() throws Exception {
+        RemoveMediaFromFoldersResult result =
+            new RemoveMediaFromFoldersResult(1, List.of(), List.of(), List.of());
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
+            nullable(MediaUploaderFilter.class))).willReturn(result);
+
+        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderIds\":[31],\"uploader\":\"OTHERS\"}")
+            .andExpect(status().isOk());
+
+        verify(removeMediaFromFoldersService).remove(eq(ROOM_ID), any(), anyList(), anyLong(),
+            eq(MediaUploaderFilter.OTHERS));
+    }
+
+    @Test
+    void 폴더_꺼내기의_지원하지_않는_업로더_필터는_400() throws Exception {
+        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderIds\":[31],\"uploader\":\"UNKNOWN\"}")
+            .andExpect(status().isBadRequest());
     }
 
     private ResultActions addToFolders(String body) throws Exception {
