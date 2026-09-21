@@ -4,4 +4,5 @@
  * 여기 적는 순간 밖에서 써도 된다는 뜻이 되므로, 실제로 쓰는 곳이 생길 때 연다.
  */
 export { SelectionDownloadBar } from "./ui/SelectionDownloadBar";
+export { downloadMedia } from "./model/downloadMedia";
 export type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } from "./model/types";
