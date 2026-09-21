@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { readValidAdminSession, removeAdminSession } from "@/entities/admin-session";
@@ -8,6 +8,7 @@ import { ROUTES } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 import { useInfiniteScroll } from "../model/useInfiniteScroll";
 import { useVersionFilter } from "../model/useVersionFilter";
+import { FeedbackDetailModal } from "./FeedbackDetailModal";
 import { List, LoadingMore, Notice, Page, Sentinel, Title } from "./AdminFeedbacksPage.styles";
 import { VersionFilter } from "./VersionFilter";
 
@@ -20,8 +21,11 @@ export const AdminFeedbacksPage = () => {
     useAdminFeedbacksQuery(session?.accessToken ?? "");
 
   const feedbacks = useMemo(() => data?.pages.flatMap((page) => page.feedbacks) ?? [], [data]);
-  const { versions, selectedVersion, visibleFeedbacks, latestVersion, toggleVersion } =
+  const { versions, selectedVersion, visibleFeedbacks, toggleVersion } =
     useVersionFilter(feedbacks);
+
+  const [openedFeedbackId, setOpenedFeedbackId] = useState<number | null>(null);
+  const closeDetail = useCallback(() => setOpenedFeedbackId(null), []);
 
   const sentinel = useRef<HTMLDivElement>(null);
   const loadMore = useCallback(() => {
@@ -45,12 +49,14 @@ export const AdminFeedbacksPage = () => {
    * 방 세션의 `useUnauthorizedRecovery` 가 대신해 주지 않는다 — 그쪽은 토큰으로 방을 찾아
    * 입장 화면으로 되돌리는 흐름이라, 관리자 토큰은 찾을 방이 없어 그냥 지나간다.
    */
-  useEffect(() => {
-    if (!isUnauthorized) return;
-
+  const leaveToLogin = useCallback(() => {
     removeAdminSession();
     navigate(ROUTES.adminLogin, { replace: true });
-  }, [isUnauthorized, navigate]);
+  }, [navigate]);
+
+  useEffect(() => {
+    if (isUnauthorized) leaveToLogin();
+  }, [isUnauthorized, leaveToLogin]);
 
   return (
     <Page>
@@ -85,7 +91,7 @@ export const AdminFeedbacksPage = () => {
           <FeedbackItem
             key={feedback.feedbackId}
             feedback={feedback}
-            isLatestVersion={feedback.frontendVersion === latestVersion}
+            onSelect={setOpenedFeedbackId}
           />
         ))}
       </List>
@@ -93,6 +99,17 @@ export const AdminFeedbacksPage = () => {
       {isFetchingNextPage && <LoadingMore>더 불러오는 중…</LoadingMore>}
 
       <Sentinel ref={sentinel} />
+
+      {session && openedFeedbackId !== null && (
+        <FeedbackDetailModal
+          // 다른 의견을 열면 새로 그린다 — 앞 의견의 에러·로딩 상태를 넘겨받지 않는다.
+          key={openedFeedbackId}
+          token={session.accessToken}
+          feedbackId={openedFeedbackId}
+          onClose={closeDetail}
+          onUnauthorized={leaveToLogin}
+        />
+      )}
     </Page>
   );
 };

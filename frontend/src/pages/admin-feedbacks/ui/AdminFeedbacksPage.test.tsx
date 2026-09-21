@@ -217,4 +217,146 @@ describe("AdminFeedbacksPage", () => {
 
     await waitForFirstPage();
   });
+
+  describe("의견 상세", () => {
+    const LONG_CONTENT_START = "업로드 중에 화면을 끄면 다시 처음부터 올라가요.";
+
+    const respondDetailWith = (status: number, body: Record<string, unknown>) => {
+      server.use(
+        http.get(`${API_BASE_URL}/admin/feedbacks/:feedbackId`, () =>
+          HttpResponse.json(body, { status }),
+        ),
+      );
+    };
+
+    const openFeedback = async (content: RegExp | string) => {
+      const user = userEvent.setup();
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(screen.getByRole("button", { name: new RegExp(content) }));
+
+      return { user, dialog: await screen.findByRole("dialog") };
+    };
+
+    it("의견을 누르면 목록에서 잘린 본문을 모달에서 끝까지 보여준다", async () => {
+      renderPage();
+      await waitForFirstPage();
+
+      const listItem = screen.getByText(new RegExp(LONG_CONTENT_START));
+
+      expect(listItem.textContent).toMatch(/\.\.\.$/);
+
+      await userEvent
+        .setup()
+        .click(screen.getByRole("button", { name: new RegExp(LONG_CONTENT_START) }));
+      const dialog = await screen.findByRole("dialog");
+
+      expect(within(dialog).getByRole("heading", { name: "의견 #18" })).toBeInTheDocument();
+      expect(
+        await within(dialog).findByText(/적어도 화면을 켜 두라는 안내라도 있었으면 좋겠습니다\.$/),
+      ).toBeInTheDocument();
+    });
+
+    it("방·작성자·기기·버전·작성 시각을 보여준다", async () => {
+      const { dialog } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      expect(await within(dialog).findByText("128 · 제주도 여행")).toBeInTheDocument();
+      expect(within(dialog).getByText("871 · 민수")).toBeInTheDocument();
+      expect(within(dialog).getByText("iPhone · Safari 17.4")).toBeInTheDocument();
+      expect(within(dialog).getByText(/^Mozilla\/5\.0 \(iPhone;/)).toBeInTheDocument();
+      expect(within(dialog).getByText("fe-v0.1.0")).toBeInTheDocument();
+      expect(within(dialog).getByText("2026-09-16 08:41")).toBeInTheDocument();
+    });
+
+    it("방으로 이동하는 링크를 두지 않는다", async () => {
+      const { dialog } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      await within(dialog).findByText("128 · 제주도 여행");
+
+      expect(within(dialog).queryByRole("link")).not.toBeInTheDocument();
+    });
+
+    it("닉네임·UA·버전이 없어도 모달이 열리고 빈 값은 알 수 없음으로 적는다", async () => {
+      const { dialog } = await openFeedback("의견 남기는 곳을 찾기가 어려웠습니다");
+
+      expect(await within(dialog).findByText("1601")).toBeInTheDocument();
+      expect(within(dialog).getAllByText("알 수 없음")).toHaveLength(2);
+    });
+
+    it("해석되지 않는 UA 는 원본만 보여준다", async () => {
+      const { dialog } = await openFeedback("API로 직접 올려봤는데 응답이 느려요");
+
+      expect(await within(dialog).findByText("curl/8.4.0")).toBeInTheDocument();
+    });
+
+    it("닫기 버튼으로 닫는다", async () => {
+      const { user, dialog } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      await user.click(within(dialog).getByRole("button", { name: "닫기" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("ESC 로 닫는다", async () => {
+      const { user } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      await user.keyboard("{Escape}");
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("바깥을 누르면 닫는다", async () => {
+      const { user } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      await user.click(screen.getByTestId("modal-overlay"));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("401 이면 세션을 버리고 로그인 화면으로 되돌린다", async () => {
+      respondDetailWith(401, { code: "UNAUTHORIZED", message: "인증이 필요합니다" });
+      const user = userEvent.setup();
+      const router = renderPage();
+      await waitForFirstPage();
+
+      await user.click(screen.getByRole("button", { name: /사진 30장 올리는데/ }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.adminLogin));
+      expect(getAdminSession()).toBeNull();
+    });
+
+    it("403 이면 권한 안내만 보여주고 재시도를 권하지 않는다", async () => {
+      respondDetailWith(403, { code: "ADMIN_FORBIDDEN", message: "권한이 없습니다" });
+      const { dialog } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      expect(
+        await within(dialog).findByText("이 계정으로는 의견을 볼 수 없어요."),
+      ).toBeInTheDocument();
+      expect(within(dialog).queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+    });
+
+    it("404 이면 없어진 의견이라고 알리고 재시도를 권하지 않는다", async () => {
+      respondDetailWith(404, { code: "FEEDBACK_NOT_FOUND", message: "존재하지 않는 의견입니다" });
+      const { dialog } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      expect(await within(dialog).findByText("없어진 의견이에요.")).toBeInTheDocument();
+      expect(within(dialog).queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+    });
+
+    it("불러오지 못하면 모달 안에서 다시 시도할 수 있다", async () => {
+      respondDetailWith(500, { code: "INTERNAL_SERVER_ERROR", message: "서버 오류" });
+      const { user, dialog } = await openFeedback("사진 30장 올리는데 5분 넘게 걸렸어요");
+
+      // 서버 실패는 훅이 한 번 더 불러 본 뒤(기본 1초 뒤)에야 화면에 올라온다.
+      expect(
+        await within(dialog).findByText("의견을 불러오지 못했어요.", {}, { timeout: 3000 }),
+      ).toBeInTheDocument();
+
+      server.resetHandlers();
+      await user.click(within(dialog).getByRole("button", { name: "다시 시도" }));
+
+      expect(await within(dialog).findByText("128 · 제주도 여행")).toBeInTheDocument();
+    });
+  });
 });

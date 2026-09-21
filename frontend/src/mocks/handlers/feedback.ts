@@ -6,6 +6,8 @@ import { API_BASE_URL } from "@/shared/config";
 /** 서버 기본값과 맞춘다 (의견 목록 조회 명세). */
 const DEFAULT_SIZE = 20;
 const MAX_SIZE = 100;
+/** 목록은 본문을 이 길이에서 자르고 `...` 을 붙인다. 전문은 단건 조회로만 나간다. */
+const PREVIEW_LENGTH = 100;
 
 const UA = {
   iPhone:
@@ -126,7 +128,9 @@ const SEEDS: Seed[] = [
   },
 
   {
-    content: "업로드 중에 화면을 끄면 다시 처음부터 올라가요.",
+    // 100자를 넘는 전문. 목록에서는 잘리고, 상세를 열어야 끝까지 읽힌다.
+    content:
+      "업로드 중에 화면을 끄면 다시 처음부터 올라가요. 사진이 200장이 넘어서 한 번에 올리는 데 10분 정도 걸리는데, 그 사이에 폰을 잠깐 내려놓으면 화면이 꺼지면서 멈춰 버립니다. 다시 켜면 처음부터 다시 올라가서 결국 세 번이나 시도했어요. 이어서 올라가게 해 주시거나, 적어도 화면을 켜 두라는 안내라도 있었으면 좋겠습니다.",
     roomId: 88,
     roomName: "동창회",
     memberId: 501,
@@ -317,6 +321,18 @@ const FEEDBACKS: AdminFeedback[] = SEEDS.map((seed, index) => ({
   createdAt: new Date(seed.createdAt).toISOString(),
 }));
 
+const toPreview = (feedback: AdminFeedback): AdminFeedback =>
+  feedback.content.length > PREVIEW_LENGTH
+    ? { ...feedback, content: `${feedback.content.slice(0, PREVIEW_LENGTH)}...` }
+    : feedback;
+
+const unauthorized = () =>
+  HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다" }, { status: 401 });
+
+/** 관리자 토큰이 아니면 권한 판정 전에 토큰 단계에서 걸린다. */
+const isAdminRequest = (request: Request) =>
+  request.headers.get("Authorization")?.startsWith("Bearer ") ?? false;
+
 const invalidParameter = (name: string) =>
   HttpResponse.json(
     { code: "INVALID_REQUEST_PARAMETER", message: `${name} 값의 형식이 올바르지 않습니다` },
@@ -334,13 +350,7 @@ const readNumber = (raw: string | null): number | null => {
 
 export const feedbackHandlers = [
   http.get(`${API_BASE_URL}/admin/feedbacks`, ({ request }) => {
-    // 관리자 토큰이 아니면 권한 판정 전에 토큰 단계에서 걸린다.
-    if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
-      return HttpResponse.json(
-        { code: "UNAUTHORIZED", message: "인증이 필요합니다" },
-        { status: 401 },
-      );
-    }
+    if (!isAdminRequest(request)) return unauthorized();
 
     const params = new URL(request.url).searchParams;
 
@@ -370,10 +380,29 @@ export const feedbackHandlers = [
 
     return HttpResponse.json({
       data: {
-        feedbacks: page,
+        feedbacks: page.map(toPreview),
         nextCursor: hasNext ? (page[page.length - 1]?.feedbackId ?? null) : null,
         hasNext,
       },
     });
+  }),
+
+  http.get(`${API_BASE_URL}/admin/feedbacks/:feedbackId`, ({ request, params }) => {
+    if (!isAdminRequest(request)) return unauthorized();
+
+    const feedbackId = readNumber(String(params.feedbackId));
+
+    if (feedbackId === null) return invalidParameter("feedbackId");
+
+    const feedback = FEEDBACKS.find((candidate) => candidate.feedbackId === feedbackId);
+
+    if (!feedback) {
+      return HttpResponse.json(
+        { code: "FEEDBACK_NOT_FOUND", message: "존재하지 않는 의견입니다" },
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json({ data: feedback });
   }),
 ];

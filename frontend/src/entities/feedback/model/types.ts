@@ -23,6 +23,14 @@ export interface AdminFeedback {
   createdAt: string;
 }
 
+/**
+ * 관리자 의견 단건 (`GET /admin/feedbacks/{feedbackId}`).
+ *
+ * 모양은 목록 한 건과 같지만 `content` 가 **자르지 않은 전문**이다.
+ * 이름을 따로 두는 건, 목록에서 받은 값을 상세 자리에 그대로 넘기는 실수를 타입에서 드러내려는 것이다.
+ */
+export type AdminFeedbackDetail = AdminFeedback;
+
 export interface AdminFeedbackPage {
   /** 최신순 (`createdAt` 내림차순, 같은 시각은 `feedbackId` 내림차순). */
   feedbacks: AdminFeedback[];

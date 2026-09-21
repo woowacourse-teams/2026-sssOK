@@ -7,6 +7,7 @@
  */
 const formatter = new Intl.DateTimeFormat("en-US", {
   timeZone: "Asia/Seoul",
+  year: "numeric",
   month: "2-digit",
   day: "2-digit",
   hour: "2-digit",
@@ -15,15 +16,37 @@ const formatter = new Intl.DateTimeFormat("en-US", {
   hourCycle: "h23",
 });
 
-export const formatFeedbackTime = (createdAt: string): string | null => {
+type ReadPart = (type: Intl.DateTimeFormatPartTypes) => string;
+
+const readParts = (createdAt: string): ReadPart | null => {
   const time = Date.parse(createdAt);
 
   // 읽지 못한 시각은 비워 둔다. `Invalid Date` 를 그대로 찍는 것보다 낫다.
   if (Number.isNaN(time)) return null;
 
   const parts = formatter.formatToParts(new Date(time));
-  const read = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value ?? "";
+
+  return (type) => parts.find((part) => part.type === type)?.value ?? "";
+};
+
+export const formatFeedbackTime = (createdAt: string): string | null => {
+  const read = readParts(createdAt);
+
+  if (read === null) return null;
 
   return `${read("month")}-${read("day")} ${read("hour")}:${read("minute")}`;
+};
+
+/**
+ * 상세 모달용 `YYYY-MM-DD HH:mm`.
+ *
+ * 목록은 최근 며칠 치를 훑는 자리라 연도를 뺐지만, 상세는 한 건을 기록으로 읽는 자리다.
+ * 해를 넘긴 의견을 열었을 때 올해 것으로 오해하지 않게 연도까지 적는다.
+ */
+export const formatFeedbackDateTime = (createdAt: string): string | null => {
+  const read = readParts(createdAt);
+
+  if (read === null) return null;
+
+  return `${read("year")}-${read("month")}-${read("day")} ${read("hour")}:${read("minute")}`;
 };

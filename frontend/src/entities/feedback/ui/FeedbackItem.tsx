@@ -2,15 +2,15 @@ import { Badge } from "@/shared/ui/badge";
 import { describeUserAgent } from "../lib/describeUserAgent";
 import { formatFeedbackTime } from "../lib/formatFeedbackTime";
 import type { AdminFeedback } from "../model/types";
-import { Content, Item, Meta, MetaText } from "./FeedbackItem.styles";
+import { Content, Item, Meta, MetaText, SelectButton } from "./FeedbackItem.styles";
 
 interface FeedbackItemProps {
   feedback: AdminFeedback;
-  /** 불러온 의견 중 가장 최신 버전이면 배지를 강조한다. */
-  isLatestVersion?: boolean;
+  /** 넘기면 항목 전체가 버튼이 된다. 누르면 이 의견을 연다. */
+  onSelect?: (feedbackId: number) => void;
 }
 
-export const FeedbackItem = ({ feedback, isLatestVersion = false }: FeedbackItemProps) => {
+export const FeedbackItem = ({ feedback, onSelect }: FeedbackItemProps) => {
   const { device, browser } = describeUserAgent(feedback.userAgent);
 
   /*
@@ -27,17 +27,30 @@ export const FeedbackItem = ({ feedback, isLatestVersion = false }: FeedbackItem
     formatFeedbackTime(feedback.createdAt),
   ].filter((part): part is string => part !== null);
 
-  return (
-    <Item>
+  const body = (
+    <>
       <Content>{feedback.content}</Content>
       <Meta>
         <MetaText>{meta.join(" · ")}</MetaText>
         {feedback.frontendVersion !== null && (
-          <Badge size="sm" variant={isLatestVersion ? "soft" : "neutral"}>
+          <Badge size="sm" variant="soft">
             {feedback.frontendVersion}
           </Badge>
         )}
       </Meta>
+    </>
+  );
+
+  // li 는 목록의 한 칸으로 남기고 버튼은 그 안에 둔다 — li 에 onClick 을 달면 키보드로 열 수 없다.
+  return (
+    <Item selectable={onSelect !== undefined}>
+      {onSelect ? (
+        <SelectButton type="button" onClick={() => onSelect(feedback.feedbackId)}>
+          {body}
+        </SelectButton>
+      ) : (
+        body
+      )}
     </Item>
   );
 };
