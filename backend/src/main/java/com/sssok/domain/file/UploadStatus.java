@@ -20,12 +20,20 @@ public enum UploadStatus {
     // 이미 적용된 V22를 수정하지 말고, 새 Flyway 마이그레이션에서 인덱스를 재생성한다.
     private static final Set<UploadStatus> VISIBLE = Set.of(PROCESSING, READY);
 
+    // 원본 실물이 있어 내려줘도 되는 상태. 썸네일 워커는 원본을 읽기만 하므로 PROCESSING 도 포함한다.
+    // 다운로드 단건·다건·zip 이 모두 이 기준 하나를 본다. VISIBLE 과 값은 같지만 뜻이 달라 따로 둔다.
+    private static final Set<UploadStatus> DOWNLOADABLE = Set.of(PROCESSING, READY);
+
     public static Set<UploadStatus> visibleStatuses() {
         return VISIBLE;
     }
 
     public boolean isVisible() {
         return VISIBLE.contains(this);
+    }
+
+    public boolean isDownloadable() {
+        return DOWNLOADABLE.contains(this);
     }
 
     // 서명 URL 을 다시 발급해도 되는 상태. 이미 올라간 파일을 덮어쓰지 못하게 막는 기준이다.
