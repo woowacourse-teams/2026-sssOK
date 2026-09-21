@@ -56,7 +56,7 @@ sequenceDiagram
     U->>G: 사진 1장 선택 → 다운로드
     G->>S: GET /rooms/{roomId}/media/{mediaId}/download (Bearer)
 
-    Note over S: READY 인지 확인<br/>PROCESSING → 409 · 없음/삭제/다른 방 → 404
+    Note over S: 원본이 있는지 확인<br/>PROCESSING/READY → 302 · 없음/삭제/다른 방/RESERVED/FAILED → 404
     S-->>G: 302 Location: 스토리지 서명 URL (5분)
 
     Note over G,R: fetch 가 리다이렉트를 그대로 따라간다 — R2 에 GET CORS 가 있어야 한다
@@ -88,7 +88,10 @@ sequenceDiagram
 | ---- | ----------------- | ------------------------------------------------------------------- |
 | 302  | —                 | `Location` 에 서명 URL. 바디 없음                                   |
 | 404  | `MEDIA_NOT_FOUND` | 없는 mediaId · 삭제됨 · 다른 방의 미디어 · `RESERVED`/`FAILED` 상태 |
-| 409  | `MEDIA_NOT_READY` | 워커가 아직 처리 중(`PROCESSING`)인 미디어                          |
+
+썸네일이 아직 안 붙은 `PROCESSING` 미디어도 302 를 받는다. 워커는 원본을 읽기만 하고 결과를
+`thumbnails/` 아래 다른 키에 쓰므로, 이 구간에도 원본은 그대로 있다. zip·다건 다운로드의 대상
+선정도 같은 기준이라, 업로드 직후 미리보기 카드에서 바로 원본을 받거나 zip 에 담을 수 있다.
 
 ---
 
