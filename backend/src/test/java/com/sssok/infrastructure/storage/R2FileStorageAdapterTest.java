@@ -195,6 +195,39 @@ class R2FileStorageAdapterTest {
         adapter().delete(StorageKey.generate(1L, MediaType.PNG));
     }
 
+    @Test
+    void 여러_키를_한_요청으로_지운다() {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey first = StorageKey.generate(1L, MediaType.PNG);
+        StorageKey second = StorageKey.generate(1L, MediaType.PNG);
+        assertThat(put(adapter.presignPut(first, "image/png", Duration.ofMinutes(10)),
+            "image/png")).isEqualTo(200);
+        assertThat(put(adapter.presignPut(second, "image/png", Duration.ofMinutes(10)),
+            "image/png")).isEqualTo(200);
+
+        assertThat(adapter.deleteAll(List.of(first, second))).isEmpty();
+        assertThat(adapter.findUploaded(first)).isEmpty();
+        assertThat(adapter.findUploaded(second)).isEmpty();
+    }
+
+    // 단건 delete 와 같은 계약이다. 회수 배치가 이미 지워진 키를 다시 넘겨도 실패로 세면 안 된다.
+    @Test
+    void 없는_키가_섞여_있어도_실패로_돌려주지_않는다() {
+        R2FileStorageAdapter adapter = adapter();
+        StorageKey existing = StorageKey.generate(1L, MediaType.PNG);
+        assertThat(put(adapter.presignPut(existing, "image/png", Duration.ofMinutes(10)),
+            "image/png")).isEqualTo(200);
+
+        assertThat(adapter.deleteAll(List.of(existing, StorageKey.generate(1L, MediaType.PNG))))
+            .isEmpty();
+        assertThat(adapter.findUploaded(existing)).isEmpty();
+    }
+
+    @Test
+    void 지울_키가_없으면_요청하지_않는다() {
+        assertThat(adapter().deleteAll(List.of())).isEmpty();
+    }
+
     private HttpResponse<byte[]> get(String url) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
