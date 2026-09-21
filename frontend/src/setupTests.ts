@@ -5,6 +5,10 @@ import { resetNicknames } from "./mocks/handlers/auth";
 import { resetDownloadJobs } from "./mocks/handlers/download";
 import { resetRoomHandlers } from "./mocks/handlers/room";
 import { resetUploads } from "./mocks/handlers/upload";
+import {
+  installIntersectionObserverMock,
+  resetIntersectionObservers,
+} from "./mocks/intersectionObserver";
 import { server } from "./mocks/server";
 
 class MockEventSource {
@@ -18,6 +22,9 @@ Object.defineProperty(globalThis, "EventSource", {
   configurable: true,
   value: MockEventSource,
 });
+
+// jsdom 에 없는 API 라, 무한 스크롤을 쓰는 화면은 렌더링만 해도 터진다.
+installIntersectionObserverMock();
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 
@@ -33,6 +40,8 @@ afterEach(() => {
   resetDownloadJobs();
   // 관리자 로그인 실패 횟수도 되돌린다 — 앞 테스트의 실패가 쌓이면 엉뚱한 곳에서 429 가 난다
   resetAdminLoginAttempts();
+  // 앞 테스트가 남긴 관찰자가 남아 있으면 엉뚱한 곳에서 다음 페이지를 부른다
+  resetIntersectionObservers();
 });
 
 afterAll(() => server.close());
