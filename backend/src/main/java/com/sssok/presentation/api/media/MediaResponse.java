@@ -15,7 +15,8 @@ public record MediaResponse(
     @Schema(description = "워커가 만들기 전까지 null. R2 서명 URL이라 <img src>에 바로 쓸 수 있다")
     String thumbnailUrl,
     @Schema(description = "thumbnailUrl의 만료 시각. 지나면 목록을 다시 받아야 한다") Instant thumbnailUrlExpiresAt,
-    @Schema(description = "READY가 아니면 null. R2 서명 URL이라 <img src>에 바로 쓸 수 있다") String originalUrl,
+    @Schema(description = "PROCESSING·READY면 채워지고 RESERVED·FAILED면 null. R2 서명 URL이라 바로 쓸 수 있다")
+    String originalUrl,
     @Schema(description = "originalUrl의 만료 시각. 지나면 목록을 다시 받아야 한다") Instant originalUrlExpiresAt,
     Integer width,
     Integer height,
