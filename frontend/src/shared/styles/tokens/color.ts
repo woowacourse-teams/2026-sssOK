@@ -5,6 +5,8 @@ export const colors = {
 
   backgroundDefault: "#FFFFFF",
   backgroundInverse: "#1A1A1A",
+  /** 흰 카드 안에서 한 덩어리를 묶어 보여줄 때 까는 옅은 회색. */
+  backgroundSubtle: "#F4F2EE",
 
   interactiveHover: "#FAF5ED",
 
