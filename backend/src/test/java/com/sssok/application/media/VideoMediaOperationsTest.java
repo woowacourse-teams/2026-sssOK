@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import com.sssok.application.download.CreateDownloadJobService;
+import com.sssok.application.download.DownloadCompressionWorker;
 import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
@@ -84,6 +85,11 @@ class VideoMediaOperationsTest {
 
     @MockitoBean
     VideoFrameExtractorPort videoFrameExtractor;
+
+    // 다운로드 생성 이벤트는 별도 스레드에서 압축을 시작한다. 이 통합 테스트에서는 대상 선정까지만
+    // 검증하므로 워커를 격리해 다음 테스트의 FileStoragePort 스텁과 경합하지 않게 한다.
+    @MockitoBean
+    DownloadCompressionWorker downloadCompressionWorker;
 
     private Long uploaderId;
     private Long roomId;
