@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 
-import { photosQueryKey } from "@/entities/media";
+import { photosQueryKey, type GalleryItem, type MediaList } from "@/entities/media";
 import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
@@ -12,16 +12,19 @@ import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
+import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
+import { MediaViewerModal } from "@/widgets/media-viewer";
 import { PhotoGallery } from "@/widgets/photo-gallery";
 import { RoomSummary } from "@/widgets/room-summary";
 import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
+import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
 import { GalleryModalHost } from "./GalleryModalHost";
 import { Page } from "./GalleryPage.styles";
@@ -35,8 +38,35 @@ interface GalleryContentProps {
 export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
+  const { uploadSlots, addPendingMedia, removePendingMedia, replacePendingMedia } =
+    usePendingMedia();
+  useRoomEvents({
+    roomId: room.roomId,
+    userId,
+    token: accessToken,
+    onMediaReady: replacePendingMedia,
+  });
   // 모달
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const rawMediaId = searchParams.get("media");
+  const activeMediaId =
+    rawMediaId && /^[1-9]\d*$/.test(rawMediaId) && Number.isSafeInteger(Number(rawMediaId))
+      ? Number(rawMediaId)
+      : null;
+  const setActiveMediaId = (mediaId: number | null) => {
+    if (mediaId === null && location.state?.galleryViewer) {
+      navigate(-1);
+      return;
+    }
+    const next = new URLSearchParams(searchParams);
+    if (mediaId === null) next.delete("media");
+    else next.set("media", String(mediaId));
+    setSearchParams(next, {
+      replace: activeMediaId !== null,
+      state: activeMediaId === null ? { galleryViewer: true } : location.state,
+    });
+  };
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isEditFolderOpen, setIsEditFolderOpen] = useState(false);
   const [isDeleteFolderOpen, setIsDeleteFolderOpen] = useState(false);
@@ -51,7 +81,16 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const { photos, isPending, isError } = useGalleryPhotos({
+  const {
+    photos,
+    totalCount,
+    isPending,
+    isError,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    loadMore,
+  } = useGalleryPhotos({
     roomId: room.roomId,
     accessToken,
     userId,
@@ -59,8 +98,35 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     selectedOption,
   });
 
+  const isUnfiltered = selectedFolderId === null && selectedOption === "all";
+  const allPhotoCount = isUnfiltered ? (totalCount ?? room.photoCount) : room.photoCount;
+
+  const visibleUploadSlots = uploadSlots.filter((slot) => {
+    if (selectedOption === "others") return false;
+    if (selectedFolderId === null) return true;
+
+    return slot.folderIds.includes(selectedFolderId);
+  });
+
   // 사진 선택
-  const photoIds = photos.map((photo) => photo.mediaId);
+  const uploadSlotIds = new Set(visibleUploadSlots.map((slot) => slot.mediaId));
+  const viewerItems: GalleryItem[] = [
+    ...visibleUploadSlots,
+    ...photos
+      .filter((photo) => !uploadSlotIds.has(photo.mediaId))
+      .map((media) => ({
+        mediaId: media.mediaId,
+        type: "server" as const,
+        media,
+        folderIds: media.folderIds,
+      })),
+  ].filter((item) =>
+    item.type === "local" ? !item.file.type.startsWith("video/") : item.media.type === "IMAGE",
+  );
+  const photoIds = [
+    ...visibleUploadSlots.map((slot) => slot.mediaId),
+    ...photos.filter((photo) => !uploadSlotIds.has(photo.mediaId)).map((photo) => photo.mediaId),
+  ];
   const { selectedPhotoIds, isAllSelected, togglePhoto, toggleAllPhotos, clearSelection } =
     usePhotoSelection(photoIds);
 
@@ -74,14 +140,22 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
-  const downloadTargets = photos
-    .filter((photo) => selectedPhotoIds.includes(photo.mediaId))
-    .map((photo) => ({
-      mediaId: photo.mediaId,
-      fileName: photo.fileName,
-      size: photo.size,
-      mimeType: photo.mimeType,
-    }));
+  const downloadTargets = [
+    ...visibleUploadSlots.map((slot) => ({
+      mediaId: slot.mediaId,
+      fileName: slot.type === "local" ? slot.file.name : slot.media.fileName,
+      size: slot.type === "local" ? slot.file.size : slot.media.size,
+      mimeType: slot.type === "local" ? slot.file.type : slot.media.mimeType,
+    })),
+    ...photos
+      .filter((photo) => !uploadSlotIds.has(photo.mediaId))
+      .map((photo) => ({
+        mediaId: photo.mediaId,
+        fileName: photo.fileName,
+        size: photo.size,
+        mimeType: photo.mimeType,
+      })),
+  ].filter((media) => selectedPhotoIds.includes(media.mediaId));
 
   return (
     <Page>
@@ -99,7 +173,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
       <FolderFilter
-        totalCount={room.photoCount}
+        totalCount={allPhotoCount}
         folders={room.folders}
         selectedFolderId={selectedFolderId}
         onSelectFolder={(folderId) => {
@@ -130,9 +204,12 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         canUpload={canUploadTo(room, userId)}
         hideButton={selectedPhotoIds.length > 0}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
-        // 올린 사진은 서버에만 있다. 목록을 다시 불러오지 않으면 갤러리에 나타나지 않는다.
-        onUploaded={() =>
-          queryClient.invalidateQueries({ queryKey: photosQueryKey(room.roomId, userId) })
+        onPreviewReady={addPendingMedia}
+        onRegistered={() =>
+          queryClient.invalidateQueries({
+            queryKey: roomQueryKey(room.code, userId),
+            exact: true,
+          })
         }
         /*
          * 업로드가 "이 방은 이제 없다" 고 답했다 (만료·삭제·세션 만료). 갤러리에 남겨두면
@@ -150,13 +227,66 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       />
       <PhotoGallery
         photos={photos}
+        uploadSlots={visibleUploadSlots}
         userId={userId}
         selectedPhotoIds={selectedPhotoIds}
         isPending={isPending}
         isError={isError}
         onTogglePhoto={togglePhoto}
-        onOpenPhoto={(photo) => navigate(ROUTES.mediaDetail(room.code, photo.mediaId))}
+        onOpenPhoto={setActiveMediaId}
+        hasMore={hasNextPage}
+        isLoadingMore={isFetchingNextPage}
+        onLoadMore={loadMore}
       />
+      {activeMediaId !== null && (
+        <MediaViewerModal
+          items={viewerItems}
+          totalCount={totalCount ?? viewerItems.length}
+          activeMediaId={activeMediaId}
+          roomId={room.roomId}
+          userId={userId}
+          hostId={room.hostId}
+          token={accessToken}
+          selectedPhotoIds={selectedPhotoIds}
+          hasNextPage={hasNextPage}
+          isFetchingNextPage={isFetchingNextPage}
+          isNextPageError={isFetchNextPageError}
+          onLoadNextPage={loadMore}
+          onChange={setActiveMediaId}
+          onClose={() => setActiveMediaId(null)}
+          onToggle={togglePhoto}
+          onDeleted={(mediaId) => {
+            const index = viewerItems.findIndex((item) => item.mediaId === mediaId);
+            setActiveMediaId(
+              viewerItems[index + 1]?.mediaId ?? viewerItems[index - 1]?.mediaId ?? null,
+            );
+            removePendingMedia([mediaId]);
+            if (selectedPhotoIds.includes(mediaId)) togglePhoto(mediaId);
+            queryClient.setQueriesData<InfiniteData<MediaList>>(
+              { queryKey: photosQueryKey(room.roomId, userId) },
+              (current) => {
+                if (!current) return current;
+                const exists = current.pages.some((page) =>
+                  page.items.some((item) => item.mediaId === mediaId),
+                );
+
+                return {
+                  ...current,
+                  pages: current.pages.map((page) => ({
+                    ...page,
+                    items: page.items.filter((item) => item.mediaId !== mediaId),
+                    totalCount: exists ? Math.max(0, page.totalCount - 1) : page.totalCount,
+                  })),
+                };
+              },
+            );
+            void queryClient.invalidateQueries({
+              queryKey: roomQueryKey(room.code, userId),
+              exact: true,
+            });
+          }}
+        />
+      )}
       <SelectionDownloadBar
         targets={downloadTargets}
         roomId={room.roomId}
@@ -175,11 +305,12 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           onClose={() => setIsDeleteSelectionOpen(false)}
           onSuccess={async () => {
             setIsDeleteSelectionOpen(false);
+            removePendingMedia(selectedPhotoIds);
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
+                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -204,8 +335,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
+                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -275,8 +406,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
                 exact: true,
               }),
               queryClient.invalidateQueries({
+                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
               }),
             ]);
             setDeletedFolderName(folderName);
