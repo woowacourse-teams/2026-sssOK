@@ -66,6 +66,7 @@ const renderBar = (targets: DownloadTarget[]) => {
       targets={targets}
       roomId={MOCK_ROOM_ID}
       roomCode="7K93QX2S"
+      roomPhotoCount={10}
       token={TOKEN}
       onClearSelection={onClearSelection}
     />,
@@ -94,6 +95,7 @@ describe("SelectionDownloadBar", () => {
         targets={[]}
         roomId={MOCK_ROOM_ID}
         roomCode="7K93QX2S"
+        roomPhotoCount={10}
         token={TOKEN}
         onClearSelection={jest.fn()}
       />,

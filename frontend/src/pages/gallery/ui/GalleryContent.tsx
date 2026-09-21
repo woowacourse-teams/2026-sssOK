@@ -21,6 +21,7 @@ import { GalleryOptions } from "@/widgets/gallery-options";
 import { MediaViewerModal } from "@/widgets/media-viewer";
 import { PhotoGallery } from "@/widgets/photo-gallery";
 import { RoomSummary } from "@/widgets/room-summary";
+import { useAnalyticsRoom } from "../model/useAnalyticsRoom";
 import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
@@ -38,6 +39,7 @@ interface GalleryContentProps {
 export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  useAnalyticsRoom(room.code, userId === room.hostId);
   const { uploadSlots, addPendingMedia, removePendingMedia, replacePendingMedia } =
     usePendingMedia();
   useRoomEvents({
@@ -291,6 +293,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         targets={downloadTargets}
         roomId={room.roomId}
         roomCode={room.code}
+        roomPhotoCount={room.photoCount}
         token={accessToken}
         onClearSelection={clearSelection}
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}

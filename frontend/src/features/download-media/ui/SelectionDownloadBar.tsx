@@ -13,6 +13,7 @@ import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
+import { trackDownload } from "../model/trackDownload";
 import { useMediaDownload } from "../model/useMediaDownload";
 import type { DownloadPhase } from "../model/downloadProgress";
 import type { DownloadMode, DownloadOutcome, DownloadTarget } from "../model/types";
@@ -47,6 +48,8 @@ interface SelectionDownloadBarProps {
   roomId: number;
   /** 시트에서 zip 파일명을 미리 보여주는 데 쓴다. */
   roomCode: string;
+  /** 방 전체 장수. 전부 골라 받았는지 가려내는 데 쓴다. */
+  roomPhotoCount: number;
   token: string;
   onClearSelection: () => void;
   onDeleteSelection?: () => void;
@@ -70,6 +73,7 @@ export const SelectionDownloadBar = ({
   targets,
   roomId,
   roomCode,
+  roomPhotoCount,
   token,
   onClearSelection,
   onDeleteSelection,
@@ -96,6 +100,11 @@ export const SelectionDownloadBar = ({
     token,
     onSettled: (outcome) => {
       settleFailure(outcome, lastRun.targets, lastRun.mode);
+      trackDownload(outcome, {
+        mode: lastRun.mode,
+        selectedCount: lastRun.targets.length,
+        roomPhotoCount,
+      });
 
       // 저장까지 끝났으면 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
       // 그대로 둔다 — 다시 시도할 대상을 사용자가 다시 고르게 만들면 안 된다.
@@ -106,7 +115,14 @@ export const SelectionDownloadBar = ({
       onSettled?.(outcome);
     },
     // 결말을 만들지도 못하고 튄 예외. 여기서 잡지 않으면 실패가 조용히 사라진다.
-    onError: (error) => failWith(downloadMessageOfError(error), lastRun.targets, lastRun.mode),
+    onError: (error) => {
+      const reason = downloadMessageOfError(error);
+      trackDownload(
+        { type: "failed", reason, isRetryable: false },
+        { mode: lastRun.mode, selectedCount: lastRun.targets.length, roomPhotoCount },
+      );
+      failWith(reason, lastRun.targets, lastRun.mode);
+    },
   });
 
   const startWith = (mode: DownloadMode, only: DownloadTarget[] = targets) => {

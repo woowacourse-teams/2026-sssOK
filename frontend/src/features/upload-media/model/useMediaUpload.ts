@@ -9,6 +9,7 @@ import {
   withTargets,
   withUploaded,
 } from "./uploadProgress";
+import { trackUpload, trackUploadError } from "./trackUpload";
 import type { PendingMedia, UploadResult } from "./types";
 import { uploadFiles } from "./uploadFiles";
 
@@ -76,6 +77,7 @@ export const useMediaUpload = ({
     setProgress(startUploadProgress(files));
 
     let result: UploadResult | null = null;
+    const startedAt = performance.now();
 
     try {
       result = await uploadFiles({
@@ -91,6 +93,7 @@ export const useMediaUpload = ({
         onPreviewReady,
       });
     } catch (error) {
+      trackUploadError(files.length);
       onError?.(error);
     } finally {
       if (isCurrent()) {
@@ -108,6 +111,7 @@ export const useMediaUpload = ({
      * 돌리는 셈이다.
      */
     if (result !== null) {
+      trackUpload(result, performance.now() - startedAt);
       onSettled?.(result, { superseded: !isCurrent() });
     }
   };
