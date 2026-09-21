@@ -3,85 +3,19 @@ package com.sssok.presentation.api.feedback;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.port.out.MemberRepository;
-import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.room.PurgeRoomService;
-import com.sssok.domain.room.Room;
-import com.sssok.infrastructure.persistence.admin.AdminJpaEntity;
-import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
-import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
-import com.sssok.support.PostgresContainerSupport;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 의견을 남긴 뒤 관리자 토큰으로 목록·단건 조회를 관통 확인한다.
 // 커서 페이지네이션과 정렬은 AdminFeedbackPaginationApiTest 가 따로 본다.
-@SpringBootTest(properties = {
-    "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s"
-})
-@AutoConfigureMockMvc
-class AdminFeedbackApiTest extends PostgresContainerSupport {
+class AdminFeedbackApiTest extends AdminFeedbackApiSupport {
 
-    private static final Duration RETENTION = Duration.ofDays(7);
-
-    // V19 마이그레이션이 심는 초기 슈퍼관리자.
-    private static final String SUPER_ADMIN_LOGIN_ID = "superadmin";
-    private static final String SUPER_ADMIN_PASSWORD = "testpass123";
-
-    private static final String CHROME_UA =
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
-            + "Chrome/140.0.0.0 Safari/537.36";
-    private static final String FRONTEND_VERSION = "fe-v0.1.0";
-
-    private static final AtomicInteger ADMIN_SEQUENCE = new AtomicInteger();
-
-    @Autowired
-    MockMvc mockMvc;
-
-    @Autowired
-    ObjectMapper objectMapper;
-
-    @Autowired
-    AdminJpaRepository adminJpaRepository;
-
-    @Autowired
-    FeedbackJpaRepository feedbackJpaRepository;
-
-    @Autowired
-    PurgeRoomService purgeRoomService;
-
-    @Autowired
-    RoomRepository roomRepository;
-
-    @Autowired
-    MemberRepository memberRepository;
-
-    // 목록 조회는 테이블 전체를 읽는다. 다른 테스트가 남긴 의견이 섞이면 "몇 번째 항목"
-    // 검증이 그 테스트의 실행 순서에 따라 흔들리므로, 각 테스트를 빈 상태에서 시작한다.
-    @BeforeEach
-    void 의견_데이터_초기화() {
-        feedbackJpaRepository.deleteAll();
-    }
+    private static final AtomicInteger REVOKED_SEQUENCE = new AtomicInteger();
 
     @Test
     void 관리자는_의견_목록을_최신순으로_조회한다() throws Exception {
@@ -90,7 +24,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long older = 의견_남기기(memberToken, roomId, "먼저 남긴 의견");
         long newer = 의견_남기기(memberToken, roomId, "나중에 남긴 의견");
 
-        목록_조회(슈퍼관리자_토큰(), 20)
+        목록_조회(슈퍼관리자_토큰(), null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.feedbacks", Matchers.hasSize(2)))
             .andExpect(jsonPath("$.data.feedbacks[0].feedbackId").value(newer))
@@ -104,7 +38,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long roomId = 방_만들고_입장(memberToken);
         long feedbackId = 의견_남기기(memberToken, roomId, "맥락이 같이 보여야 해요");
 
-        목록_조회(슈퍼관리자_토큰(), 20)
+        목록_조회(슈퍼관리자_토큰(), null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.feedbacks[0].feedbackId").value(feedbackId))
             .andExpect(jsonPath("$.data.feedbacks[0].roomId").value(roomId))
@@ -122,7 +56,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long feedbackId = 의견_남기기(memberToken, roomId, longContent);
         String adminToken = 슈퍼관리자_토큰();
 
-        목록_조회(adminToken, 20)
+        목록_조회(adminToken, null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.feedbacks[0].content").value("가".repeat(100) + "..."));
 
@@ -149,6 +83,50 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 작성_시각은_ISO_8601_문자열로_내려온다() throws Exception {
+        String memberToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(memberToken);
+        long feedbackId = 의견_남기기(memberToken, roomId, "시각 형식 확인");
+        String adminToken = 슈퍼관리자_토큰();
+
+        단건_조회(adminToken, feedbackId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.createdAt")
+                .value(Matchers.matchesPattern("\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z")));
+
+        목록_조회(adminToken, null, 20)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.feedbacks[0].createdAt")
+                .value(Matchers.matchesPattern("\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z")));
+    }
+
+    @Test
+    void 응답에는_명세에_적힌_필드만_담긴다() throws Exception {
+        String memberToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(memberToken);
+        long feedbackId = 의견_남기기(memberToken, roomId, "필드 목록 확인");
+        String adminToken = 슈퍼관리자_토큰();
+
+        단건_조회(adminToken, feedbackId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.*", Matchers.hasSize(9)))
+            .andExpect(jsonPath("$.data.feedbackId").exists())
+            .andExpect(jsonPath("$.data.content").exists())
+            .andExpect(jsonPath("$.data.roomId").exists())
+            .andExpect(jsonPath("$.data.roomName").exists())
+            .andExpect(jsonPath("$.data.memberId").exists())
+            .andExpect(jsonPath("$.data.nickname").exists())
+            .andExpect(jsonPath("$.data.userAgent").exists())
+            .andExpect(jsonPath("$.data.frontendVersion").exists())
+            .andExpect(jsonPath("$.data.createdAt").exists());
+
+        목록_조회(adminToken, null, 20)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.*", Matchers.hasSize(3)))
+            .andExpect(jsonPath("$.data.feedbacks[0].*", Matchers.hasSize(9)));
+    }
+
+    @Test
     void 없는_의견을_조회하면_404() throws Exception {
         단건_조회(슈퍼관리자_토큰(), -1L)
             .andExpect(status().isNotFound())
@@ -170,7 +148,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long feedbackId = 의견_남기기(memberToken, roomId, "아이폰에서 썸네일이 늦게 떠요");
         String adminToken = 슈퍼관리자_토큰();
 
-        목록_조회(adminToken, 20)
+        목록_조회(adminToken, null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.feedbacks[0].userAgent").value(CHROME_UA))
             .andExpect(jsonPath("$.data.feedbacks[0].frontendVersion").value(FRONTEND_VERSION));
@@ -188,7 +166,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long feedbackId = 의견_남기기(memberToken, roomId, "curl 로 보냈어요", null, null);
         String adminToken = 슈퍼관리자_토큰();
 
-        목록_조회(adminToken, 20)
+        목록_조회(adminToken, null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.feedbacks[0].feedbackId").value(feedbackId))
             .andExpect(jsonPath("$.data.feedbacks[0].userAgent").value(Matchers.nullValue()))
@@ -223,7 +201,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.memberId").value(memberId))
             .andExpect(jsonPath("$.data.nickname").value("가현"));
 
-        목록_조회(adminToken, 20)
+        목록_조회(adminToken, null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.feedbacks[0].feedbackId").value(feedbackId))
             .andExpect(jsonPath("$.data.feedbacks[0].roomName").value("우테코 회식"))
@@ -237,7 +215,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long feedbackId = 의견_남기기(memberToken, roomId, "일반 관리자도 읽어야 해요");
         String adminToken = 일반관리자_토큰();
 
-        목록_조회(adminToken, 20).andExpect(status().isOk());
+        목록_조회(adminToken, null, 20).andExpect(status().isOk());
         단건_조회(adminToken, feedbackId).andExpect(status().isOk());
     }
 
@@ -248,7 +226,7 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
         long feedbackId = 의견_남기기(memberToken, roomId, "남의 의견을 보려는 시도");
 
         // 관리자 토큰이 아니라 토큰 단계에서 걸려 401 이 난다.
-        목록_조회(memberToken, 20).andExpect(status().isUnauthorized());
+        목록_조회(memberToken, null, 20).andExpect(status().isUnauthorized());
         단건_조회(memberToken, feedbackId).andExpect(status().isUnauthorized());
     }
 
@@ -259,120 +237,25 @@ class AdminFeedbackApiTest extends PostgresContainerSupport {
             .andExpect(status().isUnauthorized());
     }
 
-    private ResultActions 목록_조회(String token, Integer size) throws Exception {
-        var request = get("/api/v1/admin/feedbacks").header("Authorization", "Bearer " + token);
-        if (size != null) {
-            request = request.param("size", String.valueOf(size));
-        }
-        return mockMvc.perform(request);
-    }
+    @Test
+    void 삭제된_관리자의_토큰으로_조회하면_403() throws Exception {
+        String memberToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(memberToken);
+        long feedbackId = 의견_남기기(memberToken, roomId, "권한이 사라진 뒤에는 못 읽어야 해요");
+        String superToken = 슈퍼관리자_토큰();
+        String loginId = "revokedreader" + REVOKED_SEQUENCE.getAndIncrement();
+        String revokedToken = 일반관리자_토큰(loginId);
+        long revokedId = adminJpaRepository.findByLoginId(loginId).orElseThrow().getId();
 
-    private ResultActions 단건_조회(String token, long feedbackId) throws Exception {
-        return mockMvc.perform(get("/api/v1/admin/feedbacks/{feedbackId}", feedbackId)
-            .header("Authorization", "Bearer " + token));
-    }
+        mockMvc.perform(delete("/api/v1/admin/accounts/{adminId}", revokedId)
+            .header("Authorization", "Bearer " + superToken)).andExpect(status().isOk());
 
-    private long 의견_남기기(String token, long roomId, String content) throws Exception {
-        return 의견_남기기(token, roomId, content, CHROME_UA, FRONTEND_VERSION);
-    }
-
-    private long 의견_남기기(
-        String token, long roomId, String content, String userAgent, String frontendVersion
-    ) throws Exception {
-        var request = post("/api/v1/rooms/{roomId}/feedbacks", roomId)
-            .header("Authorization", "Bearer " + token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"content\":\"" + content + "\"}");
-        if (userAgent != null) {
-            request = request.header(HttpHeaders.USER_AGENT, userAgent);
-        }
-        if (frontendVersion != null) {
-            request = request.header("X-App-Version", frontendVersion);
-        }
-        MvcResult created = mockMvc.perform(request).andExpect(status().isCreated()).andReturn();
-        return Long.parseLong(값(created, "feedbackId"));
-    }
-
-    private long 방_만들고_입장(String token) throws Exception {
-        MvcResult created = mockMvc.perform(post("/api/v1/rooms")
-                .header("Authorization", "Bearer " + token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"우테코 회식\"}"))
-            .andReturn();
-        long roomId = Long.parseLong(값(created, "roomId"));
-
-        mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-            .header("Authorization", "Bearer " + token));
-
-        return roomId;
-    }
-
-    private ResultActions 방_삭제(String token, long roomId) throws Exception {
-        return mockMvc.perform(delete("/api/v1/rooms/{roomId}", roomId)
-            .header("Authorization", "Bearer " + token));
-    }
-
-    private void 보존_기간이_지난_삭제로_되돌리기(long roomId) {
-        Room stored = roomRepository.findById(roomId).orElseThrow();
-        roomRepository.save(Room.reconstruct(
-            stored.getId(),
-            stored.getVersion(),
-            stored.getCode(),
-            stored.getName(),
-            stored.getStatus(),
-            stored.getExpiration(),
-            stored.getUploadPolicy(),
-            stored.getHostId(),
-            stored.getCreatedAt(),
-            Instant.now().minus(RETENTION).minus(Duration.ofDays(1))
-        ));
-    }
-
-    // 초기 슈퍼관리자의 비밀번호는 테스트가 모르므로 테스트용으로 바꿔 두고 로그인한다.
-    private String 슈퍼관리자_토큰() throws Exception {
-        AdminJpaEntity stored = adminJpaRepository.findByLoginId(SUPER_ADMIN_LOGIN_ID).orElseThrow();
-        adminJpaRepository.save(new AdminJpaEntity(
-            stored.getId(),
-            stored.getLoginId(),
-            new BCryptPasswordEncoder().encode(SUPER_ADMIN_PASSWORD),
-            stored.getName(),
-            stored.getRole(),
-            stored.getCreatedAt()
-        ));
-        return 로그인_토큰(SUPER_ADMIN_LOGIN_ID, SUPER_ADMIN_PASSWORD);
-    }
-
-    // 계정 아이디는 전체 관리자 중 유일해야 해서, 호출마다 다른 아이디를 쓴다.
-    private String 일반관리자_토큰() throws Exception {
-        String loginId = "feedbackreader" + ADMIN_SEQUENCE.getAndIncrement();
-        mockMvc.perform(post("/api/v1/admin/accounts")
-                .header("Authorization", "Bearer " + 슈퍼관리자_토큰())
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"loginId\":\"" + loginId + "\",\"password\":\"password123\""
-                    + ",\"name\":\"의견담당\",\"role\":\"ADMIN\"}"))
-            .andExpect(status().isCreated());
-        return 로그인_토큰(loginId, "password123");
-    }
-
-    private String 로그인_토큰(String loginId, String password) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/admin/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"loginId\":\"" + loginId + "\",\"password\":\"" + password + "\"}"))
-            .andExpect(status().isOk())
-            .andReturn();
-        return 값(result, "accessToken");
-    }
-
-    private String 익명_인증(String nickname) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"nickname\":\"" + nickname + "\"}"))
-            .andReturn();
-        return 값(result, "accessToken");
-    }
-
-    private String 값(MvcResult result, String field) throws Exception {
-        JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-        return body.get("data").get(field).asText();
+        // 토큰은 아직 만료되지 않았지만 권한 판정은 매 요청마다 계정을 다시 읽는다.
+        목록_조회(revokedToken, null, 20)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("ADMIN_FORBIDDEN"));
+        단건_조회(revokedToken, feedbackId)
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("ADMIN_FORBIDDEN"));
     }
 }
