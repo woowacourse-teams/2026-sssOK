@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -17,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import javax.imageio.ImageIO;
@@ -71,7 +73,10 @@ class ThumbnailSweeperTest {
 
         thumbnailSweeper.sweep();
 
-        assertThat(reload(stuck).getStatus()).isEqualTo(UploadStatus.READY);
+        // 배치는 워커 풀에 넘기기만 하므로, 실제로 READY 가 되는 것은 워커 쪽이다.
+        await().atMost(Duration.ofSeconds(5))
+            .untilAsserted(() -> assertThat(reload(stuck).getStatus())
+                .isEqualTo(UploadStatus.READY));
     }
 
     // 방금 등록된 것은 비동기 워커가 아직 처리 중일 수 있다. 배치가 끼어들면 같은 일을 두 번 한다.

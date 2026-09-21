@@ -1,5 +1,6 @@
 package com.sssok.application.port.out;
 
+import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.application.media.MediaUploaderFilter;
@@ -70,8 +71,16 @@ public interface FileRepository {
         Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
         MediaUploaderFilter uploader);
 
-    // 썸네일 회수 배치용. 이 시각보다 오래 PROCESSING 에 남아 있는 미디어 id 를 오래된 순으로 준다.
-    List<Long> findStuckInProcessing(Instant stuckBefore, int limit);
+    // 썸네일 회수 배치용. 이 시각보다 오래 PROCESSING 에 남아 있는 미디어를 오래된 순으로 준다.
+    // 종류까지 주는 이유: 회수도 사진과 영상이 서로 다른 워커 풀에서 돌아야 한다.
+    List<StuckMedia> findStuckInProcessing(Instant stuckBefore, int limit);
+
+    record StuckMedia(Long mediaId, MediaType mediaType) {
+
+        public boolean isVideo() {
+            return mediaType.isVideo();
+        }
+    }
 
     void deleteAllByRoomId(Long roomId);
 

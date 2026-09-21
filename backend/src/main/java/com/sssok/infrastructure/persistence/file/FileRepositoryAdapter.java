@@ -2,6 +2,7 @@ package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FileRepository.StuckMedia;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.MediaType;
@@ -182,9 +183,11 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
-    public List<Long> findStuckInProcessing(Instant stuckBefore, int limit) {
+    public List<StuckMedia> findStuckInProcessing(Instant stuckBefore, int limit) {
         return jpaRepository.findStuckInProcessing(
-            UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit));
+                UploadStatus.PROCESSING.name(), stuckBefore, Limit.of(limit)).stream()
+            .map(row -> new StuckMedia(row.id(), MediaType.valueOf(row.mediaType())))
+            .toList();
     }
 
     @Override
