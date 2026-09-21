@@ -98,6 +98,52 @@ class MediaQueryApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.items[1].mediaId").value(first));
     }
 
+    @Test
+    void 커서로_다음_페이지를_조회한다() throws Exception {
+        Long first = upload("a.jpg", null);
+        Long second = upload("b.jpg", null);
+        Long third = upload("c.jpg", null);
+
+        String firstResponse = getMediaList("?size=2")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(third))
+            .andExpect(jsonPath("$.data.items[1].mediaId").value(second))
+            .andExpect(jsonPath("$.data.hasNext").value(true))
+            .andExpect(jsonPath("$.data.nextCursor").isString())
+            .andExpect(jsonPath("$.data.totalCount").value(3))
+            .andReturn().getResponse().getContentAsString();
+        String cursor = objectMapper.readTree(firstResponse).path("data").path("nextCursor").asText();
+
+        getMediaList("?size=2&cursor=" + cursor)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items.length()").value(1))
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(first))
+            .andExpect(jsonPath("$.data.hasNext").value(false))
+            .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+            .andExpect(jsonPath("$.data.totalCount").value(3));
+    }
+
+    @Test
+    void 올바르지_않은_커서는_400() throws Exception {
+        getMediaList("?cursor=invalid-cursor")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_CURSOR"));
+    }
+
+    @Test
+    void JSON_null인_커서는_400() throws Exception {
+        getMediaList("?cursor=bnVsbA")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_CURSOR"));
+    }
+
+    @Test
+    void 페이지_크기가_허용_범위를_벗어나면_400() throws Exception {
+        getMediaList("?size=101")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PAGE_SIZE"));
+    }
+
     // 발급만 받고 스토리지에 올리지 않은 미디어는 실물이 없어 목록에 뜨면 안 된다.
     @Test
     void 발급만_받고_올리지_않은_미디어는_목록에_없다() throws Exception {

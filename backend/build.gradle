@@ -5,8 +5,14 @@ plugins {
 }
 
 group = 'com'
-version = '0.0.1-SNAPSHOT'
+// version 은 gradle.properties 가 갖는다 (릴리스 때 그 파일만 고치면 되도록).
 description = 'sssOK'
+
+springBoot {
+    // JAR 안에 META-INF/build-info.properties 를 넣어, 실행 중인 앱이 자기 버전과 빌드 시각을 읽게 한다.
+    // 로컬·IDE 실행에는 이 파일이 없을 수 있으므로 읽는 쪽에서 부재를 허용한다 (VersionConfig).
+    buildInfo()
+}
 
 java {
     toolchain {
