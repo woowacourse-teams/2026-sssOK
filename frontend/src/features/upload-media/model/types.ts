@@ -30,6 +30,13 @@ export interface UploadedFile {
   fileName: string;
 }
 
+/** 서버 썸네일이 준비되기 전 갤러리에 표시할 로컬 미디어. */
+export interface PendingMedia {
+  mediaId: number;
+  file: File;
+  folderIds: number[];
+}
+
 /**
  * 전송이 어쩌다 깨진 것. `rejected` 와 달리 재시도가 의미 있다.
  * 자동 재시도를 다 쓰고도 실패한 것만 여기로 온다.
@@ -106,6 +113,8 @@ export interface UploadFilesOptions {
    * 재발급받아 처음부터 다시 올라가는 파일이 있다.
    */
   onUploaded?: (uploaded: UploadedFile) => void;
+  /** PUT이 끝난 파일을 로컬 미리보기에 전달한다. */
+  onPreviewReady?: (media: PendingMedia) => void;
   /**
    * 중단하면 진행 중인 PUT 이 실제로 끊기고, 대기 중이던 파일은 출발하지 않는다.
    * 다만 **이미 올라간 파일은 그대로 등록한다** — 중단은 "아직 안 올린 것을 그만두는" 것이지

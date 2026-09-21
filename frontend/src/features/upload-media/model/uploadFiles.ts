@@ -25,6 +25,7 @@ export const uploadFiles = async ({
   onProgress,
   onStarted,
   onUploaded,
+  onPreviewReady,
   signal,
 }: UploadFilesOptions): Promise<UploadResult> => {
   const { issued, rejected } = await issueUploadUrls(
@@ -69,7 +70,15 @@ export const uploadFiles = async ({
 
     // 등록까지 기다리면 마지막 한 번에 몰아서 오른다. 올라간 즉시 세는 게 사용자가 보는 진행이다.
     if (result.ok) {
-      onUploaded?.({ mediaId: target.issued.mediaId, fileName: target.issued.fileName });
+      onUploaded?.({
+        mediaId: target.issued.mediaId,
+        fileName: target.issued.fileName,
+      });
+      onPreviewReady?.({
+        mediaId: target.issued.mediaId,
+        file: target.file,
+        folderIds: folderIds ?? [],
+      });
     }
 
     return result;
