@@ -210,14 +210,20 @@ describe("POST /rooms/{roomId}/members 목 핸들러", () => {
 });
 
 describe("GET /rooms/{roomId}/media 목 핸들러", () => {
-  it("인증된 요청에 전체 미디어 목록을 내려준다", async () => {
-    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, {
-      headers: { Authorization: TOKEN },
+  const listMedia = (query = "", token = TOKEN) =>
+    fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media${query}`, {
+      headers: { Authorization: token },
     });
+
+  /** 픽스처 장수. 첫 페이지(30장)를 넘겨야 다음 페이지를 확인할 수 있다. */
+  const SEEDED_COUNT = 33;
+
+  it("커서 없이 부르면 최신 30장과 다음 커서를 내려준다", async () => {
+    const response = await listMedia();
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.data.items).toHaveLength(13);
+    expect(body.data.items).toHaveLength(30);
     expect(body.data.items[0]).toEqual(
       expect.objectContaining({
         mediaId: 5012,
@@ -226,7 +232,62 @@ describe("GET /rooms/{roomId}/media 목 핸들러", () => {
         uploaderId: 10234,
       }),
     );
-    expect(body.data).toEqual({ items: expect.any(Array) });
+    expect(body.data).toEqual({
+      items: expect.any(Array),
+      nextCursor: expect.any(String),
+      hasNext: true,
+      totalCount: SEEDED_COUNT,
+    });
+  });
+
+  it("nextCursor 로 이어 부르면 나머지를 겹치지 않게 내려주고 마지막엔 커서가 없다", async () => {
+    const first = (await (await listMedia()).json()).data;
+    const second = (
+      await (await listMedia(`?cursor=${encodeURIComponent(first.nextCursor)}`)).json()
+    ).data;
+
+    const ids = [...first.items, ...second.items].map((item: { mediaId: number }) => item.mediaId);
+
+    expect(second.items).toHaveLength(SEEDED_COUNT - 30);
+    expect(second).toMatchObject({ nextCursor: null, hasNext: false });
+    expect(new Set(ids).size).toBe(SEEDED_COUNT);
+  });
+
+  it("size 만큼만 자르고, 범위를 벗어난 size 는 400 이다", async () => {
+    const body = await (await listMedia("?size=5")).json();
+
+    expect(body.data.items).toHaveLength(5);
+    expect((await listMedia("?size=0")).status).toBe(400);
+    expect((await listMedia("?size=101")).status).toBe(400);
+  });
+
+  it("folderId 를 주면 그 폴더에 담긴 것만 센다", async () => {
+    const body = await (await listMedia("?folderId=32")).json();
+
+    expect(body.data.items.map((item: { mediaId: number }) => item.mediaId)).toEqual([5007, 5006]);
+    expect(body.data.totalCount).toBe(2);
+    expect((await listMedia("?folderId=999")).status).toBe(404);
+  });
+
+  it("uploader 로 내 사진과 다른 사람 사진을 가른다", async () => {
+    const mine = (await (await listMedia("?uploader=ME&size=100")).json()).data;
+    const others = (await (await listMedia("?uploader=OTHERS&size=100")).json()).data;
+
+    expect(mine.items.every((item: { uploaderId: number }) => item.uploaderId === 10234)).toBe(
+      true,
+    );
+    expect(others.items.every((item: { uploaderId: number }) => item.uploaderId !== 10234)).toBe(
+      true,
+    );
+    expect(mine.totalCount + others.totalCount).toBe(SEEDED_COUNT);
+  });
+
+  it("필터를 바꾸고 이전 커서를 보내면 INVALID_CURSOR 로 거절한다", async () => {
+    const first = (await (await listMedia("?size=5")).json()).data;
+    const response = await listMedia(`?uploader=ME&cursor=${encodeURIComponent(first.nextCursor)}`);
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("INVALID_CURSOR");
   });
 
   it("토큰이 없으면 401을 내려준다", async () => {

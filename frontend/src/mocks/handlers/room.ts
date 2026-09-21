@@ -248,6 +248,18 @@ const createMedia = ({
   uploadedAt: `2026-08-18T${String(18 + Math.floor((mediaId - 5000) / 6)).padStart(2, "0")}:00:00+09:00`,
 });
 
+/**
+ * 첫 페이지(30장) 밖으로 밀려나는 오래된 사진. 이게 있어야 갤러리가 다음 페이지를
+ * 이어 받는지 목으로 확인할 수 있다 (#264). 최신순이라 번호가 큰 것부터 둔다.
+ */
+const OLDER_MEDIA_IDS = Array.from({ length: 20 }, (_, index) => 4999 - index);
+const OLDER_UPLOADERS = [
+  { uploaderId: MOCK_HOST_ID, uploaderName: "민수" },
+  { uploaderId: 7, uploaderName: "미미" },
+  { uploaderId: 12, uploaderName: "로지" },
+  { uploaderId: 21, uploaderName: "포키" },
+];
+
 const mediaItems: MockMedia[] = [
   createMedia({
     mediaId: 5012,
@@ -339,6 +351,13 @@ const mediaItems: MockMedia[] = [
     uploaderId: 21,
     uploaderName: "포키",
   }),
+  ...OLDER_MEDIA_IDS.map((mediaId, index) =>
+    createMedia({
+      mediaId,
+      fileName: `IMG_${String(mediaId - 4600).padStart(4, "0")}.jpg`,
+      ...OLDER_UPLOADERS[index % OLDER_UPLOADERS.length],
+    }),
+  ),
 ];
 
 /**
@@ -389,6 +408,34 @@ export const resetRoomHandlers = () => {
   roomExpiresAt = createRoomExpiresAt();
   ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
   DETACHED_PHOTO_COUNTS[MOCK_ROOM_CODES.active] = 0;
+};
+
+/** backend 목록 조회와 같다. 기본 30장, 최대 100장. */
+const DEFAULT_MEDIA_PAGE_SIZE = 30;
+const MAX_MEDIA_PAGE_SIZE = 100;
+const UPLOADER_FILTERS = ["ALL", "ME", "OTHERS"];
+
+const invalidParameter = (name: string) =>
+  HttpResponse.json(
+    { code: "INVALID_REQUEST_PARAMETER", message: `${name} 값의 형식이 올바르지 않습니다` },
+    { status: 400 },
+  );
+
+/**
+ * 커서가 묶이는 조회 조건. 실제 서버는 이것을 서명해 넣지만 목은 읽을 수 있게 그대로 둔다.
+ * `폴더|업로더|회원|마지막 mediaId` 모양이다.
+ */
+const cursorScopeOf = (folderId: number | null, uploader: string, memberId: number) =>
+  `${folderId ?? "all"}|${uploader}|${memberId}`;
+
+const splitCursor = (cursor: string): [string, number | null] => {
+  const separator = cursor.lastIndexOf("|");
+  const mediaId = Number(cursor.slice(separator + 1));
+
+  return [
+    cursor.slice(0, separator),
+    separator === -1 || !Number.isInteger(mediaId) ? null : mediaId,
+  ];
 };
 
 const unauthorized = () =>
@@ -471,7 +518,71 @@ export const roomHandlers = [
       return roomNotFound();
     }
 
-    return HttpResponse.json({ data: { items: mediaOfRoom(roomId) } });
+    const search = new URL(request.url).searchParams;
+
+    const rawSize = search.get("size");
+    const size = rawSize === null ? DEFAULT_MEDIA_PAGE_SIZE : Number(rawSize);
+
+    if (!Number.isInteger(size) || size < 1 || size > MAX_MEDIA_PAGE_SIZE) {
+      return invalidParameter("size");
+    }
+
+    const rawFolderId = search.get("folderId");
+    const folderId = rawFolderId === null ? null : Number(rawFolderId);
+
+    if (folderId !== null && !Number.isInteger(folderId)) return invalidParameter("folderId");
+    if (folderId !== null && !hasFolder(roomId, folderId)) {
+      return HttpResponse.json(
+        { code: "FOLDER_NOT_FOUND", message: `존재하지 않는 폴더입니다: ${folderId}` },
+        { status: 404 },
+      );
+    }
+
+    const uploader = search.get("uploader") ?? "ALL";
+
+    if (!UPLOADER_FILTERS.includes(uploader)) return invalidParameter("uploader");
+
+    const memberId = Number(token.replace("Bearer mock-token-", ""));
+    const scope = cursorScopeOf(folderId, uploader, memberId);
+
+    const rawCursor = search.get("cursor");
+    let after: number | null = null;
+
+    if (rawCursor !== null) {
+      const [cursorScope, cursorMediaId] = splitCursor(rawCursor);
+
+      // 실제 서버처럼 커서는 조회 조건에 묶여 있다. 필터를 바꾸고 이전 커서를 보내면 400 이다.
+      if (cursorScope !== scope || cursorMediaId === null) {
+        return HttpResponse.json(
+          { code: "INVALID_CURSOR", message: "유효하지 않은 커서입니다" },
+          { status: 400 },
+        );
+      }
+
+      after = cursorMediaId;
+    }
+
+    const matched = mediaOfRoom(roomId).filter(
+      (media) =>
+        (folderId === null || media.folderIds.includes(folderId)) &&
+        (uploader === "ALL" ||
+          (uploader === "ME" ? media.uploaderId === memberId : media.uploaderId !== memberId)),
+    );
+    // 목록은 번호가 큰 것(최신)부터다. 커서 **다음** 것부터 자른다 — 그 사이 지워진 사진이
+    // 있어도 위치를 잃지 않는다. 실제 서버의 (createdAt, mediaId) 키셋과 같은 성질이다.
+    const start = after === null ? 0 : matched.findIndex((media) => media.mediaId < after);
+    const page = start === -1 ? [] : matched.slice(start, start + size);
+    const hasNext = start !== -1 && start + size < matched.length;
+    const last = page[page.length - 1];
+
+    return HttpResponse.json({
+      data: {
+        items: page,
+        nextCursor: hasNext && last ? `${scope}|${last.mediaId}` : null,
+        hasNext,
+        totalCount: matched.length,
+      },
+    });
   }),
 
   /**

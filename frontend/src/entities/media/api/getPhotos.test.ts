@@ -6,10 +6,10 @@ const request = {
 } as const;
 
 describe("getPhotos", () => {
-  it("전체 사진을 조회한다", async () => {
+  it("첫 페이지를 조회한다", async () => {
     const result = await getPhotos(request);
 
-    expect(result.items).toHaveLength(13);
-    expect(result).toEqual({ items: expect.any(Array) });
+    expect(result.items).toHaveLength(30);
+    expect(result).toMatchObject({ hasNext: true, totalCount: 33 });
   });
 });
