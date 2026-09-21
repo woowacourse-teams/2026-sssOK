@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.media.MediaSelection;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.FileSize;
@@ -59,7 +60,7 @@ class CreateBatchDownloadServiceTest {
         Long media1 = media("IMG_0421.jpg");
         Long media2 = media("IMG_0420.jpg");
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, List.of(media1, media2), null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(media1, media2)), null);
 
         assertThat(files).hasSize(2);
         assertThat(files).extracting(BatchDownloadFile::downloadUrl).containsOnly(PRESIGNED);
@@ -71,7 +72,7 @@ class CreateBatchDownloadServiceTest {
         Long media1 = media("IMG_0421.jpg");
         Long media2 = media("IMG_0421.jpg");
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, List.of(media1, media2), null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(media1, media2)), null);
 
         assertThat(files).extracting(BatchDownloadFile::fileName)
             .containsExactlyInAnyOrder("IMG_0421.jpg", "IMG_0421 (1).jpg");
@@ -82,14 +83,14 @@ class CreateBatchDownloadServiceTest {
         Long media = media("IMG_0421.jpg");
         Instant before = Instant.now();
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, List.of(media), null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(media)), null);
 
         assertThat(files.get(0).expiresAt()).isAfter(before);
     }
 
     @Test
     void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
-        assertThatThrownBy(() -> createBatchDownloadService.create(ROOM_ID, List.of(999_999L), null))
+        assertThatThrownBy(() -> createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(999_999L)), null))
             .isInstanceOf(MediaNotFoundException.class);
     }
 
@@ -102,7 +103,7 @@ class CreateBatchDownloadServiceTest {
         Long readyId = media("ready.jpg");
 
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(ROOM_ID, List.of(processingId, readyId), null);
+            createBatchDownloadService.create(ROOM_ID, MediaSelection.include(List.of(processingId, readyId)), null);
 
         assertThat(files).extracting(BatchDownloadFile::mediaId).containsExactly(readyId);
     }

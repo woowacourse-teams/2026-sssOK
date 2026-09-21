@@ -60,8 +60,10 @@ public class DownloadController {
 
     @Operation(
         summary = "다건 다운로드 URL 발급",
-        description = "선택한 미디어들을 압축 없이 파일마다 서명 다운로드 URL로 즉시 받는다. mediaIds와 folderId를 "
-            + "동시에 보내면 400, mediaIds가 1000개를 초과하면 400이 난다. 둘 다 생략하면 방 전체 미디어가 대상이다. "
+        description = "선택한 미디어들을 압축 없이 파일마다 서명 다운로드 URL로 즉시 받는다. selection.mode가 include면 "
+            + "ids만, exclude면 방 전체에서 ids를 제외한다. include+빈 ids는 빈 선택, exclude+빈 ids는 전체 선택이다. "
+            + "selection과 folderId를 동시에 보내면 400이며 둘 다 생략해도 400이다. 해석된 실제 대상이 1000개를 "
+            + "초과하면 400이 난다. 다른 방 또는 존재하지 않는 ID는 대상에서 제외한다. "
             + "처리 중인 미디어는 대상에서 제외되며, 그 결과 대상이 하나도 없으면 404가 난다. URL 유효기간은 단건 "
             + "다운로드와 같다(기본 5분)."
     )
@@ -72,15 +74,18 @@ public class DownloadController {
         @RequestBody CreateBatchDownloadRequest request
     ) {
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(roomId, request.mediaIds(), request.folderId());
+            createBatchDownloadService.create(roomId,
+                request == null || request.selection() == null ? null : request.selection().toSelection(),
+                request == null ? null : request.folderId());
         return ApiResponse.of(CreateBatchDownloadResponse.from(files));
     }
 
     @Operation(
         summary = "zip 다운로드 요청",
         description = "선택한 미디어들을 하나의 zip으로 압축하는 작업을 생성한다. 즉시 완료되지 않고 jobId를 돌려준다. "
-            + "mediaIds와 folderId를 동시에 보내면 400, mediaIds가 1000개를 초과하면 400이 난다. "
-            + "둘 다 생략하면 방 전체 미디어가 대상이다. 처리 중인 미디어는 압축 대상과 mediaCount에서 제외되며, "
+            + "selection.mode가 include면 ids만, exclude면 방 전체에서 ids를 제외한다. include+빈 ids는 빈 선택, "
+            + "exclude+빈 ids는 전체 선택이다. selection과 folderId를 동시에 보내거나 둘 다 생략하면 400이며, "
+            + "해석된 실제 대상이 1000개를 초과하면 400이 난다. 처리 중인 미디어는 압축 대상과 mediaCount에서 제외되며, "
             + "그 결과 대상이 하나도 없으면 404가 난다. 동시 진행 중인 압축 잡 수가 많으면 429가 난다."
     )
     @PostMapping("/zip")
@@ -91,7 +96,9 @@ public class DownloadController {
         @RequestBody CreateDownloadJobRequest request
     ) {
         CreateDownloadJobResult result =
-            createDownloadJobService.create(roomId, memberId, request.mediaIds(), request.folderId());
+            createDownloadJobService.create(roomId, memberId,
+                request == null || request.selection() == null ? null : request.selection().toSelection(),
+                request == null ? null : request.folderId());
         return ApiResponse.of(CreateDownloadJobResponse.from(result));
     }
 
