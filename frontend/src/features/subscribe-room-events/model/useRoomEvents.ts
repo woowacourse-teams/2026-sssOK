@@ -96,9 +96,7 @@ export const useRoomEvents = ({
 
           const deletedCount = new Set(
             current.pages.flatMap((page) =>
-              page.items
-                .filter((item) => deletedIds.has(item.mediaId))
-                .map((item) => item.mediaId),
+              page.items.filter((item) => deletedIds.has(item.mediaId)).map((item) => item.mediaId),
             ),
           ).size;
 
