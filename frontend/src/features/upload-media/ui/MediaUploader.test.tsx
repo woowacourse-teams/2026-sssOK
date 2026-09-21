@@ -27,7 +27,7 @@ const enterRoom = () =>
 
 const renderUploader = (
   props: {
-    onUploaded?: () => void;
+    onRegistered?: () => void;
     onLeaveRoom?: () => void;
     hideButton?: boolean;
     canUpload?: boolean;
@@ -471,11 +471,11 @@ describe("MediaUploader", () => {
       ),
     );
 
-    const onUploaded = jest.fn();
+    const onRegistered = jest.fn();
 
-    renderUploader({ onUploaded });
+    renderUploader({ onRegistered });
     await user.upload(getFileInput(), [fileOf("한라산.jpg")]);
 
-    await waitFor(() => expect(onUploaded).toHaveBeenCalled());
+    await waitFor(() => expect(onRegistered).toHaveBeenCalled());
   });
 });

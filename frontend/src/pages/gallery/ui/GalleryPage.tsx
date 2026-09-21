@@ -2,7 +2,6 @@ import { Navigate, useParams } from "react-router-dom";
 
 import { useRoomQuery, type Room } from "@/entities/room";
 import { readValidRoomSession } from "@/entities/session";
-import { useRoomEvents } from "@/features/subscribe-room-events";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { GalleryContent } from "./GalleryContent";
@@ -21,8 +20,6 @@ interface ActiveGalleryProps {
 }
 
 const ActiveGallery = ({ room, accessToken, userId }: ActiveGalleryProps) => {
-  useRoomEvents({ roomId: room.roomId, userId, token: accessToken });
-
   return (
     <GalleryModalProvider>
       <GalleryContent room={room} accessToken={accessToken} userId={userId} />

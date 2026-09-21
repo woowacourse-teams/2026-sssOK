@@ -5,6 +5,7 @@ import { uploadErrorNoticeOf } from "../lib/uploadErrorNotice";
 import type { MediaSelection, RejectedSelection } from "../model/selectMediaFiles";
 import { useMediaUpload } from "../model/useMediaUpload";
 import { useUploadFailure } from "../model/useUploadFailure";
+import type { PendingMedia } from "../model/types";
 import { RejectedFilesModal } from "./RejectedFilesModal";
 import { UploadButton } from "./UploadButton";
 import { UploadFailureModal } from "./UploadFailureModal";
@@ -29,14 +30,10 @@ export interface MediaUploaderProps {
   hideButton?: boolean;
   /** 지금 열어둔 폴더. 없으면 루트로 올라간다. */
   folderIds?: number[];
-  /**
-   * 한 장이라도 등록까지 끝났을 때. 목록을 다시 불러오라는 뜻이다.
-   *
-   * 갤러리를 여기서 직접 건드리지 않는 이유는, 올린 사진이 어디에 어떻게 보여야 하는지가
-   * 부르는 화면마다 다르기 때문이다. 실패분이 남아 모달이 떠 있어도 이건 먼저 불린다 —
-   * 올라간 것은 올라간 것이다.
-   */
-  onUploaded?: () => void;
+  /** 파일 한 건이 스토리지에 올라간 직후. */
+  onPreviewReady?: (media: PendingMedia) => void;
+  /** 한 장이라도 서버 등록이 끝난 뒤 방 정보를 다시 불러올 때 사용한다. */
+  onRegistered?: () => void;
   /**
    * 이 방에 더 있을 수 없을 때. 방이 사라졌거나(410·404) 세션이 죽었다(401).
    *
@@ -59,7 +56,8 @@ export const MediaUploader = ({
   token,
   canUpload,
   folderIds,
-  onUploaded,
+  onPreviewReady,
+  onRegistered,
   onLeaveRoom,
   hideButton = false,
 }: MediaUploaderProps) => {
@@ -75,11 +73,10 @@ export const MediaUploader = ({
     roomId,
     token,
     folderIds,
+    onPreviewReady,
     onSettled: (result, { superseded }) => {
-      // `alreadyRegistered` 도 서버에 올라가 있는 것이다. 등록 응답에 Media 가 없어
-      // `registered` 에 못 담길 뿐이라, 이것만 온 판도 목록을 다시 불러와야 나타난다.
       if (result.registered.length > 0 || result.alreadyRegistered > 0) {
-        onUploaded?.();
+        onRegistered?.();
       }
 
       // 취소했거나 새 판이 시작된 뒤에 끝난 판이다. 지금 떠 있는 모달을 지우면 안 된다.
