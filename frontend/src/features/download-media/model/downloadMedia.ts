@@ -1,4 +1,5 @@
 import { runWithLimit, waitUnlessAborted } from "@/shared/lib";
+import type { MediaUploaderFilter } from "@/entities/media";
 import type { MediaSelectionRequest } from "@/features/select-media";
 import { createBatchDownload } from "../api/createBatchDownload";
 import type { BatchDownloadFile } from "../api/types";
@@ -29,6 +30,7 @@ import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } fr
 export interface DownloadMediaParams {
   roomId: number;
   selection?: MediaSelectionRequest;
+  uploader?: MediaUploaderFilter;
   targets: DownloadTarget[];
   mode: DownloadMode;
   token: string;
@@ -122,7 +124,8 @@ const fetchAll = async (
 };
 
 export const downloadMedia = async (params: DownloadMediaParams): Promise<DownloadOutcome> => {
-  const { roomId, targets, mode, token, signal, onPhase, onZipProgress, onZipBytes } = params;
+  const { roomId, targets, mode, token, signal, uploader, onPhase, onZipProgress, onZipBytes } =
+    params;
   const selection = params.selection ?? {
     mode: "include" as const,
     ids: targets.map((target) => target.mediaId),
@@ -138,6 +141,7 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
         roomId,
         token,
         selection,
+        uploader,
       });
     } catch (error) {
       /*
@@ -223,6 +227,7 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
       roomId,
       token,
       selection,
+      uploader,
     });
   } catch (error) {
     return {
