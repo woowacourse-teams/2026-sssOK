@@ -93,18 +93,27 @@ class S3MultipartOutputStream extends AbortableOutputStream {
         if (finished) {
             return;
         }
-        finished = true;
-        // 파트가 하나도 안 나갔으면(전체가 PART_SIZE 미만) 완료에 최소 1개는 있어야 하므로
-        // 버퍼가 비어 있어도 그대로 마지막 파트로 올린다.
-        if (bufferedBytes > 0 || completedParts.isEmpty()) {
-            flushPart();
+        try {
+            // 파트가 하나도 안 나갔으면(전체가 PART_SIZE 미만) 완료에 최소 1개는 있어야 하므로
+            // 버퍼가 비어 있어도 그대로 마지막 파트로 올린다.
+            if (bufferedBytes > 0 || completedParts.isEmpty()) {
+                flushPart();
+            }
+            client.completeMultipartUpload(CompleteMultipartUploadRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .uploadId(uploadId)
+                .multipartUpload(CompletedMultipartUpload.builder().parts(completedParts).build())
+                .build());
+            finished = true;
+        } catch (RuntimeException closeFailure) {
+            try {
+                abort();
+            } catch (RuntimeException abortFailure) {
+                closeFailure.addSuppressed(abortFailure);
+            }
+            throw closeFailure;
         }
-        client.completeMultipartUpload(CompleteMultipartUploadRequest.builder()
-            .bucket(bucket)
-            .key(key)
-            .uploadId(uploadId)
-            .multipartUpload(CompletedMultipartUpload.builder().parts(completedParts).build())
-            .build());
     }
 
     // 지금까지 올라간 파트를 스토리지에서 지운다. close() 대신 이걸 부르면 완료되지 않은
@@ -114,11 +123,11 @@ class S3MultipartOutputStream extends AbortableOutputStream {
         if (finished) {
             return;
         }
-        finished = true;
         client.abortMultipartUpload(AbortMultipartUploadRequest.builder()
             .bucket(bucket)
             .key(key)
             .uploadId(uploadId)
             .build());
+        finished = true;
     }
 }

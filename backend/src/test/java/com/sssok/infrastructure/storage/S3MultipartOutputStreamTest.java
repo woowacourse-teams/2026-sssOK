@@ -1,9 +1,11 @@
 package com.sssok.infrastructure.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
@@ -89,6 +93,32 @@ class S3MultipartOutputStreamTest {
 
         assertThat(uploadedParts).hasSize(1);
         assertThat(uploadedParts.getFirst()).isEqualTo(data);
+    }
+
+    @Test
+    void 마지막_파트_업로드에_실패하면_멀티파트_업로드를_중단한다() {
+        RuntimeException uploadFailure = new RuntimeException("파트 업로드 실패");
+        given(client.uploadPart(any(UploadPartRequest.class), any(RequestBody.class)))
+            .willThrow(uploadFailure);
+        S3MultipartOutputStream stream = stream();
+
+        assertThatThrownBy(stream::close).isSameAs(uploadFailure);
+
+        verify(client).abortMultipartUpload(any(AbortMultipartUploadRequest.class));
+    }
+
+    @Test
+    void 멀티파트_완료에_실패하면_업로드된_파트를_중단한다() {
+        RuntimeException completionFailure = new RuntimeException("멀티파트 완료 실패");
+        given(client.completeMultipartUpload(any(CompleteMultipartUploadRequest.class)))
+            .willThrow(completionFailure);
+        S3MultipartOutputStream stream = stream();
+        byte[] data = sequentialBytes(1024);
+        stream.write(data, 0, data.length);
+
+        assertThatThrownBy(stream::close).isSameAs(completionFailure);
+
+        verify(client).abortMultipartUpload(any(AbortMultipartUploadRequest.class));
     }
 
     private S3MultipartOutputStream stream() {
