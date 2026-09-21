@@ -54,6 +54,19 @@ const MAX_CONCURRENT_JOBS = 3;
 /** `mediaIds` 상한. backend `DownloadTargetResolver.MAX_MEDIA_IDS` 와 같다. */
 const MAX_MEDIA_IDS = 1000;
 
+interface MockSelection {
+  mode: "include" | "exclude";
+  ids: number[];
+}
+
+const selectMedia = <T extends { mediaId: number }>(all: T[], selection?: MockSelection) => {
+  if (selection === undefined) return all;
+  const ids = new Set(selection.ids);
+  return all.filter((media) =>
+    selection.mode === "include" ? ids.has(media.mediaId) : !ids.has(media.mediaId),
+  );
+};
+
 /** `download.retention: 1h`. READY 시점부터 센다. */
 const RETENTION_MS = 60 * 60 * 1000;
 
@@ -192,18 +205,21 @@ export const downloadHandlers = [
       return denied;
     }
 
-    const { mediaIds, folderId } = (await request.json()) as {
+    const { mediaIds, selection, folderId } = (await request.json()) as {
       mediaIds?: number[];
+      selection?: MockSelection;
       folderId?: number;
     };
 
-    if (mediaIds !== undefined && folderId !== undefined) {
+    if ((mediaIds !== undefined || selection !== undefined) && folderId !== undefined) {
       return error(400, "INVALID_PARAM", "mediaIds 와 folderId 는 함께 보낼 수 없습니다");
     }
 
     const all = mediaOfRoom(roomId);
     const chosen =
-      mediaIds === undefined ? all : all.filter((media) => mediaIds.includes(media.mediaId));
+      mediaIds === undefined
+        ? selectMedia(all, selection)
+        : all.filter((media) => mediaIds.includes(media.mediaId));
     const ready = chosen.filter((media) => media.status === "READY");
 
     if (ready.length === 0) {
@@ -243,10 +259,11 @@ export const downloadHandlers = [
 
     const body = (await request.json().catch(() => ({}))) as {
       mediaIds?: number[];
+      selection?: MockSelection;
       folderId?: number;
     };
 
-    if (body.mediaIds !== undefined && body.folderId !== undefined) {
+    if ((body.mediaIds !== undefined || body.selection !== undefined) && body.folderId !== undefined) {
       return error(400, "INVALID_PARAM", "다운로드 조건이 올바르지 않습니다");
     }
 
@@ -277,7 +294,9 @@ export const downloadHandlers = [
     const scoped =
       requestedIds !== null
         ? all.filter((media) => requestedIds.includes(media.mediaId))
-        : body.folderId !== undefined
+        : body.selection !== undefined
+          ? selectMedia(all, body.selection)
+          : body.folderId !== undefined
           ? all.filter((media) => media.folderIds.includes(body.folderId as number))
           : all;
 

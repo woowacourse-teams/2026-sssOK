@@ -1,11 +1,12 @@
 import { apiClient } from "@/shared/api";
+import type { MediaSelectionRequest } from "@/features/select-media";
 import type { DownloadJob } from "./types";
 
 interface CreateDownloadJobParams {
   roomId: number;
   token: string;
   /** 고른 미디어. `folderId` 와 함께 보내면 400 이다. */
-  mediaIds?: number[];
+  selection?: MediaSelectionRequest;
   folderId?: number;
 }
 
@@ -15,10 +16,10 @@ interface CreateDownloadJobParams {
  *
  * 둘 다 생략하면 방 전체가 대상이다.
  */
-export const createDownloadJob = ({ roomId, token, mediaIds, folderId }: CreateDownloadJobParams) =>
+export const createDownloadJob = ({ roomId, token, selection, folderId }: CreateDownloadJobParams) =>
   apiClient<DownloadJob>(`/rooms/${roomId}/downloads/zip`, {
     method: "POST",
     token,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mediaIds, folderId }),
+    body: JSON.stringify({ selection, folderId }),
   });
