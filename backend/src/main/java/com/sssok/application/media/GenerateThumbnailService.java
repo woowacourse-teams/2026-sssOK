@@ -8,6 +8,7 @@ import com.sssok.application.port.out.ImageProcessorPort.CaptureInfo;
 import com.sssok.application.port.out.ImageProcessorPort.ProcessedImage;
 import com.sssok.application.port.out.VideoFrameExtractorPort;
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
@@ -67,9 +68,15 @@ public class GenerateThumbnailService {
         String sourceUrl = fileStoragePort.presignGet(file.getStorageKey(), "inline",
             file.getMediaType().contentType(), videoProperties.sourceUrlTtl());
 
-        Optional<ExtractedFrame> extracted = videoFrameExtractor.extractFirstFrame(
+        ExtractionResult extracted = videoFrameExtractor.extractFirstFrame(
             sourceUrl, videoProperties.thumbnailMaxWidth());
-        if (extracted.isEmpty()) {
+        if (extracted.retryable()) {
+            // 영상이 깨졌다는 근거가 없는데 여기서 확정하면 멀쩡한 영상이 썸네일 없이 굳는다.
+            log.warn("영상 처리가 일시적으로 실패했습니다. 회수 배치가 다시 시도합니다. mediaId={}",
+                file.getId());
+            return;
+        }
+        if (!extracted.hasFrame()) {
             // 깨졌거나 코덱을 읽지 못하는 영상이다. 다시 태워도 결과가 같다.
             // FAILED 로 내리면 원본이 멀쩡한데 목록에서 사라지고, PROCESSING 에 두면 회수 배치가
             // 영영 다시 집어 드므로, 썸네일 없이 완료로 넘긴다.
@@ -78,7 +85,7 @@ public class GenerateThumbnailService {
             return;
         }
 
-        ExtractedFrame frame = extracted.get();
+        ExtractedFrame frame = extracted.frame();
         StorageKey thumbnailKey = file.getStorageKey().thumbnail();
         upload(thumbnailKey, frame.content(), file.thumbnailContentType());
 

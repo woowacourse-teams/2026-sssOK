@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.media;
 
 import com.sssok.application.port.out.VideoFrameExtractorPort;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.infrastructure.config.VideoProperties;
 import java.awt.image.BufferedImage;
@@ -16,7 +17,6 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -54,6 +54,13 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractorPort {
     // 아이폰은 같은 좌표를 애플 전용 키에도 적는다. 기기에 따라 둘 중 하나만 있다.
     private static final String APPLE_LOCATION = "TAG:com.apple.quicktime.location.ISO6709";
 
+    // stderr 에 이 말들이 섞여 있으면 영상이 깨진 게 아니라 원본에 닿지 못한 것이다. 서명 URL 은
+    // 회수 때 새로 발급되므로 만료(403)도 여기에 들어, 다시 태우면 성공한다.
+    private static final Pattern SOURCE_UNREACHABLE = Pattern.compile(
+        "(?i)server returned|connection (refused|reset|timed out)|timed out"
+            + "|network is unreachable|temporary failure in name resolution"
+            + "|error in the pull function|input/output error");
+
     // ISO 6709 좌표. "+37.5665+126.9780/" 또는 고도까지 붙은 "+37.5665+126.9780+050.000/" 형태다.
     private static final Pattern ISO6709 =
         Pattern.compile("^([+-]\\d+(?:\\.\\d+)?)([+-]\\d+(?:\\.\\d+)?)");
@@ -64,27 +71,27 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractorPort {
     private final VideoProperties properties;
 
     @Override
-    public Optional<ExtractedFrame> extractFirstFrame(String sourceUrl, int maxWidth) {
+    public ExtractionResult extractFirstFrame(String sourceUrl, int maxWidth) {
         try {
             Map<String, String> probed = probe(sourceUrl);
             Integer width = intOrNull(probed.get(WIDTH));
             Integer height = intOrNull(probed.get(HEIGHT));
             if (width == null || height == null) {
-                return Optional.empty();
+                return ExtractionResult.unreadable();
             }
 
             byte[] frame = grabFrame(sourceUrl, maxWidth);
             if (frame.length == 0) {
-                return Optional.empty();
+                return ExtractionResult.unreadable();
             }
 
             // 뽑힌 바이트가 정말 이미지인지 여기서 확인한다. 회전 보정에 쓸 방향도 같이 읽는다.
             BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(frame));
             if (decoded == null) {
-                return Optional.empty();
+                return ExtractionResult.unreadable();
             }
 
-            return Optional.of(new ExtractedFrame(
+            return ExtractionResult.extracted(new ExtractedFrame(
                 displayWidth(width, height, decoded),
                 displayHeight(width, height, decoded),
                 durationSeconds(probed.get(DURATION)),
@@ -92,13 +99,17 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractorPort {
                 location(probed),
                 frame));
         } catch (IOException e) {
-            // ffmpeg 가 깔려 있지 않은 환경(로컬 개발 등)도 여기로 온다. 썸네일만 없을 뿐,
-            // 영상 자체는 완료 처리되어 원본 재생·다운로드는 그대로 된다.
+            // ffmpeg 실행 파일이 없는 환경(로컬 개발 등)이 여기로 온다. 다시 태워도 실행 파일은
+            // 여전히 없으므로, 썸네일만 비우고 영상 자체는 완료 처리한다.
             log.warn("영상 프레임 추출기를 실행하지 못했습니다.", e);
-            return Optional.empty();
+            return ExtractionResult.unreadable();
         } catch (InterruptedException e) {
+            // 서버가 내려가는 중이라 스레드가 끊긴 것이다. 이 영상이 깨졌다는 근거가 아니다.
             Thread.currentThread().interrupt();
-            return Optional.empty();
+            return ExtractionResult.retryLater();
+        } catch (RetryableFailure e) {
+            log.warn("영상 프레임 추출이 일시적으로 실패했습니다. 다시 시도합니다. {}", e.getMessage());
+            return ExtractionResult.retryLater();
         }
     }
 
@@ -176,13 +187,21 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractorPort {
             StreamCollector stderr = StreamCollector.start(process.getErrorStream());
 
             if (!process.waitFor(properties.timeout().toMillis(), TimeUnit.MILLISECONDS)) {
+                // 시간이 넘었다는 것이 영상이 깨졌다는 뜻은 아니다. 원본이 느리게 흘러왔거나
+                // 서버가 바빴을 수 있어, 썸네일 없이 확정하지 않는다.
                 log.warn("영상 처리가 {} 안에 끝나지 않아 중단합니다. command={}",
                     properties.timeout(), command[0]);
-                return NOTHING;
+                throw new RetryableFailure("영상 처리가 %s 안에 끝나지 않았습니다. command=%s"
+                    .formatted(properties.timeout(), command[0]));
             }
             if (process.exitValue() != 0) {
+                String reason = stderr.text();
                 log.warn("영상 처리가 실패했습니다. command={} exitCode={} stderr={}",
-                    command[0], process.exitValue(), stderr.text());
+                    command[0], process.exitValue(), reason);
+                if (isSourceUnreachable(reason)) {
+                    throw new RetryableFailure("영상 원본을 읽지 못했습니다. command=%s stderr=%s"
+                        .formatted(command[0], reason));
+                }
                 return NOTHING;
             }
             return stdout.bytes();
@@ -191,6 +210,12 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractorPort {
             // 실제로 죽이는데, 이 한 줄이 좀비를 막는 유일한 지점이다.
             process.destroyForcibly();
         }
+    }
+
+    // ffmpeg 는 깨진 영상도 원본에 닿지 못한 것도 똑같이 1 로 끝난다. 둘을 가르는 단서가
+    // stderr 뿐이라 여기서 읽는다.
+    private boolean isSourceUnreachable(String stderr) {
+        return SOURCE_UNREACHABLE.matcher(stderr).find();
     }
 
     // ffmpeg 는 회전 정보를 반영해 프레임을 뽑지만, ffprobe 가 알려주는 크기는 회전 전 값이다.
@@ -271,6 +296,15 @@ public class FfmpegVideoFrameExtractor implements VideoFrameExtractorPort {
     // ffmpeg 의 -ss 는 초 단위 실수를 받는다. Duration.toString() 의 PT1S 형식은 알아듣지 못한다.
     private String seconds(Duration duration) {
         return String.valueOf(duration.toMillis() / 1000.0);
+    }
+
+    // 프로세스를 돌리는 자리와 결과를 만드는 자리가 몇 겹 떨어져 있어, 실패 사유를 단계마다
+    // 들고 다니는 대신 여기서 한 번에 걷어 올린다. 밖으로는 ExtractionResult 로 나간다.
+    private static final class RetryableFailure extends RuntimeException {
+
+        private RetryableFailure(String message) {
+            super(message);
+        }
     }
 
     // 프로세스 출력 한쪽을 통째로 받아두는 스레드. 읽는 쪽과 기다리는 쪽을 나눠야

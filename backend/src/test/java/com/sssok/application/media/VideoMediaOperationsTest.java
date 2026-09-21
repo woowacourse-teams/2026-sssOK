@@ -15,6 +15,7 @@ import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.OrphanObjectRepository;
 import com.sssok.application.port.out.VideoFrameExtractorPort;
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
@@ -117,7 +118,7 @@ class VideoMediaOperationsTest {
                 }
             });
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
-            .willReturn(Optional.of(new ExtractedFrame(
+            .willReturn(ExtractionResult.extracted(new ExtractedFrame(
                 1920, 1080, 12, TAKEN_AT, SEOUL, jpeg())));
     }
 

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.infrastructure.config.VideoProperties;
 import java.awt.image.BufferedImage;
@@ -15,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeAll;
@@ -51,7 +51,7 @@ class FfmpegVideoFrameExtractorTest {
     void 영상에서_프레임을_뽑는다() {
         Path video = video("영상.mp4", 640, 480, 3);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(readable(frame.content())).isTrue();
     }
@@ -61,7 +61,7 @@ class FfmpegVideoFrameExtractorTest {
     void 썸네일이_아니라_원본_영상의_크기를_알려준다() {
         Path video = video("영상.mp4", 640, 480, 3);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.width()).isEqualTo(640);
         assertThat(frame.height()).isEqualTo(480);
@@ -71,7 +71,7 @@ class FfmpegVideoFrameExtractorTest {
     void 뽑은_프레임은_지정한_너비로_줄어든다() {
         Path video = video("영상.mp4", 640, 480, 3);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(decode(frame.content()).getWidth()).isEqualTo(MAX_WIDTH);
     }
@@ -81,7 +81,7 @@ class FfmpegVideoFrameExtractorTest {
     void 원본이_이미_작으면_늘리지_않는다() {
         Path video = video("작은영상.mp4", 320, 240, 2);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(decode(frame.content()).getWidth()).isEqualTo(320);
     }
@@ -90,7 +90,7 @@ class FfmpegVideoFrameExtractorTest {
     void 재생시간을_읽어온다() {
         Path video = video("영상.mp4", 640, 480, 3);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.durationSeconds()).isEqualTo(3);
     }
@@ -99,7 +99,7 @@ class FfmpegVideoFrameExtractorTest {
     void 세로로_찍은_영상은_세로_프레임이_된다() {
         Path video = video("세로영상.mp4", 480, 640, 2);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.width()).isEqualTo(480);
         assertThat(frame.height()).isEqualTo(640);
@@ -112,7 +112,7 @@ class FfmpegVideoFrameExtractorTest {
     void 아이폰_mov_에서_프레임을_뽑는다() {
         Path video = encoded("아이폰.mov", "libx264");
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.width()).isEqualTo(320);
         assertThat(readable(frame.content())).isTrue();
@@ -122,7 +122,7 @@ class FfmpegVideoFrameExtractorTest {
     void webm_에서_프레임을_뽑는다() {
         Path video = encoded("영상.webm", "libvpx-vp9");
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.width()).isEqualTo(320);
         assertThat(readable(frame.content())).isTrue();
@@ -134,7 +134,7 @@ class FfmpegVideoFrameExtractorTest {
     void 회전_정보가_붙은_영상은_돌린_뒤의_크기를_알려준다() {
         Path video = rotated("아이폰세로.mp4", 640, 480);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.width()).isEqualTo(480);
         assertThat(frame.height()).isEqualTo(640);
@@ -145,7 +145,7 @@ class FfmpegVideoFrameExtractorTest {
     void 지정한_지점보다_짧은_영상도_썸네일을_만든다() {
         Path video = video("아주짧은영상.mp4", 640, 480, Duration.ofMillis(400));
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(readable(frame.content())).isTrue();
     }
@@ -156,7 +156,7 @@ class FfmpegVideoFrameExtractorTest {
         Path video = tagged("찍은영상.mp4",
             "creation_time=2026-09-20T14:30:00.000000Z");
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.takenAt()).isEqualTo(Instant.parse("2026-09-20T14:30:00Z"));
     }
@@ -166,7 +166,7 @@ class FfmpegVideoFrameExtractorTest {
     void 촬영_좌표를_읽어온다() {
         Path video = tagged("위치있는영상.mp4", "location=+37.5665+126.9780/");
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.location()).isEqualTo(GeoPoint.ofNullable(
             new BigDecimal("37.566500"), new BigDecimal("126.978000")));
@@ -177,7 +177,7 @@ class FfmpegVideoFrameExtractorTest {
     void 고도가_붙은_좌표도_읽어온다() {
         Path video = tagged("고도있는영상.mp4", "location=+37.5665+126.9780+050.000/");
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.location()).isEqualTo(GeoPoint.ofNullable(
             new BigDecimal("37.566500"), new BigDecimal("126.978000")));
@@ -188,7 +188,7 @@ class FfmpegVideoFrameExtractorTest {
     void 촬영_정보가_없어도_썸네일은_만든다() {
         Path video = video("민짜영상.mp4", 320, 240, 2);
 
-        ExtractedFrame frame = extract(video).orElseThrow();
+        ExtractedFrame frame = extract(video).frame();
 
         assertThat(frame.location()).isNull();
         assertThat(readable(frame.content())).isTrue();
@@ -199,29 +199,49 @@ class FfmpegVideoFrameExtractorTest {
     void 깨진_영상이면_비어_있다() {
         Path broken = write("깨진영상.mp4", "이건 영상이 아니다".getBytes());
 
-        assertThat(extract(broken)).isEmpty();
+        ExtractionResult result = extract(broken);
+
+        assertThat(result.hasFrame()).isFalse();
+        // 다시 태워도 같은 결과라, 호출부가 썸네일 없이 완료로 넘길 수 있어야 한다.
+        assertThat(result.retryable()).isFalse();
     }
 
     @Test
     void 없는_원본이면_비어_있다() {
-        assertThat(extract(directory.resolve("없는영상.mp4"))).isEmpty();
+        ExtractionResult result = extract(directory.resolve("없는영상.mp4"));
+
+        assertThat(result.hasFrame()).isFalse();
+        assertThat(result.retryable()).isFalse();
     }
 
     // 죽이지 않으면 좀비가 쌓여 컨테이너가 죽는다. 제한 시간 안에 돌아오는 것으로 확인한다.
+    // 깨진 영상과 달리 retryable 인 이유: 시간이 넘은 것은 영상이 깨졌다는 뜻이 아니다.
     @Test
-    void 제한_시간을_넘기면_포기한다() throws InterruptedException {
+    void 제한_시간을_넘기면_다시_시도할_수_있게_알린다() {
         Path video = video("영상.mp4", 640, 480, 3);
         FfmpegVideoFrameExtractor extractor = extractor(Duration.ofMillis(1));
 
         long startedAt = System.nanoTime();
-        Optional<ExtractedFrame> frame = extractor.extractFirstFrame(video.toString(), MAX_WIDTH);
+        ExtractionResult result = extractor.extractFirstFrame(video.toString(), MAX_WIDTH);
         long elapsed = TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - startedAt);
 
-        assertThat(frame).isEmpty();
+        assertThat(result.retryable()).isTrue();
         assertThat(elapsed).isLessThan(10);
     }
 
-    private Optional<ExtractedFrame> extract(Path video) {
+    // 원본에 닿지 못한 것은 영상이 깨진 것과 다르다. 서명 URL 을 새로 받아 다시 태우면 살아난다.
+    @Test
+    void 원본을_읽지_못하면_다시_시도할_수_있게_알린다() {
+        // 닫혀 있는 포트라 ffprobe 가 곧바로 연결에 실패한다 — 네트워크로 나가지 않는다.
+        String unreachable = "http://127.0.0.1:1/없는영상.mp4";
+
+        ExtractionResult result = extractor(Duration.ofSeconds(20))
+            .extractFirstFrame(unreachable, MAX_WIDTH);
+
+        assertThat(result.retryable()).isTrue();
+    }
+
+    private ExtractionResult extract(Path video) {
         return extractor(Duration.ofSeconds(20)).extractFirstFrame(video.toString(), MAX_WIDTH);
     }
 

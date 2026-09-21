@@ -14,6 +14,7 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.VideoFrameExtractorPort;
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
+import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.StorageKey;
@@ -232,7 +233,7 @@ class GenerateThumbnailServiceTest {
     void 프레임을_뽑지_못한_영상은_썸네일_없이_READY로_넘긴다() {
         StoredFile file = processing("깨진영상.mp4", "video/mp4");
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
-            .willReturn(Optional.empty());
+            .willReturn(ExtractionResult.unreadable());
 
         generateThumbnailService.generate(file.getId());
 
@@ -240,6 +241,19 @@ class GenerateThumbnailServiceTest {
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
         assertThat(after.getThumbnailKey()).isNull();
         assertThat(after.getDurationSeconds()).isNull();
+    }
+
+    // 위와 짝이 되는 경우다. R2 가 잠깐 흔들린 것까지 READY 로 확정하면 멀쩡한 영상이
+    // 썸네일 없이 굳어 손으로 고칠 방법이 없다.
+    @Test
+    void 일시적인_실패로_프레임을_못_뽑은_영상은_PROCESSING으로_남긴다() {
+        StoredFile file = processing("영상.mp4", "video/mp4");
+        given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
+            .willReturn(ExtractionResult.retryLater());
+
+        generateThumbnailService.generate(file.getId());
+
+        assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.PROCESSING);
     }
 
     // 상세 화면이 사진인지 영상인지 가리지 않고 같은 필드를 읽도록, 사진의 EXIF 와 같은 자리에 담는다.
@@ -348,7 +362,7 @@ class GenerateThumbnailServiceTest {
 
     private void givenExtractedFrame(ExtractedFrame frame) {
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
-            .willReturn(Optional.of(frame));
+            .willReturn(ExtractionResult.extracted(frame));
     }
 
     private void givenOriginal(byte[] content) {
