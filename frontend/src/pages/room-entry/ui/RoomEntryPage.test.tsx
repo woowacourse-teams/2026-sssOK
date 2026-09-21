@@ -8,7 +8,13 @@ import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTE_PATTERNS } from "@/shared/config";
+import { track } from "@/shared/lib/analytics";
 import { RoomEntryPage } from "./RoomEntryPage";
+
+jest.mock("@/shared/lib/analytics", () => ({
+  ...jest.requireActual("@/shared/lib/analytics"),
+  track: jest.fn(),
+}));
 
 const FUTURE = "2099-01-01T00:00:00Z";
 const PAST = "2020-01-01T00:00:00Z";
@@ -228,6 +234,75 @@ describe("RoomEntryPage", () => {
       await user.click(await screen.findByRole("link", { name: "홈으로 돌아가기" }));
 
       expect(screen.getByText("홈 도착")).toBeInTheDocument();
+    });
+  });
+
+  describe("입장 퍼널 이벤트", () => {
+    it("처음 온 사람이 이름을 넣고 들어가면 입장 시작과 입장 완료를 남긴다", async () => {
+      const user = userEvent.setup();
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await user.type(await screen.findByRole("textbox"), "해니");
+      expect(track).toHaveBeenCalledWith("Room Join Started", {
+        room_code: MOCK_ROOM_CODES.active,
+      });
+
+      await user.click(getSubmitButton());
+      await screen.findByText(GALLERY_TEXT);
+
+      expect(track).toHaveBeenCalledWith("Room Joined", { room_code: MOCK_ROOM_CODES.active });
+      expect(track).not.toHaveBeenCalledWith("Room Join Failed", expect.anything());
+    });
+
+    it("이미 세션이 있어 곧장 들어가는 재방문은 입장 시작으로 세지 않는다", async () => {
+      saveRoomSession(MOCK_ROOM_CODES.active, session(FUTURE));
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await screen.findByText(GALLERY_TEXT);
+
+      expect(track).not.toHaveBeenCalledWith("Room Join Started", expect.anything());
+    });
+
+    it("만료된 방이면 방 상태를 사유로 입장 실패를 남긴다", async () => {
+      renderAt(MOCK_ROOM_CODES.expired);
+
+      await screen.findByText(/만료된 방이에요/);
+
+      expect(track).toHaveBeenCalledWith("Room Join Failed", {
+        room_code: MOCK_ROOM_CODES.expired,
+        reason: "EXPIRED",
+      });
+    });
+
+    it("없는 방이면 서버 에러 코드를 사유로 입장 실패를 남긴다", async () => {
+      renderAt(MOCK_ROOM_CODES.notFound);
+
+      await screen.findByText("존재하지 않는 방이에요.");
+
+      expect(track).toHaveBeenCalledWith("Room Join Failed", {
+        room_code: MOCK_ROOM_CODES.notFound,
+        reason: "ROOM_NOT_FOUND",
+      });
+    });
+
+    it("입장 요청이 실패하면 입장 실패를 남긴다", async () => {
+      server.use(
+        http.post(`${API_BASE_URL}/rooms/:roomId/members`, () =>
+          HttpResponse.json({ code: "ROOM_JOIN_FAILED", message: "안돼요" }, { status: 500 }),
+        ),
+      );
+      const user = userEvent.setup();
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await user.type(await screen.findByRole("textbox"), "해니");
+      await user.click(getSubmitButton());
+      await screen.findByText(/입장하지 못했어요/);
+
+      expect(track).toHaveBeenCalledWith("Room Join Failed", {
+        room_code: MOCK_ROOM_CODES.active,
+        reason: "JOIN_FAILED",
+      });
+      expect(track).not.toHaveBeenCalledWith("Room Joined", expect.anything());
     });
   });
 });
