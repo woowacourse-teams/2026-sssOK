@@ -23,10 +23,6 @@ public class CreateBatchDownloadService {
     private final FileStoragePort fileStoragePort;
     private final DownloadProperties downloadProperties;
 
-    public List<BatchDownloadFile> create(Long roomId, MediaSelection selection, Long folderId) {
-        return create(roomId, null, selection, folderId, MediaUploaderFilter.ALL);
-    }
-
     public List<BatchDownloadFile> create(Long roomId, Long requesterId, MediaSelection selection,
                                           Long folderId, MediaUploaderFilter uploader) {
         List<StoredFile> targets = downloadTargetResolver.resolveSelection(

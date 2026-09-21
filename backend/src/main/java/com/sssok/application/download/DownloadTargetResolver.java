@@ -30,10 +30,6 @@ class DownloadTargetResolver {
     private final FolderMediaRepository folderMediaRepository;
     private final MediaSelectionResolver mediaSelectionResolver;
 
-    List<StoredFile> resolveSelection(Long roomId, MediaSelection selection, Long folderId) {
-        return resolveSelection(roomId, selection, folderId, null, MediaUploaderFilter.ALL);
-    }
-
     List<StoredFile> resolveSelection(Long roomId, MediaSelection selection, Long folderId,
                                       Long requesterId, MediaUploaderFilter uploader) {
         if (selection != null && folderId != null || selection == null && folderId == null) {

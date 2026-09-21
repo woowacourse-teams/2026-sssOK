@@ -30,11 +30,6 @@ public class CreateDownloadJobService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public CreateDownloadJobResult create(Long roomId, Long requesterId, MediaSelection selection, Long folderId) {
-        return create(roomId, requesterId, selection, folderId, MediaUploaderFilter.ALL);
-    }
-
-    @Transactional
     public CreateDownloadJobResult create(Long roomId, Long requesterId, MediaSelection selection,
                                           Long folderId, MediaUploaderFilter uploader) {
         long activeJobCount = downloadJobRepository.countByRequesterIdAndStatusIn(requesterId, ACTIVE_STATUSES);

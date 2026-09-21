@@ -15,10 +15,6 @@ public class MediaSelectionResolver {
 
     private final FileRepository fileRepository;
 
-    public ResolvedMediaSelection resolve(Long roomId, MediaSelection selection) {
-        return resolve(roomId, selection, null, MediaUploaderFilter.ALL);
-    }
-
     public ResolvedMediaSelection resolve(Long roomId, MediaSelection selection,
                                           Long requesterId, MediaUploaderFilter uploader) {
         validate(selection);

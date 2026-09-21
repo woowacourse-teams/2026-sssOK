@@ -28,11 +28,6 @@ public class RemoveMediaFromFoldersService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public RemoveMediaFromFoldersResult remove(Long roomId, MediaSelection selection, List<Long> folderIds) {
-        return remove(roomId, selection, folderIds, null, MediaUploaderFilter.ALL);
-    }
-
-    @Transactional
     public RemoveMediaFromFoldersResult remove(Long roomId, MediaSelection selection, List<Long> folderIds,
                                                Long requesterId, MediaUploaderFilter uploader) {
         ResolvedMediaSelection media =

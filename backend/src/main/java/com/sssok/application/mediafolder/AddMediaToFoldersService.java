@@ -25,11 +25,6 @@ public class AddMediaToFoldersService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public AddMediaToFoldersResult add(Long roomId, MediaSelection selection, Long folderId) {
-        return add(roomId, selection, folderId, null, MediaUploaderFilter.ALL);
-    }
-
-    @Transactional
     public AddMediaToFoldersResult add(Long roomId, MediaSelection selection, Long folderId,
                                        Long requesterId, MediaUploaderFilter uploader) {
         requireFolder(folderId);

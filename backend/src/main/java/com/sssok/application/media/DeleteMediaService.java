@@ -36,10 +36,6 @@ public class DeleteMediaService {
         return file.getId();
     }
 
-    public DeleteMediaResult deleteAll(Long roomId, MediaSelection selection, Long requesterId) {
-        return deleteAll(roomId, selection, null, requesterId, MediaUploaderFilter.ALL);
-    }
-
     public DeleteMediaResult deleteAll(Long roomId, MediaSelection selection, Long folderId,
                                        Long requesterId, MediaUploaderFilter uploader) {
         ResolvedMediaSelection resolved =
