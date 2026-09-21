@@ -4,6 +4,8 @@ import com.sssok.application.download.exception.InvalidDownloadParamException;
 import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.media.MediaSelection;
+import com.sssok.application.media.MediaSelectionResolver;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
@@ -27,6 +29,21 @@ class DownloadTargetResolver {
     private final FileRepository fileRepository;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
+    private final MediaSelectionResolver mediaSelectionResolver;
+
+    List<StoredFile> resolveSelection(Long roomId, MediaSelection selection, Long folderId) {
+        if (selection != null && folderId != null || selection == null && folderId == null) {
+            throw new InvalidDownloadParamException();
+        }
+        if (selection != null) {
+            List<StoredFile> selected = mediaSelectionResolver.resolve(roomId, selection).files();
+            if (selected.size() > MAX_MEDIA_IDS) {
+                throw new TooManyFilesException(MAX_MEDIA_IDS);
+            }
+            return requireReady(selected);
+        }
+        return resolveByFolderId(roomId, folderId);
+    }
 
     List<StoredFile> resolve(Long roomId, List<Long> mediaIds, Long folderId) {
         if (mediaIds != null && folderId != null) {

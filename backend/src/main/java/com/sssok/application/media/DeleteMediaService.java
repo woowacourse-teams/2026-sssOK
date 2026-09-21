@@ -1,6 +1,5 @@
 package com.sssok.application.media;
 
-import com.sssok.application.media.exception.InvalidMediaDeleteParamException;
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.TooManyMediaException;
@@ -8,9 +7,7 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.RoomPermissionPort;
 import com.sssok.domain.file.FilePermissionPolicy;
 import com.sssok.domain.file.StoredFile;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +20,7 @@ public class DeleteMediaService {
     private final FileRepository fileRepository;
     private final RoomPermissionPort roomPermissionPort;
     private final MediaDeleter mediaDeleter;
+    private final MediaSelectionResolver mediaSelectionResolver;
 
     public Long deleteOne(Long roomId, Long mediaId, Long requesterId) {
         StoredFile file = fileRepository.findById(mediaId)
@@ -33,35 +31,21 @@ public class DeleteMediaService {
         return file.getId();
     }
 
-    public DeleteMediaResult deleteAll(Long roomId, List<Long> mediaIds, Long requesterId) {
-        requireValid(mediaIds);
-        List<Long> distinctIds = mediaIds.stream().distinct().toList();
-        Map<Long, StoredFile> filesById = new LinkedHashMap<>();
-        fileRepository.findAllByIdIn(distinctIds).stream()
-            .filter(file -> file.getRoomId().equals(roomId))
-            .forEach(file -> filesById.put(file.getId(), file));
-
-        List<Long> notFoundIds = distinctIds.stream()
-            .filter(id -> !filesById.containsKey(id))
-            .toList();
-        List<StoredFile> files = distinctIds.stream()
-            .filter(filesById::containsKey)
-            .map(filesById::get)
-            .toList();
+    public DeleteMediaResult deleteAll(Long roomId, MediaSelection selection, Long requesterId) {
+        ResolvedMediaSelection resolved = mediaSelectionResolver.resolve(roomId, selection);
+        List<StoredFile> files = resolved.files();
+        requireWithinLimit(files);
 
         requireDeletePermission(roomId, requesterId, files);
         if (!files.isEmpty()) {
             mediaDeleter.delete(roomId, files);
         }
         List<Long> deletedIds = files.stream().map(StoredFile::getId).toList();
-        return new DeleteMediaResult(deletedIds.size(), deletedIds, notFoundIds);
+        return new DeleteMediaResult(deletedIds.size(), deletedIds, resolved.notFoundIds());
     }
 
-    private void requireValid(List<Long> mediaIds) {
-        if (mediaIds == null || mediaIds.isEmpty() || mediaIds.stream().anyMatch(id -> id == null)) {
-            throw new InvalidMediaDeleteParamException();
-        }
-        if (mediaIds.size() > MAX_MEDIA_COUNT) {
+    private void requireWithinLimit(List<StoredFile> files) {
+        if (files.size() > MAX_MEDIA_COUNT) {
             throw new TooManyMediaException(MAX_MEDIA_COUNT);
         }
     }
