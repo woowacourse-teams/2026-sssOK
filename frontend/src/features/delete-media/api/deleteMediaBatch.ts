@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/api";
+import type { MediaUploaderFilter } from "@/entities/media";
 import type { MediaSelectionRequest } from "@/features/select-media";
 
 export interface DeleteMediaBatchResponse {
@@ -12,12 +13,16 @@ export const deleteMediaBatch = ({
   roomId,
   selection,
   mediaIds,
+  folderId,
+  uploader,
   token,
 }: {
   roomId: number;
   selection?: MediaSelectionRequest;
   /** @deprecated selection을 사용한다. */
   mediaIds?: number[];
+  folderId?: number;
+  uploader?: MediaUploaderFilter;
   token: string;
 }) =>
   apiClient<DeleteMediaBatchResponse>(`/rooms/${roomId}/media`, {
@@ -26,5 +31,7 @@ export const deleteMediaBatch = ({
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       selection: selection ?? { mode: "include", ids: mediaIds ?? [] },
+      folderId,
+      uploader,
     }),
   });

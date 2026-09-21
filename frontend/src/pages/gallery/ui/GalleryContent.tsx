@@ -2,7 +2,13 @@ import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
 
-import { photosQueryKey, type GalleryItem, type MediaList } from "@/entities/media";
+import {
+  photosQueryKey,
+  type GalleryItem,
+  type MediaList,
+  type MediaUploaderFilter,
+  type PhotoFilter,
+} from "@/entities/media";
 import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
@@ -36,6 +42,12 @@ interface GalleryContentProps {
   accessToken: string;
   userId: number;
 }
+
+const UPLOADER_OF: Record<PhotoFilter, MediaUploaderFilter> = {
+  all: "ALL",
+  mine: "ME",
+  others: "OTHERS",
+};
 
 export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
   const navigate = useNavigate();
@@ -86,6 +98,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
+  const uploader = UPLOADER_OF[selectedOption];
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
@@ -205,7 +218,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           clearSelection();
         }}
         isAllSelected={isAllSelected}
-        canSelectAll={isUnfiltered && (totalCount ?? photoIds.length) > 0}
+        canSelectAll={selectedFolderId === null && (totalCount ?? photoIds.length) > 0}
         onToggleAll={toggleAllPhotos}
       />
       <FeedbackButton hidden={selectedCount > 0} onClick={() => setIsFeedbackOpen(true)} />
@@ -306,6 +319,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         roomPhotoCount={room.photoCount}
         isAllSelected={isAllSelected}
         token={accessToken}
+        uploader={uploader}
         onClearSelection={clearSelection}
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}
         onMoveSelection={() => setIsMoveSelectionOpen(true)}
@@ -316,6 +330,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           roomId={room.roomId}
           selection={selectionRequest}
           selectedCount={selectedCount}
+          folderId={selectedFolderId ?? undefined}
+          uploader={uploader}
           token={accessToken}
           onClose={() => setIsDeleteSelectionOpen(false)}
           onSuccess={async () => {
@@ -343,6 +359,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           selectedCount={selectedCount}
           folders={room.folders}
           currentFolderId={selectedFolderId}
+          uploader={uploader}
           token={accessToken}
           onCreateFolder={requestCreateFolder}
           onClose={() => setIsMoveSelectionOpen(false)}

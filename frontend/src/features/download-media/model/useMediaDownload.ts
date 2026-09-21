@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 
 import { shareFiles } from "../lib/shareFiles";
+import type { MediaUploaderFilter } from "@/entities/media";
 import type { MediaSelectionRequest } from "@/features/select-media";
 import { downloadMedia } from "./downloadMedia";
 import type { DownloadProgressState } from "./downloadProgress";
@@ -18,6 +19,7 @@ import type { DownloadMode, DownloadOutcome, DownloadTarget } from "./types";
 export interface UseMediaDownloadOptions {
   roomId: number;
   token: string;
+  uploader?: MediaUploaderFilter;
   /** 한 판이 끝났을 때. 실패 안내와 선택 해제가 여기서 갈린다. */
   onSettled?: (outcome: DownloadOutcome) => void;
   /** 압축이 만들어지지 않는 등, 판 전체가 무너진 경우. */
@@ -33,6 +35,7 @@ export interface UseMediaDownloadOptions {
 export const useMediaDownload = ({
   roomId,
   token,
+  uploader,
   onSettled,
   onError,
 }: UseMediaDownloadOptions) => {
@@ -91,6 +94,7 @@ export const useMediaDownload = ({
         targets,
         mode,
         token,
+        uploader,
         signal: controller.signal,
         onProgress: (one) => update((state) => withProgress(state, one)),
         onDownloaded: (mediaId) => update((state) => withDownloaded(state, mediaId)),

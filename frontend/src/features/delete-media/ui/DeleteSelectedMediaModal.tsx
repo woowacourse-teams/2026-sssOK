@@ -1,6 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import styled from "@emotion/styled";
 
+import type { MediaUploaderFilter } from "@/entities/media";
 import { isApiError } from "@/shared/api";
 import type { MediaSelectionRequest } from "@/features/select-media";
 import { colors, typography } from "@/shared/styles/tokens";
@@ -14,6 +15,8 @@ interface DeleteSelectedMediaModalProps {
   roomId: number;
   selection: MediaSelectionRequest;
   selectedCount: number;
+  folderId?: number;
+  uploader: MediaUploaderFilter;
   token: string;
   onClose: () => void;
   onSuccess: (result: DeleteMediaBatchResponse) => void | Promise<void>;
@@ -23,12 +26,14 @@ export const DeleteSelectedMediaModal = ({
   roomId,
   selection,
   selectedCount,
+  folderId,
+  uploader,
   token,
   onClose,
   onSuccess,
 }: DeleteSelectedMediaModalProps) => {
   const mutation = useMutation({
-    mutationFn: () => deleteMediaBatch({ roomId, selection, token }),
+    mutationFn: () => deleteMediaBatch({ roomId, selection, folderId, uploader, token }),
     onSuccess,
   });
 
