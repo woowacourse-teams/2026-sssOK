@@ -56,7 +56,7 @@ export const MediaCard = ({ media, isMine, isSelected, onToggle, onOpen }: Media
         aria-label={`${media.fileName} 선택`}
         aria-pressed={isSelected}
       >
-        {isSelected && <HiCheck />}
+        <HiCheck />
       </SelectionMark>
     </Card>
   );
