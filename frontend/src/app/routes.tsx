@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 
+import { AdminAccountsPage } from "@/pages/admin-accounts";
 import { AdminFeedbacksPage } from "@/pages/admin-feedbacks";
 import { AdminLoginPage } from "@/pages/admin-login";
 import { CreateRoomPage } from "@/pages/create-room";
@@ -32,6 +33,7 @@ export const routes: RouteObject[] = [
     children: [
       { path: ROUTE_PATTERNS.admin, element: <Navigate to={ROUTES.adminFeedbacks} replace /> },
       { path: ROUTE_PATTERNS.adminFeedbacks, element: <AdminFeedbacksPage /> },
+      { path: ROUTE_PATTERNS.adminAccounts, element: <AdminAccountsPage /> },
     ],
   },
   // 알 수 없는 주소는 홈으로 안내한다 (screens/001-home.md)

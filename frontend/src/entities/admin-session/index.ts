@@ -5,4 +5,5 @@ export {
   removeAdminSession,
   saveAdminSession,
 } from "./lib/adminSessionStorage";
+export { isSuperAdmin } from "./lib/isSuperAdmin";
 export type { AdminLoginRequest, AdminSession } from "./model/types";
