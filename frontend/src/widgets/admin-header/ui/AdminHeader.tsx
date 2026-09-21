@@ -3,12 +3,10 @@ import { useNavigate } from "react-router-dom";
 
 import { type AdminSession, removeAdminSession } from "@/entities/admin-session";
 import { ROUTES } from "@/shared/config";
-import { Badge } from "@/shared/ui/badge";
 import {
   DisabledNavItem,
   Divider,
   Header,
-  Left,
   LogoutButton,
   Me,
   Name,
@@ -45,16 +43,11 @@ export const AdminHeader = ({ session }: AdminHeaderProps) => {
 
   return (
     <Header>
-      <Left>
-        <Badge size="md" variant="soft">
-          관리자
-        </Badge>
-        <Nav aria-label="관리자 메뉴">
-          <NavItem to={ROUTES.adminFeedbacks}>의견</NavItem>
-          {/* 계정 화면은 아직 없다. 계정 화면 이슈에서 링크로 바꾼다. */}
-          <DisabledNavItem aria-disabled="true">계정</DisabledNavItem>
-        </Nav>
-      </Left>
+      <Nav aria-label="관리자 메뉴">
+        <NavItem to={ROUTES.adminFeedbacks}>의견</NavItem>
+        {/* 계정 화면은 아직 없다. 계정 화면 이슈에서 링크로 바꾼다. */}
+        <DisabledNavItem aria-disabled="true">계정</DisabledNavItem>
+      </Nav>
 
       <Me>
         <Name>{session.name}</Name>

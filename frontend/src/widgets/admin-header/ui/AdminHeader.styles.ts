@@ -15,16 +15,6 @@ export const Header = styled.header`
   padding: ${spacing[16]} ${spacing[16]} 0;
 `;
 
-export const Left = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${spacing[20]};
-
-  ${DESKTOP} {
-    gap: 28px;
-  }
-`;
-
 export const Nav = styled.nav`
   display: flex;
   align-items: center;

@@ -39,8 +39,7 @@ describe("관리자 헤더", () => {
     renderAt(ROUTES.adminFeedbacks);
 
     expect(within(header()).getByText("해니")).toBeInTheDocument();
-    // 왼쪽 화면 배지와 오른쪽 역할 배지가 둘 다 "관리자" 다.
-    expect(within(header()).getAllByText("관리자")).toHaveLength(2);
+    expect(within(header()).getByText("관리자")).toBeInTheDocument();
   });
 
   it("슈퍼관리자는 슈퍼관리자 배지를 보여준다", () => {
@@ -55,7 +54,7 @@ describe("관리자 헤더", () => {
     renderAt(ROUTES.adminFeedbacks);
 
     expect(within(header()).queryByText("AUDITOR")).not.toBeInTheDocument();
-    expect(within(header()).getAllByText("관리자")).toHaveLength(2);
+    expect(within(header()).getByText("관리자")).toBeInTheDocument();
   });
 
   it("의견 화면에서는 의견 탭이 선택되어 있다", () => {
