@@ -31,14 +31,14 @@ const GALLERY_TEXT = "갤러리 도착";
 /** MSW 가 넘겨주는 request.url 은 언제나 절대 URL 이다. 베이스가 상대경로여도 맞춰 볼 수 있게 푼다. */
 const absolute = (path: string) => new URL(path, location.href).href;
 
-const renderAt = (code: string) => {
+const renderAt = (code: string, state?: unknown) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
   render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[`/rooms/${code}`]}>
+      <MemoryRouter initialEntries={[{ pathname: `/rooms/${code}`, state }]}>
         <Routes>
           <Route path={ROUTE_PATTERNS.roomEntry} element={<RoomEntryPage />} />
           <Route path={ROUTE_PATTERNS.gallery} element={<div>{GALLERY_TEXT}</div>} />
@@ -245,13 +245,35 @@ describe("RoomEntryPage", () => {
       await user.type(await screen.findByRole("textbox"), "해니");
       expect(track).toHaveBeenCalledWith("Room Join Started", {
         room_code: MOCK_ROOM_CODES.active,
+        entry_src: "link",
       });
 
       await user.click(getSubmitButton());
       await screen.findByText(GALLERY_TEXT);
 
-      expect(track).toHaveBeenCalledWith("Room Joined", { room_code: MOCK_ROOM_CODES.active });
+      expect(track).toHaveBeenCalledWith("Room Joined", {
+        room_code: MOCK_ROOM_CODES.active,
+        entry_src: "link",
+      });
       expect(track).not.toHaveBeenCalledWith("Room Join Failed", expect.anything());
+    });
+
+    it("코드를 입력하는 화면에서 넘어오면 입장 경로를 code 로 남긴다", async () => {
+      const user = userEvent.setup();
+      renderAt(MOCK_ROOM_CODES.active, { entrySrc: "code" });
+
+      await user.type(await screen.findByRole("textbox"), "해니");
+      await user.click(getSubmitButton());
+      await screen.findByText(GALLERY_TEXT);
+
+      expect(track).toHaveBeenCalledWith("Room Join Started", {
+        room_code: MOCK_ROOM_CODES.active,
+        entry_src: "code",
+      });
+      expect(track).toHaveBeenCalledWith("Room Joined", {
+        room_code: MOCK_ROOM_CODES.active,
+        entry_src: "code",
+      });
     });
 
     it("이미 세션이 있어 곧장 들어가는 재방문은 입장 시작으로 세지 않는다", async () => {

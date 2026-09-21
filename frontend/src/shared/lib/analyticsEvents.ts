@@ -12,8 +12,8 @@ export interface AnalyticsEvents {
   "Invite Link Copied": { is_success: boolean };
 
   /** 이름 입력 화면이 떴을 때. 이미 세션이 있어 곧장 들어가는 재방문은 세지 않는다. */
-  "Room Join Started": { room_code: string };
-  "Room Joined": { room_code: string };
+  "Room Join Started": { room_code: string; entry_src: AnalyticsEntrySource };
+  "Room Joined": { room_code: string; entry_src: AnalyticsEntrySource };
   "Room Join Failed": { room_code: string; reason: string };
 
   "Photo Uploaded": { photo_count: number; failed_count: number; duration_ms: number };
@@ -44,6 +44,9 @@ export interface AnalyticsEvents {
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;
+
+/** 방에 들어온 경로. 공유 링크로 왔는지, 코드를 직접 입력했는지 */
+export type AnalyticsEntrySource = "link" | "code";
 
 /** 방 안에서 일어난 이벤트에 공통으로 붙는 속성 */
 export interface AnalyticsRoomContext {
