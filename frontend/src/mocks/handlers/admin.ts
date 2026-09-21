@@ -1,5 +1,6 @@
 import { http, HttpResponse } from "msw";
 
+import type { AdminAccount } from "@/entities/admin-account";
 import { API_BASE_URL } from "@/shared/config";
 
 /**
@@ -15,6 +16,35 @@ export const ADMIN_CREDENTIALS = {
   name: "해니",
   role: "ADMIN",
 } as const;
+
+/**
+ * 디자인(`Admin Accounts`)에 그려진 계정 그대로다. 로그인되는 목 계정(해니)도 여기 들어 있어야
+ * 목록에서 "나" 표시가 붙는다.
+ */
+export const ADMIN_ACCOUNTS: AdminAccount[] = [
+  {
+    adminId: 1,
+    loginId: "superadmin",
+    name: "마이찬",
+    role: "SUPER_ADMIN",
+    createdAt: "2026-09-17T01:00:00Z",
+  },
+  {
+    adminId: 2,
+    loginId: "hyeonmibap",
+    name: "현미밥",
+    role: "ADMIN",
+    createdAt: "2026-09-17T01:10:00Z",
+  },
+  { adminId: 3, loginId: "yundol", name: "윤돌", role: "ADMIN", createdAt: "2026-09-17T01:20:00Z" },
+  {
+    adminId: ADMIN_CREDENTIALS.adminId,
+    loginId: ADMIN_CREDENTIALS.loginId,
+    name: ADMIN_CREDENTIALS.name,
+    role: ADMIN_CREDENTIALS.role,
+    createdAt: "2026-09-17T01:30:00Z",
+  },
+];
 
 /** 서버 기본값과 맞춘다 (`admin.login.max-failures`, `admin.login.lock-duration`). */
 const MAX_FAILURES = 5;
@@ -95,5 +125,16 @@ export const adminHandlers = [
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
       },
     });
+  }),
+
+  http.get(`${API_BASE_URL}/admin/accounts`, ({ request }) => {
+    if (!request.headers.get("Authorization")?.startsWith("Bearer ")) {
+      return HttpResponse.json(
+        { code: "UNAUTHORIZED", message: "인증이 필요합니다" },
+        { status: 401 },
+      );
+    }
+
+    return HttpResponse.json({ data: { accounts: ADMIN_ACCOUNTS } });
   }),
 ];
