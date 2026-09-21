@@ -1,6 +1,7 @@
 package com.sssok.presentation.api.mediafolder;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.presentation.api.common.MediaSelectionRequest;
 
 public record AddToFoldersRequest(
@@ -12,6 +13,9 @@ public record AddToFoldersRequest(
             + "이미 속해 있던 다른 폴더는 그대로 유지되고, 이미 이 폴더에 담겨 있던 미디어는 alreadyInCount로만 집계된다(오류 아님).",
         example = "31"
     )
-    Long folderId
+    Long folderId,
+
+    @Schema(description = "업로더 필터. ALL / ME / OTHERS, 생략 시 ALL")
+    MediaUploaderFilter uploader
 ) {
 }
