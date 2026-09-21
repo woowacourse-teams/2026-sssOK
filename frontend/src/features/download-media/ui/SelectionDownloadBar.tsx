@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   LuCheck,
   LuDownload,
@@ -9,6 +9,7 @@ import {
   LuX,
 } from "react-icons/lu";
 
+import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
@@ -50,6 +51,8 @@ interface SelectionDownloadBarProps {
   roomCode: string;
   /** 방 전체 장수. 전부 골라 받았는지 가려내는 데 쓴다. */
   roomPhotoCount: number;
+  /** 지금 선택이 "전체 선택" 으로 고른 것인지 */
+  isAllSelected?: boolean;
   token: string;
   onClearSelection: () => void;
   onDeleteSelection?: () => void;
@@ -74,6 +77,7 @@ export const SelectionDownloadBar = ({
   roomId,
   roomCode,
   roomPhotoCount,
+  isAllSelected = false,
   token,
   onClearSelection,
   onDeleteSelection,
@@ -95,17 +99,31 @@ export const SelectionDownloadBar = ({
     targets: [],
     mode: "individual",
   });
+  /**
+   * 이벤트에 남길 이번 판. `lastRun` 은 상태라 `start` 를 부른 렌더의 콜백에서는
+   * 아직 이전 판을 가리킨다 — 그대로 쓰면 첫 판이 빈 판으로, 이후 판이 한 판씩 밀려 기록된다.
+   */
+  const trackedRunRef = useRef<{
+    targets: DownloadTarget[];
+    mode: DownloadMode;
+    isSelectAll: boolean;
+    room: AnalyticsRoomContext | null;
+  }>({ targets: [], mode: "individual", isSelectAll: false, room: null });
+  const trackRun = (outcome: DownloadOutcome) =>
+    trackDownload(outcome, {
+      mode: trackedRunRef.current.mode,
+      source: "gallery",
+      selectedCount: trackedRunRef.current.targets.length,
+      roomPhotoCount,
+      isSelectAll: trackedRunRef.current.isSelectAll,
+      room: trackedRunRef.current.room,
+    });
   const { progress, pendingShare, start, share, dismissShare, cancel } = useMediaDownload({
     roomId,
     token,
     onSettled: (outcome) => {
       settleFailure(outcome, lastRun.targets, lastRun.mode);
-      trackDownload(outcome, {
-        mode: lastRun.mode,
-        source: "gallery",
-        selectedCount: lastRun.targets.length,
-        roomPhotoCount,
-      });
+      trackRun(outcome);
 
       // 저장까지 끝났으면 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
       // 그대로 둔다 — 다시 시도할 대상을 사용자가 다시 고르게 만들면 안 된다.
@@ -118,15 +136,7 @@ export const SelectionDownloadBar = ({
     // 결말을 만들지도 못하고 튄 예외. 여기서 잡지 않으면 실패가 조용히 사라진다.
     onError: (error) => {
       const reason = downloadMessageOfError(error);
-      trackDownload(
-        { type: "failed", reason, isRetryable: false },
-        {
-          mode: lastRun.mode,
-          source: "gallery",
-          selectedCount: lastRun.targets.length,
-          roomPhotoCount,
-        },
-      );
+      trackRun({ type: "failed", reason, isRetryable: false });
       failWith(reason, lastRun.targets, lastRun.mode);
     },
   });
@@ -135,6 +145,13 @@ export const SelectionDownloadBar = ({
     setSheetOpen(false);
     closeFailure();
     setLastRun({ targets: only, mode });
+    trackedRunRef.current = {
+      targets: only,
+      mode,
+      // 실패한 것만 다시 받는 판은 전체 선택으로 고른 판이 아니다
+      isSelectAll: isAllSelected && only === targets,
+      room: getAnalyticsRoom(),
+    };
     void start(only, mode);
   };
 

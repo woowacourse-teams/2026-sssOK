@@ -5,11 +5,16 @@ import { http, HttpResponse } from "msw";
 import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { setAnalyticsRoom, track } from "@/shared/lib/analytics";
 import { SelectionDownloadBar } from "./SelectionDownloadBar";
 import { prefersShareSheet } from "../lib/prefersShareSheet";
 import type { DownloadTarget } from "../model/types";
 
 jest.mock("../lib/saveBlob", () => ({ saveBlob: jest.fn() }));
+jest.mock("@/shared/lib/analytics", () => ({
+  ...jest.requireActual("@/shared/lib/analytics"),
+  track: jest.fn(),
+}));
 jest.mock("../lib/prefersShareSheet", () => ({ prefersShareSheet: jest.fn(() => false) }));
 jest.mock("../config", () => ({
   ...jest.requireActual("../config"),
@@ -58,7 +63,7 @@ const serveSingle = (status = 200) =>
     ),
   );
 
-const renderBar = (targets: DownloadTarget[]) => {
+const renderBar = (targets: DownloadTarget[], isAllSelected = false) => {
   const onClearSelection = jest.fn();
 
   render(
@@ -67,6 +72,7 @@ const renderBar = (targets: DownloadTarget[]) => {
       roomId={MOCK_ROOM_ID}
       roomCode="7K93QX2S"
       roomPhotoCount={10}
+      isAllSelected={isAllSelected}
       token={TOKEN}
       onClearSelection={onClearSelection}
     />,
@@ -196,5 +202,80 @@ describe("SelectionDownloadBar", () => {
     await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
 
     expect(screen.getByText("사진첩에 저장")).toBeInTheDocument();
+  });
+
+  describe("다운로드 이벤트", () => {
+    const ROOM_CONTEXT = { room_code: "7K93QX2S", role: "guest" } as const;
+
+    // 앞 테스트가 공유 시트 쪽으로 돌려놨을 수 있다. 개별 저장이 보이는 데스크톱으로 되돌린다.
+    beforeEach(() => {
+      prefersShareSheetMock.mockReturnValue(false);
+      setAnalyticsRoom(ROOM_CONTEXT);
+    });
+
+    afterEach(() => setAnalyticsRoom(null));
+
+    it("전체 선택으로 고른 첫 판부터 전체 받기로 남긴다", async () => {
+      serveSingle();
+      renderBar([targetOf(5000), targetOf(5001)], true);
+
+      await downloadIndividually();
+
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith(
+          "Photo Downloaded",
+          {
+            mode: "individual",
+            source: "gallery",
+            photo_count: 2,
+            failed_count: 0,
+            total_count: 10,
+            is_select_all: true,
+          },
+          ROOM_CONTEXT,
+        ),
+      );
+    });
+
+    it("한 장도 못 받으면 이번에 고른 방식으로 실패를 남긴다", async () => {
+      serveSingle(500);
+      renderBar([targetOf(5000)]);
+
+      await downloadIndividually();
+
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith(
+          "Photo Download Failed",
+          expect.objectContaining({ mode: "individual", failed_count: 1 }),
+          ROOM_CONTEXT,
+        ),
+      );
+    });
+
+    it("받는 도중 갤러리를 떠나도 받기를 시작한 방으로 남긴다", async () => {
+      let release = () => {};
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      serveSingle();
+      server.use(
+        http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, async () => {
+          await held;
+          return new HttpResponse(new Blob(["bytes"]), {
+            headers: { "Content-Type": "image/jpeg" },
+          });
+        }),
+      );
+      renderBar([targetOf(5000)]);
+
+      await downloadIndividually();
+      // 받기가 끝나기 전에 갤러리를 떠나 방 정보가 지워졌다
+      setAnalyticsRoom(null);
+      release();
+
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith("Photo Downloaded", expect.anything(), ROOM_CONTEXT),
+      );
+    });
   });
 });

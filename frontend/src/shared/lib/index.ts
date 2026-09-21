@@ -1,4 +1,4 @@
-export { initAnalytics, setAnalyticsRoom, track } from "./analytics";
+export { getAnalyticsRoom, initAnalytics, setAnalyticsRoom, track } from "./analytics";
 export type {
   AnalyticsDownloadSource,
   AnalyticsEntrySource,

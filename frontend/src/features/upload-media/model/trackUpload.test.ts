@@ -10,6 +10,8 @@ const failed = (mediaId: number): FailedUpload =>
   ({ mediaId, fileName: `IMG_${mediaId}.jpg`, code: "UPLOAD_FAILED", message: "" }) as FailedUpload;
 const rejected = (fileName: string) => ({ fileName }) as RejectedFile;
 
+const ROOM = { room_code: "7K93QX2S", role: "guest" } as const;
+
 const resultOf = (overrides: Partial<UploadResult>): UploadResult => ({
   registered: [],
   failed: [],
@@ -23,36 +25,39 @@ describe("trackUpload", () => {
     trackUpload(
       resultOf({ registered: [media(1), media(2)], alreadyRegistered: 1, failed: [failed(4)] }),
       1234.6,
+      ROOM,
     );
 
-    expect(track).toHaveBeenCalledWith("Photo Uploaded", {
-      photo_count: 3,
-      failed_count: 1,
-      duration_ms: 1235,
-    });
+    expect(track).toHaveBeenCalledWith(
+      "Photo Uploaded",
+      { photo_count: 3, failed_count: 1, duration_ms: 1235 },
+      ROOM,
+    );
   });
 
   it("한 장도 못 올렸으면 실패로 남기고 첫 실패 사유를 붙인다", () => {
-    trackUpload(resultOf({ failed: [failed(1), failed(2)] }), 500);
+    trackUpload(resultOf({ failed: [failed(1), failed(2)] }), 500, ROOM);
 
     expect(track).toHaveBeenCalledTimes(1);
-    expect(track).toHaveBeenCalledWith("Photo Upload Failed", {
-      reason: "UPLOAD_FAILED",
-      failed_count: 2,
-    });
+    expect(track).toHaveBeenCalledWith(
+      "Photo Upload Failed",
+      { reason: "UPLOAD_FAILED", failed_count: 2 },
+      ROOM,
+    );
   });
 
   it("발급 단계에서 전부 거절됐어도 실패로 센다", () => {
-    trackUpload(resultOf({ rejected: [rejected("big.mov")] }), 100);
+    trackUpload(resultOf({ rejected: [rejected("big.mov")] }), 100, ROOM);
 
-    expect(track).toHaveBeenCalledWith("Photo Upload Failed", {
-      reason: "REJECTED",
-      failed_count: 1,
-    });
+    expect(track).toHaveBeenCalledWith(
+      "Photo Upload Failed",
+      { reason: "REJECTED", failed_count: 1 },
+      ROOM,
+    );
   });
 
   it("올린 것도 실패한 것도 없으면 아무것도 남기지 않는다", () => {
-    trackUpload(resultOf({}), 100);
+    trackUpload(resultOf({}), 100, ROOM);
 
     expect(track).not.toHaveBeenCalled();
   });
@@ -60,11 +65,12 @@ describe("trackUpload", () => {
 
 describe("trackUploadError", () => {
   it("판 전체가 무너지면 고른 장수만큼 실패로 남긴다", () => {
-    trackUploadError(5);
+    trackUploadError(5, ROOM);
 
-    expect(track).toHaveBeenCalledWith("Photo Upload Failed", {
-      reason: "REQUEST_FAILED",
-      failed_count: 5,
-    });
+    expect(track).toHaveBeenCalledWith(
+      "Photo Upload Failed",
+      { reason: "REQUEST_FAILED", failed_count: 5 },
+      ROOM,
+    );
   });
 });

@@ -82,6 +82,28 @@ describe("배포 빌드일 때", () => {
     });
   });
 
+  it("방을 따로 넘기면 지금 방 대신 그 방으로 남긴다", async () => {
+    const analytics = loadFresh();
+    await analytics.initAnalytics();
+
+    // 업로드를 시작한 방을 잡아 둔 뒤 갤러리를 떠난 상황
+    const startedRoom = { room_code: "ABC123", role: "guest" } as const;
+    analytics.setAnalyticsRoom(null);
+    analytics.track(
+      "Photo Uploaded",
+      { photo_count: 1, failed_count: 0, duration_ms: 10 },
+      startedRoom,
+    );
+
+    expect(posthog.capture).toHaveBeenCalledWith("Photo Uploaded", {
+      room_code: "ABC123",
+      role: "guest",
+      photo_count: 1,
+      failed_count: 0,
+      duration_ms: 10,
+    });
+  });
+
   it("방을 나가면 방 속성을 붙이지 않는다", async () => {
     const analytics = loadFresh();
     await analytics.initAnalytics();

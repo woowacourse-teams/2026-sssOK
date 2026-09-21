@@ -294,6 +294,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         roomId={room.roomId}
         roomCode={room.code}
         roomPhotoCount={room.photoCount}
+        isAllSelected={isAllSelected}
         token={accessToken}
         onClearSelection={clearSelection}
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}

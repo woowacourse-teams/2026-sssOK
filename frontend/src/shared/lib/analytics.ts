@@ -25,16 +25,26 @@ export const setAnalyticsRoom = (context: AnalyticsRoomContext | null) => {
   roomContext = context;
 };
 
+/** 지금 방. 끝나는 데 오래 걸리는 작업은 시작할 때 이 값을 잡아 뒀다가 `track` 에 넘긴다. */
+export const getAnalyticsRoom = () => roomContext;
+
 /**
  * 이벤트를 보낸다. 배포 빌드가 아니면 아무 일도 하지 않는다.
  * SDK 는 늦게 받으므로, 그 전에 난 이벤트는 모아 뒀다가 초기화가 끝나면 보낸다.
+ *
+ * `room` 을 넘기면 지금 방 대신 그 방으로 남긴다. 업로드처럼 시작한 뒤 갤러리를 떠나도
+ * 끝까지 도는 작업이 쓴다 — 끝나는 시점에는 방 정보가 이미 지워져 있을 수 있다.
  */
-export const track = <E extends AnalyticsEventName>(event: E, properties: AnalyticsEvents[E]) => {
+export const track = <E extends AnalyticsEventName>(
+  event: E,
+  properties: AnalyticsEvents[E],
+  room: AnalyticsRoomContext | null = roomContext,
+) => {
   if (process.env.NODE_ENV !== "production") {
     return;
   }
 
-  const merged: Properties = { ...roomContext, ...properties };
+  const merged: Properties = { ...room, ...properties };
 
   if (client) {
     client.capture(event, merged);
