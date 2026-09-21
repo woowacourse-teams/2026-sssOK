@@ -52,15 +52,18 @@ export const SelectionSummary = styled.div`
   justify-self: start;
 `;
 
-export const SelectionCheck = styled.span`
+export const SelectionCheck = styled.button`
   display: grid;
   flex: none;
   place-items: center;
   width: 20px;
   height: 20px;
+  padding: 0;
+  border: 0;
   border-radius: ${radius.full};
   background: ${colors.primary};
   color: ${colors.textInverse};
+  cursor: pointer;
 
   svg {
     width: 12px;

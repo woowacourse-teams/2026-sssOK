@@ -119,6 +119,14 @@ describe("SelectionDownloadBar", () => {
     expect(screen.getByText("1개")).toBeInTheDocument();
   });
 
+  it("왼쪽 체크 버튼을 누르면 선택을 모두 해제한다", async () => {
+    const { onClearSelection } = renderBar([targetOf(5000)], true);
+
+    await userEvent.click(screen.getByRole("button", { name: "선택 모두 해제" }));
+
+    expect(onClearSelection).toHaveBeenCalledTimes(1);
+  });
+
   it("다운로드를 누르면 시트가 열린다", async () => {
     renderBar([targetOf(5000), targetOf(5001)]);
 

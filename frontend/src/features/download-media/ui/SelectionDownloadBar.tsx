@@ -241,7 +241,11 @@ export const SelectionDownloadBar = ({
             ) : (
               <SelectionLayout>
                 <SelectionSummary>
-                  <SelectionCheck aria-hidden="true">
+                  <SelectionCheck
+                    type="button"
+                    aria-label="선택 모두 해제"
+                    onClick={onClearSelection}
+                  >
                     <LuCheck />
                   </SelectionCheck>
                   <Count>{selectedCount}개</Count>
