@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 import { HiArrowDownTray, HiArrowLeft, HiCheck, HiOutlineTrash } from "react-icons/hi2";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
@@ -88,11 +88,15 @@ const MediaDetailContent = ({
     onSuccess: async () => {
       const listKey = photosQueryKey(room.roomId, session.userId);
       await queryClient.cancelQueries({ queryKey: listKey });
-      queryClient.setQueriesData<MediaList>({ queryKey: listKey }, (current) =>
+      // 목록 캐시는 페이지 묶음이다. 필터별로 여러 개가 있어 전부 훑는다.
+      queryClient.setQueriesData<InfiniteData<MediaList>>({ queryKey: listKey }, (current) =>
         current
           ? {
               ...current,
-              items: current.items.filter((item) => item.mediaId !== mediaId),
+              pages: current.pages.map((page) => ({
+                ...page,
+                items: page.items.filter((item) => item.mediaId !== mediaId),
+              })),
             }
           : current,
       );

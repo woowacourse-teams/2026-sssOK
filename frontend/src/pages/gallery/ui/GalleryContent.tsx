@@ -48,13 +48,22 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const { photos, isPending, isError } = useGalleryPhotos({
-    roomId: room.roomId,
-    accessToken,
-    userId,
-    selectedFolderId,
-    selectedOption,
-  });
+  const { photos, totalCount, isPending, isError, hasNextPage, isFetchingNextPage, loadMore } =
+    useGalleryPhotos({
+      roomId: room.roomId,
+      accessToken,
+      userId,
+      selectedFolderId,
+      selectedOption,
+    });
+
+  /*
+   * "전체" 칩은 방 전체 개수다. 필터 없이 받은 목록이면 그 응답의 개수가 화면에 보이는 사진과
+   * 같은 기준(실물이 올라간 것만)이라 그것을 쓴다. 폴더·업로더로 좁힌 응답은 방 전체가 아니므로
+   * 방 조회의 값으로 둔다.
+   */
+  const isUnfiltered = selectedFolderId === null && selectedOption === "all";
+  const allPhotoCount = isUnfiltered ? (totalCount ?? room.photoCount) : room.photoCount;
 
   // 사진 선택
   const photoIds = photos.map((photo) => photo.mediaId);
@@ -96,7 +105,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
       <FolderFilter
-        totalCount={room.photoCount}
+        totalCount={allPhotoCount}
         folders={room.folders}
         selectedFolderId={selectedFolderId}
         onSelectFolder={(folderId) => {
@@ -149,6 +158,9 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         isError={isError}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={(photo) => navigate(ROUTES.mediaDetail(room.code, photo.mediaId))}
+        hasMore={hasNextPage}
+        isLoadingMore={isFetchingNextPage}
+        onLoadMore={loadMore}
       />
       <SelectionDownloadBar
         targets={downloadTargets}
@@ -171,8 +183,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
+                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -197,8 +209,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
+                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -259,8 +271,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
                 exact: true,
               }),
               queryClient.invalidateQueries({
+                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
               }),
             ]);
             setDeletedFolderName(folderName);
