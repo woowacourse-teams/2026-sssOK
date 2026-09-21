@@ -170,7 +170,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
         onDeleteRoom={() => setIsDeleteModalOpen(true)}
-        onAddFolder={handleCreateFolder}
+        onAddFolder={() => void handleCreateFolder("menu")}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
@@ -182,7 +182,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           selectFolder(folderId);
           clearSelection();
         }}
-        onAddFolder={handleCreateFolder}
+        onAddFolder={() => void handleCreateFolder("filter_plus")}
       />
       <GalleryOptions
         selectedOption={selectedOption}
