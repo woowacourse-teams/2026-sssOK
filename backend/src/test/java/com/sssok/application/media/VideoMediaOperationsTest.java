@@ -163,7 +163,8 @@ class VideoMediaOperationsTest {
         StoredFile video = readyVideo();
 
         var job = createDownloadJobService.create(
-            roomId, uploaderId, MediaSelection.include(List.of(video.getId())), null);
+            roomId, uploaderId, MediaSelection.include(List.of(video.getId())), null,
+            MediaUploaderFilter.ALL);
 
         assertThat(job).isNotNull();
     }
