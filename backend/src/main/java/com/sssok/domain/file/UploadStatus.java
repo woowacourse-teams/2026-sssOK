@@ -16,6 +16,8 @@ public enum UploadStatus {
 
     // 조회에 노출되는 상태. RESERVED·FAILED 는 스토리지에 실물이 없어, 내려보내면 클라이언트가
     // 열 수 없는 빈 항목을 그리게 된다. 다운로드 API 도 이 둘을 없는 것과 동일하게 취급한다.
+    // 이 값을 바꾸면 V22__add_media_cursor_pagination_index.sql 의 부분 인덱스 조건도 달라져야 한다.
+    // 이미 적용된 V22를 수정하지 말고, 새 Flyway 마이그레이션에서 인덱스를 재생성한다.
     private static final Set<UploadStatus> VISIBLE = Set.of(PROCESSING, READY);
 
     public static Set<UploadStatus> visibleStatuses() {

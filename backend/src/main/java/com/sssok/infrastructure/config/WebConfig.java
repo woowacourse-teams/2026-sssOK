@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.config;
 
 import com.sssok.presentation.api.common.RoomMembershipInterceptor;
+import com.sssok.presentation.auth.AuthAdminArgumentResolver;
 import com.sssok.presentation.auth.AuthMemberArgumentResolver;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +25,14 @@ public class WebConfig implements WebMvcConfigurer {
     private static final String API_SUB_PACKAGE_PREFIX = "com.sssok.presentation.api.";
 
     private final AuthMemberArgumentResolver authMemberArgumentResolver;
+    private final AuthAdminArgumentResolver authAdminArgumentResolver;
     private final RoomMembershipInterceptor roomMembershipInterceptor;
     private final CorsProperties corsProperties;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(authMemberArgumentResolver);
+        resolvers.add(authAdminArgumentResolver);
     }
 
     @Override

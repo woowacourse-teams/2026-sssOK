@@ -1,6 +1,7 @@
 package com.sssok.presentation.api.media;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -14,11 +15,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.GetMediaListService;
 import com.sssok.application.media.GetMediaService;
+import com.sssok.application.media.MediaCursor;
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.media.MediaFullDetail;
+import com.sssok.application.media.MediaPage;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.room.Room;
@@ -62,7 +67,13 @@ class MediaQueryControllerTest {
     GetMediaService getMediaService;
 
     @MockitoBean
+    MediaCursorCodec mediaCursorCodec;
+
+    @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;
@@ -80,7 +91,8 @@ class MediaQueryControllerTest {
 
     @Test
     void 목록을_조회하면_200과_items_를_반환한다() throws Exception {
-        given(getMediaListService.list(anyLong(), any())).willReturn(List.of(mediaWithThumbnail()));
+        given(getMediaListService.page(anyLong(), any(), anyLong(), any(), anyInt(), any()))
+            .willReturn(new MediaPage(List.of(mediaWithThumbnail()), null, false, 1));
 
         getMediaList("")
             .andExpect(status().isOk())
@@ -97,41 +109,92 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.items[0].thumbnailUrlExpiresAt").exists())
             .andExpect(jsonPath("$.data.items[0].originalUrl").value(ORIGINAL_URL))
             .andExpect(jsonPath("$.data.items[0].originalUrlExpiresAt").exists())
-            .andExpect(jsonPath("$.data.items[0].uploadedAt").exists());
+            .andExpect(jsonPath("$.data.items[0].uploadedAt").exists())
+            .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
+            .andExpect(jsonPath("$.data.hasNext").value(false))
+            .andExpect(jsonPath("$.data.totalCount").value(1));
     }
 
     @Test
     void 미디어가_없으면_빈_배열을_반환한다() throws Exception {
-        given(getMediaListService.list(anyLong(), any())).willReturn(List.of());
+        given(getMediaListService.page(anyLong(), any(), anyLong(), any(), anyInt(), any()))
+            .willReturn(new MediaPage(List.of(), null, false, 0));
 
         getMediaList("")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.items").isArray())
-            .andExpect(jsonPath("$.data.items").isEmpty());
+            .andExpect(jsonPath("$.data.items").isEmpty())
+            .andExpect(jsonPath("$.data.hasNext").value(false))
+            .andExpect(jsonPath("$.data.totalCount").value(0));
     }
 
     @Test
     void folderId를_생략하면_null로_넘긴다() throws Exception {
-        given(getMediaListService.list(anyLong(), any())).willReturn(List.of());
+        given(getMediaListService.page(anyLong(), any(), anyLong(), any(), anyInt(), any()))
+            .willReturn(new MediaPage(List.of(), null, false, 0));
 
         getMediaList("");
 
-        verify(getMediaListService).list(eq(ROOM_ID), isNull());
+        verify(getMediaListService).page(
+            ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL, 30, null);
     }
 
     @Test
     void folderId를_주면_그대로_넘긴다() throws Exception {
-        given(getMediaListService.list(anyLong(), any())).willReturn(List.of());
+        given(getMediaListService.page(anyLong(), any(), anyLong(), any(), anyInt(), any()))
+            .willReturn(new MediaPage(List.of(), null, false, 0));
 
         getMediaList("?folderId=" + FOLDER_ID);
 
-        verify(getMediaListService).list(ROOM_ID, FOLDER_ID);
+        verify(getMediaListService).page(
+            ROOM_ID, FOLDER_ID, MEMBER_ID, MediaUploaderFilter.ALL, 30, null);
+    }
+
+    @Test
+    void uploader를_서비스에_전달한다() throws Exception {
+        given(getMediaListService.page(anyLong(), any(), anyLong(), any(), anyInt(), any()))
+            .willReturn(new MediaPage(List.of(), null, false, 0));
+
+        getMediaList("?uploader=ME");
+
+        verify(getMediaListService).page(
+            ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ME, 30, null);
+    }
+
+    @Test
+    void 지원하지_않는_uploader이면_400() throws Exception {
+        getMediaList("?uploader=UNKNOWN")
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cursor와_size를_다음_페이지_조회에_사용한다() throws Exception {
+        MediaCursor cursor = new MediaCursor(
+            ROOM_ID, null, Instant.parse("2026-09-20T02:00:00Z"), MEDIA_ID);
+        MediaCursor nextCursor = new MediaCursor(
+            ROOM_ID, null, Instant.parse("2026-09-20T01:00:00Z"), MEDIA_ID - 1);
+        given(mediaCursorCodec.decode(
+            "previous", ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL)).willReturn(cursor);
+        given(getMediaListService.page(
+            ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL, 10, cursor))
+            .willReturn(new MediaPage(List.of(mediaWithThumbnail()), nextCursor, true, 20));
+        given(mediaCursorCodec.encode(nextCursor)).willReturn("next");
+
+        getMediaList("?size=10&cursor=previous")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.nextCursor").value("next"))
+            .andExpect(jsonPath("$.data.hasNext").value(true))
+            .andExpect(jsonPath("$.data.totalCount").value(20));
+
+        verify(getMediaListService).page(
+            ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL, 10, cursor);
     }
 
     @Test
     void 없는_폴더로_필터하면_404() throws Exception {
         willThrow(new FolderNotFoundException(FOLDER_ID))
-            .given(getMediaListService).list(anyLong(), any());
+            .given(getMediaListService).page(
+                anyLong(), any(), anyLong(), any(), anyInt(), any());
 
         getMediaList("?folderId=" + FOLDER_ID)
             .andExpect(status().isNotFound())

@@ -37,6 +37,15 @@ jwt:
   secret: ${JWT_SECRET}
   access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30d}
 
+release:
+  # 통합 릴리스 버전(저장소 루트 VERSION)과 배포 대상 커밋. 배포 파이프라인이 image.env 에 쓰고
+  # docker-compose 가 컨테이너 환경변수로 넘긴다.
+  # 로컬·IDE 실행에는 주입이 없으므로 unknown 으로 떨어뜨린다.
+  version: ${APP_RELEASE_VERSION:unknown}
+  git-sha: ${APP_GIT_SHA:unknown}
+  # 백엔드 버전의 1순위는 JAR 안의 build-info 다. 이 값은 build-info 가 없을 때만 쓰인다.
+  backend-version: ${APP_BACKEND_VERSION:unknown}
+
 cors:
   # 브라우저에서 API를 호출할 수 있는 오리진. 콤마로 구분한다.
   # 로컬 기본값은 application-local.yml, 운영값은 환경변수로 공급한다.

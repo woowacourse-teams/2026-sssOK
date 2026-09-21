@@ -26,6 +26,7 @@ import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.MediaNotReadyException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.room.Room;
@@ -73,6 +74,9 @@ class DownloadControllerTest {
 
     @MockitoBean
     TokenProvider tokenProvider;
+
+    @MockitoBean
+    AdminTokenProvider adminTokenProvider;
 
     @MockitoBean
     RoomRepository roomRepository;
@@ -155,7 +159,7 @@ class DownloadControllerTest {
             new BatchDownloadFile(5011L, "IMG_0420.jpg", "https://storage.example.com/5011", expiresAt));
         given(createBatchDownloadService.create(anyLong(), any(), any())).willReturn(files);
 
-        createBatch("{\"mediaIds\":[5012,5011]}")
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]}}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.files.length()").value(2))
             .andExpect(jsonPath("$.data.files[0].mediaId").value(5012))
@@ -164,11 +168,11 @@ class DownloadControllerTest {
     }
 
     @Test
-    void 다건_다운로드에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
+    void 다건_다운로드에서_selection과_folderId를_함께_보내면_400() throws Exception {
         given(createBatchDownloadService.create(anyLong(), any(), any()))
             .willThrow(new InvalidDownloadParamException());
 
-        createBatch("{\"mediaIds\":[1],\"folderId\":2}")
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":2}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
@@ -178,7 +182,7 @@ class DownloadControllerTest {
         given(createBatchDownloadService.create(anyLong(), any(), any()))
             .willThrow(new TooManyFilesException(1000));
 
-        createBatch("{\"mediaIds\":[1]}")
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"));
     }
@@ -188,7 +192,7 @@ class DownloadControllerTest {
         given(createBatchDownloadService.create(anyLong(), any(), any()))
             .willThrow(new MediaNotFoundException());
 
-        createBatch("{\"mediaIds\":[999]}")
+        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[999]}}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
     }
@@ -197,7 +201,7 @@ class DownloadControllerTest {
     void 다건_다운로드도_인증_없이_요청하면_401() throws Exception {
         mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads/batch", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"mediaIds\":[1]}"))
+                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}"))
             .andExpect(status().isUnauthorized());
     }
 
@@ -216,7 +220,7 @@ class DownloadControllerTest {
             new CreateDownloadJobResult(1L, DownloadJobStatus.QUEUED, 3, 741843619L, "sssOK_10.zip");
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), any())).willReturn(result);
 
-        createZip("{\"mediaIds\":[5012,5011,5008]}")
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011,5008]}}")
             .andExpect(status().isAccepted())
             .andExpect(jsonPath("$.data.jobId").value(1))
             .andExpect(jsonPath("$.data.status").value("QUEUED"))
@@ -226,11 +230,11 @@ class DownloadControllerTest {
     }
 
     @Test
-    void zip_요청에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
+    void zip_요청에서_selection과_folderId를_함께_보내면_400() throws Exception {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
             .willThrow(new InvalidDownloadParamException());
 
-        createZip("{\"mediaIds\":[1],\"folderId\":2}")
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":2}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
@@ -240,7 +244,7 @@ class DownloadControllerTest {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
             .willThrow(new TooManyFilesException(1000));
 
-        createZip("{\"mediaIds\":[1]}")
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"));
     }
@@ -250,7 +254,7 @@ class DownloadControllerTest {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
             .willThrow(new MediaNotFoundException());
 
-        createZip("{\"mediaIds\":[999]}")
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[999]}}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
     }
@@ -260,7 +264,7 @@ class DownloadControllerTest {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), any()))
             .willThrow(new DownloadRateLimitedException());
 
-        createZip("{\"mediaIds\":[1]}")
+        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
             .andExpect(status().isTooManyRequests())
             .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
     }
@@ -269,7 +273,7 @@ class DownloadControllerTest {
     void zip_요청도_인증_없이_요청하면_401() throws Exception {
         mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads/zip", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"mediaIds\":[1]}"))
+                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}"))
             .andExpect(status().isUnauthorized());
     }
 

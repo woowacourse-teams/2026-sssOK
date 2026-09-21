@@ -5,10 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
-import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
+import com.sssok.application.media.MediaSelection;
 import com.sssok.domain.folder.Folder;
-import com.sssok.infrastructure.persistence.file.StoredFileJpaEntity;
-import java.time.Instant;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
@@ -69,7 +67,8 @@ class RemoveMediaFromFoldersServiceTest {
         linkedToFolder(folderB.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result =
-            removeMediaFromFoldersService.remove(1L, List.of(MEDIA_ID), List.of(folderA.getId()));
+            removeMediaFromFoldersService.remove(
+                1L, MediaSelection.include(List.of(MEDIA_ID)), List.of(folderA.getId()));
 
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(result.movedToRootMediaIds()).isEmpty(); // 여전히 folderB에 속해 있으므로 루트 아님
@@ -83,7 +82,8 @@ class RemoveMediaFromFoldersServiceTest {
         linkedToFolder(folder.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result =
-            removeMediaFromFoldersService.remove(1L, List.of(MEDIA_ID), List.of(folder.getId()));
+            removeMediaFromFoldersService.remove(
+                1L, MediaSelection.include(List.of(MEDIA_ID)), List.of(folder.getId()));
 
         assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
     }
@@ -96,7 +96,8 @@ class RemoveMediaFromFoldersServiceTest {
         linkedToFolder(folderA.getId(), MEDIA_ID);
         linkedToFolder(folderB.getId(), MEDIA_ID);
 
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(1L, List.of(MEDIA_ID), null);
+        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
+            1L, MediaSelection.include(List.of(MEDIA_ID)), null);
 
         assertThat(result.updatedCount()).isEqualTo(2);
         assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
@@ -108,7 +109,8 @@ class RemoveMediaFromFoldersServiceTest {
     void 이미_루트인_미디어는_movedToRootMediaIds에_포함되지_않는다() {
         existingMedia(MEDIA_ID);
 
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(1L, List.of(MEDIA_ID), null);
+        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
+            1L, MediaSelection.include(List.of(MEDIA_ID)), null);
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.movedToRootMediaIds()).isEmpty();
@@ -121,7 +123,8 @@ class RemoveMediaFromFoldersServiceTest {
         linkedToFolder(folder.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result =
-            removeMediaFromFoldersService.remove(1L, List.of(MEDIA_ID, 999L), List.of(folder.getId()));
+            removeMediaFromFoldersService.remove(
+                1L, MediaSelection.include(List.of(MEDIA_ID, 999L)), List.of(folder.getId()));
 
         assertThat(result.notFoundMediaIds()).containsExactly(999L);
     }
@@ -130,13 +133,31 @@ class RemoveMediaFromFoldersServiceTest {
     void 없는_폴더가_있으면_예외() {
         existingMedia(MEDIA_ID);
 
-        assertThatThrownBy(() -> removeMediaFromFoldersService.remove(1L, List.of(MEDIA_ID), List.of(-1L)))
+        assertThatThrownBy(() -> removeMediaFromFoldersService.remove(
+            1L, MediaSelection.include(List.of(MEDIA_ID)), List.of(-1L)))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
     @Test
-    void mediaIds가_비어있으면_예외() {
-        assertThatThrownBy(() -> removeMediaFromFoldersService.remove(1L, List.of(), null))
-            .isInstanceOf(InvalidMediaFolderParamException.class);
+    void include의_ids가_비어있으면_아무것도_꺼내지_않는다() {
+        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
+            1L, MediaSelection.include(List.of()), null);
+
+        assertThat(result.updatedCount()).isZero();
+    }
+
+    @Test
+    void exclude는_방_전체에서_지정한_미디어를_제외하고_꺼낸다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+        existingMedia(MEDIA_ID);
+        existingMedia(MISSING_MEDIA_ID);
+        linkedToFolder(folder.getId(), MEDIA_ID);
+        linkedToFolder(folder.getId(), MISSING_MEDIA_ID);
+
+        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
+            1L, MediaSelection.exclude(List.of(MISSING_MEDIA_ID)), List.of(folder.getId()));
+
+        assertThat(result.updatedCount()).isEqualTo(1);
+        assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
     }
 }

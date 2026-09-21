@@ -2,6 +2,7 @@ package com.sssok.application.port.out;
 
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import com.sssok.application.media.MediaUploaderFilter;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -24,14 +25,47 @@ public interface FileRepository {
 
     List<StoredFile> findAllByRoomId(Long roomId);
 
+    List<StoredFile> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids);
+
+    List<StoredFile> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids);
+
     // 조회 API 전용. 같은 업로드 요청에 묶인 파일은 createdAt 이 전부 같아서, id 까지 봐야
     // 순서가 호출마다 흔들리지 않는다.
     List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses);
 
+    List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
+        Long lastMediaId, int limit);
+
+    long countByRoomIdAndStatusIn(Long roomId, Collection<UploadStatus> statuses);
+
+    List<StoredFile> findPageByRoomIdAndUploaderOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader, Instant lastCreatedAt, Long lastMediaId, int limit);
+
+    long countByRoomIdAndUploader(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader);
+
     // 위와 같지만 대상을 주어진 id 로 한정한다(폴더 필터).
     List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);
+
+    List<StoredFile> findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses,
+        Instant lastCreatedAt, Long lastMediaId, int limit);
+
+    long countByRoomIdAndFolderIdAndStatusIn(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses);
+
+    List<StoredFile> findPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader, Instant lastCreatedAt, Long lastMediaId, int limit);
+
+    long countByRoomIdAndFolderIdAndUploader(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader);
 
     // 썸네일 회수 배치용. 이 시각보다 오래 PROCESSING 에 남아 있는 미디어 id 를 오래된 순으로 준다.
     List<Long> findStuckInProcessing(Instant stuckBefore, int limit);

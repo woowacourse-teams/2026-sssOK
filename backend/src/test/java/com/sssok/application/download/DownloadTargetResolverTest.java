@@ -8,6 +8,7 @@ import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.media.MediaSelection;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.domain.file.FileSize;
@@ -108,6 +109,44 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
 
             assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, tooMany, null))
                 .isInstanceOf(TooManyFilesException.class);
+        }
+    }
+
+    @Nested
+    class selection_모드 {
+
+        @Test
+        void exclude는_방_전체에서_ID를_제외하고_READY만_돌려준다() {
+            Long included = media(1L, UploadStatus.READY);
+            Long excluded = media(1L, UploadStatus.READY);
+            media(1L, UploadStatus.PROCESSING);
+            media(2L, UploadStatus.READY);
+
+            List<StoredFile> resolved = downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.exclude(List.of(excluded)), null);
+
+            assertThat(resolved).extracting(StoredFile::getId).containsExactly(included);
+        }
+
+        @Test
+        void exclude의_빈_ID는_방_전체_READY_미디어를_돌려준다() {
+            Long first = media(1L, UploadStatus.READY);
+            Long second = media(1L, UploadStatus.READY);
+
+            List<StoredFile> resolved = downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.exclude(List.of()), null);
+
+            assertThat(resolved).extracting(StoredFile::getId)
+                .containsExactlyInAnyOrder(first, second);
+        }
+
+        @Test
+        void selection과_folderId를_모두_주거나_모두_생략하면_예외() {
+            assertThatThrownBy(() -> downloadTargetResolver.resolveSelection(
+                1L, MediaSelection.include(List.of(1L)), 1L))
+                .isInstanceOf(InvalidDownloadParamException.class);
+            assertThatThrownBy(() -> downloadTargetResolver.resolveSelection(1L, null, null))
+                .isInstanceOf(InvalidDownloadParamException.class);
         }
     }
 

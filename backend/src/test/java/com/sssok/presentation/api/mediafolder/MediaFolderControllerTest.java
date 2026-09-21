@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.mediafolder;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
@@ -17,6 +18,7 @@ import com.sssok.application.mediafolder.RemoveMediaFromFoldersService;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.domain.room.Room;
@@ -61,6 +63,9 @@ class MediaFolderControllerTest {
     TokenProvider tokenProvider;
 
     @MockitoBean
+    AdminTokenProvider adminTokenProvider;
+
+    @MockitoBean
     RoomRepository roomRepository;
 
     @MockitoBean
@@ -93,9 +98,9 @@ class MediaFolderControllerTest {
     void 폴더에_담으면_200과_결과를_반환한다() throws Exception {
         AddMediaToFoldersResult result =
             new AddMediaToFoldersResult(2, 0, List.of(), new FolderSummary(31L, "맛집", 9));
-        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong())).willReturn(result);
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong())).willReturn(result);
 
-        addToFolders("{\"mediaIds\":[5012,5011],\"folderId\":31}")
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]},\"folderId\":31}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(2))
             .andExpect(jsonPath("$.data.alreadyInCount").value(0))
@@ -109,7 +114,7 @@ class MediaFolderControllerTest {
     void 인증이_없으면_401을_반환한다() throws Exception {
         mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"mediaIds\":[1],\"folderId\":31}"))
+                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":31}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
@@ -118,7 +123,7 @@ class MediaFolderControllerTest {
     void 없는_방이면_404와_ROOM_NOT_FOUND를_반환한다() throws Exception {
         given(roomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
 
-        addToFolders("{\"mediaIds\":[1],\"folderId\":31}")
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":31}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
@@ -127,27 +132,27 @@ class MediaFolderControllerTest {
     void 입장하지_않았으면_403과_NOT_ROOM_MEMBER를_반환한다() throws Exception {
         given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID)).willReturn(Optional.empty());
 
-        addToFolders("{\"mediaIds\":[1],\"folderId\":31}")
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":31}")
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
     }
 
     @Test
     void 없는_폴더면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong()))
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong()))
             .willThrow(new FolderNotFoundException(List.of(999L)));
 
-        addToFolders("{\"mediaIds\":[1],\"folderId\":999}")
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":999}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
     @Test
     void mediaIds나_folderId가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong()))
+        given(addMediaToFoldersService.add(anyLong(), any(), anyLong()))
             .willThrow(new InvalidMediaFolderParamException());
 
-        addToFolders("{\"mediaIds\":[],\"folderId\":31}")
+        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[]},\"folderId\":31}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
@@ -156,9 +161,9 @@ class MediaFolderControllerTest {
     void 폴더에서_꺼내면_200과_결과를_반환한다() throws Exception {
         RemoveMediaFromFoldersResult result = new RemoveMediaFromFoldersResult(
             2, List.of(5011L), List.of(), List.of(new FolderSummary(31L, "맛집", 7)));
-        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList())).willReturn(result);
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList())).willReturn(result);
 
-        removeFromFolders("{\"mediaIds\":[5012,5011],\"folderIds\":[31]}")
+        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]},\"folderIds\":[31]}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(2))
             .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(5011))
@@ -169,30 +174,30 @@ class MediaFolderControllerTest {
     void 꺼내기에서_폴더_없이_보내면_null로_전달된다() throws Exception {
         RemoveMediaFromFoldersResult result =
             new RemoveMediaFromFoldersResult(1, List.of(5011L), List.of(), List.of());
-        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), org.mockito.ArgumentMatchers.isNull()))
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), org.mockito.ArgumentMatchers.isNull()))
             .willReturn(result);
 
-        removeFromFolders("{\"mediaIds\":[5011]}")
+        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5011]}}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(5011));
     }
 
     @Test
-    void 꺼내기에서_mediaIds가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList()))
+    void 꺼내기에서_selection이_없으면_400과_INVALID_PARAM을_반환한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList()))
             .willThrow(new InvalidMediaFolderParamException());
 
-        removeFromFolders("{\"mediaIds\":[],\"folderIds\":[31]}")
+        removeFromFolders("{\"folderIds\":[31]}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
 
     @Test
     void 꺼내기도_없는_폴더가_있으면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList()))
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList()))
             .willThrow(new FolderNotFoundException(List.of(999L)));
 
-        removeFromFolders("{\"mediaIds\":[1],\"folderIds\":[999]}")
+        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderIds\":[999]}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
