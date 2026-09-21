@@ -39,8 +39,10 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
 
     private Long media(long roomId, UploadStatus status) {
         StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now());
-        if (status == UploadStatus.READY) {
+        if (status == UploadStatus.PROCESSING || status == UploadStatus.READY) {
             file.startProcessing();
+        }
+        if (status == UploadStatus.READY) {
             file.markReady();
         }
         return fileRepository.save(file).getId();
@@ -60,6 +62,20 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
         assertThat(result.fileName()).isEqualTo("sssOK_1.zip");
         assertThat(downloadJobRepository.findMediaIdsByJobId(result.jobId()))
             .containsExactlyInAnyOrder(media1, media2);
+    }
+
+    // 대상은 잡을 만들 때 job_media 에 고정된다 — 여기서 빠지면 압축 시점에 READY 가 돼도 못 들어간다.
+    @Test
+    void 썸네일이_아직_없는_미디어도_대상에_고정한다() {
+        Long ready = media(1L, UploadStatus.READY);
+        Long processing = media(1L, UploadStatus.PROCESSING);
+
+        CreateDownloadJobResult result =
+            createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(ready, processing)), null);
+
+        assertThat(result.mediaCount()).isEqualTo(2);
+        assertThat(downloadJobRepository.findMediaIdsByJobId(result.jobId()))
+            .containsExactlyInAnyOrder(ready, processing);
     }
 
     @Test
