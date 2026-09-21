@@ -1,5 +1,6 @@
 package com.sssok.infrastructure.persistence.file;
 
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
@@ -101,6 +102,27 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findPageByRoomIdAndUploaderOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader, Instant lastCreatedAt, Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findFirstPageByRoomIdAndUploaderOrderByNewest(
+                roomId, names(statuses), requesterId, uploader.name(), limit)
+            : jpaRepository.findNextPageByRoomIdAndUploaderOrderByNewest(
+                roomId, names(statuses), requesterId, uploader.name(),
+                lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndUploader(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.countByRoomIdAndUploader(
+            roomId, names(statuses), requesterId, uploader.name());
+    }
+
+    @Override
     public List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses) {
         // IN () 은 유효한 SQL 이 아니라, 빈 목록을 그대로 넘기면 드라이버가 오류를 낸다.
@@ -131,6 +153,27 @@ public class FileRepositoryAdapter implements FileRepository {
         Long roomId, Long folderId, Collection<UploadStatus> statuses) {
         return jpaRepository.countByRoomIdAndFolderIdAndStatusIn(
             roomId, folderId, names(statuses));
+    }
+
+    @Override
+    public List<StoredFile> findPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader, Instant lastCreatedAt, Long lastMediaId, int limit) {
+        List<StoredFileJpaEntity> entities = lastCreatedAt == null
+            ? jpaRepository.findFirstPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+                roomId, folderId, names(statuses), requesterId, uploader.name(), limit)
+            : jpaRepository.findNextPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+                roomId, folderId, names(statuses), requesterId, uploader.name(),
+                lastCreatedAt, lastMediaId, limit);
+        return entities.stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public long countByRoomIdAndFolderIdAndUploader(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.countByRoomIdAndFolderIdAndUploader(
+            roomId, folderId, names(statuses), requesterId, uploader.name());
     }
 
     @Override

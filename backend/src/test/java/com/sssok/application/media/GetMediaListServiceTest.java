@@ -278,6 +278,53 @@ class GetMediaListServiceTest {
     }
 
     @Test
+    void ME는_요청자가_올린_미디어만_페이지로_조회한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        StoredFile mine = save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        save(ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+
+        MediaPage page = getMediaListService.page(
+            ROOM_ID, null, uploaderId, MediaUploaderFilter.ME, 30, null);
+
+        assertThat(page.items()).extracting(MediaDetail::mediaId).containsExactly(mine.getId());
+        assertThat(page.totalCount()).isEqualTo(1);
+    }
+
+    @Test
+    void OTHERS는_요청자가_올리지_않은_미디어만_페이지로_조회한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        StoredFile others = save(
+            ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+
+        MediaPage page = getMediaListService.page(
+            ROOM_ID, null, uploaderId, MediaUploaderFilter.OTHERS, 30, null);
+
+        assertThat(page.items()).extracting(MediaDetail::mediaId).containsExactly(others.getId());
+        assertThat(page.totalCount()).isEqualTo(1);
+    }
+
+    @Test
+    void 폴더와_업로더_필터를_함께_적용한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        StoredFile mine = save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        StoredFile others = save(
+            ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+        Folder folder = createFolderService.create(ROOM_ID, "업로더 필터");
+        attach(folder.getId(), mine.getId());
+        attach(folder.getId(), others.getId());
+
+        MediaPage page = getMediaListService.page(
+            ROOM_ID, folder.getId(), uploaderId, MediaUploaderFilter.ME, 30, null);
+
+        assertThat(page.items()).extracting(MediaDetail::mediaId).containsExactly(mine.getId());
+        assertThat(page.totalCount()).isEqualTo(1);
+    }
+
+    @Test
     void 업로더_이름을_채워서_반환한다() {
         save(ROOM_ID, UploadStatus.READY, Instant.now());
 
@@ -359,6 +406,10 @@ class GetMediaListServiceTest {
     }
 
     private StoredFile save(Long roomId, UploadStatus status, Instant createdAt) {
+        return save(roomId, uploaderId, status, createdAt);
+    }
+
+    private StoredFile save(Long roomId, Long uploaderId, UploadStatus status, Instant createdAt) {
         StoredFile file = StoredFile.reserve(
             roomId, uploaderId, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt);
         switch (status) {

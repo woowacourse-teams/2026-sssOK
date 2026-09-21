@@ -32,46 +32,58 @@ public class GetMediaListService {
 
     @Transactional(readOnly = true)
     public MediaPage page(Long roomId, Long folderId, int size, MediaCursor cursor) {
+        return page(roomId, folderId, null, MediaUploaderFilter.ALL, size, cursor);
+    }
+
+    @Transactional(readOnly = true)
+    public MediaPage page(Long roomId, Long folderId, Long requesterId,
+                          MediaUploaderFilter uploader, int size, MediaCursor cursor) {
         requireValidSize(size);
         if (folderId != null) {
             requireFolderInRoom(roomId, folderId);
         }
-        List<StoredFile> candidates = findPage(roomId, folderId, size, cursor);
+        List<StoredFile> candidates = findPage(
+            roomId, folderId, requesterId, uploader, size, cursor);
 
         boolean hasNext = candidates.size() > size;
         List<StoredFile> files = candidates.subList(0, Math.min(size, candidates.size()));
-        MediaCursor nextCursor = hasNext ? nextCursor(roomId, folderId, files) : null;
-        long totalCount = count(roomId, folderId);
+        MediaCursor nextCursor = hasNext
+            ? nextCursor(roomId, folderId, requesterId, uploader, files)
+            : null;
+        long totalCount = count(roomId, folderId, requesterId, uploader);
 
         return new MediaPage(assembler.assemble(files), nextCursor, hasNext, totalCount);
     }
 
-    private List<StoredFile> findPage(Long roomId, Long folderId, int size,
-                                      MediaCursor cursor) {
+    private List<StoredFile> findPage(Long roomId, Long folderId, Long requesterId,
+                                      MediaUploaderFilter uploader, int size, MediaCursor cursor) {
         if (folderId == null) {
-            return fileRepository.findPageByRoomIdAndStatusInOrderByNewest(
-                roomId, UploadStatus.visibleStatuses(),
+            return fileRepository.findPageByRoomIdAndUploaderOrderByNewest(
+                roomId, UploadStatus.visibleStatuses(), requesterId, uploader,
                 cursor == null ? null : cursor.lastCreatedAt(),
                 cursor == null ? null : cursor.lastMediaId(), size + 1);
         }
-        return fileRepository.findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
-            roomId, folderId, UploadStatus.visibleStatuses(),
+        return fileRepository.findPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
+            roomId, folderId, UploadStatus.visibleStatuses(), requesterId, uploader,
             cursor == null ? null : cursor.lastCreatedAt(),
             cursor == null ? null : cursor.lastMediaId(), size + 1);
     }
 
-    private long count(Long roomId, Long folderId) {
+    private long count(Long roomId, Long folderId, Long requesterId,
+                       MediaUploaderFilter uploader) {
         if (folderId == null) {
-            return fileRepository.countByRoomIdAndStatusIn(
-                roomId, UploadStatus.visibleStatuses());
+            return fileRepository.countByRoomIdAndUploader(
+                roomId, UploadStatus.visibleStatuses(), requesterId, uploader);
         }
-        return fileRepository.countByRoomIdAndFolderIdAndStatusIn(
-            roomId, folderId, UploadStatus.visibleStatuses());
+        return fileRepository.countByRoomIdAndFolderIdAndUploader(
+            roomId, folderId, UploadStatus.visibleStatuses(), requesterId, uploader);
     }
 
-    private MediaCursor nextCursor(Long roomId, Long folderId, List<StoredFile> files) {
+    private MediaCursor nextCursor(Long roomId, Long folderId, Long requesterId,
+                                   MediaUploaderFilter uploader, List<StoredFile> files) {
         StoredFile last = files.getLast();
-        return new MediaCursor(roomId, folderId, last.getCreatedAt(), last.getId());
+        return new MediaCursor(
+            roomId, folderId, requesterId, uploader, last.getCreatedAt(), last.getId());
     }
 
     private void requireValidSize(int size) {

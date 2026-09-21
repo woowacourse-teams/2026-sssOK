@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 
+import { resetAdminLoginAttempts } from "./mocks/handlers/admin";
 import { resetNicknames } from "./mocks/handlers/auth";
 import { resetDownloadJobs } from "./mocks/handlers/download";
 import { resetRoomHandlers } from "./mocks/handlers/room";
@@ -30,6 +31,8 @@ afterEach(() => {
   resetNicknames();
   // 압축 잡도 비운다 — 앞 테스트의 잡 번호가 남으면 "없는 잡" 검사가 통과하지 않는다
   resetDownloadJobs();
+  // 관리자 로그인 실패 횟수도 되돌린다 — 앞 테스트의 실패가 쌓이면 엉뚱한 곳에서 429 가 난다
+  resetAdminLoginAttempts();
 });
 
 afterAll(() => server.close());

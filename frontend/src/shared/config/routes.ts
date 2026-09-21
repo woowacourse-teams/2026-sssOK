@@ -7,6 +7,10 @@ export const ROUTES = {
   gallery: (code: string) => `/rooms/${code}/gallery`,
   mediaDetail: (code: string, mediaId: number) => `/rooms/${code}/media/${mediaId}`,
   roomSettings: (code: string) => `/rooms/${code}/settings`,
+
+  admin: "/admin",
+  adminLogin: "/admin/login",
+  adminFeedbacks: "/admin/feedbacks",
 } as const;
 
 /** 라우트 정의에 쓰는 패턴. ROUTES 는 실제 이동에 쓴다. */
@@ -17,4 +21,8 @@ export const ROUTE_PATTERNS = {
   gallery: "/rooms/:code/gallery",
   mediaDetail: "/rooms/:code/media/:mediaId",
   roomSettings: "/rooms/:code/settings",
+
+  admin: "/admin",
+  adminLogin: "/admin/login",
+  adminFeedbacks: "/admin/feedbacks",
 } as const;

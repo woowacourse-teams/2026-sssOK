@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.media.MediaCursor;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.exception.InvalidCursorException;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -58,5 +59,27 @@ class MediaCursorCodecTest {
             1L, null, Instant.parse("2026-09-20T02:00:00Z"), 103L));
 
         assertThat(codec.decode(encoded, 1L, null).folderId()).isNull();
+    }
+
+    @Test
+    void 다른_업로더_필터에서_발급한_커서이면_예외가_발생한다() {
+        String encoded = codec.encode(new MediaCursor(
+            1L, null, 7L, MediaUploaderFilter.ME,
+            Instant.parse("2026-09-20T02:00:00Z"), 103L));
+
+        assertThatThrownBy(() -> codec.decode(
+            encoded, 1L, null, 7L, MediaUploaderFilter.OTHERS))
+            .isInstanceOf(InvalidCursorException.class);
+    }
+
+    @Test
+    void 다른_요청자에게_발급한_업로더_커서이면_예외가_발생한다() {
+        String encoded = codec.encode(new MediaCursor(
+            1L, null, 7L, MediaUploaderFilter.ME,
+            Instant.parse("2026-09-20T02:00:00Z"), 103L));
+
+        assertThatThrownBy(() -> codec.decode(
+            encoded, 1L, null, 8L, MediaUploaderFilter.ME))
+            .isInstanceOf(InvalidCursorException.class);
     }
 }
