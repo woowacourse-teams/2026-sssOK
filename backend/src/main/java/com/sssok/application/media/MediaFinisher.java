@@ -1,11 +1,13 @@
 package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.application.storage.ObjectsOrphanedEvent;
+import com.sssok.application.storage.OrphanObjectCollector;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -22,15 +24,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class MediaFinisher {
 
     private final FileRepository fileRepository;
-    private final FileStoragePort fileStoragePort;
+    private final OrphanObjectCollector orphanObjectCollector;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public void finish(Long mediaId, ProcessedMedia processed) {
         StoredFile file = fileRepository.findByIdForUpdate(mediaId).orElse(null);
         if (file == null) {
-            // 행이 없으면 ThumbnailSweeper 도 못 찾으므로, 방금 올린 썸네일은 여기서 지운다.
-            discard(processed.thumbnailKey());
+            // 행이 없으면 ThumbnailSweeper 도 못 찾으므로, 방금 올린 썸네일을 회수 대기열에 남긴다.
+            // 실제 스토리지 정리는 커밋 뒤에 실행해 이 트랜잭션이 네트워크를 기다리지 않게 한다.
+            enqueueForCleanup(processed.thumbnailKey());
             return;
         }
         // 다른 워커가 먼저 끝냈다. 썸네일 키는 원본에서 유도되어 둘이 같으므로,
@@ -53,10 +56,12 @@ public class MediaFinisher {
             });
     }
 
-    private void discard(StorageKey thumbnailKey) {
+    private void enqueueForCleanup(StorageKey thumbnailKey) {
         if (thumbnailKey == null) {
             return;
         }
-        fileStoragePort.delete(thumbnailKey);
+        List<StorageKey> orphaned = List.of(thumbnailKey);
+        orphanObjectCollector.enqueue(orphaned);
+        eventPublisher.publishEvent(new ObjectsOrphanedEvent(orphaned));
     }
 }

@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "@/app/App";
 import { MOCK_MODE } from "@/shared/config";
+import { initAnalytics } from "@/shared/lib";
 import { GlobalStyles } from "@/shared/styles/GlobalStyles";
 
 async function enableMocking() {
@@ -22,6 +23,8 @@ async function enableMocking() {
 }
 
 async function bootstrap() {
+  // 수집 준비를 기다리느라 첫 화면이 늦으면 안 된다. 실패해도 앱은 떠야 한다.
+  initAnalytics().catch((error) => console.error("[PostHog] 초기화에 실패했습니다.", error));
   await enableMocking();
 
   createRoot(document.getElementById("root")!).render(
