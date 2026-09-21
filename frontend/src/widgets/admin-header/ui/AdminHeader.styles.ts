@@ -3,9 +3,6 @@ import { NavLink } from "react-router-dom";
 
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
-/** 이 폭부터 이름·역할을 함께 보여준다. `.container` 가 넓어지는 기준과 같다. */
-const DESKTOP = "@media (min-width: 768px)";
-
 export const Header = styled.header`
   display: flex;
   align-items: center;
@@ -17,6 +14,7 @@ export const Header = styled.header`
 
 export const Nav = styled.nav`
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: ${spacing[20]};
 `;
@@ -41,32 +39,31 @@ export const DisabledNavItem = styled.span`
   ${typography.label5}
 `;
 
+/**
+ * 모바일에서도 이름·역할·로그아웃을 모두 보여준다. 누구로 들어왔는지와 나가는 길은
+ * 좁은 화면에서도 둘 다 필요하다. 폭이 모자라면 이름만 줄어든다.
+ */
 export const Me = styled.div`
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 `;
 
-/** 모바일에서는 이름·역할을 숨기고 로그아웃만 남긴다. 좁은 폭에서 탭과 부딪힌다. */
-const desktopOnly = `
-  display: none;
-
-  ${DESKTOP} {
-    display: flex;
-  }
-`;
-
+/** 관리자 이름은 20자까지라 좁은 폰에서는 넘친다. 말줄임하고, 전체 이름은 title 로 남긴다. */
 export const Name = styled.span`
-  ${desktopOnly}
-
+  min-width: 0;
+  overflow: hidden;
   color: ${colors.textPrimary};
+  text-overflow: ellipsis;
+  white-space: nowrap;
 
   ${typography.caption1}
 `;
 
 export const RoleBadge = styled.span`
-  ${desktopOnly}
-
+  display: flex;
+  flex-shrink: 0;
   align-items: center;
   height: 24px;
   padding-inline: 10px;
@@ -79,14 +76,14 @@ export const RoleBadge = styled.span`
 `;
 
 export const Divider = styled.span`
-  ${desktopOnly}
-
+  flex-shrink: 0;
   width: 1px;
   height: 12px;
   background: ${colors.borderDefault};
 `;
 
 export const LogoutButton = styled.button`
+  flex-shrink: 0;
   color: ${colors.textSecondary};
   white-space: nowrap;
 

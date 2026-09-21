@@ -50,7 +50,7 @@ export const AdminHeader = ({ session }: AdminHeaderProps) => {
       </Nav>
 
       <Me>
-        <Name>{session.name}</Name>
+        <Name title={session.name}>{session.name}</Name>
         <AdminRoleBadge role={session.role} />
         <Divider aria-hidden="true" />
         <LogoutButton type="button" onClick={logout}>
