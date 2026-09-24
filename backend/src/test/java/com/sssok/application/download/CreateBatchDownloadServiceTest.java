@@ -1,5 +1,6 @@
 package com.sssok.application.download;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -52,7 +53,7 @@ class CreateBatchDownloadServiceTest {
 
     private Long media(String fileName) {
         StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, fileName, "image/jpeg",
-            new FileSize(1024), Instant.now());
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
         return fileRepository.save(file).getId();
@@ -100,7 +101,7 @@ class CreateBatchDownloadServiceTest {
     @Test
     void 처리중인_미디어도_원본은_그대로라_대상에_들어간다() {
         StoredFile processing = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "processing.jpg", "image/jpeg",
-            new FileSize(1024), Instant.now());
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
         processing.startProcessing();
         Long processingId = fileRepository.save(processing).getId();
         Long readyId = media("ready.jpg");

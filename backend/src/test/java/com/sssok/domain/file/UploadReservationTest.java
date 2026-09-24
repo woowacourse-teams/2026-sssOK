@@ -1,5 +1,6 @@
 package com.sssok.domain.file;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -21,7 +22,7 @@ class UploadReservationTest {
 
     private static StoredFile reserved() {
         return StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png", "image/png",
-            FileSize.ofMegabytes(1), NOW);
+            FileSize.ofMegabytes(1), NOW, SIZE_POLICY);
     }
 
     @Nested
@@ -30,7 +31,7 @@ class UploadReservationTest {
         @Test
         void MIME_으로_타입을_정한다() {
             StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png", "image/jpeg",
-                FileSize.ofMegabytes(1), NOW);
+                FileSize.ofMegabytes(1), NOW, SIZE_POLICY);
 
             // 확장자가 아니라 MIME 이 기준이다. 확장자는 위조하기 쉽다.
             assertThat(file.getMediaType()).isEqualTo(MediaType.JPEG);
@@ -39,14 +40,14 @@ class UploadReservationTest {
         @Test
         void 허용_목록에_없는_MIME_이면_예외() {
             assertThatThrownBy(() -> StoredFile.reserve(ROOM_ID, UPLOADER_ID, "note.pdf",
-                "application/pdf", FileSize.ofMegabytes(1), NOW))
+                "application/pdf", FileSize.ofMegabytes(1), NOW, SIZE_POLICY))
                 .isInstanceOf(UnsupportedMediaTypeException.class);
         }
 
         @Test
         void 타입별_용량_한도를_넘으면_예외() {
             assertThatThrownBy(() -> StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png",
-                "image/png", FileSize.ofMegabytes(11), NOW))
+                "image/png", FileSize.ofMegabytes(21), NOW, SIZE_POLICY))
                 .isInstanceOf(FileSizeExceededException.class);
         }
 
@@ -121,7 +122,7 @@ class UploadReservationTest {
         void 재압축해서_크기가_바뀌면_반영한다() {
             StoredFile file = reserved();
 
-            file.changeFileSize(FileSize.ofKilobytes(500));
+            file.changeFileSize(FileSize.ofKilobytes(500), SIZE_POLICY);
 
             assertThat(file.getFileSize().bytes()).isEqualTo(500 * 1024);
         }
@@ -130,7 +131,7 @@ class UploadReservationTest {
         void 바뀐_크기가_한도를_넘으면_예외() {
             StoredFile file = reserved();
 
-            assertThatThrownBy(() -> file.changeFileSize(FileSize.ofMegabytes(11)))
+            assertThatThrownBy(() -> file.changeFileSize(FileSize.ofMegabytes(21), SIZE_POLICY))
                 .isInstanceOf(FileSizeExceededException.class);
         }
     }

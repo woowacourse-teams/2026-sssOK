@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -71,7 +72,7 @@ class ReissueUploadUrlServiceTest {
 
     private StoredFile reserved(Long uploaderId) {
         return fileRepository.save(StoredFile.reserve(roomId, uploaderId, "a.jpg", MIME,
-            new FileSize(SIZE), Instant.now()));
+            new FileSize(SIZE), Instant.now(), SIZE_POLICY));
     }
 
     @Test
@@ -191,7 +192,7 @@ class ReissueUploadUrlServiceTest {
         StoredFile file = reserved(hostId);
 
         assertThatThrownBy(() ->
-            reissueUploadUrlService.reissue(roomId, file.getId(), hostId, 11L * 1024 * 1024))
+            reissueUploadUrlService.reissue(roomId, file.getId(), hostId, 20L * 1024 * 1024 + 1))
             .isInstanceOf(FileSizeExceededException.class);
     }
 }

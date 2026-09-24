@@ -1,5 +1,6 @@
 package com.sssok.domain.file;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -20,7 +21,7 @@ class StoredFileTest {
     // 예약은 MIME 으로 타입을 정하므로, 파일명으로 쓰던 기존 테스트를 위해 확장자에서 뽑아 넘긴다.
     private static StoredFile beginUpload(String fileName, FileSize size, Long folderId) {
         StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, fileName,
-            MediaType.fromFileName(fileName).contentType(), size, NOW);
+            MediaType.fromFileName(fileName).contentType(), size, NOW, SIZE_POLICY);
         if (folderId != null) {
             file.moveToFolder(folderId);
         }
@@ -69,10 +70,17 @@ class StoredFileTest {
         }
 
         @Test
-        void 이미지가_10MB_를_넘으면_예외() {
+        void 이미지가_20MB_를_넘으면_예외() {
             assertThatThrownBy(() ->
-                beginUpload("cat.png", FileSize.ofMegabytes(11), null))
+                beginUpload("cat.png", FileSize.ofMegabytes(21), null))
                 .isInstanceOf(FileSizeExceededException.class);
+        }
+
+        @Test
+        void 이미지는_20MB_까지_허용된다() {
+            StoredFile file = beginUpload("cat.png", FileSize.ofMegabytes(20), null);
+
+            assertThat(file.getMediaType()).isEqualTo(MediaType.PNG);
         }
 
         @Test

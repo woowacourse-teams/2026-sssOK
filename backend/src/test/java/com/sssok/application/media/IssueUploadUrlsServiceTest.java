@@ -115,7 +115,7 @@ class IssueUploadUrlsServiceTest {
     @Test
     void 용량을_넘긴_파일은_사유와_함께_걸러진다() {
         List<UploadFileCommand> files =
-            List.of(new UploadFileCommand("big.jpg", "image/jpeg", 11L * 1024 * 1024));
+            List.of(new UploadFileCommand("big.jpg", "image/jpeg", 20L * 1024 * 1024 + 1));
 
         IssueUploadUrlsResult result = issueUploadUrlsService.issue(roomId, hostId, files, null);
 

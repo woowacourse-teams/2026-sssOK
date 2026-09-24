@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -182,7 +183,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
 
     private StoredFile saveReady(Long uploaderId, boolean withThumbnail) {
         StoredFile file = StoredFile.reserve(roomId, uploaderId, "사진.jpg", "image/jpeg",
-            new FileSize(1024), Instant.now());
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         if (withThumbnail) {
             file.completeProcessing(ProcessedMedia.ofImage(
