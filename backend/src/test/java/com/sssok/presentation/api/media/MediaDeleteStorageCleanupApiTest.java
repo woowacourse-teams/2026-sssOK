@@ -127,7 +127,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
             new FileSize(1024), Instant.now());
         file.startProcessing();
         file.completeProcessing(ProcessedMedia.ofImage(
-            file.getStorageKey().thumbnail(), 1200, 900, null, null));
+            file.getStorageKey().thumbnail(), null, 1200, 900, null, null));
         return fileRepository.save(file);
     }
 }

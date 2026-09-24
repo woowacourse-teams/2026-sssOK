@@ -238,7 +238,7 @@ class GetMediaServiceTest {
     private StoredFile processed(Long targetRoomId, Instant takenAt, GeoPoint location) {
         StoredFile file = save(targetRoomId, UploadStatus.PROCESSING);
         file.completeProcessing(ProcessedMedia.ofImage(
-            file.getStorageKey().thumbnail(), 1200, 900, takenAt, location));
+            file.getStorageKey().thumbnail(), null, 1200, 900, takenAt, location));
         return fileRepository.save(file);
     }
 }

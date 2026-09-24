@@ -322,7 +322,7 @@ class GenerateThumbnailServiceTest {
     @Test
     void 이미_READY인_미디어는_건드리지_않는다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
-        file.completeProcessing(ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), 100, 100, null, null));
+        file.completeProcessing(ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), null, 100, 100, null, null));
         fileRepository.save(file);
 
         generateThumbnailService.generate(file.getId());
