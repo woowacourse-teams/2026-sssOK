@@ -1,12 +1,15 @@
 package com.sssok.application.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.sssok.application.port.out.AbortableOutputStream;
@@ -18,6 +21,8 @@ import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.StorageKey;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
@@ -65,24 +70,30 @@ class GenerateThumbnailServiceTest {
     @MockitoBean
     VideoFrameExtractorPort videoFrameExtractor;
 
-    private ByteArrayOutputStream uploaded;
+    // 사진 한 장에서 썸네일과 프리뷰 두 벌이 올라간다. 하나의 스트림에 모으면 둘이 이어 붙어
+    // 어느 쪽도 이미지로 읽히지 않으므로, 올라간 키별로 따로 담는다.
+    private Map<StorageKey, ByteArrayOutputStream> uploaded;
 
     @BeforeEach
     void setUp() {
-        uploaded = new ByteArrayOutputStream();
+        uploaded = new LinkedHashMap<>();
         // 영상 경로는 원본을 내려받는 대신 이 주소를 추출기에 넘긴다.
         given(fileStoragePort.presignGet(any(), anyString(), anyString(), any()))
             .willReturn("https://r2.example.com/원본?sig=아무거나");
         given(fileStoragePort.openUploadStream(any(), anyString()))
-            .willReturn(new AbortableOutputStream() {
-                @Override
-                public void write(int b) {
-                    uploaded.write(b);
-                }
+            .willAnswer(call -> {
+                ByteArrayOutputStream target = uploaded.computeIfAbsent(
+                    call.getArgument(0), key -> new ByteArrayOutputStream());
+                return new AbortableOutputStream() {
+                    @Override
+                    public void write(int b) {
+                        target.write(b);
+                    }
 
-                @Override
-                public void abort() {
-                }
+                    @Override
+                    public void abort() {
+                    }
+                };
             });
     }
 
@@ -96,7 +107,7 @@ class GenerateThumbnailServiceTest {
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
         assertThat(after.getThumbnailKey()).isNotNull();
-        verify(fileStoragePort).openUploadStream(eq(after.getThumbnailKey()), eq("image/jpeg"));
+        verify(fileStoragePort).openUploadStream(eq(after.getThumbnailKey()), eq("image/webp"));
     }
 
     // 클라이언트가 자리를 미리 잡는 데 쓰는 값이라, 썸네일이 아니라 원본 크기여야 한다.
@@ -134,27 +145,61 @@ class GenerateThumbnailServiceTest {
         assertThat(widthOf(uploadedThumbnail())).isEqualTo(120);
     }
 
-    // PNG 를 JPEG 로 바꾸면 투명한 부분이 검게 나온다.
-    // 선언한 Content-Type 만 보면 안 된다 — PNG 라고 말하고 JPEG 바이트를 올려도 통과해버린다.
+    // 예전에는 원본과 같은 형식으로 줄였다. PNG 를 JPEG 로 바꾸면 투명한 부분이 검게 나와서였는데,
+    // 그 탓에 파생본 형식이 업로더의 카메라 설정에 끌려다녔다. WebP 는 손실 압축에서도 알파를
+    // 담을 수 있어 하나로 고정할 수 있다 (#291).
+    //
+    // 선언한 Content-Type 만 보면 안 된다 — WebP 라고 말하고 PNG 바이트를 올려도 통과해버린다.
     @Test
-    void 원본과_같은_형식으로_저장한다() {
+    void PNG_원본도_WebP_파생본이_된다() {
         StoredFile file = processing("사진.png", "image/png");
         givenOriginal(image(800, 600, "png"));
 
         generateThumbnailService.generate(file.getId());
 
-        verify(fileStoragePort).openUploadStream(any(), eq("image/png"));
-        assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("png");
+        verify(fileStoragePort, times(2)).openUploadStream(any(), eq("image/webp"));
+        assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("webp");
+        assertThat(formatOf(uploadedPreview())).isEqualToIgnoringCase("webp");
     }
 
     @Test
-    void JPEG_원본은_JPEG_썸네일이_된다() {
+    void JPEG_원본도_WebP_파생본이_된다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(800, 600, "jpg"));
 
         generateThumbnailService.generate(file.getId());
 
-        assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("jpeg");
+        assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("webp");
+    }
+
+    // 목록 타일과 상세 모달은 필요한 해상도가 다르다. 한 벌로 합치면 타일이 무겁거나 모달이 흐리다.
+    @Test
+    void 썸네일과_프리뷰를_각각_올리고_두_키를_모두_저장한다() {
+        StoredFile file = processing("사진.jpg", "image/jpeg");
+        givenOriginal(image(3000, 2000, "jpg"));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().thumbnail("webp"));
+        assertThat(after.getPreviewKey()).isEqualTo(file.getStorageKey().preview("webp"));
+        assertThat(widthOf(uploadedThumbnail())).isEqualTo(400);
+        assertThat(widthOf(uploadedPreview())).isEqualTo(1600);
+    }
+
+    // 파생본이 첫 프레임만 남은 정지 이미지라, 상세 화면에 그걸 띄우면 움직이던 것이 멈춘다.
+    // 목록 타일은 원래 정지였으니 썸네일은 그대로 만든다.
+    @Test
+    void GIF는_프리뷰를_만들지_않는다() {
+        StoredFile file = processing("움짤.gif", "image/gif");
+        givenOriginal(image(800, 600, "gif"));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getThumbnailKey()).isNotNull();
+        assertThat(after.getPreviewKey()).isNull();
+        verify(fileStoragePort, times(1)).openUploadStream(any(), anyString());
     }
 
     @Test
@@ -166,7 +211,9 @@ class GenerateThumbnailServiceTest {
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
-        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().thumbnail());
+        // 추출기가 JPEG 프레임을 주므로 영상 썸네일만 파생본 포맷 설정을 따르지 않는다.
+        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().thumbnail("jpg"));
+        assertThat(after.getPreviewKey()).isNull();
     }
 
     // 클라이언트가 자리를 미리 잡는 데 쓰는 값이라, 썸네일이 아니라 원본 영상의 크기여야 한다.
@@ -241,6 +288,43 @@ class GenerateThumbnailServiceTest {
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
         assertThat(after.getThumbnailKey()).isNull();
         assertThat(after.getDurationSeconds()).isNull();
+    }
+
+    // 파생본 생성이 실패해도 업로드 완료 자체는 되돌리지 않는다 (#291 완료 조건).
+    // 등록은 이미 커밋돼 있고 워커는 그 밖에서 도므로, 여기서 예외가 밖으로 나가면 안 된다.
+    // PROCESSING 으로 남겨 회수 배치가 다시 태운다.
+    @Test
+    void 파생본_업로드가_실패해도_예외를_밖으로_내보내지_않는다() {
+        StoredFile file = processing("사진.jpg", "image/jpeg");
+        givenOriginal(image(3000, 2000, "jpg"));
+        given(fileStoragePort.openUploadStream(any(), anyString()))
+            .willThrow(new RuntimeException("R2 가 잠깐 흔들렸다"));
+
+        assertThatNoException()
+            .isThrownBy(() -> generateThumbnailService.generate(file.getId()));
+
+        StoredFile after = reload(file);
+        assertThat(after.getStatus()).isEqualTo(UploadStatus.PROCESSING);
+        assertThat(after.getThumbnailKey()).isNull();
+        assertThat(after.getPreviewKey()).isNull();
+    }
+
+    // 썸네일은 올라갔는데 프리뷰에서 넘어진 경우. 반쪽짜리로 READY 를 찍으면 상세 화면이
+    // 영영 프리뷰 없이 굳는다. 둘 다 없는 것으로 보고 통째로 다시 태운다 —
+    // 키가 원본에서 유도되므로 다시 태워도 같은 자리에 덮어써서 고아가 남지 않는다.
+    @Test
+    void 프리뷰에서_실패하면_썸네일까지_확정하지_않고_다시_태운다() {
+        StoredFile file = processing("사진.jpg", "image/jpeg");
+        givenOriginal(image(3000, 2000, "jpg"));
+        given(fileStoragePort.openUploadStream(
+            argThat(key -> key != null && key.value().contains("/previews/")), anyString()))
+            .willThrow(new RuntimeException("프리뷰만 실패"));
+
+        generateThumbnailService.generate(file.getId());
+
+        StoredFile after = reload(file);
+        assertThat(after.getStatus()).isEqualTo(UploadStatus.PROCESSING);
+        assertThat(after.getPreviewKey()).isNull();
     }
 
     // 위와 짝이 되는 경우다. R2 가 잠깐 흔들린 것까지 READY 로 확정하면 멀쩡한 영상이
@@ -322,7 +406,8 @@ class GenerateThumbnailServiceTest {
     @Test
     void 이미_READY인_미디어는_건드리지_않는다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
-        file.completeProcessing(ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), null, 100, 100, null, null));
+        file.completeProcessing(ProcessedMedia.ofImage(file.getStorageKey().thumbnail("webp"),
+            file.getStorageKey().preview("webp"), 100, 100, null, null));
         fileRepository.save(file);
 
         generateThumbnailService.generate(file.getId());
@@ -351,7 +436,20 @@ class GenerateThumbnailServiceTest {
 
     // 업로드 스트림에 실제로 써 넣은 바이트를 꺼낸다.
     private byte[] uploadedThumbnail() {
-        return uploaded.toByteArray();
+        return uploadedAt("/thumbnails/");
+    }
+
+    private byte[] uploadedPreview() {
+        return uploadedAt("/previews/");
+    }
+
+    private byte[] uploadedAt(String prefix) {
+        return uploaded.entrySet().stream()
+            .filter(entry -> entry.getKey().value().contains(prefix))
+            .map(entry -> entry.getValue().toByteArray())
+            .findFirst()
+            .orElseThrow(() -> new AssertionError(prefix + " 아래로 올라간 것이 없다: "
+                + uploaded.keySet()));
     }
 
     // 원본을 읽을 때마다 새 스트림을 줘야 한다. 같은 스트림을 재사용하면 두 번째 읽기가 빈 값이 된다.

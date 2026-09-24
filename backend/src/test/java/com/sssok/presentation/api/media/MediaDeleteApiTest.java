@@ -111,7 +111,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         // 응답이 스토리지 왕복을 기다리지 않는다. 커밋 시점에 남는 것은 정리 대기열뿐이다.
         verifyNoInteractions(fileStoragePort);
         assertThat(pendingKeys())
-            .contains(file.getStorageKey(), file.getStorageKey().thumbnail());
+            .contains(file.getStorageKey(), file.getStorageKey().thumbnail("webp"));
         assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L))
             .anyMatch(event -> event.getEventType().equals("media.deleted")
                 && event.getPayload().contains(file.getId().toString()));
@@ -171,7 +171,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
             .andExpect(status().isOk());
 
         assertThat(file.getThumbnailKey()).isNull();
-        assertThat(pendingKeys()).contains(file.getStorageKey().thumbnail());
+        assertThat(pendingKeys()).contains(file.getStorageKey().thumbnail("webp"));
     }
 
     private List<StorageKey> pendingKeys() {
@@ -186,7 +186,8 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         file.startProcessing();
         if (withThumbnail) {
             file.completeProcessing(ProcessedMedia.ofImage(
-                file.getStorageKey().thumbnail(), null, 1200, 900, null, null));
+                file.getStorageKey().thumbnail("webp"),
+                file.getStorageKey().preview("webp"), 1200, 900, null, null));
         } else {
             file.markReady();
         }
