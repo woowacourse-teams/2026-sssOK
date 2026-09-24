@@ -118,7 +118,7 @@ public class GenerateThumbnailService {
         CaptureInfo capture = imageProcessor.readCaptureInfo(original);
 
         // 크기는 썸네일이 아니라 원본의 것을 저장한다. 클라이언트가 자리를 미리 잡는 데 쓴다.
-        mediaFinisher.finish(file.getId(), ProcessedMedia.ofImage(thumbnailKey,
+        mediaFinisher.finish(file.getId(), ProcessedMedia.ofImage(thumbnailKey, null,
             image.sourceWidth(), image.sourceHeight(), capture.takenAt(), capture.location()));
     }
 

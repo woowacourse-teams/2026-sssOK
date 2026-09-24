@@ -186,7 +186,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         file.startProcessing();
         if (withThumbnail) {
             file.completeProcessing(ProcessedMedia.ofImage(
-                file.getStorageKey().thumbnail(), 1200, 900, null, null));
+                file.getStorageKey().thumbnail(), null, 1200, 900, null, null));
         } else {
             file.markReady();
         }
