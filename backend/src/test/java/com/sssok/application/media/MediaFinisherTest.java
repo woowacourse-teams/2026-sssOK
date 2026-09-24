@@ -165,6 +165,6 @@ class MediaFinisherTest extends PostgresContainerSupport {
     }
 
     private ProcessedMedia processed(StoredFile file) {
-        return ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), 1200, 900, null, null);
+        return ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), null, 1200, 900, null, null);
     }
 }

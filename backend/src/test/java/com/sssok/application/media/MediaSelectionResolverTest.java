@@ -140,7 +140,7 @@ class MediaSelectionResolverTest {
         Instant now = Instant.now();
         return StoredFile.reconstruct(id, ROOM_ID, uploaderId, "사진.jpg", MediaType.JPEG,
             new FileSize(1024), new StorageKey("rooms/1/" + id + ".jpg"), null,
-            UploadStatus.READY, now, now, 0, null, null, null, null, null, null);
+            UploadStatus.READY, now, now, 0, null, null, null, null, null, null, null);
     }
 
     // exclude 는 방 전체에서 빼는 경로라 위 테스트들이 덮지만, include 는 경로가 따로다.
