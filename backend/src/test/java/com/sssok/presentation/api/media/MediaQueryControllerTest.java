@@ -55,6 +55,7 @@ class MediaQueryControllerTest {
     private static final Long FOLDER_ID = 31L;
     private static final String BEARER = "Bearer valid-token";
     private static final String THUMBNAIL_URL = "https://r2.example.com/signed-thumbnail";
+    private static final String PREVIEW_URL = "https://r2.example.com/signed-preview";
     private static final String ORIGINAL_URL = "https://r2.example.com/signed-original";
 
     @Autowired
@@ -295,13 +296,14 @@ class MediaQueryControllerTest {
     // 아직 워커가 만들지 않았거나 영상이라 썸네일·원본이 없는 경우다.
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
-            null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
     private MediaDetail mediaWithThumbnail() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
+            PREVIEW_URL, Instant.now().plusSeconds(1800),
             ORIGINAL_URL, Instant.now().plusSeconds(300),
             1200, 900, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
