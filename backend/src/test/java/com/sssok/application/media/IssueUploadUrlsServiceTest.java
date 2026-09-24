@@ -124,6 +124,17 @@ class IssueUploadUrlsServiceTest {
     }
 
     @Test
+    void 상한과_같은_20MB_이미지는_발급된다() {
+        List<UploadFileCommand> files =
+            List.of(new UploadFileCommand("big.jpg", "image/jpeg", 20L * 1024 * 1024));
+
+        IssueUploadUrlsResult result = issueUploadUrlsService.issue(roomId, hostId, files, null);
+
+        assertThat(result.rejected()).isEmpty();
+        assertThat(result.issued()).hasSize(1);
+    }
+
+    @Test
     void 크기가_0이하면_사유와_함께_걸러진다() {
         List<UploadFileCommand> files =
             List.of(new UploadFileCommand("a.jpg", "image/jpeg", 0L));

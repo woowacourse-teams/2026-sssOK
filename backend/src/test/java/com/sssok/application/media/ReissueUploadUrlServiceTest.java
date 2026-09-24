@@ -188,6 +188,16 @@ class ReissueUploadUrlServiceTest {
     }
 
     @Test
+    void 바뀐_크기가_상한과_같으면_반영한다() {
+        StoredFile file = reserved(hostId);
+
+        reissueUploadUrlService.reissue(roomId, file.getId(), hostId, 20L * 1024 * 1024);
+
+        assertThat(fileRepository.findById(file.getId()).orElseThrow().getFileSize().bytes())
+            .isEqualTo(20L * 1024 * 1024);
+    }
+
+    @Test
     void 바뀐_크기가_한도를_넘으면_예외() {
         StoredFile file = reserved(hostId);
 

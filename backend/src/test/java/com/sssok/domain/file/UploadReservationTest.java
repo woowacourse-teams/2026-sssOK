@@ -45,10 +45,57 @@ class UploadReservationTest {
         }
 
         @Test
-        void 타입별_용량_한도를_넘으면_예외() {
+        void 상한과_같은_크기는_예약된다() {
+            StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png", "image/png",
+                new FileSize(SIZE_POLICY.imageMaxBytes()), NOW, SIZE_POLICY);
+
+            assertThat(file.getFileSize().bytes()).isEqualTo(SIZE_POLICY.imageMaxBytes());
+        }
+
+        @Test
+        void 상한을_1바이트라도_넘으면_예외() {
             assertThatThrownBy(() -> StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png",
-                "image/png", FileSize.ofMegabytes(21), NOW, SIZE_POLICY))
+                "image/png", new FileSize(SIZE_POLICY.imageMaxBytes() + 1), NOW, SIZE_POLICY))
                 .isInstanceOf(FileSizeExceededException.class);
+        }
+
+        @Test
+        void 거절_메시지에_판정에_쓴_상한이_실린다() {
+            assertThatThrownBy(() -> StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png",
+                "image/png", new FileSize(SIZE_POLICY.imageMaxBytes() + 1), NOW, SIZE_POLICY))
+                .hasMessageContaining(String.valueOf(SIZE_POLICY.imageMaxBytes()));
+        }
+
+        @Test
+        void 상한보다_1바이트_작으면_예약된다() {
+            StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "cat.png", "image/png",
+                new FileSize(SIZE_POLICY.imageMaxBytes() - 1), NOW, SIZE_POLICY);
+
+            assertThat(file.getFileSize().bytes()).isEqualTo(SIZE_POLICY.imageMaxBytes() - 1);
+        }
+
+        @Test
+        void 영상도_상한과_같은_크기까지_예약된다() {
+            StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "clip.mp4", "video/mp4",
+                new FileSize(SIZE_POLICY.videoMaxBytes()), NOW, SIZE_POLICY);
+
+            assertThat(file.getFileSize().bytes()).isEqualTo(SIZE_POLICY.videoMaxBytes());
+        }
+
+        @Test
+        void 영상이_상한을_1바이트_넘으면_예외() {
+            assertThatThrownBy(() -> StoredFile.reserve(ROOM_ID, UPLOADER_ID, "clip.mp4",
+                "video/mp4", new FileSize(SIZE_POLICY.videoMaxBytes() + 1), NOW, SIZE_POLICY))
+                .isInstanceOf(FileSizeExceededException.class);
+        }
+
+        @Test
+        void 상한은_타입별로_갈린다() {
+            // 이미지 상한을 넘는 크기라도 영상이면 통과한다.
+            StoredFile video = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "clip.mp4", "video/mp4",
+                new FileSize(SIZE_POLICY.imageMaxBytes() + 1), NOW, SIZE_POLICY);
+
+            assertThat(video.getMediaType()).isEqualTo(MediaType.MP4);
         }
 
         @Test
@@ -128,10 +175,20 @@ class UploadReservationTest {
         }
 
         @Test
+        void 바뀐_크기가_상한과_같으면_반영한다() {
+            StoredFile file = reserved();
+
+            file.changeFileSize(new FileSize(SIZE_POLICY.imageMaxBytes()), SIZE_POLICY);
+
+            assertThat(file.getFileSize().bytes()).isEqualTo(SIZE_POLICY.imageMaxBytes());
+        }
+
+        @Test
         void 바뀐_크기가_한도를_넘으면_예외() {
             StoredFile file = reserved();
 
-            assertThatThrownBy(() -> file.changeFileSize(FileSize.ofMegabytes(21), SIZE_POLICY))
+            assertThatThrownBy(() -> file.changeFileSize(
+                new FileSize(SIZE_POLICY.imageMaxBytes() + 1), SIZE_POLICY))
                 .isInstanceOf(FileSizeExceededException.class);
         }
     }
