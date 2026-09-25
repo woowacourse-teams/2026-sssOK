@@ -190,7 +190,7 @@ class VideoMediaOperationsTest {
             .findStale(Instant.now().plusSeconds(60), 1000).stream()
             .map(OrphanObject::storageKey)
             .toList();
-        assertThat(pendingKeys).contains(original, original.thumbnail());
+        assertThat(pendingKeys).contains(original, original.thumbnail("jpg"));
     }
 
     // 워커를 실제로 돌려 READY 까지 보낸다 — 썸네일 키가 붙은 상태가 이 테스트의 출발점이다.

@@ -147,11 +147,6 @@ public class StoredFile {
         transitionTo(UploadStatus.READY);
     }
 
-    // 썸네일 자체의 형식. 파생본 포맷을 설정에서 받도록 옮기는 후속 커밋에서 지운다.
-    public String thumbnailContentType() {
-        return mediaType.isImage() ? mediaType.contentType() : MediaType.JPEG.contentType();
-    }
-
     // 프리뷰는 정지 사진에만 만든다.
     //
     // 영상은 상세 화면이 원본을 재생하므로 중간 해상도 정지 이미지를 끼울 자리가 없다.

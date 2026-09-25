@@ -26,13 +26,6 @@ public record StorageKey(String value) {
         return derive("thumbnails/", extension);
     }
 
-    // 원본 확장자를 그대로 쓰는 기존 경로. 파생본 포맷을 설정에서 받도록 옮기는 후속 커밋에서 지운다.
-    public StorageKey thumbnail() {
-        int lastSlash = value.lastIndexOf('/');
-        return new StorageKey(
-                value.substring(0, lastSlash + 1) + "thumbnails/" + value.substring(lastSlash + 1));
-    }
-
     // 상세 모달용 파생본. 썸네일과 같은 규칙으로 previews/ 아래에 둔다.
     public StorageKey preview(String extension) {
         return derive("previews/", extension);

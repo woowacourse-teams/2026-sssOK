@@ -104,16 +104,33 @@ class MediaFinisherTest extends PostgresContainerSupport {
 
     // 행이 없으면 ThumbnailSweeper 도 못 찾아 R2 에 영영 남는다. 트랜잭션 안에서 직접 지우지 않고
     // 회수 대기열에 남겨 커밋 뒤 정리한다.
+    //
+    // 썸네일만 넣으면 프리뷰가 스토리지에 남는다. 파생본이 두 종류가 된 뒤로는 둘 다 넣어야 한다.
     @Test
-    void 지워진_미디어면_방금_올린_썸네일을_정리_대기열에_남긴다() {
+    void 지워진_미디어면_방금_올린_파생본을_모두_정리_대기열에_남긴다() {
         StoredFile file = processing();
-        StorageKey thumbnailKey = file.getStorageKey().thumbnail();
+        StorageKey thumbnailKey = file.getStorageKey().thumbnail("webp");
+        StorageKey previewKey = file.getStorageKey().preview("webp");
         fileRepository.deleteAllByIdIn(List.of(file.getId()));
 
         mediaFinisher.finish(file.getId(), processed(file));
 
-        verify(orphanObjectCollector).enqueue(List.of(thumbnailKey));
+        verify(orphanObjectCollector).enqueue(List.of(thumbnailKey, previewKey));
         verify(fileStoragePort, never()).delete(any());
+    }
+
+    // 프리뷰를 만들지 않는 영상·GIF 다. 비어 있는 키를 대기열에 넣으면 정리 배치가 없는 객체를
+    // 지우려고 왕복한다.
+    @Test
+    void 프리뷰가_없으면_썸네일만_대기열에_남긴다() {
+        StoredFile file = processing();
+        StorageKey thumbnailKey = file.getStorageKey().thumbnail("jpg");
+        fileRepository.deleteAllByIdIn(List.of(file.getId()));
+
+        mediaFinisher.finish(file.getId(),
+            ProcessedMedia.ofVideo(thumbnailKey, 1920, 1080, 12, null, null));
+
+        verify(orphanObjectCollector).enqueue(List.of(thumbnailKey));
     }
 
     // ThumbnailSweeper 는 분산 락도 중복 실행 방지도 없어 같은 미디어에 워커를 하나 더 태울 수 있다.
@@ -126,7 +143,7 @@ class MediaFinisherTest extends PostgresContainerSupport {
         mediaFinisher.finish(file.getId(), processed(file));
 
         assertThat(fileRepository.findById(file.getId()).orElseThrow().getThumbnailKey())
-            .isEqualTo(file.getStorageKey().thumbnail());
+            .isEqualTo(file.getStorageKey().thumbnail("webp"));
         verify(fileStoragePort, never()).delete(any());
     }
 
@@ -165,6 +182,7 @@ class MediaFinisherTest extends PostgresContainerSupport {
     }
 
     private ProcessedMedia processed(StoredFile file) {
-        return ProcessedMedia.ofImage(file.getStorageKey().thumbnail(), null, 1200, 900, null, null);
+        return ProcessedMedia.ofImage(file.getStorageKey().thumbnail("webp"),
+            file.getStorageKey().preview("webp"), 1200, 900, null, null);
     }
 }
