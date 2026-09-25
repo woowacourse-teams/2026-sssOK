@@ -63,36 +63,6 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
         }
     }
 
-    @Deprecated
-    @Override
-    public Optional<ProcessedImage> shrink(byte[] source, int maxWidth, String format) {
-        try {
-            BufferedImage original = ImageIO.read(new ByteArrayInputStream(source));
-            if (original == null) {
-                return Optional.empty();
-            }
-            return Optional.of(new ProcessedImage(
-                original.getWidth(),
-                original.getHeight(),
-                toThumbnail(original, maxWidth, format)));
-        } catch (IOException | IllegalArgumentException e) {
-            return Optional.empty();
-        }
-    }
-
-    @Deprecated
-    private byte[] toThumbnail(BufferedImage original, int maxWidth, String format)
-        throws IOException {
-        int width = Math.min(maxWidth, original.getWidth());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Thumbnails.of(original)
-            .width(width)
-            .keepAspectRatio(true)
-            .outputFormat(format)
-            .toOutputStream(out);
-        return out.toByteArray();
-    }
-
     // EXIF 는 있는 사진도 있고 없는 사진도 있다. 없다고 오류가 아니라, 못 읽으면 비워서 돌려준다.
     @Override
     public CaptureInfo readCaptureInfo(byte[] source) {

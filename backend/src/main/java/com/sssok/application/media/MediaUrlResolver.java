@@ -1,6 +1,7 @@
 package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.domain.file.DerivativeContentType;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.DownloadProperties;
 import com.sssok.infrastructure.config.ThumbnailProperties;
@@ -27,7 +28,8 @@ public class MediaUrlResolver {
         // 브라우저가 <img> 로 그리지 못한다.
         if (file.getThumbnailKey() != null) {
             thumbnailUrl = fileStoragePort.presignGet(file.getThumbnailKey(), "inline",
-                file.thumbnailContentType(), thumbnailProperties.displayUrlTtl());
+                DerivativeContentType.of(file.getThumbnailKey()),
+                thumbnailProperties.displayUrlTtl());
             thumbnailUrlExpiresAt = now.plus(thumbnailProperties.displayUrlTtl());
         }
 
