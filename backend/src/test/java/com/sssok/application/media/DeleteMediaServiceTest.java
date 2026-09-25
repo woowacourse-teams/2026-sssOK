@@ -6,21 +6,17 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.media.exception.InvalidMediaSelectionException;
+import com.sssok.application.media.exception.InvalidMediaIdsException;
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.port.out.RoomPermissionPort;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.domain.folder.Folder;
-import com.sssok.domain.folder.FolderName;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -46,19 +42,12 @@ class DeleteMediaServiceTest {
     @Mock
     MediaDeleter mediaDeleter;
 
-    @Mock
-    FolderRepository folderRepository;
-
-    @Mock
-    FolderMediaRepository folderMediaRepository;
-
     DeleteMediaService service;
 
     @BeforeEach
     void setUp() {
         service = new DeleteMediaService(
-            fileRepository, roomPermissionPort, mediaDeleter, new MediaSelectionResolver(fileRepository),
-            folderRepository, folderMediaRepository);
+            fileRepository, roomPermissionPort, mediaDeleter, new MediaIdsResolver(fileRepository));
     }
 
     @Test
@@ -120,7 +109,7 @@ class DeleteMediaServiceTest {
             .willReturn(List.of(second, first));
 
         DeleteMediaResult result = service.deleteAll(
-            ROOM_ID, MediaSelection.include(List.of(1L, 999L, 2L, 1L, 3L)), null, REQUESTER_ID, MediaUploaderFilter.ALL);
+            ROOM_ID, List.of(1L, 999L, 2L, 1L, 3L), REQUESTER_ID);
 
         assertThat(result.deletedMediaIds()).containsExactly(1L, 2L);
         assertThat(result.notFoundMediaIds()).containsExactly(999L, 3L);
@@ -134,15 +123,15 @@ class DeleteMediaServiceTest {
         StoredFile others = file(2L, ROOM_ID, 99L);
         given(fileRepository.findAllByRoomIdAndIdIn(ROOM_ID, List.of(1L, 2L))).willReturn(List.of(mine, others));
 
-        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, MediaSelection.include(List.of(1L, 2L)), null, REQUESTER_ID, MediaUploaderFilter.ALL))
+        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, List.of(1L, 2L), REQUESTER_ID))
             .isInstanceOf(MediaForbiddenException.class);
         verify(mediaDeleter, never()).delete(ROOM_ID, List.of(mine, others));
     }
 
     @Test
-    void include의_빈_목록은_아무것도_삭제하지_않는다() {
+    void 빈_목록은_아무것도_삭제하지_않는다() {
         DeleteMediaResult result = service.deleteAll(
-            ROOM_ID, MediaSelection.include(List.of()), null, REQUESTER_ID, MediaUploaderFilter.ALL);
+            ROOM_ID, List.of(), REQUESTER_ID);
 
         assertThat(result.deletedCount()).isZero();
     }
@@ -150,8 +139,8 @@ class DeleteMediaServiceTest {
     @Test
     void null_ID가_섞인_목록은_거부한다() {
         assertThatThrownBy(() -> service.deleteAll(
-            ROOM_ID, MediaSelection.include(java.util.Arrays.asList(1L, null)), null, REQUESTER_ID, MediaUploaderFilter.ALL))
-            .isInstanceOf(InvalidMediaSelectionException.class);
+            ROOM_ID, java.util.Arrays.asList(1L, null), REQUESTER_ID))
+            .isInstanceOf(InvalidMediaIdsException.class);
     }
 
     @Test
@@ -161,26 +150,8 @@ class DeleteMediaServiceTest {
         given(fileRepository.findAllByRoomIdAndIdIn(ROOM_ID, ids))
             .willReturn(ids.stream().map(id -> file(id, ROOM_ID, REQUESTER_ID)).toList());
 
-        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, MediaSelection.include(ids), null, REQUESTER_ID, MediaUploaderFilter.ALL))
+        assertThatThrownBy(() -> service.deleteAll(ROOM_ID, ids, REQUESTER_ID))
             .isInstanceOf(TooManyMediaException.class);
-    }
-
-    @Test
-    void 폴더와_ME_필터에_모두_맞는_미디어만_삭제한다() {
-        StoredFile mineInFolder = file(1L, ROOM_ID, REQUESTER_ID);
-        StoredFile mineOutsideFolder = file(2L, ROOM_ID, REQUESTER_ID);
-        StoredFile othersInFolder = file(3L, ROOM_ID, 99L);
-        given(fileRepository.findAllByRoomIdAndIdNotIn(ROOM_ID, List.of()))
-            .willReturn(List.of(mineInFolder, mineOutsideFolder, othersInFolder));
-        given(folderRepository.findById(31L)).willReturn(Optional.of(
-            Folder.reconstruct(31L, ROOM_ID, new FolderName("맛집"), Instant.now())));
-        given(folderMediaRepository.findMediaIdsByFolderId(31L)).willReturn(List.of(1L, 3L));
-
-        DeleteMediaResult result = service.deleteAll(
-            ROOM_ID, MediaSelection.exclude(List.of()), 31L, REQUESTER_ID, MediaUploaderFilter.ME);
-
-        assertThat(result.deletedMediaIds()).containsExactly(1L);
-        verify(mediaDeleter).delete(ROOM_ID, List.of(mineInFolder));
     }
 
     private StoredFile file(Long id, Long roomId, Long uploaderId) {
