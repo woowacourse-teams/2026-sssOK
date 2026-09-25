@@ -17,8 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "미디어 조회", description = "방에 올라온 미디어의 메타데이터를 읽는다. 화면에 그릴 썸네일·원본은 "
-    + "응답의 thumbnailUrl·originalUrl(R2 서명 URL)을 바로 쓴다. 저장 목적의 다운로드는 다운로드 API가 맡는다.")
+@Tag(name = "미디어 조회", description = "방에 올라온 미디어의 메타데이터를 읽는다. 화면에 그릴 이미지는 응답에 실린 "
+    + "R2 서명 URL을 바로 쓴다 — 목록 타일은 thumbnailUrl, 상세 화면은 사진이면 previewUrl, 영상이면 "
+    + "originalUrl이다. 사진 원본은 상세 응답에 싣지 않으며, 저장 목적의 다운로드는 다운로드 API가 맡는다.")
 @RestController
 @RequestMapping("/rooms/{roomId}/media")
 @RequiredArgsConstructor
@@ -41,8 +42,10 @@ public class MediaQueryController {
             + "아직 스토리지에 실물이 없는 미디어(발급만 받고 올리지 않았거나 "
             + "업로드에 실패한 것)는 목록에 나오지 않는다. thumbnailUrl·width는 워커가 채우기 전까지 "
             + "null이고, duration은 영상에만 값이 있다. "
-            + "thumbnailUrl·originalUrl은 R2 서명 URL이라 각각 만료 시각(thumbnailUrlExpiresAt·"
-            + "originalUrlExpiresAt)이 지나면 깨지므로, 지난 뒤에는 목록을 다시 받아야 한다. "
+            + "목록 응답에는 타일에 그릴 thumbnailUrl만 싣는다 — previewUrl·originalUrl은 항상 null이며, "
+            + "그 둘이 필요하면 단건 조회를 쓴다. "
+            + "thumbnailUrl은 R2 서명 URL이라 만료 시각(thumbnailUrlExpiresAt)이 지나면 깨지므로, "
+            + "지난 뒤에는 목록을 다시 받아야 한다. "
             + "없는 폴더나 다른 방 폴더로 필터하면 404, 입장하지 않은 사용자는 403, "
             + "없는 방은 404, 만료·삭제된 방은 410이 난다."
     )
