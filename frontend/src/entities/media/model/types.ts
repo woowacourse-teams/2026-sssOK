@@ -1,8 +1,5 @@
 export type PhotoFilter = "all" | "mine" | "others";
 
-/** 목록 조회의 `uploader` 파라미터. backend 표기 그대로다. */
-export type MediaUploaderFilter = "ALL" | "ME" | "OTHERS";
-
 /** backend MediaStatus 와 같다. 워커가 처리를 마치면 READY 가 된다. */
 export type MediaStatus = "RESERVED" | "PROCESSING" | "READY" | "FAILED";
 
