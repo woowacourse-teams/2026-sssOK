@@ -33,7 +33,7 @@ public class MediaEventListener {
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(MediaReadyEvent event) {
         fileRepository.findById(event.mediaId())
-            .map(file -> mediaDetailAssembler.assemble(List.of(file)).get(0))
+            .map(file -> mediaDetailAssembler.assembleForList(List.of(file)).get(0))
             .ifPresent(media -> eventPublisher.publish(event.roomId(), "media.ready", media));
     }
 

@@ -161,17 +161,36 @@ class GetMediaServiceTest {
     }
 
     @Test
-    void 처리가_끝나면_썸네일과_원본_주소가_생긴다() {
+    // 상세 화면은 원본이 아니라 프리뷰를 쓴다. 1600px 이면 모달에서 확대해도 충분하고,
+    // 저장 목적의 다운로드는 다운로드 API 가 따로 맡는다 (#291).
+    void 처리가_끝나면_썸네일과_프리뷰_주소가_생기고_원본은_나가지_않는다() {
         StoredFile file = processed(roomId, null, null);
 
         MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
 
         assertThat(media.thumbnailUrl()).isEqualTo(PRESIGNED);
         assertThat(media.thumbnailUrlExpiresAt()).isNotNull();
-        assertThat(media.originalUrl()).isEqualTo(PRESIGNED);
-        assertThat(media.originalUrlExpiresAt()).isNotNull();
+        assertThat(media.previewUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.previewUrlExpiresAt()).isNotNull();
+        assertThat(media.originalUrl()).isNull();
+        assertThat(media.originalUrlExpiresAt()).isNull();
         assertThat(media.width()).isEqualTo(1200);
         assertThat(media.height()).isEqualTo(900);
+    }
+
+    // 이 기능이 생기기 전에 올라온 사진에는 프리뷰가 없다. 썸네일로 내려앉히면 400px 짜리가
+    // 전체 화면에 늘어나 눈에 띄게 흐리므로, 그때만 원본을 그대로 내준다.
+    @Test
+    void 프리뷰가_없는_사진은_원본_주소를_내준다() {
+        StoredFile file = save(roomId, UploadStatus.PROCESSING);
+        file.completeProcessing(ProcessedMedia.ofImage(
+            file.getStorageKey().thumbnail("webp"), null, 1200, 900, null, null));
+        fileRepository.save(file);
+
+        MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
+
+        assertThat(media.previewUrl()).isNull();
+        assertThat(media.originalUrl()).isEqualTo(PRESIGNED);
     }
 
     @Test
