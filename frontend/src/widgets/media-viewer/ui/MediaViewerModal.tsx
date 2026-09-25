@@ -110,6 +110,7 @@ export const MediaViewerModal = ({
     const overflow = document.body.style.overflow;
 
     dialog?.showModal();
+    dialog?.focus();
     document.body.style.overflow = "hidden";
 
     return () => {
@@ -122,6 +123,7 @@ export const MediaViewerModal = ({
   return createPortal(
     <Dialog
       ref={dialogRef}
+      tabIndex={-1}
       aria-label="사진 크게 보기"
       onCancel={(event) => {
         event.preventDefault();
@@ -139,7 +141,7 @@ export const MediaViewerModal = ({
       }}
     >
       <Header>
-        <BackButton autoFocus type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
+        <BackButton type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
           <HiArrowLeft size={20} />
         </BackButton>
         <Counter aria-live="polite">
@@ -361,6 +363,10 @@ const Dialog = styled.dialog`
   &[open] {
     display: flex;
     flex-direction: column;
+  }
+
+  &:focus {
+    outline: none;
   }
 
   &::backdrop {
