@@ -34,7 +34,7 @@ public class AddMediaToFoldersService {
         int alreadyInCount = mediaIds.size() - updatedCount;
         FolderSummary summary = FolderSummary.of(folder, folderMediaRepository.countByFolderId(folderId));
 
-        if (!mediaIds.isEmpty()) {
+        if (updatedCount > 0) {
             eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, mediaIds, List.of(summary)));
         }
         return new AddMediaToFoldersResult(updatedCount, alreadyInCount, media.notFoundIds(), summary);

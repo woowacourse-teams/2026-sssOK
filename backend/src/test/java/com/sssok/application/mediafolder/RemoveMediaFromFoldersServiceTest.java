@@ -15,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -22,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@RecordApplicationEvents
 class RemoveMediaFromFoldersServiceTest {
 
     private static final long MEDIA_ID = 9001L;
@@ -41,6 +44,9 @@ class RemoveMediaFromFoldersServiceTest {
 
     @Autowired
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    ApplicationEvents applicationEvents;
 
     // id 를 직접 정해야 해서 네이티브로 넣는다. JPA save 는 id 가 있으면 UPDATE 로 처리한다.
     // 다른 테스트가 만드는 자동 생성 id 와 겹치지 않도록 큰 값을 쓴다.
@@ -117,6 +123,7 @@ class RemoveMediaFromFoldersServiceTest {
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.movedToRootMediaIds()).isEmpty();
+        assertThat(applicationEvents.stream(MediaFoldersUpdatedEvent.class)).isEmpty();
     }
 
     @Test

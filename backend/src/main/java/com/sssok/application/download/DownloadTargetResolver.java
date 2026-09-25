@@ -15,7 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 // zip 압축 다운로드(POST /rooms/{roomId}/downloads/zip)와 다건 다운로드(POST .../downloads/batch)의 대상을 정한다.
-// mediaIds/folderId 중 하나만 쓸 수 있고, 둘 다 생략하면 방 전체가 대상이다.
+// mediaIds/folderId 중 정확히 하나만 쓸 수 있다.
 // 어느 경로든 마지막엔 UploadStatus.isDownloadable() 인 것만 남긴다.
 // 대상이 하나도 없으면 404로 본다 — 요청한 id가 전부 없는 경우와 같은 경로로 처리한다.
 @Component
@@ -36,17 +36,11 @@ class DownloadTargetResolver {
             throw new InvalidDownloadParamException();
         }
         if (mediaIds != null) {
-            if (mediaIds.stream().distinct().count() > MAX_MEDIA_IDS) {
-                throw new TooManyFilesException(MAX_MEDIA_IDS);
-            }
             List<StoredFile> selected = mediaIdsResolver.resolve(roomId, mediaIds).files();
-            if (selected.size() > MAX_MEDIA_IDS) {
-                throw new TooManyFilesException(MAX_MEDIA_IDS);
-            }
-            return requireDownloadable(selected);
+            return requireWithinLimit(requireDownloadable(selected));
         }
-        return requireDownloadable(filterByUploader(
-            resolveByFolderId(roomId, folderId), requesterId, uploader));
+        return requireWithinLimit(requireDownloadable(filterByUploader(
+            resolveByFolderId(roomId, folderId), requesterId, uploader)));
     }
 
     private List<StoredFile> resolveByFolderId(Long roomId, Long folderId) {
@@ -66,6 +60,13 @@ class DownloadTargetResolver {
             throw new MediaNotFoundException();
         }
         return downloadable;
+    }
+
+    private List<StoredFile> requireWithinLimit(List<StoredFile> files) {
+        if (files.size() > MAX_MEDIA_IDS) {
+            throw new TooManyFilesException(MAX_MEDIA_IDS);
+        }
+        return files;
     }
 
     private List<StoredFile> filterByUploader(List<StoredFile> files, Long requesterId,

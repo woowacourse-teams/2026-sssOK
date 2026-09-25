@@ -120,8 +120,10 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
         }
 
         @Test
-        void 개수가_상한을_초과하면_예외() {
-            List<Long> tooMany = LongStream.rangeClosed(1, 1001).boxed().toList();
+        void 최종_다운로드_대상이_상한을_초과하면_예외() {
+            List<Long> tooMany = LongStream.rangeClosed(1, 1001)
+                .mapToObj(ignored -> media(1L, UploadStatus.READY))
+                .toList();
 
             assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, tooMany, null, null, null))
                 .isInstanceOf(TooManyFilesException.class);
@@ -192,6 +194,19 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
                 1L, null, folder.getId(), 7L, MediaUploaderFilter.OTHERS);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactly(others);
+        }
+
+        @Test
+        void 폴더의_최종_다운로드_대상이_1000개를_초과하면_예외() {
+            Folder folder = createFolderService.create(1L, "맛집");
+            List<Long> mediaIds = LongStream.rangeClosed(1, 1001)
+                .mapToObj(ignored -> media(1L, UploadStatus.READY))
+                .toList();
+            folderMediaRepository.attachToFolder(folder.getId(), mediaIds);
+
+            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+                1L, null, folder.getId(), null, MediaUploaderFilter.ALL))
+                .isInstanceOf(TooManyFilesException.class);
         }
     }
 

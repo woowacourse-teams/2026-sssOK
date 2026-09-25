@@ -39,7 +39,7 @@ public class RemoveMediaFromFoldersService {
         List<Long> movedToRootMediaIds = movedToRoot(hadFolderBefore, mediaIds);
         List<FolderSummary> summaries = summarize(detachment.targetFolders());
 
-        if (!mediaIds.isEmpty()) {
+        if (detachment.updatedCount() > 0) {
             eventPublisher.publishEvent(MediaFoldersUpdatedEvent.removed(roomId, mediaIds, summaries));
         }
         return new RemoveMediaFromFoldersResult(

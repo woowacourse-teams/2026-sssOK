@@ -13,6 +13,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트. 담기가 PostgreSQL 전용 네이티브 쿼리(ON CONFLICT)를 쓰므로
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 // 먼저 걸러주므로 여기서는 미디어 여러 개를 폴더 하나에 담기, 멱등성, notFoundMediaIds, folderId 404만 검증한다.
 @SpringBootTest
 @Transactional
+@RecordApplicationEvents
 class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
 
     @Autowired
@@ -30,6 +33,9 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
 
     @Autowired
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    ApplicationEvents applicationEvents;
 
     // StoredFileJpaEntity는 존재 확인용 최소 매핑(id만)이라 나머지 NOT NULL 컬럼은 직접 채워야 한다.
     private Long existingMedia(long id) {
@@ -69,11 +75,13 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
         Folder folder = createFolderService.create(1L, "맛집");
         existingMedia(1L);
         addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        applicationEvents.clear();
 
         AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.alreadyInCount()).isEqualTo(1);
+        assertThat(applicationEvents.stream(MediaFoldersUpdatedEvent.class)).isEmpty();
     }
 
     @Test
