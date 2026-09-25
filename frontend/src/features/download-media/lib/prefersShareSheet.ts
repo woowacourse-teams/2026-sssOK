@@ -13,20 +13,23 @@ const isIOSDevice = () => {
   return isIPhone || isIPad || isIPod || isIPadInDesktopMode;
 };
 
+/**
+ * iOS에서만 파일 공유 시트를 사용한다.
+ *
+ * Android 공유 시트에서는 이미지를 갤러리에 직접 저장할 수 없어
+ * 기존 개별 다운로드 방식을 사용한다.
+ *
+ * 공유 시트에 어떤 저장 기능이 있는지는 Web API로 확인할 수 없으므로
+ * userAgent를 이용해 iOS를 구분한다.
+ */
 export const prefersShareSheet = () => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return false;
   }
 
-  // Android와 PC는 공유 시트 대신 개별 다운로드를 사용한다.
   if (!isIOSDevice()) {
     return false;
   }
 
-  // iOS라도 파일 공유를 지원할 때만 공유 시트를 사용한다.
-  if (!canShareFiles()) {
-    return false;
-  }
-
-  return true;
+  return canShareFiles();
 };
