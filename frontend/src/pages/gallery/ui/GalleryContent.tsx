@@ -124,8 +124,6 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     toggleAllPhotos,
     clearSelection,
   } = usePhotoSelection(photoIds);
-  // 화면이 목록 전체를 들고 있으니 서버에는 고른 id 그대로 보낸다.
-  const selectionRequest = { mode: "include" as const, ids: selectedPhotoIds };
 
   useRoomEvents({
     roomId: room.roomId,
@@ -317,11 +315,9 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isMoveSelectionOpen && (
         <MoveMediaFolderBottomSheet
           roomId={room.roomId}
-          selection={selectionRequest}
-          selectedCount={selectedPhotoIds.length}
+          mediaIds={selectedPhotoIds}
           folders={room.folders}
           currentFolderId={selectedFolderId}
-          uploader="ALL"
           token={accessToken}
           onCreateFolder={requestCreateFolder}
           onClose={() => setIsMoveSelectionOpen(false)}
