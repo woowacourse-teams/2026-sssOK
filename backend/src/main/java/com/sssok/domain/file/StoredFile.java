@@ -29,6 +29,10 @@ public class StoredFile {
 
     // 썸네일 워커가 채운다. 그 전까지는 비어 있고, 추출에 실패한 영상은 끝까지 비어 있다.
     private StorageKey thumbnailKey;
+
+    // 상세 모달용 파생본. 사진에만 있고, 영상과 애니메이션 GIF 는 끝까지 비어 있다.
+    // 이 컬럼이 생기기 전에 올라온 사진도 비어 있다(V25).
+    private StorageKey previewKey;
     private Integer width;
     private Integer height;
 
@@ -43,9 +47,11 @@ public class StoredFile {
                        MediaType mediaType, FileSize fileSize, StorageKey storageKey,
                        Long folderId, UploadStatus status, Instant createdAt,
                        Instant reservedAt, int retryCount,
-                       StorageKey thumbnailKey, Integer width, Integer height,
+                       StorageKey thumbnailKey, StorageKey previewKey,
+                       Integer width, Integer height,
                        Integer durationSeconds, Instant takenAt, GeoPoint location) {
         this.thumbnailKey = thumbnailKey;
+        this.previewKey = previewKey;
         this.width = width;
         this.height = height;
         this.durationSeconds = durationSeconds;
@@ -73,7 +79,7 @@ public class StoredFile {
 
         return new StoredFile(null, roomId, uploaderId, originalFileName, mediaType, fileSize,
                 StorageKey.generate(roomId, mediaType), null, UploadStatus.RESERVED, now, now, 0,
-                null, null, null, null, null, null);
+                null, null, null, null, null, null, null);
     }
 
     public static StoredFile reconstruct(Long id, Long roomId, Long uploaderId,
@@ -81,12 +87,13 @@ public class StoredFile {
                                          FileSize fileSize, StorageKey storageKey, Long folderId,
                                          UploadStatus status, Instant createdAt,
                                          Instant reservedAt, int retryCount,
-                                         StorageKey thumbnailKey, Integer width, Integer height,
+                                         StorageKey thumbnailKey, StorageKey previewKey,
+                                         Integer width, Integer height,
                                          Integer durationSeconds, Instant takenAt,
                                          GeoPoint location) {
         return new StoredFile(id, roomId, uploaderId, originalFileName, mediaType, fileSize,
                 storageKey, folderId, status, createdAt, reservedAt, retryCount,
-                thumbnailKey, width, height, durationSeconds, takenAt, location);
+                thumbnailKey, previewKey, width, height, durationSeconds, takenAt, location);
     }
 
     private static void validateSize(MediaType mediaType, FileSize fileSize) {
@@ -131,6 +138,7 @@ public class StoredFile {
     // 하므로 한 메서드로 묶는다 — 따로 두면 값만 채우고 PROCESSING 에 남는 경우가 생긴다.
     public void completeProcessing(ProcessedMedia processed) {
         this.thumbnailKey = processed.thumbnailKey();
+        this.previewKey = processed.previewKey();
         this.width = processed.width();
         this.height = processed.height();
         this.durationSeconds = processed.durationSeconds();
@@ -139,11 +147,13 @@ public class StoredFile {
         transitionTo(UploadStatus.READY);
     }
 
-    // 썸네일 자체의 형식. 사진은 원본과 같은 형식으로 줄이고(PNG 를 JPEG 로 바꾸면 투명한 부분이
-    // 검게 나온다), 영상은 프레임을 JPEG 로 뽑는다. 원본 형식을 그대로 쓰면 영상 썸네일이
-    // video/mp4 로 서명돼 브라우저가 이미지로 그리지 못한다.
-    public String thumbnailContentType() {
-        return mediaType.isImage() ? mediaType.contentType() : MediaType.JPEG.contentType();
+    // 프리뷰는 정지 사진에만 만든다.
+    //
+    // 영상은 상세 화면이 원본을 재생하므로 중간 해상도 정지 이미지를 끼울 자리가 없다.
+    // GIF 는 파생본이 첫 프레임만 남은 정지 이미지라, 그걸 상세 화면에 띄우면 움직이던 것이
+    // 멈춘다 — 목록 타일은 원래 정지였으니 상관없지만 상세는 원본을 그대로 보여줘야 한다.
+    public boolean needsPreview() {
+        return mediaType.isImage() && !mediaType.preservesAnimation();
     }
 
     public void failUpload() {

@@ -82,9 +82,11 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
                 .header("Authorization", "Bearer " + uploader.accessToken()))
             .andExpect(status().isOk());
 
-        // 파일 수만큼이 아니라 요청 한 번이다.
-        verify(fileStoragePort, timeout(5_000))
-            .deleteAll(List.of(file.getStorageKey(), file.getStorageKey().thumbnail()));
+        // 파일 수만큼이 아니라 요청 한 번이다. 파생본이 썸네일·프리뷰 두 벌이라 키는 셋이다.
+        verify(fileStoragePort, timeout(5_000)).deleteAll(List.of(
+            file.getStorageKey(),
+            file.getStorageKey().thumbnail("webp"),
+            file.getStorageKey().preview("webp")));
         waitUntilPurged(file.getStorageKey());
     }
 
@@ -94,7 +96,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
     void 정리가_실패해도_삭제는_완료되고_대기열에_남는다() throws Exception {
         StoredFile file = saveReady();
         given(fileStoragePort.deleteAll(anyList()))
-            .willReturn(List.of(file.getStorageKey(), file.getStorageKey().thumbnail()));
+            .willReturn(List.of(file.getStorageKey(), file.getStorageKey().thumbnail("webp")));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, file.getId())
                 .header("Authorization", "Bearer " + uploader.accessToken()))
@@ -127,7 +129,8 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
             new FileSize(1024), Instant.now());
         file.startProcessing();
         file.completeProcessing(ProcessedMedia.ofImage(
-            file.getStorageKey().thumbnail(), 1200, 900, null, null));
+            file.getStorageKey().thumbnail("webp"),
+            file.getStorageKey().preview("webp"), 1200, 900, null, null));
         return fileRepository.save(file);
     }
 }

@@ -5,15 +5,21 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.ImageProcessorPort;
 import com.sssok.application.port.out.ImageProcessorPort.CaptureInfo;
-import com.sssok.application.port.out.ImageProcessorPort.ProcessedImage;
+import com.sssok.application.port.out.ImageProcessorPort.DerivativeSpec;
+import com.sssok.application.port.out.ImageProcessorPort.DerivedImage;
+import com.sssok.application.port.out.ImageProcessorPort.DerivedImages;
 import com.sssok.application.port.out.VideoFrameExtractorPort;
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
 import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
+import com.sssok.domain.file.DerivativeContentType;
+import com.sssok.domain.file.DerivativeFormat;
+import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.infrastructure.config.ThumbnailProperties;
+import com.sssok.infrastructure.config.DerivativeImageProperties;
+import com.sssok.infrastructure.config.DerivativeImageProperties.Variant;
 import com.sssok.infrastructure.config.VideoProperties;
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,7 +43,7 @@ public class GenerateThumbnailService {
     private final ImageProcessorPort imageProcessor;
     private final VideoFrameExtractorPort videoFrameExtractor;
     private final MediaFinisher mediaFinisher;
-    private final ThumbnailProperties properties;
+    private final DerivativeImageProperties imageProperties;
     private final VideoProperties videoProperties;
 
     public void generate(Long mediaId) {
@@ -86,8 +92,10 @@ public class GenerateThumbnailService {
         }
 
         ExtractedFrame frame = extracted.frame();
-        StorageKey thumbnailKey = file.getStorageKey().thumbnail();
-        upload(thumbnailKey, frame.content(), file.thumbnailContentType());
+        // 추출기가 JPEG 프레임을 준다. 원본 확장자(mp4 등)를 그대로 쓰면 브라우저가 이미지로
+        // 그리지 못하므로 키도 Content-Type 도 JPEG 으로 맞춘다.
+        StorageKey thumbnailKey = file.getStorageKey().thumbnail(MediaType.JPEG.extension());
+        upload(thumbnailKey, frame.content(), DerivativeContentType.of(thumbnailKey));
 
         mediaFinisher.finish(file.getId(), ProcessedMedia.ofVideo(
             thumbnailKey, frame.width(), frame.height(), frame.durationSeconds(),
@@ -99,10 +107,13 @@ public class GenerateThumbnailService {
         // 지금 안 보이는 것은 일시적일 수 있어 바깥에서 PROCESSING 으로 남긴다.
         byte[] original = readOriginal(file.getStorageKey());
 
-        // 원본과 같은 형식으로 줄인다. PNG 를 JPEG 로 바꾸면 투명한 부분이 검게 나온다.
-        Optional<ProcessedImage> shrunk = imageProcessor.shrink(
-            original, properties.maxWidth(), file.getMediaType().extension());
-        if (shrunk.isEmpty()) {
+        DerivativeFormat format = imageProperties.format();
+        // 목록 타일용과 상세 모달용을 한 번에 만든다. 나눠 부르면 원본을 두 번 디코딩하는데,
+        // 디코딩이 이 작업 시간의 대부분이다 (docs/backend/IMAGE_DERIVATIVE_FORMAT.md).
+        Optional<DerivedImages> derived = imageProcessor.derive(original,
+            specOf(imageProperties.thumbnail(), format),
+            file.needsPreview() ? specOf(imageProperties.preview(), format) : null);
+        if (derived.isEmpty()) {
             // 파일이 깨졌거나 확장자와 실제 내용이 다르다. 다시 시도해도 결과가 같으므로
             // 여기서만 FAILED 로 확정한다 — 되풀이해도 소용없는 유일한 경우다.
             log.warn("이미지를 읽을 수 없습니다. mediaId={}", file.getId());
@@ -110,16 +121,28 @@ public class GenerateThumbnailService {
             return;
         }
 
-        ProcessedImage image = shrunk.get();
-        StorageKey thumbnailKey = file.getStorageKey().thumbnail();
-        upload(thumbnailKey, image.content(), file.thumbnailContentType());
+        DerivedImages images = derived.get();
+        StorageKey thumbnailKey = upload(file.getStorageKey().thumbnail(format.extension()),
+            images.thumbnail());
+        StorageKey previewKey = images.hasPreview()
+            ? upload(file.getStorageKey().preview(format.extension()), images.preview())
+            : null;
 
-        // 썸네일을 만들면서 EXIF 도 같이 읽는다. 원본이 이미 메모리에 있어 추가 왕복이 없다.
+        // 파생본을 만들면서 EXIF 도 같이 읽는다. 원본이 이미 메모리에 있어 추가 왕복이 없다.
         CaptureInfo capture = imageProcessor.readCaptureInfo(original);
 
-        // 크기는 썸네일이 아니라 원본의 것을 저장한다. 클라이언트가 자리를 미리 잡는 데 쓴다.
-        mediaFinisher.finish(file.getId(), ProcessedMedia.ofImage(thumbnailKey,
-            image.sourceWidth(), image.sourceHeight(), capture.takenAt(), capture.location()));
+        // 크기는 파생본이 아니라 원본의 것을 저장한다. 클라이언트가 자리를 미리 잡는 데 쓴다.
+        mediaFinisher.finish(file.getId(), ProcessedMedia.ofImage(thumbnailKey, previewKey,
+            images.sourceWidth(), images.sourceHeight(), capture.takenAt(), capture.location()));
+    }
+
+    private DerivativeSpec specOf(Variant variant, DerivativeFormat format) {
+        return new DerivativeSpec(variant.maxWidth(), format, variant.quality());
+    }
+
+    private StorageKey upload(StorageKey key, DerivedImage image) {
+        upload(key, image.content(), DerivativeContentType.of(key));
+        return key;
     }
 
     // 이미지는 최대 10MB 라 통째로 읽어도 괜찮다. 축소하려면 어차피 전체가 필요하다.
