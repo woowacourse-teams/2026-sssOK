@@ -74,7 +74,7 @@ const MediaDetailContent = ({
 }) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { selectedPhotoIds, togglePhoto, removePhoto } = usePhotoSelection([mediaId]);
+  const { selectedPhotoIds, togglePhoto, removePhotos } = usePhotoSelection([mediaId]);
   const query = useMediaQuery({
     roomId: room.roomId,
     mediaId,
@@ -93,7 +93,7 @@ const MediaDetailContent = ({
           ? { ...current, items: current.items.filter((item) => item.mediaId !== mediaId) }
           : current,
       );
-      removePhoto(mediaId);
+      removePhotos([mediaId]);
       navigate(ROUTES.gallery(room.code), { replace: true });
       queryClient.removeQueries({
         queryKey: mediaQueryKey(room.roomId, mediaId, session.userId),
