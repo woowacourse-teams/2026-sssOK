@@ -293,9 +293,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isDeleteSelectionOpen && (
         <DeleteSelectedMediaModal
           roomId={room.roomId}
-          selection={selectionRequest}
-          selectedCount={selectedPhotoIds.length}
-          uploader="ALL"
+          mediaIds={selectedPhotoIds}
           token={accessToken}
           onClose={() => setIsDeleteSelectionOpen(false)}
           onSuccess={async () => {
