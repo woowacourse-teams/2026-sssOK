@@ -91,6 +91,16 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<StoredFile> findAllByRoomIdAndUploaderOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.findAllByRoomIdAndUploaderOrderByNewest(
+                roomId, names(statuses), requesterId, uploader.name()).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
     public List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
         Long lastMediaId, int limit) {
@@ -138,6 +148,16 @@ public class FileRepositoryAdapter implements FileRepository {
         return jpaRepository
             .findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(roomId, ids, names(statuses))
             .stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<StoredFile> findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
+                roomId, folderId, names(statuses), requesterId, uploader.name()).stream()
             .map(this::toDomain)
             .toList();
     }

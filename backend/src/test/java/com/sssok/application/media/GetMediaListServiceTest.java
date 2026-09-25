@@ -325,6 +325,50 @@ class GetMediaListServiceTest {
     }
 
     @Test
+    void 전체_목록의_ME는_요청자가_올린_미디어만_조회한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        StoredFile mine = save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        save(ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+
+        List<MediaDetail> media = getMediaListService.list(
+            ROOM_ID, null, uploaderId, MediaUploaderFilter.ME);
+
+        assertThat(media).extracting(MediaDetail::mediaId).containsExactly(mine.getId());
+    }
+
+    @Test
+    void 전체_목록의_OTHERS는_요청자가_올리지_않은_미디어만_조회한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        StoredFile others = save(
+            ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+
+        List<MediaDetail> media = getMediaListService.list(
+            ROOM_ID, null, uploaderId, MediaUploaderFilter.OTHERS);
+
+        assertThat(media).extracting(MediaDetail::mediaId).containsExactly(others.getId());
+    }
+
+    @Test
+    void 전체_목록에_폴더와_업로더_필터를_함께_적용한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        StoredFile mine = save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        StoredFile others = save(
+            ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+        Folder folder = createFolderService.create(ROOM_ID, "전체 목록 업로더 필터");
+        attach(folder.getId(), mine.getId());
+        attach(folder.getId(), others.getId());
+
+        List<MediaDetail> media = getMediaListService.list(
+            ROOM_ID, folder.getId(), uploaderId, MediaUploaderFilter.ME);
+
+        assertThat(media).extracting(MediaDetail::mediaId).containsExactly(mine.getId());
+    }
+
+    @Test
     void 업로더_이름을_채워서_반환한다() {
         save(ROOM_ID, UploadStatus.READY, Instant.now());
 
