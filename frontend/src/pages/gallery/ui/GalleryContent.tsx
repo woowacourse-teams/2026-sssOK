@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
 import {
   photosQueryKey,
@@ -96,25 +96,13 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const {
-    photos,
-    totalCount,
-    isPending,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    loadMore,
-  } = useGalleryPhotos({
+  const { photos, allPhotoCount, isPending, isError } = useGalleryPhotos({
     roomId: room.roomId,
     accessToken,
     userId,
     selectedFolderId,
     selectedOption,
   });
-
-  const isUnfiltered = selectedFolderId === null && selectedOption === "all";
-  const allPhotoCount = isUnfiltered ? (totalCount ?? room.photoCount) : room.photoCount;
 
   const visibleUploadSlots = uploadSlots.filter((slot) => {
     if (selectedOption === "others") return false;
@@ -150,7 +138,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     togglePhoto,
     toggleAllPhotos,
     clearSelection,
-  } = usePhotoSelection(photoIds, totalCount ?? photoIds.length);
+  } = usePhotoSelection(photoIds);
   const selectionRequest = toMediaSelectionRequest(selection);
 
   useRoomEvents({
@@ -216,7 +204,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
       <FolderFilter
-        totalCount={allPhotoCount}
+        totalCount={allPhotoCount ?? room.photoCount}
         folders={room.folders}
         selectedFolderId={selectedFolderId}
         onSelectFolder={(folderId) => {
@@ -232,7 +220,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           clearSelection();
         }}
         isAllSelected={isAllSelected}
-        canSelectAll={selectedFolderId === null && (totalCount ?? photoIds.length) > 0}
+        canSelectAll={selectedFolderId === null && photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
       />
       <FeedbackButton hidden={selectedCount > 0} onClick={() => setIsFeedbackOpen(true)} />
@@ -274,24 +262,16 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         isError={isError}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={setActiveMediaId}
-        hasMore={hasNextPage}
-        isLoadingMore={isFetchingNextPage}
-        onLoadMore={loadMore}
       />
       {activeMediaId !== null && (
         <MediaViewerModal
           items={viewerItems}
-          totalCount={totalCount ?? viewerItems.length}
           activeMediaId={activeMediaId}
           roomId={room.roomId}
           userId={userId}
           hostId={room.hostId}
           token={accessToken}
           selectedPhotoIds={selectedPhotoIds}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          isNextPageError={isFetchNextPageError}
-          onLoadNextPage={loadMore}
           onChange={setActiveMediaId}
           onClose={() => setActiveMediaId(null)}
           onToggle={togglePhoto}
@@ -299,23 +279,10 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             closeMediaViewerAfterDelete();
             removePendingMedia([mediaId]);
             if (selectedPhotoIds.includes(mediaId)) togglePhoto(mediaId);
-            queryClient.setQueriesData<InfiniteData<MediaList>>(
-              { queryKey: photosQueryKey(room.roomId, userId) },
-              (current) => {
-                if (!current) return current;
-                const exists = current.pages.some((page) =>
-                  page.items.some((item) => item.mediaId === mediaId),
-                );
-
-                return {
-                  ...current,
-                  pages: current.pages.map((page) => ({
-                    ...page,
-                    items: page.items.filter((item) => item.mediaId !== mediaId),
-                    totalCount: exists ? Math.max(0, page.totalCount - 1) : page.totalCount,
-                  })),
-                };
-              },
+            queryClient.setQueryData<MediaList>(photosQueryKey(room.roomId, userId), (current) =>
+              current
+                ? { ...current, items: current.items.filter((item) => item.mediaId !== mediaId) }
+                : current,
             );
             void queryClient.invalidateQueries({
               queryKey: roomQueryKey(room.code, userId),
@@ -354,8 +321,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
-                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -383,8 +350,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
-                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -454,8 +421,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
                 exact: true,
               }),
               queryClient.invalidateQueries({
-                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
               }),
             ]);
             setDeletedFolderName(folderName);
