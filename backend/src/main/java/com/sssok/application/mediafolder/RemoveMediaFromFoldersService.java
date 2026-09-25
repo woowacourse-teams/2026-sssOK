@@ -1,10 +1,8 @@
 package com.sssok.application.mediafolder;
 
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaSelectionResolver;
-import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.application.media.ResolvedMediaSelection;
+import com.sssok.application.media.MediaIdsResolver;
+import com.sssok.application.media.ResolvedMediaIds;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
@@ -24,14 +22,13 @@ public class RemoveMediaFromFoldersService {
     private final RoomFolders roomFolders;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
-    private final MediaSelectionResolver mediaSelectionResolver;
+    private final MediaIdsResolver mediaIdsResolver;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public RemoveMediaFromFoldersResult remove(Long roomId, MediaSelection selection, List<Long> folderIds,
-                                               Long requesterId, MediaUploaderFilter uploader) {
-        ResolvedMediaSelection media =
-            mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader);
+    public RemoveMediaFromFoldersResult remove(Long roomId, List<Long> requestedMediaIds,
+                                               List<Long> folderIds) {
+        ResolvedMediaIds media = mediaIdsResolver.resolve(roomId, requestedMediaIds);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
         List<Long> hadFolderBefore = mediaIdsWithAnyFolder(mediaIds);
 
