@@ -8,8 +8,6 @@ import static org.mockito.BDDMockito.given;
 import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
@@ -76,7 +74,7 @@ class DownloadJobAsyncTriggerTest {
 
         CreateDownloadJobResult result =
             createDownloadJobService.create(
-                ROOM_ID, REQUESTER_ID, MediaSelection.include(List.of(media)), null, MediaUploaderFilter.ALL);
+                ROOM_ID, REQUESTER_ID, List.of(media), null, null);
 
         DownloadJob job = awaitStatus(result.jobId(), DownloadJobStatus.READY);
         assertThat(job.getStatus()).isEqualTo(DownloadJobStatus.READY);

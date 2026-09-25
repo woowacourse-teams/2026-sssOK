@@ -4,8 +4,7 @@ import com.sssok.application.download.exception.InvalidDownloadParamException;
 import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaSelectionResolver;
+import com.sssok.application.media.MediaIdsResolver;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
@@ -28,49 +27,26 @@ class DownloadTargetResolver {
     private final FileRepository fileRepository;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
-    private final MediaSelectionResolver mediaSelectionResolver;
+    private final MediaIdsResolver mediaIdsResolver;
 
-    List<StoredFile> resolveSelection(Long roomId, MediaSelection selection, Long folderId,
-                                      Long requesterId, MediaUploaderFilter uploader) {
-        if (selection != null && folderId != null || selection == null && folderId == null) {
+    List<StoredFile> resolve(Long roomId, List<Long> mediaIds, Long folderId,
+                             Long requesterId, MediaUploaderFilter uploader) {
+        if (mediaIds != null && folderId != null || mediaIds == null && folderId == null
+            || mediaIds != null && uploader != null) {
             throw new InvalidDownloadParamException();
         }
-        if (selection != null) {
-            List<StoredFile> selected =
-                mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader).files();
+        if (mediaIds != null) {
+            if (mediaIds.stream().distinct().count() > MAX_MEDIA_IDS) {
+                throw new TooManyFilesException(MAX_MEDIA_IDS);
+            }
+            List<StoredFile> selected = mediaIdsResolver.resolve(roomId, mediaIds).files();
             if (selected.size() > MAX_MEDIA_IDS) {
                 throw new TooManyFilesException(MAX_MEDIA_IDS);
             }
             return requireDownloadable(selected);
         }
-        return requireDownloadable(mediaSelectionResolver.filterByUploader(
+        return requireDownloadable(filterByUploader(
             resolveByFolderId(roomId, folderId), requesterId, uploader));
-    }
-
-    List<StoredFile> resolve(Long roomId, List<Long> mediaIds, Long folderId) {
-        if (mediaIds != null && folderId != null) {
-            throw new InvalidDownloadParamException();
-        }
-        if (mediaIds != null) {
-            return resolveByMediaIds(roomId, mediaIds);
-        }
-        if (folderId != null) {
-            return requireDownloadable(resolveByFolderId(roomId, folderId));
-        }
-        return requireDownloadable(fileRepository.findAllByRoomId(roomId));
-    }
-
-    private List<StoredFile> resolveByMediaIds(Long roomId, List<Long> mediaIds) {
-        List<Long> distinctIds = mediaIds.stream().distinct().toList();
-        if (distinctIds.size() > MAX_MEDIA_IDS) {
-            throw new TooManyFilesException(MAX_MEDIA_IDS);
-        }
-
-        // 다른 방 미디어는 존재 자체를 드러내지 않는다 — 대상에서 조용히 빠진다.
-        List<StoredFile> inRoom = fileRepository.findAllByIdIn(distinctIds).stream()
-            .filter(file -> file.getRoomId().equals(roomId))
-            .toList();
-        return requireDownloadable(inRoom);
     }
 
     private List<StoredFile> resolveByFolderId(Long roomId, Long folderId) {
@@ -90,5 +66,13 @@ class DownloadTargetResolver {
             throw new MediaNotFoundException();
         }
         return downloadable;
+    }
+
+    private List<StoredFile> filterByUploader(List<StoredFile> files, Long requesterId,
+                                              MediaUploaderFilter uploader) {
+        MediaUploaderFilter normalized = MediaUploaderFilter.defaultIfNull(uploader);
+        return files.stream()
+            .filter(file -> normalized.includes(file.getUploaderId(), requesterId))
+            .toList();
     }
 }
