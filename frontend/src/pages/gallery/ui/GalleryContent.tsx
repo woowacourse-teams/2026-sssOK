@@ -280,8 +280,6 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       )}
       <SelectionDownloadBar
         targets={downloadTargets}
-        selection={selectionRequest}
-        selectedCount={selectedPhotoIds.length}
         roomId={room.roomId}
         roomCode={room.code}
         roomPhotoCount={room.photoCount}
