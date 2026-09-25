@@ -23,6 +23,7 @@ export const StyledTextarea = styled.textarea<{ $hasError: boolean }>`
   transition: border-color 150ms ease;
 
   ${typography.body}
+  font-size: ${typography.label3.fontSize};
 
   &::placeholder {
     color: ${colors.textSecondary};
