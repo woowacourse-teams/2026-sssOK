@@ -122,8 +122,9 @@ public class GenerateThumbnailService {
             image.sourceWidth(), image.sourceHeight(), capture.takenAt(), capture.location()));
     }
 
-    // 이미지는 upload.image-max-size(현재 20MB)로 묶여 있어 통째로 읽는다. 축소하려면 어차피 전체가 필요하다.
-    // 영상은 여기까지 오지 않는다 — 1GB 를 힙에 올리면 서버가 죽는다.
+    // 이미지는 upload.image-max-size 로 묶여 있어 통째로 읽는다. 축소하려면 어차피 전체가 필요하다.
+    // 상한을 올릴 때는 워커 동시 실행 수와 힙 사용량을 함께 봐야 한다.
+    // 영상은 여기까지 오지 않는다 — 영상 상한을 힙에 올리면 서버가 죽는다.
     private byte[] readOriginal(StorageKey storageKey) {
         try (InputStream in = fileStoragePort.openDownloadStream(storageKey)) {
             return in.readAllBytes();
