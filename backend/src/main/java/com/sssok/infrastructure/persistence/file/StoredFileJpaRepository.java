@@ -21,8 +21,6 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
 
     List<StoredFileJpaEntity> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids);
 
-    List<StoredFileJpaEntity> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids);
-
     List<StoredFileJpaEntity> findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<String> statuses);
 
