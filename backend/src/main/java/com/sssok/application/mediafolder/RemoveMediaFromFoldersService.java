@@ -32,7 +32,7 @@ public class RemoveMediaFromFoldersService {
     public RemoveMediaFromFoldersResult remove(Long roomId, MediaSelection selection, List<Long> folderIds,
                                                Long requesterId, MediaUploaderFilter uploader) {
         ResolvedMediaSelection media =
-            mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader);
+            mediaSelectionResolver.resolveVisible(roomId, selection, requesterId, uploader);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
         List<Long> hadFolderBefore = mediaIdsWithAnyFolder(mediaIds);
 

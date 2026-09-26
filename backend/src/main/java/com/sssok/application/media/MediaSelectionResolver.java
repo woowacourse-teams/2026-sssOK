@@ -15,6 +15,15 @@ public class MediaSelectionResolver {
 
     private final FileRepository fileRepository;
 
+    // 폴더 담기·꺼내기용. 목록에 보이는 미디어만 남긴다
+    public ResolvedMediaSelection resolveVisible(Long roomId, MediaSelection selection,
+                                                 Long requesterId, MediaUploaderFilter uploader) {
+        ResolvedMediaSelection resolved = resolve(roomId, selection, requesterId, uploader);
+        return new ResolvedMediaSelection(
+            resolved.files().stream().filter(file -> file.getStatus().isVisible()).toList(),
+            resolved.notFoundIds());
+    }
+
     public ResolvedMediaSelection resolve(Long roomId, MediaSelection selection,
                                           Long requesterId, MediaUploaderFilter uploader) {
         validate(selection);

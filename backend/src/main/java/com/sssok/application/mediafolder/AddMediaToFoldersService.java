@@ -32,7 +32,7 @@ public class AddMediaToFoldersService {
 
         Folder folder = roomFolders.requireAllInRoom(roomId, List.of(folderId)).get(0);
         ResolvedMediaSelection media =
-            mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader);
+            mediaSelectionResolver.resolveVisible(roomId, selection, requesterId, uploader);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
 
         int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
