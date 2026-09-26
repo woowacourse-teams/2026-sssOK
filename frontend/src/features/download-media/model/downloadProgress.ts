@@ -47,12 +47,9 @@ export interface DownloadProgressState {
   zipBytes: { loaded: number; total: number } | null;
 }
 
-export const startDownloadProgress = (
-  targets: DownloadTarget[],
-  totalCount = targets.length,
-): DownloadProgressState => ({
+export const startDownloadProgress = (targets: DownloadTarget[]): DownloadProgressState => ({
   phase: "fetching",
-  totalCount,
+  totalCount: targets.length,
   totalBytes: targets.reduce((sum, target) => sum + target.size, 0),
   completedCount: 0,
   totalByMediaId: Object.fromEntries(targets.map((target) => [target.mediaId, target.size])),

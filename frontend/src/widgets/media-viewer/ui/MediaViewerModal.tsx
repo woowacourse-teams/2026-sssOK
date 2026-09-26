@@ -19,17 +19,12 @@ import { colors } from "@/shared/styles/tokens";
 
 interface MediaViewerModalProps {
   items: GalleryItem[];
-  totalCount: number;
   activeMediaId: number;
   roomId: number;
   userId: number;
   hostId: number;
   token: string;
   selectedPhotoIds: number[];
-  hasNextPage: boolean;
-  isFetchingNextPage: boolean;
-  isNextPageError: boolean;
-  onLoadNextPage: () => void;
   onChange: (mediaId: number) => void;
   onClose: () => void;
   onToggle: (mediaId: number) => void;
@@ -50,17 +45,12 @@ const formatDate = (value: string) => {
 
 export const MediaViewerModal = ({
   items,
-  totalCount,
   activeMediaId,
   roomId,
   userId,
   hostId,
   token,
   selectedPhotoIds,
-  hasNextPage,
-  isFetchingNextPage,
-  isNextPageError,
-  onLoadNextPage,
   onChange,
   onClose,
   onToggle,
@@ -68,41 +58,14 @@ export const MediaViewerModal = ({
 }: MediaViewerModalProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const moveAfterLoading = useRef(false);
   const index = items.findIndex((item) => item.mediaId === activeMediaId);
   const item = items[index];
   const previous = items[index - 1];
   const next = items[index + 1];
 
   const moveNext = () => {
-    if (next) {
-      onChange(next.mediaId);
-      if (!items[index + 2] && hasNextPage && !isFetchingNextPage) onLoadNextPage();
-      return;
-    }
-    if (hasNextPage && !isFetchingNextPage) {
-      moveAfterLoading.current = true;
-      onLoadNextPage();
-    }
+    if (next) onChange(next.mediaId);
   };
-
-  useEffect(() => {
-    if (!moveAfterLoading.current || isFetchingNextPage) return;
-    if (isNextPageError) {
-      moveAfterLoading.current = false;
-      return;
-    }
-    if (next) {
-      moveAfterLoading.current = false;
-      onChange(next.mediaId);
-      return;
-    }
-    if (hasNextPage) {
-      onLoadNextPage();
-      return;
-    }
-    moveAfterLoading.current = false;
-  }, [hasNextPage, isFetchingNextPage, isNextPageError, next, onChange, onLoadNextPage]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -132,7 +95,7 @@ export const MediaViewerModal = ({
           event.preventDefault();
           onChange(previous.mediaId);
         }
-        if (event.key === "ArrowRight" && (next || hasNextPage)) {
+        if (event.key === "ArrowRight" && next) {
           event.preventDefault();
           moveNext();
         }
@@ -143,7 +106,7 @@ export const MediaViewerModal = ({
           <HiArrowLeft size={20} />
         </BackButton>
         <Counter aria-live="polite">
-          {index < 0 ? "사진 보기" : `${index + 1} / ${totalCount}`}
+          {index < 0 ? "사진 보기" : `${index + 1} / ${items.length}`}
         </Counter>
         <SelectionButton
           type="button"
@@ -179,7 +142,7 @@ export const MediaViewerModal = ({
               const dx = touch.clientX - start.x;
               const dy = touch.clientY - start.y;
               if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy)) return;
-              if (dx < 0 && (next || hasNextPage)) moveNext();
+              if (dx < 0 && next) moveNext();
               if (dx > 0 && previous) onChange(previous.mediaId);
             }}
           >
@@ -192,12 +155,7 @@ export const MediaViewerModal = ({
             >
               <HiChevronLeft />
             </PreviousButton>
-            <NextButton
-              type="button"
-              aria-label="다음 사진"
-              disabled={(!next && !hasNextPage) || isFetchingNextPage}
-              onClick={moveNext}
-            >
+            <NextButton type="button" aria-label="다음 사진" disabled={!next} onClick={moveNext}>
               <HiChevronRight />
             </NextButton>
           </Stage>
