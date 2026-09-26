@@ -84,6 +84,7 @@ dependencies {
     // 파생 이미지 포맷 측정기(com.sssok.benchmark)의 WebP 인코딩용. ImageIO 는 WebP 를 모르므로
     // ImageWriter 를 얹어 준다. 네이티브가 JAR 안에 들어 있어 별도 설치는 필요 없다.
     // 아직 쓰는 곳이 측정기뿐이라 테스트 스코프로 둔다 — 운영 인코딩에 들어가면 그때 올린다(#291).
+    // 포맷 선정 근거: docs/backend/IMAGE_DERIVATIVE_FORMAT.md
     testImplementation 'io.github.darkxanter:webp-imageio:0.3.3'
 }
 
@@ -106,13 +107,16 @@ tasks.register('derivativeFormatBenchmark', JavaExec) {
 }
 
 // 같은 목적의 두 번째 측정기. 워커 풀이 동시에 돌 때 포맷별 처리량이 어떻게 갈리는지 본다.
-//   ./gradlew derivativeConcurrencyBenchmark -Psamples=/경로/샘플 -Pout=결과.csv
+// 품질 지점(-Pwebp / -Pavif)은 derivativeFormatBenchmark 곡선에서 SSIM 이 맞는 쌍으로 고른다.
+//   ./gradlew derivativeConcurrencyBenchmark -Psamples=/경로/샘플 -Pwebp=85 -Pavif=32 -Pout=결과.csv
 tasks.register('derivativeConcurrencyBenchmark', JavaExec) {
     group = 'verification'
     description = '워커 풀 동시 실행 조건에서 WebP·AVIF 인코딩 처리량을 측정한다'
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.sssok.benchmark.DerivativeConcurrencyBenchmark'
     systemProperty 'samples', findProperty('samples') ?: ''
+    systemProperty 'webp', findProperty('webp') ?: ''
+    systemProperty 'avif', findProperty('avif') ?: ''
     systemProperty 'out', findProperty('out') ?: 'derivative-concurrency-benchmark.csv'
 }
 
