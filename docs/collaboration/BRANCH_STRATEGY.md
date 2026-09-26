@@ -118,16 +118,37 @@ hotfix/be-#50-critical-bug   ─ 배포 후 긴급 수정 (main에서 분기)
 - 서비스 버전은 **그 서비스가 실제로 바뀐 릴리스에서만** 올린다. 백엔드만 바뀐 릴리스라면
   프론트엔드 버전은 그대로 둔다.
 - 통합 릴리스 버전은 운영에 나가는 **모든** 릴리스에서 올린다. 직전 릴리스보다 반드시 커야 한다.
-- 버전은 사람이 직접 올린다. CI 는 올렸는지 검사만 한다 — Changesets 같은 자동화 도구는
-  도입하지 않는다. 이 레포가 npm workspaces 기반 모노레포가 아니라서 비용 대비 실익이 작다.
+- 백엔드 작업 PR은 `backend/gradle.properties`를 직접 바꾸지 않고 이슈별 버전 의도 파일을
+  `.github/backend-version-intents/`에 하나 추가한다. 파일명이 이슈 번호라 동시에 열린 PR끼리
+  같은 파일을 수정하지 않는다.
+- 버전 의도는 `major`·`minor`·`patch` 중 하나다. 백엔드 CI가 백엔드 변경 여부와 의도 파일의
+  추가 여부·형식을 검증한다.
+- 릴리스 준비에서는 누적된 의도 중 가장 높은 단계를 백엔드 버전에 한 번 적용한다. `patch`만
+  있으면 `PATCH`, `minor`가 하나라도 있으면 `MINOR`, `major`가 하나라도 있으면 `MAJOR`를 올린다.
+- 통합 릴리스 버전과 프론트엔드 버전도 릴리스 준비에서 사람이 확정한다.
+
+백엔드 작업 PR에서는 다음 명령으로 버전 의도를 만든다.
+
+```bash
+bash .github/scripts/declare-backend-version.sh <이슈번호> <major|minor|patch>
+```
 
 ### 릴리스 준비 절차
 
-`develop → main` PR을 만들기 전에 다음 파일을 고쳐 커밋한다.
+`develop → main` 승격 전에 별도 릴리스 준비 브랜치를 `develop`에서 만들고 다음 변경을 하나의
+릴리스 준비 PR로 `develop`에 반영한다. 보호 브랜치인 `develop`에는 직접 커밋하지 않는다.
 
 1. `VERSION` — 통합 릴리스 버전을 올린다 (항상)
-2. `backend/gradle.properties` — 이번 릴리스에 백엔드 변경이 포함되면 올린다
+2. 백엔드 변경이 있으면 아래 명령으로 누적 의도를 집계하고 `backend/gradle.properties`를 올린다
 3. `frontend/package.json` — 이번 릴리스에 프론트엔드 변경이 포함되면 올린다
+
+```bash
+bash .github/scripts/prepare-backend-version.sh
+```
+
+백엔드 준비 명령은 누적 의도 중 가장 높은 단계를 적용한 뒤 소비한 의도 파일을 삭제한다. 릴리스
+준비 PR이 병합되고 나면 기존 절차대로 `develop → main` 승격 PR을 만든다. 따라서 추가 PR은 작업
+PR마다 생기지 않고 릴리스당 하나만 생긴다.
 
 `main`·`deploy` 대상 PR에서는 `Release Check` 워크플로(`release-check.yml`)가 형식·증가·태그
 중복을 검증한다. 검증 규칙과 실패 시 대처는 [DEPLOYMENT.md](../deployment/DEPLOYMENT.md#버전과-릴리스-태그)에

@@ -8,6 +8,10 @@ Closes #
 - [ ] Frontend
 - [ ] Backend
 
+## 백엔드 버전
+<!-- Backend 변경 시: bash .github/scripts/declare-backend-version.sh <이슈번호> <major|minor|patch> -->
+- [ ] 백엔드 변경에 맞는 버전 의도 파일 추가 또는 백엔드 변경 없음
+
 ## 변경 사항
 - [ ]
 - [ ]
