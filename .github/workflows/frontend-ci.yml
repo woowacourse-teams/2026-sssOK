@@ -1,6 +1,8 @@
 name: Frontend CI
 
 on:
+  # 버전 자동 반영 커밋은 GITHUB_TOKEN으로 생성되므로 명시적으로 다시 실행한다.
+  workflow_dispatch:
   pull_request:
     branches: [main, develop, deploy]
 
@@ -10,7 +12,7 @@ permissions:
 
 # pr에 새로운 커밋 올라올 시 이전 작업 취소
 concurrency:
-  group: frontend-ci-${{ github.event.pull_request.number }}
+  group: frontend-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -21,10 +23,11 @@ jobs:
       # frontend/** 가 안 바뀐 PR은 검증을 건너뛴다. paths 필터를 워크플로우 트리거가 아니라
       # 여기서 거는 이유: 트리거에 걸면 워크플로우 자체가 안 돌아서, "프론트엔드 검증"을 브랜치
       # 보호 규칙의 필수 체크로 걸었을 때 그 PR은 체크가 영영 안 생겨 머지가 막혀버린다.
-      frontend: ${{ steps.filter.outputs.frontend }}
+      frontend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.frontend == 'true' }}
     steps:
       - name: 경로 필터
         id: filter
+        if: github.event_name == 'pull_request'
         uses: dorny/paths-filter@v3
         with:
           filters: |
