@@ -50,11 +50,6 @@ dependencies {
     // 이미지 썸네일
     implementation 'net.coobird:thumbnailator:0.4.20'
 
-    // WebP 인코딩. ImageIO 는 WebP 를 모르므로 ImageWriter 를 얹어 준다.
-    // JAR 안에 리눅스 x86_64/aarch64 · macOS aarch64 네이티브가 들어 있어 별도 설치가 필요 없다.
-    // 포맷 선정 근거: docs/backend/IMAGE_DERIVATIVE_FORMAT.md
-    implementation 'io.github.darkxanter:webp-imageio:0.3.3'
-
     // EXIF 촬영 시각·GPS 추출
     implementation 'com.drewnoakes:metadata-extractor:2.19.0'
 
@@ -85,6 +80,11 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'
     testImplementation 'org.testcontainers:junit-jupiter'
     testImplementation 'org.testcontainers:postgresql'
+
+    // 파생 이미지 포맷 측정기(com.sssok.benchmark)의 WebP 인코딩용. ImageIO 는 WebP 를 모르므로
+    // ImageWriter 를 얹어 준다. 네이티브가 JAR 안에 들어 있어 별도 설치는 필요 없다.
+    // 아직 쓰는 곳이 측정기뿐이라 테스트 스코프로 둔다 — 운영 인코딩에 들어가면 그때 올린다(#291).
+    testImplementation 'io.github.darkxanter:webp-imageio:0.3.3'
 }
 
 tasks.named('test') {
