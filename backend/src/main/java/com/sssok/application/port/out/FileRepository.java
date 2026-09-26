@@ -31,12 +31,14 @@ public interface FileRepository {
 
     List<StoredFile> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids);
 
-    List<StoredFile> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids);
-
     // 조회 API 전용. 같은 업로드 요청에 묶인 파일은 createdAt 이 전부 같아서, id 까지 봐야
     // 순서가 호출마다 흔들리지 않는다.
     List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses);
+
+    List<StoredFile> findAllByRoomIdAndUploaderOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader);
 
     List<StoredFile> findPageByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses, Instant lastCreatedAt,
@@ -55,6 +57,10 @@ public interface FileRepository {
     // 위와 같지만 대상을 주어진 id 로 한정한다(폴더 필터).
     List<StoredFile> findAllByRoomIdAndIdInAndStatusInOrderByNewest(
         Long roomId, Collection<Long> ids, Collection<UploadStatus> statuses);
+
+    List<StoredFile> findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader);
 
     List<StoredFile> findPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
         Long roomId, Long folderId, Collection<UploadStatus> statuses,
