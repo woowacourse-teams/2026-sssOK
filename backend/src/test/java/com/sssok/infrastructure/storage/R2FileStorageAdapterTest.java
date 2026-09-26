@@ -25,6 +25,8 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 // 실제 R2 에 붙어 서명 URL 과 HeadObject 가 동작하는지 확인한다.
 // 자격증명이 없으면 조용히 건너뛰므로 CI 는 이 테스트 없이도 통과한다.
@@ -32,8 +34,14 @@ import org.junit.jupiter.api.condition.EnabledIf;
 @EnabledIf("hasCredentials")
 class R2FileStorageAdapterTest {
 
+    private static final String BROWSER_ORIGIN = "http://localhost:3000";
     private static final Map<String, String> CONFIG = loadConfig();
     private static final byte[] BODY = {(byte) 0x89, 'P', 'N', 'G'};
+    private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+        .connectTimeout(HTTP_TIMEOUT)
+        .version(HttpClient.Version.HTTP_1_1)
+        .build();
 
     private StorageKey uploaded;
 
@@ -59,12 +67,13 @@ class R2FileStorageAdapterTest {
     private int put(String url, String contentType) {
         try {
             HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
+                .timeout(HTTP_TIMEOUT)
                 .PUT(HttpRequest.BodyPublishers.ofByteArray(BODY));
             if (contentType != null) {
                 request.header("Content-Type", contentType);
             }
-            HttpResponse<Void> response = HttpClient.newHttpClient()
-                .send(request.build(), HttpResponse.BodyHandlers.discarding());
+            HttpResponse<Void> response = HTTP_CLIENT.send(
+                request.build(), HttpResponse.BodyHandlers.discarding());
             return response.statusCode();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -99,21 +108,32 @@ class R2FileStorageAdapterTest {
         assertThat(put(url, null)).isEqualTo(403);
     }
 
-    @Test
-    void 발급한_다운로드_URL_로_받으면_지정한_응답_헤더가_그대로_내려온다() {
+    @ParameterizedTest
+    @CsvSource({
+        "PNG, image/png, IMG_0421.png",
+        "MP4, video/mp4, 회식 영상.mp4",
+        "MOV, video/quicktime, 아이폰 영상.mov",
+        "WEBM, video/webm, browser-recording.webm"
+    })
+    void 이미지와_동영상_다운로드_URL은_원본_파일명과_MIME을_유지한다(
+        MediaType mediaType, String contentType, String fileName
+    ) {
         R2FileStorageAdapter adapter = adapter();
-        StorageKey key = StorageKey.generate(1L, MediaType.PNG);
-        String putUrl = adapter.presignPut(key, "image/png", Duration.ofMinutes(10));
-        assertThat(put(putUrl, "image/png")).isEqualTo(200);
+        StorageKey key = StorageKey.generate(1L, mediaType);
+        String putUrl = adapter.presignPut(key, contentType, Duration.ofMinutes(10));
+        assertThat(put(putUrl, contentType)).isEqualTo(200);
         uploaded = key;
 
-        String disposition = "attachment; filename=\"IMG_0421.png\"; filename*=UTF-8''IMG_0421.png";
-        String url = adapter.presignGet(key, disposition, "image/png", Duration.ofMinutes(5));
+        String disposition = com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName);
+        String url = adapter.presignGet(key, disposition, contentType, Duration.ofMinutes(5));
 
-        HttpResponse<byte[]> response = get(url);
+        HttpResponse<byte[]> response = get(url, BROWSER_ORIGIN);
         assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("access-control-allow-origin"))
+            .contains(BROWSER_ORIGIN);
         assertThat(response.headers().firstValue("content-disposition")).contains(disposition);
-        assertThat(response.headers().firstValue("content-type")).contains("image/png");
+        assertThat(response.headers().firstValue("content-type")).contains(contentType);
+        assertThat(response.body()).isEqualTo(BODY);
     }
 
     @Test
@@ -229,9 +249,18 @@ class R2FileStorageAdapterTest {
     }
 
     private HttpResponse<byte[]> get(String url) {
+        return get(url, null);
+    }
+
+    private HttpResponse<byte[]> get(String url, String origin) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
-            return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofByteArray());
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
+                .timeout(HTTP_TIMEOUT)
+                .GET();
+            if (origin != null) {
+                request.header("Origin", origin);
+            }
+            return HTTP_CLIENT.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } catch (InterruptedException e) {

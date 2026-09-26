@@ -19,6 +19,8 @@ import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -49,8 +51,12 @@ class GetMediaDownloadUrlServiceTest {
     }
 
     private StoredFile save(Long roomId, UploadStatus status) {
-        StoredFile file = StoredFile.reserve(
-            roomId, UPLOADER_ID, "사진.jpg", "image/jpeg", new FileSize(1024), Instant.now(), SIZE_POLICY);
+        return save(roomId, status, "사진.jpg", "image/jpeg");
+    }
+
+    private StoredFile save(Long roomId, UploadStatus status, String fileName, String mimeType) {
+        StoredFile file = StoredFile.reserve(roomId, UPLOADER_ID, fileName, mimeType,
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
         switch (status) {
             case PROCESSING -> file.startProcessing();
             case READY -> {
@@ -84,6 +90,27 @@ class GetMediaDownloadUrlServiceTest {
             eq("attachment; filename=\"download.jpg\"; filename*=UTF-8''%EC%82%AC%EC%A7%84.jpg"),
             eq("image/jpeg"),
             any(Duration.class));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "회식 영상.mp4, video/mp4, mp4",
+        "아이폰 영상.mov, video/quicktime, mov",
+        "browser-recording.webm, video/webm, webm"
+    })
+    void 동영상_원본_파일명과_MIME으로_서명을_요청한다(
+        String fileName, String mimeType, String extension
+    ) {
+        StoredFile file = save(ROOM_ID, UploadStatus.READY, fileName, mimeType);
+
+        getMediaDownloadUrlService.getUrl(ROOM_ID, file.getId());
+
+        verify(fileStoragePort).presignGet(
+            eq(file.getStorageKey()),
+            eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
+            eq(mimeType),
+            any(Duration.class));
+        assertThat(file.getStorageKey().value()).endsWith("." + extension);
     }
 
     @Test
