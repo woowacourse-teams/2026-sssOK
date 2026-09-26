@@ -135,9 +135,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         media,
         folderIds: media.folderIds,
       })),
-  ].filter((item) =>
-    item.type === "local" ? !item.file.type.startsWith("video/") : item.media.type === "IMAGE",
-  );
+  ];
   const photoIds = [
     ...visibleUploadSlots.map((slot) => slot.mediaId),
     ...photos.filter((photo) => !uploadSlotIds.has(photo.mediaId)).map((photo) => photo.mediaId),

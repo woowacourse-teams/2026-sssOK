@@ -99,9 +99,7 @@ export const PhotoGallery = ({
               isMine={photo.uploaderId === userId}
               isSelected={isSelected}
               onToggle={() => onTogglePhoto(photo.mediaId)}
-              onOpen={
-                photo.type === "IMAGE" && onOpenPhoto ? () => onOpenPhoto(photo.mediaId) : undefined
-              }
+              onOpen={onOpenPhoto ? () => onOpenPhoto(photo.mediaId) : undefined}
             />
           );
         })}
