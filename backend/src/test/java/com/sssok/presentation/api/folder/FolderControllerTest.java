@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.DeleteFolderResult;
 import com.sssok.application.folder.DeleteFolderService;
+import com.sssok.application.folder.RenameFolderResult;
 import com.sssok.application.folder.RenameFolderService;
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
@@ -184,13 +185,14 @@ class FolderControllerTest {
 
     @Test
     void 이름을_바꾸면_200과_바뀐_폴더_정보를_반환한다() throws Exception {
-        given(renameFolderService.rename(ROOM_ID, 100L, "카페")).willReturn(folder(100L, "카페"));
+        given(renameFolderService.rename(ROOM_ID, 100L, "카페"))
+            .willReturn(new RenameFolderResult(folder(100L, "카페"), 3));
 
         renameFolder(100L, "{\"name\":\"카페\"}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.id").value(100))
             .andExpect(jsonPath("$.data.name").value("카페"))
-            .andExpect(jsonPath("$.data.photoCount").value(0));
+            .andExpect(jsonPath("$.data.photoCount").value(3));
     }
 
     @Test
