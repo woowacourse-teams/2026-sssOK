@@ -9,11 +9,8 @@ Closes #
 - [ ] Backend
 
 ## 백엔드 버전
-<!-- Backend를 변경했다면 하나만 선택합니다. 그 외 작업은 '변경 없음'을 선택합니다. -->
-- [ ] MAJOR — 호환되지 않는 API 변경·제거
-- [ ] MINOR — 기존 호환성을 유지하는 기능 추가
-- [ ] PATCH — 버그 수정·리팩터링·내부 개선
-- [ ] 변경 없음 — 백엔드 애플리케이션 변경 없음
+<!-- Backend 변경 시: bash .github/scripts/declare-backend-version.sh <이슈번호> <major|minor|patch> -->
+- [ ] 백엔드 변경에 맞는 버전 의도 파일 추가 또는 백엔드 변경 없음
 
 ## 변경 사항
 - [ ]

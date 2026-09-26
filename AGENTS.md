@@ -68,9 +68,9 @@
 4. `deploy` 머지가 CD 파이프라인을 트리거해 실제 운영 서버(`deploy-prod.yml`)에 배포된다
 
 **버전**: 통합 릴리스 버전(루트 `VERSION`)·백엔드(`backend/gradle.properties`)·프론트엔드
-(`frontend/package.json`)를 따로 관리한다. 백엔드 버전은 작업 PR에서 선택한 SemVer 증가 유형에
-따라 자동 반영하고, 통합 릴리스·프론트엔드 버전은 `develop → main` PR 전에 사람이 직접 올린다.
-작업 PR과 `main`·`deploy` 대상 PR의 CI가 형식·증가·태그 중복을 검사한다. 릴리스 태그
+(`frontend/package.json`)를 따로 관리한다. 백엔드 작업 PR은 이슈별 버전 의도를 남기고, 릴리스
+준비 PR에서 누적 의도 중 가장 높은 SemVer 단계를 백엔드 버전에 한 번 반영한다. 통합 릴리스와
+프론트엔드 버전도 릴리스 준비 PR에서 올린다. CI가 의도·형식·증가·태그 중복을 검사한다. 릴리스 태그
 (`release-v*`·`backend-v*`·`frontend-v*`)는 운영 헬스체크 성공 후 CD가 자동으로 찍는다.
 
 - 자세히: [docs/deployment/DEPLOYMENT.md](docs/deployment/DEPLOYMENT.md),

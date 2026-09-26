@@ -20,17 +20,37 @@ require_semver() {
     echo "$2" | grep -Eq "$SEMVER" || fail "$1 버전이 SemVer(MAJOR.MINOR.PATCH) 형식이 아니다: '$2'"
 }
 
+require_bump() {
+    case "$1" in
+        major|minor|patch) ;;
+        *) fail "버전 증가 유형은 major, minor, patch 중 하나여야 한다: '$1'" ;;
+    esac
+}
+
 next_version() {
     local version="$1" bump="$2" major minor patch
+    require_semver '현재 백엔드' "$version"
+    require_bump "$bump"
     IFS=. read -r major minor patch <<< "$version"
 
     case "$bump" in
         major) printf '%s.0.0\n' "$((major + 1))" ;;
         minor) printf '%s.%s.0\n' "$major" "$((minor + 1))" ;;
         patch) printf '%s.%s.%s\n' "$major" "$minor" "$((patch + 1))" ;;
-        none) printf '%s\n' "$version" ;;
-        *) fail "알 수 없는 백엔드 버전 증가 유형이다: '$bump'" ;;
     esac
+}
+
+highest_bump() {
+    local highest=patch bump
+    [ "$#" -gt 0 ] || fail '집계할 백엔드 버전 의도가 없다.'
+    for bump in "$@"; do
+        require_bump "$bump"
+        case "$bump" in
+            major) highest=major ;;
+            minor) [ "$highest" = major ] || highest=minor ;;
+        esac
+    done
+    printf '%s\n' "$highest"
 }
 
 replace_version() {
@@ -44,38 +64,20 @@ replace_version() {
 
 command="${1:-}"
 case "$command" in
-    next)
-        current="${2:-}"
-        bump="${3:-}"
-        require_semver '현재 백엔드' "$current"
-        next_version "$current" "$bump"
-        ;;
+    read) read_version "${2:-backend/gradle.properties}" ;;
+    next) next_version "${2:-}" "${3:-}" ;;
+    highest) shift; highest_bump "$@" ;;
     set)
         file="${2:-backend/gradle.properties}"
-        base_version="${3:-}"
-        bump="${4:-}"
-        require_semver '기준 백엔드' "$base_version"
-        next="$(next_version "$base_version" "$bump")"
-        replace_version "$file" "$next"
-        echo "$next"
-        ;;
-    check)
-        base_file="${2:-}"
-        head_file="${3:-backend/gradle.properties}"
-        bump="${4:-}"
-        base_version="$(read_version "$base_file")"
-        head_version="$(read_version "$head_file")"
-        require_semver '기준 백엔드' "$base_version"
-        require_semver '현재 백엔드' "$head_version"
-        expected="$(next_version "$base_version" "$bump")"
-        [ "$head_version" = "$expected" ] ||
-            fail "백엔드 $bump 변경에는 버전이 $base_version -> $expected 이어야 한다 (현재 $head_version)."
-        echo "백엔드 버전 확인: $base_version -> $head_version ($bump)"
+        version="${3:-}"
+        require_semver '새 백엔드' "$version"
+        replace_version "$file" "$version"
         ;;
     *)
-        echo "사용법: $0 next <version> <major|minor|patch|none>" >&2
-        echo "        $0 set <gradle.properties> <base-version> <major|minor|patch|none>" >&2
-        echo "        $0 check <base-gradle.properties> <head-gradle.properties> <major|minor|patch|none>" >&2
+        echo "사용법: $0 read [gradle.properties]" >&2
+        echo "        $0 next <version> <major|minor|patch>" >&2
+        echo "        $0 highest <major|minor|patch>..." >&2
+        echo "        $0 set <gradle.properties> <version>" >&2
         exit 2
         ;;
 esac
