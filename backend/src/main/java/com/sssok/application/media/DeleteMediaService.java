@@ -2,7 +2,6 @@ package com.sssok.application.media;
 
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.RoomPermissionPort;
 import com.sssok.domain.file.FilePermissionPolicy;
@@ -32,9 +31,8 @@ public class DeleteMediaService {
     }
 
     public DeleteMediaResult deleteAll(Long roomId, List<Long> mediaIds, Long requesterId) {
-        ResolvedMediaIds resolved = mediaIdsResolver.resolve(roomId, mediaIds);
+        ResolvedMediaIds resolved = mediaIdsResolver.resolve(roomId, mediaIds, MAX_MEDIA_COUNT);
         List<StoredFile> files = resolved.files();
-        requireWithinLimit(files);
 
         requireDeletePermission(roomId, requesterId, files);
         if (!files.isEmpty()) {
@@ -42,12 +40,6 @@ public class DeleteMediaService {
         }
         List<Long> deletedIds = files.stream().map(StoredFile::getId).toList();
         return new DeleteMediaResult(deletedIds.size(), deletedIds, resolved.notFoundIds());
-    }
-
-    private void requireWithinLimit(List<StoredFile> files) {
-        if (files.size() > MAX_MEDIA_COUNT) {
-            throw new TooManyMediaException(MAX_MEDIA_COUNT);
-        }
     }
 
     private void requireDeletePermission(Long roomId, Long requesterId, List<StoredFile> files) {

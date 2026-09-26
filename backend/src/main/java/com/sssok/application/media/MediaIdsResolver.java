@@ -1,6 +1,7 @@
 package com.sssok.application.media;
 
 import com.sssok.application.media.exception.InvalidMediaIdsException;
+import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.StoredFile;
 import java.util.LinkedHashMap;
@@ -16,8 +17,18 @@ public class MediaIdsResolver {
     private final FileRepository fileRepository;
 
     public ResolvedMediaIds resolve(Long roomId, List<Long> mediaIds) {
-        validate(mediaIds);
-        List<Long> distinctIds = mediaIds.stream().distinct().toList();
+        return resolveDistinctIds(roomId, distinctIds(mediaIds));
+    }
+
+    public ResolvedMediaIds resolve(Long roomId, List<Long> mediaIds, int maxCount) {
+        List<Long> distinctIds = distinctIds(mediaIds);
+        if (distinctIds.size() > maxCount) {
+            throw new TooManyMediaException(maxCount);
+        }
+        return resolveDistinctIds(roomId, distinctIds);
+    }
+
+    private ResolvedMediaIds resolveDistinctIds(Long roomId, List<Long> distinctIds) {
         Map<Long, StoredFile> filesById = new LinkedHashMap<>();
         fileRepository.findAllByRoomIdAndIdIn(roomId, distinctIds)
             .forEach(file -> filesById.put(file.getId(), file));
@@ -29,6 +40,11 @@ public class MediaIdsResolver {
             .filter(id -> !filesById.containsKey(id))
             .toList();
         return new ResolvedMediaIds(files, notFoundIds);
+    }
+
+    private List<Long> distinctIds(List<Long> mediaIds) {
+        validate(mediaIds);
+        return mediaIds.stream().distinct().toList();
     }
 
     private void validate(List<Long> mediaIds) {

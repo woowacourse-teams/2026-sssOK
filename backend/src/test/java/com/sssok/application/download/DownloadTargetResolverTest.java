@@ -8,6 +8,7 @@ import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
@@ -120,13 +121,11 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
         }
 
         @Test
-        void 최종_다운로드_대상이_상한을_초과하면_예외() {
-            List<Long> tooMany = LongStream.rangeClosed(1, 1001)
-                .mapToObj(ignored -> media(1L, UploadStatus.READY))
-                .toList();
+        void 요청_ID_개수가_상한을_초과하면_DB_조회_전에_예외() {
+            List<Long> tooMany = LongStream.rangeClosed(1, 1001).boxed().toList();
 
             assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, tooMany, null, null, null))
-                .isInstanceOf(TooManyFilesException.class);
+                .isInstanceOf(TooManyMediaException.class);
         }
     }
 

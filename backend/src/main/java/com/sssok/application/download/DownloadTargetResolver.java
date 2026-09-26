@@ -36,7 +36,8 @@ class DownloadTargetResolver {
             throw new InvalidDownloadParamException();
         }
         if (mediaIds != null) {
-            List<StoredFile> selected = mediaIdsResolver.resolve(roomId, mediaIds).files();
+            List<StoredFile> selected =
+                mediaIdsResolver.resolve(roomId, mediaIds, MAX_MEDIA_IDS).files();
             return requireWithinLimit(requireDownloadable(selected));
         }
         return requireWithinLimit(requireDownloadable(filterByUploader(

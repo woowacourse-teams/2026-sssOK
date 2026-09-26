@@ -147,9 +147,6 @@ class DeleteMediaServiceTest {
     void 최대_개수를_넘으면_거부한다() {
         List<Long> ids = LongStream.rangeClosed(1, 501).boxed().toList();
 
-        given(fileRepository.findAllByRoomIdAndIdIn(ROOM_ID, ids))
-            .willReturn(ids.stream().map(id -> file(id, ROOM_ID, REQUESTER_ID)).toList());
-
         assertThatThrownBy(() -> service.deleteAll(ROOM_ID, ids, REQUESTER_ID))
             .isInstanceOf(TooManyMediaException.class);
     }

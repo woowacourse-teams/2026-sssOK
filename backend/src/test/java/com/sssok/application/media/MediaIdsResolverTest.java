@@ -3,8 +3,10 @@ package com.sssok.application.media;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.sssok.application.media.exception.InvalidMediaIdsException;
+import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.MediaType;
@@ -64,6 +66,14 @@ class MediaIdsResolverTest {
             .isInstanceOf(InvalidMediaIdsException.class);
         assertThatThrownBy(() -> resolver.resolve(ROOM_ID, List.of(0L)))
             .isInstanceOf(InvalidMediaIdsException.class);
+    }
+
+    @Test
+    void 중복을_제거한_ID_개수가_상한을_넘으면_DB_조회_전에_거부한다() {
+        assertThatThrownBy(() -> resolver.resolve(ROOM_ID, List.of(1L, 2L, 3L, 3L), 2))
+            .isInstanceOf(TooManyMediaException.class);
+
+        verifyNoInteractions(fileRepository);
     }
 
     private StoredFile file(Long id) {
