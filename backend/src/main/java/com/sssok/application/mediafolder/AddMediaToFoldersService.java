@@ -4,6 +4,7 @@ import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamExcept
 import com.sssok.application.media.MediaIdsResolver;
 import com.sssok.application.media.ResolvedMediaIds;
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -27,12 +28,13 @@ public class AddMediaToFoldersService {
         requireFolder(folderId);
 
         Folder folder = roomFolders.requireAllInRoom(roomId, List.of(folderId)).get(0);
-        ResolvedMediaIds media = mediaIdsResolver.resolve(roomId, requestedMediaIds);
+        ResolvedMediaIds media = mediaIdsResolver.resolveVisible(roomId, requestedMediaIds);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
 
         int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
         int alreadyInCount = mediaIds.size() - updatedCount;
-        FolderSummary summary = FolderSummary.of(folder, folderMediaRepository.countByFolderId(folderId));
+        FolderSummary summary = FolderSummary.of(folder,
+            folderMediaRepository.countByFolderIdAndStatusIn(folderId, UploadStatus.visibleStatuses()));
 
         if (updatedCount > 0) {
             eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, mediaIds, List.of(summary)));

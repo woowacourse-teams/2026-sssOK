@@ -20,6 +20,17 @@ public class MediaIdsResolver {
         return resolveDistinctIds(roomId, distinctIds(mediaIds));
     }
 
+    // 폴더 담기·꺼내기용. 목록에 보이는 미디어만 남긴다 — 실물이 없는 RESERVED·FAILED 를 담으면
+    // 응답의 updatedCount 가 폴더 photoCount 와 어긋난다. 목록에서 고른 뒤 요청이 닿기 전에
+    // 그 미디어가 FAILED 로 확정되는 경우가 있어, 클라이언트가 id 를 직접 보내도 한 번 더 거른다.
+    // 삭제는 실물 없는 행도 정리해야 하므로 이 필터를 쓰지 않는다.
+    public ResolvedMediaIds resolveVisible(Long roomId, List<Long> mediaIds) {
+        ResolvedMediaIds resolved = resolve(roomId, mediaIds);
+        return new ResolvedMediaIds(
+            resolved.files().stream().filter(file -> file.getStatus().isVisible()).toList(),
+            resolved.notFoundIds());
+    }
+
     public ResolvedMediaIds resolve(Long roomId, List<Long> mediaIds, int maxCount) {
         List<Long> distinctIds = distinctIds(mediaIds);
         if (distinctIds.size() > maxCount) {

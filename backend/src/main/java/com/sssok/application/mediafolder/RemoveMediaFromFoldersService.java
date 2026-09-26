@@ -5,6 +5,7 @@ import com.sssok.application.media.MediaIdsResolver;
 import com.sssok.application.media.ResolvedMediaIds;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,7 @@ public class RemoveMediaFromFoldersService {
     @Transactional
     public RemoveMediaFromFoldersResult remove(Long roomId, List<Long> requestedMediaIds,
                                                List<Long> folderIds) {
-        ResolvedMediaIds media = mediaIdsResolver.resolve(roomId, requestedMediaIds);
+        ResolvedMediaIds media = mediaIdsResolver.resolveVisible(roomId, requestedMediaIds);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
         List<Long> hadFolderBefore = mediaIdsWithAnyFolder(mediaIds);
 
@@ -84,7 +85,8 @@ public class RemoveMediaFromFoldersService {
             return List.of();
         }
         List<Long> folderIds = folders.stream().map(Folder::getId).toList();
-        Map<Long, Long> photoCounts = folderMediaRepository.countByFolderIds(folderIds);
+        Map<Long, Long> photoCounts =
+            folderMediaRepository.countByFolderIdsAndStatusIn(folderIds, UploadStatus.visibleStatuses());
         return folders.stream()
             .map(folder -> FolderSummary.of(folder, photoCounts.getOrDefault(folder.getId(), 0L)))
             .toList();

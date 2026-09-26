@@ -3,6 +3,7 @@ package com.sssok.application.folder;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -22,9 +23,13 @@ public class DeleteFolderService {
             .filter(f -> f.belongsTo(roomId))
             .orElseThrow(() -> new FolderNotFoundException(folderId));
 
-        long detachedCount = folderMediaRepository.detachAllFromFolder(folder.getId());
+        // 매핑 행이 아니라 목록에 보이던 사진 수를 센다 — 사용자가 이 폴더에서 보던 개수이자,
+        // 꺼내진 뒤 루트에서 보게 될 개수다. 관계는 실물 없는 행까지 전부 끊는다.
+        long detachedPhotoCount = folderMediaRepository.countByFolderIdAndStatusIn(
+            folder.getId(), UploadStatus.visibleStatuses());
+        folderMediaRepository.detachAllFromFolder(folder.getId());
         folderRepository.deleteById(folder.getId());
 
-        return new DeleteFolderResult(folder.getId(), (int) detachedCount);
+        return new DeleteFolderResult(folder.getId(), (int) detachedPhotoCount);
     }
 }
