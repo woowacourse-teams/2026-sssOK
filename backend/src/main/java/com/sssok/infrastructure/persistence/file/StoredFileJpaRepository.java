@@ -21,13 +21,27 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
 
     List<StoredFileJpaEntity> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids);
 
-    List<StoredFileJpaEntity> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids);
-
     List<StoredFileJpaEntity> findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<String> statuses);
 
     List<StoredFileJpaEntity> findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<String> statuses, Limit limit);
+
+    @Query(value = """
+        SELECT sf.*
+        FROM stored_file sf
+        WHERE sf.room_id = :roomId
+          AND sf.status IN (:statuses)
+          AND (:uploader = 'ALL'
+            OR (:uploader = 'ME' AND sf.uploader_id = :requesterId)
+            OR (:uploader = 'OTHERS' AND sf.uploader_id <> :requesterId))
+        ORDER BY sf.created_at DESC, sf.id DESC
+        """, nativeQuery = true)
+    List<StoredFileJpaEntity> findAllByRoomIdAndUploaderOrderByNewest(
+        @Param("roomId") Long roomId,
+        @Param("statuses") Collection<String> statuses,
+        @Param("requesterId") Long requesterId,
+        @Param("uploader") String uploader);
 
     @Query(value = """
         SELECT sf.*
@@ -103,6 +117,25 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
 
     List<StoredFileJpaEntity> findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(
         Long roomId, Collection<Long> ids, Collection<String> statuses);
+
+    @Query(value = """
+        SELECT sf.*
+        FROM stored_file sf
+        JOIN folder_media fm ON fm.media_id = sf.id
+        WHERE sf.room_id = :roomId
+          AND fm.folder_id = :folderId
+          AND sf.status IN (:statuses)
+          AND (:uploader = 'ALL'
+            OR (:uploader = 'ME' AND sf.uploader_id = :requesterId)
+            OR (:uploader = 'OTHERS' AND sf.uploader_id <> :requesterId))
+        ORDER BY sf.created_at DESC, sf.id DESC
+        """, nativeQuery = true)
+    List<StoredFileJpaEntity> findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        @Param("roomId") Long roomId,
+        @Param("folderId") Long folderId,
+        @Param("statuses") Collection<String> statuses,
+        @Param("requesterId") Long requesterId,
+        @Param("uploader") String uploader);
 
     @Query(value = """
         SELECT sf.*
