@@ -171,6 +171,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         exact: true,
       });
     },
+    onMediaFoldersUpdated: () => {
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: roomQueryKey(room.code, userId),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: photosQueryKey(room.roomId, userId),
+        }),
+      ]);
+    },
   });
 
   // 폴더 생성 흐름
