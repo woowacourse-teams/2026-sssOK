@@ -1,10 +1,13 @@
 package com.sssok.presentation.api.media;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,7 +23,9 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +65,7 @@ class MediaQueryApiTest extends PostgresContainerSupport {
 
     private MockMvc mockMvc;
     private Long roomId;
+    private String roomCode;
     private String token;
 
     @BeforeEach
@@ -69,6 +75,7 @@ class MediaQueryApiTest extends PostgresContainerSupport {
         token = "Bearer " + host.accessToken();
         Room room = createRoomService.create(host.userId(), "우테코 회식", null, null).room();
         roomId = room.getId();
+        roomCode = room.getCode().value();
         given(fileStoragePort.presignPut(any(), anyString(), any(Duration.class)))
             .willReturn("https://storage.example.com/signed");
         given(fileStoragePort.findUploaded(any()))
@@ -250,6 +257,67 @@ class MediaQueryApiTest extends PostgresContainerSupport {
                 .header("Authorization", outsider))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
+    // photoCount 는 매핑 행이 아니라 목록에 실제로 보이는 미디어를 세야 한다.
+    // 삭제된 미디어(매핑도 함께 끊긴다)와 발급만 받은 미디어(RESERVED)가 섞여 있어도 목록 개수와 같아야 한다.
+    @Test
+    void 폴더_photoCount_는_목록_개수와_같다() throws Exception {
+        Folder folder = createFolderService.create(roomId, "1일차");
+        Long visible = upload("a.jpg", folder.getId());
+        Long deleted = upload("b.jpg", folder.getId());
+        issueOnly("c.jpg", folder.getId());
+        mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, deleted)
+                .header("Authorization", token))
+            .andExpect(status().isOk());
+
+        getMediaList("?folderId=" + folder.getId())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items.length()").value(1))
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(visible))
+            .andExpect(jsonPath("$.data.totalCount").value(1));
+        mockMvc.perform(get("/api/v1/rooms/{code}", roomCode)
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.photoCount").value(1))
+            .andExpect(jsonPath("$.data.folders[0].id").value(folder.getId()))
+            .andExpect(jsonPath("$.data.folders[0].photoCount").value(1));
+    }
+
+    // 담기·꺼내기 응답의 photoCount 도 방 상세와 같은 기준을 써야 화면이 서로 어긋나지 않는다.
+    @Test
+    void 담기와_꺼내기_응답의_photoCount_도_보이는_것만_센다() throws Exception {
+        Folder folder = createFolderService.create(roomId, "1일차");
+        Long visible = upload("a.jpg", null);
+        Long reserved = issueOnly("b.jpg");
+
+        addToFolder(folder.getId(), visible, reserved)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.folder.photoCount").value(1));
+
+        removeFromFolder(folder.getId(), visible)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.folders[0].photoCount").value(0));
+    }
+
+    private ResultActions addToFolder(Long folderId, Long... mediaIds) throws Exception {
+        return mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", roomId)
+            .header("Authorization", token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"selection\":{\"mode\":\"include\",\"ids\":[%s]},\"folderId\":%d}"
+                .formatted(joinIds(mediaIds), folderId)));
+    }
+
+    private ResultActions removeFromFolder(Long folderId, Long... mediaIds) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/folders", roomId)
+            .header("Authorization", token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"selection\":{\"mode\":\"include\",\"ids\":[%s]},\"folderIds\":[%d]}"
+                .formatted(joinIds(mediaIds), folderId)));
+    }
+
+    private String joinIds(Long... mediaIds) {
+        return Arrays.stream(mediaIds).map(String::valueOf).collect(Collectors.joining(","));
     }
 
     private ResultActions getMediaList(String query) throws Exception {

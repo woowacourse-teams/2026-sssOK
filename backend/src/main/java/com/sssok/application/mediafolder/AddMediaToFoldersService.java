@@ -6,6 +6,7 @@ import com.sssok.application.media.MediaSelectionResolver;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.ResolvedMediaSelection;
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,8 @@ public class AddMediaToFoldersService {
 
         int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
         int alreadyInCount = mediaIds.size() - updatedCount;
-        FolderSummary summary = FolderSummary.of(folder, folderMediaRepository.countByFolderId(folderId));
+        FolderSummary summary = FolderSummary.of(folder,
+            folderMediaRepository.countByFolderIdAndStatusIn(folderId, UploadStatus.visibleStatuses()));
 
         if (!mediaIds.isEmpty()) {
             eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, mediaIds, List.of(summary)));

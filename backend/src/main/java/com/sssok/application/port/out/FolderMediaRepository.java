@@ -1,5 +1,7 @@
 package com.sssok.application.port.out;
 
+import com.sssok.domain.file.UploadStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -24,11 +26,13 @@ public interface FolderMediaRepository {
     // 폴더 자체를 지우기 전에 먼저 불러야 고아 행이 남지 않는다.
     long detachAllByRoomId(Long roomId);
 
-    long countByFolderId(Long folderId);
+    // 폴더에 담긴 미디어 중 주어진 상태인 것만 센다. 매핑 행을 전부 세면 아직 올라오지 않은
+    // 미디어까지 포함돼 목록에 보이는 개수와 어긋난다.
+    long countByFolderIdAndStatusIn(Long folderId, Collection<UploadStatus> statuses);
 
     // 위와 같지만 여러 폴더를 한 번에 센다(꺼내기에서 대상 폴더가 여러 개일 때 N+1을 피하는 용도).
     // 결과에 없는 폴더 id는 0개로 보면 된다.
-    Map<Long, Long> countByFolderIds(List<Long> folderIds);
+    Map<Long, Long> countByFolderIdsAndStatusIn(List<Long> folderIds, Collection<UploadStatus> statuses);
 
     // 주어진 미디어 중, 지금 어떤 폴더에든 하나라도 속해 있는 것만 골라 반환한다.
     // 꺼내기 전후로 두 번 호출해 "이번 요청으로 폴더 소속이 0개가 된 미디어"(movedToRoot)를 가려낸다.

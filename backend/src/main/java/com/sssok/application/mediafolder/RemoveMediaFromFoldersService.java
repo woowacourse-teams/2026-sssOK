@@ -7,6 +7,7 @@ import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.ResolvedMediaSelection;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
 import java.util.Map;
@@ -87,7 +88,8 @@ public class RemoveMediaFromFoldersService {
             return List.of();
         }
         List<Long> folderIds = folders.stream().map(Folder::getId).toList();
-        Map<Long, Long> photoCounts = folderMediaRepository.countByFolderIds(folderIds);
+        Map<Long, Long> photoCounts =
+            folderMediaRepository.countByFolderIdsAndStatusIn(folderIds, UploadStatus.visibleStatuses());
         return folders.stream()
             .map(folder -> FolderSummary.of(folder, photoCounts.getOrDefault(folder.getId(), 0L)))
             .toList();
