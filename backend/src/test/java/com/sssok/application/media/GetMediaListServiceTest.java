@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -455,7 +456,7 @@ class GetMediaListServiceTest {
 
     private StoredFile save(Long roomId, Long uploaderId, UploadStatus status, Instant createdAt) {
         StoredFile file = StoredFile.reserve(
-            roomId, uploaderId, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt);
+            roomId, uploaderId, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt, SIZE_POLICY);
         switch (status) {
             case PROCESSING -> file.startProcessing();
             case READY -> {

@@ -1,5 +1,6 @@
 package com.sssok.application.download;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -37,7 +38,7 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
     DownloadJobRepository downloadJobRepository;
 
     private Long media(long roomId, UploadStatus status) {
-        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now());
+        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now(), SIZE_POLICY);
         if (status == UploadStatus.PROCESSING || status == UploadStatus.READY) {
             file.startProcessing();
         }

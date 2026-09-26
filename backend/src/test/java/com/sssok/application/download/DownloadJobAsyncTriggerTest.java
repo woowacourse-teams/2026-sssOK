@@ -1,5 +1,6 @@
 package com.sssok.application.download;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -58,7 +59,7 @@ class DownloadJobAsyncTriggerTest {
     }
 
     private Long media(Long roomId, byte[] content) {
-        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(content.length), Instant.now());
+        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(content.length), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
         given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))

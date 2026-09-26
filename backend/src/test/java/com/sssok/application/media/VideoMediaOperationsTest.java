@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -196,7 +197,7 @@ class VideoMediaOperationsTest {
     // 워커를 실제로 돌려 READY 까지 보낸다 — 썸네일 키가 붙은 상태가 이 테스트의 출발점이다.
     private StoredFile readyVideo() {
         StoredFile file = StoredFile.reserve(
-            roomId, uploaderId, "회식영상.mp4", "video/mp4", new FileSize(2048), Instant.now());
+            roomId, uploaderId, "회식영상.mp4", "video/mp4", new FileSize(2048), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         StoredFile saved = fileRepository.save(file);
 
