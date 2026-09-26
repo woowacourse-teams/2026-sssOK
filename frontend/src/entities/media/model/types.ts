@@ -7,9 +7,8 @@ export type MediaUploaderFilter = "ALL" | "ME" | "OTHERS";
 export type MediaStatus = "RESERVED" | "PROCESSING" | "READY" | "FAILED";
 
 /**
- * 방에 올라간 사진·영상 한 건.
- *
- * **업로드 직후를 포함한 모든 시점**을 담는다. 등록 직후에는 워커가 아직 안 돌아서
+ * 방에 올라간 사진, 영상 한 건
+ * 업로드 직후를 포함한 모든 시점을 담는다. 등록 직후에는 워커가 아직 안 돌아서
  * `status` 가 `PROCESSING` 이고 파생 URL 두 개가 비어 있다.
  * 처리가 끝난 것만 다루는 곳은 아래 `MediaItem` 을 쓴다.
  */
@@ -21,6 +20,7 @@ export interface Media {
   size: number;
   /** 워커가 만드는 값이라 PROCESSING 동안은 null 이다. */
   thumbnailUrl: string | null;
+  thumbnailUrlExpiresAt?: string | null;
   originalUrl: string | null;
   /** 치수도 워커가 채운다. PROCESSING 동안은 null 이다. */
   width: number | null;
@@ -46,19 +46,9 @@ export interface MediaItem extends Media {
   status: "READY";
 }
 
-/**
- * 목록 조회 한 페이지. 서버가 최신순으로 잘라 내려준다.
- *
- * `nextCursor` 는 **문자열**이다 — 서버가 필터(폴더·업로더)와 묶어 서명한 값이라
- * 필터를 바꾼 뒤 이전 커서를 보내면 400 `INVALID_CURSOR` 가 난다.
- */
+/** 목록 조회 결과. 서버가 방의 미디어를 최신순으로 전부 내려준다. */
 export interface MediaList {
   items: MediaItem[];
-  /** 마지막 페이지면 null 이다. */
-  nextCursor: string | null;
-  hasNext: boolean;
-  /** 요청 시점에 조건을 만족하는 전체 개수. 페이지를 넘기는 동안 달라질 수 있다. */
-  totalCount: number;
 }
 
 /** 갤러리와 뷰어가 공유하는 사진 한 자리. */
