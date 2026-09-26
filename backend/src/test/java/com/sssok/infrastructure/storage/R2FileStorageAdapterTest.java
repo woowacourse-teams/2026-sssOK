@@ -34,6 +34,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 @EnabledIf("hasCredentials")
 class R2FileStorageAdapterTest {
 
+    private static final String BROWSER_ORIGIN = "http://localhost:3000";
     private static final Map<String, String> CONFIG = loadConfig();
     private static final byte[] BODY = {(byte) 0x89, 'P', 'N', 'G'};
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(10);
@@ -126,8 +127,10 @@ class R2FileStorageAdapterTest {
         String disposition = com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName);
         String url = adapter.presignGet(key, disposition, contentType, Duration.ofMinutes(5));
 
-        HttpResponse<byte[]> response = get(url);
+        HttpResponse<byte[]> response = get(url, BROWSER_ORIGIN);
         assertThat(response.statusCode()).isEqualTo(200);
+        assertThat(response.headers().firstValue("access-control-allow-origin"))
+            .contains(BROWSER_ORIGIN);
         assertThat(response.headers().firstValue("content-disposition")).contains(disposition);
         assertThat(response.headers().firstValue("content-type")).contains(contentType);
         assertThat(response.body()).isEqualTo(BODY);
@@ -246,12 +249,18 @@ class R2FileStorageAdapterTest {
     }
 
     private HttpResponse<byte[]> get(String url) {
+        return get(url, null);
+    }
+
+    private HttpResponse<byte[]> get(String url, String origin) {
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+            HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(url))
                 .timeout(HTTP_TIMEOUT)
-                .GET()
-                .build();
-            return HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofByteArray());
+                .GET();
+            if (origin != null) {
+                request.header("Origin", origin);
+            }
+            return HTTP_CLIENT.send(request.build(), HttpResponse.BodyHandlers.ofByteArray());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         } catch (InterruptedException e) {
