@@ -3,7 +3,6 @@ package com.sssok.application.download;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.application.media.MediaSelection;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.infrastructure.config.DownloadProperties;
 import java.time.Instant;
@@ -23,10 +22,10 @@ public class CreateBatchDownloadService {
     private final FileStoragePort fileStoragePort;
     private final DownloadProperties downloadProperties;
 
-    public List<BatchDownloadFile> create(Long roomId, Long requesterId, MediaSelection selection,
+    public List<BatchDownloadFile> create(Long roomId, Long requesterId, List<Long> mediaIds,
                                           Long folderId, MediaUploaderFilter uploader) {
-        List<StoredFile> targets = downloadTargetResolver.resolveSelection(
-            roomId, selection, folderId, requesterId, uploader);
+        List<StoredFile> targets = downloadTargetResolver.resolve(
+            roomId, mediaIds, folderId, requesterId, uploader);
         List<String> fileNames =
             DownloadFileNames.deduplicate(targets.stream().map(StoredFile::getOriginalFileName).toList());
         Instant expiresAt = Instant.now().plus(downloadProperties.presignedGetTtl());

@@ -1,5 +1,6 @@
 package com.sssok.application.room;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
@@ -101,7 +102,7 @@ class PurgeRoomServiceTest {
     void 방을_지우면_원본과_썸네일을_모두_스토리지에서_지운다() {
         Room room = 삭제된_방(Instant.now().minus(RETENTION).minus(Duration.ofDays(1)));
         StoredFile file = StoredFile.reserve(room.getId(), hostId, "사진.jpg", "image/jpeg",
-            new FileSize(1024), Instant.now());
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         StorageKey original = file.getStorageKey();
         StorageKey thumbnail = original.thumbnail();
