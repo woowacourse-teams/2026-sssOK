@@ -1,13 +1,11 @@
 import { useEffect, useRef } from "react";
-import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
-import {
-  photosQueryKey,
-  type MediaItem,
-  type MediaList,
-  type MediaUploaderFilter,
-} from "@/entities/media";
+import type { MediaItem } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
+import type { MediaFoldersUpdatedEvent } from "./roomEventTypes";
+import { updateMediaReadyCache } from "./updateMediaReadyCache";
+import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
 interface UseRoomEventsParams {
   roomId: number;
@@ -15,6 +13,7 @@ interface UseRoomEventsParams {
   token: string;
   onMediaReady?: (media: MediaItem) => boolean;
   onMediaDeleted?: (mediaIds: number[]) => void;
+  onMediaFoldersUpdated?: (event: MediaFoldersUpdatedEvent) => void;
 }
 
 export const useRoomEvents = ({
@@ -23,10 +22,12 @@ export const useRoomEvents = ({
   token,
   onMediaReady,
   onMediaDeleted,
+  onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
   const onMediaReadyRef = useRef(onMediaReady);
   const onMediaDeletedRef = useRef(onMediaDeleted);
+  const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
 
   useEffect(() => {
     onMediaReadyRef.current = onMediaReady;
@@ -35,6 +36,10 @@ export const useRoomEvents = ({
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
   }, [onMediaDeleted]);
+
+  useEffect(() => {
+    onMediaFoldersUpdatedRef.current = onMediaFoldersUpdated;
+  }, [onMediaFoldersUpdated]);
 
   useEffect(() => {
     const url = new URL(`${API_BASE_URL}/rooms/${roomId}/events`);
@@ -47,78 +52,36 @@ export const useRoomEvents = ({
       const replacedPending =
         media.uploaderId === userId && (onMediaReadyRef.current?.(media) ?? false);
 
-      const queries = queryClient
-        .getQueryCache()
-        .findAll({ queryKey: photosQueryKey(roomId, userId) });
-
-      queries.forEach((query) => {
-        const filter = query.queryKey[3] as
-          { folderId: number | null; uploader: MediaUploaderFilter } | undefined;
-        const matchesFolder =
-          filter?.folderId === null ||
-          filter?.folderId === undefined ||
-          media.folderIds.includes(filter.folderId);
-        const matchesUploader =
-          filter?.uploader === undefined ||
-          filter.uploader === "ALL" ||
-          (filter.uploader === "ME" && media.uploaderId === userId) ||
-          (filter.uploader === "OTHERS" && media.uploaderId !== userId);
-        if (!matchesFolder || !matchesUploader) return;
-
-        queryClient.setQueryData<InfiniteData<MediaList>>(query.queryKey, (current) => {
-          if (!current) return current;
-
-          const exists = current.pages.some((page) =>
-            page.items.some((item) => item.mediaId === media.mediaId),
-          );
-          const pages = current.pages.map((page) => ({
-            ...page,
-            items: page.items.map((item) => (item.mediaId === media.mediaId ? media : item)),
-            totalCount: exists ? page.totalCount : page.totalCount + 1,
-          }));
-          if (!exists && !replacedPending && pages[0]) {
-            pages[0] = { ...pages[0], items: [media, ...pages[0].items] };
-          }
-
-          return { ...current, pages };
-        });
+      updateMediaReadyCache({
+        queryClient,
+        roomId,
+        userId,
+        media,
+        replacedPending,
       });
     };
 
     const handleMediaDeleted = (event: MessageEvent<string>) => {
       const { mediaIds } = JSON.parse(event.data) as { mediaIds: number[] };
-      const deletedIds = new Set(mediaIds);
 
-      queryClient.setQueriesData<InfiniteData<MediaList>>(
-        { queryKey: photosQueryKey(roomId, userId) },
-        (current) => {
-          if (!current) return current;
-
-          const deletedCount = new Set(
-            current.pages.flatMap((page) =>
-              page.items.filter((item) => deletedIds.has(item.mediaId)).map((item) => item.mediaId),
-            ),
-          ).size;
-
-          return {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              items: page.items.filter((item) => !deletedIds.has(item.mediaId)),
-              totalCount: Math.max(0, page.totalCount - deletedCount),
-            })),
-          };
-        },
-      );
+      updateMediaDeletedCache({ queryClient, roomId, userId, mediaIds });
       onMediaDeletedRef.current?.(mediaIds);
+    };
+
+    const handleMediaFoldersUpdated = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as MediaFoldersUpdatedEvent;
+
+      onMediaFoldersUpdatedRef.current?.(payload);
     };
 
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
+    eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
 
     return () => {
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
+      eventSource.removeEventListener("media.folders.updated", handleMediaFoldersUpdated);
       eventSource.close();
     };
   }, [queryClient, roomId, userId, token]);
