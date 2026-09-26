@@ -149,7 +149,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", roomId)
                 .header("Authorization", bearer(uploader))
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[%d,999999,%d,%d]}}"
+                .content("{\"mediaIds\":[%d,999999,%d,%d]}"
                     .formatted(first.getId(), second.getId(), first.getId())))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.deletedCount").value(2))

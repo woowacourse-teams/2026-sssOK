@@ -54,18 +54,15 @@ const MAX_CONCURRENT_JOBS = 3;
 /** `mediaIds` 상한. backend `DownloadTargetResolver.MAX_MEDIA_IDS` 와 같다. */
 const MAX_MEDIA_IDS = 1000;
 
-interface MockSelection {
-  mode: "include" | "exclude";
-  ids: number[];
+interface DownloadTargetBody {
+  mediaIds?: number[];
+  folderId?: number;
+  uploader?: string;
 }
 
-const selectMedia = <T extends { mediaId: number }>(all: T[], selection?: MockSelection) => {
-  if (selection === undefined) return all;
-  const ids = new Set(selection.ids);
-  return all.filter((media) =>
-    selection.mode === "include" ? ids.has(media.mediaId) : !ids.has(media.mediaId),
-  );
-};
+const isValidTarget = ({ mediaIds, folderId, uploader }: DownloadTargetBody) =>
+  (mediaIds === undefined) !== (folderId === undefined) &&
+  (mediaIds === undefined || uploader === undefined);
 
 /** `download.retention: 1h`. READY 시점부터 센다. */
 const RETENTION_MS = 60 * 60 * 1000;
@@ -205,20 +202,30 @@ export const downloadHandlers = [
       return denied;
     }
 
-    const { mediaIds, selection, folderId } = (await request.json()) as {
-      mediaIds?: number[];
-      selection?: MockSelection;
-      folderId?: number;
-    };
+    const body = (await request.json().catch(() => ({}))) as DownloadTargetBody;
 
-    if ((mediaIds !== undefined || selection !== undefined) && folderId !== undefined) {
-      return error(400, "INVALID_PARAM", "mediaIds 와 folderId 는 함께 보낼 수 없습니다");
+    if (!isValidTarget(body)) {
+      return error(400, "INVALID_PARAM", "다운로드 조건이 올바르지 않습니다");
+    }
+
+    const { mediaIds, folderId } = body;
+
+    if (mediaIds !== undefined && new Set(mediaIds).size > MAX_MEDIA_IDS) {
+      return error(
+        400,
+        "TOO_MANY_FILES",
+        `한 번에 최대 ${MAX_MEDIA_IDS}개까지 다운로드할 수 있습니다`,
+      );
+    }
+
+    if (folderId !== undefined && !hasFolder(roomId, folderId)) {
+      return error(404, "FOLDER_NOT_FOUND", "폴더를 찾을 수 없습니다");
     }
 
     const all = mediaOfRoom(roomId);
     const chosen =
       mediaIds === undefined
-        ? selectMedia(all, selection)
+        ? all.filter((media) => media.folderIds.includes(folderId as number))
         : all.filter((media) => mediaIds.includes(media.mediaId));
     const ready = chosen.filter((media) => media.status === "READY");
 
@@ -257,16 +264,9 @@ export const downloadHandlers = [
       return denied;
     }
 
-    const body = (await request.json().catch(() => ({}))) as {
-      mediaIds?: number[];
-      selection?: MockSelection;
-      folderId?: number;
-    };
+    const body = (await request.json().catch(() => ({}))) as DownloadTargetBody;
 
-    if (
-      (body.mediaIds !== undefined || body.selection !== undefined) &&
-      body.folderId !== undefined
-    ) {
+    if (!isValidTarget(body)) {
       return error(400, "INVALID_PARAM", "다운로드 조건이 올바르지 않습니다");
     }
 
@@ -297,11 +297,7 @@ export const downloadHandlers = [
     const scoped =
       requestedIds !== null
         ? all.filter((media) => requestedIds.includes(media.mediaId))
-        : body.selection !== undefined
-          ? selectMedia(all, body.selection)
-          : body.folderId !== undefined
-            ? all.filter((media) => media.folderIds.includes(body.folderId as number))
-            : all;
+        : all.filter((media) => media.folderIds.includes(body.folderId as number));
 
     // 처리 중인 미디어는 대상에서 빼고 mediaCount 에도 안 센다.
     const targets = scoped.filter((media) => media.status === "READY");
