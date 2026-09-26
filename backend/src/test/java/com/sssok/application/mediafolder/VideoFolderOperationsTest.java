@@ -3,8 +3,6 @@ package com.sssok.application.mediafolder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sssok.application.folder.CreateFolderService;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -41,8 +39,7 @@ class VideoFolderOperationsTest extends PostgresContainerSupport {
         Long folderId = createFolderService.create(ROOM_ID, "회식").getId();
 
         AddMediaToFoldersResult result = addMediaToFoldersService.add(
-            ROOM_ID, MediaSelection.include(List.of(videoId)), folderId, null,
-            MediaUploaderFilter.ALL);
+            ROOM_ID, List.of(videoId), folderId);
 
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(mediaIdsIn(folderId)).containsExactly(videoId);
@@ -55,8 +52,7 @@ class VideoFolderOperationsTest extends PostgresContainerSupport {
         Long folderId = createFolderService.create(ROOM_ID, "회식").getId();
 
         AddMediaToFoldersResult result = addMediaToFoldersService.add(
-            ROOM_ID, MediaSelection.include(List.of(photoId, videoId)), folderId, null,
-            MediaUploaderFilter.ALL);
+            ROOM_ID, List.of(photoId, videoId), folderId);
 
         assertThat(result.updatedCount()).isEqualTo(2);
         assertThat(mediaIdsIn(folderId)).containsExactlyInAnyOrder(photoId, videoId);
@@ -66,12 +62,10 @@ class VideoFolderOperationsTest extends PostgresContainerSupport {
     void 영상을_폴더에서_뺀다() {
         Long videoId = existingVideo(1L);
         Long folderId = createFolderService.create(ROOM_ID, "회식").getId();
-        addMediaToFoldersService.add(ROOM_ID, MediaSelection.include(List.of(videoId)), folderId,
-            null, MediaUploaderFilter.ALL);
+        addMediaToFoldersService.add(ROOM_ID, List.of(videoId), folderId);
 
         removeMediaFromFoldersService.remove(
-            ROOM_ID, MediaSelection.include(List.of(videoId)), List.of(folderId), null,
-            MediaUploaderFilter.ALL);
+            ROOM_ID, List.of(videoId), List.of(folderId));
 
         assertThat(mediaIdsIn(folderId)).isEmpty();
     }

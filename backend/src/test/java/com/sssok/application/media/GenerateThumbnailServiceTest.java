@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -340,7 +341,7 @@ class GenerateThumbnailServiceTest {
 
     private StoredFile processing(String fileName, String mimeType) {
         StoredFile file = StoredFile.reserve(
-            ROOM_ID, UPLOADER_ID, fileName, mimeType, new FileSize(1024), Instant.now());
+            ROOM_ID, UPLOADER_ID, fileName, mimeType, new FileSize(1024), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         return fileRepository.save(file);
     }
