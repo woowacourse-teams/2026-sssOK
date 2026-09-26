@@ -1,5 +1,6 @@
 package com.sssok.application.folder;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -96,14 +97,14 @@ class DeleteFolderServiceTest {
 
     private Long visibleMedia() {
         StoredFile file = StoredFile.reserve(1L, 1L, "photo.jpg", "image/jpeg",
-            FileSize.ofMegabytes(1), Instant.now());
+            FileSize.ofMegabytes(1), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         return fileRepository.save(file).getId();
     }
 
     private Long reservedMedia() {
         return fileRepository.save(StoredFile.reserve(1L, 1L, "pending.jpg", "image/jpeg",
-            FileSize.ofMegabytes(1), Instant.now())).getId();
+            FileSize.ofMegabytes(1), Instant.now(), SIZE_POLICY)).getId();
     }
 
     @Test

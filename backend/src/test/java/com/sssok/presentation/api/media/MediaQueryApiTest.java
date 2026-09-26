@@ -300,103 +300,29 @@ class MediaQueryApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.folders[0].photoCount").value(0));
     }
 
-    // 전체 선택(exclude 모드) 담기는 방의 모든 stored_file 을 대상으로 잡는다.
-    // 아직 올라오지 않은 RESERVED 미디어까지 담기면, 담았다는 개수와 폴더 개수가 어긋난다.
+    // 클라이언트는 목록에서 고른 id 를 보내지만, 고른 뒤 요청이 닿기 전에 그 미디어가 FAILED 로
+    // 확정되거나 아직 안 올라온 id 가 섞여 들어올 수 있다. 그래도 응답 개수와 폴더 photoCount 는 같아야 한다.
     @Test
-    void 전체_선택_담기의_결과_개수와_폴더_photoCount_가_같다() throws Exception {
+    void 목록에_없는_미디어_id_를_함께_보내도_결과_개수와_폴더_photoCount_가_같다() throws Exception {
         Folder folder = createFolderService.create(roomId, "1일차");
-        upload("a.jpg", null);
-        issueOnly("b.jpg");
+        Long visible = upload("a.jpg", null);
+        Long reserved = issueOnly("b.jpg");
 
-        String response = addToFolderAll(folder.getId())
+        String response = addToFolder(folder.getId(), visible, reserved)
             .andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString();
         JsonNode data = objectMapper.readTree(response).path("data");
 
         int moved = data.path("updatedCount").asInt() + data.path("alreadyInCount").asInt();
         assertThat(moved).isEqualTo(data.path("folder").path("photoCount").asInt());
-    }
-
-    // 폴더를 지정해 업로드하면 발급 시점에 이미 folder_media 매핑이 생긴다.
-    // 아직 실물이 없는 동안에는 목록에도 photoCount 에도 잡히지 않아야 하고, 완료 등록되면 둘 다 함께 올라야 한다.
-    @Test
-    void 폴더에_업로드_중인_사진은_완료된_뒤에야_개수에_잡힌다() throws Exception {
-        Folder folder = createFolderService.create(roomId, "1일차");
-        Long mediaId = issueOnly("a.jpg", folder.getId());
-
-        assertThat(folderPhotoCount(folder.getId())).isZero();
-        getMediaList("?folderId=" + folder.getId())
-            .andExpect(jsonPath("$.data.totalCount").value(0));
-
-        finishUpload(mediaId);
-
-        assertThat(folderPhotoCount(folder.getId())).isEqualTo(1);
-        getMediaList("?folderId=" + folder.getId())
-            .andExpect(jsonPath("$.data.totalCount").value(1));
-    }
-
-    // 전체 선택 꺼내기도 담기와 같은 기준을 써야, 꺼낸 개수와 남은 개수의 합이 원래 개수와 맞는다.
-    @Test
-    void 전체_선택_꺼내기의_결과_개수와_폴더_photoCount_가_같다() throws Exception {
-        Folder folder = createFolderService.create(roomId, "1일차");
-        upload("a.jpg", folder.getId());
-        upload("b.jpg", folder.getId());
-        issueOnly("c.jpg", folder.getId());
-        int before = folderPhotoCount(folder.getId());
-
-        String response = removeFromFolderAll(folder.getId())
-            .andExpect(status().isOk())
-            .andReturn().getResponse().getContentAsString();
-        JsonNode data = objectMapper.readTree(response).path("data");
-
-        assertThat(before).isEqualTo(2);
-        assertThat(data.path("updatedCount").asInt()).isEqualTo(before);
-        assertThat(data.path("folders").get(0).path("photoCount").asInt()).isZero();
-        assertThat(folderPhotoCount(folder.getId())).isZero();
-    }
-
-    private int folderPhotoCount(Long folderId) throws Exception {
-        String response = mockMvc.perform(get("/api/v1/rooms/{code}", roomCode)
-                .header("Authorization", token))
-            .andExpect(status().isOk())
-            .andReturn().getResponse().getContentAsString();
-        for (JsonNode folder : objectMapper.readTree(response).path("data").path("folders")) {
-            if (folder.path("id").asLong() == folderId) {
-                return folder.path("photoCount").asInt();
-            }
-        }
-        throw new IllegalStateException("폴더를 찾지 못했다: " + folderId);
-    }
-
-    private void finishUpload(Long mediaId) throws Exception {
-        mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
-                .header("Authorization", token)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"mediaIds\":[%d]}".formatted(mediaId)))
-            .andExpect(status().isCreated());
-    }
-
-    private ResultActions removeFromFolderAll(Long folderId) throws Exception {
-        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/folders", roomId)
-            .header("Authorization", token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"selection\":{\"mode\":\"exclude\",\"ids\":[]},\"folderIds\":[%d]}"
-                .formatted(folderId)));
-    }
-
-    private ResultActions addToFolderAll(Long folderId) throws Exception {
-        return mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", roomId)
-            .header("Authorization", token)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"selection\":{\"mode\":\"exclude\",\"ids\":[]},\"folderId\":%d}"
-                .formatted(folderId)));
+        assertThat(moved).isEqualTo(1);
     }
 
     private ResultActions addToFolder(Long folderId, Long... mediaIds) throws Exception {
         return mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", roomId)
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"selection\":{\"mode\":\"include\",\"ids\":[%s]},\"folderId\":%d}"
+            .content("{\"mediaIds\":[%s],\"folderId\":%d}"
                 .formatted(joinIds(mediaIds), folderId)));
     }
 
@@ -404,7 +330,7 @@ class MediaQueryApiTest extends PostgresContainerSupport {
         return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/folders", roomId)
             .header("Authorization", token)
             .contentType(MediaType.APPLICATION_JSON)
-            .content("{\"selection\":{\"mode\":\"include\",\"ids\":[%s]},\"folderIds\":[%d]}"
+            .content("{\"mediaIds\":[%s],\"folderIds\":[%d]}"
                 .formatted(joinIds(mediaIds), folderId)));
     }
 

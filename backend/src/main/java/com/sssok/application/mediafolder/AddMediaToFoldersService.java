@@ -1,10 +1,8 @@
 package com.sssok.application.mediafolder;
 
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaSelectionResolver;
-import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.application.media.ResolvedMediaSelection;
+import com.sssok.application.media.MediaIdsResolver;
+import com.sssok.application.media.ResolvedMediaIds;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
@@ -21,18 +19,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class AddMediaToFoldersService {
 
     private final RoomFolders roomFolders;
-    private final MediaSelectionResolver mediaSelectionResolver;
+    private final MediaIdsResolver mediaIdsResolver;
     private final FolderMediaRepository folderMediaRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public AddMediaToFoldersResult add(Long roomId, MediaSelection selection, Long folderId,
-                                       Long requesterId, MediaUploaderFilter uploader) {
+    public AddMediaToFoldersResult add(Long roomId, List<Long> requestedMediaIds, Long folderId) {
         requireFolder(folderId);
 
         Folder folder = roomFolders.requireAllInRoom(roomId, List.of(folderId)).get(0);
-        ResolvedMediaSelection media =
-            mediaSelectionResolver.resolveVisible(roomId, selection, requesterId, uploader);
+        ResolvedMediaIds media = mediaIdsResolver.resolveVisible(roomId, requestedMediaIds);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
 
         int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
@@ -40,7 +36,7 @@ public class AddMediaToFoldersService {
         FolderSummary summary = FolderSummary.of(folder,
             folderMediaRepository.countByFolderIdAndStatusIn(folderId, UploadStatus.visibleStatuses()));
 
-        if (!mediaIds.isEmpty()) {
+        if (updatedCount > 0) {
             eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, mediaIds, List.of(summary)));
         }
         return new AddMediaToFoldersResult(updatedCount, alreadyInCount, media.notFoundIds(), summary);

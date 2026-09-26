@@ -67,9 +67,10 @@ public class StoredFile {
 
     // 클라이언트가 보낸 MIME 으로 타입을 정한다. 파일명 확장자는 위조하기 쉬워 기준으로 쓰지 않는다.
     public static StoredFile reserve(Long roomId, Long uploaderId, String originalFileName,
-                                     String mimeType, FileSize fileSize, Instant now) {
+                                     String mimeType, FileSize fileSize, Instant now,
+                                     UploadSizePolicy sizePolicy) {
         MediaType mediaType = MediaType.fromMimeType(mimeType);
-        validateSize(mediaType, fileSize);
+        validateSize(mediaType, fileSize, sizePolicy);
 
         return new StoredFile(null, roomId, uploaderId, originalFileName, mediaType, fileSize,
                 StorageKey.generate(roomId, mediaType), null, UploadStatus.RESERVED, now, now, 0,
@@ -89,9 +90,10 @@ public class StoredFile {
                 thumbnailKey, width, height, durationSeconds, takenAt, location);
     }
 
-    private static void validateSize(MediaType mediaType, FileSize fileSize) {
-        if (fileSize.exceeds(mediaType.maxBytes())) {
-            throw new FileSizeExceededException(mediaType, fileSize);
+    private static void validateSize(MediaType mediaType, FileSize fileSize,
+                                     UploadSizePolicy sizePolicy) {
+        if (fileSize.exceeds(sizePolicy.maxBytesFor(mediaType))) {
+            throw new FileSizeExceededException(mediaType, fileSize, sizePolicy);
         }
     }
 
@@ -113,8 +115,8 @@ public class StoredFile {
     }
 
     // 재압축해서 다시 올리는 경우에만 크기가 바뀐다.
-    public void changeFileSize(FileSize newFileSize) {
-        validateSize(mediaType, newFileSize);
+    public void changeFileSize(FileSize newFileSize, UploadSizePolicy sizePolicy) {
+        validateSize(mediaType, newFileSize, sizePolicy);
         this.fileSize = newFileSize;
     }
 

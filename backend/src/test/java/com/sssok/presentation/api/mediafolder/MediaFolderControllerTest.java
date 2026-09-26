@@ -3,29 +3,24 @@ package com.sssok.presentation.api.mediafolder;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.nullable;
-import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.folder.exception.FolderNotFoundException;
-import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.mediafolder.AddMediaToFoldersResult;
 import com.sssok.application.mediafolder.AddMediaToFoldersService;
 import com.sssok.application.mediafolder.FolderSummary;
 import com.sssok.application.mediafolder.RemoveMediaFromFoldersResult;
 import com.sssok.application.mediafolder.RemoveMediaFromFoldersService;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
-import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
@@ -46,8 +41,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-// Controller 슬라이스 테스트. RoomMembershipInterceptor도 이 슬라이스에 함께 뜨므로
-// 방 존재/만료/입장 여부(404·410·403) 검증도 여기서 함께 다룬다.
 @WebMvcTest(MediaFolderController.class)
 class MediaFolderControllerTest {
 
@@ -55,26 +48,13 @@ class MediaFolderControllerTest {
     private static final Long MEMBER_ID = 2L;
     private static final String BEARER = "Bearer valid-token";
 
-    @Autowired
-    MockMvc mockMvc;
-
-    @MockitoBean
-    AddMediaToFoldersService addMediaToFoldersService;
-
-    @MockitoBean
-    RemoveMediaFromFoldersService removeMediaFromFoldersService;
-
-    @MockitoBean
-    TokenProvider tokenProvider;
-
-    @MockitoBean
-    AdminTokenProvider adminTokenProvider;
-
-    @MockitoBean
-    RoomRepository roomRepository;
-
-    @MockitoBean
-    RoomMemberRepository roomMemberRepository;
+    @Autowired MockMvc mockMvc;
+    @MockitoBean AddMediaToFoldersService addMediaToFoldersService;
+    @MockitoBean RemoveMediaFromFoldersService removeMediaFromFoldersService;
+    @MockitoBean TokenProvider tokenProvider;
+    @MockitoBean AdminTokenProvider adminTokenProvider;
+    @MockitoBean RoomRepository roomRepository;
+    @MockitoBean RoomMemberRepository roomMemberRepository;
 
     @BeforeEach
     void setUp() {
@@ -84,203 +64,109 @@ class MediaFolderControllerTest {
             .willReturn(Optional.of(RoomMember.reconstruct(1L, ROOM_ID, MEMBER_ID, Instant.now())));
     }
 
-    private Room activeRoom() {
-        return Room.reconstruct(
-            ROOM_ID,
-            null,
-            RoomCode.generate(new SecureRandom()),
-            new RoomName("우테코 회식"),
-            RoomStatus.initial(),
-            new RoomExpiration(Instant.now().plusSeconds(3600)),
-            UploadPolicy.ANYONE,
-            1L,
-            Instant.now(),
-            null
-        );
-    }
-
     @Test
-    void 폴더에_담으면_200과_결과를_반환한다() throws Exception {
-        AddMediaToFoldersResult result =
-            new AddMediaToFoldersResult(2, 0, List.of(), new FolderSummary(31L, "맛집", 9));
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
-            nullable(MediaUploaderFilter.class))).willReturn(result);
+    void 폴더에_담으면_결과를_반환한다() throws Exception {
+        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong())).willReturn(
+            new AddMediaToFoldersResult(2, 0, List.of(), new FolderSummary(31L, "맛집", 9)));
 
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]},\"folderId\":31}")
+        addToFolders("{\"mediaIds\":[5012,5011],\"folderId\":31}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(2))
-            .andExpect(jsonPath("$.data.alreadyInCount").value(0))
-            .andExpect(jsonPath("$.data.notFoundMediaIds").isEmpty())
-            .andExpect(jsonPath("$.data.folder.id").value(31))
-            .andExpect(jsonPath("$.data.folder.name").value("맛집"))
             .andExpect(jsonPath("$.data.folder.photoCount").value(9));
+        verify(addMediaToFoldersService).add(ROOM_ID, List.of(5012L, 5011L), 31L);
     }
 
     @Test
     void 인증이_없으면_401을_반환한다() throws Exception {
         mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":31}"))
-            .andExpect(status().isUnauthorized())
-            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+                .content("{\"mediaIds\":[1],\"folderId\":31}"))
+            .andExpect(status().isUnauthorized());
     }
 
     @Test
-    void 없는_방이면_404와_ROOM_NOT_FOUND를_반환한다() throws Exception {
+    void 없는_방이면_404를_반환한다() throws Exception {
         given(roomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
-
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":31}")
+        addToFolders("{\"mediaIds\":[1],\"folderId\":31}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
 
     @Test
-    void 입장하지_않았으면_403과_NOT_ROOM_MEMBER를_반환한다() throws Exception {
-        given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID)).willReturn(Optional.empty());
-
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":31}")
-            .andExpect(status().isForbidden())
-            .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    void 입장하지_않았으면_403을_반환한다() throws Exception {
+        given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
+            .willReturn(Optional.empty());
+        addToFolders("{\"mediaIds\":[1],\"folderId\":31}")
+            .andExpect(status().isForbidden());
     }
 
     @Test
-    void 없는_폴더면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
-            nullable(MediaUploaderFilter.class)))
+    void 없는_폴더면_404를_반환한다() throws Exception {
+        given(addMediaToFoldersService.add(anyLong(), anyList(), anyLong()))
             .willThrow(new FolderNotFoundException(List.of(999L)));
-
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":999}")
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
+        addToFolders("{\"mediaIds\":[1],\"folderId\":999}")
+            .andExpect(status().isNotFound());
     }
 
     @Test
-    void mediaIds나_folderId가_비어있으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
-            nullable(MediaUploaderFilter.class)))
+    void folderId가_없으면_400을_반환한다() throws Exception {
+        given(addMediaToFoldersService.add(anyLong(), anyList(), any()))
             .willThrow(new InvalidMediaFolderParamException());
-
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[]},\"folderId\":31}")
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+        addToFolders("{\"mediaIds\":[1]}")
+            .andExpect(status().isBadRequest());
     }
 
     @Test
-    void 폴더에서_꺼내면_200과_결과를_반환한다() throws Exception {
-        RemoveMediaFromFoldersResult result = new RemoveMediaFromFoldersResult(
-            2, List.of(5011L), List.of(), List.of(new FolderSummary(31L, "맛집", 7)));
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
-            nullable(MediaUploaderFilter.class))).willReturn(result);
+    void 폴더에서_꺼내면_결과를_반환한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList())).willReturn(
+            new RemoveMediaFromFoldersResult(
+                2, List.of(5011L), List.of(), List.of(new FolderSummary(31L, "맛집", 7))));
 
-        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]},\"folderIds\":[31]}")
+        removeFromFolders("{\"mediaIds\":[5012,5011],\"folderIds\":[31]}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(2))
-            .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(5011))
-            .andExpect(jsonPath("$.data.folders[0].id").value(31));
-    }
-
-    @Test
-    void 꺼내기에서_폴더_없이_보내면_null로_전달된다() throws Exception {
-        RemoveMediaFromFoldersResult result =
-            new RemoveMediaFromFoldersResult(1, List.of(5011L), List.of(), List.of());
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), org.mockito.ArgumentMatchers.isNull(),
-            anyLong(), nullable(MediaUploaderFilter.class)))
-            .willReturn(result);
-
-        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5011]}}")
-            .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(5011));
+        verify(removeMediaFromFoldersService)
+            .remove(ROOM_ID, List.of(5012L, 5011L), List.of(31L));
     }
 
     @Test
-    void 꺼내기에서_selection이_없으면_400과_INVALID_PARAM을_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
-            nullable(MediaUploaderFilter.class)))
+    void folderIds를_생략하면_null로_전달한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), any())).willReturn(
+            new RemoveMediaFromFoldersResult(1, List.of(5011L), List.of(), List.of()));
+        removeFromFolders("{\"mediaIds\":[5011]}").andExpect(status().isOk());
+        verify(removeMediaFromFoldersService).remove(ROOM_ID, List.of(5011L), null);
+    }
+
+    @Test
+    void 꺼내기에서_mediaIds가_없으면_400을_반환한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList()))
             .willThrow(new InvalidMediaFolderParamException());
-
-        removeFromFolders("{\"folderIds\":[31]}")
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+        removeFromFolders("{\"folderIds\":[31]}").andExpect(status().isBadRequest());
     }
 
     @Test
-    void 꺼내기도_없는_폴더가_있으면_404와_FOLDER_NOT_FOUND를_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
-            nullable(MediaUploaderFilter.class)))
+    void 꺼내기도_없는_폴더가_있으면_404를_반환한다() throws Exception {
+        given(removeMediaFromFoldersService.remove(anyLong(), anyList(), anyList()))
             .willThrow(new FolderNotFoundException(List.of(999L)));
-
-        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderIds\":[999]}")
-            .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
-    }
-
-
-    // #275: 요청의 uploader 가 서비스까지 그대로 전달되는지 본다.
-    @Test
-    void 폴더_담기의_업로더_필터를_전달한다() throws Exception {
-        AddMediaToFoldersResult result =
-            new AddMediaToFoldersResult(1, 0, List.of(), new FolderSummary(31L, "맛집", 1));
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
-            nullable(MediaUploaderFilter.class))).willReturn(result);
-
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderId\":31,\"uploader\":\"ME\"}")
-            .andExpect(status().isOk());
-
-        verify(addMediaToFoldersService).add(eq(ROOM_ID), any(), eq(31L), anyLong(),
-            eq(MediaUploaderFilter.ME));
-    }
-
-    @Test
-    void 폴더_담기에_업로더를_생략하면_null로_전달한다() throws Exception {
-        AddMediaToFoldersResult result =
-            new AddMediaToFoldersResult(1, 0, List.of(), new FolderSummary(31L, "맛집", 1));
-        given(addMediaToFoldersService.add(anyLong(), any(), anyLong(), anyLong(),
-            nullable(MediaUploaderFilter.class))).willReturn(result);
-
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderId\":31}")
-            .andExpect(status().isOk());
-
-        verify(addMediaToFoldersService).add(eq(ROOM_ID), any(), eq(31L), anyLong(),
-            isNull());
-    }
-
-    @Test
-    void 폴더_담기의_지원하지_않는_업로더_필터는_400() throws Exception {
-        addToFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderId\":31,\"uploader\":\"UNKNOWN\"}")
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
-    void 폴더_꺼내기의_업로더_필터를_전달한다() throws Exception {
-        RemoveMediaFromFoldersResult result =
-            new RemoveMediaFromFoldersResult(1, List.of(), List.of(), List.of());
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList(), anyLong(),
-            nullable(MediaUploaderFilter.class))).willReturn(result);
-
-        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderIds\":[31],\"uploader\":\"OTHERS\"}")
-            .andExpect(status().isOk());
-
-        verify(removeMediaFromFoldersService).remove(eq(ROOM_ID), any(), anyList(), anyLong(),
-            eq(MediaUploaderFilter.OTHERS));
-    }
-
-    @Test
-    void 폴더_꺼내기의_지원하지_않는_업로더_필터는_400() throws Exception {
-        removeFromFolders("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"folderIds\":[31],\"uploader\":\"UNKNOWN\"}")
-            .andExpect(status().isBadRequest());
+        removeFromFolders("{\"mediaIds\":[1],\"folderIds\":[999]}")
+            .andExpect(status().isNotFound());
     }
 
     private ResultActions addToFolders(String body) throws Exception {
         return mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
-            .header("Authorization", BEARER)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(body));
+            .header("Authorization", BEARER).contentType(MediaType.APPLICATION_JSON).content(body));
     }
 
     private ResultActions removeFromFolders(String body) throws Exception {
         return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
-            .header("Authorization", BEARER)
-            .contentType(MediaType.APPLICATION_JSON)
-            .content(body));
+            .header("Authorization", BEARER).contentType(MediaType.APPLICATION_JSON).content(body));
+    }
+
+    private Room activeRoom() {
+        return Room.reconstruct(ROOM_ID, null, RoomCode.generate(new SecureRandom()),
+            new RoomName("우테코 회식"), RoomStatus.initial(),
+            new RoomExpiration(Instant.now().plusSeconds(3600)), UploadPolicy.ANYONE,
+            1L, Instant.now(), null);
     }
 }

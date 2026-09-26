@@ -1,5 +1,6 @@
 package com.sssok.application.folder;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -103,7 +104,7 @@ class RenameFolderServiceTest {
     private void attachVisibleMedia(Long folderId, int count) {
         for (int i = 0; i < count; i++) {
             StoredFile file = StoredFile.reserve(1L, 1L, "photo.jpg", "image/jpeg",
-                FileSize.ofMegabytes(1), Instant.now());
+                FileSize.ofMegabytes(1), Instant.now(), SIZE_POLICY);
             file.startProcessing();
             attach(folderId, fileRepository.save(file).getId());
         }
@@ -111,7 +112,7 @@ class RenameFolderServiceTest {
 
     private void attachReservedMedia(Long folderId) {
         StoredFile file = StoredFile.reserve(1L, 1L, "pending.jpg", "image/jpeg",
-            FileSize.ofMegabytes(1), Instant.now());
+            FileSize.ofMegabytes(1), Instant.now(), SIZE_POLICY);
         attach(folderId, fileRepository.save(file).getId());
     }
 
