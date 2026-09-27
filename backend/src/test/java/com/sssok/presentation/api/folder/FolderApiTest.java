@@ -12,9 +12,11 @@ import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
+import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -25,6 +27,9 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 class FolderApiTest extends PostgresContainerSupport {
 
+    // 테스트끼리 롤백 없이 같은 컨테이너를 공유하므로, 미디어 id/storage_key가 겹치지 않게 매번 새로 발급한다.
+    private static final AtomicLong MEDIA_ID_SEQUENCE = new AtomicLong(System.currentTimeMillis());
+
     @Autowired
     MockMvc mockMvc;
 
@@ -33,6 +38,9 @@ class FolderApiTest extends PostgresContainerSupport {
 
     @Autowired
     FolderMediaJpaRepository folderMediaJpaRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @Test
     void 입장한_사용자가_폴더를_생성하면_201과_폴더_정보를_받는다() throws Exception {
@@ -183,12 +191,57 @@ class FolderApiTest extends PostgresContainerSupport {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
         long folderId = 폴더_만들기(token, roomId, "맛집");
-        folderMediaJpaRepository.save(new FolderMediaJpaEntity(null, folderId, 1L));
-        folderMediaJpaRepository.save(new FolderMediaJpaEntity(null, folderId, 2L));
+        폴더에_담기(folderId, 존재하는_미디어(roomId, "READY"));
+        폴더에_담기(folderId, 존재하는_미디어(roomId, "READY"));
 
         폴더_삭제(token, roomId, folderId)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.detachedPhotoCount").value(2));
+    }
+
+    // detachedPhotoCount 는 "루트로 옮겨진 사진 수"다. 아직 올라오지 않아 목록에 없던 미디어는
+    // 사용자가 이 폴더에서 본 적이 없으니 세면 안 된다.
+    @Test
+    void 아직_올라오지_않은_미디어는_detachedPhotoCount에서_빠진다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+        폴더에_담기(folderId, 존재하는_미디어(roomId, "READY"));
+        폴더에_담기(folderId, 존재하는_미디어(roomId, "RESERVED"));
+
+        폴더_삭제(token, roomId, folderId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.detachedPhotoCount").value(1));
+    }
+
+    // 사진이 든 폴더의 이름을 바꿨을 때 photoCount 를 0으로 내보내면, 클라이언트가 그 값으로
+    // 배지를 갱신했을 때 0장으로 보인다.
+    @Test
+    void 이름을_바꿔도_담긴_사진_수를_그대로_돌려준다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long folderId = 폴더_만들기(token, roomId, "맛집");
+        폴더에_담기(folderId, 존재하는_미디어(roomId, "READY"));
+        폴더에_담기(folderId, 존재하는_미디어(roomId, "RESERVED"));
+
+        폴더_이름변경(token, roomId, folderId, "{\"name\":\"카페\"}")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.photoCount").value(1));
+    }
+
+    private void 폴더에_담기(long folderId, long mediaId) {
+        folderMediaJpaRepository.save(new FolderMediaJpaEntity(null, folderId, mediaId));
+    }
+
+    private long 존재하는_미디어(long roomId, String status) {
+        long mediaId = MEDIA_ID_SEQUENCE.incrementAndGet();
+        jdbcTemplate.update("""
+            INSERT INTO stored_file
+                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes,
+                 storage_key, status, created_at, updated_at, reserved_at, retry_count)
+            VALUES (?, ?, 1, 'test.jpg', 'JPEG', 1024, ?, ?, now(), now(), now(), 0)
+            """, mediaId, roomId, "test-key-" + mediaId, status);
+        return mediaId;
     }
 
     @Test
