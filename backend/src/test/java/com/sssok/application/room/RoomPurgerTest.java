@@ -1,5 +1,6 @@
 package com.sssok.application.room;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -53,7 +54,7 @@ class RoomPurgerTest {
     void 실물을_먼저_지우고_방을_마지막에_지운다() {
         Room room = deletedRoom();
         StoredFile file = StoredFile.reserve(ROOM_ID, HOST_ID, "photo.jpg", "image/jpeg",
-            FileSize.ofMegabytes(1), NOW);
+            FileSize.ofMegabytes(1), NOW, SIZE_POLICY);
         given(fileRepository.findAllByRoomId(ROOM_ID)).willReturn(List.of(file));
 
         roomPurger.purge(room);

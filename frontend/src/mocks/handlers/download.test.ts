@@ -131,6 +131,20 @@ describe("POST /rooms/{roomId}/downloads — zip 요청 (B-7-1)", () => {
     expect((await response.json()).code).toBe("INVALID_PARAM");
   });
 
+  it("mediaIds 와 folderId 가 모두 없으면 400 INVALID_PARAM 이다", async () => {
+    const response = await createJob({});
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("INVALID_PARAM");
+  });
+
+  it("mediaIds 에 uploader 를 붙이면 400 INVALID_PARAM 이다", async () => {
+    const response = await createJob({ mediaIds: [await anImageId()], uploader: "ME" });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("INVALID_PARAM");
+  });
+
   it("mediaIds 가 1000개를 넘으면 400 TOO_MANY_FILES 다", async () => {
     const response = await createJob({ mediaIds: Array.from({ length: 1001 }, (_, i) => i) });
 
