@@ -10,6 +10,7 @@ import { usePhotoSelection } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
+import { Spinner } from "@/shared/ui/spinner";
 import { Toast } from "@/shared/ui/toast";
 import {
   ActionButton,
@@ -42,10 +43,12 @@ const DetailState = ({
   message,
   onBack,
   onRetry,
+  isLoading = false,
 }: {
   message: string;
   onBack: () => void;
   onRetry?: () => void;
+  isLoading?: boolean;
 }) => (
   <Page aria-label="사진 크게 보기">
     <Header>
@@ -55,10 +58,14 @@ const DetailState = ({
       <Counter>사진 보기</Counter>
     </Header>
     <Stage>
-      <div>
-        <StateMessage role="status">{message}</StateMessage>
-        {onRetry && <Button onClick={onRetry}>다시 시도</Button>}
-      </div>
+      {isLoading ? (
+        <Spinner label={message} size="lg" tone="inverse" />
+      ) : (
+        <div>
+          <StateMessage role="status">{message}</StateMessage>
+          {onRetry && <Button onClick={onRetry}>다시 시도</Button>}
+        </div>
+      )}
     </Stage>
   </Page>
 );
@@ -110,7 +117,8 @@ const MediaDetailContent = ({
     },
   });
 
-  if (query.isPending) return <DetailState message="사진을 불러오는 중이에요." onBack={onBack} />;
+  if (query.isPending)
+    return <DetailState message="사진을 불러오는 중이에요." onBack={onBack} isLoading />;
   if (query.isError)
     return (
       <DetailState
@@ -201,7 +209,7 @@ export const MediaDetailPage = () => {
   if (!session) return <Navigate to={ROUTES.roomEntry(code)} replace />;
   if (!isValidId) return <DetailState message="올바르지 않은 사진 주소예요." onBack={onBack} />;
   if (roomQuery.isPending)
-    return <DetailState message="방 정보를 불러오는 중이에요." onBack={onBack} />;
+    return <DetailState message="방 정보를 불러오는 중이에요." onBack={onBack} isLoading />;
   if (roomQuery.isError)
     return (
       <DetailState
