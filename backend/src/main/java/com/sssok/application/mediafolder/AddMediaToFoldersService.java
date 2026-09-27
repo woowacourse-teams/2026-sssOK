@@ -7,6 +7,7 @@ import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -31,8 +32,9 @@ public class AddMediaToFoldersService {
         ResolvedMediaIds media = mediaIdsResolver.resolveVisible(roomId, requestedMediaIds);
         List<Long> mediaIds = media.files().stream().map(file -> file.getId()).toList();
 
-        int updatedCount = folderMediaRepository.attachToFolder(folderId, mediaIds);
-        int alreadyInCount = mediaIds.size() - updatedCount;
+        int alreadyInCount = countAlreadyIn(folderId, mediaIds);
+        int updatedCount = folderMediaRepository.attachToFolderIfStatusIn(
+            folderId, mediaIds, UploadStatus.visibleStatuses());
         FolderSummary summary = FolderSummary.of(folder,
             folderMediaRepository.countByFolderIdAndStatusIn(folderId, UploadStatus.visibleStatuses()));
 
@@ -40,6 +42,18 @@ public class AddMediaToFoldersService {
             eventPublisher.publishEvent(MediaFoldersUpdatedEvent.added(roomId, mediaIds, List.of(summary)));
         }
         return new AddMediaToFoldersResult(updatedCount, alreadyInCount, media.notFoundIds(), summary);
+    }
+
+    // 담기 전에 이미 이 폴더에 있던 개수를 먼저 센다. "대상 수 - 새로 담긴 수"로 빼면,
+    // 고른 뒤 FAILED 로 확정돼 담기지 않은 미디어까지 "이미 담겨 있었다"로 잘못 잡힌다.
+    private int countAlreadyIn(Long folderId, List<Long> mediaIds) {
+        if (mediaIds.isEmpty()) {
+            return 0;
+        }
+        Map<Long, List<Long>> foldersByMedia = folderMediaRepository.findFolderIdsByMedia(mediaIds);
+        return (int) mediaIds.stream()
+            .filter(mediaId -> foldersByMedia.getOrDefault(mediaId, List.of()).contains(folderId))
+            .count();
     }
 
     private void requireFolder(Long folderId) {

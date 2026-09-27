@@ -25,6 +25,19 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     }
 
     @Override
+    public int attachToFolderIfStatusIn(Long folderId, List<Long> mediaIds, Collection<UploadStatus> statuses) {
+        if (statuses.isEmpty()) {
+            return 0;
+        }
+        List<String> statusNames = names(statuses);
+        int updatedCount = 0;
+        for (Long mediaId : mediaIds) {
+            updatedCount += jpaRepository.insertIfAbsentAndStatusIn(folderId, mediaId, statusNames);
+        }
+        return updatedCount;
+    }
+
+    @Override
     public long detachAllFromFolder(Long folderId) {
         return jpaRepository.deleteByFolderId(folderId);
     }

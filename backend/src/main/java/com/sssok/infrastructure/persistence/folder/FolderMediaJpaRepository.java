@@ -71,4 +71,21 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
         ON CONFLICT (folder_id, media_id) DO NOTHING
         """, nativeQuery = true)
     int insertIfAbsent(@Param("folderId") Long folderId, @Param("mediaId") Long mediaId);
+
+    // 위와 같지만 stored_file 을 함께 읽어 상태가 맞을 때만 넣는다. 상태를 미리 조회해두고
+    // 나중에 넣으면 그 사이에 FAILED 로 바뀐 미디어가 담겨, 응답의 updatedCount 와 폴더
+    // photoCount 가 어긋난다. 확인과 삽입을 한 문장에 두어 그 구간을 없앤다.
+    @Modifying
+    @Query(value = """
+        INSERT INTO folder_media (folder_id, media_id, created_at, updated_at)
+        SELECT :folderId, sf.id, now(), now()
+        FROM stored_file sf
+        WHERE sf.id = :mediaId
+          AND sf.status IN (:statuses)
+        ON CONFLICT (folder_id, media_id) DO NOTHING
+        """, nativeQuery = true)
+    int insertIfAbsentAndStatusIn(
+        @Param("folderId") Long folderId,
+        @Param("mediaId") Long mediaId,
+        @Param("statuses") Collection<String> statuses);
 }

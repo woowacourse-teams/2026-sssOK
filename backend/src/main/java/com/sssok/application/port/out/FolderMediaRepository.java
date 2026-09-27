@@ -8,9 +8,14 @@ import java.util.Map;
 // 폴더-미디어 소속(folder_media) 영속화 출력. 순수 조인 관계라 도메인 객체 없이 ID로만 다룬다.
 public interface FolderMediaRepository {
 
-    // 이 미디어들을 전부 한 폴더에 연결한다. 이미 있는 조합은 건너뛰고,
-    // 새로 연결된 개수만 반환한다 — 나머지(mediaIds 수 - 이 값)가 alreadyInCount다.
+    // 이 미디어들을 전부 한 폴더에 연결한다. 이미 있는 조합은 건너뛰고, 새로 연결된 개수만 반환한다.
+    // 업로드 예약(RESERVED)처럼 아직 목록에 보이지 않는 미디어도 담아야 할 때 쓴다.
     int attachToFolder(Long folderId, List<Long> mediaIds);
+
+    // 위와 같지만 연결하는 그 순간 주어진 상태인 미디어만 담는다. 상태를 미리 확인해두고 나중에
+    // 담으면 그 사이 FAILED 로 확정된 미디어가 끼어들어, 응답의 updatedCount 와 폴더 photoCount 가
+    // 어긋난다. 담기 요청은 목록에 보이는 미디어만 대상으로 하므로 이 쪽을 쓴다.
+    int attachToFolderIfStatusIn(Long folderId, List<Long> mediaIds, Collection<UploadStatus> statuses);
 
     // 이 폴더가 담고 있던 관계를 모두 끊는다. 미디어 자체는 지우지 않는다. 끊긴 개수를 반환한다.
     long detachAllFromFolder(Long folderId);
