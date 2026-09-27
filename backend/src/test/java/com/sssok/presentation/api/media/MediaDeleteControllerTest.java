@@ -147,11 +147,11 @@ class MediaDeleteControllerTest {
     }
 
     @Test
-    void 없는_경로는_404_ENDPOINT_NOT_FOUND() throws Exception {
+    void 없는_경로는_404_API_NOT_FOUND() throws Exception {
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/없는경로/더깊이", ROOM_ID)
                 .header("Authorization", BEARER))
             .andExpect(status().isNotFound())
-            .andExpect(jsonPath("$.code").value("ENDPOINT_NOT_FOUND"));
+            .andExpect(jsonPath("$.code").value("API_NOT_FOUND"));
     }
 
     @Test

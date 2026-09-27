@@ -91,7 +91,7 @@ public class GlobalExceptionHandler {
     // 어느 핸들러에도 걸리지 않은 경로. 등록하지 않으면 오타 URL 하나가 500 으로 나간다.
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException e) {
-        return respond(ErrorCode.ENDPOINT_NOT_FOUND);
+        return respond(ErrorCode.API_NOT_FOUND);
     }
 
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)

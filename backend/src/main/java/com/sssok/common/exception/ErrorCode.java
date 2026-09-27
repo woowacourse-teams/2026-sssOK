@@ -49,7 +49,6 @@ public enum ErrorCode {
     SUPER_ADMIN_REQUIRED(403, "슈퍼관리자만 수행할 수 있는 작업입니다"),
 
     // 404 Not Found
-    ENDPOINT_NOT_FOUND(404, "요청한 경로를 찾을 수 없습니다"),
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
     LINK_CODE_NOT_FOUND(404, "유효하지 않은 코드입니다"),
     FOLDER_NOT_FOUND(404, "존재하지 않는 폴더입니다: %s"),
@@ -57,6 +56,7 @@ public enum ErrorCode {
     DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
     ADMIN_NOT_FOUND(404, "존재하지 않는 관리자입니다"),
     FEEDBACK_NOT_FOUND(404, "존재하지 않는 의견입니다"),
+    API_NOT_FOUND(404, "존재하지 않는 API 경로입니다"),
 
     // 405 Method Not Allowed
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
