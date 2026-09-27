@@ -6,6 +6,7 @@ import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.FolderName;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RenameFolderService {
 
     private final FolderRepository folderRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Folder rename(Long roomId, Long folderId, String newName) {
@@ -31,10 +33,13 @@ public class RenameFolderService {
             });
 
         folder.rename(newFolderName);
+        Folder saved;
         try {
-            return folderRepository.save(folder);
+            saved = folderRepository.save(folder);
         } catch (DataIntegrityViolationException e) {
             throw new DuplicateFolderNameException();
         }
+        eventPublisher.publishEvent(FolderRenamedEvent.from(saved));
+        return saved;
     }
 }

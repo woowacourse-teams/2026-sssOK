@@ -6,20 +6,30 @@ import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
+import com.luciad.imageio.webp.WebPWriteParam;
 import com.sssok.application.port.out.ImageProcessorPort;
+import com.sssok.domain.file.DerivativeFormat;
 import com.sssok.domain.file.GeoPoint;
+import java.awt.Color;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Date;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.TimeZone;
+import javax.imageio.IIOImage;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageWriteParam;
+import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageOutputStream;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Component;
 
@@ -30,20 +40,41 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
     // 컬럼 정의(NUMERIC(9,6))와도 맞춘다.
     private static final int COORDINATE_SCALE = 6;
 
+    // webp-imageio 가 등록하는 압축 방식 이름. 라이브러리가 문자열로만 받아 상수로 묶어 둔다.
+    private static final String WEBP_LOSSY = "Lossy";
+
     @Override
-    public Optional<ProcessedImage> shrink(byte[] source, int maxWidth, String format) {
+    public Optional<DerivedImages> derive(byte[] source, DerivativeSpec thumbnail,
+                                          DerivativeSpec preview) {
+        // 원본 디코딩은 한 번만 한다. 여기가 파생본 생성 시간의 대부분이라, 썸네일과 프리뷰를
+        // 따로 만들면 워커 점유 시간이 곱절이 된다.
+        BufferedImage original = decode(source);
+        // 원본을 못 읽은 것만 빈 값이다. 다시 태워도 결과가 같으므로 부르는 쪽이 여기서만
+        // FAILED 로 확정한다.
+        if (original == null) {
+            return Optional.empty();
+        }
         try {
-            BufferedImage original = ImageIO.read(new ByteArrayInputStream(source));
-            // ImageIO 는 읽을 수 없는 형식이면 예외 대신 null 을 준다.
-            if (original == null) {
-                return Optional.empty();
-            }
-            return Optional.of(new ProcessedImage(
+            return Optional.of(new DerivedImages(
                 original.getWidth(),
                 original.getHeight(),
-                toThumbnail(original, maxWidth, format)));
+                derive(original, thumbnail),
+                preview == null ? null : derive(original, preview)));
+        } catch (IOException e) {
+            // 디코딩을 넘긴 뒤의 축소·인코딩 실패는 원본이 깨졌다는 근거가 되지 못한다. 네이티브
+            // WebP 라이터가 한 번 흔들린 것을 빈 값으로 돌려주면 멀쩡한 사진이 영구 FAILED 가
+            // 되므로, 밖으로 내보내 PROCESSING 으로 남기고 회수 배치가 다시 태우게 한다.
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    // ImageIO 는 읽을 수 없는 형식이면 예외 대신 null 을 주고, 헤더가 깨져 있으면 IOException 을
+    // 던진다. 둘 다 "이 바이트는 이미지가 아니다" 라는 같은 결론이라 한 자리에서 null 로 모은다.
+    private BufferedImage decode(byte[] source) {
+        try {
+            return ImageIO.read(new ByteArrayInputStream(source));
         } catch (IOException | IllegalArgumentException e) {
-            return Optional.empty();
+            return null;
         }
     }
 
@@ -81,16 +112,56 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
             BigDecimal.valueOf(found.getLongitude()).setScale(COORDINATE_SCALE, RoundingMode.HALF_UP));
     }
 
-    // 원본이 이미 작으면 늘리지 않는다. 확대한 썸네일은 원본보다 크면서 더 흐리다.
-    private byte[] toThumbnail(BufferedImage original, int maxWidth, String format)
-        throws IOException {
-        int width = Math.min(maxWidth, original.getWidth());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Thumbnails.of(original)
+    // 원본이 이미 작으면 늘리지 않는다. 확대한 파생본은 원본보다 크면서 더 흐리다.
+    private DerivedImage derive(BufferedImage original, DerivativeSpec spec) throws IOException {
+        int width = Math.min(spec.maxWidth(), original.getWidth());
+        BufferedImage scaled = Thumbnails.of(original)
             .width(width)
             .keepAspectRatio(true)
-            .outputFormat(format)
-            .toOutputStream(out);
+            .asBufferedImage();
+        return new DerivedImage(encode(scaled, spec.format(), spec.quality()), spec.format());
+    }
+
+    // Thumbnailator 의 outputFormat 을 쓰지 않고 직접 인코딩한다. WebP 라이터는 ImageIO 에
+    // 얹힌 JNI 플러그인이고, 품질을 주려면 전용 WebPWriteParam 이 필요해서다.
+    private byte[] encode(BufferedImage image, DerivativeFormat format, float quality)
+        throws IOException {
+        ImageWriter writer = ImageIO.getImageWritersByMIMEType(format.contentType()).next();
+        ImageWriteParam param = format == DerivativeFormat.WEBP
+            ? new WebPWriteParam(Locale.getDefault())
+            : writer.getDefaultWriteParam();
+        param.setCompressionMode(ImageWriteParam.MODE_EXPLICIT);
+        if (format == DerivativeFormat.WEBP) {
+            // 무손실 모드도 있지만 사진에서는 파일이 몇 배로 커진다.
+            param.setCompressionType(WEBP_LOSSY);
+        }
+        param.setCompressionQuality(quality);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (ImageOutputStream imageOut = ImageIO.createImageOutputStream(out)) {
+            writer.setOutput(imageOut);
+            writer.write(null, new IIOImage(withoutAlpha(image, format), null, null), param);
+        } finally {
+            writer.dispose();
+        }
         return out.toByteArray();
+    }
+
+    // JPEG 은 알파 채널을 담지 못한다. 투명한 PNG 를 그대로 넘기면 라이터가 색을 뒤집어
+    // 붉게 물든 사진이 나온다. WebP 는 알파를 담을 수 있어 건드리지 않는다.
+    private BufferedImage withoutAlpha(BufferedImage image, DerivativeFormat format) {
+        if (format != DerivativeFormat.JPEG || !image.getColorModel().hasAlpha()) {
+            return image;
+        }
+        BufferedImage opaque = new BufferedImage(
+            image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = opaque.createGraphics();
+        // 투명한 자리는 검정이 아니라 흰색으로 채운다. 검정으로 두면 배경이 투명한 로고가
+        // 까맣게 뭉개져 무엇인지 알아볼 수 없다.
+        graphics.setColor(Color.WHITE);
+        graphics.fillRect(0, 0, image.getWidth(), image.getHeight());
+        graphics.drawImage(image, 0, 0, null);
+        graphics.dispose();
+        return opaque;
     }
 }
