@@ -12,9 +12,8 @@ import {
 } from "react-icons/hi2";
 
 import type { GalleryItem } from "@/entities/media";
-import { deleteMedia } from "@/features/delete-media";
+import { DeleteMediaModal } from "@/features/delete-media";
 import { downloadMedia } from "@/features/download-media";
-import { isApiError } from "@/shared/api";
 import { colors } from "@/shared/styles/tokens";
 
 interface MediaViewerModalProps {
@@ -56,7 +55,9 @@ export const MediaViewerModal = ({
   onToggle,
   onDeleted,
 }: MediaViewerModalProps) => {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  // 삭제 확인 모달을 이 dialog 안에 붙여야 해서 ref 대신 state 로 들고 있는다.
+  const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
+  const [deletingMediaId, setDeletingMediaId] = useState<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const index = items.findIndex((item) => item.mediaId === activeMediaId);
   const item = items[index];
@@ -68,29 +69,34 @@ export const MediaViewerModal = ({
   };
 
   useEffect(() => {
-    const dialog = dialogRef.current;
+    if (!dialog) return;
+
     const previousFocus = document.activeElement;
     const overflow = document.body.style.overflow;
 
-    dialog?.showModal();
+    dialog.showModal();
     document.body.style.overflow = "hidden";
 
     return () => {
-      dialog?.close();
+      dialog.close();
       document.body.style.overflow = overflow;
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
-  }, []);
+  }, [dialog]);
 
   return createPortal(
     <Dialog
-      ref={dialogRef}
+      ref={setDialog}
       aria-label="사진 크게 보기"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if (deletingMediaId === null) onClose();
       }}
       onKeyDown={(event) => {
+        if (deletingMediaId !== null) {
+          if (event.key === "Escape") event.preventDefault();
+          return;
+        }
         if (event.key === "ArrowLeft" && previous) {
           event.preventDefault();
           onChange(previous.mediaId);
@@ -167,11 +173,21 @@ export const MediaViewerModal = ({
             canDelete={
               item.type === "server" && (item.media.uploaderId === userId || hostId === userId)
             }
-            onDeleted={onDeleted}
+            onDelete={() => setDeletingMediaId(item.mediaId)}
           />
         </>
       ) : (
         <StateMessage>사진이 목록에 없어요.</StateMessage>
+      )}
+      {deletingMediaId !== null && (
+        <DeleteMediaModal
+          roomId={roomId}
+          mediaId={deletingMediaId}
+          token={token}
+          container={dialog}
+          onClose={() => setDeletingMediaId(null)}
+          onSuccess={() => onDeleted(deletingMediaId)}
+        />
       )}
     </Dialog>,
     document.body,
@@ -226,20 +242,16 @@ const ViewerFooter = ({
   roomId,
   token,
   canDelete,
-  onDeleted,
+  onDelete,
 }: {
   item: GalleryItem;
   roomId: number;
   token: string;
   canDelete: boolean;
-  onDeleted: (mediaId: number) => void;
+  onDelete: () => void;
 }) => {
   const media = item.type === "server" ? item.media : undefined;
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
-  const deletion = useMutation({
-    mutationFn: () => deleteMedia({ roomId, mediaId: item.mediaId, token }),
-    onSuccess: () => onDeleted(item.mediaId),
-  });
   const download = useMutation({
     mutationFn: async () => {
       if (!media) return;
@@ -270,11 +282,6 @@ const ViewerFooter = ({
         <Subtitle>
           {[media ? formatDate(media.uploadedAt) : "", fileName].filter(Boolean).join(" · ")}
         </Subtitle>
-        {deletion.isError && (
-          <ErrorMessage role="alert">
-            {isApiError(deletion.error) ? deletion.error.message : "사진을 삭제하지 못했어요."}
-          </ErrorMessage>
-        )}
         {download.isError && <ErrorMessage role="alert">{download.error.message}</ErrorMessage>}
       </Metadata>
       <ActionButton
@@ -282,9 +289,8 @@ const ViewerFooter = ({
         $danger
         aria-label="사진 삭제"
         title={canDelete ? "사진 삭제" : "삭제 권한이 없어요"}
-        disabled={!canDelete || deletion.isPending}
-        aria-busy={deletion.isPending}
-        onClick={() => deletion.mutate()}
+        disabled={!canDelete}
+        onClick={onDelete}
       >
         <HiOutlineTrash size={21} />
       </ActionButton>
