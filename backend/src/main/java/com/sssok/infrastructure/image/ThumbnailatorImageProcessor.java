@@ -4,6 +4,7 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.luciad.imageio.webp.WebPWriteParam;
@@ -54,6 +55,7 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
         if (original == null) {
             return Optional.empty();
         }
+        original = readOrientation(source).applyTo(original);
         try {
             return Optional.of(new DerivedImages(
                 original.getWidth(),
@@ -65,6 +67,19 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
             // WebP 라이터가 한 번 흔들린 것을 빈 값으로 돌려주면 멀쩡한 사진이 영구 FAILED 가
             // 되므로, 밖으로 내보내 PROCESSING 으로 남기고 회수 배치가 다시 태우게 한다.
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private ExifOrientation readOrientation(byte[] source) {
+        try {
+            Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(source));
+            ExifIFD0Directory exif = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            Integer value = exif == null
+                ? null
+                : exif.getInteger(ExifIFD0Directory.TAG_ORIENTATION);
+            return ExifOrientation.from(value);
+        } catch (ImageProcessingException | IOException | RuntimeException e) {
+            return ExifOrientation.NORMAL;
         }
     }
 

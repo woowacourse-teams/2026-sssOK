@@ -19,13 +19,22 @@ import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Iterator;
+import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 // EXIF 추출은 라이브러리에 맡기지만, 없는 사진에서 터지지 않는지와 좌표 변환은 우리 책임이다.
 class ThumbnailatorImageProcessorTest {
+
+    private static final Map<String, Color> COLORS = Map.of(
+        "RED", Color.RED,
+        "GREEN", Color.GREEN,
+        "BLUE", Color.BLUE,
+        "YELLOW", Color.YELLOW);
 
     private static final DerivativeSpec THUMBNAIL =
         new DerivativeSpec(400, DerivativeFormat.WEBP, 0.80f);
@@ -90,6 +99,62 @@ class ThumbnailatorImageProcessorTest {
         assertThat(derived.sourceHeight()).isEqualTo(2000);
     }
 
+    @ParameterizedTest
+    @CsvSource({
+        "1, 120, 80, RED, GREEN, BLUE, YELLOW",
+        "2, 120, 80, GREEN, RED, YELLOW, BLUE",
+        "3, 120, 80, YELLOW, BLUE, GREEN, RED",
+        "4, 120, 80, BLUE, YELLOW, RED, GREEN",
+        "5, 80, 120, RED, BLUE, GREEN, YELLOW",
+        "6, 80, 120, BLUE, RED, YELLOW, GREEN",
+        "7, 80, 120, YELLOW, GREEN, BLUE, RED",
+        "8, 80, 120, GREEN, YELLOW, RED, BLUE"
+    })
+    void EXIF_Orientation을_파생본_픽셀과_크기에_반영한다(
+        int orientation, int expectedWidth, int expectedHeight,
+        String topLeft, String topRight, String bottomLeft, String bottomRight) throws IOException {
+        DerivedImages derived = processor.derive(
+            jpegWithOrientation(orientation), THUMBNAIL, null).orElseThrow();
+        byte[] image = derived.thumbnail().content();
+
+        assertThat(derived.sourceWidth()).isEqualTo(expectedWidth);
+        assertThat(derived.sourceHeight()).isEqualTo(expectedHeight);
+        assertThat(widthOf(image)).isEqualTo(expectedWidth);
+        assertThat(heightOf(image)).isEqualTo(expectedHeight);
+        assertColorNear(colorAt(image, 10, 10), color(topLeft));
+        assertColorNear(colorAt(image, expectedWidth - 11, 10), color(topRight));
+        assertColorNear(colorAt(image, 10, expectedHeight - 11), color(bottomLeft));
+        assertColorNear(colorAt(image, expectedWidth - 11, expectedHeight - 11), color(bottomRight));
+    }
+
+    @Test
+    void 회전한_이미지에서_썸네일과_프리뷰를_각각의_너비로_축소한다() throws IOException {
+        DerivativeSpec thumbnail = new DerivativeSpec(200, DerivativeFormat.WEBP, 0.80f);
+        DerivativeSpec preview = new DerivativeSpec(600, DerivativeFormat.WEBP, 0.85f);
+
+        DerivedImages derived = processor.derive(
+            jpegWithOrientation(6, 1200, 800), thumbnail, preview).orElseThrow();
+
+        assertThat(derived.sourceWidth()).isEqualTo(800);
+        assertThat(derived.sourceHeight()).isEqualTo(1200);
+        assertThat(widthOf(derived.thumbnail().content())).isEqualTo(200);
+        assertThat(heightOf(derived.thumbnail().content())).isEqualTo(300);
+        assertThat(widthOf(derived.preview().content())).isEqualTo(600);
+        assertThat(heightOf(derived.preview().content())).isEqualTo(900);
+    }
+
+    @Test
+    void EXIF_Orientation이_없으면_픽셀_방향을_유지한다() throws IOException {
+        DerivedImages derived = processor.derive(quadrantJpeg(120, 80), THUMBNAIL, null)
+            .orElseThrow();
+        byte[] image = derived.thumbnail().content();
+
+        assertColorNear(colorAt(image, 10, 10), Color.RED);
+        assertColorNear(colorAt(image, 109, 10), Color.GREEN);
+        assertColorNear(colorAt(image, 10, 69), Color.BLUE);
+        assertColorNear(colorAt(image, 109, 69), Color.YELLOW);
+    }
+
     @Test
     void 파생본마다_다른_너비로_줄인다() throws IOException {
         DerivedImages derived = processor.derive(plainJpeg(3000, 2000), THUMBNAIL, PREVIEW)
@@ -150,6 +215,10 @@ class ThumbnailatorImageProcessorTest {
 
     private int widthOf(byte[] image) throws IOException {
         return ImageIO.read(new ByteArrayInputStream(image)).getWidth();
+    }
+
+    private int heightOf(byte[] image) throws IOException {
+        return ImageIO.read(new ByteArrayInputStream(image)).getHeight();
     }
 
     // 바이트를 직접 열어 실제로 무슨 형식으로 인코딩됐는지 본다. 선언한 Content-Type 만 보면
@@ -219,11 +288,49 @@ class ThumbnailatorImageProcessorTest {
         }
     }
 
+    private byte[] jpegWithOrientation(int orientation) {
+        return jpegWithOrientation(orientation, 120, 80);
+    }
+
+    private byte[] jpegWithOrientation(int orientation, int width, int height) {
+        return withApp1(quadrantJpeg(width, height),
+            ExifFixture.orientationApp1Segment(orientation));
+    }
+
+    private byte[] quadrantJpeg(int width, int height) {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D graphics = image.createGraphics();
+        graphics.setColor(Color.RED);
+        graphics.fillRect(0, 0, width / 2, height / 2);
+        graphics.setColor(Color.GREEN);
+        graphics.fillRect(width / 2, 0, width - width / 2, height / 2);
+        graphics.setColor(Color.BLUE);
+        graphics.fillRect(0, height / 2, width / 2, height - height / 2);
+        graphics.setColor(Color.YELLOW);
+        graphics.fillRect(width / 2, height / 2, width - width / 2, height - height / 2);
+        graphics.dispose();
+
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ImageIO.write(image, "jpg", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private Color color(String name) {
+        return COLORS.get(name);
+    }
+
     // EXIF 를 쓰는 라이브러리를 더 들이지 않으려고 APP1 세그먼트를 직접 만들어 끼운다.
     private byte[] jpegWithExif() {
         byte[] exif = ExifFixture.app1Segment(
             "2026:08:01 12:30:00", 37.5665, 126.978);
-        byte[] jpeg = plainJpeg();
+        return withApp1(plainJpeg(), exif);
+    }
+
+    private byte[] withApp1(byte[] jpeg, byte[] exif) {
         byte[] result = new byte[jpeg.length + exif.length];
         // SOI(2바이트) 바로 뒤에 APP1 을 넣는 것이 JPEG 규격이다.
         System.arraycopy(jpeg, 0, result, 0, 2);
