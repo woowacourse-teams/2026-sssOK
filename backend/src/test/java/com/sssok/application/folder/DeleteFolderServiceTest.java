@@ -18,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -25,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@RecordApplicationEvents
 class DeleteFolderServiceTest {
 
     @Autowired
@@ -44,6 +47,9 @@ class DeleteFolderServiceTest {
 
     @Autowired
     FileRepository fileRepository;
+
+    @Autowired
+    ApplicationEvents applicationEvents;
 
     @Test
     void 폴더가_삭제된다() {
@@ -108,9 +114,21 @@ class DeleteFolderServiceTest {
     }
 
     @Test
-    void 없는_폴더면_예외() {
+    void 삭제되면_folder_deleted_이벤트가_발행된다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+
+        deleteFolderService.delete(1L, folder.getId());
+
+        assertThat(applicationEvents.stream(FolderDeletedEvent.class))
+            .containsExactly(new FolderDeletedEvent(1L, folder.getId()));
+    }
+
+    @Test
+    void 없는_폴더면_예외이고_이벤트도_발행하지_않는다() {
         assertThatThrownBy(() -> deleteFolderService.delete(1L, -1L))
             .isInstanceOf(FolderNotFoundException.class);
+
+        assertThat(applicationEvents.stream(FolderDeletedEvent.class)).isEmpty();
     }
 
     @Test

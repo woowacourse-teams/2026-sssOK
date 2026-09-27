@@ -6,6 +6,7 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.FolderName;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class CreateFolderService {
 
     private final FolderRepository folderRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public Folder create(Long roomId, String name) {
@@ -23,10 +25,13 @@ public class CreateFolderService {
         if (folderRepository.findByRoomIdAndName(roomId, folderName.value()).isPresent()) {
             throw new DuplicateFolderNameException();
         }
+        Folder saved;
         try {
-            return folderRepository.save(Folder.create(roomId, folderName, Instant.now()));
+            saved = folderRepository.save(Folder.create(roomId, folderName, Instant.now()));
         } catch (DataIntegrityViolationException e) {
             throw new DuplicateFolderNameException();
         }
+        eventPublisher.publishEvent(FolderCreatedEvent.from(saved));
+        return saved;
     }
 }

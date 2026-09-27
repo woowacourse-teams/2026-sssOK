@@ -8,6 +8,7 @@ import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.FolderName;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +20,7 @@ public class RenameFolderService {
 
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public RenameFolderResult rename(Long roomId, Long folderId, String newName) {
@@ -42,6 +44,7 @@ public class RenameFolderService {
         }
         long photoCount = folderMediaRepository.countByFolderIdAndStatusIn(
             renamed.getId(), UploadStatus.visibleStatuses());
+        eventPublisher.publishEvent(FolderRenamedEvent.from(renamed));
         return new RenameFolderResult(renamed, (int) photoCount);
     }
 }
