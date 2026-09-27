@@ -1,5 +1,6 @@
 package com.sssok.infrastructure.scheduler;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
@@ -92,7 +93,7 @@ class ThumbnailSweeperTest {
 
     private StoredFile processing(Instant createdAt) {
         StoredFile file = StoredFile.reserve(
-            ROOM_ID, 1L, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt);
+            ROOM_ID, 1L, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt, SIZE_POLICY);
         file.startProcessing();
         StoredFile saved = fileRepository.save(file);
         // BaseEntity 가 @PrePersist 로 지금 시각을 넣기 때문에, 오래된 행은 직접 만들어야 한다.

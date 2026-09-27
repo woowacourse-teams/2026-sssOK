@@ -1,11 +1,6 @@
-import type { InfiniteData, QueryClient } from "@tanstack/react-query";
+import type { QueryClient } from "@tanstack/react-query";
 
-import {
-  photosQueryKey,
-  type MediaItem,
-  type MediaList,
-  type MediaUploaderFilter,
-} from "@/entities/media";
+import { photosQueryKey, type MediaItem, type MediaList } from "@/entities/media";
 
 interface Params {
   queryClient: QueryClient;
@@ -22,38 +17,19 @@ export const updateMediaReadyCache = ({
   media,
   replacedPending,
 }: Params) => {
-  const queries = queryClient.getQueryCache().findAll({ queryKey: photosQueryKey(roomId, userId) });
+  queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) => {
+    if (!current) return current;
 
-  queries.forEach((query) => {
-    const filter = query.queryKey[3] as
-      { folderId: number | null; uploader: MediaUploaderFilter } | undefined;
-    const matchesFolder =
-      filter?.folderId === null ||
-      filter?.folderId === undefined ||
-      media.folderIds.includes(filter.folderId);
-    const matchesUploader =
-      filter?.uploader === undefined ||
-      filter.uploader === "ALL" ||
-      (filter.uploader === "ME" && media.uploaderId === userId) ||
-      (filter.uploader === "OTHERS" && media.uploaderId !== userId);
-    if (!matchesFolder || !matchesUploader) return;
+    const exists = current.items.some((item) => item.mediaId === media.mediaId);
+    if (exists) {
+      return {
+        ...current,
+        items: current.items.map((item) => (item.mediaId === media.mediaId ? media : item)),
+      };
+    }
+    // 내가 올린 것은 미리보기 자리가 이미 있다. 목록에 또 넣으면 두 장으로 보인다.
+    if (replacedPending) return current;
 
-    queryClient.setQueryData<InfiniteData<MediaList>>(query.queryKey, (current) => {
-      if (!current) return current;
-
-      const exists = current.pages.some((page) =>
-        page.items.some((item) => item.mediaId === media.mediaId),
-      );
-      const pages = current.pages.map((page) => ({
-        ...page,
-        items: page.items.map((item) => (item.mediaId === media.mediaId ? media : item)),
-        totalCount: exists ? page.totalCount : page.totalCount + 1,
-      }));
-      if (!exists && !replacedPending && pages[0]) {
-        pages[0] = { ...pages[0], items: [media, ...pages[0].items] };
-      }
-
-      return { ...current, pages };
-    });
+    return { ...current, items: [media, ...current.items] };
   });
 };

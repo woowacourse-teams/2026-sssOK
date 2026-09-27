@@ -1,5 +1,6 @@
 package com.sssok.application.download;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,7 +61,7 @@ class DownloadCompressionWorkerTest {
 
     private Long media(String fileName, byte[] content) {
         StoredFile file = StoredFile.reserve(
-            ROOM_ID, 1L, fileName, "image/jpeg", new FileSize(content.length), Instant.now());
+            ROOM_ID, 1L, fileName, "image/jpeg", new FileSize(content.length), Instant.now(), SIZE_POLICY);
         Long mediaId = fileRepository.save(file).getId();
         given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))
             .willReturn(new ByteArrayInputStream(content));

@@ -47,10 +47,7 @@ const serveSingle = ({
   server.use(
     // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
     http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
-      const { selection } = (await request.json()) as {
-        selection: { mode: "include"; ids: number[] };
-      };
-      const mediaIds = selection.ids;
+      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
 
       return HttpResponse.json({
         data: {
@@ -296,10 +293,7 @@ describe("downloadMedia — 사진첩에 저장", () => {
 
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
-        const { selection } = (await request.json()) as {
-          selection: { mode: "include"; ids: number[] };
-        };
-        const mediaIds = selection.ids;
+        const { mediaIds } = (await request.json()) as { mediaIds: number[] };
 
         return HttpResponse.json({
           data: {
@@ -364,10 +358,7 @@ describe("downloadMedia — 이름이 겹치는 사진", () => {
   const serveDuplicates = () =>
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
-        const { selection } = (await request.json()) as {
-          selection: { mode: "include"; ids: number[] };
-        };
-        const mediaIds = selection.ids;
+        const { mediaIds } = (await request.json()) as { mediaIds: number[] };
 
         return HttpResponse.json({
           data: {
