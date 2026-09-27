@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.media;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -55,6 +56,7 @@ class MediaQueryControllerTest {
     private static final Long FOLDER_ID = 31L;
     private static final String BEARER = "Bearer valid-token";
     private static final String THUMBNAIL_URL = "https://r2.example.com/signed-thumbnail";
+    private static final String PREVIEW_URL = "https://r2.example.com/signed-preview";
     private static final String ORIGINAL_URL = "https://r2.example.com/signed-original";
 
     @Autowired
@@ -92,7 +94,7 @@ class MediaQueryControllerTest {
     @Test
     void 목록을_조회하면_200과_items_를_반환한다() throws Exception {
         given(getMediaListService.page(anyLong(), any(), anyLong(), any(), anyInt(), any()))
-            .willReturn(new MediaPage(List.of(mediaWithThumbnail()), null, false, 1));
+            .willReturn(new MediaPage(List.of(listItem()), null, false, 1));
 
         getMediaList("")
             .andExpect(status().isOk())
@@ -107,8 +109,10 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.items[0].folderIds[0]").value(FOLDER_ID))
             .andExpect(jsonPath("$.data.items[0].thumbnailUrl").value(THUMBNAIL_URL))
             .andExpect(jsonPath("$.data.items[0].thumbnailUrlExpiresAt").exists())
-            .andExpect(jsonPath("$.data.items[0].originalUrl").value(ORIGINAL_URL))
-            .andExpect(jsonPath("$.data.items[0].originalUrlExpiresAt").exists())
+            .andExpect(jsonPath("$.data.items[0].previewUrl").value(nullValue()))
+            .andExpect(jsonPath("$.data.items[0].previewUrlExpiresAt").value(nullValue()))
+            .andExpect(jsonPath("$.data.items[0].originalUrl").value(nullValue()))
+            .andExpect(jsonPath("$.data.items[0].originalUrlExpiresAt").value(nullValue()))
             .andExpect(jsonPath("$.data.items[0].uploadedAt").exists())
             .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
             .andExpect(jsonPath("$.data.hasNext").value(false))
@@ -177,7 +181,7 @@ class MediaQueryControllerTest {
             "previous", ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL)).willReturn(cursor);
         given(getMediaListService.page(
             ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL, 10, cursor))
-            .willReturn(new MediaPage(List.of(mediaWithThumbnail()), nextCursor, true, 20));
+            .willReturn(new MediaPage(List.of(listItem()), nextCursor, true, 20));
         given(mediaCursorCodec.encode(nextCursor)).willReturn("next");
 
         getMediaList("?size=10&cursor=previous")
@@ -204,7 +208,7 @@ class MediaQueryControllerTest {
     @Test
     void 전체_목록을_조회하면_페이지네이션_필드_없이_items를_반환한다() throws Exception {
         given(getMediaListService.list(ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL))
-            .willReturn(List.of(mediaWithThumbnail()));
+            .willReturn(List.of(listItem()));
 
         getAllMedia("")
             .andExpect(status().isOk())
@@ -287,6 +291,33 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.canDelete").value(true));
     }
 
+    @Test
+    void 프리뷰가_있는_사진의_상세는_프리뷰만_주고_원본은_주지_않는다() throws Exception {
+        given(getMediaService.get(ROOM_ID, MEDIA_ID, MEMBER_ID))
+            .willReturn(fullDetail(detailWithPreview()));
+
+        getMedia(MEDIA_ID)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.previewUrl").value(PREVIEW_URL))
+            .andExpect(jsonPath("$.data.previewUrlExpiresAt").exists())
+            .andExpect(jsonPath("$.data.originalUrl").value(nullValue()))
+            .andExpect(jsonPath("$.data.originalUrlExpiresAt").value(nullValue()));
+    }
+
+    // 이 기능 이전에 올라온 사진과 GIF 는 프리뷰가 없어 원본으로 내려앉는다.
+    @Test
+    void 프리뷰가_없는_사진의_상세는_원본으로_내려앉는다() throws Exception {
+        given(getMediaService.get(ROOM_ID, MEDIA_ID, MEMBER_ID))
+            .willReturn(fullDetail(detailFallingBackToOriginal()));
+
+        getMedia(MEDIA_ID)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.previewUrl").value(nullValue()))
+            .andExpect(jsonPath("$.data.previewUrlExpiresAt").value(nullValue()))
+            .andExpect(jsonPath("$.data.originalUrl").value(ORIGINAL_URL))
+            .andExpect(jsonPath("$.data.originalUrlExpiresAt").exists());
+    }
+
     // EXIF 가 없는 사진이 훨씬 많다. 그때도 응답 구조가 흔들리면 안 된다.
     @Test
     void 촬영_정보가_없으면_location이_통째로_비어_있다() throws Exception {
@@ -311,20 +342,46 @@ class MediaQueryControllerTest {
     }
 
     private MediaFullDetail fullDetail() {
-        return new MediaFullDetail(mediaWithThumbnail(), Instant.parse("2026-08-01T12:30:00Z"),
+        return fullDetail(detailWithPreview());
+    }
+
+    private MediaFullDetail fullDetail(MediaDetail media) {
+        return new MediaFullDetail(media, Instant.parse("2026-08-01T12:30:00Z"),
             new GeoPoint(new BigDecimal("37.566500"), new BigDecimal("126.978000")), true);
     }
 
     // 아직 워커가 만들지 않았거나 영상이라 썸네일·원본이 없는 경우다.
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
-            null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
-    private MediaDetail mediaWithThumbnail() {
+    // 목록 응답은 썸네일만 싣는다. 프리뷰와 원본은 상세에서만 채워진다.
+    private MediaDetail listItem() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
+            null, null,
+            null, null,
+            1200, 900, null,
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+    }
+
+    // 프리뷰가 있는 사진의 상세. 원본은 노출하지 않는다.
+    private MediaDetail detailWithPreview() {
+        return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
+            THUMBNAIL_URL, Instant.now().plusSeconds(1800),
+            PREVIEW_URL, Instant.now().plusSeconds(1800),
+            null, null,
+            1200, 900, null,
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+    }
+
+    // 프리뷰가 없어 원본으로 내려앉는 상세. 이 기능 이전에 올라온 사진과 GIF 가 그렇다.
+    private MediaDetail detailFallingBackToOriginal() {
+        return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
+            THUMBNAIL_URL, Instant.now().plusSeconds(1800),
+            null, null,
             ORIGINAL_URL, Instant.now().plusSeconds(300),
             1200, 900, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
