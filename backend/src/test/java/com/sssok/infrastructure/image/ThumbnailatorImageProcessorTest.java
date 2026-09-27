@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.port.out.ImageProcessorPort.CaptureInfo;
 import com.sssok.application.port.out.ImageProcessorPort.DerivativeSpec;
@@ -127,6 +128,17 @@ class ThumbnailatorImageProcessorTest {
         DerivedImages derived = processor.derive(transparentPng(), jpegSpec, null).orElseThrow();
 
         assertThat(formatOf(derived.thumbnail().content())).isEqualToIgnoringCase("jpeg");
+    }
+
+    // 빈 값은 "다시 태워도 결과가 같다" 는 뜻이고, 부르는 쪽은 그때만 영구 FAILED 로 확정한다.
+    // 디코딩을 넘긴 뒤의 실패까지 빈 값으로 섞으면 멀쩡한 사진이 인코더의 한 번 흔들림으로 사라진다.
+    @Test
+    void 디코딩_이후의_인코딩_실패는_빈_값이_아니라_예외가_된다() {
+        DerivativeSpec 인코더가_거부하는_품질 = new DerivativeSpec(400, DerivativeFormat.WEBP, 2.0f);
+
+        assertThatThrownBy(() ->
+            processor.derive(plainJpeg(300, 200), 인코더가_거부하는_품질, null))
+            .isInstanceOf(RuntimeException.class);
     }
 
     private int widthOf(byte[] image) throws IOException {

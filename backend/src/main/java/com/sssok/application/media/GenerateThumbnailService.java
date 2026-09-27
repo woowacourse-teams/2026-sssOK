@@ -116,6 +116,7 @@ public class GenerateThumbnailService {
         if (derived.isEmpty()) {
             // 파일이 깨졌거나 확장자와 실제 내용이 다르다. 다시 시도해도 결과가 같으므로
             // 여기서만 FAILED 로 확정한다 — 되풀이해도 소용없는 유일한 경우다.
+            // 축소·인코딩이 흔들린 것은 여기로 오지 않고 예외로 올라가 PROCESSING 에 남는다.
             log.warn("이미지를 읽을 수 없습니다. mediaId={}", file.getId());
             mediaFinisher.markFailed(file.getId());
             return;
