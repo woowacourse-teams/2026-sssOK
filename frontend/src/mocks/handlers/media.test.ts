@@ -65,30 +65,48 @@ describe("미디어 단일 조회·삭제 및 다중 삭제 목", () => {
     ).resolves.toMatchObject({ mediaId: 5012 });
   });
 
-  it("다중 삭제는 중복을 한 번만 처리하고 권한 없는 항목과 없는 항목은 건너뛴다", async () => {
+  it("다중 삭제는 중복을 한 번만 처리하고 없는 항목은 notFoundMediaIds 로 알린다", async () => {
     await join(MEMBER);
     const result = await deleteMediaBatch({
       roomId: MOCK_ROOM_ID,
-      mediaIds: [5006, 5006, 5012, 999999],
+      mediaIds: [5006, 5006, 999999],
       token: MEMBER,
     });
-    expect(result).toMatchObject({
-      deleted: [5006],
+    expect(result).toEqual({
       deletedCount: 1,
-      skipped: [
-        { mediaId: 5012, code: "MEDIA_FORBIDDEN" },
-        { mediaId: 999999, code: "MEDIA_NOT_FOUND" },
-      ],
+      deletedMediaIds: [5006],
+      notFoundMediaIds: [999999],
     });
     await expect(
       getMedia({ roomId: MOCK_ROOM_ID, mediaId: 5006, token: MEMBER }),
     ).rejects.toMatchObject({ code: "MEDIA_NOT_FOUND" });
   });
 
-  it("빈 include 선택은 아무것도 삭제하지 않는다", async () => {
+  it("다중 삭제에 권한 없는 항목이 하나라도 있으면 아무것도 지우지 않고 403 이다", async () => {
+    await join(MEMBER);
+    await expect(
+      deleteMediaBatch({ roomId: MOCK_ROOM_ID, mediaIds: [5006, 5012], token: MEMBER }),
+    ).rejects.toMatchObject({ code: "MEDIA_FORBIDDEN" });
+    await expect(
+      getMedia({ roomId: MOCK_ROOM_ID, mediaId: 5006, token: MEMBER }),
+    ).resolves.toMatchObject({ mediaId: 5006 });
+  });
+
+  it("다중 삭제가 500개를 넘으면 400 TOO_MANY_FILES 다", async () => {
+    await join(HOST);
+    await expect(
+      deleteMediaBatch({
+        roomId: MOCK_ROOM_ID,
+        mediaIds: Array.from({ length: 501 }, (_, index) => index + 1),
+        token: HOST,
+      }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_FILES" });
+  });
+
+  it("빈 목록은 아무것도 삭제하지 않는다", async () => {
     await join(HOST);
     await expect(
       deleteMediaBatch({ roomId: MOCK_ROOM_ID, mediaIds: [], token: HOST }),
-    ).resolves.toEqual({ deleted: [], skipped: [], deletedCount: 0 });
+    ).resolves.toEqual({ deletedCount: 0, deletedMediaIds: [], notFoundMediaIds: [] });
   });
 });

@@ -62,7 +62,7 @@ public class ReissueUploadUrlService {
     // 재압축해서 다시 올리는 경우. 0 이하는 400, 한도 초과는 413 으로 갈린다.
     private void changeSize(StoredFile file, Long newSize) {
         try {
-            file.changeFileSize(new FileSize(newSize));
+            file.changeFileSize(new FileSize(newSize), uploadProperties.sizePolicy());
         } catch (InvalidFileSizeException e) {
             throw new InvalidUploadParamException("파일 크기가 올바르지 않습니다");
         }

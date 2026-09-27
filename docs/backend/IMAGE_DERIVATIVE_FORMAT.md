@@ -103,11 +103,18 @@ CPU 가 바뀌어도 같은 방향으로 움직인다.
 ./gradlew ssimValidation                 -Psamples=<무손실 PNG>
 ./gradlew derivativeFormatBenchmark      -Psamples=<Kodak>   -Pwidths=400,768  -Pout=kodak.csv
 ./gradlew derivativeFormatBenchmark      -Psamples=<실사진>  -Pwidths=400,1600 -Pout=photo.csv
-./gradlew derivativeConcurrencyBenchmark -Psamples=<실사진>  -Pout=concurrency.csv
+./gradlew derivativeConcurrencyBenchmark -Psamples=<실사진>  -Pwebp=85 -Pavif=28 -Pout=concurrency.csv
 ```
 
+동시성 측정의 품질 지점(`-Pwebp` / `-Pavif`)은 코드에 박아 두지 않고 밖에서 준다. 위 곡선에서 SSIM 이
+맞는 쌍을 골라 넣어야 하고, 측정기는 그 두 설정의 SSIM 을 같이 재서 결과 CSV 에 적는다 — **화질이 다른
+두 설정의 처리량을 견주면 느린 쪽이 포맷 탓인지 화질 탓인지 갈라 볼 수 없기 때문이다.**
+
 코드는 `src/test/java/com/sssok/benchmark/` 에 있다. CI 가 매번 사진 수십 장을 인코딩하지 않도록
-테스트가 아닌 별도 Gradle 태스크로 뒀다.
+테스트가 아닌 별도 Gradle 태스크로 뒀다. AVIF 측정에는 `ffmpeg`(libsvtav1 포함)이 PATH 에 있어야 한다.
+교차 검증 전체도 샘플과 ffmpeg 이 필요해 CI 에서는 돌지 않는다. 대신 `SsimTest` 가 기본 성질만 매번
+지킨다 — 같은 이미지는 1.0, 훼손이 커지면 단조 감소, 해상도 불일치는 예외. 메모리에서 만든 64x64 로
+끝나 CI 비용은 사실상 없다.
 
 ## 1차 측정 — 같은 SSIM 에서의 크기
 

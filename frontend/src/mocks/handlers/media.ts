@@ -28,20 +28,17 @@ const notFound = () => error(404, "MEDIA_NOT_FOUND", "미디어를 찾을 수 �
 const forbidden = () =>
   error(403, "MEDIA_FORBIDDEN", "다른 사람이 올린 파일이라 삭제할 수 없습니다");
 
-const selectedIdsOf = (body: Record<string, unknown>, roomId: number) => {
-  if (Array.isArray(body.mediaIds)) return [...new Set<number>(body.mediaIds)];
-  if (!body.selection || typeof body.selection !== "object") return null;
-  const selection = body.selection as Record<string, unknown>;
-  if (!Array.isArray(selection.ids)) return null;
-  const ids = [...new Set<number>(selection.ids)];
-  if (selection.mode === "include") return ids;
-  if (selection.mode === "exclude") {
-    const excluded = new Set(ids);
-    return mediaOfRoom(roomId)
-      .map((media) => media.mediaId)
-      .filter((mediaId) => !excluded.has(mediaId));
+// 삭제 상한
+const MAX_DELETE_COUNT = 500;
+
+// 중복은 요청 순서대로 걷어낸다.
+const selectedIdsOf = (body: Record<string, unknown>) => {
+  if (!Array.isArray(body.mediaIds)) return null;
+  const ids: unknown[] = body.mediaIds;
+  if (!ids.every((id) => typeof id === "number" && Number.isSafeInteger(id) && id > 0)) {
+    return null;
   }
-  return null;
+  return [...new Set(ids as number[])];
 };
 
 export const mediaHandlers = [
@@ -51,9 +48,7 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
     const mediaIds =
-      body && typeof body === "object"
-        ? selectedIdsOf(body as Record<string, unknown>, roomId)
-        : null;
+      body && typeof body === "object" ? selectedIdsOf(body as Record<string, unknown>) : null;
     if (
       !body ||
       typeof body !== "object" ||
@@ -117,9 +112,7 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
     const mediaIds =
-      body && typeof body === "object"
-        ? selectedIdsOf(body as Record<string, unknown>, roomId)
-        : null;
+      body && typeof body === "object" ? selectedIdsOf(body as Record<string, unknown>) : null;
     if (
       !body ||
       typeof body !== "object" ||
@@ -216,35 +209,26 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const body: unknown = await request.json().catch(() => null);
     const mediaIds =
-      body && typeof body === "object"
-        ? selectedIdsOf(body as Record<string, unknown>, roomId)
-        : null;
-    if (
-      !body ||
-      typeof body !== "object" ||
-      mediaIds === null ||
-      !mediaIds.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0)
-    ) {
-      return error(400, "INVALID_MEDIA_IDS", "삭제할 미디어 ID 목록을 확인해 주세요.");
+      body && typeof body === "object" ? selectedIdsOf(body as Record<string, unknown>) : null;
+    if (!body || typeof body !== "object" || mediaIds === null) {
+      return error(400, "INVALID_PARAM", "미디어 ID 목록이 올바르지 않습니다");
     }
-    const deleted: number[] = [];
-    const skipped: { mediaId: number; code: string; message: string }[] = [];
+    if (mediaIds.length > MAX_DELETE_COUNT) {
+      return error(
+        400,
+        "TOO_MANY_FILES",
+        `한 번에 최대 ${MAX_DELETE_COUNT}개까지 처리할 수 있습니다`,
+      );
+    }
     const mediaById = new Map(mediaOfRoom(roomId).map((media) => [media.mediaId, media]));
-    for (const mediaId of mediaIds) {
-      const media = mediaById.get(mediaId);
-      if (!media) {
-        skipped.push({ mediaId, code: "MEDIA_NOT_FOUND", message: "미디어를 찾을 수 없습니다." });
-      } else if (!canDelete(media, auth)) {
-        skipped.push({
-          mediaId,
-          code: "MEDIA_FORBIDDEN",
-          message: "다른 사람이 올린 파일이라 삭제할 수 없습니다",
-        });
-      } else {
-        markMediaDeleted(roomId, mediaId);
-        deleted.push(mediaId);
-      }
-    }
-    return HttpResponse.json({ data: { deleted, skipped, deletedCount: deleted.length } });
+    const targets = mediaIds.flatMap((mediaId) => mediaById.get(mediaId) ?? []);
+    const notFoundMediaIds = mediaIds.filter((mediaId) => !mediaById.has(mediaId));
+    // backend 는 한 장이라도 권한이 없으면 전체를 거절한다.
+    if (!targets.every((media) => canDelete(media, auth))) return forbidden();
+    const deletedMediaIds = targets.map((media) => media.mediaId);
+    deletedMediaIds.forEach((mediaId) => markMediaDeleted(roomId, mediaId));
+    return HttpResponse.json({
+      data: { deletedCount: deletedMediaIds.length, deletedMediaIds, notFoundMediaIds },
+    });
   }),
 ];
