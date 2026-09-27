@@ -164,7 +164,22 @@ class MediaQueryControllerTest {
     @Test
     void 지원하지_않는_uploader이면_400() throws Exception {
         getMediaList("?uploader=UNKNOWN")
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"));
+    }
+
+    @Test
+    void size가_숫자가_아니면_400과_INVALID_REQUEST_PARAMETER() throws Exception {
+        getMediaList("?size=abc")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"));
+    }
+
+    @Test
+    void folderId가_숫자가_아니면_400과_INVALID_REQUEST_PARAMETER() throws Exception {
+        getMediaList("?folderId=abc")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"));
     }
 
     @Test
