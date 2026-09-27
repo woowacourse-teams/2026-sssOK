@@ -219,7 +219,7 @@ describe("RoomEntryPage", () => {
       expect(screen.getByRole("img", { name: "닫힌 방을 안내하는 캐릭터" })).toBeInTheDocument();
       expect(screen.getByText(/삭제되었거나 보관 기간이 지나/)).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "새 방 만들기" })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "홈으로" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "홈으로 가기" })).toBeInTheDocument();
     });
 
     it("영구 삭제된 방도 동일한 삭제 안내를 보여준다", async () => {

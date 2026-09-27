@@ -62,7 +62,10 @@ describe("라우트", () => {
       "href",
       ROUTES.createRoom,
     );
-    expect(screen.getByRole("link", { name: "홈으로" })).toHaveAttribute("href", ROUTES.home);
+    expect(screen.getByRole("link", { name: "홈으로 가기" })).toHaveAttribute(
+      "href",
+      ROUTES.home,
+    );
   });
 
   it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", async () => {
