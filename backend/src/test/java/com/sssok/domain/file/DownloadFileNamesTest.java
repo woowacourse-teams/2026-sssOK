@@ -29,6 +29,22 @@ class DownloadFileNamesTest {
     }
 
     @Test
+    void 파일명의_공백은_percent20으로_인코딩한다() {
+        String disposition = DownloadFileNames.contentDispositionOf("영상 1.mp4");
+
+        assertThat(disposition)
+            .contains("filename*=UTF-8''%EC%98%81%EC%83%81%201.mp4")
+            .doesNotContain("%EC%98%81%EC%83%81+1.mp4");
+    }
+
+    @Test
+    void 한글_동영상_파일명은_확장자를_유지한_ASCII_폴백을_사용한다() {
+        String disposition = DownloadFileNames.contentDispositionOf("영상 1.mp4");
+
+        assertThat(disposition).contains("filename=\"download.mp4\"");
+    }
+
+    @Test
     void 확장자가_없는_비ASCII_파일명은_확장자_없이_폴백한다() {
         String disposition = DownloadFileNames.contentDispositionOf("사진");
 
