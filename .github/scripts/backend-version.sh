@@ -4,7 +4,7 @@ set -euo pipefail
 SEMVER='^[0-9]+\.[0-9]+\.[0-9]+$'
 
 fail() {
-    echo "::error::$1"
+    echo "::error::$1" >&2
     exit 1
 }
 
