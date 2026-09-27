@@ -158,7 +158,7 @@ class MediaUploadControllerTest {
     @Test
     void 완료_등록하면_201과_registered_failed_를_반환한다() throws Exception {
         MediaDetail detail = new MediaDetail(MEDIA_ID, "IMAGE", "a.jpg", "image/jpeg", 1024L,
-            null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null,
             List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now());
         CompleteUploadResult result = new CompleteUploadResult(List.of(detail),
             List.of(FailedMedia.of(5013L, UploadRejectionReason.UPLOAD_NOT_COMPLETED)));
