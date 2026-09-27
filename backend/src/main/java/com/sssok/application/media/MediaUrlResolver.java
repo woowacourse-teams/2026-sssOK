@@ -21,8 +21,8 @@ public class MediaUrlResolver {
     private final ThumbnailProperties thumbnailProperties;
     private final DownloadProperties downloadProperties;
 
-    // 목록에는 타일에 그릴 썸네일만 싣는다. 여기에 프리뷰까지 얹으면 30장짜리 한 페이지가
-    // 5MB 를 넘고, 그중 사용자가 실제로 여는 것은 한두 장이다.
+    // 목록에는 타일에 그릴 썸네일만 싣는다. 프리뷰 URL 은 상세를 열었을 때만 내주어,
+    // 타일 30장 중 실제로 열어보는 한두 장에 대해서만 1600px 요청이 일어나게 한다.
     public MediaUrls forList(StoredFile file) {
         Instant now = Instant.now();
         return new MediaUrls(

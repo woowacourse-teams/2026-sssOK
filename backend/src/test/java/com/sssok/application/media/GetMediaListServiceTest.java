@@ -451,8 +451,8 @@ class GetMediaListServiceTest {
             .isInstanceOf(FolderNotFoundException.class);
     }
 
-    // 타일 30장에 1600px 프리뷰까지 실으면 한 페이지가 5MB 를 넘는다. 그중 사용자가 실제로
-    // 여는 것은 한두 장이라, 목록에는 타일에 그릴 썸네일만 싣는다 (#291 완료 조건).
+    // 프리뷰 URL 은 상세 조회 시점에만 내준다. 목록에까지 실으면 타일 30장 가운데 실제로 열지도
+    // 않을 사진의 1600px 요청까지 열어 주게 된다 (#291 완료 조건).
     @Test
     void 목록은_썸네일만_싣고_프리뷰와_원본은_내려주지_않는다() {
         StoredFile file = save(ROOM_ID, UploadStatus.PROCESSING, Instant.now());

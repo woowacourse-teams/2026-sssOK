@@ -23,7 +23,7 @@ public record MediaResponse(
         + "원본을 노출하지 않으므로 null이며, 저장 목적의 다운로드는 다운로드 API를 쓴다. "
         + "RESERVED·FAILED면 실물이 없어 null이다")
     String originalUrl,
-    @Schema(description = "originalUrl의 만료 시각. 지나면 목록을 다시 받아야 한다") Instant originalUrlExpiresAt,
+    @Schema(description = "originalUrl의 만료 시각. 지나면 상세를 다시 받아야 한다") Instant originalUrlExpiresAt,
     Integer width,
     Integer height,
     @Schema(description = "영상 재생 시간(초)") Integer duration,
