@@ -203,6 +203,18 @@ class MediaFolderApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"));
     }
 
+    // null 은 "없는 폴더"가 아니라 잘못된 요청이다. 위 -1 과 달리 404 가 아니라 400 으로 나간다.
+    @Test
+    void 꺼내기의_folderIds에_null이_섞여_있으면_400과_INVALID_PARAM() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long mediaId = 존재하는_미디어(roomId);
+
+        꺼내기(token, roomId, "{\"mediaIds\":[%d],\"folderIds\":[null]}".formatted(mediaId))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
     @Test
     void 꺼내기에서_mediaIds가_없으면_400과_INVALID_PARAM() throws Exception {
         String token = 익명_인증("가현");
