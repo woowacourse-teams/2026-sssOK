@@ -6,8 +6,8 @@ import {
   HiArrowDownTray,
   HiArrowLeft,
   HiCheck,
-  HiChevronLeft,
-  HiChevronRight,
+  HiOutlineChevronLeft,
+  HiOutlineChevronRight,
   HiOutlineTrash,
 } from "react-icons/hi2";
 
@@ -153,10 +153,10 @@ export const MediaViewerModal = ({
               disabled={!previous}
               onClick={() => previous && onChange(previous.mediaId)}
             >
-              <HiChevronLeft />
+              <HiOutlineChevronLeft strokeWidth={2.5} />
             </PreviousButton>
             <NextButton type="button" aria-label="다음 사진" disabled={!next} onClick={moveNext}>
-              <HiChevronRight />
+              <HiOutlineChevronRight strokeWidth={2.5} />
             </NextButton>
           </Stage>
           <ViewerFooter
@@ -407,14 +407,17 @@ const SlideButton = styled(BackButton)`
   width: 44px;
   height: 44px;
   border-radius: 50%;
+  background: ${colors.backgroundDefault};
+  color: ${colors.textStrong};
+  box-shadow: 0 2px 10px #00000059;
 
   &:disabled {
     visibility: hidden;
   }
 
   svg {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
   }
 `;
 
