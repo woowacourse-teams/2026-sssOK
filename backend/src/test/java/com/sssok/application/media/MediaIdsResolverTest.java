@@ -80,6 +80,6 @@ class MediaIdsResolverTest {
         Instant now = Instant.now();
         return StoredFile.reconstruct(id, ROOM_ID, 1L, "사진.jpg", MediaType.JPEG,
             new FileSize(1024), new StorageKey("rooms/1/%d.jpg".formatted(id)), null,
-            UploadStatus.READY, now, now, 0, null, null, null, null, null, null);
+            UploadStatus.READY, now, now, 0, null, null, null, null, null, null, null);
     }
 }
