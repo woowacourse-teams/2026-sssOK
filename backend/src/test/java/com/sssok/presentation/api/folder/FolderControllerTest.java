@@ -174,6 +174,46 @@ class FolderControllerTest {
     }
 
     @Test
+    void 본문이_없으면_400과_INVALID_REQUEST_BODY를_반환한다() throws Exception {
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", ROOM_ID)
+                .header("Authorization", BEARER)
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void 이름의_타입이_다르면_400과_INVALID_REQUEST_BODY를_반환한다() throws Exception {
+        createFolder("{\"name\":[\"맛집\"]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void 이름에_제어문자가_있으면_400과_INVALID_REQUEST_BODY를_반환한다() throws Exception {
+        createFolder("{\"name\":\"맛\\u0000집\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void 이름_변경도_본문이_없으면_400과_INVALID_REQUEST_BODY를_반환한다() throws Exception {
+        mockMvc.perform(patch("/api/v1/rooms/{roomId}/folders/{folderId}", ROOM_ID, 100L)
+                .header("Authorization", BEARER)
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void 폴더_id가_숫자가_아니면_400과_INVALID_REQUEST_PARAMETER를_반환한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/rooms/{roomId}/folders/abc", ROOM_ID)
+                .header("Authorization", BEARER))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"));
+    }
+
+    @Test
     void 이름이_중복되면_409와_DUPLICATE_FOLDER_NAME을_반환한다() throws Exception {
         given(createFolderService.create(anyLong(), anyString())).willThrow(new DuplicateFolderNameException());
 
