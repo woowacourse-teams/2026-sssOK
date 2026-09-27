@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -75,7 +76,7 @@ class CompleteUploadServiceTest {
 
     private StoredFile reserved(Long uploaderId) {
         return fileRepository.save(StoredFile.reserve(roomId, uploaderId, "a.jpg", MIME,
-            new FileSize(SIZE), Instant.now()));
+            new FileSize(SIZE), Instant.now(), SIZE_POLICY));
     }
 
     private void uploadedAs(long size, String mimeType) {

@@ -51,10 +51,11 @@ class DerivativeKeyTest {
             .isEqualTo("image/gif");
     }
 
-    // 여기서 예외를 던지면 사진 한 장 때문에 목록 조회 전체가 500 이 된다.
+    // 여기서 예외를 던지면 사진 한 장 때문에 목록 조회 전체가 500 이 된다. 그렇다고 image/jpeg 로
+    // 단정하면 실제 포맷과 어긋난 채 브라우저가 그리려다 깨지므로, 이미지라고 못 박지 않는다.
     @Test
     void 확장자를_읽을_수_없는_키도_형식을_돌려준다() {
         assertThat(DerivativeContentType.of(new StorageKey("rooms/7/thumbnails/확장자없음")))
-            .isEqualTo("image/jpeg");
+            .isEqualTo("application/octet-stream");
     }
 }

@@ -203,7 +203,7 @@ class MediaQueryControllerTest {
 
     @Test
     void 전체_목록을_조회하면_페이지네이션_필드_없이_items를_반환한다() throws Exception {
-        given(getMediaListService.list(ROOM_ID, null))
+        given(getMediaListService.list(ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL))
             .willReturn(List.of(mediaWithThumbnail()));
 
         getAllMedia("")
@@ -214,24 +214,47 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.hasNext").doesNotExist())
             .andExpect(jsonPath("$.data.totalCount").doesNotExist());
 
-        verify(getMediaListService).list(ROOM_ID, null);
+        verify(getMediaListService).list(
+            ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL);
     }
 
     @Test
     void 전체_목록의_folderId를_서비스에_전달한다() throws Exception {
-        given(getMediaListService.list(ROOM_ID, FOLDER_ID)).willReturn(List.of());
+        given(getMediaListService.list(
+            ROOM_ID, FOLDER_ID, MEMBER_ID, MediaUploaderFilter.ALL)).willReturn(List.of());
 
         getAllMedia("?folderId=" + FOLDER_ID)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.items").isEmpty());
 
-        verify(getMediaListService).list(ROOM_ID, FOLDER_ID);
+        verify(getMediaListService).list(
+            ROOM_ID, FOLDER_ID, MEMBER_ID, MediaUploaderFilter.ALL);
+    }
+
+    @Test
+    void 전체_목록의_uploader를_서비스에_전달한다() throws Exception {
+        given(getMediaListService.list(
+            ROOM_ID, FOLDER_ID, MEMBER_ID, MediaUploaderFilter.ME)).willReturn(List.of());
+
+        getAllMedia("?folderId=" + FOLDER_ID + "&uploader=ME")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items").isEmpty());
+
+        verify(getMediaListService).list(
+            ROOM_ID, FOLDER_ID, MEMBER_ID, MediaUploaderFilter.ME);
+    }
+
+    @Test
+    void 전체_목록의_uploader가_지원하지_않는_값이면_400() throws Exception {
+        getAllMedia("?uploader=UNKNOWN")
+            .andExpect(status().isBadRequest());
     }
 
     @Test
     void 전체_목록을_없는_폴더로_필터하면_404() throws Exception {
         willThrow(new FolderNotFoundException(FOLDER_ID))
-            .given(getMediaListService).list(ROOM_ID, FOLDER_ID);
+            .given(getMediaListService).list(
+                ROOM_ID, FOLDER_ID, MEMBER_ID, MediaUploaderFilter.ALL);
 
         getAllMedia("?folderId=" + FOLDER_ID)
             .andExpect(status().isNotFound())
