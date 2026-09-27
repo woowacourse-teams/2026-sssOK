@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -64,7 +65,7 @@ class MediaEventAfterCommitTest {
         Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
         roomId = room.getId();
         file = StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
-            new FileSize(1024L), Instant.now());
+            new FileSize(1024L), Instant.now(), SIZE_POLICY);
     }
 
     // 이 메서드는 스프링 테스트 기본값에 따라 끝에 롤백된다. register 는 그 트랜잭션에 참여하므로
