@@ -383,26 +383,20 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isDeleteFolderOpen && selectedFolder && (
         <DeleteFolderModal
           roomId={room.roomId}
+          roomCode={room.code}
+          userId={userId}
           folderId={selectedFolder.id}
           folderName={selectedFolder.name}
           accessToken={accessToken}
           onClose={() => setIsDeleteFolderOpen(false)}
-          onSuccess={async () => {
-            const folderName = selectedFolder.name;
+          onDelete={() => {
             setIsDeleteFolderOpen(false);
             selectFolder(null);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
-              }),
-            ]);
-            setDeletedFolderName(folderName);
+            setDeletedFolderName(selectedFolder.name);
+          }}
+          onError={() => {
+            setDeletedFolderName(null);
           }}
         />
       )}
