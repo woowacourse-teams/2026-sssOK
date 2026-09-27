@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
+import { RoomClosedPage } from "@/pages/room-closed";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTE_PATTERNS } from "@/shared/config";
 import { track } from "@/shared/lib/analytics";
@@ -40,6 +41,7 @@ const renderAt = (code: string, state?: unknown) => {
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[{ pathname: `/rooms/${code}`, state }]}>
         <Routes>
+          <Route path={ROUTE_PATTERNS.closedRoom} element={<RoomClosedPage />} />
           <Route path={ROUTE_PATTERNS.roomEntry} element={<RoomEntryPage />} />
           <Route path={ROUTE_PATTERNS.gallery} element={<div>{GALLERY_TEXT}</div>} />
           <Route path={ROUTE_PATTERNS.home} element={<div>홈 도착</div>} />
@@ -200,7 +202,9 @@ describe("RoomEntryPage", () => {
 
       renderAt(MOCK_ROOM_CODES.expired);
 
-      expect(await screen.findByText(/만료된 방이에요/)).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "이 방은 사라졌어요" }),
+      ).toBeInTheDocument();
       expect(getRoomSession(MOCK_ROOM_CODES.expired)).toBeNull();
       // 다른 방 토큰은 그 방에서 계속 쓴다
       expect(getRoomSession(MOCK_ROOM_CODES.active)).not.toBeNull();
@@ -209,7 +213,23 @@ describe("RoomEntryPage", () => {
     it("삭제된 방은 삭제 안내를 보여준다", async () => {
       renderAt(MOCK_ROOM_CODES.deleted);
 
-      expect(await screen.findByText(/삭제된 방이에요/)).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "이 방은 사라졌어요" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("img", { name: "닫힌 방을 안내하는 캐릭터" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText(/이 방의 사진과 영상은/)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "새 방 만들기" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "홈으로" })).toBeInTheDocument();
+    });
+
+    it("영구 삭제된 방도 동일한 삭제 안내를 보여준다", async () => {
+      renderAt(MOCK_ROOM_CODES.purged);
+
+      expect(
+        await screen.findByRole("heading", { name: "이 방은 사라졌어요" }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -288,7 +308,7 @@ describe("RoomEntryPage", () => {
     it("만료된 방이면 방 상태를 사유로 입장 실패를 남긴다", async () => {
       renderAt(MOCK_ROOM_CODES.expired);
 
-      await screen.findByText(/만료된 방이에요/);
+      await screen.findByRole("heading", { name: "이 방은 사라졌어요" });
 
       expect(track).toHaveBeenCalledWith("Room Join Failed", {
         room_code: MOCK_ROOM_CODES.expired,
