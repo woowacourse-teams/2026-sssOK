@@ -1,5 +1,6 @@
 package com.sssok.infrastructure.persistence.folder;
 
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -12,10 +13,30 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
 
     long deleteByMediaIdIn(List<Long> mediaIds);
 
-    long countByFolderId(Long folderId);
+    // 매핑 행이 아니라 실제로 목록에 노출되는 미디어만 센다.
+    @Query(value = """
+        SELECT COUNT(*)
+        FROM folder_media fm
+        JOIN stored_file sf ON sf.id = fm.media_id
+        WHERE fm.folder_id = :folderId
+          AND sf.status IN (:statuses)
+        """, nativeQuery = true)
+    long countByFolderIdAndStatusIn(
+        @Param("folderId") Long folderId,
+        @Param("statuses") Collection<String> statuses);
 
-    @Query("select f.folderId, count(f) from FolderMediaJpaEntity f where f.folderId in :folderIds group by f.folderId")
-    List<Object[]> countGroupByFolderIdIn(@Param("folderIds") List<Long> folderIds);
+    // 위와 같은 기준으로 여러 폴더를 한 번에 센다. 폴더마다 따로 세면 N+1 이 된다.
+    @Query(value = """
+        SELECT fm.folder_id, COUNT(*)
+        FROM folder_media fm
+        JOIN stored_file sf ON sf.id = fm.media_id
+        WHERE fm.folder_id IN (:folderIds)
+          AND sf.status IN (:statuses)
+        GROUP BY fm.folder_id
+        """, nativeQuery = true)
+    List<Object[]> countGroupByFolderIdInAndStatusIn(
+        @Param("folderIds") List<Long> folderIds,
+        @Param("statuses") Collection<String> statuses);
 
     @Modifying
     @Query("delete from FolderMediaJpaEntity f where f.folderId = :folderId and f.mediaId = :mediaId")
@@ -50,4 +71,21 @@ public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEn
         ON CONFLICT (folder_id, media_id) DO NOTHING
         """, nativeQuery = true)
     int insertIfAbsent(@Param("folderId") Long folderId, @Param("mediaId") Long mediaId);
+
+    // 위와 같지만 stored_file 을 함께 읽어 상태가 맞을 때만 넣는다. 상태를 미리 조회해두고
+    // 나중에 넣으면 그 사이에 FAILED 로 바뀐 미디어가 담겨, 응답의 updatedCount 와 폴더
+    // photoCount 가 어긋난다. 확인과 삽입을 한 문장에 두어 그 구간을 없앤다.
+    @Modifying
+    @Query(value = """
+        INSERT INTO folder_media (folder_id, media_id, created_at, updated_at)
+        SELECT :folderId, sf.id, now(), now()
+        FROM stored_file sf
+        WHERE sf.id = :mediaId
+          AND sf.status IN (:statuses)
+        ON CONFLICT (folder_id, media_id) DO NOTHING
+        """, nativeQuery = true)
+    int insertIfAbsentAndStatusIn(
+        @Param("folderId") Long folderId,
+        @Param("mediaId") Long mediaId,
+        @Param("statuses") Collection<String> statuses);
 }
