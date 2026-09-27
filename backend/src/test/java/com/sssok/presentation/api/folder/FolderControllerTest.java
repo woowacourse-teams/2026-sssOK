@@ -213,6 +213,16 @@ class FolderControllerTest {
             .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"));
     }
 
+    // 인터셉터가 경로 변수를 직접 파싱하는 구간이라 스프링의 타입 변환을 거치지 않는다.
+    @Test
+    void 방_id가_숫자가_아니면_400과_INVALID_REQUEST_PARAMETER를_반환한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/rooms/abc/folders/{folderId}", 100L)
+                .header("Authorization", BEARER))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_PARAMETER"))
+            .andExpect(jsonPath("$.message").value("roomId 값의 형식이 올바르지 않습니다"));
+    }
+
     @Test
     void 이름이_중복되면_409와_DUPLICATE_FOLDER_NAME을_반환한다() throws Exception {
         given(createFolderService.create(anyLong(), anyString())).willThrow(new DuplicateFolderNameException());
