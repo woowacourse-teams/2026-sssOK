@@ -586,6 +586,42 @@ export const roomHandlers = [
   }),
 
   /**
+   * 페이지 없이 방의 미디어를 최신순으로 전부 내려준다.
+   */
+  http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, ({ request, params }) => {
+    const token = request.headers.get("Authorization");
+
+    if (token === null || isBrokenToken(token)) {
+      return unauthorized();
+    }
+
+    const roomId = Number(params.roomId);
+
+    if (roomId !== MOCK_ROOM_ID) {
+      return roomNotFound();
+    }
+
+    const rawFolderId = new URL(request.url).searchParams.get("folderId");
+    const folderId = rawFolderId === null ? null : Number(rawFolderId);
+
+    if (folderId !== null && !Number.isInteger(folderId)) return invalidParameter("folderId");
+    if (folderId !== null && !hasFolder(roomId, folderId)) {
+      return HttpResponse.json(
+        { code: "FOLDER_NOT_FOUND", message: `존재하지 않는 폴더입니다: ${folderId}` },
+        { status: 404 },
+      );
+    }
+
+    return HttpResponse.json({
+      data: {
+        items: mediaOfRoom(roomId).filter(
+          (media) => folderId === null || media.folderIds.includes(folderId),
+        ),
+      },
+    });
+  }),
+
+  /**
    * 입장은 멱등이다. 처음이면 201, 이미 입장했으면 200 으로 같은 내용을 돌려준다.
    * 목은 이번 세션에 입장한 방을 기억해 두 번째 호출부터 200 을 준다.
    */

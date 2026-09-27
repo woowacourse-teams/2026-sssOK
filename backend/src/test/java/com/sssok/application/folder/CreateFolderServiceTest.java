@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -20,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@RecordApplicationEvents
 class CreateFolderServiceTest {
 
     @Autowired
@@ -27,6 +30,9 @@ class CreateFolderServiceTest {
 
     @Autowired
     FolderRepository folderRepository;
+
+    @Autowired
+    ApplicationEvents applicationEvents;
 
     @Test
     void 폴더가_생성되고_저장된다() {
@@ -60,6 +66,25 @@ class CreateFolderServiceTest {
         Folder folder = createFolderService.create(2L, "맛집");
 
         assertThat(folder.getRoomId()).isEqualTo(2L);
+    }
+
+    @Test
+    void 생성되면_folder_created_이벤트가_발행된다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+
+        assertThat(applicationEvents.stream(FolderCreatedEvent.class))
+            .containsExactly(new FolderCreatedEvent(1L, folder.getId(), "맛집", folder.getCreatedAt()));
+    }
+
+    @Test
+    void 중복_이름으로_실패하면_이벤트를_발행하지_않는다() {
+        createFolderService.create(1L, "맛집");
+        applicationEvents.clear();
+
+        assertThatThrownBy(() -> createFolderService.create(1L, "맛집"))
+            .isInstanceOf(DuplicateFolderNameException.class);
+
+        assertThat(applicationEvents.stream(FolderCreatedEvent.class)).isEmpty();
     }
 
     @Test

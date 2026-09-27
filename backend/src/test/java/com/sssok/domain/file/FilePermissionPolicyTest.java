@@ -1,5 +1,6 @@
 package com.sssok.domain.file;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
@@ -16,7 +17,7 @@ class FilePermissionPolicyTest {
     private static final boolean NOT_HOST = false;
 
     private static StoredFile fileOf(Long uploaderId) {
-        return StoredFile.reserve(1L, uploaderId, "cat.png", "image/png", FileSize.ofMegabytes(1), NOW);
+        return StoredFile.reserve(1L, uploaderId, "cat.png", "image/png", FileSize.ofMegabytes(1), NOW, SIZE_POLICY);
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +16,7 @@ public class DeleteFolderService {
 
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public DeleteFolderResult delete(Long roomId, Long folderId) {
@@ -25,6 +27,7 @@ public class DeleteFolderService {
         long detachedCount = folderMediaRepository.detachAllFromFolder(folder.getId());
         folderRepository.deleteById(folder.getId());
 
+        eventPublisher.publishEvent(new FolderDeletedEvent(roomId, folder.getId()));
         return new DeleteFolderResult(folder.getId(), (int) detachedCount);
     }
 }

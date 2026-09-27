@@ -145,7 +145,7 @@ class DownloadControllerTest {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class))).willReturn(List.of());
 
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"ME\"}")
+        createBatch("{\"folderId\":31,\"uploader\":\"ME\"}")
             .andExpect(status().isOk());
 
         verify(createBatchDownloadService).create(eq(ROOM_ID), anyLong(), any(),
@@ -157,7 +157,7 @@ class DownloadControllerTest {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class))).willReturn(List.of());
 
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]}}")
+        createBatch("{\"mediaIds\":[5012]}")
             .andExpect(status().isOk());
 
         verify(createBatchDownloadService).create(eq(ROOM_ID), anyLong(), any(),
@@ -166,7 +166,7 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드의_지원하지_않는_업로더_필터는_400() throws Exception {
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"UNKNOWN\"}")
+        createBatch("{\"mediaIds\":[5012],\"uploader\":\"UNKNOWN\"}")
             .andExpect(status().isBadRequest());
     }
 
@@ -177,7 +177,7 @@ class DownloadControllerTest {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class))).willReturn(result);
 
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"OTHERS\"}")
+        createZip("{\"folderId\":31,\"uploader\":\"OTHERS\"}")
             .andExpect(status().isAccepted());
 
         verify(createDownloadJobService).create(eq(ROOM_ID), anyLong(), any(),
@@ -186,7 +186,7 @@ class DownloadControllerTest {
 
     @Test
     void zip_요청의_지원하지_않는_업로더_필터는_400() throws Exception {
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012]},\"uploader\":\"UNKNOWN\"}")
+        createZip("{\"mediaIds\":[5012],\"uploader\":\"UNKNOWN\"}")
             .andExpect(status().isBadRequest());
     }
 
@@ -206,7 +206,7 @@ class DownloadControllerTest {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class))).willReturn(files);
 
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011]}}")
+        createBatch("{\"mediaIds\":[5012,5011]}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.files.length()").value(2))
             .andExpect(jsonPath("$.data.files[0].mediaId").value(5012))
@@ -215,12 +215,12 @@ class DownloadControllerTest {
     }
 
     @Test
-    void 다건_다운로드에서_selection과_folderId를_함께_보내면_400() throws Exception {
+    void 다건_다운로드에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
             .willThrow(new InvalidDownloadParamException());
 
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":2}")
+        createBatch("{\"mediaIds\":[1],\"folderId\":2}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
@@ -231,7 +231,7 @@ class DownloadControllerTest {
             nullable(MediaUploaderFilter.class)))
             .willThrow(new TooManyFilesException(1000));
 
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
+        createBatch("{\"mediaIds\":[1]}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"));
     }
@@ -242,7 +242,7 @@ class DownloadControllerTest {
             nullable(MediaUploaderFilter.class)))
             .willThrow(new MediaNotFoundException());
 
-        createBatch("{\"selection\":{\"mode\":\"include\",\"ids\":[999]}}")
+        createBatch("{\"mediaIds\":[999]}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
     }
@@ -251,7 +251,7 @@ class DownloadControllerTest {
     void 다건_다운로드도_인증_없이_요청하면_401() throws Exception {
         mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads/batch", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}"))
+                .content("{\"mediaIds\":[1]}"))
             .andExpect(status().isUnauthorized());
     }
 
@@ -271,7 +271,7 @@ class DownloadControllerTest {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class))).willReturn(result);
 
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[5012,5011,5008]}}")
+        createZip("{\"mediaIds\":[5012,5011,5008]}")
             .andExpect(status().isAccepted())
             .andExpect(jsonPath("$.data.jobId").value(1))
             .andExpect(jsonPath("$.data.status").value("QUEUED"))
@@ -281,12 +281,12 @@ class DownloadControllerTest {
     }
 
     @Test
-    void zip_요청에서_selection과_folderId를_함께_보내면_400() throws Exception {
+    void zip_요청에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
             .willThrow(new InvalidDownloadParamException());
 
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]},\"folderId\":2}")
+        createZip("{\"mediaIds\":[1],\"folderId\":2}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
@@ -297,7 +297,7 @@ class DownloadControllerTest {
             nullable(MediaUploaderFilter.class)))
             .willThrow(new TooManyFilesException(1000));
 
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
+        createZip("{\"mediaIds\":[1]}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"));
     }
@@ -308,7 +308,7 @@ class DownloadControllerTest {
             nullable(MediaUploaderFilter.class)))
             .willThrow(new MediaNotFoundException());
 
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[999]}}")
+        createZip("{\"mediaIds\":[999]}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
     }
@@ -319,7 +319,7 @@ class DownloadControllerTest {
             nullable(MediaUploaderFilter.class)))
             .willThrow(new DownloadRateLimitedException());
 
-        createZip("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}")
+        createZip("{\"mediaIds\":[1]}")
             .andExpect(status().isTooManyRequests())
             .andExpect(jsonPath("$.code").value("RATE_LIMITED"));
     }
@@ -328,7 +328,7 @@ class DownloadControllerTest {
     void zip_요청도_인증_없이_요청하면_401() throws Exception {
         mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads/zip", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}"))
+                .content("{\"mediaIds\":[1]}"))
             .andExpect(status().isUnauthorized());
     }
 

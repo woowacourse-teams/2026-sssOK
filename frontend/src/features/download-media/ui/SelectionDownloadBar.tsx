@@ -9,10 +9,8 @@ import {
   LuX,
 } from "react-icons/lu";
 
-import type { MediaUploaderFilter } from "@/entities/media";
 import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
-import type { MediaSelectionRequest } from "@/features/select-media";
 import { IconButton } from "@/shared/ui/icon-button";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
@@ -48,8 +46,6 @@ import {
 interface SelectionDownloadBarProps {
   /** 지금 고른 미디어. 순서가 그대로 파일 이름 순서가 된다. */
   targets: DownloadTarget[];
-  selection?: MediaSelectionRequest;
-  selectedCount?: number;
   roomId: number;
   /** 시트에서 zip 파일명을 미리 보여주는 데 쓴다. */
   roomCode: string;
@@ -58,7 +54,6 @@ interface SelectionDownloadBarProps {
   /** 지금 선택이 "전체 선택" 으로 고른 것인지 */
   isAllSelected?: boolean;
   token: string;
-  uploader?: MediaUploaderFilter;
   onClearSelection: () => void;
   onDeleteSelection?: () => void;
   onMoveSelection?: () => void;
@@ -79,22 +74,16 @@ const STATUS_TEXT: Record<DownloadPhase, string> = {
 
 export const SelectionDownloadBar = ({
   targets,
-  selection: givenSelection,
-  selectedCount: givenSelectedCount,
   roomId,
   roomCode,
   roomPhotoCount,
   isAllSelected = false,
   token,
-  uploader,
   onClearSelection,
   onDeleteSelection,
   onMoveSelection,
   onSettled,
 }: SelectionDownloadBarProps) => {
-  const selection =
-    givenSelection ?? ({ mode: "include", ids: targets.map((target) => target.mediaId) } as const);
-  const selectedCount = givenSelectedCount ?? targets.length;
   const [isSheetOpen, setSheetOpen] = useState(false);
   const {
     failure,
@@ -106,15 +95,8 @@ export const SelectionDownloadBar = ({
    * 방금 굴린 판이 무엇이었는지. 재시도가 같은 방식으로 다시 받아야 하는데,
    * 그때는 이미 선택이 풀렸을 수도 있어 `targets` 만으로는 되짚을 수 없다.
    */
-  const [lastRun, setLastRun] = useState<{
-    selection: MediaSelectionRequest;
-    targets: DownloadTarget[];
-    count: number;
-    mode: DownloadMode;
-  }>({
-    selection: { mode: "include", ids: [] },
+  const [lastRun, setLastRun] = useState<{ targets: DownloadTarget[]; mode: DownloadMode }>({
     targets: [],
-    count: 0,
     mode: "individual",
   });
   /**
@@ -123,16 +105,15 @@ export const SelectionDownloadBar = ({
    */
   const trackedRunRef = useRef<{
     targets: DownloadTarget[];
-    selectedCount: number;
     mode: DownloadMode;
     isSelectAll: boolean;
     room: AnalyticsRoomContext | null;
-  }>({ targets: [], selectedCount: 0, mode: "individual", isSelectAll: false, room: null });
+  }>({ targets: [], mode: "individual", isSelectAll: false, room: null });
   const trackRun = (outcome: DownloadOutcome) =>
     trackDownload(outcome, {
       mode: trackedRunRef.current.mode,
       source: "gallery",
-      selectedCount: trackedRunRef.current.selectedCount,
+      selectedCount: trackedRunRef.current.targets.length,
       roomPhotoCount,
       isSelectAll: trackedRunRef.current.isSelectAll,
       room: trackedRunRef.current.room,
@@ -140,7 +121,6 @@ export const SelectionDownloadBar = ({
   const { progress, pendingShare, start, share, dismissShare, cancel } = useMediaDownload({
     roomId,
     token,
-    uploader,
     onSettled: (outcome) => {
       settleFailure(outcome, lastRun.targets, lastRun.mode);
       trackRun(outcome);
@@ -161,29 +141,23 @@ export const SelectionDownloadBar = ({
     },
   });
 
-  const startWith = (
-    mode: DownloadMode,
-    nextSelection = selection,
-    only: DownloadTarget[] = targets,
-    count = selectedCount,
-  ) => {
+  const startWith = (mode: DownloadMode, only: DownloadTarget[] = targets) => {
     setSheetOpen(false);
     closeFailure();
-    setLastRun({ selection: nextSelection, targets: only, count, mode });
+    setLastRun({ targets: only, mode });
     trackedRunRef.current = {
       targets: only,
-      selectedCount: count,
       mode,
       // 실패한 것만 다시 받는 판은 전체 선택으로 고른 판이 아니다
       isSelectAll: isAllSelected && only === targets,
       room: getAnalyticsRoom(),
     };
-    void start(nextSelection, only, count, mode);
+    void start(only, mode);
   };
 
   // 받는 중도, 보낼 것도, 고른 것도 없다. 바가 있을 이유가 없다.
   // 실패 모달은 별개다 — 선택이 풀린 뒤에도 왜 못 받았는지는 말해줘야 한다.
-  const isBarHidden = progress === null && pendingShare === null && selectedCount === 0;
+  const isBarHidden = progress === null && pendingShare === null && targets.length === 0;
 
   return (
     <>
@@ -248,7 +222,7 @@ export const SelectionDownloadBar = ({
                   >
                     <LuCheck />
                   </SelectionCheck>
-                  <Count>{selectedCount}개</Count>
+                  <Count>{targets.length}개</Count>
                 </SelectionSummary>
                 <DownloadButton type="button" onClick={() => setSheetOpen(true)}>
                   <LuDownload />
@@ -279,7 +253,7 @@ export const SelectionDownloadBar = ({
 
       {isSheetOpen && (
         <DownloadModeSheet
-          count={selectedCount}
+          count={targets.length}
           roomCode={roomCode}
           onSubmit={(mode) => startWith(mode)}
           onClose={() => setSheetOpen(false)}
@@ -292,13 +266,7 @@ export const SelectionDownloadBar = ({
           message={failure.message}
           // 다시 받아볼 것이 하나도 없으면 재시도를 내주지 않는다 (`useDownloadFailure` 참고).
           isRetryable={failure.targets.length > 0}
-          onRetry={() => {
-            const retrySelection = {
-              mode: "include" as const,
-              ids: failure.targets.map((target) => target.mediaId),
-            };
-            startWith(failure.mode, retrySelection, failure.targets, failure.targets.length);
-          }}
+          onRetry={() => startWith(failure.mode, failure.targets)}
           onClose={closeFailure}
         />
       )}

@@ -1,9 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import styled from "@emotion/styled";
 
-import type { MediaUploaderFilter } from "@/entities/media";
 import { isApiError } from "@/shared/api";
-import type { MediaSelectionRequest } from "@/features/select-media";
 import { colors, typography } from "@/shared/styles/tokens";
 import { Button } from "@/shared/ui/button";
 import { Modal } from "@/shared/ui/modal";
@@ -13,10 +11,7 @@ import { deleteMediaBatch, type DeleteMediaBatchResponse } from "../api/deleteMe
 
 interface DeleteSelectedMediaModalProps {
   roomId: number;
-  selection: MediaSelectionRequest;
-  selectedCount: number;
-  folderId?: number;
-  uploader: MediaUploaderFilter;
+  mediaIds: number[];
   token: string;
   onClose: () => void;
   onSuccess: (result: DeleteMediaBatchResponse) => void | Promise<void>;
@@ -24,23 +19,20 @@ interface DeleteSelectedMediaModalProps {
 
 export const DeleteSelectedMediaModal = ({
   roomId,
-  selection,
-  selectedCount,
-  folderId,
-  uploader,
+  mediaIds,
   token,
   onClose,
   onSuccess,
 }: DeleteSelectedMediaModalProps) => {
   const mutation = useMutation({
-    mutationFn: () => deleteMediaBatch({ roomId, selection, folderId, uploader, token }),
+    mutationFn: () => deleteMediaBatch({ roomId, mediaIds, token }),
     onSuccess,
   });
 
   return (
     <Modal onClose={mutation.isPending ? () => undefined : onClose} showClose={!mutation.isPending}>
       <Stack gap={20}>
-        <Title>{selectedCount}개의 사진을 삭제할까요?</Title>
+        <Title>{mediaIds.length}개의 사진을 삭제할까요?</Title>
         <Description>삭제한 사진은 다시 복구할 수 없어요.</Description>
         {mutation.isError && (
           <ErrorMessage role="alert">

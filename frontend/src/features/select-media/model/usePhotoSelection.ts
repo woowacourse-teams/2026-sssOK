@@ -1,75 +1,45 @@
 import { useContext, useState } from "react";
 
 import { PhotoSelectionContext } from "./PhotoSelectionContext";
-import { emptySelection, type SelectionState } from "./types";
 
-export const usePhotoSelection = (
-  visiblePhotoIds: number[],
-  totalCount = visiblePhotoIds.length,
-) => {
+/**
+ * 고른 사진의 id 만 들고 있는다. 서버에도 이 id 그대로 보낸다.
+ */
+export const usePhotoSelection = (visiblePhotoIds: number[]) => {
   const shared = useContext(PhotoSelectionContext);
   // 단독 사용(스토리·단위 테스트)은 로컬 상태로 동작한다.
-  const [localSelection, setLocalSelection] = useState<SelectionState>(emptySelection);
-  const selection = shared?.selection ?? localSelection;
-  const setSelection = shared?.setSelection ?? setLocalSelection;
-  const isSelected = (photoId: number) =>
-    selection.mode === "include"
-      ? selection.includedIds.has(photoId)
-      : !selection.excludedIds.has(photoId);
-  const selectedPhotoIds = visiblePhotoIds.filter(isSelected);
-  const selectedCount =
-    selection.mode === "include"
-      ? selection.includedIds.size
-      : Math.max(0, totalCount - selection.excludedIds.size);
+  const [localIds, setLocalIds] = useState<ReadonlySet<number>>(() => new Set());
+  const selectedIds = shared?.selectedIds ?? localIds;
+  const setSelectedIds = shared?.setSelectedIds ?? setLocalIds;
+
+  // 고른 순서가 아니라 화면 순서다. 다운로드 파일 차례가 갤러리와 같아야 한다.
+  const selectedPhotoIds = visiblePhotoIds.filter((id) => selectedIds.has(id));
   const isAllSelected =
-    totalCount > 0 && selection.mode === "exclude" && selection.excludedIds.size === 0;
+    visiblePhotoIds.length > 0 && selectedPhotoIds.length === visiblePhotoIds.length;
 
   const togglePhoto = (photoId: number) =>
-    setSelection((current) => {
-      if (current.mode === "include") {
-        const includedIds = new Set(current.includedIds);
-        if (includedIds.has(photoId)) includedIds.delete(photoId);
-        else includedIds.add(photoId);
-        return { mode: "include", includedIds };
-      }
-
-      const excludedIds = new Set(current.excludedIds);
-      if (excludedIds.has(photoId)) excludedIds.delete(photoId);
-      else excludedIds.add(photoId);
-      return { mode: "exclude", excludedIds };
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(photoId)) next.delete(photoId);
+      else next.add(photoId);
+      return next;
     });
-  const removePhoto = (photoId: number) => {
-    if (isSelected(photoId)) togglePhoto(photoId);
-  };
-  const forgetPhotos = (photoIds: number[]) =>
-    setSelection((current) => {
-      const ids = current.mode === "include" ? current.includedIds : current.excludedIds;
-      const nextIds = new Set(ids);
-      photoIds.forEach((photoId) => nextIds.delete(photoId));
-
-      return current.mode === "include"
-        ? { mode: "include", includedIds: nextIds }
-        : { mode: "exclude", excludedIds: nextIds };
+  const removePhotos = (photoIds: number[]) =>
+    setSelectedIds((current) => {
+      if (!photoIds.some((id) => current.has(id))) return current;
+      const next = new Set(current);
+      photoIds.forEach((id) => next.delete(id));
+      return next;
     });
   const toggleAllPhotos = () =>
-    setSelection(
-      isAllSelected
-        ? emptySelection()
-        : {
-            mode: "exclude",
-            excludedIds: new Set(),
-          },
-    );
-  const clearSelection = () => setSelection(emptySelection());
+    setSelectedIds(isAllSelected ? new Set() : new Set(visiblePhotoIds));
+  const clearSelection = () => setSelectedIds(new Set());
 
   return {
-    selection,
     selectedPhotoIds,
-    selectedCount,
     isAllSelected,
     togglePhoto,
-    removePhoto,
-    forgetPhotos,
+    removePhotos,
     toggleAllPhotos,
     clearSelection,
   };

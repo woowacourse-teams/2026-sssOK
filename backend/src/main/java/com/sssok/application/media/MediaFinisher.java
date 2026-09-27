@@ -7,7 +7,9 @@ import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -31,12 +33,13 @@ public class MediaFinisher {
     public void finish(Long mediaId, ProcessedMedia processed) {
         StoredFile file = fileRepository.findByIdForUpdate(mediaId).orElse(null);
         if (file == null) {
-            // 행이 없으면 ThumbnailSweeper 도 못 찾으므로, 방금 올린 썸네일을 회수 대기열에 남긴다.
+            // 행이 없으면 ThumbnailSweeper 도 못 찾으므로, 방금 올린 파생본을 회수 대기열에 남긴다.
+            // 썸네일뿐 아니라 프리뷰도 같이 넣어야 한다 — 하나만 넣으면 나머지가 스토리지에 남는다.
             // 실제 스토리지 정리는 커밋 뒤에 실행해 이 트랜잭션이 네트워크를 기다리지 않게 한다.
-            enqueueForCleanup(processed.thumbnailKey());
+            enqueueForCleanup(processed.thumbnailKey(), processed.previewKey());
             return;
         }
-        // 다른 워커가 먼저 끝냈다. 썸네일 키는 원본에서 유도되어 둘이 같으므로,
+        // 다른 워커가 먼저 끝냈다. 파생본 키는 원본에서 유도되어 둘이 같으므로,
         // 여기서 지우면 살아 있는 행이 가리키는 객체를 지우게 된다. 그냥 물러난다.
         if (file.getStatus() != UploadStatus.PROCESSING) {
             return;
@@ -56,11 +59,11 @@ public class MediaFinisher {
             });
     }
 
-    private void enqueueForCleanup(StorageKey thumbnailKey) {
-        if (thumbnailKey == null) {
+    private void enqueueForCleanup(StorageKey... keys) {
+        List<StorageKey> orphaned = Arrays.stream(keys).filter(Objects::nonNull).toList();
+        if (orphaned.isEmpty()) {
             return;
         }
-        List<StorageKey> orphaned = List.of(thumbnailKey);
         orphanObjectCollector.enqueue(orphaned);
         eventPublisher.publishEvent(new ObjectsOrphanedEvent(orphaned));
     }

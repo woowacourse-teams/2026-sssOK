@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -19,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@RecordApplicationEvents
 class RenameFolderServiceTest {
 
     @Autowired
@@ -26,6 +29,9 @@ class RenameFolderServiceTest {
 
     @Autowired
     RenameFolderService renameFolderService;
+
+    @Autowired
+    ApplicationEvents applicationEvents;
 
     @Test
     void 이름이_바뀌고_저장된다() {
@@ -62,6 +68,27 @@ class RenameFolderServiceTest {
         Folder renamed = renameFolderService.rename(1L, folder.getId(), "카페");
 
         assertThat(renamed.getName().value()).isEqualTo("카페");
+    }
+
+    @Test
+    void 이름이_바뀌면_바뀐_이름이_담긴_folder_renamed_이벤트가_발행된다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+
+        renameFolderService.rename(1L, folder.getId(), "카페");
+
+        assertThat(applicationEvents.stream(FolderRenamedEvent.class))
+            .containsExactly(new FolderRenamedEvent(1L, folder.getId(), "카페"));
+    }
+
+    @Test
+    void 중복_이름으로_실패하면_이벤트를_발행하지_않는다() {
+        createFolderService.create(1L, "카페");
+        Folder folder = createFolderService.create(1L, "맛집");
+
+        assertThatThrownBy(() -> renameFolderService.rename(1L, folder.getId(), "카페"))
+            .isInstanceOf(DuplicateFolderNameException.class);
+
+        assertThat(applicationEvents.stream(FolderRenamedEvent.class)).isEmpty();
     }
 
     @Test

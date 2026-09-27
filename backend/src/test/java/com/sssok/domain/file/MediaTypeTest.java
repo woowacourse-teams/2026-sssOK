@@ -53,16 +53,6 @@ class MediaTypeTest {
     }
 
     @Test
-    void 이미지_상한은_10MB_다() {
-        assertThat(MediaType.JPEG.maxBytes()).isEqualTo(10L * 1024 * 1024);
-    }
-
-    @Test
-    void 영상_상한은_1GB_다() {
-        assertThat(MediaType.MP4.maxBytes()).isEqualTo(1024L * 1024 * 1024);
-    }
-
-    @Test
     void GIF_만_애니메이션_보존_대상이다() {
         assertThat(MediaType.GIF.preservesAnimation()).isTrue();
         assertThat(MediaType.PNG.preservesAnimation()).isFalse();

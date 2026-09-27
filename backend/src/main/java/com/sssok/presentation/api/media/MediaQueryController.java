@@ -74,6 +74,8 @@ public class MediaQueryController {
         summary = "미디어 전체 목록 조회",
         description = "페이지네이션 없이 방에 올라온 미디어 전체를 createdAt·mediaId 기준 최신순으로 "
             + "내려준다. folderId를 주면 그 폴더에 담긴 것만, 생략하면 방 전체를 반환한다. "
+            + "uploader는 ALL(전체)·ME(내가 올린 미디어)·OTHERS(다른 사람이 올린 미디어)를 "
+            + "지원하며, 생략하면 ALL이다. folderId와 함께 사용하면 두 조건을 모두 적용한다. "
             + "응답 크기와 서버 메모리 사용량이 미디어 수에 비례하므로 전체 목록이 반드시 필요한 "
             + "기능에서만 사용한다. 일부 목록만 필요한 화면은 커서 페이지네이션 API를 사용한다. "
             + "아직 스토리지에 실물이 없는 미디어는 목록에 나오지 않는다. "
@@ -85,10 +87,12 @@ public class MediaQueryController {
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "이 폴더에 담긴 미디어만 조회한다. 생략하면 방 전체")
-        @RequestParam(required = false) Long folderId
+        @RequestParam(required = false) Long folderId,
+        @Parameter(description = "업로더 필터. ALL(전체), ME(내 미디어), OTHERS(다른 사람 미디어)")
+        @RequestParam(defaultValue = "ALL") MediaUploaderFilter uploader
     ) {
         return ApiResponse.of(AllMediaListResponse.from(
-            getMediaListService.list(roomId, folderId)));
+            getMediaListService.list(roomId, folderId, memberId, uploader)));
     }
 
     @Operation(

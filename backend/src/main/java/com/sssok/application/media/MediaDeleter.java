@@ -4,10 +4,13 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.application.storage.OrphanObjectCollector;
+import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
-import java.util.ArrayList;
+import com.sssok.infrastructure.config.DerivativeImageProperties;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
@@ -29,6 +32,7 @@ public class MediaDeleter {
     private final FolderMediaRepository folderMediaRepository;
     private final OrphanObjectCollector orphanObjectCollector;
     private final ApplicationEventPublisher eventPublisher;
+    private final DerivativeImageProperties imageProperties;
 
     // 행을 먼저 지우고 스토리지를 정리한다. 순서를 뒤집으면 스토리지를 치운 뒤 행이 지워지기
     // 전에 워커가 썸네일을 올려 고아 객체가 남는다.
@@ -44,18 +48,38 @@ public class MediaDeleter {
         eventPublisher.publishEvent(new ObjectsOrphanedEvent(orphaned));
     }
 
-    // 썸네일 키는 저장된 값이 아니라 원본 키에서 유도한다 — 만드는 곳이
-    // GenerateThumbnailService 한 곳뿐이라 항상 같은 값이다.
+    // 파생본 키를 두 경로로 모은다.
     //
-    // thumbnailKey 가 채워졌는지 보고 넘기면, 아직 PROCESSING 인 미디어를 지울 때 이 트랜잭션이
-    // 읽은 값은 null 인데 워커가 그 사이 썸네일을 올려 스토리지에 고아가 남는다 (#255).
-    // 유도한 키를 늘 넣어두면 없는 키를 지우는 셈이 될 뿐이고, 그건 성공으로 치는 계약이다.
+    // 1) 행에 저장된 키. 파생본 포맷은 설정으로 바뀔 수 있어(media.image.format), 지금 설정으로
+    //    유도한 키가 예전에 만들어 둔 파생본과 다를 수 있다. 저장된 값이 유일하게 확실한 정보다.
+    // 2) 지금 설정으로 유도한 키. 아직 PROCESSING 인 미디어를 지울 때는 행의 파생본 키가 아직
+    //    null 인데 워커가 그 사이 올려서 스토리지에 고아가 남는다 (#255). 유도한 키를 늘 넣어두면
+    //    없는 키를 지우는 셈이 될 뿐이고, 그건 성공으로 치는 계약이다.
+    //
+    // 영상 썸네일은 JPEG 으로 고정이라 유도 경로도 그 확장자로 맞춘다.
     private List<StorageKey> orphanedKeysOf(List<StoredFile> files) {
-        List<StorageKey> keys = new ArrayList<>(files.size() * 2);
+        Set<StorageKey> keys = new LinkedHashSet<>(files.size() * 4);
+        String derivativeExtension = imageProperties.format().extension();
         for (StoredFile file : files) {
-            keys.add(file.getStorageKey());
-            keys.add(file.getStorageKey().thumbnail());
+            StorageKey storageKey = file.getStorageKey();
+            keys.add(storageKey);
+            addIfPresent(keys, file.getThumbnailKey());
+            addIfPresent(keys, file.getPreviewKey());
+
+            String extension = file.getMediaType().isVideo()
+                ? MediaType.JPEG.extension()
+                : derivativeExtension;
+            keys.add(storageKey.thumbnail(extension));
+            if (file.needsPreview()) {
+                keys.add(storageKey.preview(extension));
+            }
         }
         return List.copyOf(keys);
+    }
+
+    private void addIfPresent(Set<StorageKey> keys, StorageKey key) {
+        if (key != null) {
+            keys.add(key);
+        }
     }
 }

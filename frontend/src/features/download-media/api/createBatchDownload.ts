@@ -1,15 +1,12 @@
+import { selectedMediaBody } from "@/entities/media";
 import { apiClient } from "@/shared/api";
-import type { MediaUploaderFilter } from "@/entities/media";
-import type { MediaSelectionRequest } from "@/features/select-media";
 import type { BatchDownload } from "./types";
 
 interface CreateBatchDownloadParams {
   roomId: number;
   token: string;
-  /** 고른 미디어. `folderId` 와 함께 보내면 400 이다. */
-  selection?: MediaSelectionRequest;
-  folderId?: number;
-  uploader?: MediaUploaderFilter;
+  /** 고른 미디어. */
+  mediaIds: number[];
 }
 
 /**
@@ -21,18 +18,11 @@ interface CreateBatchDownloadParams {
  * 브라우저에서는 통째로 막힌다. 여기서 URL 만 먼저 받아오면 그 왕복 자체가 없다.
  *
  * 아직 처리 중인 미디어는 서버가 대상에서 뺀다 — 응답 `files` 가 고른 장수보다 적을 수 있다.
- * 둘 다 생략하면 방 전체가 대상이다.
  */
-export const createBatchDownload = ({
-  roomId,
-  token,
-  selection,
-  folderId,
-  uploader,
-}: CreateBatchDownloadParams) =>
+export const createBatchDownload = ({ roomId, token, mediaIds }: CreateBatchDownloadParams) =>
   apiClient<BatchDownload>(`/rooms/${roomId}/downloads/batch`, {
     method: "POST",
     token,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ selection, folderId, uploader }),
+    body: JSON.stringify(selectedMediaBody(mediaIds)),
   });

@@ -24,8 +24,8 @@ export const FloatingFeedbackButton = styled.button`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border: 0;
   border-radius: ${radius.full};
@@ -39,8 +39,8 @@ export const FloatingFeedbackButton = styled.button`
     transform 90ms ease;
 
   svg {
-    width: 19px;
-    height: 19px;
+    width: ${spacing[24]};
+    height: ${spacing[24]};
   }
 
   &:hover {

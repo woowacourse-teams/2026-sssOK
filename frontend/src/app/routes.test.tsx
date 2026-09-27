@@ -6,7 +6,7 @@ import { http, HttpResponse } from "msw";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { markMediaDeleted } from "@/mocks/db";
-import { mediaOfRoom, MOCK_ROOM_ID } from "@/mocks/handlers/room";
+import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { routes } from "./routes";
@@ -240,12 +240,6 @@ describe("라우트", () => {
   it("삭제 성공에 JSON 본문이 있어도 모달 목록에서 사진을 제거한다", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, () => {
-        const items = mediaOfRoom(MOCK_ROOM_ID);
-        return HttpResponse.json({
-          data: { items, nextCursor: null, hasNext: false, totalCount: items.length },
-        });
-      }),
       http.delete(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/5012`, () => {
         markMediaDeleted(MOCK_ROOM_ID, 5012);
         return HttpResponse.json({ data: null });
@@ -305,7 +299,7 @@ describe("라우트", () => {
    * 다른 실패와 똑같이 보이지만, 여기서 사용자가 할 수 있는 일은 다시 입장하는 것뿐이다.
    */
   it("사진 목록이 401 이어도 실패 문구 대신 입장 화면으로 되돌린다", async () => {
-    server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, unauthorized));
+    server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, unauthorized));
     const router = renderAtGallery();
 
     expect(

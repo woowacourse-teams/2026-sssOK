@@ -1,12 +1,11 @@
 package com.sssok.application.download;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.download.DownloadJobStatus;
@@ -39,7 +38,7 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
     DownloadJobRepository downloadJobRepository;
 
     private Long media(long roomId, UploadStatus status) {
-        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now());
+        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now(), SIZE_POLICY);
         if (status == UploadStatus.PROCESSING || status == UploadStatus.READY) {
             file.startProcessing();
         }
@@ -55,7 +54,7 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
         Long media2 = media(1L, UploadStatus.READY);
 
         CreateDownloadJobResult result =
-            createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(media1, media2)), null, MediaUploaderFilter.ALL);
+            createDownloadJobService.create(1L, 100L, List.of(media1, media2), null, null);
 
         assertThat(result.status()).isEqualTo(DownloadJobStatus.QUEUED);
         assertThat(result.mediaCount()).isEqualTo(2);
@@ -72,7 +71,7 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
         Long processing = media(1L, UploadStatus.PROCESSING);
 
         CreateDownloadJobResult result =
-            createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(ready, processing)), null, MediaUploaderFilter.ALL);
+            createDownloadJobService.create(1L, 100L, List.of(ready, processing), null, null);
 
         assertThat(result.mediaCount()).isEqualTo(2);
         assertThat(downloadJobRepository.findMediaIdsByJobId(result.jobId()))
@@ -81,7 +80,7 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
 
     @Test
     void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
-        assertThatThrownBy(() -> createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(999_999L)), null, MediaUploaderFilter.ALL))
+        assertThatThrownBy(() -> createDownloadJobService.create(1L, 100L, List.of(999_999L), null, null))
             .isInstanceOf(MediaNotFoundException.class);
     }
 
@@ -90,10 +89,10 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
         Long media = media(1L, UploadStatus.READY);
         int maxJobs = downloadProperties.maxConcurrentJobsPerRequester();
         for (int i = 0; i < maxJobs; i++) {
-            createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(media)), null, MediaUploaderFilter.ALL);
+            createDownloadJobService.create(1L, 100L, List.of(media), null, null);
         }
 
-        assertThatThrownBy(() -> createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(media)), null, MediaUploaderFilter.ALL))
+        assertThatThrownBy(() -> createDownloadJobService.create(1L, 100L, List.of(media), null, null))
             .isInstanceOf(DownloadRateLimitedException.class);
     }
 
@@ -102,11 +101,11 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
         Long media = media(1L, UploadStatus.READY);
         int maxJobs = downloadProperties.maxConcurrentJobsPerRequester();
         for (int i = 0; i < maxJobs; i++) {
-            createDownloadJobService.create(1L, 100L, MediaSelection.include(List.of(media)), null, MediaUploaderFilter.ALL);
+            createDownloadJobService.create(1L, 100L, List.of(media), null, null);
         }
 
         CreateDownloadJobResult result = createDownloadJobService.create(
-            1L, 200L, MediaSelection.include(List.of(media)), null, MediaUploaderFilter.ALL);
+            1L, 200L, List.of(media), null, null);
 
         assertThat(result.status()).isEqualTo(DownloadJobStatus.QUEUED);
     }

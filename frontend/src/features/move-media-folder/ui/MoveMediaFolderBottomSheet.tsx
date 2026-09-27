@@ -3,9 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import styled from "@emotion/styled";
 import { LuCheck, LuFolder, LuFolderPlus } from "react-icons/lu";
 
-import type { MediaUploaderFilter } from "@/entities/media";
 import type { RoomFolder } from "@/entities/room";
-import type { MediaSelectionRequest } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
@@ -16,11 +14,9 @@ import { removeMediaFromFolder } from "../api/removeMediaFromFolder";
 
 interface MoveMediaFolderBottomSheetProps {
   roomId: number;
-  selection: MediaSelectionRequest;
-  selectedCount: number;
+  mediaIds: number[];
   folders: RoomFolder[];
   currentFolderId: number | null;
-  uploader: MediaUploaderFilter;
   token: string;
   onCreateFolder: () => Promise<RoomFolder | null>;
   onClose: () => void;
@@ -29,11 +25,9 @@ interface MoveMediaFolderBottomSheetProps {
 
 export const MoveMediaFolderBottomSheet = ({
   roomId,
-  selection,
-  selectedCount,
+  mediaIds,
   folders,
   currentFolderId,
-  uploader,
   token,
   onCreateFolder,
   onClose,
@@ -43,12 +37,11 @@ export const MoveMediaFolderBottomSheet = ({
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const mutation = useMutation({
     mutationFn: (targetFolderId: number) =>
-      addMediaToFolder({ roomId, selection, folderId: targetFolderId, uploader, token }),
+      addMediaToFolder({ roomId, mediaIds, folderId: targetFolderId, token }),
     onSuccess: (_, targetFolderId) => onSuccess(targetFolderId),
   });
   const removeMutation = useMutation({
-    mutationFn: (folderId: number) =>
-      removeMediaFromFolder({ roomId, selection, folderId, uploader, token }),
+    mutationFn: (folderId: number) => removeMediaFromFolder({ roomId, mediaIds, folderId, token }),
     onSuccess: (_, folderId) => onSuccess(folderId),
   });
   const createAndMoveMutation = useMutation({
@@ -56,7 +49,7 @@ export const MoveMediaFolderBottomSheet = ({
       const folder = await onCreateFolder();
       if (!folder) return null;
 
-      await addMediaToFolder({ roomId, selection, folderId: folder.id, uploader, token });
+      await addMediaToFolder({ roomId, mediaIds, folderId: folder.id, token });
       return folder.id;
     },
     onSuccess: (createdFolderId) => {
@@ -70,7 +63,7 @@ export const MoveMediaFolderBottomSheet = ({
 
   return (
     <BottomSheet
-      title={`${selectedCount}개를 어디로 옮길까요?`}
+      title={`${mediaIds.length}개를 어디로 옮길까요?`}
       onClose={isPending ? undefined : onClose}
     >
       <Stack gap={16}>

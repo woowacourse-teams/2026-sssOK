@@ -38,15 +38,3 @@ export const StateMessage = styled.div`
 
   ${typography.body}
 `;
-
-export const Sentinel = styled.div`
-  height: 1px;
-`;
-
-export const LoadingMore = styled.p`
-  padding: ${spacing[16]};
-  color: ${colors.textSecondary};
-  text-align: center;
-
-  ${typography.caption3}
-`;

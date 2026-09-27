@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
@@ -126,7 +127,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
 
     private StoredFile saveReady() {
         StoredFile file = StoredFile.reserve(roomId, uploader.userId(), "사진.jpg", "image/jpeg",
-            new FileSize(1024), Instant.now());
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
         return fileRepository.save(file);

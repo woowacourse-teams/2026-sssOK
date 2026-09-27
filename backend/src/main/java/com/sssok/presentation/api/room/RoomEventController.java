@@ -27,8 +27,11 @@ public class RoomEventController {
     @Operation(
         summary = "방 이벤트 구독",
         description = """
-            이 방에서 일어나는 이벤트(room.member.joined / room.updated / room.deleted 등)를 \
-            실시간으로 스트리밍 받는다. 연결은 서버가 끊기 전까지 계속 열려 있다(text/event-stream).
+            이 방에서 일어나는 이벤트를 실시간으로 스트리밍 받는다. \
+            연결은 서버가 끊기 전까지 계속 열려 있다(text/event-stream).
+
+            이벤트 종류: room.member.joined / room.updated / room.deleted, \
+            folder.created / folder.renamed / folder.deleted, media.folders.updated 등.
 
             인증: 브라우저 EventSource는 커스텀 헤더를 못 붙이므로, Authorization 헤더 대신 \
             ?token={accessToken} 쿼리 파라미터로도 인증할 수 있다(이 API에서만 허용). \
