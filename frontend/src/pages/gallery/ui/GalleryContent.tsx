@@ -141,6 +141,15 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         exact: true,
       });
     },
+    onFoldersChanged: () => {
+      void queryClient.invalidateQueries({
+        queryKey: roomQueryKey(room.code, userId),
+        exact: true,
+      });
+    },
+    onFolderDeleted: (folderId) => {
+      if (selectedFolderId === folderId) selectFolder(null);
+    },
   });
 
   // 폴더 생성 흐름

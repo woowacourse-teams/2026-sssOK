@@ -10,7 +10,11 @@ interface UseRoomEventsParams {
   token: string;
   onMediaReady?: (media: MediaItem) => boolean;
   onMediaDeleted?: (mediaIds: number[]) => void;
+  onFoldersChanged?: () => void;
+  onFolderDeleted?: (folderId: number) => void;
 }
+
+const FOLDER_CHANGE_EVENTS = ["folder.created", "folder.renamed", "folder.deleted"] as const;
 
 export const useRoomEvents = ({
   roomId,
@@ -18,10 +22,14 @@ export const useRoomEvents = ({
   token,
   onMediaReady,
   onMediaDeleted,
+  onFoldersChanged,
+  onFolderDeleted,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
   const onMediaReadyRef = useRef(onMediaReady);
   const onMediaDeletedRef = useRef(onMediaDeleted);
+  const onFoldersChangedRef = useRef(onFoldersChanged);
+  const onFolderDeletedRef = useRef(onFolderDeleted);
 
   useEffect(() => {
     onMediaReadyRef.current = onMediaReady;
@@ -30,6 +38,14 @@ export const useRoomEvents = ({
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
   }, [onMediaDeleted]);
+
+  useEffect(() => {
+    onFoldersChangedRef.current = onFoldersChanged;
+  }, [onFoldersChanged]);
+
+  useEffect(() => {
+    onFolderDeletedRef.current = onFolderDeleted;
+  }, [onFolderDeleted]);
 
   useEffect(() => {
     const url = new URL(`${API_BASE_URL}/rooms/${roomId}/events`);
@@ -71,12 +87,29 @@ export const useRoomEvents = ({
       onMediaDeletedRef.current?.(mediaIds);
     };
 
+    const handleFoldersChanged = () => {
+      onFoldersChangedRef.current?.();
+    };
+
+    const handleFolderDeleted = (event: MessageEvent<string>) => {
+      const { folderId } = JSON.parse(event.data) as { folderId: number };
+      onFolderDeletedRef.current?.(folderId);
+    };
+
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
+    FOLDER_CHANGE_EVENTS.forEach((type) =>
+      eventSource.addEventListener(type, handleFoldersChanged),
+    );
+    eventSource.addEventListener("folder.deleted", handleFolderDeleted);
 
     return () => {
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
+      FOLDER_CHANGE_EVENTS.forEach((type) =>
+        eventSource.removeEventListener(type, handleFoldersChanged),
+      );
+      eventSource.removeEventListener("folder.deleted", handleFolderDeleted);
       eventSource.close();
     };
   }, [queryClient, roomId, userId, token]);
