@@ -33,17 +33,12 @@ const renderModal = () =>
     <QueryClientProvider client={new QueryClient()}>
       <MediaViewerModal
         items={[item]}
-        totalCount={1}
         activeMediaId={5012}
         roomId={1024}
         userId={12}
         hostId={12}
         token="token"
         selectedPhotoIds={[]}
-        hasNextPage={false}
-        isFetchingNextPage={false}
-        isNextPageError={false}
-        onLoadNextPage={jest.fn()}
         onChange={jest.fn()}
         onClose={jest.fn()}
         onToggle={jest.fn()}
