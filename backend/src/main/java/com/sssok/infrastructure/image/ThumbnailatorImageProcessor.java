@@ -16,6 +16,7 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -45,21 +46,35 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
     @Override
     public Optional<DerivedImages> derive(byte[] source, DerivativeSpec thumbnail,
                                           DerivativeSpec preview) {
+        // 원본 디코딩은 한 번만 한다. 여기가 파생본 생성 시간의 대부분이라, 썸네일과 프리뷰를
+        // 따로 만들면 워커 점유 시간이 곱절이 된다.
+        BufferedImage original = decode(source);
+        // 원본을 못 읽은 것만 빈 값이다. 다시 태워도 결과가 같으므로 부르는 쪽이 여기서만
+        // FAILED 로 확정한다.
+        if (original == null) {
+            return Optional.empty();
+        }
         try {
-            // 원본 디코딩은 한 번만 한다. 여기가 파생본 생성 시간의 대부분이라, 썸네일과 프리뷰를
-            // 따로 만들면 워커 점유 시간이 곱절이 된다.
-            BufferedImage original = ImageIO.read(new ByteArrayInputStream(source));
-            // ImageIO 는 읽을 수 없는 형식이면 예외 대신 null 을 준다.
-            if (original == null) {
-                return Optional.empty();
-            }
             return Optional.of(new DerivedImages(
                 original.getWidth(),
                 original.getHeight(),
                 derive(original, thumbnail),
                 preview == null ? null : derive(original, preview)));
+        } catch (IOException e) {
+            // 디코딩을 넘긴 뒤의 축소·인코딩 실패는 원본이 깨졌다는 근거가 되지 못한다. 네이티브
+            // WebP 라이터가 한 번 흔들린 것을 빈 값으로 돌려주면 멀쩡한 사진이 영구 FAILED 가
+            // 되므로, 밖으로 내보내 PROCESSING 으로 남기고 회수 배치가 다시 태우게 한다.
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    // ImageIO 는 읽을 수 없는 형식이면 예외 대신 null 을 주고, 헤더가 깨져 있으면 IOException 을
+    // 던진다. 둘 다 "이 바이트는 이미지가 아니다" 라는 같은 결론이라 한 자리에서 null 로 모은다.
+    private BufferedImage decode(byte[] source) {
+        try {
+            return ImageIO.read(new ByteArrayInputStream(source));
         } catch (IOException | IllegalArgumentException e) {
-            return Optional.empty();
+            return null;
         }
     }
 

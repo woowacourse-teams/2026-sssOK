@@ -11,6 +11,7 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.application.storage.OrphanObjectCollector;
+import com.sssok.domain.file.DerivativeFormat;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
@@ -37,7 +38,10 @@ class MediaDeleterTest {
 
     private final MediaDeleter mediaDeleter = new MediaDeleter(
         fileRepository, folderMediaRepository, orphanObjectCollector, eventPublisher,
-        new DerivativeImageProperties(null, null, null));
+        new DerivativeImageProperties(
+            DerivativeFormat.WEBP,
+            new DerivativeImageProperties.Variant(400, 0.80f),
+            new DerivativeImageProperties.Variant(1600, 0.85f)));
 
     @Test
     void 정리_대상을_남긴_뒤_관계와_행을_삭제하고_이벤트를_발행한다() {

@@ -12,8 +12,11 @@ public interface ImageProcessorPort {
     // 디코딩+축소가 파생본 한 장을 만드는 시간의 대부분(중앙값 약 397ms)이고 인코딩은 7~100ms 에
     // 그쳤다 (docs/backend/IMAGE_DERIVATIVE_FORMAT.md). 두 번 디코딩하면 워커 점유 시간이 곱절이 된다.
     //
-    // 손상됐거나 읽을 수 없는 형식이면 비어 있다 — 예외 대신 빈 값으로 두어, 사진 한 장 때문에
-    // 배치가 멈추지 않게 한다.
+    // 원본을 읽지 못하면(손상됐거나 이미지가 아니면) 비어 있다 — 예외 대신 빈 값으로 두어,
+    // 사진 한 장 때문에 배치가 멈추지 않게 한다. 다시 시도해도 결과가 같은 경우는 이것뿐이다.
+    //
+    // 원본을 읽은 뒤의 축소·인코딩 실패는 빈 값이 아니라 예외다. 일시적일 수 있어 다시 태울 값이
+    // 있는데, 빈 값으로 섞어 돌려주면 부르는 쪽이 깨진 원본과 구별하지 못해 영구 FAILED 가 된다.
     //
     // preview 스펙은 없을 수 있다(GIF). 그때는 결과의 preview 도 비어 있다.
     Optional<DerivedImages> derive(byte[] source, DerivativeSpec thumbnail, DerivativeSpec preview);

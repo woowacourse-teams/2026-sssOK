@@ -5,8 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.domain.folder.Folder;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
@@ -17,6 +15,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@RecordApplicationEvents
 class RemoveMediaFromFoldersServiceTest {
 
     private static final long MEDIA_ID = 9001L;
@@ -44,13 +45,15 @@ class RemoveMediaFromFoldersServiceTest {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    ApplicationEvents applicationEvents;
+
     // id 를 직접 정해야 해서 네이티브로 넣는다. JPA save 는 id 가 있으면 UPDATE 로 처리한다.
     // 다른 테스트가 만드는 자동 생성 id 와 겹치지 않도록 큰 값을 쓴다.
     private void existingMedia(long id) {
         existingMediaUploadedBy(id, 1L);
     }
 
-    // 업로더 필터를 보려면 누가 올렸는지가 달라야 한다.
     private void existingMediaUploadedBy(long id, long uploaderId) {
         jdbcTemplate.update("""
             INSERT INTO stored_file
@@ -74,7 +77,7 @@ class RemoveMediaFromFoldersServiceTest {
 
         RemoveMediaFromFoldersResult result =
             removeMediaFromFoldersService.remove(
-                1L, MediaSelection.include(List.of(MEDIA_ID)), List.of(folderA.getId()), null, MediaUploaderFilter.ALL);
+                1L, List.of(MEDIA_ID), List.of(folderA.getId()));
 
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(result.movedToRootMediaIds()).isEmpty(); // 여전히 folderB에 속해 있으므로 루트 아님
@@ -89,7 +92,7 @@ class RemoveMediaFromFoldersServiceTest {
 
         RemoveMediaFromFoldersResult result =
             removeMediaFromFoldersService.remove(
-                1L, MediaSelection.include(List.of(MEDIA_ID)), List.of(folder.getId()), null, MediaUploaderFilter.ALL);
+                1L, List.of(MEDIA_ID), List.of(folder.getId()));
 
         assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
     }
@@ -103,7 +106,7 @@ class RemoveMediaFromFoldersServiceTest {
         linkedToFolder(folderB.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID)), null, null, MediaUploaderFilter.ALL);
+            1L, List.of(MEDIA_ID), null);
 
         assertThat(result.updatedCount()).isEqualTo(2);
         assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
@@ -116,10 +119,11 @@ class RemoveMediaFromFoldersServiceTest {
         existingMedia(MEDIA_ID);
 
         RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID)), null, null, MediaUploaderFilter.ALL);
+            1L, List.of(MEDIA_ID), null);
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.movedToRootMediaIds()).isEmpty();
+        assertThat(applicationEvents.stream(MediaFoldersUpdatedEvent.class)).isEmpty();
     }
 
     @Test
@@ -130,7 +134,7 @@ class RemoveMediaFromFoldersServiceTest {
 
         RemoveMediaFromFoldersResult result =
             removeMediaFromFoldersService.remove(
-                1L, MediaSelection.include(List.of(MEDIA_ID, 999L)), List.of(folder.getId()), null, MediaUploaderFilter.ALL);
+                1L, List.of(MEDIA_ID, 999L), List.of(folder.getId()));
 
         assertThat(result.notFoundMediaIds()).containsExactly(999L);
     }
@@ -140,97 +144,16 @@ class RemoveMediaFromFoldersServiceTest {
         existingMedia(MEDIA_ID);
 
         assertThatThrownBy(() -> removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID)), List.of(-1L), null, MediaUploaderFilter.ALL))
+            1L, List.of(MEDIA_ID), List.of(-1L)))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
     @Test
-    void include의_ids가_비어있으면_아무것도_꺼내지_않는다() {
+    void mediaIds가_비어있으면_아무것도_꺼내지_않는다() {
         RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of()), null, null, MediaUploaderFilter.ALL);
+            1L, List.of(), null);
 
         assertThat(result.updatedCount()).isZero();
     }
 
-    @Test
-    void exclude는_방_전체에서_지정한_미디어를_제외하고_꺼낸다() {
-        Folder folder = createFolderService.create(1L, "맛집");
-        existingMedia(MEDIA_ID);
-        existingMedia(MISSING_MEDIA_ID);
-        linkedToFolder(folder.getId(), MEDIA_ID);
-        linkedToFolder(folder.getId(), MISSING_MEDIA_ID);
-
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.exclude(List.of(MISSING_MEDIA_ID)), List.of(folder.getId()), null, MediaUploaderFilter.ALL);
-
-        assertThat(result.updatedCount()).isEqualTo(1);
-        assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
-    }
-
-    // #275: 대상 폴더 지정 방식은 그대로 두고, 선택되는 미디어에만 업로더 조건을 건다.
-    @Test
-    void ME는_요청자가_올린_미디어만_꺼낸다() {
-        Folder folder = createFolderService.create(1L, "맛집");
-        existingMediaUploadedBy(MEDIA_ID, 7L);
-        existingMediaUploadedBy(MEDIA_ID + 10, 8L);
-        linkedToFolder(folder.getId(), MEDIA_ID);
-        linkedToFolder(folder.getId(), MEDIA_ID + 10);
-
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID, MEDIA_ID + 10)),
-            List.of(folder.getId()), 7L, MediaUploaderFilter.ME);
-
-        assertThat(result.updatedCount()).isEqualTo(1);
-        assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
-    }
-
-    @Test
-    void OTHERS는_요청자가_올리지_않은_미디어만_꺼낸다() {
-        Folder folder = createFolderService.create(1L, "맛집");
-        existingMediaUploadedBy(MEDIA_ID, 7L);
-        existingMediaUploadedBy(MEDIA_ID + 10, 8L);
-        linkedToFolder(folder.getId(), MEDIA_ID);
-        linkedToFolder(folder.getId(), MEDIA_ID + 10);
-
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID, MEDIA_ID + 10)),
-            List.of(folder.getId()), 7L, MediaUploaderFilter.OTHERS);
-
-        assertThat(result.updatedCount()).isEqualTo(1);
-        assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID + 10);
-    }
-
-    @Test
-    void uploader를_생략하면_ALL로_꺼낸다() {
-        Folder folder = createFolderService.create(1L, "맛집");
-        existingMediaUploadedBy(MEDIA_ID, 7L);
-        existingMediaUploadedBy(MEDIA_ID + 10, 8L);
-        linkedToFolder(folder.getId(), MEDIA_ID);
-        linkedToFolder(folder.getId(), MEDIA_ID + 10);
-
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID, MEDIA_ID + 10)),
-            List.of(folder.getId()), 7L, null);
-
-        assertThat(result.updatedCount()).isEqualTo(2);
-        assertThat(result.movedToRootMediaIds())
-            .containsExactlyInAnyOrder(MEDIA_ID, MEDIA_ID + 10);
-    }
-
-    // 폴더를 지정하지 않는 경로에도 업로더 조건이 똑같이 걸려야 한다.
-    @Test
-    void folderIds를_생략해도_업로더_조건은_적용된다() {
-        Folder folder = createFolderService.create(1L, "맛집");
-        existingMediaUploadedBy(MEDIA_ID, 7L);
-        existingMediaUploadedBy(MEDIA_ID + 10, 8L);
-        linkedToFolder(folder.getId(), MEDIA_ID);
-        linkedToFolder(folder.getId(), MEDIA_ID + 10);
-
-        RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, MediaSelection.include(List.of(MEDIA_ID, MEDIA_ID + 10)),
-            null, 7L, MediaUploaderFilter.ME);
-
-        assertThat(result.updatedCount()).isEqualTo(1);
-        assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
-    }
 }

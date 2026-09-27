@@ -116,6 +116,7 @@ public class GenerateThumbnailService {
         if (derived.isEmpty()) {
             // 파일이 깨졌거나 확장자와 실제 내용이 다르다. 다시 시도해도 결과가 같으므로
             // 여기서만 FAILED 로 확정한다 — 되풀이해도 소용없는 유일한 경우다.
+            // 축소·인코딩이 흔들린 것은 여기로 오지 않고 예외로 올라가 PROCESSING 에 남는다.
             log.warn("이미지를 읽을 수 없습니다. mediaId={}", file.getId());
             mediaFinisher.markFailed(file.getId());
             return;
@@ -145,8 +146,9 @@ public class GenerateThumbnailService {
         return key;
     }
 
-    // 이미지는 최대 10MB 라 통째로 읽어도 괜찮다. 축소하려면 어차피 전체가 필요하다.
-    // 영상은 여기까지 오지 않는다 — 1GB 를 힙에 올리면 서버가 죽는다.
+    // 이미지는 upload.image-max-size 로 묶여 있어 통째로 읽는다. 축소하려면 어차피 전체가 필요하다.
+    // 상한을 올릴 때는 워커 동시 실행 수와 힙 사용량을 함께 봐야 한다.
+    // 영상은 여기까지 오지 않는다 — 영상 상한을 힙에 올리면 서버가 죽는다.
     private byte[] readOriginal(StorageKey storageKey) {
         try (InputStream in = fileStoragePort.openDownloadStream(storageKey)) {
             return in.readAllBytes();

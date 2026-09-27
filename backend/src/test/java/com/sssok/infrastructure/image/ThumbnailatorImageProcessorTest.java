@@ -1,6 +1,8 @@
 package com.sssok.infrastructure.image;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import com.sssok.application.port.out.ImageProcessorPort.CaptureInfo;
 import com.sssok.application.port.out.ImageProcessorPort.DerivativeSpec;
@@ -119,14 +121,31 @@ class ThumbnailatorImageProcessorTest {
     }
 
     // WebP 와 달리 JPEG 은 알파를 담지 못한다. 투명한 PNG 를 그대로 넘기면 라이터가 색을 뒤집어
-    // 붉게 물든 사진이 나온다.
+    // 붉게 물든 사진이 나오고, 검정으로 합성하면 배경이 투명한 로고가 까맣게 뭉개진다.
+    // 그래서 형식만 보지 않고 투명했던 자리의 픽셀이 실제로 흰색인지까지 본다.
     @Test
-    void 투명한_PNG를_JPEG로_내보내도_깨지지_않는다() throws IOException {
+    void 투명한_PNG를_JPEG로_내보내면_투명한_자리가_흰색이_된다() throws IOException {
         DerivativeSpec jpegSpec = new DerivativeSpec(400, DerivativeFormat.JPEG, 0.80f);
 
-        DerivedImages derived = processor.derive(transparentPng(), jpegSpec, null).orElseThrow();
+        DerivedImages derived = processor.derive(halfTransparentPng(), jpegSpec, null)
+            .orElseThrow();
 
         assertThat(formatOf(derived.thumbnail().content())).isEqualToIgnoringCase("jpeg");
+        // 왼쪽 절반이 투명했던 자리다. 경계에서는 JPEG 블록 잡음이 섞이므로 안쪽을 집는다.
+        assertColorNear(colorAt(derived.thumbnail().content(), 20, 20), Color.WHITE);
+        // 불투명했던 자리는 그대로 남아야 한다 — 전체를 흰색으로 덮어도 위 단정은 통과하므로.
+        assertColorNear(colorAt(derived.thumbnail().content(), 180, 20), Color.RED);
+    }
+
+    // 빈 값은 "다시 태워도 결과가 같다" 는 뜻이고, 부르는 쪽은 그때만 영구 FAILED 로 확정한다.
+    // 디코딩을 넘긴 뒤의 실패까지 빈 값으로 섞으면 멀쩡한 사진이 인코더의 한 번 흔들림으로 사라진다.
+    @Test
+    void 디코딩_이후의_인코딩_실패는_빈_값이_아니라_예외가_된다() {
+        DerivativeSpec 인코더가_거부하는_품질 = new DerivativeSpec(400, DerivativeFormat.WEBP, 2.0f);
+
+        assertThatThrownBy(() ->
+            processor.derive(plainJpeg(300, 200), 인코더가_거부하는_품질, null))
+            .isInstanceOf(RuntimeException.class);
     }
 
     private int widthOf(byte[] image) throws IOException {
@@ -160,14 +179,34 @@ class ThumbnailatorImageProcessorTest {
         }
     }
 
-    private byte[] transparentPng() {
+    // 왼쪽 절반은 투명하고 오른쪽 절반은 불투명하다. 전체가 투명하면 흰색으로 덮어버리는
+    // 구현도 통과해버려서, 지켜야 할 것(투명한 자리만 흰색)을 가리지 못한다.
+    private byte[] halfTransparentPng() {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
-            ImageIO.write(new BufferedImage(200, 150, BufferedImage.TYPE_INT_ARGB), "png", out);
+            BufferedImage image = new BufferedImage(200, 150, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D graphics = image.createGraphics();
+            graphics.setColor(Color.RED);
+            graphics.fillRect(100, 0, 100, 150);
+            graphics.dispose();
+            ImageIO.write(image, "png", out);
             return out.toByteArray();
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    // JPEG 은 손실 압축이라 흰색을 넣어도 254 로 돌아온다. 검정(0)·붉은 왜곡과는 한참 떨어져
+    // 있으므로, 이 정도 여유로도 지키려는 것(무엇으로 합성했는지)은 그대로 갈린다.
+    private void assertColorNear(Color actual, Color expected) {
+        int tolerance = 8;
+        assertThat(actual.getRed()).isCloseTo(expected.getRed(), within(tolerance));
+        assertThat(actual.getGreen()).isCloseTo(expected.getGreen(), within(tolerance));
+        assertThat(actual.getBlue()).isCloseTo(expected.getBlue(), within(tolerance));
+    }
+
+    private Color colorAt(byte[] image, int x, int y) throws IOException {
+        return new Color(ImageIO.read(new ByteArrayInputStream(image)).getRGB(x, y));
     }
 
     private byte[] plainJpeg() {

@@ -1,7 +1,7 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { usePhotosQuery } from "@/entities/media";
-import type { MediaUploaderFilter, PhotoFilter } from "@/entities/media";
+import type { PhotoFilter } from "@/entities/media";
 
 interface UseGalleryPhotosParams {
   roomId: number;
@@ -11,17 +11,9 @@ interface UseGalleryPhotosParams {
   selectedOption: PhotoFilter;
 }
 
-const UPLOADER_OF: Record<PhotoFilter, MediaUploaderFilter> = {
-  all: "ALL",
-  mine: "ME",
-  others: "OTHERS",
-};
-
 /**
- * 갤러리에 그릴 사진을 페이지 단위로 이어 받는다.
- *
- * 폴더·업로더 필터는 서버에 맡긴다. 받아 온 페이지 안에서 거르면 방 전체가 아니라
- * 지금까지 받은 사진 안에서만 걸러진다 — 오래된 사진만 든 폴더가 비어 보인다 (#264).
+ * 갤러리에 그릴 사진. 방 전체를 한 번 받아 두고 폴더·업로더는 여기서 거른다.
+ * 옵션을 바꿔도 다시 부르지 않고, 거른 결과가 곧 전체 선택의 대상이다.
  */
 export const useGalleryPhotos = ({
   roomId,
@@ -30,43 +22,38 @@ export const useGalleryPhotos = ({
   selectedFolderId,
   selectedOption,
 }: UseGalleryPhotosParams) => {
-  const {
-    data,
-    isPending,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    fetchNextPage,
-  } = usePhotosQuery({
+  const photosQuery = usePhotosQuery({
     roomId,
     token: accessToken,
     userId,
-    folderId: selectedFolderId ?? undefined,
-    uploader: UPLOADER_OF[selectedOption],
   });
 
-  const photos = useMemo(
-    () =>
-      (data?.pages.flatMap((page) => page.items) ?? []).filter(
-        (photo) => typeof photo.thumbnailUrl === "string" && photo.thumbnailUrl.trim().length > 0,
-      ),
-    [data],
-  );
+  const photos = useMemo(() => {
+    // 썸네일 생성 전(null·빈 경로)인 항목은 카드와 선택 대상에서 제외한다.
+    const allPhotos = (photosQuery.data?.items ?? []).filter(
+      (photo) => typeof photo.thumbnailUrl === "string" && photo.thumbnailUrl.trim().length > 0,
+    );
+    const photosInFolder =
+      selectedFolderId === null
+        ? allPhotos
+        : allPhotos.filter((photo) => photo.folderIds.includes(selectedFolderId));
 
-  const loadMore = useCallback(() => {
-    void fetchNextPage();
-  }, [fetchNextPage]);
+    if (selectedOption === "mine") {
+      return photosInFolder.filter((photo) => photo.uploaderId === userId);
+    }
+
+    if (selectedOption === "others") {
+      return photosInFolder.filter((photo) => photo.uploaderId !== userId);
+    }
+
+    return photosInFolder;
+  }, [photosQuery.data?.items, selectedFolderId, selectedOption, userId]);
 
   return {
     photos,
-    // 페이지마다 그 시점의 개수가 온다. 가장 최근에 받은 값이 실제에 가깝다.
-    totalCount: data?.pages[data.pages.length - 1]?.totalCount,
-    isPending,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    loadMore,
+    /** 필터와 상관없는 방 전체 장수. 목록을 받기 전에는 모른다. */
+    allPhotoCount: photosQuery.data?.items.length,
+    isPending: photosQuery.isPending,
+    isError: photosQuery.isError,
   };
 };

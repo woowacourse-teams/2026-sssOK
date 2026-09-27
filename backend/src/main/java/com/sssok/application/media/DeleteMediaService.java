@@ -2,12 +2,8 @@ package com.sssok.application.media;
 
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.TooManyMediaException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.port.out.RoomPermissionPort;
-import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.domain.file.FilePermissionPolicy;
 import com.sssok.domain.file.StoredFile;
 import java.util.List;
@@ -23,9 +19,7 @@ public class DeleteMediaService {
     private final FileRepository fileRepository;
     private final RoomPermissionPort roomPermissionPort;
     private final MediaDeleter mediaDeleter;
-    private final MediaSelectionResolver mediaSelectionResolver;
-    private final FolderRepository folderRepository;
-    private final FolderMediaRepository folderMediaRepository;
+    private final MediaIdsResolver mediaIdsResolver;
 
     public Long deleteOne(Long roomId, Long mediaId, Long requesterId) {
         StoredFile file = fileRepository.findById(mediaId)
@@ -36,12 +30,9 @@ public class DeleteMediaService {
         return file.getId();
     }
 
-    public DeleteMediaResult deleteAll(Long roomId, MediaSelection selection, Long folderId,
-                                       Long requesterId, MediaUploaderFilter uploader) {
-        ResolvedMediaSelection resolved =
-            mediaSelectionResolver.resolve(roomId, selection, requesterId, uploader);
-        List<StoredFile> files = limitToFolder(roomId, folderId, resolved.files());
-        requireWithinLimit(files);
+    public DeleteMediaResult deleteAll(Long roomId, List<Long> mediaIds, Long requesterId) {
+        ResolvedMediaIds resolved = mediaIdsResolver.resolve(roomId, mediaIds, MAX_MEDIA_COUNT);
+        List<StoredFile> files = resolved.files();
 
         requireDeletePermission(roomId, requesterId, files);
         if (!files.isEmpty()) {
@@ -49,23 +40,6 @@ public class DeleteMediaService {
         }
         List<Long> deletedIds = files.stream().map(StoredFile::getId).toList();
         return new DeleteMediaResult(deletedIds.size(), deletedIds, resolved.notFoundIds());
-    }
-
-    private List<StoredFile> limitToFolder(Long roomId, Long folderId, List<StoredFile> files) {
-        if (folderId == null) {
-            return files;
-        }
-        folderRepository.findById(folderId)
-            .filter(folder -> folder.belongsTo(roomId))
-            .orElseThrow(() -> new FolderNotFoundException(folderId));
-        List<Long> inFolder = folderMediaRepository.findMediaIdsByFolderId(folderId);
-        return files.stream().filter(file -> inFolder.contains(file.getId())).toList();
-    }
-
-    private void requireWithinLimit(List<StoredFile> files) {
-        if (files.size() > MAX_MEDIA_COUNT) {
-            throw new TooManyMediaException(MAX_MEDIA_COUNT);
-        }
     }
 
     private void requireDeletePermission(Long roomId, Long requesterId, List<StoredFile> files) {
