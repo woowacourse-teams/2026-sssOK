@@ -8,24 +8,12 @@ interface UseRoomEventsParams {
   roomId: number;
   userId: number;
   token: string;
-  onMediaReady?: (media: MediaItem) => boolean;
   onMediaDeleted?: (mediaIds: number[]) => void;
 }
 
-export const useRoomEvents = ({
-  roomId,
-  userId,
-  token,
-  onMediaReady,
-  onMediaDeleted,
-}: UseRoomEventsParams) => {
+export const useRoomEvents = ({ roomId, userId, token, onMediaDeleted }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
-  const onMediaReadyRef = useRef(onMediaReady);
   const onMediaDeletedRef = useRef(onMediaDeleted);
-
-  useEffect(() => {
-    onMediaReadyRef.current = onMediaReady;
-  }, [onMediaReady]);
 
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
@@ -39,9 +27,6 @@ export const useRoomEvents = ({
 
     const handleMediaReady = (event: MessageEvent<string>) => {
       const media = JSON.parse(event.data) as MediaItem;
-      const replacedPending =
-        media.uploaderId === userId && (onMediaReadyRef.current?.(media) ?? false);
-
       queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) => {
         if (!current) return current;
 
@@ -52,9 +37,6 @@ export const useRoomEvents = ({
             items: current.items.map((item) => (item.mediaId === media.mediaId ? media : item)),
           };
         }
-        // 내가 올린 것은 미리보기 자리가 이미 있다. 목록에 또 넣으면 두 장으로 보인다.
-        if (replacedPending) return current;
-
         return { ...current, items: [media, ...current.items] };
       });
     };

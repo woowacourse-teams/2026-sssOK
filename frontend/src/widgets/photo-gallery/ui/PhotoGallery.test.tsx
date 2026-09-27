@@ -28,7 +28,14 @@ describe("PhotoGallery", () => {
     const onTogglePhoto = jest.fn();
     render(
       <PhotoGallery
-        photos={[photo]}
+        items={[
+          {
+            type: "server",
+            mediaId: photo.mediaId,
+            media: photo,
+            folderIds: photo.folderIds,
+          },
+        ]}
         userId={12}
         selectedPhotoIds={[]}
         isPending={false}

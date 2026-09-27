@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -40,8 +40,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   useAnalyticsRoom(room.code, userId === room.hostId);
-  const { uploadSlots, addPendingMedia, removePendingMedia, replacePendingMedia } =
-    usePendingMedia();
+  const { uploadSlots, addPendingMedia, removePendingMedia } = usePendingMedia();
   // 모달
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -82,7 +81,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const { photos, visibleUploadSlots, galleryItems, totalCount, folderCounts, isPending, isError } =
+  const { galleryItems, completedUploadIds, totalCount, folderCounts, isPending, isError } =
     useGalleryPhotos({
       roomId: room.roomId,
       accessToken,
@@ -91,6 +90,11 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       selectedOption,
       uploadSlots,
     });
+
+  useEffect(() => {
+    if (completedUploadIds.length === 0) return;
+    removePendingMedia(completedUploadIds);
+  }, [completedUploadIds, removePendingMedia]);
 
   const folders = room.folders.map((folder) => ({
     ...folder,
@@ -115,7 +119,6 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     roomId: room.roomId,
     userId,
     token: accessToken,
-    onMediaReady: replacePendingMedia,
     onMediaDeleted: (mediaIds) => {
       removePendingMedia(mediaIds);
       removePhotos(mediaIds);
@@ -217,8 +220,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         }}
       />
       <PhotoGallery
-        photos={photos}
-        uploadSlots={visibleUploadSlots}
+        items={galleryItems}
         userId={userId}
         selectedPhotoIds={selectedPhotoIds}
         isPending={isPending}

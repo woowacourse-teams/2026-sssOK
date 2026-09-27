@@ -37,32 +37,21 @@ export const useGalleryPhotos = ({
     () => mergeGalleryItems(photosQuery.data?.items ?? [], uploadSlots),
     [photosQuery.data?.items, uploadSlots],
   );
+  const completedUploadIds = useMemo(() => {
+    const serverMediaIds = new Set((photosQuery.data?.items ?? []).map((item) => item.mediaId));
+    return uploadSlots
+      .filter((slot) => serverMediaIds.has(slot.mediaId))
+      .map((slot) => slot.mediaId);
+  }, [photosQuery.data?.items, uploadSlots]);
   const folderCounts = useMemo(() => countItemsByFolder(allGalleryItems), [allGalleryItems]);
   const visibleItems = useMemo(
     () => filterGalleryItems(allGalleryItems, selectedFolderId, selectedOption, userId),
     [allGalleryItems, selectedFolderId, selectedOption, userId],
   );
 
-  // 업로드한 파일은 READY가 되어도 같은 카드 안에서 썸네일만 교체한다.
-  // 서버 목록에도 들어온 파일이라면 최신 서버 데이터로 미리보기 자리를 갱신한다.
-  const visibleItemsById = new Map(visibleItems.map((item) => [item.mediaId, item]));
-  const visibleUploadSlots = uploadSlots.flatMap((slot) => {
-    const visibleItem = visibleItemsById.get(slot.mediaId);
-    return visibleItem ? [visibleItem] : [];
-  });
-  const uploadSlotIds = new Set(uploadSlots.map((slot) => slot.mediaId));
-  const serverItemsWithoutUploadSlot = visibleItems.filter(
-    (item) => !uploadSlotIds.has(item.mediaId),
-  );
-  const photos = serverItemsWithoutUploadSlot.flatMap((item) =>
-    item.type === "server" ? [item.media] : [],
-  );
-  const galleryItems = [...visibleUploadSlots, ...serverItemsWithoutUploadSlot];
-
   return {
-    photos,
-    visibleUploadSlots,
-    galleryItems,
+    galleryItems: visibleItems,
+    completedUploadIds,
     totalCount: allGalleryItems.length,
     folderCounts,
     isPending: photosQuery.isPending,
