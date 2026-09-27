@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,7 +50,7 @@ class GetMediaDownloadUrlServiceTest {
 
     private StoredFile save(Long roomId, UploadStatus status) {
         StoredFile file = StoredFile.reserve(
-            roomId, UPLOADER_ID, "사진.jpg", "image/jpeg", new FileSize(1024), Instant.now());
+            roomId, UPLOADER_ID, "사진.jpg", "image/jpeg", new FileSize(1024), Instant.now(), SIZE_POLICY);
         switch (status) {
             case PROCESSING -> file.startProcessing();
             case READY -> {

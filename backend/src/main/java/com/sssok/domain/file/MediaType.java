@@ -14,9 +14,6 @@ public enum MediaType {
     WEBM("webm", "video/webm", Kind.VIDEO),
     MOV("mov", "video/quicktime", Kind.VIDEO);
 
-    private static final long IMAGE_MAX_BYTES = 10L * 1024 * 1024;
-    private static final long VIDEO_MAX_BYTES = 1024L * 1024 * 1024;
-
     private final String extension;
     private final String contentType;
     private final Kind kind;
@@ -76,10 +73,6 @@ public enum MediaType {
 
     public boolean preservesAnimation() {
         return this == GIF;
-    }
-
-    public long maxBytes() {
-        return isImage() ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
     }
 
     public String extension() {

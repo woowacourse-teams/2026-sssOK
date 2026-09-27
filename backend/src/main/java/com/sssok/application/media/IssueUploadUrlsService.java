@@ -12,6 +12,7 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadRejectionReason;
+import com.sssok.domain.file.UploadSizePolicy;
 import com.sssok.domain.file.exception.FileSizeExceededException;
 import com.sssok.domain.file.exception.InvalidFileSizeException;
 import com.sssok.domain.file.exception.UnsupportedMediaTypeException;
@@ -50,6 +51,7 @@ public class IssueUploadUrlsService {
         List<Long> targetFolderIds = validateFolders(roomId, folderIds);
 
         Instant now = Instant.now();
+        UploadSizePolicy sizePolicy = uploadProperties.sizePolicy();
         List<StoredFile> reserved = new ArrayList<>();
         List<String> reservedFileNames = new ArrayList<>();
         List<RejectedFile> rejected = new ArrayList<>();
@@ -58,7 +60,7 @@ public class IssueUploadUrlsService {
         for (UploadFileCommand file : files) {
             try {
                 reserved.add(StoredFile.reserve(roomId, uploaderId, file.fileName(),
-                    file.mimeType(), new FileSize(file.size()), now));
+                    file.mimeType(), new FileSize(file.size()), now, sizePolicy));
                 reservedFileNames.add(file.fileName());
             } catch (UnsupportedMediaTypeException e) {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.UNSUPPORTED_MEDIA_TYPE));
