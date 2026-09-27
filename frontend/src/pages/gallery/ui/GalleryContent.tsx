@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { photosQueryKey, type GalleryItem, type MediaList } from "@/entities/media";
+import { photosQueryKey, type MediaList } from "@/entities/media";
 import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
@@ -82,40 +82,26 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const { photos, allPhotoCount, isPending, isError } = useGalleryPhotos({
-    roomId: room.roomId,
-    accessToken,
-    userId,
-    selectedFolderId,
-    selectedOption,
-  });
+  const { photos, visibleUploadSlots, galleryItems, totalCount, folderCounts, isPending, isError } =
+    useGalleryPhotos({
+      roomId: room.roomId,
+      accessToken,
+      userId,
+      selectedFolderId,
+      selectedOption,
+      uploadSlots,
+    });
 
-  const visibleUploadSlots = uploadSlots.filter((slot) => {
-    if (selectedOption === "others") return false;
-    if (selectedFolderId === null) return true;
-
-    return slot.folderIds.includes(selectedFolderId);
-  });
+  const folders = room.folders.map((folder) => ({
+    ...folder,
+    photoCount: folderCounts.get(folder.id) ?? 0,
+  }));
 
   // 사진 선택
-  const uploadSlotIds = new Set(visibleUploadSlots.map((slot) => slot.mediaId));
-  const viewerItems: GalleryItem[] = [
-    ...visibleUploadSlots,
-    ...photos
-      .filter((photo) => !uploadSlotIds.has(photo.mediaId))
-      .map((media) => ({
-        mediaId: media.mediaId,
-        type: "server" as const,
-        media,
-        folderIds: media.folderIds,
-      })),
-  ].filter((item) =>
+  const viewerItems = galleryItems.filter((item) =>
     item.type === "local" ? !item.file.type.startsWith("video/") : item.media.type === "IMAGE",
   );
-  const photoIds = [
-    ...visibleUploadSlots.map((slot) => slot.mediaId),
-    ...photos.filter((photo) => !uploadSlotIds.has(photo.mediaId)).map((photo) => photo.mediaId),
-  ];
+  const photoIds = galleryItems.map((item) => item.mediaId);
   const {
     selectedPhotoIds,
     isAllSelected,
@@ -153,22 +139,14 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
-  const downloadTargets = [
-    ...visibleUploadSlots.map((slot) => ({
+  const downloadTargets = galleryItems
+    .filter((item) => selectedPhotoIds.includes(item.mediaId))
+    .map((slot) => ({
       mediaId: slot.mediaId,
       fileName: slot.type === "local" ? slot.file.name : slot.media.fileName,
       size: slot.type === "local" ? slot.file.size : slot.media.size,
       mimeType: slot.type === "local" ? slot.file.type : slot.media.mimeType,
-    })),
-    ...photos
-      .filter((photo) => !uploadSlotIds.has(photo.mediaId))
-      .map((photo) => ({
-        mediaId: photo.mediaId,
-        fileName: photo.fileName,
-        size: photo.size,
-        mimeType: photo.mimeType,
-      })),
-  ].filter((media) => selectedPhotoIds.includes(media.mediaId));
+    }));
 
   return (
     <Page>
@@ -186,8 +164,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
       <FolderFilter
-        totalCount={allPhotoCount ?? room.photoCount}
-        folders={room.folders}
+        totalCount={totalCount}
+        folders={folders}
         selectedFolderId={selectedFolderId}
         onSelectFolder={(folderId) => {
           selectFolder(folderId);
@@ -280,7 +258,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         targets={downloadTargets}
         roomId={room.roomId}
         roomCode={room.code}
-        roomPhotoCount={room.photoCount}
+        roomPhotoCount={totalCount}
         isAllSelected={isAllSelected}
         token={accessToken}
         onClearSelection={clearSelection}
@@ -316,7 +294,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         <MoveMediaFolderBottomSheet
           roomId={room.roomId}
           mediaIds={selectedPhotoIds}
-          folders={room.folders}
+          folders={folders}
           currentFolderId={selectedFolderId}
           token={accessToken}
           onCreateFolder={requestCreateFolder}

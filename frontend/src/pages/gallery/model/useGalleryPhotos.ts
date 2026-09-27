@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 
 import { usePhotosQuery } from "@/entities/media";
-import type { PhotoFilter } from "@/entities/media";
+import type { GalleryItem, PhotoFilter } from "@/entities/media";
+import { countItemsByFolder, filterGalleryItems, mergeGalleryItems } from "./galleryItems";
+
+const EMPTY_UPLOAD_SLOTS: GalleryItem[] = [];
 
 interface UseGalleryPhotosParams {
   roomId: number;
@@ -9,6 +12,7 @@ interface UseGalleryPhotosParams {
   userId: number;
   selectedFolderId: number | null;
   selectedOption: PhotoFilter;
+  uploadSlots?: GalleryItem[];
 }
 
 /**
@@ -21,6 +25,7 @@ export const useGalleryPhotos = ({
   userId,
   selectedFolderId,
   selectedOption,
+  uploadSlots = EMPTY_UPLOAD_SLOTS,
 }: UseGalleryPhotosParams) => {
   const photosQuery = usePhotosQuery({
     roomId,
@@ -28,31 +33,38 @@ export const useGalleryPhotos = ({
     userId,
   });
 
-  const photos = useMemo(() => {
-    // 썸네일 생성 전(null·빈 경로)인 항목은 카드와 선택 대상에서 제외한다.
-    const allPhotos = (photosQuery.data?.items ?? []).filter(
-      (photo) => typeof photo.thumbnailUrl === "string" && photo.thumbnailUrl.trim().length > 0,
-    );
-    const photosInFolder =
-      selectedFolderId === null
-        ? allPhotos
-        : allPhotos.filter((photo) => photo.folderIds.includes(selectedFolderId));
+  const allGalleryItems = useMemo(
+    () => mergeGalleryItems(photosQuery.data?.items ?? [], uploadSlots),
+    [photosQuery.data?.items, uploadSlots],
+  );
+  const folderCounts = useMemo(() => countItemsByFolder(allGalleryItems), [allGalleryItems]);
+  const visibleItems = useMemo(
+    () => filterGalleryItems(allGalleryItems, selectedFolderId, selectedOption, userId),
+    [allGalleryItems, selectedFolderId, selectedOption, userId],
+  );
 
-    if (selectedOption === "mine") {
-      return photosInFolder.filter((photo) => photo.uploaderId === userId);
-    }
-
-    if (selectedOption === "others") {
-      return photosInFolder.filter((photo) => photo.uploaderId !== userId);
-    }
-
-    return photosInFolder;
-  }, [photosQuery.data?.items, selectedFolderId, selectedOption, userId]);
+  // 업로드한 파일은 READY가 되어도 같은 카드 안에서 썸네일만 교체한다.
+  // 서버 목록에도 들어온 파일이라면 최신 서버 데이터로 미리보기 자리를 갱신한다.
+  const visibleItemsById = new Map(visibleItems.map((item) => [item.mediaId, item]));
+  const visibleUploadSlots = uploadSlots.flatMap((slot) => {
+    const visibleItem = visibleItemsById.get(slot.mediaId);
+    return visibleItem ? [visibleItem] : [];
+  });
+  const uploadSlotIds = new Set(uploadSlots.map((slot) => slot.mediaId));
+  const serverItemsWithoutUploadSlot = visibleItems.filter(
+    (item) => !uploadSlotIds.has(item.mediaId),
+  );
+  const photos = serverItemsWithoutUploadSlot.flatMap((item) =>
+    item.type === "server" ? [item.media] : [],
+  );
+  const galleryItems = [...visibleUploadSlots, ...serverItemsWithoutUploadSlot];
 
   return {
     photos,
-    /** 필터와 상관없는 방 전체 장수. 목록을 받기 전에는 모른다. */
-    allPhotoCount: photosQuery.data?.items.length,
+    visibleUploadSlots,
+    galleryItems,
+    totalCount: allGalleryItems.length,
+    folderCounts,
     isPending: photosQuery.isPending,
     isError: photosQuery.isError,
   };

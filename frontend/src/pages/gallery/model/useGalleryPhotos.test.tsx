@@ -39,6 +39,7 @@ describe("useGalleryPhotos", () => {
     const { result } = renderGalleryPhotos({ selectedFolderId: null, selectedOption: "all" });
 
     await waitFor(() => expect(result.current.photos).toHaveLength(33));
+    expect(result.current.totalCount).toBe(33);
     expect(new Set(result.current.photos.map((photo) => photo.mediaId)).size).toBe(33);
   });
 
@@ -53,6 +54,7 @@ describe("useGalleryPhotos", () => {
     });
 
     await waitFor(() => expect(result.current.photos).toHaveLength(33));
+    const initialFolderCounts = result.current.folderCounts;
 
     rerender({ selectedFolderId: null, selectedOption: "others" });
     expect(result.current.photos.length).toBeGreaterThan(0);
@@ -65,6 +67,8 @@ describe("useGalleryPhotos", () => {
 
     rerender({ selectedFolderId: null, selectedOption: "mine" });
     expect(result.current.photos.every((photo) => photo.uploaderId === HOST_ID)).toBe(true);
+    expect(result.current.totalCount).toBe(33);
+    expect(result.current.folderCounts).toEqual(initialFolderCounts);
 
     expect(listRequests).toHaveLength(1);
   });
