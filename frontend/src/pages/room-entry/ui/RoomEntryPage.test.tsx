@@ -216,10 +216,8 @@ describe("RoomEntryPage", () => {
       expect(
         await screen.findByRole("heading", { name: "이 방은 사라졌어요" }),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("img", { name: "닫힌 방을 안내하는 캐릭터" }),
-      ).toBeInTheDocument();
-      expect(screen.getByText(/이 방의 사진과 영상은/)).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "닫힌 방을 안내하는 캐릭터" })).toBeInTheDocument();
+      expect(screen.getByText(/삭제되었거나 보관 기간이 지나/)).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "새 방 만들기" })).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "홈으로" })).toBeInTheDocument();
     });

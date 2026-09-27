@@ -8,15 +8,16 @@ export const Page = styled.main`
   flex: 1;
   flex-direction: column;
   width: 100%;
-  padding: ${spacing[24]} ${spacing[16]};
+  padding: ${spacing[16]};
 `;
 
-export const Content = styled.section`
+export const Content = styled.div`
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: ${spacing[32]};
   text-align: center;
 `;
 
@@ -24,13 +25,6 @@ export const Image = styled.img`
   width: min(180px, 52vw);
   height: auto;
   object-fit: contain;
-`;
-
-export const TextGroup = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${spacing[8]};
-  margin-top: ${spacing[32]};
 `;
 
 export const Title = styled.h1`
@@ -57,12 +51,12 @@ export const ActionLink = styled(Link)`
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 55px;
+  height: 65px;
   border: 1.25px solid ${colors.borderDefault};
-  border-radius: ${radius[12]};
+  border-radius: ${radius[16]};
   background-color: ${colors.backgroundDefault};
   color: ${colors.textStrong};
-  ${typography.label5}
+  ${typography.label1}
 
   @media (hover: hover) {
     &:hover {
