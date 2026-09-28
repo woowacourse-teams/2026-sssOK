@@ -225,3 +225,95 @@ describe("라이트박스 단일 다운로드", () => {
     expect(share).not.toHaveBeenCalled();
   });
 });
+
+describe("모바일 좌우 절반 터치", () => {
+  const itemOf = (mediaId: number, type: "IMAGE" | "VIDEO" = "IMAGE"): GalleryItem => ({
+    mediaId,
+    type: "server",
+    folderIds: [],
+    media: {
+      mediaId,
+      type,
+      fileName: type === "IMAGE" ? `IMG_${mediaId}.jpg` : `VID_${mediaId}.mp4`,
+      mimeType: type === "IMAGE" ? "image/jpeg" : "video/mp4",
+      size: 3840219,
+      thumbnailUrl: `https://cdn.example.com/rooms/1024/${mediaId}_thumb.webp`,
+      originalUrl: `https://cdn.example.com/rooms/1024/${mediaId}.jpg`,
+      width: 4032,
+      height: 3024,
+      duration: type === "IMAGE" ? null : 10,
+      folderIds: [],
+      uploaderId: 12,
+      uploaderName: "로지",
+      status: "READY",
+      uploadedAt: "2026-08-18T20:15:00+09:00",
+    },
+  });
+
+  const renderViewer = (activeMediaId: number, items = [itemOf(1), itemOf(2), itemOf(3)]) => {
+    const onChange = jest.fn();
+
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MediaViewerModal
+          items={items}
+          activeMediaId={activeMediaId}
+          roomId={1024}
+          userId={12}
+          hostId={12}
+          token="token"
+          selectedPhotoIds={[]}
+          onChange={onChange}
+          onClose={jest.fn()}
+          onToggle={jest.fn()}
+          onDeleted={jest.fn()}
+        />
+      </QueryClientProvider>,
+    );
+
+    return { onChange };
+  };
+
+  it("사진 왼쪽 절반을 누르면 이전 사진으로 넘어간다", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderViewer(2);
+
+    await user.click(screen.getByTestId("viewer-tap-previous"));
+
+    expect(onChange).toHaveBeenCalledWith(1);
+  });
+
+  it("사진 오른쪽 절반을 누르면 다음 사진으로 넘어간다", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderViewer(2);
+
+    await user.click(screen.getByTestId("viewer-tap-next"));
+
+    expect(onChange).toHaveBeenCalledWith(3);
+  });
+
+  it("첫 사진에서 왼쪽을 눌러도 넘어가지 않는다", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderViewer(1);
+
+    await user.click(screen.getByTestId("viewer-tap-previous"));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("마지막 사진에서 오른쪽을 눌러도 넘어가지 않는다", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderViewer(3);
+
+    await user.click(screen.getByTestId("viewer-tap-next"));
+
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("동영상에서는 재생 컨트롤을 가리지 않도록 터치 영역을 깔지 않는다", () => {
+    renderViewer(2, [itemOf(1), itemOf(2, "VIDEO"), itemOf(3)]);
+
+    expect(screen.queryByTestId("viewer-tap-previous")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("viewer-tap-next")).not.toBeInTheDocument();
+  });
+});
