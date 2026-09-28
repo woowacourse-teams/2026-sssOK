@@ -264,6 +264,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         selectedPhotoIds={selectedPhotoIds}
         isPending={isPending}
         isError={isError}
+        expectedPhotoCount={selectedFolder?.photoCount ?? room.photoCount}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={setActiveMediaId}
       />

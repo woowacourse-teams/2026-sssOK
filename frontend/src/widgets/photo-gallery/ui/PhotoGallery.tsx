@@ -3,6 +3,7 @@ import type { MediaItem } from "@/entities/media";
 import type { GalleryItem } from "@/entities/media";
 import { GalleryGrid, GallerySection, StateMessage } from "./PhotoGallery.styles";
 import { PendingMediaCard } from "./PendingMediaCard";
+import { PhotoGallerySkeleton } from "./PhotoGallerySkeleton";
 
 interface PhotoGalleryProps {
   photos: MediaItem[];
@@ -11,6 +12,7 @@ interface PhotoGalleryProps {
   selectedPhotoIds: number[];
   isPending: boolean;
   isError: boolean;
+  expectedPhotoCount?: number;
   onTogglePhoto: (photoId: number) => void;
   onOpenPhoto?: (mediaId: number) => void;
 }
@@ -22,6 +24,7 @@ export const PhotoGallery = ({
   selectedPhotoIds,
   isPending,
   isError,
+  expectedPhotoCount,
   onTogglePhoto,
   onOpenPhoto,
 }: PhotoGalleryProps) => {
@@ -29,7 +32,7 @@ export const PhotoGallery = ({
   const serverOnlyPhotos = photos.filter((photo) => !uploadSlotIds.has(photo.mediaId));
 
   if (isPending && uploadSlots.length === 0 && photos.length === 0)
-    return <StateMessage>사진을 불러오는 중이에요.</StateMessage>;
+    return <PhotoGallerySkeleton count={expectedPhotoCount} />;
   if (isError && uploadSlots.length === 0 && photos.length === 0)
     return <StateMessage>사진을 불러오지 못했어요.</StateMessage>;
   if (uploadSlots.length === 0 && photos.length === 0)
