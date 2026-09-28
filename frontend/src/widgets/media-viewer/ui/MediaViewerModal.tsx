@@ -6,8 +6,8 @@ import {
   HiArrowDownTray,
   HiArrowLeft,
   HiCheck,
-  HiOutlineChevronLeft,
-  HiOutlineChevronRight,
+  HiChevronLeft,
+  HiChevronRight,
   HiOutlineTrash,
 } from "react-icons/hi2";
 
@@ -63,6 +63,9 @@ export const MediaViewerModal = ({
   const previous = items[index - 1];
   const next = items[index + 1];
 
+  const movePrevious = () => {
+    if (previous) onChange(previous.mediaId);
+  };
   const moveNext = () => {
     if (next) onChange(next.mediaId);
   };
@@ -93,7 +96,7 @@ export const MediaViewerModal = ({
       onKeyDown={(event) => {
         if (event.key === "ArrowLeft" && previous) {
           event.preventDefault();
-          onChange(previous.mediaId);
+          movePrevious();
         }
         if (event.key === "ArrowRight" && next) {
           event.preventDefault();
@@ -143,20 +146,32 @@ export const MediaViewerModal = ({
               const dy = touch.clientY - start.y;
               if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy)) return;
               if (dx < 0 && next) moveNext();
-              if (dx > 0 && previous) onChange(previous.mediaId);
+              if (dx > 0 && previous) movePrevious();
             }}
           >
             <ViewerImage key={`${item.mediaId}:${item.type}`} item={item} />
+            <TapZone
+              data-testid="viewer-tap-previous"
+              aria-hidden="true"
+              $side="left"
+              onClick={movePrevious}
+            />
+            <TapZone
+              data-testid="viewer-tap-next"
+              aria-hidden="true"
+              $side="right"
+              onClick={moveNext}
+            />
             <PreviousButton
               type="button"
               aria-label="이전 사진"
               disabled={!previous}
-              onClick={() => previous && onChange(previous.mediaId)}
+              onClick={movePrevious}
             >
-              <HiOutlineChevronLeft strokeWidth={2.5} />
+              <HiChevronLeft />
             </PreviousButton>
             <NextButton type="button" aria-label="다음 사진" disabled={!next} onClick={moveNext}>
-              <HiOutlineChevronRight strokeWidth={2.5} />
+              <HiChevronRight />
             </NextButton>
           </Stage>
           <ViewerFooter
@@ -400,6 +415,19 @@ const ViewerPhoto = styled.img<{ $visible: boolean }>`
   user-select: none;
 `;
 
+const TapZone = styled.div<{ $side: "left" | "right" }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  ${({ $side }) => $side}: 0;
+  width: 50%;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (min-width: 768px) {
+    display: none;
+  }
+`;
+
 const SlideButton = styled(BackButton)`
   position: absolute;
   top: calc(50% - 22px);
@@ -407,17 +435,14 @@ const SlideButton = styled(BackButton)`
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: ${colors.backgroundDefault};
-  color: ${colors.textStrong};
-  box-shadow: 0 2px 10px #00000059;
 
   &:disabled {
     visibility: hidden;
   }
 
   svg {
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
   }
 `;
 
