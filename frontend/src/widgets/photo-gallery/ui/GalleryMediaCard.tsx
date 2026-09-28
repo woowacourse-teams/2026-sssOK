@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
 import { HiCheck, HiPlay } from "react-icons/hi2";
@@ -15,8 +15,9 @@ import {
 } from "@/entities/media/ui/MediaCard.styles";
 import { colors, radius } from "@/shared/styles/tokens";
 
-interface PendingMediaCardProps {
-  slot: GalleryItem;
+interface GalleryMediaCardProps {
+  item: GalleryItem;
+  userId: number;
   isSelected: boolean;
   onToggle: () => void;
   onOpen?: () => void;
@@ -29,42 +30,55 @@ const formatDuration = (duration: number) => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const createInitialPreviewUrl = (slot: GalleryItem) => {
-  if (slot.type === "server") return slot.media.thumbnailUrl;
-  if (slot.file.type.startsWith("video/")) return "";
+const createImageUrl = (item: GalleryItem) => {
+  if (item.type === "server") return item.media.thumbnailUrl;
+  if (item.file.type.startsWith("video/")) return "";
 
-  return URL.createObjectURL(slot.file);
+  return URL.createObjectURL(item.file);
 };
 
-export const PendingMediaCard = ({ slot, isSelected, onToggle, onOpen }: PendingMediaCardProps) => {
-  const isVideo =
-    slot.type === "local" ? slot.file.type.startsWith("video/") : slot.media.type === "VIDEO";
-  const [previewUrl] = useState(() => createInitialPreviewUrl(slot));
-  const [imageUrl, setImageUrl] = useState(previewUrl);
+export const GalleryMediaCard = ({
+  item,
+  userId,
+  isSelected,
+  onToggle,
+  onOpen,
+}: GalleryMediaCardProps) => {
+  const [initialImageUrl] = useState(() => createImageUrl(item));
+  const localPreviewUrl = useRef(item.type === "local" ? initialImageUrl : null);
+  const [imageUrl, setImageUrl] = useState(initialImageUrl);
 
   useEffect(() => {
-    if (!previewUrl.startsWith("blob:")) return;
-
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
-
-  useEffect(() => {
-    if (slot.type !== "server") return;
+    if (item.type !== "server" || imageUrl === item.media.thumbnailUrl) return;
 
     const image = new Image();
-    image.src = slot.media.thumbnailUrl;
+    image.src = item.media.thumbnailUrl;
     image.onload = () => {
-      setImageUrl(slot.media.thumbnailUrl);
-      if (previewUrl.startsWith("blob:")) URL.revokeObjectURL(previewUrl);
+      setImageUrl(item.media.thumbnailUrl);
+      if (localPreviewUrl.current) {
+        URL.revokeObjectURL(localPreviewUrl.current);
+        localPreviewUrl.current = null;
+      }
     };
 
     return () => {
       image.onload = null;
     };
-  }, [previewUrl, slot]);
+  }, [imageUrl, item]);
 
+  useEffect(
+    () => () => {
+      if (localPreviewUrl.current) URL.revokeObjectURL(localPreviewUrl.current);
+    },
+    [],
+  );
+
+  const fileName = item.type === "local" ? item.file.name : item.media.fileName;
+  const isMine = item.type === "local" || item.media.uploaderId === userId;
+  const isVideo =
+    item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
   const isWaitingForVideoThumbnail = isVideo && !imageUrl;
-  const fileName = slot.type === "local" ? slot.file.name : slot.media.fileName;
+  const uploaderName = item.type === "server" ? item.media.uploaderName : "나";
 
   return (
     <Card $selected={isSelected}>
@@ -79,21 +93,26 @@ export const PendingMediaCard = ({ slot, isSelected, onToggle, onOpen }: Pending
           </VideoThumbnailPlaceholder>
         ) : (
           <>
-            <Thumbnail src={imageUrl} alt={fileName} draggable={false} />
+            <Thumbnail
+              src={imageUrl}
+              alt={fileName}
+              loading={item.type === "server" ? "lazy" : undefined}
+              draggable={false}
+            />
             {isVideo && (
               <>
                 <PlayMark>
                   <HiPlay />
                 </PlayMark>
-                {slot.type === "server" && slot.media.duration !== null && (
-                  <Duration>{formatDuration(slot.media.duration)}</Duration>
+                {item.type === "server" && item.media.duration !== null && (
+                  <Duration>{formatDuration(item.media.duration)}</Duration>
                 )}
               </>
             )}
           </>
         )}
 
-        <UploaderBadge $mine>나</UploaderBadge>
+        <UploaderBadge $mine={isMine}>{isMine ? "나" : uploaderName}</UploaderBadge>
       </CardButton>
 
       <SelectionMark

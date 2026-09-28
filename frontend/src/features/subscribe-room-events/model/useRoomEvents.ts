@@ -11,7 +11,6 @@ interface UseRoomEventsParams {
   roomId: number;
   userId: number;
   token: string;
-  onMediaReady?: (media: MediaItem) => boolean;
   onMediaDeleted?: (mediaIds: number[]) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
@@ -24,22 +23,16 @@ export const useRoomEvents = ({
   roomId,
   userId,
   token,
-  onMediaReady,
   onMediaDeleted,
   onFoldersChanged,
   onFolderDeleted,
   onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
-  const onMediaReadyRef = useRef(onMediaReady);
   const onMediaDeletedRef = useRef(onMediaDeleted);
   const onFoldersChangedRef = useRef(onFoldersChanged);
   const onFolderDeletedRef = useRef(onFolderDeleted);
   const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
-
-  useEffect(() => {
-    onMediaReadyRef.current = onMediaReady;
-  }, [onMediaReady]);
 
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
@@ -65,15 +58,12 @@ export const useRoomEvents = ({
 
     const handleMediaReady = (event: MessageEvent<string>) => {
       const media = JSON.parse(event.data) as MediaItem;
-      const replacedPending =
-        media.uploaderId === userId && (onMediaReadyRef.current?.(media) ?? false);
-
       updateMediaReadyCache({
         queryClient,
         roomId,
         userId,
         media,
-        replacedPending,
+        replacedPending: false,
       });
     };
 
