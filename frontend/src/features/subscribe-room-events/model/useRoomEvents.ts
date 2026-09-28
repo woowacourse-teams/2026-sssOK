@@ -13,8 +13,12 @@ interface UseRoomEventsParams {
   token: string;
   onMediaReady?: (media: MediaItem) => boolean;
   onMediaDeleted?: (mediaIds: number[]) => void;
+  onFoldersChanged?: () => void;
+  onFolderDeleted?: (folderId: number) => void;
   onMediaFoldersUpdated?: (event: MediaFoldersUpdatedEvent) => void;
 }
+
+const FOLDER_CHANGE_EVENTS = ["folder.created", "folder.renamed", "folder.deleted"] as const;
 
 export const useRoomEvents = ({
   roomId,
@@ -22,11 +26,15 @@ export const useRoomEvents = ({
   token,
   onMediaReady,
   onMediaDeleted,
+  onFoldersChanged,
+  onFolderDeleted,
   onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
   const onMediaReadyRef = useRef(onMediaReady);
   const onMediaDeletedRef = useRef(onMediaDeleted);
+  const onFoldersChangedRef = useRef(onFoldersChanged);
+  const onFolderDeletedRef = useRef(onFolderDeleted);
   const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
 
   useEffect(() => {
@@ -36,6 +44,14 @@ export const useRoomEvents = ({
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
   }, [onMediaDeleted]);
+
+  useEffect(() => {
+    onFoldersChangedRef.current = onFoldersChanged;
+  }, [onFoldersChanged]);
+
+  useEffect(() => {
+    onFolderDeletedRef.current = onFolderDeleted;
+  }, [onFolderDeleted]);
 
   useEffect(() => {
     onMediaFoldersUpdatedRef.current = onMediaFoldersUpdated;
@@ -68,6 +84,15 @@ export const useRoomEvents = ({
       onMediaDeletedRef.current?.(mediaIds);
     };
 
+    const handleFoldersChanged = () => {
+      onFoldersChangedRef.current?.();
+    };
+
+    const handleFolderDeleted = (event: MessageEvent<string>) => {
+      const { folderId } = JSON.parse(event.data) as { folderId: number };
+      onFolderDeletedRef.current?.(folderId);
+    };
+
     const handleMediaFoldersUpdated = (event: MessageEvent<string>) => {
       const payload = JSON.parse(event.data) as MediaFoldersUpdatedEvent;
 
@@ -76,11 +101,19 @@ export const useRoomEvents = ({
 
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
+    FOLDER_CHANGE_EVENTS.forEach((type) =>
+      eventSource.addEventListener(type, handleFoldersChanged),
+    );
+    eventSource.addEventListener("folder.deleted", handleFolderDeleted);
     eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
 
     return () => {
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
+      FOLDER_CHANGE_EVENTS.forEach((type) =>
+        eventSource.removeEventListener(type, handleFoldersChanged),
+      );
+      eventSource.removeEventListener("folder.deleted", handleFolderDeleted);
       eventSource.removeEventListener("media.folders.updated", handleMediaFoldersUpdated);
       eventSource.close();
     };
