@@ -8,7 +8,14 @@ export const mergeGalleryItems = (photos: MediaItem[], uploadSlots: GalleryItem[
   }
 
   for (const media of photos) {
-    if (!media.thumbnailUrl?.trim()) continue;
+    if (!media.thumbnailUrl?.trim()) {
+      const preview = itemsById.get(media.mediaId);
+
+      if (preview?.type === "local") {
+        itemsById.set(media.mediaId, { ...preview, folderIds: media.folderIds });
+      }
+      continue;
+    }
 
     // 같은 파일은 한 번만 표시한다. 재조회된 서버의 폴더 정보가 미리보기보다 우선한다.
     itemsById.set(media.mediaId, {

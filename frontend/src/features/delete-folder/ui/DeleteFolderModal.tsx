@@ -10,22 +10,35 @@ import { useDeleteFolderMutation } from "../model/useDeleteFolderMutation";
 
 interface DeleteFolderModalProps {
   roomId: number;
+  roomCode: string;
+  userId: number;
   folderId: number;
   folderName: string;
   accessToken: string;
   onClose: () => void;
-  onSuccess: () => void | Promise<void>;
+  onDelete: () => void;
+  onError: () => void;
 }
 
 export const DeleteFolderModal = ({
   roomId,
+  roomCode,
+  userId,
   folderId,
   folderName,
   accessToken,
   onClose,
-  onSuccess,
+  onDelete,
+  onError,
 }: DeleteFolderModalProps) => {
-  const mutation = useDeleteFolderMutation({ roomId, folderId, accessToken, onSuccess });
+  const mutation = useDeleteFolderMutation({
+    roomId,
+    roomCode,
+    userId,
+    folderId,
+    accessToken,
+    onError,
+  });
 
   return (
     <Modal onClose={onClose}>
@@ -39,14 +52,19 @@ export const DeleteFolderModal = ({
             <br />
             사진은 그대로 유지돼요.
           </Description>
-          {mutation.isError && <ErrorMessage>폴더를 삭제하지 못했어요.</ErrorMessage>}
         </Stack>
 
         <Row gap={12}>
           <Button variant="default" onClick={onClose}>
             취소
           </Button>
-          <Button variant="danger" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button
+            variant="danger"
+            onClick={() => {
+              mutation.mutate();
+              onDelete();
+            }}
+          >
             삭제
           </Button>
         </Row>
@@ -73,11 +91,4 @@ const Description = styled.p`
   text-align: center;
 
   ${typography.body}
-`;
-
-const ErrorMessage = styled.p`
-  color: ${colors.danger};
-  text-align: center;
-
-  ${typography.caption1}
 `;

@@ -3,6 +3,7 @@ import { Outlet, useParams } from "react-router-dom";
 import { readValidRoomSession } from "@/entities/session";
 import { useLinkCodeSession } from "@/features/link-device";
 import { PhotoSelectionProvider } from "@/features/select-media";
+import { PageSpinner } from "@/shared/ui/spinner";
 import { useUnauthorizedRecovery } from "./useUnauthorizedRecovery";
 
 export const RoomMediaLayout = () => {
@@ -15,7 +16,7 @@ export const RoomMediaLayout = () => {
 
   const session = readValidRoomSession(code);
 
-  if (isLinking) return null;
+  if (isLinking) return <PageSpinner label="다른 기기와 연결하는 중이에요." />;
 
   return (
     <PhotoSelectionProvider key={`${code}:${session?.userId ?? "guest"}`}>

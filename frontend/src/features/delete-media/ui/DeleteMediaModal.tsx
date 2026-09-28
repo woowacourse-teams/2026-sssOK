@@ -13,6 +13,7 @@ interface DeleteMediaModalProps {
   roomId: number;
   mediaId: number;
   token: string;
+  container?: Element | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -21,6 +22,7 @@ export const DeleteMediaModal = ({
   roomId,
   mediaId,
   token,
+  container,
   onClose,
   onSuccess,
 }: DeleteMediaModalProps) => {
@@ -35,6 +37,7 @@ export const DeleteMediaModal = ({
         if (!mutation.isPending) onClose();
       }}
       showClose={!mutation.isPending}
+      container={container}
     >
       <Stack gap={20}>
         <Title>사진을 삭제할까요?</Title>

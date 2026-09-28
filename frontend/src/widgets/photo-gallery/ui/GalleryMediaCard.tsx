@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { keyframes } from "@emotion/react";
+import styled from "@emotion/styled";
 import { HiCheck, HiPlay } from "react-icons/hi2";
 
 import type { GalleryItem } from "@/entities/media";
@@ -11,6 +13,7 @@ import {
   Thumbnail,
   UploaderBadge,
 } from "@/entities/media/ui/MediaCard.styles";
+import { colors, radius } from "@/shared/styles/tokens";
 
 interface GalleryMediaCardProps {
   item: GalleryItem;
@@ -27,8 +30,12 @@ const formatDuration = (duration: number) => {
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const createImageUrl = (item: GalleryItem) =>
-  item.type === "local" ? URL.createObjectURL(item.file) : item.media.thumbnailUrl;
+const createImageUrl = (item: GalleryItem) => {
+  if (item.type === "server") return item.media.thumbnailUrl;
+  if (item.file.type.startsWith("video/")) return "";
+
+  return URL.createObjectURL(item.file);
+};
 
 export const GalleryMediaCard = ({
   item,
@@ -68,7 +75,9 @@ export const GalleryMediaCard = ({
 
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
   const isMine = item.type === "local" || item.media.uploaderId === userId;
-  const isVideo = item.type === "server" && item.media.type === "VIDEO";
+  const isVideo =
+    item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
+  const isWaitingForVideoThumbnail = isVideo && !imageUrl;
   const uploaderName = item.type === "server" ? item.media.uploaderName : "나";
 
   return (
@@ -78,20 +87,27 @@ export const GalleryMediaCard = ({
         onClick={onOpen ?? onToggle}
         aria-label={`${fileName} ${onOpen ? "크게 보기" : "선택하기"}`}
       >
-        <Thumbnail
-          src={imageUrl}
-          alt={fileName}
-          loading={item.type === "server" ? "lazy" : undefined}
-          draggable={false}
-        />
-
-        {isVideo && (
+        {isWaitingForVideoThumbnail ? (
+          <VideoThumbnailPlaceholder aria-label="동영상 썸네일 생성 중">
+            <LoadingSpinner />
+          </VideoThumbnailPlaceholder>
+        ) : (
           <>
-            <PlayMark>
-              <HiPlay />
-            </PlayMark>
-            {item.type === "server" && item.media.duration !== null && (
-              <Duration>{formatDuration(item.media.duration)}</Duration>
+            <Thumbnail
+              src={imageUrl}
+              alt={fileName}
+              loading={item.type === "server" ? "lazy" : undefined}
+              draggable={false}
+            />
+            {isVideo && (
+              <>
+                <PlayMark>
+                  <HiPlay />
+                </PlayMark>
+                {item.type === "server" && item.media.duration !== null && (
+                  <Duration>{formatDuration(item.media.duration)}</Duration>
+                )}
+              </>
             )}
           </>
         )}
@@ -111,3 +127,26 @@ export const GalleryMediaCard = ({
     </Card>
   );
 };
+
+const spin = keyframes`
+  to {
+    transform: rotate(360deg);
+  }
+`;
+
+const VideoThumbnailPlaceholder = styled.span`
+  display: grid;
+  width: 100%;
+  height: 100%;
+  background-color: ${colors.backgroundSubtle};
+  place-items: center;
+`;
+
+const LoadingSpinner = styled.span`
+  width: 28px;
+  height: 28px;
+  border: 3px solid ${colors.primarySubtle};
+  border-top-color: ${colors.primary};
+  border-radius: ${radius.full};
+  animation: ${spin} 0.8s linear infinite;
+`;

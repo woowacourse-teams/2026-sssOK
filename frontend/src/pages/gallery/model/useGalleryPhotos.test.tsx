@@ -132,7 +132,7 @@ describe("useGalleryPhotos", () => {
       width: 100,
       height: 100,
       duration: null,
-      status: "PROCESSING",
+      status: "READY",
       uploadedAt: "2026-09-28T00:00:00Z",
     };
     server.use(

@@ -90,6 +90,12 @@ describe("갤러리 목록에서 파생하는 개수", () => {
     expect(mergeGalleryItems([{ ...photo(1, []), thumbnailUrl: " " }], [])).toHaveLength(0);
   });
 
+  it("썸네일 생성 중에는 미리보기를 유지하고 서버의 최신 폴더 정보를 반영한다", () => {
+    const items = mergeGalleryItems([{ ...photo(1, [20]), thumbnailUrl: "" }], [preview(1, [])]);
+
+    expect(items).toEqual([{ ...preview(1, []), folderIds: [20] }]);
+  });
+
   it("삭제가 원본 목록에 반영되면 전체와 폴더 개수도 줄어든다", () => {
     const remainingPhotos = [photo(1, [10]), photo(2, [10])].filter((item) => item.mediaId !== 1);
     const items = mergeGalleryItems(remainingPhotos, []);

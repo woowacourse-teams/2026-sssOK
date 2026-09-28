@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -52,6 +52,17 @@ describe("라우트", () => {
     renderAt(ROUTES.roomEntry(ROOM_CODE));
 
     expect(screen.getByText(/불러오는 중/)).toBeInTheDocument();
+  });
+
+  it("삭제된 방 안내 경로는 독립된 안내 화면을 보여준다", () => {
+    renderAt(ROUTES.closedRoom);
+
+    expect(screen.getByRole("heading", { name: "이 방은 사라졌어요" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "새 방 만들기" })).toHaveAttribute(
+      "href",
+      ROUTES.createRoom,
+    );
+    expect(screen.getByRole("link", { name: "홈으로 가기" })).toHaveAttribute("href", ROUTES.home);
   });
 
   it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", async () => {
@@ -210,12 +221,12 @@ describe("라우트", () => {
 
     await user.upload(fileInput, new File(["x"], "한라산.jpg", { type: "image/jpeg" }));
 
-    expect(await screen.findByText(/삭제된 방이에요/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "이 방은 사라졌어요" })).toBeInTheDocument();
     unsubscribe();
 
-    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    expect(router.state.location.pathname).toBe(ROUTES.closedRoom);
     // 갤러리로 되돌아갔다가 다시 나온 자취가 없어야 한다.
-    expect(visited).toEqual([ROUTES.roomEntry(ROOM_CODE)]);
+    expect(visited).toEqual([ROUTES.roomEntry(ROOM_CODE), ROUTES.closedRoom]);
   });
 
   it("갤러리와 상세 화면의 체크 상태가 왕복 이동 후에도 연동된다", async () => {
@@ -253,8 +264,12 @@ describe("라우트", () => {
     await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
     await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
     await user.click(await screen.findByRole("button", { name: "사진 삭제" }));
-    expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "삭제하기" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: "IMG_0421.jpg 선택" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
