@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import type { MediaItem } from "@/entities/media";
 import { SPINNER_DELAY_MS } from "@/shared/ui/spinner";
 import { PhotoGallery } from "./PhotoGallery";
+import { MAX_SKELETON_CARD_COUNT } from "./PhotoGallerySkeleton";
 
 const photo: MediaItem = {
   mediaId: 5012,
@@ -47,7 +48,7 @@ describe("PhotoGallery", () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    const renderPending = () =>
+    const renderPending = (expectedPhotoCount?: number) =>
       render(
         <PhotoGallery
           photos={[]}
@@ -55,9 +56,16 @@ describe("PhotoGallery", () => {
           selectedPhotoIds={[]}
           isPending
           isError={false}
+          expectedPhotoCount={expectedPhotoCount}
           onTogglePhoto={jest.fn()}
         />,
       );
+
+    const countSkeletonCards = (container: HTMLElement) => {
+      act(() => jest.advanceTimersByTime(SPINNER_DELAY_MS));
+
+      return container.querySelector("[aria-hidden]")?.children.length ?? 0;
+    };
 
     it("불러오는 중임을 status 로 알린다", () => {
       renderPending();
@@ -73,6 +81,25 @@ describe("PhotoGallery", () => {
       act(() => jest.advanceTimersByTime(SPINNER_DELAY_MS));
 
       expect(container.querySelector("[aria-hidden]")?.children.length).toBeGreaterThan(0);
+    });
+
+    it("사진 수를 알면 그만큼만 스켈레톤 카드를 그린다", () => {
+      const { container } = renderPending(3);
+
+      expect(countSkeletonCards(container)).toBe(3);
+    });
+
+    it("사진이 많아도 스켈레톤 카드는 최대 12개까지만 그린다", () => {
+      const { container } = renderPending(40);
+
+      expect(countSkeletonCards(container)).toBe(MAX_SKELETON_CARD_COUNT);
+    });
+
+    it("사진이 없는 방이면 스켈레톤 카드를 그리지 않는다", () => {
+      const { container } = renderPending(0);
+
+      expect(countSkeletonCards(container)).toBe(0);
+      expect(screen.getByRole("status")).toHaveTextContent("사진을 불러오는 중이에요.");
     });
   });
 });
