@@ -30,7 +30,7 @@ class ThumbnailSweeperRoutingTest {
     private final AsyncTaskExecutor videoTaskExecutor = mock(AsyncTaskExecutor.class);
     private final ThumbnailSweeper sweeper = new ThumbnailSweeper(
         fileRepository, generateThumbnailService,
-        new ThumbnailProperties(null, null, null, null),
+        new ThumbnailProperties(null, null, null),
         imageTaskExecutor, videoTaskExecutor);
 
     @Test
