@@ -13,7 +13,7 @@ import {
 
 import type { GalleryItem } from "@/entities/media";
 import { deleteMedia } from "@/features/delete-media";
-import { downloadMedia } from "@/features/download-media";
+import { downloadMedia, prefersShareSheet } from "@/features/download-media";
 import { isApiError } from "@/shared/api";
 import { colors } from "@/shared/styles/tokens";
 
@@ -76,6 +76,7 @@ export const MediaViewerModal = ({
     const overflow = document.body.style.overflow;
 
     dialog?.showModal();
+    dialog?.focus();
     document.body.style.overflow = "hidden";
 
     return () => {
@@ -88,6 +89,7 @@ export const MediaViewerModal = ({
   return createPortal(
     <Dialog
       ref={dialogRef}
+      tabIndex={-1}
       aria-label="사진 크게 보기"
       onCancel={(event) => {
         event.preventDefault();
@@ -105,7 +107,7 @@ export const MediaViewerModal = ({
       }}
     >
       <Header>
-        <BackButton autoFocus type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
+        <BackButton type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
           <HiArrowLeft size={20} />
         </BackButton>
         <Counter aria-live="polite">
@@ -149,19 +151,23 @@ export const MediaViewerModal = ({
               if (dx > 0 && previous) movePrevious();
             }}
           >
-            <ViewerImage key={`${item.mediaId}:${item.type}`} item={item} />
-            <TapZone
-              data-testid="viewer-tap-previous"
-              aria-hidden="true"
-              $side="left"
-              onClick={movePrevious}
-            />
-            <TapZone
-              data-testid="viewer-tap-next"
-              aria-hidden="true"
-              $side="right"
-              onClick={moveNext}
-            />
+            <ViewerMedia key={`${item.mediaId}:${item.type}`} item={item} />
+            {!isVideoItem(item) && (
+              <>
+                <TapZone
+                  data-testid="viewer-tap-previous"
+                  aria-hidden="true"
+                  $side="left"
+                  onClick={movePrevious}
+                />
+                <TapZone
+                  data-testid="viewer-tap-next"
+                  aria-hidden="true"
+                  $side="right"
+                  onClick={moveNext}
+                />
+              </>
+            )}
             <PreviousButton
               type="button"
               aria-label="이전 사진"
@@ -192,6 +198,12 @@ export const MediaViewerModal = ({
     document.body,
   );
 };
+
+const isVideoItem = (item: GalleryItem) =>
+  item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
+
+const ViewerMedia = ({ item }: { item: GalleryItem }) =>
+  isVideoItem(item) ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
 
 const ViewerImage = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
@@ -236,6 +248,32 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
   );
 };
 
+const ViewerVideo = ({ item }: { item: GalleryItem }) => {
+  const [localUrl] = useState(() =>
+    item.type === "local" ? URL.createObjectURL(item.file) : null,
+  );
+  const source = item.type === "server" ? item.media.originalUrl : localUrl;
+  const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
+
+  useEffect(() => {
+    return () => {
+      if (localUrl !== null) URL.revokeObjectURL(localUrl);
+    };
+  }, [localUrl]);
+
+  return (
+    <ViewerVideoPlayer
+      src={source ?? undefined}
+      poster={poster}
+      controls
+      controlsList="nodownload noremoteplayback nofullscreen noplaybackrate"
+      disablePictureInPicture
+      disableRemotePlayback
+      playsInline
+    />
+  );
+};
+
 const ViewerFooter = ({
   item,
   roomId,
@@ -269,7 +307,8 @@ const ViewerFooter = ({
             mimeType: media.mimeType,
           },
         ],
-        mode: "individual",
+        // 폰에서 개별 다운을 할 경우, 여러 장 받기와 같은 기준으로 공유 시트를 쓸 기기를 가른다.
+        mode: prefersShareSheet() ? "share" : "individual",
         token,
       });
 
@@ -334,6 +373,10 @@ const Dialog = styled.dialog`
   &[open] {
     display: flex;
     flex-direction: column;
+  }
+
+  &:focus {
+    outline: none;
   }
 
   &::backdrop {
@@ -413,6 +456,16 @@ const ViewerPhoto = styled.img<{ $visible: boolean }>`
   object-position: center;
   visibility: ${({ $visible }) => ($visible ? "visible" : "hidden")};
   user-select: none;
+`;
+
+const ViewerVideoPlayer = styled.video`
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 `;
 
 const TapZone = styled.div<{ $side: "left" | "right" }>`
