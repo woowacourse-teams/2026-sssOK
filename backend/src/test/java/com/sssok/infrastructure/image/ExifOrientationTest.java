@@ -32,10 +32,14 @@ class ExifOrientationTest {
     void 각_방향이_픽셀과_크기를_변환한다(
         int value, int expectedWidth, int expectedHeight,
         String topLeft, String topRight, String bottomLeft, String bottomRight) {
-        BufferedImage result = ExifOrientation.from(value).applyTo(quadrantImage());
+        ExifOrientation orientation = ExifOrientation.from(value);
+        BufferedImage source = quadrantImage();
+        BufferedImage result = orientation.applyTo(source);
 
         assertThat(result.getWidth()).isEqualTo(expectedWidth);
         assertThat(result.getHeight()).isEqualTo(expectedHeight);
+        assertThat(orientation.displayWidthOf(source)).isEqualTo(expectedWidth);
+        assertThat(orientation.displayHeightOf(source)).isEqualTo(expectedHeight);
         assertThat(colorAt(result, 0, 0)).isEqualTo(color(topLeft));
         assertThat(colorAt(result, expectedWidth - 1, 0)).isEqualTo(color(topRight));
         assertThat(colorAt(result, 0, expectedHeight - 1)).isEqualTo(color(bottomLeft));

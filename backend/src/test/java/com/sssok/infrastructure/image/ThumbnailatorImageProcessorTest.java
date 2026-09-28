@@ -26,6 +26,7 @@ import javax.imageio.stream.ImageInputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 // EXIF 추출은 라이브러리에 맡기지만, 없는 사진에서 터지지 않는지와 좌표 변환은 우리 책임이다.
 class ThumbnailatorImageProcessorTest {
@@ -127,13 +128,15 @@ class ThumbnailatorImageProcessorTest {
         assertColorNear(colorAt(image, expectedWidth - 11, expectedHeight - 11), color(bottomRight));
     }
 
-    @Test
-    void 회전한_이미지에서_썸네일과_프리뷰를_각각의_너비로_축소한다() throws IOException {
+    @ParameterizedTest
+    @ValueSource(ints = {5, 6, 7, 8})
+    void 가로세로가_바뀌는_이미지는_원본_높이를_표시_너비로_삼아_먼저_축소한다(
+        int orientation) throws IOException {
         DerivativeSpec thumbnail = new DerivativeSpec(200, DerivativeFormat.WEBP, 0.80f);
         DerivativeSpec preview = new DerivativeSpec(600, DerivativeFormat.WEBP, 0.85f);
 
         DerivedImages derived = processor.derive(
-            jpegWithOrientation(6, 1200, 800), thumbnail, preview).orElseThrow();
+            jpegWithOrientation(orientation, 1200, 800), thumbnail, preview).orElseThrow();
 
         assertThat(derived.sourceWidth()).isEqualTo(800);
         assertThat(derived.sourceHeight()).isEqualTo(1200);
