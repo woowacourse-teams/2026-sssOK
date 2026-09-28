@@ -3,6 +3,7 @@ package com.sssok.presentation.api.folder;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.DeleteFolderResult;
 import com.sssok.application.folder.DeleteFolderService;
+import com.sssok.application.folder.RenameFolderResult;
 import com.sssok.application.folder.RenameFolderService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.presentation.api.common.ApiResponse;
@@ -59,8 +60,8 @@ public class FolderController {
         @Parameter(description = "폴더 생성 응답의 id") @PathVariable Long folderId,
         @RequestBody RenameFolderRequest request
     ) {
-        Folder folder = renameFolderService.rename(roomId, folderId, request.name());
-        return ApiResponse.of(FolderResponse.from(folder, 0));
+        RenameFolderResult result = renameFolderService.rename(roomId, folderId, request.name());
+        return ApiResponse.of(FolderResponse.from(result.folder(), result.photoCount()));
     }
 
     @Operation(

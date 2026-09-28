@@ -50,13 +50,7 @@ export const PhotoGallery = ({
               slot={slot}
               isSelected={isSelected}
               onToggle={() => onTogglePhoto(slot.mediaId)}
-              onOpen={
-                (slot.type === "local"
-                  ? !slot.file.type.startsWith("video/")
-                  : slot.media.type === "IMAGE") && onOpenPhoto
-                  ? () => onOpenPhoto(slot.mediaId)
-                  : undefined
-              }
+              onOpen={onOpenPhoto ? () => onOpenPhoto(slot.mediaId) : undefined}
             />
           );
         })}
@@ -71,9 +65,7 @@ export const PhotoGallery = ({
               isMine={photo.uploaderId === userId}
               isSelected={isSelected}
               onToggle={() => onTogglePhoto(photo.mediaId)}
-              onOpen={
-                photo.type === "IMAGE" && onOpenPhoto ? () => onOpenPhoto(photo.mediaId) : undefined
-              }
+              onOpen={onOpenPhoto ? () => onOpenPhoto(photo.mediaId) : undefined}
             />
           );
         })}

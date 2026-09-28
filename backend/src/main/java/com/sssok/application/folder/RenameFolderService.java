@@ -2,7 +2,9 @@ package com.sssok.application.folder;
 
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.FolderName;
 import lombok.RequiredArgsConstructor;
@@ -17,10 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class RenameFolderService {
 
     private final FolderRepository folderRepository;
+    private final FolderMediaRepository folderMediaRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
-    public Folder rename(Long roomId, Long folderId, String newName) {
+    public RenameFolderResult rename(Long roomId, Long folderId, String newName) {
         Folder folder = folderRepository.findById(folderId)
             .filter(f -> f.belongsTo(roomId))
             .orElseThrow(() -> new FolderNotFoundException(folderId));
@@ -33,13 +36,15 @@ public class RenameFolderService {
             });
 
         folder.rename(newFolderName);
-        Folder saved;
+        Folder renamed;
         try {
-            saved = folderRepository.save(folder);
+            renamed = folderRepository.save(folder);
         } catch (DataIntegrityViolationException e) {
             throw new DuplicateFolderNameException();
         }
-        eventPublisher.publishEvent(FolderRenamedEvent.from(saved));
-        return saved;
+        long photoCount = folderMediaRepository.countByFolderIdAndStatusIn(
+            renamed.getId(), UploadStatus.visibleStatuses());
+        eventPublisher.publishEvent(FolderRenamedEvent.from(renamed));
+        return new RenameFolderResult(renamed, (int) photoCount);
     }
 }

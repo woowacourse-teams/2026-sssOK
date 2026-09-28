@@ -72,7 +72,7 @@ class ThumbnailTriggerConfigurationTest {
     private MediaCreatedEvent event(String type) {
         return new MediaCreatedEvent(1L, new MediaDetail(
             MEDIA_ID, type, "미디어", "video/mp4", 1024L,
-            null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null,
             List.of(), 1L, "업로더", "PROCESSING", Instant.now()));
     }
 }

@@ -76,6 +76,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isFeedbackSuccess, setIsFeedbackSuccess] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
+  const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
@@ -109,9 +110,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         media,
         folderIds: media.folderIds,
       })),
-  ].filter((item) =>
-    item.type === "local" ? !item.file.type.startsWith("video/") : item.media.type === "IMAGE",
-  );
+  ];
   const photoIds = [
     ...visibleUploadSlots.map((slot) => slot.mediaId),
     ...photos.filter((photo) => !uploadSlotIds.has(photo.mediaId)).map((photo) => photo.mediaId),
@@ -140,6 +139,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         queryKey: roomQueryKey(room.code, userId),
         exact: true,
       });
+    },
+    onMediaFoldersUpdated: () => {
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: roomQueryKey(room.code, userId),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: photosQueryKey(room.roomId, userId),
+        }),
+      ]);
     },
   });
 
@@ -384,26 +394,22 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isDeleteFolderOpen && selectedFolder && (
         <DeleteFolderModal
           roomId={room.roomId}
+          roomCode={room.code}
+          userId={userId}
           folderId={selectedFolder.id}
           folderName={selectedFolder.name}
           accessToken={accessToken}
           onClose={() => setIsDeleteFolderOpen(false)}
-          onSuccess={async () => {
-            const folderName = selectedFolder.name;
+          onDelete={() => {
             setIsDeleteFolderOpen(false);
             selectFolder(null);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
-              }),
-            ]);
-            setDeletedFolderName(folderName);
+            setFailedFolderName(null);
+            setDeletedFolderName(selectedFolder.name);
+          }}
+          onError={() => {
+            setDeletedFolderName(null);
+            setFailedFolderName(selectedFolder.name);
           }}
         />
       )}
@@ -412,6 +418,14 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         <Toast
           message={`‘${deletedFolderName}’ 폴더를 삭제했어요.`}
           onClose={() => setDeletedFolderName(null)}
+        />
+      )}
+
+      {failedFolderName && (
+        <Toast
+          tone="error"
+          message={`‘${failedFolderName}’ 폴더를 삭제하지 못했어요.`}
+          onClose={() => setFailedFolderName(null)}
         />
       )}
 

@@ -7,6 +7,7 @@ import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,12 +45,9 @@ public class MediaDeleteController {
     public ApiResponse<DeleteMediaResponse> deleteAll(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @PathVariable Long roomId,
-        @RequestBody DeleteMediaRequest request
+        @Valid @RequestBody DeleteMediaRequest request
     ) {
-        DeleteMediaResult result = deleteMediaService.deleteAll(
-            roomId,
-            request == null ? null : request.mediaIds(),
-            memberId);
+        DeleteMediaResult result = deleteMediaService.deleteAll(roomId, request.mediaIds(), memberId);
         return ApiResponse.of(DeleteMediaResponse.from(result));
     }
 }
