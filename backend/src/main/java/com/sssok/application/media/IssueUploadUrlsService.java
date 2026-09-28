@@ -58,6 +58,10 @@ public class IssueUploadUrlsService {
 
         // 파일 하나가 걸러져도 나머지는 발급한다. 프론트가 실패한 것만 골라 다시 올릴 수 있어야 한다.
         for (UploadFileCommand file : files) {
+            if (file.lacksRequiredMetadata()) {
+                rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.INVALID_PARAM));
+                continue;
+            }
             try {
                 reserved.add(StoredFile.reserve(roomId, uploaderId, file.fileName(),
                     file.mimeType(), new FileSize(file.size()), now, sizePolicy));
@@ -66,7 +70,7 @@ public class IssueUploadUrlsService {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.UNSUPPORTED_MEDIA_TYPE));
             } catch (FileSizeExceededException e) {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.FILE_TOO_LARGE));
-            } catch (InvalidFileSizeException | NullPointerException e) {
+            } catch (InvalidFileSizeException e) {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.INVALID_PARAM));
             }
         }

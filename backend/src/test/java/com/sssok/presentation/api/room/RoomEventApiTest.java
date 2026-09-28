@@ -1,7 +1,9 @@
 package com.sssok.presentation.api.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
@@ -103,6 +105,37 @@ class RoomEventApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 구독_중일_때_폴더를_생성_이름변경_삭제하면_folder_이벤트를_받는다() throws Exception {
+        Long roomId = 활성_방_저장();
+        String accessToken = 익명_인증으로_토큰_발급받기();
+        방에_입장하기(roomId, accessToken);
+
+        MvcResult result = mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+        subscribedRoomIds.add(roomId);
+
+        Long folderId = 폴더_만들기(roomId, accessToken, "맛집");
+        mockMvc.perform(patch("/api/v1/rooms/{roomId}/folders/{folderId}", roomId, folderId)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"카페\"}"))
+            .andExpect(status().isOk());
+        mockMvc.perform(delete("/api/v1/rooms/{roomId}/folders/{folderId}", roomId, folderId)
+                .header("Authorization", "Bearer " + accessToken))
+            .andExpect(status().isOk());
+
+        assertThat(result.getResponse().getContentAsString(StandardCharsets.UTF_8))
+            .contains("event:folder.created")
+            .contains("\"name\":\"맛집\"")
+            .contains("event:folder.renamed")
+            .contains("\"name\":\"카페\"")
+            .contains("event:folder.deleted")
+            .contains("\"folderId\":" + folderId);
+    }
+
+    @Test
     void token_쿼리_파라미터로도_구독된다() throws Exception {
         Long roomId = 활성_방_저장();
         String accessToken = 익명_인증으로_토큰_발급받기();
@@ -156,6 +189,17 @@ class RoomEventApiTest extends PostgresContainerSupport {
             .andReturn();
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.get("data").get("accessToken").asText();
+    }
+
+    private Long 폴더_만들기(Long roomId, String accessToken, String name) throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", roomId)
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"" + name + "\"}"))
+            .andExpect(status().isCreated())
+            .andReturn();
+        JsonNode body = objectMapper.readTree(created.getResponse().getContentAsString(StandardCharsets.UTF_8));
+        return body.get("data").get("id").asLong();
     }
 
     private void 방에_입장하기(Long roomId, String accessToken) throws Exception {
