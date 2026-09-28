@@ -1,13 +1,16 @@
 package com.sssok.presentation.api.media;
 
-import com.sssok.presentation.api.common.MediaSelectionRequest;
-import com.sssok.application.media.MediaUploaderFilter;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import java.util.List;
 
 public record DeleteMediaRequest(
-    @Schema(description = "삭제할 미디어 선택 범위", requiredMode = Schema.RequiredMode.REQUIRED)
-    MediaSelectionRequest selection,
-    @Schema(description = "삭제 대상을 제한할 폴더 ID. 생략하면 방 전체에서 선택") Long folderId,
-    @Schema(description = "업로더 필터. ALL / ME / OTHERS, 생략 시 ALL") MediaUploaderFilter uploader
+    // 빈 배열은 "삭제 0건으로 성공"이 계약이라 @NotEmpty 를 붙이지 않는다.
+    @Schema(description = "삭제할 미디어 ID 목록", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "미디어 ID 목록이 올바르지 않습니다")
+    List<
+        @NotNull(message = "미디어 ID 목록이 올바르지 않습니다")
+        @Positive(message = "미디어 ID 목록이 올바르지 않습니다") Long> mediaIds
 ) {
 }

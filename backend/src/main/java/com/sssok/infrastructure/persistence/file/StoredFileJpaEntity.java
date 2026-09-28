@@ -59,6 +59,10 @@ public class StoredFileJpaEntity extends BaseEntity {
     @Column(name = "thumbnail_key", length = 255)
     private String thumbnailKey;
 
+    // 상세 모달용 파생본. 사진에만 있고, 영상·GIF 와 V25 이전에 올라온 사진은 비어 있다.
+    @Column(name = "preview_key", length = 255)
+    private String previewKey;
+
     @Column(name = "width")
     private Integer width;
 
@@ -83,7 +87,8 @@ public class StoredFileJpaEntity extends BaseEntity {
     public StoredFileJpaEntity(Long id, Long roomId, Long uploaderId, String originalFileName,
                                String mediaType, Long fileSizeBytes, String storageKey, Long folderId,
                                String status, Instant createdAt, Instant reservedAt, int retryCount,
-                               String thumbnailKey, Integer width, Integer height,
+                               String thumbnailKey, String previewKey,
+                               Integer width, Integer height,
                                Integer durationSeconds, Instant takenAt,
                                BigDecimal latitude, BigDecimal longitude) {
         super(createdAt);
@@ -99,6 +104,7 @@ public class StoredFileJpaEntity extends BaseEntity {
         this.reservedAt = reservedAt;
         this.retryCount = retryCount;
         this.thumbnailKey = thumbnailKey;
+        this.previewKey = previewKey;
         this.width = width;
         this.height = height;
         this.durationSeconds = durationSeconds;

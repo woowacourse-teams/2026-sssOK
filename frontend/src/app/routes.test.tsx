@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { markMediaDeleted } from "@/mocks/db";
-import { mediaOfRoom, MOCK_ROOM_ID } from "@/mocks/handlers/room";
+import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { routes } from "./routes";
@@ -54,6 +54,17 @@ describe("라우트", () => {
     expect(screen.getByText(/불러오는 중/)).toBeInTheDocument();
   });
 
+  it("삭제된 방 안내 경로는 독립된 안내 화면을 보여준다", () => {
+    renderAt(ROUTES.closedRoom);
+
+    expect(screen.getByRole("heading", { name: "이 방은 사라졌어요" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "새 방 만들기" })).toHaveAttribute(
+      "href",
+      ROUTES.createRoom,
+    );
+    expect(screen.getByRole("link", { name: "홈으로 가기" })).toHaveAttribute("href", ROUTES.home);
+  });
+
   it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", async () => {
     const user = userEvent.setup();
     saveRoomSession(ROOM_CODE, {
@@ -79,7 +90,7 @@ describe("라우트", () => {
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "첫째 날 12" }));
+    await user.click(screen.getByRole("button", { name: "첫째 날 4" }));
 
     expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();
@@ -210,12 +221,12 @@ describe("라우트", () => {
 
     await user.upload(fileInput, new File(["x"], "한라산.jpg", { type: "image/jpeg" }));
 
-    expect(await screen.findByText(/삭제된 방이에요/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "이 방은 사라졌어요" })).toBeInTheDocument();
     unsubscribe();
 
-    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    expect(router.state.location.pathname).toBe(ROUTES.closedRoom);
     // 갤러리로 되돌아갔다가 다시 나온 자취가 없어야 한다.
-    expect(visited).toEqual([ROUTES.roomEntry(ROOM_CODE)]);
+    expect(visited).toEqual([ROUTES.roomEntry(ROOM_CODE), ROUTES.closedRoom]);
   });
 
   it("갤러리와 상세 화면의 체크 상태가 왕복 이동 후에도 연동된다", async () => {
@@ -240,12 +251,6 @@ describe("라우트", () => {
   it("삭제 성공에 JSON 본문이 있어도 모달 목록에서 사진을 제거한다", async () => {
     const user = userEvent.setup();
     server.use(
-      http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, () => {
-        const items = mediaOfRoom(MOCK_ROOM_ID);
-        return HttpResponse.json({
-          data: { items, nextCursor: null, hasNext: false, totalCount: items.length },
-        });
-      }),
       http.delete(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/5012`, () => {
         markMediaDeleted(MOCK_ROOM_ID, 5012);
         return HttpResponse.json({ data: null });
@@ -259,8 +264,12 @@ describe("라우트", () => {
     await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
     await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
     await user.click(await screen.findByRole("button", { name: "사진 삭제" }));
-    expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "삭제하기" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: "IMG_0421.jpg 선택" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
@@ -305,7 +314,7 @@ describe("라우트", () => {
    * 다른 실패와 똑같이 보이지만, 여기서 사용자가 할 수 있는 일은 다시 입장하는 것뿐이다.
    */
   it("사진 목록이 401 이어도 실패 문구 대신 입장 화면으로 되돌린다", async () => {
-    server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, unauthorized));
+    server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, unauthorized));
     const router = renderAtGallery();
 
     expect(

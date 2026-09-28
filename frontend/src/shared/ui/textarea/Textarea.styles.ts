@@ -6,6 +6,10 @@ export const Label = styled.label`
   color: ${colors.textSecondary};
 
   ${typography.caption3}
+
+  @media (min-width: 768px) {
+    ${typography.caption1}
+  }
 `;
 
 export const StyledTextarea = styled.textarea<{ $hasError: boolean }>`
@@ -23,6 +27,7 @@ export const StyledTextarea = styled.textarea<{ $hasError: boolean }>`
   transition: border-color 150ms ease;
 
   ${typography.body}
+  font-size: ${typography.label3.fontSize};
 
   &::placeholder {
     color: ${colors.textSecondary};
