@@ -110,9 +110,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         media,
         folderIds: media.folderIds,
       })),
-  ].filter((item) =>
-    item.type === "local" ? !item.file.type.startsWith("video/") : item.media.type === "IMAGE",
-  );
+  ];
   const photoIds = [
     ...visibleUploadSlots.map((slot) => slot.mediaId),
     ...photos.filter((photo) => !uploadSlotIds.has(photo.mediaId)).map((photo) => photo.mediaId),
@@ -141,6 +139,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         queryKey: roomQueryKey(room.code, userId),
         exact: true,
       });
+    },
+    onMediaFoldersUpdated: () => {
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: roomQueryKey(room.code, userId),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: photosQueryKey(room.roomId, userId),
+        }),
+      ]);
     },
   });
 
