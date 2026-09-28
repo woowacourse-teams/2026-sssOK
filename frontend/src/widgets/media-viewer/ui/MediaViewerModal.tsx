@@ -64,6 +64,9 @@ export const MediaViewerModal = ({
   const previous = items[index - 1];
   const next = items[index + 1];
 
+  const movePrevious = () => {
+    if (previous) onChange(previous.mediaId);
+  };
   const moveNext = () => {
     if (next) onChange(next.mediaId);
   };
@@ -101,7 +104,7 @@ export const MediaViewerModal = ({
         }
         if (event.key === "ArrowLeft" && previous) {
           event.preventDefault();
-          onChange(previous.mediaId);
+          movePrevious();
         }
         if (event.key === "ArrowRight" && next) {
           event.preventDefault();
@@ -151,15 +154,31 @@ export const MediaViewerModal = ({
               const dy = touch.clientY - start.y;
               if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy)) return;
               if (dx < 0 && next) moveNext();
-              if (dx > 0 && previous) onChange(previous.mediaId);
+              if (dx > 0 && previous) movePrevious();
             }}
           >
             <ViewerMedia key={`${item.mediaId}:${item.type}`} item={item} />
+            {!isVideoItem(item) && (
+              <>
+                <TapZone
+                  data-testid="viewer-tap-previous"
+                  aria-hidden="true"
+                  $side="left"
+                  onClick={movePrevious}
+                />
+                <TapZone
+                  data-testid="viewer-tap-next"
+                  aria-hidden="true"
+                  $side="right"
+                  onClick={moveNext}
+                />
+              </>
+            )}
             <PreviousButton
               type="button"
               aria-label="이전 사진"
               disabled={!previous}
-              onClick={() => previous && onChange(previous.mediaId)}
+              onClick={movePrevious}
             >
               <HiChevronLeft />
             </PreviousButton>
@@ -196,12 +215,11 @@ export const MediaViewerModal = ({
   );
 };
 
-const ViewerMedia = ({ item }: { item: GalleryItem }) => {
-  const isVideo =
-    item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
+const isVideoItem = (item: GalleryItem) =>
+  item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
 
-  return isVideo ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
-};
+const ViewerMedia = ({ item }: { item: GalleryItem }) =>
+  isVideoItem(item) ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
 
 const ViewerImage = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
@@ -454,6 +472,19 @@ const ViewerVideoPlayer = styled.video`
   height: 100%;
   object-fit: contain;
   object-position: center;
+`;
+
+const TapZone = styled.div<{ $side: "left" | "right" }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  ${({ $side }) => $side}: 0;
+  width: 50%;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (min-width: 768px) {
+    display: none;
+  }
 `;
 
 const SlideButton = styled(BackButton)`
