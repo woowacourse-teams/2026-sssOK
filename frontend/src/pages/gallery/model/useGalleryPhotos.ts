@@ -43,7 +43,11 @@ export const useGalleryPhotos = ({
     [photosQuery.data?.items, uploadSlots],
   );
   const completedUploadIds = useMemo(() => {
-    const serverMediaIds = new Set((photosQuery.data?.items ?? []).map((item) => item.mediaId));
+    const serverMediaIds = new Set(
+      (photosQuery.data?.items ?? [])
+        .filter((item) => item.thumbnailUrl?.trim())
+        .map((item) => item.mediaId),
+    );
     return uploadSlots
       .filter((slot) => serverMediaIds.has(slot.mediaId))
       .map((slot) => slot.mediaId);

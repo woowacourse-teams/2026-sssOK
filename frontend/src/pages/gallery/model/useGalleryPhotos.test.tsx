@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 
-import type { GalleryItem, PhotoFilter } from "@/entities/media";
+import type { GalleryItem, MediaItem, PhotoFilter } from "@/entities/media";
 import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
+import { API_BASE_URL } from "@/shared/config";
 import { useGalleryPhotos } from "./useGalleryPhotos";
 
 const HOST_ID = 10234;
@@ -112,5 +114,47 @@ describe("useGalleryPhotos", () => {
     expect(
       result.current.galleryItems.filter((item) => item.mediaId === uploadedMediaId),
     ).toHaveLength(1);
+  });
+
+  it("서버 사진의 썸네일이 준비될 때까지 업로드 미리보기를 유지한다", async () => {
+    const uploadedMediaId = 5006;
+    const mediaWithoutThumbnail: MediaItem = {
+      mediaId: uploadedMediaId,
+      folderIds: [32],
+      uploaderId: HOST_ID,
+      uploaderName: "사용자",
+      type: "IMAGE",
+      fileName: "photo.jpg",
+      mimeType: "image/jpeg",
+      size: 100,
+      thumbnailUrl: "",
+      originalUrl: "",
+      width: 100,
+      height: 100,
+      duration: null,
+      status: "PROCESSING",
+      uploadedAt: "2026-09-28T00:00:00Z",
+    };
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, () =>
+        HttpResponse.json({ data: { items: [mediaWithoutThumbnail] } }),
+      ),
+    );
+    const { result } = renderGalleryPhotos({
+      selectedFolderId: null,
+      selectedOption: "all",
+      uploadSlots: [
+        {
+          type: "local",
+          mediaId: uploadedMediaId,
+          file: new File(["photo"], "photo.jpg", { type: "image/jpeg" }),
+          folderIds: [32],
+        },
+      ],
+    });
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(result.current.completedUploadIds).toEqual([]);
+    expect(result.current.galleryItems.map((item) => item.mediaId)).toEqual([uploadedMediaId]);
   });
 });
