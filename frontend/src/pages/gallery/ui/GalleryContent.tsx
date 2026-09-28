@@ -1,14 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { type InfiniteData, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 
-import {
-  photosQueryKey,
-  type GalleryItem,
-  type MediaList,
-  type MediaUploaderFilter,
-  type PhotoFilter,
-} from "@/entities/media";
+import { photosQueryKey, type MediaList } from "@/entities/media";
 import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
@@ -18,7 +12,6 @@ import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
-import { toMediaSelectionRequest } from "@/features/select-media";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
@@ -43,18 +36,11 @@ interface GalleryContentProps {
   userId: number;
 }
 
-const UPLOADER_OF: Record<PhotoFilter, MediaUploaderFilter> = {
-  all: "ALL",
-  mine: "ME",
-  others: "OTHERS",
-};
-
 export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   useAnalyticsRoom(room.code, userId === room.hostId);
-  const { uploadSlots, addPendingMedia, removePendingMedia, replacePendingMedia } =
-    usePendingMedia();
+  const { uploadSlots, addPendingMedia, removePendingMedia } = usePendingMedia();
   // 모달
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -89,80 +75,54 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [isFeedbackSuccess, setIsFeedbackSuccess] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
+  const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
-  const uploader = UPLOADER_OF[selectedOption];
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const {
-    photos,
-    totalCount,
-    isPending,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    loadMore,
-  } = useGalleryPhotos({
-    roomId: room.roomId,
-    accessToken,
-    userId,
-    selectedFolderId,
-    selectedOption,
-  });
+  const { galleryItems, completedUploadIds, totalCount, folderCounts, isPending, isError } =
+    useGalleryPhotos({
+      roomId: room.roomId,
+      accessToken,
+      userId,
+      selectedFolderId,
+      selectedOption,
+      initialTotalCount: room.photoCount,
+      initialFolders: room.folders,
+      uploadSlots,
+    });
 
-  const isUnfiltered = selectedFolderId === null && selectedOption === "all";
-  const allPhotoCount = isUnfiltered ? (totalCount ?? room.photoCount) : room.photoCount;
+  useEffect(() => {
+    if (completedUploadIds.length === 0) return;
+    removePendingMedia(completedUploadIds);
+  }, [completedUploadIds, removePendingMedia]);
 
-  const visibleUploadSlots = uploadSlots.filter((slot) => {
-    if (selectedOption === "others") return false;
-    if (selectedFolderId === null) return true;
-
-    return slot.folderIds.includes(selectedFolderId);
-  });
+  const folders = room.folders.map((folder) => ({
+    ...folder,
+    photoCount: folderCounts.get(folder.id) ?? 0,
+  }));
 
   // 사진 선택
-  const uploadSlotIds = new Set(visibleUploadSlots.map((slot) => slot.mediaId));
-  const viewerItems: GalleryItem[] = [
-    ...visibleUploadSlots,
-    ...photos
-      .filter((photo) => !uploadSlotIds.has(photo.mediaId))
-      .map((media) => ({
-        mediaId: media.mediaId,
-        type: "server" as const,
-        media,
-        folderIds: media.folderIds,
-      })),
-  ].filter((item) =>
-    item.type === "local" ? !item.file.type.startsWith("video/") : item.media.type === "IMAGE",
-  );
-  const photoIds = [
-    ...visibleUploadSlots.map((slot) => slot.mediaId),
-    ...photos.filter((photo) => !uploadSlotIds.has(photo.mediaId)).map((photo) => photo.mediaId),
-  ];
+  const viewerItems = galleryItems;
+  const photoIds = galleryItems.map((item) => item.mediaId);
   const {
-    selection,
     selectedPhotoIds,
-    selectedCount,
     isAllSelected,
     togglePhoto,
+    removePhotos,
     toggleAllPhotos,
     clearSelection,
-  } = usePhotoSelection(photoIds, totalCount ?? photoIds.length);
-  const selectionRequest = toMediaSelectionRequest(selection);
+  } = usePhotoSelection(photoIds);
 
   useRoomEvents({
     roomId: room.roomId,
     userId,
     token: accessToken,
-    onMediaReady: replacePendingMedia,
     onMediaDeleted: (mediaIds) => {
       removePendingMedia(mediaIds);
-      mediaIds.forEach((mediaId) => {
-        if (selectedPhotoIds.includes(mediaId)) togglePhoto(mediaId);
-      });
+      removePhotos(mediaIds);
       if (activeMediaId !== null && mediaIds.includes(activeMediaId)) {
         setActiveMediaId(null);
       }
@@ -170,6 +130,26 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         queryKey: roomQueryKey(room.code, userId),
         exact: true,
       });
+    },
+    onFoldersChanged: () => {
+      void queryClient.invalidateQueries({
+        queryKey: roomQueryKey(room.code, userId),
+        exact: true,
+      });
+    },
+    onFolderDeleted: (folderId) => {
+      if (selectedFolderId === folderId) selectFolder(null);
+    },
+    onMediaFoldersUpdated: () => {
+      void Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: roomQueryKey(room.code, userId),
+          exact: true,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: photosQueryKey(room.roomId, userId),
+        }),
+      ]);
     },
   });
 
@@ -183,22 +163,14 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
-  const downloadTargets = [
-    ...visibleUploadSlots.map((slot) => ({
+  const downloadTargets = galleryItems
+    .filter((item) => selectedPhotoIds.includes(item.mediaId))
+    .map((slot) => ({
       mediaId: slot.mediaId,
       fileName: slot.type === "local" ? slot.file.name : slot.media.fileName,
       size: slot.type === "local" ? slot.file.size : slot.media.size,
       mimeType: slot.type === "local" ? slot.file.type : slot.media.mimeType,
-    })),
-    ...photos
-      .filter((photo) => !uploadSlotIds.has(photo.mediaId))
-      .map((photo) => ({
-        mediaId: photo.mediaId,
-        fileName: photo.fileName,
-        size: photo.size,
-        mimeType: photo.mimeType,
-      })),
-  ].filter((media) => selectedPhotoIds.includes(media.mediaId));
+    }));
 
   return (
     <Page>
@@ -216,8 +188,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
       />
       <FolderFilter
-        totalCount={allPhotoCount}
-        folders={room.folders}
+        totalCount={totalCount}
+        folders={folders}
         selectedFolderId={selectedFolderId}
         onSelectFolder={(folderId) => {
           selectFolder(folderId);
@@ -232,17 +204,20 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           clearSelection();
         }}
         isAllSelected={isAllSelected}
-        canSelectAll={selectedFolderId === null && (totalCount ?? photoIds.length) > 0}
+        canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
       />
-      <FeedbackButton hidden={selectedCount > 0} onClick={() => setIsFeedbackOpen(true)} />
+      <FeedbackButton
+        hidden={selectedPhotoIds.length > 0}
+        onClick={() => setIsFeedbackOpen(true)}
+      />
       <MediaUploader
         roomId={room.roomId}
         token={accessToken}
         // 방장만 올리는 방의 참여자에게는 버튼을 아예 내주지 않는다. 서버가 발급에서
-        // 403 으로 막는 것을, 누르기 전에 화면이 먼저 말해주는 셈이다 (#148).
+        // 403 으로 막는 것을, 누르기 전에 화면이 먼저 말해주는 셈이다.
         canUpload={canUploadTo(room, userId)}
-        hideButton={selectedCount > 0}
+        hideButton={selectedPhotoIds.length > 0}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         onPreviewReady={addPendingMedia}
         onRegistered={() =>
@@ -266,56 +241,35 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         }}
       />
       <PhotoGallery
-        photos={photos}
-        uploadSlots={visibleUploadSlots}
+        items={galleryItems}
         userId={userId}
         selectedPhotoIds={selectedPhotoIds}
         isPending={isPending}
         isError={isError}
+        expectedPhotoCount={selectedFolder?.photoCount ?? room.photoCount}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={setActiveMediaId}
-        hasMore={hasNextPage}
-        isLoadingMore={isFetchingNextPage}
-        onLoadMore={loadMore}
       />
       {activeMediaId !== null && (
         <MediaViewerModal
           items={viewerItems}
-          totalCount={totalCount ?? viewerItems.length}
           activeMediaId={activeMediaId}
           roomId={room.roomId}
           userId={userId}
           hostId={room.hostId}
           token={accessToken}
           selectedPhotoIds={selectedPhotoIds}
-          hasNextPage={hasNextPage}
-          isFetchingNextPage={isFetchingNextPage}
-          isNextPageError={isFetchNextPageError}
-          onLoadNextPage={loadMore}
           onChange={setActiveMediaId}
           onClose={() => setActiveMediaId(null)}
           onToggle={togglePhoto}
           onDeleted={(mediaId) => {
             closeMediaViewerAfterDelete();
             removePendingMedia([mediaId]);
-            if (selectedPhotoIds.includes(mediaId)) togglePhoto(mediaId);
-            queryClient.setQueriesData<InfiniteData<MediaList>>(
-              { queryKey: photosQueryKey(room.roomId, userId) },
-              (current) => {
-                if (!current) return current;
-                const exists = current.pages.some((page) =>
-                  page.items.some((item) => item.mediaId === mediaId),
-                );
-
-                return {
-                  ...current,
-                  pages: current.pages.map((page) => ({
-                    ...page,
-                    items: page.items.filter((item) => item.mediaId !== mediaId),
-                    totalCount: exists ? Math.max(0, page.totalCount - 1) : page.totalCount,
-                  })),
-                };
-              },
+            removePhotos([mediaId]);
+            queryClient.setQueryData<MediaList>(photosQueryKey(room.roomId, userId), (current) =>
+              current
+                ? { ...current, items: current.items.filter((item) => item.mediaId !== mediaId) }
+                : current,
             );
             void queryClient.invalidateQueries({
               queryKey: roomQueryKey(room.code, userId),
@@ -326,14 +280,11 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       )}
       <SelectionDownloadBar
         targets={downloadTargets}
-        selection={selectionRequest}
-        selectedCount={selectedCount}
         roomId={room.roomId}
         roomCode={room.code}
-        roomPhotoCount={room.photoCount}
+        roomPhotoCount={totalCount}
         isAllSelected={isAllSelected}
         token={accessToken}
-        uploader={uploader}
         onClearSelection={clearSelection}
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}
         onMoveSelection={() => setIsMoveSelectionOpen(true)}
@@ -342,10 +293,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isDeleteSelectionOpen && (
         <DeleteSelectedMediaModal
           roomId={room.roomId}
-          selection={selectionRequest}
-          selectedCount={selectedCount}
-          folderId={selectedFolderId ?? undefined}
-          uploader={uploader}
+          mediaIds={selectedPhotoIds}
           token={accessToken}
           onClose={() => setIsDeleteSelectionOpen(false)}
           onSuccess={async () => {
@@ -354,8 +302,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
-                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -369,11 +317,9 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isMoveSelectionOpen && (
         <MoveMediaFolderBottomSheet
           roomId={room.roomId}
-          selection={selectionRequest}
-          selectedCount={selectedCount}
-          folders={room.folders}
+          mediaIds={selectedPhotoIds}
+          folders={folders}
           currentFolderId={selectedFolderId}
-          uploader={uploader}
           token={accessToken}
           onCreateFolder={requestCreateFolder}
           onClose={() => setIsMoveSelectionOpen(false)}
@@ -383,8 +329,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
             clearSelection();
             await Promise.all([
               queryClient.invalidateQueries({
-                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
                 queryKey: photosQueryKey(room.roomId, userId),
+                exact: true,
               }),
               queryClient.invalidateQueries({
                 queryKey: roomQueryKey(room.code, userId),
@@ -439,26 +385,22 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       {isDeleteFolderOpen && selectedFolder && (
         <DeleteFolderModal
           roomId={room.roomId}
+          roomCode={room.code}
+          userId={userId}
           folderId={selectedFolder.id}
           folderName={selectedFolder.name}
           accessToken={accessToken}
           onClose={() => setIsDeleteFolderOpen(false)}
-          onSuccess={async () => {
-            const folderName = selectedFolder.name;
+          onDelete={() => {
             setIsDeleteFolderOpen(false);
             selectFolder(null);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                // 필터별 목록이 이 키 뒤에 붙어 있다. exact 로 두면 하나도 갱신되지 않는다.
-                queryKey: photosQueryKey(room.roomId, userId),
-              }),
-            ]);
-            setDeletedFolderName(folderName);
+            setFailedFolderName(null);
+            setDeletedFolderName(selectedFolder.name);
+          }}
+          onError={() => {
+            setDeletedFolderName(null);
+            setFailedFolderName(selectedFolder.name);
           }}
         />
       )}
@@ -467,6 +409,14 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         <Toast
           message={`‘${deletedFolderName}’ 폴더를 삭제했어요.`}
           onClose={() => setDeletedFolderName(null)}
+        />
+      )}
+
+      {failedFolderName && (
+        <Toast
+          tone="error"
+          message={`‘${failedFolderName}’ 폴더를 삭제하지 못했어요.`}
+          onClose={() => setFailedFolderName(null)}
         />
       )}
 

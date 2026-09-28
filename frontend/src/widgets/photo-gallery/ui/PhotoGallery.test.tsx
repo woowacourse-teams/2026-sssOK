@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { MediaItem } from "@/entities/media";
-import { triggerIntersection } from "@/mocks/intersectionObserver";
+import { SPINNER_DELAY_MS } from "@/shared/ui/spinner";
 import { PhotoGallery } from "./PhotoGallery";
+import { MAX_SKELETON_CARD_COUNT } from "./PhotoGallerySkeleton";
 
 const photo: MediaItem = {
   mediaId: 5012,
@@ -29,7 +30,14 @@ describe("PhotoGallery", () => {
     const onTogglePhoto = jest.fn();
     render(
       <PhotoGallery
-        photos={[photo]}
+        items={[
+          {
+            type: "server",
+            mediaId: photo.mediaId,
+            media: photo,
+            folderIds: photo.folderIds,
+          },
+        ]}
         userId={12}
         selectedPhotoIds={[]}
         isPending={false}
@@ -43,41 +51,62 @@ describe("PhotoGallery", () => {
     expect(onTogglePhoto).toHaveBeenCalledWith(5012);
   });
 
-  const renderWithMore = (props: { hasMore: boolean; isLoadingMore: boolean }) => {
-    const onLoadMore = jest.fn();
+  describe("처음 불러오는 동안", () => {
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
 
-    render(
-      <PhotoGallery
-        photos={[photo]}
-        userId={12}
-        selectedPhotoIds={[]}
-        isPending={false}
-        isError={false}
-        onTogglePhoto={jest.fn()}
-        onLoadMore={onLoadMore}
-        {...props}
-      />,
-    );
+    const renderPending = (expectedPhotoCount?: number) =>
+      render(
+        <PhotoGallery
+          items={[]}
+          userId={12}
+          selectedPhotoIds={[]}
+          isPending
+          isError={false}
+          expectedPhotoCount={expectedPhotoCount}
+          onTogglePhoto={jest.fn()}
+        />,
+      );
 
-    return onLoadMore;
-  };
+    const countSkeletonCards = (container: HTMLElement) => {
+      act(() => jest.advanceTimersByTime(SPINNER_DELAY_MS));
 
-  it("목록 끝이 보이면 다음 페이지를 부른다", () => {
-    const onLoadMore = renderWithMore({ hasMore: true, isLoadingMore: false });
+      return container.querySelector("[aria-hidden]")?.children.length ?? 0;
+    };
 
-    triggerIntersection();
+    it("불러오는 중임을 status 로 알린다", () => {
+      renderPending();
 
-    expect(onLoadMore).toHaveBeenCalledTimes(1);
-  });
+      expect(screen.getByRole("status")).toHaveTextContent("사진을 불러오는 중이에요.");
+    });
 
-  it("불러오는 중이거나 더 받을 것이 없으면 부르지 않는다", () => {
-    const whileLoading = renderWithMore({ hasMore: true, isLoadingMore: true });
-    const atEnd = renderWithMore({ hasMore: false, isLoadingMore: false });
+    it("잠시 뒤 카드 모양의 스켈레톤 그리드를 보여준다", () => {
+      const { container } = renderPending();
 
-    triggerIntersection();
+      expect(container.querySelector("[aria-hidden]")).toBeNull();
 
-    expect(whileLoading).not.toHaveBeenCalled();
-    expect(atEnd).not.toHaveBeenCalled();
-    expect(screen.getByText("사진을 더 불러오는 중이에요.")).toBeInTheDocument();
+      act(() => jest.advanceTimersByTime(SPINNER_DELAY_MS));
+
+      expect(container.querySelector("[aria-hidden]")?.children.length).toBeGreaterThan(0);
+    });
+
+    it("사진 수를 알면 그만큼만 스켈레톤 카드를 그린다", () => {
+      const { container } = renderPending(3);
+
+      expect(countSkeletonCards(container)).toBe(3);
+    });
+
+    it("사진이 많아도 스켈레톤 카드는 최대 12개까지만 그린다", () => {
+      const { container } = renderPending(40);
+
+      expect(countSkeletonCards(container)).toBe(MAX_SKELETON_CARD_COUNT);
+    });
+
+    it("사진이 없는 방이면 스켈레톤 카드를 그리지 않는다", () => {
+      const { container } = renderPending(0);
+
+      expect(countSkeletonCards(container)).toBe(0);
+      expect(screen.getByRole("status")).toHaveTextContent("사진을 불러오는 중이에요.");
+    });
   });
 });

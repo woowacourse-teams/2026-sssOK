@@ -1,6 +1,8 @@
 package com.sssok.infrastructure.persistence.folder;
 
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.domain.file.UploadStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -18,6 +20,19 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
         int updatedCount = 0;
         for (Long mediaId : mediaIds) {
             updatedCount += jpaRepository.insertIfAbsent(folderId, mediaId);
+        }
+        return updatedCount;
+    }
+
+    @Override
+    public int attachToFolderIfStatusIn(Long folderId, List<Long> mediaIds, Collection<UploadStatus> statuses) {
+        if (statuses.isEmpty()) {
+            return 0;
+        }
+        List<String> statusNames = names(statuses);
+        int updatedCount = 0;
+        for (Long mediaId : mediaIds) {
+            updatedCount += jpaRepository.insertIfAbsentAndStatusIn(folderId, mediaId, statusNames);
         }
         return updatedCount;
     }
@@ -49,17 +64,22 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     }
 
     @Override
-    public long countByFolderId(Long folderId) {
-        return jpaRepository.countByFolderId(folderId);
+    public long countByFolderIdAndStatusIn(Long folderId, Collection<UploadStatus> statuses) {
+        if (statuses.isEmpty()) {
+            return 0L;
+        }
+        return jpaRepository.countByFolderIdAndStatusIn(folderId, names(statuses));
     }
 
     @Override
-    public Map<Long, Long> countByFolderIds(List<Long> folderIds) {
-        if (folderIds.isEmpty()) {
+    public Map<Long, Long> countByFolderIdsAndStatusIn(List<Long> folderIds, Collection<UploadStatus> statuses) {
+        if (folderIds.isEmpty() || statuses.isEmpty()) {
             return Map.of();
         }
-        return jpaRepository.countGroupByFolderIdIn(folderIds).stream()
-            .collect(Collectors.toMap(row -> (Long) row[0], row -> (Long) row[1]));
+        return jpaRepository.countGroupByFolderIdInAndStatusIn(folderIds, names(statuses)).stream()
+            .collect(Collectors.toMap(
+                row -> ((Number) row[0]).longValue(),
+                row -> ((Number) row[1]).longValue()));
     }
 
     @Override
@@ -86,5 +106,9 @@ public class FolderMediaRepositoryAdapter implements FolderMediaRepository {
     @Override
     public List<Long> findMediaIdsByFolderId(Long folderId) {
         return jpaRepository.findMediaIdsByFolderId(folderId);
+    }
+
+    private List<String> names(Collection<UploadStatus> statuses) {
+        return statuses.stream().map(UploadStatus::name).toList();
     }
 }

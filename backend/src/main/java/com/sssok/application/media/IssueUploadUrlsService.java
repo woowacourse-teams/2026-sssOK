@@ -12,6 +12,7 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadRejectionReason;
+import com.sssok.domain.file.UploadSizePolicy;
 import com.sssok.domain.file.exception.FileSizeExceededException;
 import com.sssok.domain.file.exception.InvalidFileSizeException;
 import com.sssok.domain.file.exception.UnsupportedMediaTypeException;
@@ -50,21 +51,26 @@ public class IssueUploadUrlsService {
         List<Long> targetFolderIds = validateFolders(roomId, folderIds);
 
         Instant now = Instant.now();
+        UploadSizePolicy sizePolicy = uploadProperties.sizePolicy();
         List<StoredFile> reserved = new ArrayList<>();
         List<String> reservedFileNames = new ArrayList<>();
         List<RejectedFile> rejected = new ArrayList<>();
 
         // 파일 하나가 걸러져도 나머지는 발급한다. 프론트가 실패한 것만 골라 다시 올릴 수 있어야 한다.
         for (UploadFileCommand file : files) {
+            if (file.lacksRequiredMetadata()) {
+                rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.INVALID_PARAM));
+                continue;
+            }
             try {
                 reserved.add(StoredFile.reserve(roomId, uploaderId, file.fileName(),
-                    file.mimeType(), new FileSize(file.size()), now));
+                    file.mimeType(), new FileSize(file.size()), now, sizePolicy));
                 reservedFileNames.add(file.fileName());
             } catch (UnsupportedMediaTypeException e) {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.UNSUPPORTED_MEDIA_TYPE));
             } catch (FileSizeExceededException e) {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.FILE_TOO_LARGE));
-            } catch (InvalidFileSizeException | NullPointerException e) {
+            } catch (InvalidFileSizeException e) {
                 rejected.add(RejectedFile.of(file.fileName(), UploadRejectionReason.INVALID_PARAM));
             }
         }

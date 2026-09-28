@@ -12,24 +12,18 @@ import {
 } from "react-icons/hi2";
 
 import type { GalleryItem } from "@/entities/media";
-import { deleteMedia } from "@/features/delete-media";
-import { downloadMedia } from "@/features/download-media";
-import { isApiError } from "@/shared/api";
+import { DeleteMediaModal } from "@/features/delete-media";
+import { downloadMedia, prefersShareSheet } from "@/features/download-media";
 import { colors } from "@/shared/styles/tokens";
 
 interface MediaViewerModalProps {
   items: GalleryItem[];
-  totalCount: number;
   activeMediaId: number;
   roomId: number;
   userId: number;
   hostId: number;
   token: string;
   selectedPhotoIds: number[];
-  hasNextPage: boolean;
-  isFetchingNextPage: boolean;
-  isNextPageError: boolean;
-  onLoadNextPage: () => void;
   onChange: (mediaId: number) => void;
   onClose: () => void;
   onToggle: (mediaId: number) => void;
@@ -50,100 +44,80 @@ const formatDate = (value: string) => {
 
 export const MediaViewerModal = ({
   items,
-  totalCount,
   activeMediaId,
   roomId,
   userId,
   hostId,
   token,
   selectedPhotoIds,
-  hasNextPage,
-  isFetchingNextPage,
-  isNextPageError,
-  onLoadNextPage,
   onChange,
   onClose,
   onToggle,
   onDeleted,
 }: MediaViewerModalProps) => {
-  const dialogRef = useRef<HTMLDialogElement>(null);
+  // 삭제 확인 모달을 이 dialog 안에 붙여야 해서 ref 대신 state 로 들고 있는다.
+  const [dialog, setDialog] = useState<HTMLDialogElement | null>(null);
+  const [deletingMediaId, setDeletingMediaId] = useState<number | null>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const moveAfterLoading = useRef(false);
   const index = items.findIndex((item) => item.mediaId === activeMediaId);
   const item = items[index];
   const previous = items[index - 1];
   const next = items[index + 1];
 
+  const movePrevious = () => {
+    if (previous) onChange(previous.mediaId);
+  };
   const moveNext = () => {
-    if (next) {
-      onChange(next.mediaId);
-      if (!items[index + 2] && hasNextPage && !isFetchingNextPage) onLoadNextPage();
-      return;
-    }
-    if (hasNextPage && !isFetchingNextPage) {
-      moveAfterLoading.current = true;
-      onLoadNextPage();
-    }
+    if (next) onChange(next.mediaId);
   };
 
   useEffect(() => {
-    if (!moveAfterLoading.current || isFetchingNextPage) return;
-    if (isNextPageError) {
-      moveAfterLoading.current = false;
-      return;
-    }
-    if (next) {
-      moveAfterLoading.current = false;
-      onChange(next.mediaId);
-      return;
-    }
-    if (hasNextPage) {
-      onLoadNextPage();
-      return;
-    }
-    moveAfterLoading.current = false;
-  }, [hasNextPage, isFetchingNextPage, isNextPageError, next, onChange, onLoadNextPage]);
+    if (!dialog) return;
 
-  useEffect(() => {
-    const dialog = dialogRef.current;
     const previousFocus = document.activeElement;
     const overflow = document.body.style.overflow;
 
-    dialog?.showModal();
+    dialog.showModal();
+    dialog.focus();
     document.body.style.overflow = "hidden";
 
     return () => {
-      dialog?.close();
+      dialog.close();
       document.body.style.overflow = overflow;
       if (previousFocus instanceof HTMLElement) previousFocus.focus();
     };
-  }, []);
+  }, [dialog]);
 
   return createPortal(
     <Dialog
-      ref={dialogRef}
+      ref={setDialog}
+      tabIndex={-1}
       aria-label="사진 크게 보기"
       onCancel={(event) => {
         event.preventDefault();
-        onClose();
+        if (deletingMediaId === null) onClose();
       }}
       onKeyDown={(event) => {
+        if (deletingMediaId !== null) {
+          if (event.key === "Escape") event.preventDefault();
+          return;
+        }
         if (event.key === "ArrowLeft" && previous) {
           event.preventDefault();
-          onChange(previous.mediaId);
+          movePrevious();
         }
-        if (event.key === "ArrowRight" && (next || hasNextPage)) {
+        if (event.key === "ArrowRight" && next) {
           event.preventDefault();
           moveNext();
         }
       }}
     >
       <Header>
-        <BackButton autoFocus type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
+        <BackButton type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
           <HiArrowLeft size={20} />
         </BackButton>
         <Counter aria-live="polite">
-          {index < 0 ? "사진 보기" : `${index + 1} / ${totalCount}`}
+          {index < 0 ? "사진 보기" : `${index + 1} / ${items.length}`}
         </Counter>
         <SelectionButton
           type="button"
@@ -179,25 +153,36 @@ export const MediaViewerModal = ({
               const dx = touch.clientX - start.x;
               const dy = touch.clientY - start.y;
               if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy)) return;
-              if (dx < 0 && (next || hasNextPage)) moveNext();
-              if (dx > 0 && previous) onChange(previous.mediaId);
+              if (dx < 0 && next) moveNext();
+              if (dx > 0 && previous) movePrevious();
             }}
           >
-            <ViewerImage key={`${item.mediaId}:${item.type}`} item={item} />
+            <ViewerMedia key={`${item.mediaId}:${item.type}`} item={item} />
+            {!isVideoItem(item) && (
+              <>
+                <TapZone
+                  data-testid="viewer-tap-previous"
+                  aria-hidden="true"
+                  $side="left"
+                  onClick={movePrevious}
+                />
+                <TapZone
+                  data-testid="viewer-tap-next"
+                  aria-hidden="true"
+                  $side="right"
+                  onClick={moveNext}
+                />
+              </>
+            )}
             <PreviousButton
               type="button"
               aria-label="이전 사진"
               disabled={!previous}
-              onClick={() => previous && onChange(previous.mediaId)}
+              onClick={movePrevious}
             >
               <HiChevronLeft />
             </PreviousButton>
-            <NextButton
-              type="button"
-              aria-label="다음 사진"
-              disabled={(!next && !hasNextPage) || isFetchingNextPage}
-              onClick={moveNext}
-            >
+            <NextButton type="button" aria-label="다음 사진" disabled={!next} onClick={moveNext}>
               <HiChevronRight />
             </NextButton>
           </Stage>
@@ -209,16 +194,32 @@ export const MediaViewerModal = ({
             canDelete={
               item.type === "server" && (item.media.uploaderId === userId || hostId === userId)
             }
-            onDeleted={onDeleted}
+            onDelete={() => setDeletingMediaId(item.mediaId)}
           />
         </>
       ) : (
         <StateMessage>사진이 목록에 없어요.</StateMessage>
       )}
+      {deletingMediaId !== null && (
+        <DeleteMediaModal
+          roomId={roomId}
+          mediaId={deletingMediaId}
+          token={token}
+          container={dialog}
+          onClose={() => setDeletingMediaId(null)}
+          onSuccess={() => onDeleted(deletingMediaId)}
+        />
+      )}
     </Dialog>,
     document.body,
   );
 };
+
+const isVideoItem = (item: GalleryItem) =>
+  item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
+
+const ViewerMedia = ({ item }: { item: GalleryItem }) =>
+  isVideoItem(item) ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
 
 const ViewerImage = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
@@ -263,25 +264,47 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
   );
 };
 
+const ViewerVideo = ({ item }: { item: GalleryItem }) => {
+  const [localUrl] = useState(() =>
+    item.type === "local" ? URL.createObjectURL(item.file) : null,
+  );
+  const source = item.type === "server" ? item.media.originalUrl : localUrl;
+  const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
+
+  useEffect(() => {
+    return () => {
+      if (localUrl !== null) URL.revokeObjectURL(localUrl);
+    };
+  }, [localUrl]);
+
+  return (
+    <ViewerVideoPlayer
+      src={source ?? undefined}
+      poster={poster}
+      controls
+      controlsList="nodownload noremoteplayback nofullscreen noplaybackrate"
+      disablePictureInPicture
+      disableRemotePlayback
+      playsInline
+    />
+  );
+};
+
 const ViewerFooter = ({
   item,
   roomId,
   token,
   canDelete,
-  onDeleted,
+  onDelete,
 }: {
   item: GalleryItem;
   roomId: number;
   token: string;
   canDelete: boolean;
-  onDeleted: (mediaId: number) => void;
+  onDelete: () => void;
 }) => {
   const media = item.type === "server" ? item.media : undefined;
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
-  const deletion = useMutation({
-    mutationFn: () => deleteMedia({ roomId, mediaId: item.mediaId, token }),
-    onSuccess: () => onDeleted(item.mediaId),
-  });
   const download = useMutation({
     mutationFn: async () => {
       if (!media) return;
@@ -296,7 +319,8 @@ const ViewerFooter = ({
             mimeType: media.mimeType,
           },
         ],
-        mode: "individual",
+        // 폰에서 개별 다운을 할 경우, 여러 장 받기와 같은 기준으로 공유 시트를 쓸 기기를 가른다.
+        mode: prefersShareSheet() ? "share" : "individual",
         token,
       });
 
@@ -312,11 +336,6 @@ const ViewerFooter = ({
         <Subtitle>
           {[media ? formatDate(media.uploadedAt) : "", fileName].filter(Boolean).join(" · ")}
         </Subtitle>
-        {deletion.isError && (
-          <ErrorMessage role="alert">
-            {isApiError(deletion.error) ? deletion.error.message : "사진을 삭제하지 못했어요."}
-          </ErrorMessage>
-        )}
         {download.isError && <ErrorMessage role="alert">{download.error.message}</ErrorMessage>}
       </Metadata>
       <ActionButton
@@ -324,9 +343,8 @@ const ViewerFooter = ({
         $danger
         aria-label="사진 삭제"
         title={canDelete ? "사진 삭제" : "삭제 권한이 없어요"}
-        disabled={!canDelete || deletion.isPending}
-        aria-busy={deletion.isPending}
-        onClick={() => deletion.mutate()}
+        disabled={!canDelete}
+        onClick={onDelete}
       >
         <HiOutlineTrash size={21} />
       </ActionButton>
@@ -361,6 +379,10 @@ const Dialog = styled.dialog`
   &[open] {
     display: flex;
     flex-direction: column;
+  }
+
+  &:focus {
+    outline: none;
   }
 
   &::backdrop {
@@ -440,6 +462,29 @@ const ViewerPhoto = styled.img<{ $visible: boolean }>`
   object-position: center;
   visibility: ${({ $visible }) => ($visible ? "visible" : "hidden")};
   user-select: none;
+`;
+
+const ViewerVideoPlayer = styled.video`
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+`;
+
+const TapZone = styled.div<{ $side: "left" | "right" }>`
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  ${({ $side }) => $side}: 0;
+  width: 50%;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (min-width: 768px) {
+    display: none;
+  }
 `;
 
 const SlideButton = styled(BackButton)`

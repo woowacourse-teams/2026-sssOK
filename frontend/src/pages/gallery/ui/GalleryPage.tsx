@@ -4,6 +4,7 @@ import { useRoomQuery, type Room } from "@/entities/room";
 import { readValidRoomSession } from "@/entities/session";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
+import { PageSpinner } from "@/shared/ui/spinner";
 import { GalleryContent } from "./GalleryContent";
 import { GalleryModalProvider } from "./GalleryModalProvider";
 import { PageState } from "./GalleryPage.styles";
@@ -42,7 +43,7 @@ export const GalleryPage = () => {
   }
 
   if (roomQuery.isPending) {
-    return <PageState>방 정보를 불러오는 중이에요.</PageState>;
+    return <PageSpinner label="방 정보를 불러오는 중이에요." />;
   }
 
   if (roomQuery.isError) {
@@ -54,7 +55,7 @@ export const GalleryPage = () => {
   }
 
   if (roomQuery.data.status !== "ACTIVE") {
-    return <Navigate to={ROUTES.roomEntry(code)} replace />;
+    return <Navigate to={ROUTES.closedRoom} replace />;
   }
 
   return (

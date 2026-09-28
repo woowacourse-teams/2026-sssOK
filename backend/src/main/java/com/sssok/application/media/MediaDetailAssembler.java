@@ -7,6 +7,7 @@ import com.sssok.domain.member.Member;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,7 +22,18 @@ public class MediaDetailAssembler {
     private final MemberRepository memberRepository;
     private final MediaUrlResolver mediaUrlResolver;
 
-    public List<MediaDetail> assemble(List<StoredFile> files) {
+    // 목록용. 타일에 그릴 썸네일만 싣는다.
+    public List<MediaDetail> assembleForList(List<StoredFile> files) {
+        return assemble(files, mediaUrlResolver::forList);
+    }
+
+    // 상세용. 사진이면 프리뷰를, 영상이면 재생할 원본을 싣는다.
+    public List<MediaDetail> assembleForDetail(List<StoredFile> files) {
+        return assemble(files, mediaUrlResolver::forDetail);
+    }
+
+    private List<MediaDetail> assemble(List<StoredFile> files,
+                                       Function<StoredFile, MediaUrls> urls) {
         if (files.isEmpty()) {
             return List.of();
         }
@@ -34,7 +46,7 @@ public class MediaDetailAssembler {
                 file,
                 uploaderNames.get(file.getUploaderId()),
                 folderIds.getOrDefault(file.getId(), List.of()),
-                mediaUrlResolver.resolve(file)))
+                urls.apply(file)))
             .toList();
     }
 

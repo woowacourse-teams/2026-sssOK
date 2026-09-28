@@ -7,6 +7,7 @@ import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
+import com.sssok.common.exception.InvalidRequestParameterException;
 import com.sssok.domain.room.Room;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,6 +26,7 @@ import org.springframework.web.servlet.HandlerMapping;
 public class RoomMembershipInterceptor implements HandlerInterceptor {
 
     private static final String BEARER_PREFIX = "Bearer ";
+    private static final String ROOM_ID = "roomId";
 
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
@@ -50,11 +52,21 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         return true;
     }
 
+    // 여기서 터진 숫자 변환 오류를 그대로 흘려보내면 전역 핸들러가 내부 결함까지 400 으로 덮는다.
+    // 요청 값이 잘못됐다는 사실을 아는 이 지점에서 전용 예외로 바꿔 던진다.
     @SuppressWarnings("unchecked")
     private Long extractRoomId(HttpServletRequest request) {
         Map<String, String> pathVariables =
             (Map<String, String>) request.getAttribute(HandlerMapping.URI_TEMPLATE_VARIABLES_ATTRIBUTE);
-        return Long.valueOf(pathVariables.get("roomId"));
+        String roomId = pathVariables == null ? null : pathVariables.get(ROOM_ID);
+        if (roomId == null) {
+            throw new InvalidRequestParameterException(ROOM_ID);
+        }
+        try {
+            return Long.valueOf(roomId);
+        } catch (NumberFormatException e) {
+            throw new InvalidRequestParameterException(ROOM_ID);
+        }
     }
 
     private Long extractMemberId(HttpServletRequest request) {

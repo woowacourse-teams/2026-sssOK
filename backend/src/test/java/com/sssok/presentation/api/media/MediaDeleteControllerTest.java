@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.media;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
@@ -9,9 +10,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sssok.application.media.DeleteMediaResult;
 import com.sssok.application.media.DeleteMediaService;
-import com.sssok.application.media.MediaSelection;
-import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.application.media.exception.InvalidMediaDeleteParamException;
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.media.exception.TooManyMediaException;
@@ -37,6 +35,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 @WebMvcTest(MediaDeleteController.class)
 class MediaDeleteControllerTest {
@@ -84,14 +83,13 @@ class MediaDeleteControllerTest {
 
     @Test
     void 다건을_삭제하면_삭제와_미존재_ID를_나눠_반환한다() throws Exception {
-        given(deleteMediaService.deleteAll(ROOM_ID, MediaSelection.include(List.of(1L, 2L, 999L)),
-            null, MEMBER_ID, null))
+        given(deleteMediaService.deleteAll(ROOM_ID, List.of(1L, 2L, 999L), MEMBER_ID))
             .willReturn(new DeleteMediaResult(2, List.of(1L, 2L), List.of(999L)));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
                 .header("Authorization", BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1,2,999]}}"))
+                .content("{\"mediaIds\":[1,2,999]}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.deletedCount").value(2))
             .andExpect(jsonPath("$.data.deletedMediaIds[0]").value(1))
@@ -99,43 +97,89 @@ class MediaDeleteControllerTest {
     }
 
     @Test
-    void 잘못된_선택이면_400_INVALID_PARAM() throws Exception {
-        willThrow(new InvalidMediaDeleteParamException())
-            .given(deleteMediaService).deleteAll(
-                ROOM_ID, MediaSelection.include(List.of()), null, MEMBER_ID, null);
+    void 빈_ID_목록이면_삭제_0건으로_성공한다() throws Exception {
+        given(deleteMediaService.deleteAll(ROOM_ID, List.of(), MEMBER_ID))
+            .willReturn(new DeleteMediaResult(0, List.of(), List.of()));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
                 .header("Authorization", BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[]}}"))
+                .content("{\"mediaIds\":[]}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.deletedCount").value(0));
+    }
+
+    @Test
+    void mediaIds를_누락하면_400_INVALID_PARAM() throws Exception {
+        deleteAll("{}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
 
     @Test
-    void selection을_누락하면_400_INVALID_PARAM() throws Exception {
-        willThrow(new InvalidMediaDeleteParamException())
-            .given(deleteMediaService).deleteAll(ROOM_ID, null, null, MEMBER_ID, null);
-
+    void 본문이_없으면_400_INVALID_REQUEST_BODY() throws Exception {
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
                 .header("Authorization", BEARER)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void mediaIds_타입이_다르면_400_INVALID_REQUEST_BODY() throws Exception {
+        deleteAll("{\"mediaIds\":\"5012\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void mediaIds에_null이_섞여_있으면_400_INVALID_PARAM() throws Exception {
+        deleteAll("{\"mediaIds\":[5012,null]}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void mediaIds에_0이하가_섞여_있으면_400_INVALID_PARAM() throws Exception {
+        deleteAll("{\"mediaIds\":[5012,-1]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 없는_경로는_404_API_NOT_FOUND() throws Exception {
+        mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/없는경로/더깊이", ROOM_ID)
+                .header("Authorization", BEARER))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("API_NOT_FOUND"));
+    }
+
+    @Test
+    void 예상하지_못한_예외는_500이지만_내부_메시지를_노출하지_않는다() throws Exception {
+        willThrow(new IllegalStateException("jdbc:postgresql://secret-host/sssok 연결 실패"))
+            .given(deleteMediaService).deleteOne(ROOM_ID, MEDIA_ID, MEMBER_ID);
+
+        String body = mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}", ROOM_ID, MEDIA_ID)
+                .header("Authorization", BEARER))
+            .andExpect(status().isInternalServerError())
+            .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"))
+            .andExpect(jsonPath("$.message").value("일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요"))
+            .andReturn().getResponse().getContentAsString();
+
+        assertThat(body).doesNotContain("secret-host").doesNotContain("IllegalStateException")
+            .doesNotContain("com.sssok");
     }
 
     @Test
     void 최대_개수를_넘으면_400_TOO_MANY_FILES() throws Exception {
         willThrow(new TooManyMediaException(500))
             .given(deleteMediaService).deleteAll(org.mockito.ArgumentMatchers.eq(ROOM_ID),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.isNull(), org.mockito.ArgumentMatchers.eq(MEMBER_ID),
-                org.mockito.ArgumentMatchers.isNull());
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(MEMBER_ID));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
                 .header("Authorization", BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"selection\":{\"mode\":\"include\",\"ids\":[1]}}"))
+                .content("{\"mediaIds\":[1]}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"));
     }
@@ -162,33 +206,11 @@ class MediaDeleteControllerTest {
             .andExpect(jsonPath("$.code").value("MEDIA_FORBIDDEN"));
     }
 
-    @Test
-    void 다건_삭제의_폴더와_업로더_필터를_전달한다() throws Exception {
-        given(deleteMediaService.deleteAll(ROOM_ID, MediaSelection.exclude(List.of()),
-            31L, MEMBER_ID, MediaUploaderFilter.ME))
-            .willReturn(new DeleteMediaResult(0, List.of(), List.of()));
-
-        mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
-                .header("Authorization", BEARER)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {"selection":{"mode":"exclude","ids":[]},"folderId":31,"uploader":"ME"}
-                    """))
-            .andExpect(status().isOk());
-
-        verify(deleteMediaService).deleteAll(ROOM_ID, MediaSelection.exclude(List.of()),
-            31L, MEMBER_ID, MediaUploaderFilter.ME);
-    }
-
-    @Test
-    void 지원하지_않는_업로더_필터는_400() throws Exception {
-        mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
-                .header("Authorization", BEARER)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {"selection":{"mode":"exclude","ids":[]},"uploader":"UNKNOWN"}
-                    """))
-            .andExpect(status().isBadRequest());
+    private ResultActions deleteAll(String body) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
+            .header("Authorization", BEARER)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
     }
 
     private Room activeRoom() {

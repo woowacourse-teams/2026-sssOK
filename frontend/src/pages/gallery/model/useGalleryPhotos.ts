@@ -1,7 +1,11 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { usePhotosQuery } from "@/entities/media";
-import type { MediaUploaderFilter, PhotoFilter } from "@/entities/media";
+import type { GalleryItem, PhotoFilter } from "@/entities/media";
+import type { RoomFolder } from "@/entities/room";
+import { countItemsByFolder, filterGalleryItems, mergeGalleryItems } from "./galleryItems";
+
+const EMPTY_UPLOAD_SLOTS: GalleryItem[] = [];
 
 interface UseGalleryPhotosParams {
   roomId: number;
@@ -9,19 +13,14 @@ interface UseGalleryPhotosParams {
   userId: number;
   selectedFolderId: number | null;
   selectedOption: PhotoFilter;
+  initialTotalCount: number;
+  initialFolders: RoomFolder[];
+  uploadSlots?: GalleryItem[];
 }
 
-const UPLOADER_OF: Record<PhotoFilter, MediaUploaderFilter> = {
-  all: "ALL",
-  mine: "ME",
-  others: "OTHERS",
-};
-
 /**
- * 갤러리에 그릴 사진을 페이지 단위로 이어 받는다.
- *
- * 폴더·업로더 필터는 서버에 맡긴다. 받아 온 페이지 안에서 거르면 방 전체가 아니라
- * 지금까지 받은 사진 안에서만 걸러진다 — 오래된 사진만 든 폴더가 비어 보인다 (#264).
+ * 갤러리에 그릴 사진. 방 전체를 한 번 받아 두고 폴더·업로더는 여기서 거른다.
+ * 옵션을 바꿔도 다시 부르지 않고, 거른 결과가 곧 전체 선택의 대상이다.
  */
 export const useGalleryPhotos = ({
   roomId,
@@ -29,44 +28,49 @@ export const useGalleryPhotos = ({
   userId,
   selectedFolderId,
   selectedOption,
+  initialTotalCount,
+  initialFolders,
+  uploadSlots = EMPTY_UPLOAD_SLOTS,
 }: UseGalleryPhotosParams) => {
-  const {
-    data,
-    isPending,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    fetchNextPage,
-  } = usePhotosQuery({
+  const photosQuery = usePhotosQuery({
     roomId,
     token: accessToken,
     userId,
-    folderId: selectedFolderId ?? undefined,
-    uploader: UPLOADER_OF[selectedOption],
   });
 
-  const photos = useMemo(
+  const allGalleryItems = useMemo(
+    () => mergeGalleryItems(photosQuery.data?.items ?? [], uploadSlots),
+    [photosQuery.data?.items, uploadSlots],
+  );
+  const completedUploadIds = useMemo(() => {
+    const serverMediaIds = new Set(
+      (photosQuery.data?.items ?? [])
+        .filter((item) => item.thumbnailUrl?.trim())
+        .map((item) => item.mediaId),
+    );
+    return uploadSlots
+      .filter((slot) => serverMediaIds.has(slot.mediaId))
+      .map((slot) => slot.mediaId);
+  }, [photosQuery.data?.items, uploadSlots]);
+  const hasLoadedPhotos = photosQuery.data !== undefined;
+  const folderCounts = useMemo(
     () =>
-      (data?.pages.flatMap((page) => page.items) ?? []).filter(
-        (photo) => typeof photo.thumbnailUrl === "string" && photo.thumbnailUrl.trim().length > 0,
-      ),
-    [data],
+      hasLoadedPhotos
+        ? countItemsByFolder(allGalleryItems)
+        : new Map(initialFolders.map((folder) => [folder.id, folder.photoCount])),
+    [allGalleryItems, hasLoadedPhotos, initialFolders],
+  );
+  const visibleItems = useMemo(
+    () => filterGalleryItems(allGalleryItems, selectedFolderId, selectedOption, userId),
+    [allGalleryItems, selectedFolderId, selectedOption, userId],
   );
 
-  const loadMore = useCallback(() => {
-    void fetchNextPage();
-  }, [fetchNextPage]);
-
   return {
-    photos,
-    // 페이지마다 그 시점의 개수가 온다. 가장 최근에 받은 값이 실제에 가깝다.
-    totalCount: data?.pages[data.pages.length - 1]?.totalCount,
-    isPending,
-    isError,
-    hasNextPage,
-    isFetchingNextPage,
-    isFetchNextPageError,
-    loadMore,
+    galleryItems: visibleItems,
+    completedUploadIds,
+    totalCount: hasLoadedPhotos ? allGalleryItems.length : initialTotalCount,
+    folderCounts,
+    isPending: photosQuery.isPending,
+    isError: photosQuery.isError,
   };
 };
