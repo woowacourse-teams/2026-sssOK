@@ -8,6 +8,7 @@ import { UpdateRoomForm } from "@/features/update-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { IconButton } from "@/shared/ui/icon-button";
+import { PageSpinner } from "@/shared/ui/spinner";
 import { Header, Page, PageState, Title } from "./RoomSettingsPage.styles";
 
 const ERROR_MESSAGE: Record<string, string> = {
@@ -32,7 +33,7 @@ export const RoomSettingsPage = () => {
   }
 
   if (roomQuery.isPending) {
-    return <PageState>방 정보를 불러오는 중이에요.</PageState>;
+    return <PageSpinner label="방 정보를 불러오는 중이에요." />;
   }
 
   if (roomQuery.isError) {

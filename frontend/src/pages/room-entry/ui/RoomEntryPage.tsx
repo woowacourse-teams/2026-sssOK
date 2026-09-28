@@ -7,6 +7,7 @@ import { NameEntryBottomSheet } from "@/features/join-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { type AnalyticsEntrySource, track } from "@/shared/lib";
+import { PageSpinner } from "@/shared/ui/spinner";
 import { useAnonymousAuth } from "../api";
 
 const ERROR_MESSAGE: Record<string, string> = {
@@ -83,7 +84,7 @@ export const RoomEntryPage = () => {
   }, [joinFailureReason, code]);
 
   if (isPending) {
-    return <main>방 정보를 불러오는 중이에요.</main>;
+    return <PageSpinner label="방 정보를 불러오는 중이에요." />;
   }
 
   if (error) {
