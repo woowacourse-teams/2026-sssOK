@@ -47,13 +47,7 @@ export const PhotoGallery = ({
               slot={slot}
               isSelected={isSelected}
               onToggle={() => onTogglePhoto(slot.mediaId)}
-              onOpen={
-                (slot.type === "local"
-                  ? !slot.file.type.startsWith("video/")
-                  : slot.media.type === "IMAGE") && onOpenPhoto
-                  ? () => onOpenPhoto(slot.mediaId)
-                  : undefined
-              }
+              onOpen={onOpenPhoto ? () => onOpenPhoto(slot.mediaId) : undefined}
             />
           );
         })}
