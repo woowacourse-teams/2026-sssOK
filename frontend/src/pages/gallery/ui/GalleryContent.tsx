@@ -40,7 +40,13 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   useAnalyticsRoom(room.code, userId === room.hostId);
-  const { uploadSlots, addPendingMedia, removePendingMedia } = usePendingMedia();
+  const {
+    uploadSlots,
+    addPendingMedia,
+    removePendingMedia,
+    addPendingMediaToFolder,
+    removePendingMediaFromFolder,
+  } = usePendingMedia();
   // 모달
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
@@ -323,8 +329,10 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           token={accessToken}
           onCreateFolder={requestCreateFolder}
           onClose={() => setIsMoveSelectionOpen(false)}
-          onSuccess={async (folderId) => {
+          onSuccess={async ({ action, folderId }) => {
             setIsMoveSelectionOpen(false);
+            if (action === "add") addPendingMediaToFolder(selectedPhotoIds, folderId);
+            else removePendingMediaFromFolder(selectedPhotoIds, folderId);
             selectFolder(folderId);
             clearSelection();
             await Promise.all([
