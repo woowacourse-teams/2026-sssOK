@@ -53,6 +53,22 @@ highest_bump() {
     printf '%s\n' "$highest"
 }
 
+is_at_least() {
+    local actual="$1" minimum="$2"
+    local actual_major actual_minor actual_patch
+    local minimum_major minimum_minor minimum_patch
+    require_semver '실제 백엔드' "$actual"
+    require_semver '최소 백엔드' "$minimum"
+    IFS=. read -r actual_major actual_minor actual_patch <<< "$actual"
+    IFS=. read -r minimum_major minimum_minor minimum_patch <<< "$minimum"
+
+    [ "$actual_major" -gt "$minimum_major" ] && return 0
+    [ "$actual_major" -lt "$minimum_major" ] && return 1
+    [ "$actual_minor" -gt "$minimum_minor" ] && return 0
+    [ "$actual_minor" -lt "$minimum_minor" ] && return 1
+    [ "$actual_patch" -ge "$minimum_patch" ]
+}
+
 replace_version() {
     local file="$1" version="$2" temporary
     read_version "$file" > /dev/null
@@ -67,6 +83,7 @@ case "$command" in
     read) read_version "${2:-backend/gradle.properties}" ;;
     next) next_version "${2:-}" "${3:-}" ;;
     highest) shift; highest_bump "$@" ;;
+    at-least) is_at_least "${2:-}" "${3:-}" ;;
     set)
         file="${2:-backend/gradle.properties}"
         version="${3:-}"
@@ -77,6 +94,7 @@ case "$command" in
         echo "사용법: $0 read [gradle.properties]" >&2
         echo "        $0 next <version> <major|minor|patch>" >&2
         echo "        $0 highest <major|minor|patch>..." >&2
+        echo "        $0 at-least <actual-version> <minimum-version>" >&2
         echo "        $0 set <gradle.properties> <version>" >&2
         exit 2
         ;;
