@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -264,8 +264,12 @@ describe("라우트", () => {
     await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
     await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
     await user.click(await screen.findByRole("button", { name: "사진 삭제" }));
-    expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "삭제하기" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("button", { name: "IMG_0421.jpg 선택" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
