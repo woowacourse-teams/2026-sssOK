@@ -148,7 +148,7 @@ export const MediaViewerModal = ({
               if (dx > 0 && previous) onChange(previous.mediaId);
             }}
           >
-            <ViewerImage key={`${item.mediaId}:${item.type}`} item={item} />
+            <ViewerMedia key={`${item.mediaId}:${item.type}`} item={item} />
             <PreviousButton
               type="button"
               aria-label="이전 사진"
@@ -178,6 +178,13 @@ export const MediaViewerModal = ({
     </Dialog>,
     document.body,
   );
+};
+
+const ViewerMedia = ({ item }: { item: GalleryItem }) => {
+  const isVideo =
+    item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
+
+  return isVideo ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
 };
 
 const ViewerImage = ({ item }: { item: GalleryItem }) => {
@@ -219,6 +226,32 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
       $visible={isVisible}
       onLoad={() => setIsVisible(true)}
       onError={() => setIsVisible(false)}
+    />
+  );
+};
+
+const ViewerVideo = ({ item }: { item: GalleryItem }) => {
+  const [localUrl] = useState(() =>
+    item.type === "local" ? URL.createObjectURL(item.file) : null,
+  );
+  const source = item.type === "server" ? item.media.originalUrl : localUrl;
+  const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
+
+  useEffect(() => {
+    return () => {
+      if (localUrl !== null) URL.revokeObjectURL(localUrl);
+    };
+  }, [localUrl]);
+
+  return (
+    <ViewerVideoPlayer
+      src={source ?? undefined}
+      poster={poster}
+      controls
+      controlsList="nodownload noremoteplayback nofullscreen noplaybackrate"
+      disablePictureInPicture
+      disableRemotePlayback
+      playsInline
     />
   );
 };
@@ -404,6 +437,16 @@ const ViewerPhoto = styled.img<{ $visible: boolean }>`
   object-position: center;
   visibility: ${({ $visible }) => ($visible ? "visible" : "hidden")};
   user-select: none;
+`;
+
+const ViewerVideoPlayer = styled.video`
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 `;
 
 const SlideButton = styled(BackButton)`
