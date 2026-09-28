@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import { usePhotosQuery } from "@/entities/media";
 import type { GalleryItem, PhotoFilter } from "@/entities/media";
+import type { RoomFolder } from "@/entities/room";
 import { countItemsByFolder, filterGalleryItems, mergeGalleryItems } from "./galleryItems";
 
 const EMPTY_UPLOAD_SLOTS: GalleryItem[] = [];
@@ -12,6 +13,8 @@ interface UseGalleryPhotosParams {
   userId: number;
   selectedFolderId: number | null;
   selectedOption: PhotoFilter;
+  initialTotalCount: number;
+  initialFolders: RoomFolder[];
   uploadSlots?: GalleryItem[];
 }
 
@@ -25,6 +28,8 @@ export const useGalleryPhotos = ({
   userId,
   selectedFolderId,
   selectedOption,
+  initialTotalCount,
+  initialFolders,
   uploadSlots = EMPTY_UPLOAD_SLOTS,
 }: UseGalleryPhotosParams) => {
   const photosQuery = usePhotosQuery({
@@ -43,7 +48,14 @@ export const useGalleryPhotos = ({
       .filter((slot) => serverMediaIds.has(slot.mediaId))
       .map((slot) => slot.mediaId);
   }, [photosQuery.data?.items, uploadSlots]);
-  const folderCounts = useMemo(() => countItemsByFolder(allGalleryItems), [allGalleryItems]);
+  const hasLoadedPhotos = photosQuery.data !== undefined;
+  const folderCounts = useMemo(
+    () =>
+      hasLoadedPhotos
+        ? countItemsByFolder(allGalleryItems)
+        : new Map(initialFolders.map((folder) => [folder.id, folder.photoCount])),
+    [allGalleryItems, hasLoadedPhotos, initialFolders],
+  );
   const visibleItems = useMemo(
     () => filterGalleryItems(allGalleryItems, selectedFolderId, selectedOption, userId),
     [allGalleryItems, selectedFolderId, selectedOption, userId],
@@ -52,7 +64,7 @@ export const useGalleryPhotos = ({
   return {
     galleryItems: visibleItems,
     completedUploadIds,
-    totalCount: allGalleryItems.length,
+    totalCount: hasLoadedPhotos ? allGalleryItems.length : initialTotalCount,
     folderCounts,
     isPending: photosQuery.isPending,
     isError: photosQuery.isError,

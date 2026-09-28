@@ -88,6 +88,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       userId,
       selectedFolderId,
       selectedOption,
+      initialTotalCount: room.photoCount,
+      initialFolders: room.folders,
       uploadSlots,
     });
 

@@ -31,6 +31,10 @@ const renderGalleryPhotos = (initial: {
         roomId: MOCK_ROOM_ID,
         accessToken: `mock-token-${HOST_ID}`,
         userId: HOST_ID,
+        initialTotalCount: 13,
+        initialFolders: [
+          { id: 32, name: "여름", createdAt: "2026-09-28T00:00:00Z", photoCount: 4 },
+        ],
         ...filter,
       }),
     { initialProps: initial, wrapper: createWrapper() },
@@ -38,6 +42,13 @@ const renderGalleryPhotos = (initial: {
 
 describe("useGalleryPhotos", () => {
   afterEach(() => server.events.removeAllListeners());
+
+  it("사진 목록을 받기 전에는 방 조회의 전체 및 폴더 개수를 사용한다", () => {
+    const { result } = renderGalleryPhotos({ selectedFolderId: null, selectedOption: "all" });
+
+    expect(result.current.totalCount).toBe(13);
+    expect(result.current.folderCounts.get(32)).toBe(4);
+  });
 
   it("방의 사진을 페이지 없이 한 번에 받는다", async () => {
     const { result } = renderGalleryPhotos({ selectedFolderId: null, selectedOption: "all" });
