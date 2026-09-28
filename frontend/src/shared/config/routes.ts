@@ -2,6 +2,7 @@ export const ROUTES = {
   home: "/",
   createRoom: "/rooms/create",
   joinRoom: "/rooms/join",
+  closedRoom: "/rooms/closed",
   /** 공유 링크·QR 로 들어오는 진입점 */
   roomEntry: (code: string) => `/rooms/${code}`,
   gallery: (code: string) => `/rooms/${code}/gallery`,
@@ -18,6 +19,7 @@ export const ROUTES = {
 export const ROUTE_PATTERNS = {
   home: "/",
   createRoom: "/rooms/create",
+  closedRoom: "/rooms/closed",
   roomEntry: "/rooms/:code",
   gallery: "/rooms/:code/gallery",
   mediaDetail: "/rooms/:code/media/:mediaId",
