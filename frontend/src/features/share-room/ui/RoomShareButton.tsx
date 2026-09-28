@@ -9,6 +9,15 @@ import { Toast, type ToastProps } from "@/shared/ui/toast";
 import { issueLinkCode } from "../api/issueLinkCode";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 
+const copyPendingText = async (text: Promise<string>) => {
+  if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard.write === "function") {
+    const blob = text.then((value) => new Blob([value], { type: "text/plain" }));
+    await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
+    return;
+  }
+  await navigator.clipboard.writeText(await text);
+};
+
 interface RoomShareButtonProps {
   roomCode: string;
 }
@@ -96,10 +105,12 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     setIsCreatingDeviceLink(true);
     setNotice(null);
     try {
-      const { linkCode } = await issueLinkCode(accessToken);
-      const url = new URL(ROUTES.roomEntry(roomCode), window.location.origin);
-      url.searchParams.set("linkCode", linkCode);
-      await navigator.clipboard.writeText(url.href);
+      const deviceLink = issueLinkCode(accessToken).then(({ linkCode }) => {
+        const url = new URL(ROUTES.roomEntry(roomCode), window.location.origin);
+        url.searchParams.set("linkCode", linkCode);
+        return url.href;
+      });
+      await copyPendingText(deviceLink);
       track("Device Link Copied", { is_success: true });
       setNotice({ message: "다른 기기에서 이어할 링크를 복사했어요.", tone: "success" });
       closeMenu();
@@ -119,7 +130,8 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
       <Anchor
         ref={anchorRef}
         onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false);
+          const next = event.relatedTarget;
+          if (next && !event.currentTarget.contains(next)) setIsOpen(false);
         }}
       >
         <IconButton
