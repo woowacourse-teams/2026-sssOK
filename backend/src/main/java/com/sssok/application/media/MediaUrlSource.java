@@ -18,10 +18,10 @@ sealed interface MediaUrlSource {
             .orElse(Unavailable.INSTANCE);
     }
 
-    static MediaUrlSource display(StoredFile file, Duration previewTtl, Duration originalTtl) {
+    static MediaUrlSource display(StoredFile file, Duration ttl) {
         return Optional.ofNullable(file.getPreviewKey())
-            .<MediaUrlSource>map(key -> new Derivative(key, previewTtl))
-            .orElseGet(() -> Original.of(file, originalTtl));
+            .<MediaUrlSource>map(key -> new Derivative(key, ttl))
+            .orElseGet(() -> Original.of(file, ttl));
     }
 
     record Derivative(StorageKey key, Duration ttl) implements MediaUrlSource {

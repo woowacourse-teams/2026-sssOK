@@ -2,7 +2,6 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.infrastructure.config.DownloadProperties;
 import com.sssok.infrastructure.config.ThumbnailProperties;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,6 @@ public class MediaUrlResolver {
 
     private final FileStoragePort fileStoragePort;
     private final ThumbnailProperties thumbnailProperties;
-    private final DownloadProperties downloadProperties;
 
     public MediaUrls resolve(StoredFile file) {
         Instant now = Instant.now();
@@ -24,7 +22,7 @@ public class MediaUrlResolver {
             file.getThumbnailKey(), thumbnailProperties.displayUrlTtl())
             .resolve(fileStoragePort, now);
         MediaUrlSource.ResolvedUrl display = MediaUrlSource.display(
-            file, thumbnailProperties.displayUrlTtl(), downloadProperties.presignedGetTtl())
+            file, thumbnailProperties.displayUrlTtl())
             .resolve(fileStoragePort, now);
 
         return new MediaUrls(
