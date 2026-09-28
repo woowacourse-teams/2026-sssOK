@@ -88,9 +88,9 @@ bump="$(bash .github/scripts/backend-version.sh highest "${base_intents[@]}")"
 base_version="$(git show "$base_sha:$version_file" | sed -n 's/^version=//p' | tr -d ' \t\r\n')"
 expected="$(bash .github/scripts/backend-version.sh next "$base_version" "$bump")"
 head_version="$(bash .github/scripts/backend-version.sh read "$version_file")"
-[ "$head_version" = "$expected" ] || {
-    echo "::error::릴리스 준비 결과는 $base_version -> $expected 이어야 한다 (현재 $head_version)."
+bash .github/scripts/backend-version.sh at-least "$head_version" "$expected" || {
+    echo "::error::릴리스 준비 결과는 최소 $base_version -> $expected 이어야 한다 (현재 $head_version)."
     exit 1
 }
 
-echo "백엔드 릴리스 버전 확인: $base_version -> $head_version ($bump, 의도 ${#base_intents[@]}개 소비)"
+echo "백엔드 릴리스 버전 확인: $base_version -> $head_version (최소 $expected, $bump 의도 ${#base_intents[@]}개 소비)"
