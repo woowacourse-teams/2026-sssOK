@@ -109,10 +109,8 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.items[0].folderIds[0]").value(FOLDER_ID))
             .andExpect(jsonPath("$.data.items[0].thumbnailUrl").value(THUMBNAIL_URL))
             .andExpect(jsonPath("$.data.items[0].thumbnailUrlExpiresAt").exists())
-            .andExpect(jsonPath("$.data.items[0].previewUrl").value(nullValue()))
-            .andExpect(jsonPath("$.data.items[0].previewUrlExpiresAt").value(nullValue()))
-            .andExpect(jsonPath("$.data.items[0].originalUrl").value(nullValue()))
-            .andExpect(jsonPath("$.data.items[0].originalUrlExpiresAt").value(nullValue()))
+            .andExpect(jsonPath("$.data.items[0].displayUrl").value(PREVIEW_URL))
+            .andExpect(jsonPath("$.data.items[0].displayUrlExpiresAt").exists())
             .andExpect(jsonPath("$.data.items[0].uploadedAt").exists())
             .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
             .andExpect(jsonPath("$.data.hasNext").value(false))
@@ -223,18 +221,34 @@ class MediaQueryControllerTest {
     @Test
     void 전체_목록을_조회하면_페이지네이션_필드_없이_items를_반환한다() throws Exception {
         given(getMediaListService.list(ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL))
-            .willReturn(List.of(listItem()));
+            .willReturn(List.of(detailWithPreview()));
 
         getAllMedia("")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.items[0].mediaId").value(MEDIA_ID))
             .andExpect(jsonPath("$.data.items[0].fileName").value("사진.jpg"))
+            .andExpect(jsonPath("$.data.items[0].displayUrl").value(PREVIEW_URL))
+            .andExpect(jsonPath("$.data.items[0].displayUrlExpiresAt").exists())
+            .andExpect(jsonPath("$.data.items[0].previewUrl").doesNotExist())
+            .andExpect(jsonPath("$.data.items[0].originalUrl").doesNotExist())
             .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
             .andExpect(jsonPath("$.data.hasNext").doesNotExist())
             .andExpect(jsonPath("$.data.totalCount").doesNotExist());
 
         verify(getMediaListService).list(
             ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL);
+    }
+
+    @Test
+    void 전체_목록의_동영상은_원본을_displayUrl로_반환한다() throws Exception {
+        given(getMediaListService.list(ROOM_ID, null, MEMBER_ID, MediaUploaderFilter.ALL))
+            .willReturn(List.of(videoWithOriginal()));
+
+        getAllMedia("")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items[0].type").value("VIDEO"))
+            .andExpect(jsonPath("$.data.items[0].displayUrl").value(ORIGINAL_URL))
+            .andExpect(jsonPath("$.data.items[0].displayUrlExpiresAt").exists());
     }
 
     @Test
@@ -313,10 +327,8 @@ class MediaQueryControllerTest {
 
         getMedia(MEDIA_ID)
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.previewUrl").value(PREVIEW_URL))
-            .andExpect(jsonPath("$.data.previewUrlExpiresAt").exists())
-            .andExpect(jsonPath("$.data.originalUrl").value(nullValue()))
-            .andExpect(jsonPath("$.data.originalUrlExpiresAt").value(nullValue()));
+            .andExpect(jsonPath("$.data.displayUrl").value(PREVIEW_URL))
+            .andExpect(jsonPath("$.data.displayUrlExpiresAt").exists());
     }
 
     // 이 기능 이전에 올라온 사진과 GIF 는 프리뷰가 없어 원본으로 내려앉는다.
@@ -327,10 +339,8 @@ class MediaQueryControllerTest {
 
         getMedia(MEDIA_ID)
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.previewUrl").value(nullValue()))
-            .andExpect(jsonPath("$.data.previewUrlExpiresAt").value(nullValue()))
-            .andExpect(jsonPath("$.data.originalUrl").value(ORIGINAL_URL))
-            .andExpect(jsonPath("$.data.originalUrlExpiresAt").exists());
+            .andExpect(jsonPath("$.data.displayUrl").value(ORIGINAL_URL))
+            .andExpect(jsonPath("$.data.displayUrlExpiresAt").exists());
     }
 
     // EXIF 가 없는 사진이 훨씬 많다. 그때도 응답 구조가 흔들리면 안 된다.
@@ -368,16 +378,15 @@ class MediaQueryControllerTest {
     // 아직 워커가 만들지 않았거나 영상이라 썸네일·원본이 없는 경우다.
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
-            null, null, null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
-    // 목록 응답은 썸네일만 싣는다. 프리뷰와 원본은 상세에서만 채워진다.
+    // 목록과 상세가 같은 표시용 URL 계약을 쓴다.
     private MediaDetail listItem() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
-            null, null,
-            null, null,
+            PREVIEW_URL, Instant.now().plusSeconds(1800),
             1200, 900, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
@@ -387,7 +396,6 @@ class MediaQueryControllerTest {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
             PREVIEW_URL, Instant.now().plusSeconds(1800),
-            null, null,
             1200, 900, null,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
@@ -396,9 +404,16 @@ class MediaQueryControllerTest {
     private MediaDetail detailFallingBackToOriginal() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
-            null, null,
             ORIGINAL_URL, Instant.now().plusSeconds(300),
             1200, 900, null,
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+    }
+
+    private MediaDetail videoWithOriginal() {
+        return new MediaDetail(MEDIA_ID, "VIDEO", "영상.mp4", "video/mp4", 2048L,
+            THUMBNAIL_URL, Instant.now().plusSeconds(1800),
+            ORIGINAL_URL, Instant.now().plusSeconds(300),
+            1920, 1080, 12,
             List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
     }
 
