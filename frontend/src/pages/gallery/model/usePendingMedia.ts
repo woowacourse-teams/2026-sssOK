@@ -17,9 +17,31 @@ export const usePendingMedia = () => {
     setUploadSlots((current) => current.filter((item) => !mediaIds.includes(item.mediaId)));
   }, []);
 
+  const addPendingMediaToFolder = useCallback((mediaIds: number[], folderId: number) => {
+    setUploadSlots((current) =>
+      current.map((item) =>
+        mediaIds.includes(item.mediaId) && !item.folderIds.includes(folderId)
+          ? { ...item, folderIds: [...item.folderIds, folderId] }
+          : item,
+      ),
+    );
+  }, []);
+
+  const removePendingMediaFromFolder = useCallback((mediaIds: number[], folderId: number) => {
+    setUploadSlots((current) =>
+      current.map((item) =>
+        mediaIds.includes(item.mediaId)
+          ? { ...item, folderIds: item.folderIds.filter((id) => id !== folderId) }
+          : item,
+      ),
+    );
+  }, []);
+
   return {
     uploadSlots,
     addPendingMedia,
     removePendingMedia,
+    addPendingMediaToFolder,
+    removePendingMediaFromFolder,
   };
 };
