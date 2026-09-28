@@ -29,7 +29,26 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - '.github/backend-version-intents/**'
+              - '.github/scripts/*backend-version*.sh'
               - '.github/workflows/backend-ci.yml'
+
+  version-check:
+    name: 백엔드 버전 검증
+    # 작업·릴리스 준비 PR이 모이는 develop에서만 의도 파일 규칙을 검사한다.
+    # main/deploy 승격 PR은 release-check.yml이 직전 운영 태그 기준으로 최종 검증한다.
+    if: github.event_name == 'pull_request' && github.base_ref == 'develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 작업·릴리스 버전 규칙 검증
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash .github/scripts/check-backend-version-pr.sh "$BASE_SHA"
 
   build:
     name: 빌드 및 테스트
@@ -87,7 +106,7 @@ jobs:
 
   ci-ok:
     name: 백엔드 CI 결과
-    needs: [ changes, build ]
+    needs: [ changes, version-check, build ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -96,8 +115,9 @@ jobs:
       # 안 생겨 머지가 막힌다.
       - name: 결과 판정
         run: |
-          if [ "${{ needs.build.result }}" = "failure" ]; then
+          if [ "${{ needs.build.result }}" = "failure" ] || \
+             { [ "${{ needs.version-check.result }}" != "success" ] && [ "${{ needs.version-check.result }}" != "skipped" ]; }; then
             echo "::error::백엔드 빌드/테스트 실패"
             exit 1
           fi
-          echo "통과 (backend 변경 여부: ${{ needs.changes.outputs.backend }}, build 결과: ${{ needs.build.result }})"
+          echo "통과 (backend 변경 여부: ${{ needs.changes.outputs.backend }}, 버전 검증: ${{ needs.version-check.result }}, build 결과: ${{ needs.build.result }})"
