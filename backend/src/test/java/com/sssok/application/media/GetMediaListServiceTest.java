@@ -454,7 +454,7 @@ class GetMediaListServiceTest {
     // 프리뷰 URL 은 상세 조회 시점에만 내준다. 목록에까지 실으면 타일 30장 가운데 실제로 열지도
     // 않을 사진의 1600px 요청까지 열어 주게 된다 (#291 완료 조건).
     @Test
-    void 목록은_썸네일만_싣고_프리뷰와_원본은_내려주지_않는다() {
+    void 목록도_사진_프리뷰를_표시용_URL로_조립한다() {
         StoredFile file = save(ROOM_ID, UploadStatus.PROCESSING, Instant.now());
         file.completeProcessing(ProcessedMedia.ofImage(
             file.getStorageKey().thumbnail("webp"), file.getStorageKey().preview("webp"),
@@ -464,10 +464,8 @@ class GetMediaListServiceTest {
         MediaDetail media = getMediaListService.list(ROOM_ID, null).getFirst();
 
         assertThat(media.thumbnailUrl()).isNotNull();
-        assertThat(media.previewUrl()).isNull();
-        assertThat(media.previewUrlExpiresAt()).isNull();
-        assertThat(media.originalUrl()).isNull();
-        assertThat(media.originalUrlExpiresAt()).isNull();
+        assertThat(media.displayUrl()).isNotNull();
+        assertThat(media.displayUrlExpiresAt()).isNotNull();
     }
 
     private StoredFile save(Long roomId, UploadStatus status, Instant createdAt) {
