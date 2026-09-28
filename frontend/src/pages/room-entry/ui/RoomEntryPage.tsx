@@ -14,12 +14,6 @@ const ERROR_MESSAGE: Record<string, string> = {
   ROOM_NOT_FOUND: "존재하지 않는 방이에요.",
 };
 
-const STATUS_MESSAGE = {
-  EXPIRED: "만료된 방이에요.",
-  DELETED: "삭제된 방이에요.",
-  PURGED: "영구 삭제된 방이에요.",
-} as const;
-
 const HomeLink = () => <Link to={ROUTES.home}>홈으로 돌아가기</Link>;
 
 /**
@@ -105,16 +99,8 @@ export const RoomEntryPage = () => {
     );
   }
 
-  // 만료·삭제된 방도 조회는 성공한다. 방 이름을 보여줄 수 있어 안내가 친절해진다.
   if (room.status !== "ACTIVE") {
-    return (
-      <main>
-        <p>
-          {room.name} — {STATUS_MESSAGE[room.status]}
-        </p>
-        <HomeLink />
-      </main>
-    );
+    return <Navigate to={ROUTES.closedRoom} replace />;
   }
 
   if (auth.isError) {

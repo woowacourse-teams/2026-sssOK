@@ -54,7 +54,7 @@ export const GalleryPage = () => {
   }
 
   if (roomQuery.data.status !== "ACTIVE") {
-    return <Navigate to={ROUTES.roomEntry(code)} replace />;
+    return <Navigate to={ROUTES.closedRoom} replace />;
   }
 
   return (
