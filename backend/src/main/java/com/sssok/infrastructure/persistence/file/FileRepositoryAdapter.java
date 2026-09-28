@@ -74,18 +74,20 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
-    public List<StoredFile> findAllByRoomIdAndIdNotIn(Long roomId, Collection<Long> ids) {
-        if (ids.isEmpty()) {
-            return findAllByRoomId(roomId);
-        }
-        return jpaRepository.findAllByRoomIdAndIdNotIn(roomId, ids).stream().map(this::toDomain).toList();
-    }
-
-    @Override
     public List<StoredFile> findAllByRoomIdAndStatusInOrderByNewest(
         Long roomId, Collection<UploadStatus> statuses) {
         return jpaRepository
             .findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(roomId, names(statuses)).stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<StoredFile> findAllByRoomIdAndUploaderOrderByNewest(
+        Long roomId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.findAllByRoomIdAndUploaderOrderByNewest(
+                roomId, names(statuses), requesterId, uploader.name()).stream()
             .map(this::toDomain)
             .toList();
     }
@@ -138,6 +140,16 @@ public class FileRepositoryAdapter implements FileRepository {
         return jpaRepository
             .findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(roomId, ids, names(statuses))
             .stream()
+            .map(this::toDomain)
+            .toList();
+    }
+
+    @Override
+    public List<StoredFile> findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
+        Long roomId, Long folderId, Collection<UploadStatus> statuses, Long requesterId,
+        MediaUploaderFilter uploader) {
+        return jpaRepository.findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
+                roomId, folderId, names(statuses), requesterId, uploader.name()).stream()
             .map(this::toDomain)
             .toList();
     }
@@ -222,6 +234,7 @@ public class FileRepositoryAdapter implements FileRepository {
             file.getReservedAt(),
             file.getRetryCount(),
             file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
+            file.getPreviewKey() == null ? null : file.getPreviewKey().value(),
             file.getWidth(),
             file.getHeight(),
             file.getDurationSeconds(),
@@ -246,6 +259,7 @@ public class FileRepositoryAdapter implements FileRepository {
             entity.getReservedAt(),
             entity.getRetryCount(),
             entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
+            entity.getPreviewKey() == null ? null : new StorageKey(entity.getPreviewKey()),
             entity.getWidth(),
             entity.getHeight(),
             entity.getDurationSeconds(),

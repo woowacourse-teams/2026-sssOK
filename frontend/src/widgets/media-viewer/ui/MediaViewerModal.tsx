@@ -19,17 +19,12 @@ import { colors } from "@/shared/styles/tokens";
 
 interface MediaViewerModalProps {
   items: GalleryItem[];
-  totalCount: number;
   activeMediaId: number;
   roomId: number;
   userId: number;
   hostId: number;
   token: string;
   selectedPhotoIds: number[];
-  hasNextPage: boolean;
-  isFetchingNextPage: boolean;
-  isNextPageError: boolean;
-  onLoadNextPage: () => void;
   onChange: (mediaId: number) => void;
   onClose: () => void;
   onToggle: (mediaId: number) => void;
@@ -50,17 +45,12 @@ const formatDate = (value: string) => {
 
 export const MediaViewerModal = ({
   items,
-  totalCount,
   activeMediaId,
   roomId,
   userId,
   hostId,
   token,
   selectedPhotoIds,
-  hasNextPage,
-  isFetchingNextPage,
-  isNextPageError,
-  onLoadNextPage,
   onChange,
   onClose,
   onToggle,
@@ -68,41 +58,14 @@ export const MediaViewerModal = ({
 }: MediaViewerModalProps) => {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const moveAfterLoading = useRef(false);
   const index = items.findIndex((item) => item.mediaId === activeMediaId);
   const item = items[index];
   const previous = items[index - 1];
   const next = items[index + 1];
 
   const moveNext = () => {
-    if (next) {
-      onChange(next.mediaId);
-      if (!items[index + 2] && hasNextPage && !isFetchingNextPage) onLoadNextPage();
-      return;
-    }
-    if (hasNextPage && !isFetchingNextPage) {
-      moveAfterLoading.current = true;
-      onLoadNextPage();
-    }
+    if (next) onChange(next.mediaId);
   };
-
-  useEffect(() => {
-    if (!moveAfterLoading.current || isFetchingNextPage) return;
-    if (isNextPageError) {
-      moveAfterLoading.current = false;
-      return;
-    }
-    if (next) {
-      moveAfterLoading.current = false;
-      onChange(next.mediaId);
-      return;
-    }
-    if (hasNextPage) {
-      onLoadNextPage();
-      return;
-    }
-    moveAfterLoading.current = false;
-  }, [hasNextPage, isFetchingNextPage, isNextPageError, next, onChange, onLoadNextPage]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -110,6 +73,7 @@ export const MediaViewerModal = ({
     const overflow = document.body.style.overflow;
 
     dialog?.showModal();
+    dialog?.focus();
     document.body.style.overflow = "hidden";
 
     return () => {
@@ -122,6 +86,7 @@ export const MediaViewerModal = ({
   return createPortal(
     <Dialog
       ref={dialogRef}
+      tabIndex={-1}
       aria-label="사진 크게 보기"
       onCancel={(event) => {
         event.preventDefault();
@@ -132,18 +97,18 @@ export const MediaViewerModal = ({
           event.preventDefault();
           onChange(previous.mediaId);
         }
-        if (event.key === "ArrowRight" && (next || hasNextPage)) {
+        if (event.key === "ArrowRight" && next) {
           event.preventDefault();
           moveNext();
         }
       }}
     >
       <Header>
-        <BackButton autoFocus type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
+        <BackButton type="button" aria-label="갤러리로 돌아가기" onClick={onClose}>
           <HiArrowLeft size={20} />
         </BackButton>
         <Counter aria-live="polite">
-          {index < 0 ? "사진 보기" : `${index + 1} / ${totalCount}`}
+          {index < 0 ? "사진 보기" : `${index + 1} / ${items.length}`}
         </Counter>
         <SelectionButton
           type="button"
@@ -179,11 +144,11 @@ export const MediaViewerModal = ({
               const dx = touch.clientX - start.x;
               const dy = touch.clientY - start.y;
               if (Math.abs(dx) < 60 || Math.abs(dx) <= Math.abs(dy)) return;
-              if (dx < 0 && (next || hasNextPage)) moveNext();
+              if (dx < 0 && next) moveNext();
               if (dx > 0 && previous) onChange(previous.mediaId);
             }}
           >
-            <ViewerImage key={`${item.mediaId}:${item.type}`} item={item} />
+            <ViewerMedia key={`${item.mediaId}:${item.type}`} item={item} />
             <PreviousButton
               type="button"
               aria-label="이전 사진"
@@ -192,12 +157,7 @@ export const MediaViewerModal = ({
             >
               <HiChevronLeft />
             </PreviousButton>
-            <NextButton
-              type="button"
-              aria-label="다음 사진"
-              disabled={(!next && !hasNextPage) || isFetchingNextPage}
-              onClick={moveNext}
-            >
+            <NextButton type="button" aria-label="다음 사진" disabled={!next} onClick={moveNext}>
               <HiChevronRight />
             </NextButton>
           </Stage>
@@ -218,6 +178,13 @@ export const MediaViewerModal = ({
     </Dialog>,
     document.body,
   );
+};
+
+const ViewerMedia = ({ item }: { item: GalleryItem }) => {
+  const isVideo =
+    item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
+
+  return isVideo ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
 };
 
 const ViewerImage = ({ item }: { item: GalleryItem }) => {
@@ -259,6 +226,32 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
       $visible={isVisible}
       onLoad={() => setIsVisible(true)}
       onError={() => setIsVisible(false)}
+    />
+  );
+};
+
+const ViewerVideo = ({ item }: { item: GalleryItem }) => {
+  const [localUrl] = useState(() =>
+    item.type === "local" ? URL.createObjectURL(item.file) : null,
+  );
+  const source = item.type === "server" ? item.media.originalUrl : localUrl;
+  const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
+
+  useEffect(() => {
+    return () => {
+      if (localUrl !== null) URL.revokeObjectURL(localUrl);
+    };
+  }, [localUrl]);
+
+  return (
+    <ViewerVideoPlayer
+      src={source ?? undefined}
+      poster={poster}
+      controls
+      controlsList="nodownload noremoteplayback nofullscreen noplaybackrate"
+      disablePictureInPicture
+      disableRemotePlayback
+      playsInline
     />
   );
 };
@@ -364,6 +357,10 @@ const Dialog = styled.dialog`
     flex-direction: column;
   }
 
+  &:focus {
+    outline: none;
+  }
+
   &::backdrop {
     background: #000;
   }
@@ -441,6 +438,16 @@ const ViewerPhoto = styled.img<{ $visible: boolean }>`
   object-position: center;
   visibility: ${({ $visible }) => ($visible ? "visible" : "hidden")};
   user-select: none;
+`;
+
+const ViewerVideoPlayer = styled.video`
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 `;
 
 const SlideButton = styled(BackButton)`

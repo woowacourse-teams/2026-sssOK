@@ -1,6 +1,5 @@
+import { selectedMediaBody } from "@/entities/media";
 import { apiClient } from "@/shared/api";
-import type { MediaUploaderFilter } from "@/entities/media";
-import type { MediaSelectionRequest } from "@/features/select-media";
 
 interface AddMediaToFolderResponse {
   updatedCount: number;
@@ -15,20 +14,18 @@ interface AddMediaToFolderResponse {
 
 export const addMediaToFolder = ({
   roomId,
-  selection,
+  mediaIds,
   folderId,
-  uploader,
   token,
 }: {
   roomId: number;
-  selection: MediaSelectionRequest;
+  mediaIds: number[];
   folderId: number;
-  uploader?: MediaUploaderFilter;
   token: string;
 }) =>
   apiClient<AddMediaToFolderResponse>(`/rooms/${roomId}/media/folders`, {
     method: "PUT",
     token,
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ selection, folderId, uploader }),
+    body: JSON.stringify({ ...selectedMediaBody(mediaIds), folderId }),
   });

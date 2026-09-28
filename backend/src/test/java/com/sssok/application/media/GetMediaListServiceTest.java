@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -9,6 +10,7 @@ import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
@@ -325,6 +327,50 @@ class GetMediaListServiceTest {
     }
 
     @Test
+    void 전체_목록의_ME는_요청자가_올린_미디어만_조회한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        StoredFile mine = save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        save(ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+
+        List<MediaDetail> media = getMediaListService.list(
+            ROOM_ID, null, uploaderId, MediaUploaderFilter.ME);
+
+        assertThat(media).extracting(MediaDetail::mediaId).containsExactly(mine.getId());
+    }
+
+    @Test
+    void 전체_목록의_OTHERS는_요청자가_올리지_않은_미디어만_조회한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        StoredFile others = save(
+            ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+
+        List<MediaDetail> media = getMediaListService.list(
+            ROOM_ID, null, uploaderId, MediaUploaderFilter.OTHERS);
+
+        assertThat(media).extracting(MediaDetail::mediaId).containsExactly(others.getId());
+    }
+
+    @Test
+    void 전체_목록에_폴더와_업로더_필터를_함께_적용한다() {
+        Long otherUploaderId = memberRepository.save(
+            Member.register(new Nickname("다른사람"), Instant.now())).getId();
+        StoredFile mine = save(ROOM_ID, uploaderId, UploadStatus.READY, Instant.now());
+        StoredFile others = save(
+            ROOM_ID, otherUploaderId, UploadStatus.READY, Instant.now().plusSeconds(1));
+        Folder folder = createFolderService.create(ROOM_ID, "전체 목록 업로더 필터");
+        attach(folder.getId(), mine.getId());
+        attach(folder.getId(), others.getId());
+
+        List<MediaDetail> media = getMediaListService.list(
+            ROOM_ID, folder.getId(), uploaderId, MediaUploaderFilter.ME);
+
+        assertThat(media).extracting(MediaDetail::mediaId).containsExactly(mine.getId());
+    }
+
+    @Test
     void 업로더_이름을_채워서_반환한다() {
         save(ROOM_ID, UploadStatus.READY, Instant.now());
 
@@ -405,13 +451,32 @@ class GetMediaListServiceTest {
             .isInstanceOf(FolderNotFoundException.class);
     }
 
+    // 프리뷰 URL 은 상세 조회 시점에만 내준다. 목록에까지 실으면 타일 30장 가운데 실제로 열지도
+    // 않을 사진의 1600px 요청까지 열어 주게 된다 (#291 완료 조건).
+    @Test
+    void 목록은_썸네일만_싣고_프리뷰와_원본은_내려주지_않는다() {
+        StoredFile file = save(ROOM_ID, UploadStatus.PROCESSING, Instant.now());
+        file.completeProcessing(ProcessedMedia.ofImage(
+            file.getStorageKey().thumbnail("webp"), file.getStorageKey().preview("webp"),
+            1200, 900, null, null));
+        fileRepository.save(file);
+
+        MediaDetail media = getMediaListService.list(ROOM_ID, null).getFirst();
+
+        assertThat(media.thumbnailUrl()).isNotNull();
+        assertThat(media.previewUrl()).isNull();
+        assertThat(media.previewUrlExpiresAt()).isNull();
+        assertThat(media.originalUrl()).isNull();
+        assertThat(media.originalUrlExpiresAt()).isNull();
+    }
+
     private StoredFile save(Long roomId, UploadStatus status, Instant createdAt) {
         return save(roomId, uploaderId, status, createdAt);
     }
 
     private StoredFile save(Long roomId, Long uploaderId, UploadStatus status, Instant createdAt) {
         StoredFile file = StoredFile.reserve(
-            roomId, uploaderId, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt);
+            roomId, uploaderId, "사진.jpg", "image/jpeg", new FileSize(1024), createdAt, SIZE_POLICY);
         switch (status) {
             case PROCESSING -> file.startProcessing();
             case READY -> {
