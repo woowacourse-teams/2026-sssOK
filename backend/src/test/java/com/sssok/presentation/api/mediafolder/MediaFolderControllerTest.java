@@ -110,10 +110,32 @@ class MediaFolderControllerTest {
 
     @Test
     void folderId가_없으면_400을_반환한다() throws Exception {
-        given(addMediaToFoldersService.add(anyLong(), anyList(), any()))
-            .willThrow(new InvalidMediaFolderParamException());
         addToFolders("{\"mediaIds\":[1]}")
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 담기_본문이_없으면_400_INVALID_REQUEST_BODY() throws Exception {
+        mockMvc.perform(put("/api/v1/rooms/{roomId}/media/folders", ROOM_ID)
+                .header("Authorization", BEARER)
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void folderId_타입이_다르면_400_INVALID_REQUEST_BODY() throws Exception {
+        addToFolders("{\"mediaIds\":[1],\"folderId\":\"맛집\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void 담기의_mediaIds에_null이_섞여_있으면_400_INVALID_PARAM() throws Exception {
+        addToFolders("{\"mediaIds\":[1,null],\"folderId\":31}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
 
     @Test
@@ -140,9 +162,16 @@ class MediaFolderControllerTest {
 
     @Test
     void 꺼내기에서_mediaIds가_없으면_400을_반환한다() throws Exception {
-        given(removeMediaFromFoldersService.remove(anyLong(), any(), anyList()))
-            .willThrow(new InvalidMediaFolderParamException());
-        removeFromFolders("{\"folderIds\":[31]}").andExpect(status().isBadRequest());
+        removeFromFolders("{\"folderIds\":[31]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 꺼내기의_folderIds에_null이_섞여_있으면_400_INVALID_PARAM() throws Exception {
+        removeFromFolders("{\"mediaIds\":[1],\"folderIds\":[31,null]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
     }
 
     @Test
