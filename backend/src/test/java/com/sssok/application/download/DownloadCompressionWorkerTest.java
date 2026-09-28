@@ -60,8 +60,12 @@ class DownloadCompressionWorkerTest {
     FileStoragePort fileStoragePort;
 
     private Long media(String fileName, byte[] content) {
+        return media(fileName, "image/jpeg", content);
+    }
+
+    private Long media(String fileName, String mimeType, byte[] content) {
         StoredFile file = StoredFile.reserve(
-            ROOM_ID, 1L, fileName, "image/jpeg", new FileSize(content.length), Instant.now(), SIZE_POLICY);
+            ROOM_ID, 1L, fileName, mimeType, new FileSize(content.length), Instant.now(), SIZE_POLICY);
         Long mediaId = fileRepository.save(file).getId();
         given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))
             .willReturn(new ByteArrayInputStream(content));
@@ -95,6 +99,31 @@ class DownloadCompressionWorkerTest {
         assertThat(updated.getZipStorageKey()).isNotNull();
         assertThat(zipEntries(captured.toByteArray())).containsEntry("a.jpg", "hello-a")
             .containsEntry("b.jpg", "hello-b");
+    }
+
+    @Test
+    void MP4_MOV_WEBM_원본_바이트를_zip에_그대로_보존한다() throws IOException {
+        byte[] mp4 = {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x18,
+            (byte) 0x66, (byte) 0x74, (byte) 0x79, (byte) 0x70};
+        byte[] mov = {(byte) 0xFF, (byte) 0xD8, (byte) 0x00, (byte) 0x7F};
+        byte[] webm = {(byte) 0x1A, (byte) 0x45, (byte) 0xDF, (byte) 0xA3};
+        Long mp4Id = media("회식 영상.mp4", "video/mp4", mp4);
+        Long movId = media("아이폰 영상.mov", "video/quicktime", mov);
+        Long webmId = media("browser-recording.webm", "video/webm", webm);
+        DownloadJob job = job(List.of(mp4Id, movId, webmId), mp4.length + mov.length + webm.length);
+
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+            .willReturn(capturing(captured));
+
+        downloadCompressionWorker.compress(job.getId());
+
+        DownloadJob updated = downloadJobRepository.findById(job.getId()).orElseThrow();
+        Map<String, byte[]> entries = zipEntryBytes(captured.toByteArray());
+        assertThat(updated.getStatus()).isEqualTo(DownloadJobStatus.READY);
+        assertThat(entries.get("회식 영상.mp4")).containsExactly(mp4);
+        assertThat(entries.get("아이폰 영상.mov")).containsExactly(mov);
+        assertThat(entries.get("browser-recording.webm")).containsExactly(webm);
     }
 
     @Test
@@ -181,10 +210,17 @@ class DownloadCompressionWorkerTest {
 
     private Map<String, String> zipEntries(byte[] zipBytes) throws IOException {
         Map<String, String> entries = new LinkedHashMap<>();
+        zipEntryBytes(zipBytes).forEach(
+            (name, content) -> entries.put(name, new String(content, StandardCharsets.UTF_8)));
+        return entries;
+    }
+
+    private Map<String, byte[]> zipEntryBytes(byte[] zipBytes) throws IOException {
+        Map<String, byte[]> entries = new LinkedHashMap<>();
         try (ZipInputStream zipIn = new ZipInputStream(new ByteArrayInputStream(zipBytes))) {
             ZipEntry entry;
             while ((entry = zipIn.getNextEntry()) != null) {
-                entries.put(entry.getName(), new String(zipIn.readAllBytes(), StandardCharsets.UTF_8));
+                entries.put(entry.getName(), zipIn.readAllBytes());
             }
         }
         return entries;
