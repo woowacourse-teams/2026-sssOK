@@ -220,7 +220,7 @@ export const MediaDetailPage = () => {
         onRetry={() => void roomQuery.refetch()}
       />
     );
-  if (roomQuery.data.status !== "ACTIVE") return <Navigate to={ROUTES.roomEntry(code)} replace />;
+  if (roomQuery.data.status !== "ACTIVE") return <Navigate to={ROUTES.closedRoom} replace />;
 
   return (
     <MediaDetailContent
