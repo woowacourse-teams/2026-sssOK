@@ -36,3 +36,9 @@ logging:
   level:
     root: info
     com.sssok: info
+
+  # 수집 대상 환경이라 로그를 한 줄 JSON 으로 낸다. 필드 규격은 SssOkJsonLogFormatter 가 갖는다.
+  # local 은 사람이 읽어야 하므로 이 설정 없이 평문 그대로 둔다.
+  structured:
+    format:
+      console: com.sssok.common.logging.SssOkJsonLogFormatter
