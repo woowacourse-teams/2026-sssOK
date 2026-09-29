@@ -11,7 +11,7 @@ const photo = (mediaId: number, folderIds: number[], uploaderId = 1): MediaItem 
   mimeType: "image/jpeg",
   size: 100,
   thumbnailUrl: "/thumbnail.jpg",
-  originalUrl: "/original.jpg",
+  displayUrl: "/original.jpg",
   width: 100,
   height: 100,
   duration: null,
@@ -94,6 +94,20 @@ describe("갤러리 목록에서 파생하는 개수", () => {
     const items = mergeGalleryItems([{ ...photo(1, [20]), thumbnailUrl: "" }], [preview(1, [])]);
 
     expect(items).toEqual([{ ...preview(1, []), folderIds: [20] }]);
+  });
+
+  it("처리 중 서버 미리보기도 준비된 서버 사진으로 교체한다", () => {
+    const media = photo(1, [10], 2);
+    const processing: GalleryItem = {
+      type: "server",
+      mediaId: media.mediaId,
+      media: { ...media, thumbnailUrl: null, width: null, height: null, status: "PROCESSING" },
+      folderIds: media.folderIds,
+    };
+
+    expect(mergeGalleryItems([media], [processing])).toEqual([
+      { type: "server", mediaId: media.mediaId, media, folderIds: media.folderIds },
+    ]);
   });
 
   it("삭제가 원본 목록에 반영되면 전체와 폴더 개수도 줄어든다", () => {

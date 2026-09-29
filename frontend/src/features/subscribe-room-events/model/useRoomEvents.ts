@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import type { MediaItem } from "@/entities/media";
+import type { Media, MediaItem } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
 import type { MediaFoldersUpdatedEvent } from "./roomEventTypes";
 import { updateMediaReadyCache } from "./updateMediaReadyCache";
@@ -11,6 +11,7 @@ interface UseRoomEventsParams {
   roomId: number;
   userId: number;
   token: string;
+  onMediaCreated?: (media: Media) => void;
   onMediaDeleted?: (mediaIds: number[]) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
@@ -23,16 +24,22 @@ export const useRoomEvents = ({
   roomId,
   userId,
   token,
+  onMediaCreated,
   onMediaDeleted,
   onFoldersChanged,
   onFolderDeleted,
   onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
+  const onMediaCreatedRef = useRef(onMediaCreated);
   const onMediaDeletedRef = useRef(onMediaDeleted);
   const onFoldersChangedRef = useRef(onFoldersChanged);
   const onFolderDeletedRef = useRef(onFolderDeleted);
   const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
+
+  useEffect(() => {
+    onMediaCreatedRef.current = onMediaCreated;
+  }, [onMediaCreated]);
 
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
@@ -55,6 +62,11 @@ export const useRoomEvents = ({
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
+
+    const handleMediaCreated = (event: MessageEvent<string>) => {
+      const media = JSON.parse(event.data) as Media;
+      onMediaCreatedRef.current?.(media);
+    };
 
     const handleMediaReady = (event: MessageEvent<string>) => {
       const media = JSON.parse(event.data) as MediaItem;
@@ -89,6 +101,7 @@ export const useRoomEvents = ({
       onMediaFoldersUpdatedRef.current?.(payload);
     };
 
+    eventSource.addEventListener("media.created", handleMediaCreated);
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
     FOLDER_CHANGE_EVENTS.forEach((type) =>
@@ -98,6 +111,7 @@ export const useRoomEvents = ({
     eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
 
     return () => {
+      eventSource.removeEventListener("media.created", handleMediaCreated);
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
       FOLDER_CHANGE_EVENTS.forEach((type) =>

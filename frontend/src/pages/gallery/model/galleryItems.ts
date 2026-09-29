@@ -11,7 +11,7 @@ export const mergeGalleryItems = (photos: MediaItem[], uploadSlots: GalleryItem[
     if (!media.thumbnailUrl?.trim()) {
       const preview = itemsById.get(media.mediaId);
 
-      if (preview?.type === "local") {
+      if (preview) {
         itemsById.set(media.mediaId, { ...preview, folderIds: media.folderIds });
       }
       continue;
