@@ -36,6 +36,30 @@ const serverItem: GalleryItem = {
 };
 
 describe("GalleryMediaCard", () => {
+  it("처리 중 사진은 media.created의 displayUrl로 표시한다", () => {
+    const processingItem: GalleryItem = {
+      type: "server",
+      mediaId: media.mediaId,
+      media: {
+        ...media,
+        thumbnailUrl: null,
+        width: null,
+        height: null,
+        status: "PROCESSING",
+      },
+      folderIds: media.folderIds,
+    };
+
+    render(
+      <GalleryMediaCard item={processingItem} userId={2} isSelected={false} onToggle={jest.fn()} />,
+    );
+
+    expect(screen.getByRole("img", { name: media.fileName })).toHaveAttribute(
+      "src",
+      media.displayUrl,
+    );
+  });
+
   it("서버 썸네일이 준비될 때까지 같은 카드에서 로컬 미리보기를 유지한다", () => {
     const originalImage = globalThis.Image;
     const originalCreateObjectURL = URL.createObjectURL;
