@@ -58,7 +58,7 @@ export interface MediaList {
 /** 갤러리와 뷰어가 공유하는 사진 한 자리. */
 export type GalleryItem =
   | { mediaId: number; type: "local"; file: File; folderIds: number[] }
-  | { mediaId: number; type: "server"; media: MediaItem; folderIds: number[] };
+  | { mediaId: number; type: "server"; media: Media; folderIds: number[] };
 
 /** 단일 조회에는 목록 항목에 촬영 정보·삭제 권한이 더해져 내려온다. */
 export interface MediaDetail extends Omit<Media, "thumbnailUrl"> {

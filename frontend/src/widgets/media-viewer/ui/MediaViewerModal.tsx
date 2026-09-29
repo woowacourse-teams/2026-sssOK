@@ -226,7 +226,7 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
     item.type === "local" ? URL.createObjectURL(item.file) : null,
   );
   const [serverUrl, setServerUrl] = useState(() =>
-    item.type === "server" ? item.media.thumbnailUrl : "",
+    item.type === "local" ? "" : (item.media.thumbnailUrl ?? item.media.displayUrl ?? ""),
   );
   const [isVisible, setIsVisible] = useState(true);
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
@@ -240,12 +240,15 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
   useEffect(() => {
     if (item.type !== "server") return;
 
+    const displayUrl = item.media.displayUrl;
+    if (displayUrl === null) return;
+
     const display = new window.Image();
     display.onload = () => {
-      setServerUrl(item.media.displayUrl);
+      setServerUrl(displayUrl);
       setIsVisible(true);
     };
-    display.src = item.media.displayUrl;
+    display.src = displayUrl;
 
     return () => {
       display.onload = null;
@@ -254,7 +257,7 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
 
   return (
     <ViewerPhoto
-      src={localUrl ?? serverUrl}
+      src={(localUrl ?? serverUrl) || undefined}
       alt={fileName}
       draggable={false}
       $visible={isVisible}
@@ -268,8 +271,8 @@ const ViewerVideo = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
     item.type === "local" ? URL.createObjectURL(item.file) : null,
   );
-  const source = item.type === "server" ? item.media.displayUrl : localUrl;
-  const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
+  const source = item.type === "local" ? localUrl : item.media.displayUrl;
+  const poster = item.type === "server" ? (item.media.thumbnailUrl ?? undefined) : undefined;
 
   useEffect(() => {
     return () => {
@@ -303,7 +306,7 @@ const ViewerFooter = ({
   canDelete: boolean;
   onDelete: () => void;
 }) => {
-  const media = item.type === "server" ? item.media : undefined;
+  const media = item.type === "local" ? undefined : item.media;
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
   const downloadTarget =
     item.type === "local"

@@ -31,7 +31,11 @@ const formatDuration = (duration: number) => {
 };
 
 const createImageUrl = (item: GalleryItem) => {
-  if (item.type === "server") return item.media.thumbnailUrl;
+  if (item.type === "server") {
+    return (
+      item.media.thumbnailUrl ?? (item.media.type === "IMAGE" ? item.media.displayUrl : null) ?? ""
+    );
+  }
   if (item.file.type.startsWith("video/")) return "";
 
   return URL.createObjectURL(item.file);
@@ -49,12 +53,15 @@ export const GalleryMediaCard = ({
   const [imageUrl, setImageUrl] = useState(initialImageUrl);
 
   useEffect(() => {
-    if (item.type !== "server" || imageUrl === item.media.thumbnailUrl) return;
+    if (item.type !== "server") return;
+
+    const thumbnailUrl = item.media.thumbnailUrl;
+    if (thumbnailUrl === null || imageUrl === thumbnailUrl) return;
 
     const image = new Image();
-    image.src = item.media.thumbnailUrl;
+    image.src = thumbnailUrl;
     image.onload = () => {
-      setImageUrl(item.media.thumbnailUrl);
+      setImageUrl(thumbnailUrl);
       if (localPreviewUrl.current) {
         URL.revokeObjectURL(localPreviewUrl.current);
         localPreviewUrl.current = null;
@@ -77,8 +84,8 @@ export const GalleryMediaCard = ({
   const isMine = item.type === "local" || item.media.uploaderId === userId;
   const isVideo =
     item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
-  const isWaitingForVideoThumbnail = isVideo && !imageUrl;
-  const uploaderName = item.type === "server" ? item.media.uploaderName : "나";
+  const isWaitingForPreview = !imageUrl;
+  const uploaderName = item.type === "local" ? "나" : item.media.uploaderName;
 
   return (
     <Card $selected={isSelected}>
@@ -87,16 +94,16 @@ export const GalleryMediaCard = ({
         onClick={onOpen ?? onToggle}
         aria-label={`${fileName} ${onOpen ? "크게 보기" : "선택하기"}`}
       >
-        {isWaitingForVideoThumbnail ? (
-          <VideoThumbnailPlaceholder aria-label="동영상 썸네일 생성 중">
+        {isWaitingForPreview ? (
+          <MediaPreviewPlaceholder aria-label="미디어 미리보기 생성 중">
             <LoadingSpinner />
-          </VideoThumbnailPlaceholder>
+          </MediaPreviewPlaceholder>
         ) : (
           <>
             <Thumbnail
               src={imageUrl}
               alt={fileName}
-              loading={item.type === "server" ? "lazy" : undefined}
+              loading={item.type === "local" ? undefined : "lazy"}
               draggable={false}
             />
             {isVideo && (
@@ -104,7 +111,7 @@ export const GalleryMediaCard = ({
                 <PlayMark>
                   <HiPlay />
                 </PlayMark>
-                {item.type === "server" && item.media.duration !== null && (
+                {item.type !== "local" && item.media.duration !== null && (
                   <Duration>{formatDuration(item.media.duration)}</Duration>
                 )}
               </>
@@ -134,7 +141,7 @@ const spin = keyframes`
   }
 `;
 
-const VideoThumbnailPlaceholder = styled.span`
+const MediaPreviewPlaceholder = styled.span`
   display: grid;
   width: 100%;
   height: 100%;

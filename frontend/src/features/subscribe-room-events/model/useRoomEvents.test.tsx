@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 
+import type { Media } from "@/entities/media";
 import { useRoomEvents } from "./useRoomEvents";
 
 class FakeEventSource {
@@ -30,6 +31,7 @@ class FakeEventSource {
 }
 
 const renderRoomEvents = (callbacks: {
+  onMediaCreated?: (media: Media) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
 }) => {
@@ -52,6 +54,35 @@ beforeEach(() => {
     value: FakeEventSource,
     configurable: true,
     writable: true,
+  });
+});
+
+const processingMedia: Media = {
+  mediaId: 10,
+  type: "IMAGE",
+  fileName: "photo.jpg",
+  mimeType: "image/jpeg",
+  size: 100,
+  thumbnailUrl: null,
+  displayUrl: "https://example.com/display.jpg",
+  width: null,
+  height: null,
+  duration: null,
+  folderIds: [],
+  uploaderId: 2,
+  uploaderName: "다른 사용자",
+  status: "PROCESSING",
+  uploadedAt: "2026-09-29T00:00:00Z",
+};
+
+describe("useRoomEvents 미디어 생성 이벤트", () => {
+  it("media.created를 받으면 처리 중 미디어를 넘긴다", () => {
+    const onMediaCreated = jest.fn();
+    const { source } = renderRoomEvents({ onMediaCreated });
+
+    act(() => source.emit("media.created", processingMedia));
+
+    expect(onMediaCreated).toHaveBeenCalledWith(processingMedia);
   });
 });
 

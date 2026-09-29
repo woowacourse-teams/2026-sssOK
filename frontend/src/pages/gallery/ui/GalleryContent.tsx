@@ -43,6 +43,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const {
     uploadSlots,
     addPendingMedia,
+    addProcessingMedia,
     removePendingMedia,
     addPendingMediaToFolder,
     removePendingMediaFromFolder,
@@ -126,6 +127,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     roomId: room.roomId,
     userId,
     token: accessToken,
+    onMediaCreated: addProcessingMedia,
     onMediaDeleted: (mediaIds) => {
       removePendingMedia(mediaIds);
       removePhotos(mediaIds);
