@@ -1,35 +1,54 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { photosQueryKey, type MediaItem, type MediaList } from "@/entities/media";
+import type { MediaItem } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
+import type { MediaFoldersUpdatedEvent } from "./roomEventTypes";
+import { updateMediaReadyCache } from "./updateMediaReadyCache";
+import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
 interface UseRoomEventsParams {
   roomId: number;
   userId: number;
   token: string;
-  onMediaReady?: (media: MediaItem) => boolean;
   onMediaDeleted?: (mediaIds: number[]) => void;
+  onFoldersChanged?: () => void;
+  onFolderDeleted?: (folderId: number) => void;
+  onMediaFoldersUpdated?: (event: MediaFoldersUpdatedEvent) => void;
 }
+
+const FOLDER_CHANGE_EVENTS = ["folder.created", "folder.renamed", "folder.deleted"] as const;
 
 export const useRoomEvents = ({
   roomId,
   userId,
   token,
-  onMediaReady,
   onMediaDeleted,
+  onFoldersChanged,
+  onFolderDeleted,
+  onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
-  const onMediaReadyRef = useRef(onMediaReady);
   const onMediaDeletedRef = useRef(onMediaDeleted);
-
-  useEffect(() => {
-    onMediaReadyRef.current = onMediaReady;
-  }, [onMediaReady]);
+  const onFoldersChangedRef = useRef(onFoldersChanged);
+  const onFolderDeletedRef = useRef(onFolderDeleted);
+  const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
 
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
   }, [onMediaDeleted]);
+
+  useEffect(() => {
+    onFoldersChangedRef.current = onFoldersChanged;
+  }, [onFoldersChanged]);
+
+  useEffect(() => {
+    onFolderDeletedRef.current = onFolderDeleted;
+  }, [onFolderDeleted]);
+
+  useEffect(() => {
+    onMediaFoldersUpdatedRef.current = onMediaFoldersUpdated;
+  }, [onMediaFoldersUpdated]);
 
   useEffect(() => {
     const url = new URL(`${API_BASE_URL}/rooms/${roomId}/events`);
@@ -39,44 +58,53 @@ export const useRoomEvents = ({
 
     const handleMediaReady = (event: MessageEvent<string>) => {
       const media = JSON.parse(event.data) as MediaItem;
-      const replacedPending =
-        media.uploaderId === userId && (onMediaReadyRef.current?.(media) ?? false);
-
-      queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) => {
-        if (!current) return current;
-
-        const exists = current.items.some((item) => item.mediaId === media.mediaId);
-        if (exists) {
-          return {
-            ...current,
-            items: current.items.map((item) => (item.mediaId === media.mediaId ? media : item)),
-          };
-        }
-        // 내가 올린 것은 미리보기 자리가 이미 있다. 목록에 또 넣으면 두 장으로 보인다.
-        if (replacedPending) return current;
-
-        return { ...current, items: [media, ...current.items] };
+      updateMediaReadyCache({
+        queryClient,
+        roomId,
+        userId,
+        media,
+        replacedPending: false,
       });
     };
 
     const handleMediaDeleted = (event: MessageEvent<string>) => {
       const { mediaIds } = JSON.parse(event.data) as { mediaIds: number[] };
-      const deletedIds = new Set(mediaIds);
 
-      queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) =>
-        current
-          ? { ...current, items: current.items.filter((item) => !deletedIds.has(item.mediaId)) }
-          : current,
-      );
+      updateMediaDeletedCache({ queryClient, roomId, userId, mediaIds });
       onMediaDeletedRef.current?.(mediaIds);
+    };
+
+    const handleFoldersChanged = () => {
+      onFoldersChangedRef.current?.();
+    };
+
+    const handleFolderDeleted = (event: MessageEvent<string>) => {
+      const { folderId } = JSON.parse(event.data) as { folderId: number };
+      onFolderDeletedRef.current?.(folderId);
+    };
+
+    const handleMediaFoldersUpdated = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as MediaFoldersUpdatedEvent;
+
+      onMediaFoldersUpdatedRef.current?.(payload);
     };
 
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
+    FOLDER_CHANGE_EVENTS.forEach((type) =>
+      eventSource.addEventListener(type, handleFoldersChanged),
+    );
+    eventSource.addEventListener("folder.deleted", handleFolderDeleted);
+    eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
 
     return () => {
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
+      FOLDER_CHANGE_EVENTS.forEach((type) =>
+        eventSource.removeEventListener(type, handleFoldersChanged),
+      );
+      eventSource.removeEventListener("folder.deleted", handleFolderDeleted);
+      eventSource.removeEventListener("media.folders.updated", handleMediaFoldersUpdated);
       eventSource.close();
     };
   }, [queryClient, roomId, userId, token]);

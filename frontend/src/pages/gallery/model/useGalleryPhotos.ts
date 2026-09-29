@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 
 import { usePhotosQuery } from "@/entities/media";
-import type { PhotoFilter } from "@/entities/media";
+import type { GalleryItem, PhotoFilter } from "@/entities/media";
+import type { RoomFolder } from "@/entities/room";
+import { countItemsByFolder, filterGalleryItems, mergeGalleryItems } from "./galleryItems";
+
+const EMPTY_UPLOAD_SLOTS: GalleryItem[] = [];
 
 interface UseGalleryPhotosParams {
   roomId: number;
@@ -9,6 +13,9 @@ interface UseGalleryPhotosParams {
   userId: number;
   selectedFolderId: number | null;
   selectedOption: PhotoFilter;
+  initialTotalCount: number;
+  initialFolders: RoomFolder[];
+  uploadSlots?: GalleryItem[];
 }
 
 /**
@@ -21,6 +28,9 @@ export const useGalleryPhotos = ({
   userId,
   selectedFolderId,
   selectedOption,
+  initialTotalCount,
+  initialFolders,
+  uploadSlots = EMPTY_UPLOAD_SLOTS,
 }: UseGalleryPhotosParams) => {
   const photosQuery = usePhotosQuery({
     roomId,
@@ -28,31 +38,38 @@ export const useGalleryPhotos = ({
     userId,
   });
 
-  const photos = useMemo(() => {
-    // 썸네일 생성 전(null·빈 경로)인 항목은 카드와 선택 대상에서 제외한다.
-    const allPhotos = (photosQuery.data?.items ?? []).filter(
-      (photo) => typeof photo.thumbnailUrl === "string" && photo.thumbnailUrl.trim().length > 0,
+  const allGalleryItems = useMemo(
+    () => mergeGalleryItems(photosQuery.data?.items ?? [], uploadSlots),
+    [photosQuery.data?.items, uploadSlots],
+  );
+  const completedUploadIds = useMemo(() => {
+    const serverMediaIds = new Set(
+      (photosQuery.data?.items ?? [])
+        .filter((item) => item.thumbnailUrl?.trim())
+        .map((item) => item.mediaId),
     );
-    const photosInFolder =
-      selectedFolderId === null
-        ? allPhotos
-        : allPhotos.filter((photo) => photo.folderIds.includes(selectedFolderId));
-
-    if (selectedOption === "mine") {
-      return photosInFolder.filter((photo) => photo.uploaderId === userId);
-    }
-
-    if (selectedOption === "others") {
-      return photosInFolder.filter((photo) => photo.uploaderId !== userId);
-    }
-
-    return photosInFolder;
-  }, [photosQuery.data?.items, selectedFolderId, selectedOption, userId]);
+    return uploadSlots
+      .filter((slot) => serverMediaIds.has(slot.mediaId))
+      .map((slot) => slot.mediaId);
+  }, [photosQuery.data?.items, uploadSlots]);
+  const hasLoadedPhotos = photosQuery.data !== undefined;
+  const folderCounts = useMemo(
+    () =>
+      hasLoadedPhotos
+        ? countItemsByFolder(allGalleryItems)
+        : new Map(initialFolders.map((folder) => [folder.id, folder.photoCount])),
+    [allGalleryItems, hasLoadedPhotos, initialFolders],
+  );
+  const visibleItems = useMemo(
+    () => filterGalleryItems(allGalleryItems, selectedFolderId, selectedOption, userId),
+    [allGalleryItems, selectedFolderId, selectedOption, userId],
+  );
 
   return {
-    photos,
-    /** 필터와 상관없는 방 전체 장수. 목록을 받기 전에는 모른다. */
-    allPhotoCount: photosQuery.data?.items.length,
+    galleryItems: visibleItems,
+    completedUploadIds,
+    totalCount: hasLoadedPhotos ? allGalleryItems.length : initialTotalCount,
+    folderCounts,
     isPending: photosQuery.isPending,
     isError: photosQuery.isError,
   };

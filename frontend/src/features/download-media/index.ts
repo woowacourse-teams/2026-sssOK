@@ -5,4 +5,5 @@
  */
 export { SelectionDownloadBar } from "./ui/SelectionDownloadBar";
 export { downloadMedia } from "./model/downloadMedia";
+export { prefersShareSheet } from "./lib/prefersShareSheet";
 export type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } from "./model/types";

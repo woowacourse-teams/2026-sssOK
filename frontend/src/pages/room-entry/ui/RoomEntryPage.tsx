@@ -7,18 +7,13 @@ import { NameEntryBottomSheet } from "@/features/join-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { type AnalyticsEntrySource, track } from "@/shared/lib";
+import { PageSpinner } from "@/shared/ui/spinner";
 import { useAnonymousAuth } from "../api";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
   ROOM_NOT_FOUND: "존재하지 않는 방이에요.",
 };
-
-const STATUS_MESSAGE = {
-  EXPIRED: "만료된 방이에요.",
-  DELETED: "삭제된 방이에요.",
-  PURGED: "영구 삭제된 방이에요.",
-} as const;
 
 const HomeLink = () => <Link to={ROUTES.home}>홈으로 돌아가기</Link>;
 
@@ -89,7 +84,7 @@ export const RoomEntryPage = () => {
   }, [joinFailureReason, code]);
 
   if (isPending) {
-    return <main>방 정보를 불러오는 중이에요.</main>;
+    return <PageSpinner label="방 정보를 불러오는 중이에요." />;
   }
 
   if (error) {
@@ -105,16 +100,8 @@ export const RoomEntryPage = () => {
     );
   }
 
-  // 만료·삭제된 방도 조회는 성공한다. 방 이름을 보여줄 수 있어 안내가 친절해진다.
   if (room.status !== "ACTIVE") {
-    return (
-      <main>
-        <p>
-          {room.name} — {STATUS_MESSAGE[room.status]}
-        </p>
-        <HomeLink />
-      </main>
-    );
+    return <Navigate to={ROUTES.closedRoom} replace />;
   }
 
   if (auth.isError) {

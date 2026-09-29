@@ -7,6 +7,7 @@ import { CreateRoomPage } from "@/pages/create-room";
 import { GalleryPage } from "@/pages/gallery";
 import { HomePage } from "@/pages/home";
 import { MediaDetailPage } from "@/pages/media-detail";
+import { RoomClosedPage } from "@/pages/room-closed";
 import { RoomEntryPage } from "@/pages/room-entry";
 import { RoomSettingsPage } from "@/pages/room-settings";
 import { ROUTE_PATTERNS, ROUTES } from "@/shared/config";
@@ -16,6 +17,7 @@ import { RoomMediaLayout } from "./RoomMediaLayout";
 export const routes: RouteObject[] = [
   { path: ROUTE_PATTERNS.home, element: <HomePage /> },
   { path: ROUTE_PATTERNS.createRoom, element: <CreateRoomPage /> },
+  { path: ROUTE_PATTERNS.closedRoom, element: <RoomClosedPage /> },
   {
     path: ROUTE_PATTERNS.roomEntry,
     element: <RoomMediaLayout />,

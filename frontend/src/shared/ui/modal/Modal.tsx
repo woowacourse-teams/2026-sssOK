@@ -24,10 +24,18 @@ export interface ModalProps {
    * 긴 내용을 내려 읽다가도 닫을 곳을 찾으러 다시 올라갈 필요가 없다.
    */
   title?: ReactNode;
+  container?: Element | null;
   children: ReactNode;
 }
 
-export const Modal = ({ onClose, showClose = true, size = "sm", title, children }: ModalProps) => {
+export const Modal = ({
+  onClose,
+  showClose = true,
+  size = "sm",
+  title,
+  container,
+  children,
+}: ModalProps) => {
   // 바깥 클릭과 같은 길이다. 닫으면 안 되는 순간은 부르는 쪽이 onClose 를 비워서 막는다.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -68,7 +76,7 @@ export const Modal = ({ onClose, showClose = true, size = "sm", title, children 
         <Body>{children}</Body>
       </Card>
     </Overlay>,
-    document.body,
+    container ?? document.body,
   );
 };
 
@@ -94,6 +102,7 @@ const Card = styled.div<{ size: NonNullable<ModalProps["size"]> }>`
   overflow: hidden;
   padding: ${({ size }) => (size === "lg" ? "28px" : spacing[20])};
   background: ${colors.backgroundDefault};
+  color: ${colors.textPrimary};
   border-radius: ${radius[24]};
   box-shadow: ${shadow.modal};
 `;

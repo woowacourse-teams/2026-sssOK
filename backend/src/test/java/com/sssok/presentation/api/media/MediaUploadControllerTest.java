@@ -146,6 +146,58 @@ class MediaUploadControllerTest {
     }
 
     @Test
+    void 발급_본문이_없으면_400과_INVALID_REQUEST_BODY() throws Exception {
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", ROOM_ID)
+                .header("Authorization", BEARER)
+                .contentType(MediaType.APPLICATION_JSON))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void 파일_크기의_타입이_다르면_400과_INVALID_REQUEST_BODY() throws Exception {
+        issueUploadUrls("{\"files\":[{\"fileName\":\"a.jpg\",\"mimeType\":\"image/jpeg\",\"size\":\"크다\"}]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_REQUEST_BODY"));
+    }
+
+    @Test
+    void files에_null이_섞여_있으면_400과_INVALID_PARAM() throws Exception {
+        issueUploadUrls("{\"files\":[null]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void folderIds에_null이_섞여_있으면_400과_INVALID_PARAM() throws Exception {
+        issueUploadUrls("{\"files\":[{\"fileName\":\"a.jpg\",\"mimeType\":\"image/jpeg\",\"size\":1}],"
+            + "\"folderIds\":[null]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 완료_등록의_mediaIds에_null이_섞여_있으면_400과_INVALID_PARAM() throws Exception {
+        completeUpload("{\"mediaIds\":[5012,null]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 완료_등록의_mediaIds에_0이하가_섞여_있으면_400과_INVALID_PARAM() throws Exception {
+        completeUpload("{\"mediaIds\":[5012,0]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void 재발급_크기가_0이하면_400과_INVALID_PARAM() throws Exception {
+        reissue("{\"size\":0}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
+    @Test
     void 업로드_권한이_없으면_403과_UPLOAD_NOT_ALLOWED() throws Exception {
         given(issueUploadUrlsService.issue(anyLong(), anyLong(), anyList(), any()))
             .willThrow(new UploadNotAllowedException());

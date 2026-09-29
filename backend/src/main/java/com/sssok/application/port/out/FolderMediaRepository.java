@@ -1,14 +1,21 @@
 package com.sssok.application.port.out;
 
+import com.sssok.domain.file.UploadStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 // 폴더-미디어 소속(folder_media) 영속화 출력. 순수 조인 관계라 도메인 객체 없이 ID로만 다룬다.
 public interface FolderMediaRepository {
 
-    // 이 미디어들을 전부 한 폴더에 연결한다. 이미 있는 조합은 건너뛰고,
-    // 새로 연결된 개수만 반환한다 — 나머지(mediaIds 수 - 이 값)가 alreadyInCount다.
+    // 이 미디어들을 전부 한 폴더에 연결한다. 이미 있는 조합은 건너뛰고, 새로 연결된 개수만 반환한다.
+    // 업로드 예약(RESERVED)처럼 아직 목록에 보이지 않는 미디어도 담아야 할 때 쓴다.
     int attachToFolder(Long folderId, List<Long> mediaIds);
+
+    // 위와 같지만 연결하는 그 순간 주어진 상태인 미디어만 담는다. 상태를 미리 확인해두고 나중에
+    // 담으면 그 사이 FAILED 로 확정된 미디어가 끼어들어, 응답의 updatedCount 와 폴더 photoCount 가
+    // 어긋난다. 담기 요청은 목록에 보이는 미디어만 대상으로 하므로 이 쪽을 쓴다.
+    int attachToFolderIfStatusIn(Long folderId, List<Long> mediaIds, Collection<UploadStatus> statuses);
 
     // 이 폴더가 담고 있던 관계를 모두 끊는다. 미디어 자체는 지우지 않는다. 끊긴 개수를 반환한다.
     long detachAllFromFolder(Long folderId);
@@ -24,11 +31,13 @@ public interface FolderMediaRepository {
     // 폴더 자체를 지우기 전에 먼저 불러야 고아 행이 남지 않는다.
     long detachAllByRoomId(Long roomId);
 
-    long countByFolderId(Long folderId);
+    // 폴더에 담긴 미디어 중 주어진 상태인 것만 센다. 매핑 행을 전부 세면 아직 올라오지 않은
+    // 미디어까지 포함돼 목록에 보이는 개수와 어긋난다.
+    long countByFolderIdAndStatusIn(Long folderId, Collection<UploadStatus> statuses);
 
     // 위와 같지만 여러 폴더를 한 번에 센다(꺼내기에서 대상 폴더가 여러 개일 때 N+1을 피하는 용도).
     // 결과에 없는 폴더 id는 0개로 보면 된다.
-    Map<Long, Long> countByFolderIds(List<Long> folderIds);
+    Map<Long, Long> countByFolderIdsAndStatusIn(List<Long> folderIds, Collection<UploadStatus> statuses);
 
     // 주어진 미디어 중, 지금 어떤 폴더에든 하나라도 속해 있는 것만 골라 반환한다.
     // 꺼내기 전후로 두 번 호출해 "이번 요청으로 폴더 소속이 0개가 된 미디어"(movedToRoot)를 가려낸다.

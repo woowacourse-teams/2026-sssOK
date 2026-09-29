@@ -196,6 +196,24 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
     }
 
+    // 예전에는 파일명 없이도 예약을 시도해서 stored_file NOT NULL 제약에 걸려 500 이 나갔다.
+    @Test
+    void 파일명이_없는_파일은_rejected_로_내려오고_500이_되지_않는다() throws Exception {
+        String body = "{\"files\":[{\"fileName\":null,\"mimeType\":\"" + MIME + "\",\"size\":" + SIZE + "}]}";
+
+        issue(body)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.issued").isEmpty())
+            .andExpect(jsonPath("$.data.rejected[0].code").value("INVALID_PARAM"));
+    }
+
+    @Test
+    void files에_null이_섞여_있으면_400() throws Exception {
+        issue("{\"files\":[null]}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+    }
+
     @Test
     void 걸러진_파일은_rejected_로_내려온다() throws Exception {
         String body = "{\"files\":["

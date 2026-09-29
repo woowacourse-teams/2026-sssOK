@@ -8,7 +8,7 @@ export const StyledButton = styled.button<{
   size: ButtonProps["size"];
 }>`
   width: 100%;
-  height: ${({ size }) => (size === "sm" ? "55px" : "65px")};
+  height: 55px;
   border: ${({ variant }) => (variant === "default" ? `1.25px solid ${colors.borderDefault}` : 0)};
   border-radius: ${({ size }) => (size === "sm" ? radius[12] : radius[16])};
 
@@ -23,6 +23,10 @@ export const StyledButton = styled.button<{
   ${({ size }) => (size === "sm" ? typography.label5 : typography.label1)}
 
   cursor: pointer;
+
+  @media (min-width: 768px) {
+    height: ${({ size }) => (size === "lg" ? "65px" : "55px")};
+  }
 
   @media (hover: hover) {
     &:hover:not(:disabled) {

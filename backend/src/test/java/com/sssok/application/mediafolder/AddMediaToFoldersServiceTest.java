@@ -2,9 +2,12 @@ package com.sssok.application.mediafolder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.MediaIdsResolver;
+import com.sssok.application.media.ResolvedMediaIds;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
@@ -14,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +40,10 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
 
     @Autowired
     ApplicationEvents applicationEvents;
+
+    // 상태 확인과 폴더 연결 사이에 미디어가 FAILED 로 확정되는 경합을 재현하려고 끼워 넣는다.
+    @MockitoSpyBean
+    MediaIdsResolver mediaIdsResolver;
 
     // StoredFileJpaEntity는 존재 확인용 최소 매핑(id만)이라 나머지 NOT NULL 컬럼은 직접 채워야 한다.
     private Long existingMedia(long id) {
@@ -94,6 +102,26 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(result.notFoundMediaIds()).isEmpty();
         assertThat(result.folder().photoCount()).isEqualTo(1);
+    }
+
+    // 목록에서 고를 때는 PROCESSING 이었는데 요청을 처리하는 도중 FAILED 로 확정되는 경우다.
+    // 상태를 미리 확인만 해두면 그 사이에 바뀐 미디어가 담겨 updatedCount 는 1인데
+    // photoCount 는 0이 된다. 연결하는 쿼리 자체가 상태를 다시 보므로 둘 다 0으로 맞는다.
+    @Test
+    void 상태_확인_뒤_FAILED_로_바뀐_미디어는_담기지_않고_두_숫자가_어긋나지_않는다() {
+        Folder folder = createFolderService.create(1L, "맛집");
+        existingMedia(1L, "PROCESSING");
+        doAnswer(invocation -> {
+            ResolvedMediaIds resolved = (ResolvedMediaIds) invocation.callRealMethod();
+            jdbcTemplate.update("UPDATE stored_file SET status = 'FAILED' WHERE id = 1");
+            return resolved;
+        }).when(mediaIdsResolver).resolveVisible(1L, List.of(1L));
+
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+
+        assertThat(result.updatedCount()).isZero();
+        assertThat(result.alreadyInCount()).isZero();
+        assertThat(result.folder().photoCount()).isZero();
     }
 
     @Test

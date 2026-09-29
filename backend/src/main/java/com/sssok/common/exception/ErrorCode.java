@@ -56,6 +56,7 @@ public enum ErrorCode {
     DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
     ADMIN_NOT_FOUND(404, "존재하지 않는 관리자입니다"),
     FEEDBACK_NOT_FOUND(404, "존재하지 않는 의견입니다"),
+    API_NOT_FOUND(404, "존재하지 않는 API 경로입니다"),
 
     // 405 Method Not Allowed
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),

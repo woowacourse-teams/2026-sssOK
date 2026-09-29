@@ -2,6 +2,7 @@ const fs = require("fs");
 const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
+const CopyWebpackPlugin = require("copy-webpack-plugin");
 
 const envPath = path.resolve(__dirname, ".env");
 
@@ -69,6 +70,17 @@ module.exports = {
       template: "./public/index.html",
       filename: "index.html",
       inject: true,
+    }),
+
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: "public",
+          globOptions: {
+            ignore: ["**/index.html", "**/mockServiceWorker.js"],
+          },
+        },
+      ],
     }),
   ],
   devServer: {

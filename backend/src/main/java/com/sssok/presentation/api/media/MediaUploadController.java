@@ -12,6 +12,7 @@ import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -46,7 +47,7 @@ public class MediaUploadController {
     public ApiResponse<IssueUploadUrlsResponse> issueUploadUrls(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
-        @RequestBody IssueUploadUrlsRequest request
+        @Valid @RequestBody IssueUploadUrlsRequest request
     ) {
         List<UploadFileCommand> files = request.files() == null ? null : request.files().stream()
             .map(file -> new UploadFileCommand(file.fileName(), file.mimeType(), file.size()))
@@ -70,7 +71,7 @@ public class MediaUploadController {
     public ApiResponse<CompleteUploadResponse> completeUpload(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
-        @RequestBody CompleteUploadRequest request
+        @Valid @RequestBody CompleteUploadRequest request
     ) {
         CompleteUploadResult result =
             completeUploadService.complete(roomId, memberId, request.mediaIds());
@@ -91,7 +92,7 @@ public class MediaUploadController {
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "발급 응답의 mediaId") @PathVariable Long mediaId,
-        @RequestBody(required = false) ReissueUploadUrlRequest request
+        @Valid @RequestBody(required = false) ReissueUploadUrlRequest request
     ) {
         Long newSize = request == null ? null : request.size();
         ReissuedUploadUrl url =

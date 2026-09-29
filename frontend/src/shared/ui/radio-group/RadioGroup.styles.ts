@@ -6,6 +6,10 @@ export const RadioGroupLabel = styled.span`
   color: ${colors.textSecondary};
 
   ${typography.caption3}
+
+  @media (min-width: 768px) {
+    ${typography.caption1}
+  }
 `;
 
 export const RadioGroupContainer = styled.div<{ $columnCount: number }>`

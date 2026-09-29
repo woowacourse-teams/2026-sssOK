@@ -9,6 +9,7 @@ import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,12 +40,10 @@ public class MediaFolderController {
     public ApiResponse<AddToFoldersResponse> addToFolders(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
-        @RequestBody AddToFoldersRequest request
+        @Valid @RequestBody AddToFoldersRequest request
     ) {
         AddMediaToFoldersResult result =
-            addMediaToFoldersService.add(roomId,
-                request == null ? null : request.mediaIds(),
-                request == null ? null : request.folderId());
+            addMediaToFoldersService.add(roomId, request.mediaIds(), request.folderId());
         return ApiResponse.of(AddToFoldersResponse.from(result));
     }
 
@@ -62,12 +61,10 @@ public class MediaFolderController {
     public ApiResponse<RemoveFromFoldersResponse> removeFromFolders(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
-        @RequestBody RemoveFromFoldersRequest request
+        @Valid @RequestBody RemoveFromFoldersRequest request
     ) {
         RemoveMediaFromFoldersResult result =
-            removeMediaFromFoldersService.remove(roomId,
-                request == null ? null : request.mediaIds(),
-                request == null ? null : request.folderIds());
+            removeMediaFromFoldersService.remove(roomId, request.mediaIds(), request.folderIds());
         return ApiResponse.of(RemoveFromFoldersResponse.from(result));
     }
 }

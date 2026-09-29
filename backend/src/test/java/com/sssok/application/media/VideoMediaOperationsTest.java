@@ -155,8 +155,8 @@ class VideoMediaOperationsTest {
 
         MediaFullDetail full = getMediaService.get(roomId, video.getId(), uploaderId);
 
-        assertThat(full.media().originalUrl()).isEqualTo(PRESIGNED);
-        assertThat(full.media().originalUrlExpiresAt()).isNotNull();
+        assertThat(full.media().displayUrl()).isEqualTo(PRESIGNED);
+        assertThat(full.media().displayUrlExpiresAt()).isNotNull();
     }
 
     @Test

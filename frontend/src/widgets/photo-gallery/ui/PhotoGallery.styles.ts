@@ -1,6 +1,7 @@
+import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
 
-import { colors, spacing, typography } from "@/shared/styles/tokens";
+import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
 export const GallerySection = styled.section`
   flex: 1;
@@ -37,4 +38,44 @@ export const StateMessage = styled.div`
   color: ${colors.textSecondary};
 
   ${typography.body}
+`;
+
+const shimmer = keyframes`
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+`;
+
+export const SkeletonCard = styled.div`
+  width: 100%;
+  aspect-ratio: 8 / 9;
+  border-radius: ${radius[12]};
+  background: linear-gradient(
+    90deg,
+    ${colors.backgroundSubtle} 25%,
+    ${colors.interactiveHover} 50%,
+    ${colors.backgroundSubtle} 75%
+  );
+  background-size: 200% 100%;
+  animation: ${shimmer} 1.4s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+`;
+
+export const HiddenLabel = styled.span`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 `;

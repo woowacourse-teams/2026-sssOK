@@ -6,6 +6,10 @@ export const Label = styled.label`
   color: ${colors.textSecondary};
 
   ${typography.caption3}
+
+  @media (min-width: 768px) {
+    ${typography.caption1}
+  }
 `;
 
 export const StyledInput = styled.input<{ $hasError: boolean }>`

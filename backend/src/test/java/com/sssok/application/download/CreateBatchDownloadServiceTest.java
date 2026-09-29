@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
@@ -18,6 +20,8 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -50,7 +54,11 @@ class CreateBatchDownloadServiceTest {
     }
 
     private Long media(String fileName) {
-        StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, fileName, "image/jpeg",
+        return media(fileName, "image/jpeg");
+    }
+
+    private Long media(String fileName, String mimeType) {
+        StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, fileName, mimeType,
             new FileSize(1024), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
@@ -67,6 +75,30 @@ class CreateBatchDownloadServiceTest {
         assertThat(files).hasSize(2);
         assertThat(files).extracting(BatchDownloadFile::downloadUrl).containsOnly(PRESIGNED);
         assertThat(files).extracting(BatchDownloadFile::mediaId).containsExactlyInAnyOrder(media1, media2);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "회식 영상.mp4, video/mp4",
+        "아이폰 영상.mov, video/quicktime",
+        "browser-recording.webm, video/webm"
+    })
+    void 다건_다운로드는_동영상별_원본_파일명과_MIME으로_서명한다(
+        String fileName, String mimeType
+    ) {
+        Long mediaId = media(fileName, mimeType);
+
+        List<BatchDownloadFile> files = createBatchDownloadService.create(
+            ROOM_ID, REQUESTER_ID, List.of(mediaId), null, null);
+
+        assertThat(files).singleElement()
+            .extracting(BatchDownloadFile::fileName)
+            .isEqualTo(fileName);
+        verify(fileStoragePort).presignGet(
+            any(),
+            eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
+            eq(mimeType),
+            any(Duration.class));
     }
 
     @Test

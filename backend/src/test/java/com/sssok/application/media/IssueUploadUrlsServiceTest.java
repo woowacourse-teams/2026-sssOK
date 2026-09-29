@@ -145,6 +145,34 @@ class IssueUploadUrlsServiceTest {
     }
 
     @Test
+    void 크기가_없으면_사유와_함께_걸러진다() {
+        List<UploadFileCommand> files =
+            List.of(new UploadFileCommand("a.jpg", "image/jpeg", null), image("b.jpg"));
+
+        IssueUploadUrlsResult result = issueUploadUrlsService.issue(roomId, hostId, files, null);
+
+        assertThat(result.issued()).hasSize(1);
+        assertThat(result.rejected()).hasSize(1);
+        assertThat(result.rejected().get(0).fileName()).isEqualTo("a.jpg");
+        assertThat(result.rejected().get(0).code()).isEqualTo("INVALID_PARAM");
+    }
+
+    @Test
+    void 파일명이_비면_사유와_함께_걸러진다() {
+        List<UploadFileCommand> files = List.of(
+            new UploadFileCommand(null, "image/jpeg", 1024L),
+            new UploadFileCommand("  ", "image/jpeg", 1024L),
+            image("b.jpg"));
+
+        IssueUploadUrlsResult result = issueUploadUrlsService.issue(roomId, hostId, files, null);
+
+        assertThat(result.issued()).hasSize(1);
+        assertThat(result.rejected()).hasSize(2);
+        assertThat(result.rejected()).allSatisfy(
+            file -> assertThat(file.code()).isEqualTo("INVALID_PARAM"));
+    }
+
+    @Test
     void 없는_폴더를_지정하면_요청_전체를_막는다() {
         // 일부만 담기면 어디에 들어갔는지 알 수 없어 파일별로 넘기지 않는다.
         assertThatThrownBy(() -> issueUploadUrlsService.issue(

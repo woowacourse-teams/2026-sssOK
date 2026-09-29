@@ -22,10 +22,12 @@ final class ExifFixture {
     private static final int LONGITUDE_OFFSET = 154;
 
     private static final short TYPE_ASCII = 2;
+    private static final short TYPE_SHORT = 3;
     private static final short TYPE_LONG = 4;
     private static final short TYPE_RATIONAL = 5;
 
     private static final short TAG_EXIF_IFD_POINTER = (short) 0x8769;
+    private static final short TAG_ORIENTATION = 0x0112;
     private static final short TAG_GPS_IFD_POINTER = (short) 0x8825;
     private static final short TAG_DATETIME_ORIGINAL = (short) 0x9003;
     private static final short TAG_GPS_LATITUDE_REF = 0x0001;
@@ -47,6 +49,22 @@ final class ExifFixture {
         segment.putShort((short) (2 + 6 + tiff.length));
         segment.put("Exif".getBytes(StandardCharsets.US_ASCII)).put((byte) 0).put((byte) 0);
         segment.put(tiff);
+        return segment.array();
+    }
+
+    static byte[] orientationApp1Segment(int orientation) {
+        ByteBuffer tiff = ByteBuffer.allocate(26);
+        tiff.put((byte) 'M').put((byte) 'M').putShort((short) 42).putInt(IFD0_OFFSET);
+        tiff.putShort((short) 1);
+        // SHORT 하나는 별도 오프셋 없이 값 필드의 앞 2바이트에 직접 저장한다.
+        entry(tiff, TAG_ORIENTATION, TYPE_SHORT, 1, orientation << 16);
+        tiff.putInt(0);
+
+        ByteBuffer segment = ByteBuffer.allocate(4 + 6 + tiff.capacity());
+        segment.putShort((short) 0xFFE1);
+        segment.putShort((short) (2 + 6 + tiff.capacity()));
+        segment.put("Exif".getBytes(StandardCharsets.US_ASCII)).put((byte) 0).put((byte) 0);
+        segment.put(tiff.array());
         return segment.array();
     }
 

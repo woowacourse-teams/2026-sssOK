@@ -10,6 +10,7 @@ import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
@@ -448,6 +449,23 @@ class GetMediaListServiceTest {
 
         assertThatThrownBy(() -> getMediaListService.list(ROOM_ID, otherRoomFolder.getId()))
             .isInstanceOf(FolderNotFoundException.class);
+    }
+
+    // 프리뷰 URL 은 상세 조회 시점에만 내준다. 목록에까지 실으면 타일 30장 가운데 실제로 열지도
+    // 않을 사진의 1600px 요청까지 열어 주게 된다 (#291 완료 조건).
+    @Test
+    void 목록도_사진_프리뷰를_표시용_URL로_조립한다() {
+        StoredFile file = save(ROOM_ID, UploadStatus.PROCESSING, Instant.now());
+        file.completeProcessing(ProcessedMedia.ofImage(
+            file.getStorageKey().thumbnail("webp"), file.getStorageKey().preview("webp"),
+            1200, 900, null, null));
+        fileRepository.save(file);
+
+        MediaDetail media = getMediaListService.list(ROOM_ID, null).getFirst();
+
+        assertThat(media.thumbnailUrl()).isNotNull();
+        assertThat(media.displayUrl()).isNotNull();
+        assertThat(media.displayUrlExpiresAt()).isNotNull();
     }
 
     private StoredFile save(Long roomId, UploadStatus status, Instant createdAt) {

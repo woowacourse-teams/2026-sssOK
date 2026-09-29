@@ -4,6 +4,7 @@ import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.lang.GeoLocation;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
 import com.luciad.imageio.webp.WebPWriteParam;
@@ -54,17 +55,31 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
         if (original == null) {
             return Optional.empty();
         }
+        ExifOrientation orientation = readOrientation(source);
         try {
             return Optional.of(new DerivedImages(
-                original.getWidth(),
-                original.getHeight(),
-                derive(original, thumbnail),
-                preview == null ? null : derive(original, preview)));
+                orientation.displayWidthOf(original),
+                orientation.displayHeightOf(original),
+                derive(original, orientation, thumbnail),
+                preview == null ? null : derive(original, orientation, preview)));
         } catch (IOException e) {
             // 디코딩을 넘긴 뒤의 축소·인코딩 실패는 원본이 깨졌다는 근거가 되지 못한다. 네이티브
             // WebP 라이터가 한 번 흔들린 것을 빈 값으로 돌려주면 멀쩡한 사진이 영구 FAILED 가
             // 되므로, 밖으로 내보내 PROCESSING 으로 남기고 회수 배치가 다시 태우게 한다.
             throw new UncheckedIOException(e);
+        }
+    }
+
+    private ExifOrientation readOrientation(byte[] source) {
+        try {
+            Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(source));
+            ExifIFD0Directory exif = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            Integer value = exif == null
+                ? null
+                : exif.getInteger(ExifIFD0Directory.TAG_ORIENTATION);
+            return ExifOrientation.from(value);
+        } catch (ImageProcessingException | IOException | RuntimeException e) {
+            return ExifOrientation.NORMAL;
         }
     }
 
@@ -112,14 +127,20 @@ public class ThumbnailatorImageProcessor implements ImageProcessorPort {
             BigDecimal.valueOf(found.getLongitude()).setScale(COORDINATE_SCALE, RoundingMode.HALF_UP));
     }
 
-    // 원본이 이미 작으면 늘리지 않는다. 확대한 파생본은 원본보다 크면서 더 흐리다.
-    private DerivedImage derive(BufferedImage original, DerivativeSpec spec) throws IOException {
-        int width = Math.min(spec.maxWidth(), original.getWidth());
-        BufferedImage scaled = Thumbnails.of(original)
-            .width(width)
-            .keepAspectRatio(true)
-            .asBufferedImage();
-        return new DerivedImage(encode(scaled, spec.format(), spec.quality()), spec.format());
+    // 원본 전체를 먼저 회전하면 디코딩 원본과 같은 크기의 회전 버퍼가 동시에 살아 있어 메모리를
+    // 크게 쓴다. 표시 방향의 너비를 기준으로 먼저 줄인 뒤 작은 이미지에만 방향을 적용한다.
+    private DerivedImage derive(BufferedImage original, ExifOrientation orientation,
+                                DerivativeSpec spec) throws IOException {
+        int displayWidth = orientation.displayWidthOf(original);
+        BufferedImage scaled = original;
+        if (spec.maxWidth() < displayWidth) {
+            double scale = (double) spec.maxWidth() / displayWidth;
+            scaled = Thumbnails.of(original)
+                .scale(scale)
+                .asBufferedImage();
+        }
+        BufferedImage oriented = orientation.applyTo(scaled);
+        return new DerivedImage(encode(oriented, spec.format(), spec.quality()), spec.format());
     }
 
     // Thumbnailator 의 outputFormat 을 쓰지 않고 직접 인코딩한다. WebP 라이터는 ImageIO 에
