@@ -134,6 +134,10 @@ sudo ./svc.sh status   # active (running) 확인
 | 이름 | 예시 |
 | --- | --- |
 | `DEPLOY_PATH` | `/home/ubuntu/app` |
+| `DISCORD_WEBHOOK_URL` | Discord 모니터링 채널의 Webhook URL |
+
+배포 워크플로는 `DISCORD_WEBHOOK_URL`을 권한이 `600`인 서버 파일로 저장하고 Alertmanager에
+Docker secret으로 전달한다. URL을 `.env`나 저장소에 직접 기록하지 않는다.
 
 DB·JWT·R2·CORS 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣지 않는다. (SSH 기반이 아니므로 `DEPLOY_HOST`/`DEPLOY_USER`/`DEPLOY_SSH_KEY`/`DEPLOY_PORT` 는 더 이상 사용하지 않는다.)
 
@@ -222,8 +226,10 @@ tar xzf ./actions-runner-linux-arm64.tar.gz
 | 이름 | 예시 |
 | --- | --- |
 | `DEPLOY_PATH` | `/home/ubuntu/app` |
+| `DISCORD_WEBHOOK_URL` | Discord 모니터링 채널의 Webhook URL |
 
-운영과 마찬가지로 DB·JWT·R2·CORS 값은 dev 서버 `.env`에 있으므로 GitHub Secret으로 넣지 않는다.
+운영과 마찬가지로 배포 워크플로가 Discord Webhook URL을 서버의 권한 `600` 비밀 파일로 만들며,
+DB·JWT·R2·CORS 값은 dev 서버 `.env`에 둔다.
 
 ## 배포하기
 

@@ -81,8 +81,28 @@ services:
     depends_on:
       app:
         condition: service_healthy
+      alertmanager:
+        condition: service_started
     expose:
       - "9090"
+    networks:
+      - sssok
+
+  alertmanager:
+    image: prom/alertmanager:v0.34.1
+    container_name: sssok-alertmanager
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --data.retention=120h
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    secrets:
+      - discord_webhook_url
+    expose:
+      - "9093"
     networks:
       - sssok
 
@@ -112,4 +132,9 @@ networks:
 
 volumes:
   prometheus-data:
+  alertmanager-data:
   grafana-data:
+
+secrets:
+  discord_webhook_url:
+    file: ${DISCORD_WEBHOOK_FILE:-./secrets/discord-webhook-url}
