@@ -22,14 +22,14 @@ public class MediaDetailAssembler {
     private final MemberRepository memberRepository;
     private final MediaUrlResolver mediaUrlResolver;
 
-    // 목록용. 타일에 그릴 썸네일만 싣는다.
+    // 모든 조회 응답은 같은 URL 계약을 쓴다. 화면은 thumbnailUrl과 displayUrl만 알면 된다.
     public List<MediaDetail> assembleForList(List<StoredFile> files) {
-        return assemble(files, mediaUrlResolver::forList);
+        return assemble(files, mediaUrlResolver::resolve);
     }
 
     // 상세용. 사진이면 프리뷰를, 영상이면 재생할 원본을 싣는다.
     public List<MediaDetail> assembleForDetail(List<StoredFile> files) {
-        return assemble(files, mediaUrlResolver::forDetail);
+        return assemble(files, mediaUrlResolver::resolve);
     }
 
     private List<MediaDetail> assemble(List<StoredFile> files,
