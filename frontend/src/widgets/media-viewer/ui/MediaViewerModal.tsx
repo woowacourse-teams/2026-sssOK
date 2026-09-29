@@ -240,15 +240,15 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
   useEffect(() => {
     if (item.type !== "server") return;
 
-    const original = new window.Image();
-    original.onload = () => {
-      setServerUrl(item.media.originalUrl);
+    const display = new window.Image();
+    display.onload = () => {
+      setServerUrl(item.media.displayUrl);
       setIsVisible(true);
     };
-    original.src = item.media.originalUrl;
+    display.src = item.media.displayUrl;
 
     return () => {
-      original.onload = null;
+      display.onload = null;
     };
   }, [item]);
 
@@ -268,7 +268,7 @@ const ViewerVideo = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
     item.type === "local" ? URL.createObjectURL(item.file) : null,
   );
-  const source = item.type === "server" ? item.media.originalUrl : localUrl;
+  const source = item.type === "server" ? item.media.displayUrl : localUrl;
   const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
 
   useEffect(() => {

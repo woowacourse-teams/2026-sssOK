@@ -128,7 +128,7 @@ describe("useGalleryPhotos", () => {
       mimeType: "image/jpeg",
       size: 100,
       thumbnailUrl: "",
-      originalUrl: "",
+      displayUrl: "",
       width: 100,
       height: 100,
       duration: null,

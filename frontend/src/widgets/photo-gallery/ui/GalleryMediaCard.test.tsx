@@ -10,7 +10,7 @@ const media: MediaItem = {
   mimeType: "image/jpeg",
   size: 100,
   thumbnailUrl: "https://cdn.example.com/photo-thumbnail.jpg",
-  originalUrl: "https://cdn.example.com/photo.jpg",
+  displayUrl: "https://cdn.example.com/photo.jpg",
   width: 100,
   height: 100,
   duration: null,

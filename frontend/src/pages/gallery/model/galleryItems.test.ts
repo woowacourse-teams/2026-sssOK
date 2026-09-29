@@ -11,7 +11,7 @@ const photo = (mediaId: number, folderIds: number[], uploaderId = 1): MediaItem 
   mimeType: "image/jpeg",
   size: 100,
   thumbnailUrl: "/thumbnail.jpg",
-  originalUrl: "/original.jpg",
+  displayUrl: "/original.jpg",
   width: 100,
   height: 100,
   duration: null,
