@@ -369,7 +369,7 @@ describe("POST /rooms/{roomId}/media — 완료 등록", () => {
         uploaderId: 10234,
         // 워커가 만드는 값이라 PROCESSING 동안은 비어 있다
         thumbnailUrl: null,
-        originalUrl: null,
+        displayUrl: null,
       }),
     );
   });
@@ -673,13 +673,13 @@ describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
     const listed = (await (await listMedia()).json()).data.items[0];
 
     expect(registered).toEqual(
-      expect.objectContaining({ status: "PROCESSING", thumbnailUrl: null, originalUrl: null }),
+      expect.objectContaining({ status: "PROCESSING", thumbnailUrl: null, displayUrl: null }),
     );
     expect(listed).toEqual(
       expect.objectContaining({
         status: "READY",
         thumbnailUrl: expect.any(String),
-        originalUrl: expect.any(String),
+        displayUrl: expect.any(String),
       }),
     );
   });
