@@ -85,8 +85,29 @@ services:
     networks:
       - sssok
 
+  grafana:
+    image: grafana/grafana:13.2.2
+    container_name: sssok-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      # 인터넷에 직접 공개하지 않고 SSH 터널을 통해서만 접속한다.
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    networks:
+      - sssok
+
 networks:
   sssok:
 
 volumes:
   prometheus-data:
+  grafana-data:

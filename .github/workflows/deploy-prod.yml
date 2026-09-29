@@ -116,9 +116,11 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           mkdir -p "$DEPLOY_PATH/monitoring/prometheus"
+          mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources"
           cp backend/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
           cp backend/nginx.conf "$DEPLOY_PATH/nginx.conf"
           cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
+          cp backend/monitoring/grafana/provisioning/datasources/prometheus.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources/prometheus.yml"
 
       - name: 이미지 교체 및 헬스체크
         env:

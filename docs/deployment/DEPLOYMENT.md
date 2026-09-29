@@ -34,7 +34,7 @@ flowchart LR
 
 | 파일 | 만드는 주체 | 설명 |
 | --- | --- | --- |
-| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진 |
+| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정 |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
 | `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱 컨테이너 정의 (`8080` 직접 노출) |
@@ -97,6 +97,8 @@ R2_SECRET_KEY=
 R2_BUCKET=sssok-prod
 R2_PUBLIC_BASE_URL=
 CORS_ALLOWED_ORIGINS=여기에_프론트_배포_오리진(콤마로_여러_개_가능)
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=여기에_Grafana_관리자_비밀번호
 EOF
 chmod 600 .env
 ```
@@ -187,6 +189,8 @@ R2_SECRET_KEY=
 R2_BUCKET=sssok-dev
 R2_PUBLIC_BASE_URL=
 CORS_ALLOWED_ORIGINS=여기에_dev_프론트_오리진(콤마로_여러_개_가능)
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=여기에_Grafana_관리자_비밀번호
 EOF
 chmod 600 .env
 ```
