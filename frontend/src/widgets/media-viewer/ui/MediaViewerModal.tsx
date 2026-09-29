@@ -192,7 +192,7 @@ export const MediaViewerModal = ({
             roomId={roomId}
             token={token}
             canDelete={
-              item.type === "server" && (item.media.uploaderId === userId || hostId === userId)
+              item.type === "local" || item.media.uploaderId === userId || hostId === userId
             }
             onDelete={() => setDeletingMediaId(item.mediaId)}
           />
@@ -305,20 +305,25 @@ const ViewerFooter = ({
 }) => {
   const media = item.type === "server" ? item.media : undefined;
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
+  const downloadTarget =
+    item.type === "local"
+      ? {
+          mediaId: item.mediaId,
+          fileName: item.file.name,
+          size: item.file.size,
+          mimeType: item.file.type,
+        }
+      : {
+          mediaId: item.mediaId,
+          fileName: item.media.fileName,
+          size: item.media.size,
+          mimeType: item.media.mimeType,
+        };
   const download = useMutation({
     mutationFn: async () => {
-      if (!media) return;
-
       const outcome = await downloadMedia({
         roomId,
-        targets: [
-          {
-            mediaId: media.mediaId,
-            fileName: media.fileName,
-            size: media.size,
-            mimeType: media.mimeType,
-          },
-        ],
+        targets: [downloadTarget],
         // 폰에서 개별 다운을 할 경우, 여러 장 받기와 같은 기준으로 공유 시트를 쓸 기기를 가른다.
         mode: prefersShareSheet() ? "share" : "individual",
         token,
@@ -351,8 +356,8 @@ const ViewerFooter = ({
       <ActionButton
         type="button"
         aria-label="사진 다운로드"
-        title={media ? "사진 다운로드" : "업로드가 끝난 뒤 다운로드할 수 있어요"}
-        disabled={!media || download.isPending}
+        title="사진 다운로드"
+        disabled={download.isPending}
         aria-busy={download.isPending}
         onClick={() => download.mutate()}
       >
