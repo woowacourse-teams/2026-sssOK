@@ -34,6 +34,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
+    // 애플리케이션 상태와 메트릭을 운영 엔드포인트로 노출한다.
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Micrometer가 수집한 메트릭을 Prometheus 형식으로 변환한다.
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
     // API 문서화 (Swagger UI)
     implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.9.0'
 

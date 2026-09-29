@@ -145,3 +145,27 @@ springdoc:
   swagger-ui:
     operations-sorter: method
     tags-sorter: alpha
+
+management:
+  metrics:
+    distribution:
+      # HTTP 응답 시간을 bucket으로 집계해 Prometheus에서 p95를 계산할 수 있게 한다.
+      percentiles-histogram:
+        http.server.requests: true
+      # 실제 API에서 의미 있는 범위로 bucket 수를 제한한다.
+      minimum-expected-value:
+        http.server.requests: 5ms
+      maximum-expected-value:
+        http.server.requests: 10s
+  endpoints:
+    web:
+      # 운영 정보가 불필요하게 공개되지 않도록 사용하는 엔드포인트만 명시한다.
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      # Kubernetes가 아닌 Docker 환경에서도 liveness/readiness 그룹을 제공한다.
+      probes:
+        enabled: true
+      # 외부 시스템과 내부 구성 요소의 상세 상태는 응답에 포함하지 않는다.
+      show-details: never
