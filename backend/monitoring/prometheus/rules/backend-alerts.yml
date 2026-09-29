@@ -1,0 +1,13 @@
+groups:
+  - name: sssok-backend-availability
+    rules:
+      - alert: BackendDown
+        expr: up{job="sssok-backend"} == 0
+        for: 2m
+        keep_firing_for: 5m
+        labels:
+          severity: critical
+          service: sssok-backend
+        annotations:
+          summary: sssOK 백엔드 메트릭 수집 실패
+          description: "{{ $labels.instance }} 인스턴스의 메트릭을 2분 이상 수집하지 못했습니다."

@@ -106,11 +106,13 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           mkdir -p "$DEPLOY_PATH/monitoring/prometheus"
+          mkdir -p "$DEPLOY_PATH/monitoring/prometheus/rules"
           mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources"
           mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards"
           mkdir -p "$DEPLOY_PATH/monitoring/grafana/dashboards"
           cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
           cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
+          cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
           cp backend/monitoring/grafana/provisioning/datasources/prometheus.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources/prometheus.yml"
           cp backend/monitoring/grafana/provisioning/dashboards/dashboards.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards/dashboards.yml"
           cp backend/monitoring/grafana/dashboards/backend-overview.json "$DEPLOY_PATH/monitoring/grafana/dashboards/backend-overview.json"

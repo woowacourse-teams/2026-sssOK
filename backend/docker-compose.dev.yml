@@ -57,6 +57,7 @@ services:
       - --storage.tsdb.retention.time=15d
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
       - prometheus-data:/prometheus
     depends_on:
       app:
