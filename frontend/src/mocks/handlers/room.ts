@@ -3,7 +3,7 @@ import { http, HttpResponse } from "msw";
 import { API_BASE_URL } from "@/shared/config";
 import {
   isDeletedMedia,
-  originalUrlOf,
+  displayUrlOf,
   registeredMediaOf,
   resetDeletedMedia,
   thumbnailUrlOf,
@@ -237,7 +237,7 @@ const createMedia = ({
   mimeType: type === "VIDEO" ? "video/mp4" : "image/jpeg",
   size: type === "VIDEO" ? 182452224 : 2912048,
   thumbnailUrl: thumbnailUrlOf(mediaId),
-  originalUrl: originalUrlOf(mediaId, type),
+  displayUrl: displayUrlOf(mediaId, type),
   width: type === "VIDEO" ? 1920 : 3024,
   height: type === "VIDEO" ? 1080 : 4032,
   duration,

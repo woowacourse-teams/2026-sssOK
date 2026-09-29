@@ -192,7 +192,7 @@ export const MediaViewerModal = ({
             roomId={roomId}
             token={token}
             canDelete={
-              item.type === "server" && (item.media.uploaderId === userId || hostId === userId)
+              item.type === "local" || item.media.uploaderId === userId || hostId === userId
             }
             onDelete={() => setDeletingMediaId(item.mediaId)}
           />
@@ -226,7 +226,7 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
     item.type === "local" ? URL.createObjectURL(item.file) : null,
   );
   const [serverUrl, setServerUrl] = useState(() =>
-    item.type === "server" ? item.media.thumbnailUrl : "",
+    item.type === "local" ? "" : (item.media.thumbnailUrl ?? item.media.displayUrl ?? ""),
   );
   const [isVisible, setIsVisible] = useState(true);
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
@@ -240,21 +240,24 @@ const ViewerImage = ({ item }: { item: GalleryItem }) => {
   useEffect(() => {
     if (item.type !== "server") return;
 
-    const original = new window.Image();
-    original.onload = () => {
-      setServerUrl(item.media.originalUrl);
+    const displayUrl = item.media.displayUrl;
+    if (displayUrl === null) return;
+
+    const display = new window.Image();
+    display.onload = () => {
+      setServerUrl(displayUrl);
       setIsVisible(true);
     };
-    original.src = item.media.originalUrl;
+    display.src = displayUrl;
 
     return () => {
-      original.onload = null;
+      display.onload = null;
     };
   }, [item]);
 
   return (
     <ViewerPhoto
-      src={localUrl ?? serverUrl}
+      src={(localUrl ?? serverUrl) || undefined}
       alt={fileName}
       draggable={false}
       $visible={isVisible}
@@ -268,8 +271,8 @@ const ViewerVideo = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
     item.type === "local" ? URL.createObjectURL(item.file) : null,
   );
-  const source = item.type === "server" ? item.media.originalUrl : localUrl;
-  const poster = item.type === "server" ? item.media.thumbnailUrl : undefined;
+  const source = item.type === "local" ? localUrl : item.media.displayUrl;
+  const poster = item.type === "server" ? (item.media.thumbnailUrl ?? undefined) : undefined;
 
   useEffect(() => {
     return () => {
@@ -303,22 +306,27 @@ const ViewerFooter = ({
   canDelete: boolean;
   onDelete: () => void;
 }) => {
-  const media = item.type === "server" ? item.media : undefined;
+  const media = item.type === "local" ? undefined : item.media;
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
+  const downloadTarget =
+    item.type === "local"
+      ? {
+          mediaId: item.mediaId,
+          fileName: item.file.name,
+          size: item.file.size,
+          mimeType: item.file.type,
+        }
+      : {
+          mediaId: item.mediaId,
+          fileName: item.media.fileName,
+          size: item.media.size,
+          mimeType: item.media.mimeType,
+        };
   const download = useMutation({
     mutationFn: async () => {
-      if (!media) return;
-
       const outcome = await downloadMedia({
         roomId,
-        targets: [
-          {
-            mediaId: media.mediaId,
-            fileName: media.fileName,
-            size: media.size,
-            mimeType: media.mimeType,
-          },
-        ],
+        targets: [downloadTarget],
         // 폰에서 개별 다운을 할 경우, 여러 장 받기와 같은 기준으로 공유 시트를 쓸 기기를 가른다.
         mode: prefersShareSheet() ? "share" : "individual",
         token,
@@ -351,8 +359,8 @@ const ViewerFooter = ({
       <ActionButton
         type="button"
         aria-label="사진 다운로드"
-        title={media ? "사진 다운로드" : "업로드가 끝난 뒤 다운로드할 수 있어요"}
-        disabled={!media || download.isPending}
+        title="사진 다운로드"
+        disabled={download.isPending}
         aria-busy={download.isPending}
         onClick={() => download.mutate()}
       >

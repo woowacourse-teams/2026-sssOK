@@ -17,7 +17,7 @@ export interface GalleryMedia {
   mimeType: string;
   size: number;
   thumbnailUrl: string;
-  originalUrl: string;
+  displayUrl: string;
   width: number;
   height: number;
   duration: number | null;
@@ -35,7 +35,7 @@ export interface GalleryMedia {
 export const thumbnailUrlOf = (mediaId: number) =>
   `https://picsum.photos/seed/sssok-${mediaId}/600/700`;
 
-export const originalUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
+export const displayUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
   type === "VIDEO"
     ? `https://cdn.example.com/rooms/1024/${mediaId}.mp4`
     : `https://picsum.photos/seed/sssok-${mediaId}/1200/1400`;
@@ -80,10 +80,10 @@ const revokeIfObjectUrl = (url: string) => {
 /** 테스트끼리 등록 기록이 이어지지 않도록 되돌린다. */
 export const resetRegisteredMedia = () => {
   for (const mediaList of registeredByRoom.values()) {
-    mediaList.forEach(({ thumbnailUrl, originalUrl }) => {
+    mediaList.forEach(({ thumbnailUrl, displayUrl }) => {
       revokeIfObjectUrl(thumbnailUrl);
       // 사진은 썸네일과 원본이 같은 주소다. 두 번 풀어도 문제되지 않는다.
-      revokeIfObjectUrl(originalUrl);
+      revokeIfObjectUrl(displayUrl);
     });
   }
 

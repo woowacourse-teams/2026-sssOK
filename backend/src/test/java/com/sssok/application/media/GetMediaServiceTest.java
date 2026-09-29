@@ -157,8 +157,8 @@ class GetMediaServiceTest {
 
         MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
 
-        assertThat(media.originalUrl()).isEqualTo(PRESIGNED);
-        assertThat(media.originalUrlExpiresAt()).isNotNull();
+        assertThat(media.displayUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.displayUrlExpiresAt()).isNotNull();
     }
 
     @Test
@@ -171,10 +171,8 @@ class GetMediaServiceTest {
 
         assertThat(media.thumbnailUrl()).isEqualTo(PRESIGNED);
         assertThat(media.thumbnailUrlExpiresAt()).isNotNull();
-        assertThat(media.previewUrl()).isEqualTo(PRESIGNED);
-        assertThat(media.previewUrlExpiresAt()).isNotNull();
-        assertThat(media.originalUrl()).isNull();
-        assertThat(media.originalUrlExpiresAt()).isNull();
+        assertThat(media.displayUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.displayUrlExpiresAt()).isNotNull();
         assertThat(media.width()).isEqualTo(1200);
         assertThat(media.height()).isEqualTo(900);
     }
@@ -190,8 +188,7 @@ class GetMediaServiceTest {
 
         MediaDetail media = getMediaService.get(roomId, file.getId(), uploaderId).media();
 
-        assertThat(media.previewUrl()).isNull();
-        assertThat(media.originalUrl()).isEqualTo(PRESIGNED);
+        assertThat(media.displayUrl()).isEqualTo(PRESIGNED);
     }
 
     @Test

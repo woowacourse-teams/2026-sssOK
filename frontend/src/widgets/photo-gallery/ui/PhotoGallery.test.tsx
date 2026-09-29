@@ -13,7 +13,7 @@ const photo: MediaItem = {
   mimeType: "image/jpeg",
   size: 3840219,
   thumbnailUrl: "https://cdn.example.com/rooms/1024/5012_thumb.webp",
-  originalUrl: "https://cdn.example.com/rooms/1024/5012.jpg",
+  displayUrl: "https://cdn.example.com/rooms/1024/5012.jpg",
   width: 4032,
   height: 3024,
   duration: null,

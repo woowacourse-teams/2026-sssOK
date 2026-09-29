@@ -15,6 +15,21 @@ import { MediaViewerModal } from "./MediaViewerModal";
 const ROOM_ID = 1;
 const USER_ID = 7;
 const DELETE_URL = `${API_BASE_URL}/rooms/${ROOM_ID}/media/:mediaId`;
+const originalCreateObjectURL = URL.createObjectURL;
+
+beforeAll(() => {
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: jest.fn(() => "blob:local-preview"),
+  });
+});
+
+afterAll(() => {
+  Object.defineProperty(URL, "createObjectURL", {
+    configurable: true,
+    value: originalCreateObjectURL,
+  });
+});
 
 const mediaOf = (mediaId: number, fileName: string): MediaItem => ({
   mediaId,
@@ -23,7 +38,7 @@ const mediaOf = (mediaId: number, fileName: string): MediaItem => ({
   mimeType: "image/jpeg",
   size: 1024,
   thumbnailUrl: `https://example.com/${mediaId}/thumbnail.webp`,
-  originalUrl: `https://example.com/${mediaId}/original.jpg`,
+  displayUrl: `https://example.com/${mediaId}/original.jpg`,
   width: 100,
   height: 100,
   duration: null,
@@ -39,7 +54,7 @@ const items: GalleryItem[] = [
   { mediaId: 12, type: "server", media: mediaOf(12, "second.jpg"), folderIds: [] },
 ];
 
-const renderViewer = () => {
+const renderViewer = (viewerItems = items) => {
   const onClose = jest.fn();
   const onChange = jest.fn();
   const onDeleted = jest.fn();
@@ -48,8 +63,8 @@ const renderViewer = () => {
   render(
     <QueryClientProvider client={queryClient}>
       <MediaViewerModal
-        items={items}
-        activeMediaId={11}
+        items={viewerItems}
+        activeMediaId={viewerItems[0].mediaId}
         roomId={ROOM_ID}
         userId={USER_ID}
         hostId={99}
@@ -67,6 +82,22 @@ const renderViewer = () => {
 };
 
 describe("MediaViewerModal 삭제", () => {
+  it("업로드 미리보기에서도 삭제 버튼을 사용할 수 있다", async () => {
+    const localItem: GalleryItem = {
+      mediaId: 13,
+      type: "local",
+      file: new File(["photo"], "local.jpg", { type: "image/jpeg" }),
+      folderIds: [],
+    };
+    renderViewer([localItem]);
+
+    const deleteButton = screen.getByRole("button", { name: "사진 삭제" });
+    expect(deleteButton).toBeEnabled();
+
+    await userEvent.click(deleteButton);
+    expect(screen.getByRole("heading", { name: "사진을 삭제할까요?" })).toBeInTheDocument();
+  });
+
   it("삭제 버튼을 누르면 바로 지우지 않고 뷰어 안에 확인 모달을 띄운다", async () => {
     const user = userEvent.setup();
     const deleteRequest = jest.fn();
@@ -173,7 +204,7 @@ describe("MediaViewerModal", () => {
       mimeType: "image/jpeg",
       size: 3840219,
       thumbnailUrl: "https://cdn.example.com/rooms/1024/5012_thumb.webp",
-      originalUrl: "https://cdn.example.com/rooms/1024/5012.jpg",
+      displayUrl: "https://cdn.example.com/rooms/1024/5012.jpg",
       width: 4032,
       height: 3024,
       duration: null,
@@ -250,7 +281,7 @@ describe("라이트박스 단일 다운로드", () => {
       mimeType: "image/jpeg",
       size: 100,
       thumbnailUrl: "https://example.com/thumb.jpg",
-      originalUrl: "https://example.com/original.jpg",
+      displayUrl: "https://example.com/original.jpg",
       width: 100,
       height: 100,
       duration: null,
@@ -296,7 +327,7 @@ describe("라이트박스 단일 다운로드", () => {
 
   const domException = (name: string) => Object.assign(new Error(name), { name });
 
-  const renderViewer = () => {
+  const renderViewer = (viewerItem: GalleryItem = item) => {
     const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -304,8 +335,8 @@ describe("라이트박스 단일 다운로드", () => {
 
     render(
       <MediaViewerModal
-        items={[item]}
-        activeMediaId={MEDIA_ID}
+        items={[viewerItem]}
+        activeMediaId={viewerItem.mediaId}
         roomId={MOCK_ROOM_ID}
         userId={1}
         hostId={1}
@@ -323,6 +354,23 @@ describe("라이트박스 단일 다운로드", () => {
   beforeEach(() => {
     serveSingle();
     saveBlobMock.mockClear();
+  });
+
+  it("업로드 미리보기에서도 기존 다운로드 흐름을 실행한다", async () => {
+    prefersShareSheetMock.mockReturnValue(false);
+    const localItem: GalleryItem = {
+      mediaId: MEDIA_ID,
+      type: "local",
+      file: new File(["bytes"], "IMG_5000.jpg", { type: "image/jpeg" }),
+      folderIds: [],
+    };
+    renderViewer(localItem);
+
+    const downloadButton = screen.getByRole("button", { name: "사진 다운로드" });
+    expect(downloadButton).toBeEnabled();
+    await userEvent.click(downloadButton);
+
+    await waitFor(() => expect(saveBlobMock).toHaveBeenCalledTimes(1));
   });
 
   afterEach(() => {
@@ -382,7 +430,7 @@ describe("모바일 좌우 절반 터치", () => {
       mimeType: type === "IMAGE" ? "image/jpeg" : "video/mp4",
       size: 3840219,
       thumbnailUrl: `https://cdn.example.com/rooms/1024/${mediaId}_thumb.webp`,
-      originalUrl: `https://cdn.example.com/rooms/1024/${mediaId}.jpg`,
+      displayUrl: `https://cdn.example.com/rooms/1024/${mediaId}.jpg`,
       width: 4032,
       height: 3024,
       duration: type === "IMAGE" ? null : 10,
