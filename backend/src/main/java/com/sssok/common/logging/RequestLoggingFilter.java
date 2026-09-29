@@ -7,6 +7,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,19 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 
     // 배포 헬스체크가 수 초마다 때리는 경로. 접근 로그로 남기면 실제 트래픽이 묻힌다.
     private static final String HEALTH_PATH = "/health";
+
+    // 톰캣이 끊긴 소켓에 쓰다 던지는 예외. 클래스 이름으로만 보는 이유는 이 파일이 서블릿 컨테이너
+    // 구현에 직접 의존하지 않게 하기 위해서다.
+    private static final String CLIENT_ABORT_EXCEPTION = "ClientAbortException";
+
+    // 연결이 끊겼다고 확신할 수 있는 메시지만 모았다. 여기에 없는 IOException 은 디스크·업스트림
+    // 장애일 수 있으므로 클라이언트 탓으로 돌리지 않는다.
+    private static final List<String> CLIENT_DISCONNECT_MESSAGES = List.of(
+        "broken pipe",
+        "connection reset",
+        "connection reset by peer",
+        "an existing connection was forcibly closed",
+        "an established connection was aborted");
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -148,13 +163,29 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     }
 
     // 끊긴 연결에 쓰다 나는 IOException 은 우리가 손쓸 일이 없는 정상 종료다.
+    //
+    // 다만 IOException 이라는 것만으로 연결 종료라고 볼 수는 없다. 디스크 오류나 업스트림 장애도
+    // 같은 타입으로 올라오는데, 그걸 DEBUG 로 묻으면 정작 우리가 고쳐야 할 장애가 로그에서 사라진다.
+    // 그래서 연결 종료라고 확신할 수 있는 예외 타입·메시지만 골라내고, 나머지는 WARN 으로 넘긴다.
     private boolean isClientDisconnect(Throwable error) {
-        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
-            if (cause instanceof IOException) {
+        for (Throwable cause = error; cause != null && cause != cause.getCause(); cause = cause.getCause()) {
+            if (cause instanceof IOException && isDisconnectSignal(cause)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private boolean isDisconnectSignal(Throwable cause) {
+        if (CLIENT_ABORT_EXCEPTION.equals(cause.getClass().getSimpleName())) {
+            return true;
+        }
+        String message = cause.getMessage();
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase(Locale.ROOT);
+        return CLIENT_DISCONNECT_MESSAGES.stream().anyMatch(normalized::contains);
     }
 
     private long elapsedMs(long startedAt) {

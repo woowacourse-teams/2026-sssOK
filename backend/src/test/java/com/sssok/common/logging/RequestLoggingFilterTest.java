@@ -176,6 +176,33 @@ class RequestLoggingFilterTest {
         assertThat(snapshot.forMessage("비동기 응답 타임아웃")).containsEntry(LogFields.STATUS, "503");
     }
 
+    @Test
+    @DisplayName("연결 종료가 아닌 IOException 은 WARN 으로 남긴다 — 서버 I/O 장애가 묻히면 안 된다")
+    void logsUnknownIoExceptionAsWarn() throws Exception {
+        MdcSnapshot snapshot = runAsyncAndComplete(500,
+            listener -> listener.onError(asyncEvent(new IOException("No space left on device"))));
+
+        assertThat(snapshot.levelOfMessage("비동기 응답 오류")).isEqualTo(Level.WARN);
+    }
+
+    @Test
+    @DisplayName("Broken pipe 는 클라이언트 연결 종료로 보고 DEBUG 로 내린다")
+    void logsBrokenPipeAsDebug() throws Exception {
+        MdcSnapshot snapshot = runAsyncAndComplete(200,
+            listener -> listener.onError(asyncEvent(new IOException("Broken pipe"))));
+
+        assertThat(snapshot.levelOfMessage("클라이언트가 연결을 끊었습니다")).isEqualTo(Level.DEBUG);
+    }
+
+    @Test
+    @DisplayName("원인 예외가 Connection reset 이어도 연결 종료로 본다")
+    void logsWrappedConnectionResetAsDebug() throws Exception {
+        MdcSnapshot snapshot = runAsyncAndComplete(200, listener -> listener.onError(
+            asyncEvent(new IllegalStateException("래핑", new IOException("Connection reset by peer")))));
+
+        assertThat(snapshot.levelOfMessage("클라이언트가 연결을 끊었습니다")).isEqualTo(Level.DEBUG);
+    }
+
     // 비동기로 넘어간 요청을 만들고, 등록된 리스너를 원하는 종료 시나리오로 직접 깨운다.
     // 종료 시점의 응답 상태를 status 로 읽는지 보려면 완료 직전에 상태를 바꿔 둬야 한다.
     private MdcSnapshot runAsyncAndComplete(int finalStatus, AsyncEnding ending) throws Exception {
@@ -251,6 +278,10 @@ class RequestLoggingFilterTest {
 
         private Map<String, String> forMessage(String fragment) {
             return eventOf(fragment).getMDCPropertyMap();
+        }
+
+        private Level levelOfMessage(String fragment) {
+            return eventOf(fragment).getLevel();
         }
 
         private ILoggingEvent eventOf(String fragment) {
