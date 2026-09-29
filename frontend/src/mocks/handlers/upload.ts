@@ -3,7 +3,7 @@ import { delay, http, HttpResponse } from "msw";
 import { API_BASE_URL } from "@/shared/config";
 import {
   addRegisteredMedia,
-  originalUrlOf,
+  displayUrlOf,
   resetRegisteredMedia,
   thumbnailUrlOf,
   type GalleryMedia,
@@ -348,7 +348,7 @@ const mediaPayload = (media: MockMedia) => ({
   size: media.size,
   // 워커가 만드는 값이라 PROCESSING 동안은 비어 있다. 목은 READY 로 넘기지 않는다.
   thumbnailUrl: null,
-  originalUrl: null,
+  displayUrl: null,
   ...dimensionsOf(media.mimeType),
   folderIds: media.folderIds,
   uploaderId: media.uploaderId,
@@ -383,7 +383,7 @@ const galleryEntryOf = (media: MockMedia): GalleryMedia => {
     // 신고값이 아니라 실제로 올라온 바이트다. 등록이 통과했으면 null 일 수 없다.
     size: media.uploadedBytes ?? media.size,
     thumbnailUrl: uploaded ?? thumbnailUrlOf(media.mediaId),
-    originalUrl: uploaded ?? originalUrlOf(media.mediaId, type),
+    displayUrl: uploaded ?? displayUrlOf(media.mediaId, type),
     ...dimensionsOf(media.mimeType),
     folderIds: media.folderIds,
     uploaderId: media.uploaderId,

@@ -173,7 +173,7 @@ export const mediaHandlers = [
       fileName: media.fileName,
       mimeType: media.mimeType,
       size: media.size,
-      originalUrl: media.originalUrl,
+      displayUrl: media.displayUrl,
       width: media.width,
       height: media.height,
       duration: media.duration,
