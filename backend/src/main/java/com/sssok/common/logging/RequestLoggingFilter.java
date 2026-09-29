@@ -61,7 +61,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
             if (request.isAsyncStarted()) {
                 // SSE·zip 스트리밍은 여기서 아직 안 끝났다. 이 시점의 상태 코드는 최종값이 아니므로
                 // 그대로 적으면 실패한 연결이 200 으로 남는다. 완료 시점을 따로 듣는다.
-                logAsyncStarted(request, requestId, startedAt);
+                logAsyncStarted(request, response, requestId, startedAt);
             } else {
                 MDC.put(LogFields.STATUS, String.valueOf(response.getStatus()));
                 logAccess(request, response, startedAt);
@@ -94,7 +94,8 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     //
     // 완료 콜백은 요청 스레드가 아닌 곳에서 불려 MDC 가 비어 있다. 요청 ID 를 값으로 넘겨받아
     // 그때 다시 채워 넣어야 시작 줄과 끝 줄이 같은 ID 로 묶인다.
-    private void logAsyncStarted(HttpServletRequest request, String requestId, long startedAt) {
+    private void logAsyncStarted(
+        HttpServletRequest request, HttpServletResponse response, String requestId, long startedAt) {
         String method = request.getMethod();
         String path = request.getRequestURI();
         log.info("{} {} 비동기 응답 시작", method, path);
@@ -124,6 +125,9 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
                 MDC.put(LogFields.REQUEST_ID, requestId);
                 MDC.put(LogFields.METHOD, method);
                 MDC.put(LogFields.PATH, path);
+                // 비동기 종료 줄에도 status 를 실어야 "SSE 가 500 으로 끊긴 건수" 같은 질의가 선다.
+                // 동기 요청과 달리 이 값은 완료 콜백 시점에야 확정되므로 여기서 읽는다.
+                MDC.put(LogFields.STATUS, String.valueOf(response.getStatus()));
                 try {
                     // 브라우저가 SSE 탭을 닫으면 IOException(Broken pipe)이 난다. 정상 종료라
                     // WARN 으로 남기면 탭을 닫을 때마다 운영 로그가 쌓인다. 스택트레이스도 뺀다.

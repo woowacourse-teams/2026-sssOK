@@ -2,13 +2,23 @@ package com.sssok.common.logging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import jakarta.servlet.AsyncEvent;
+import jakarta.servlet.AsyncListener;
+import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.mock.web.MockAsyncContext;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -120,10 +130,8 @@ class RequestLoggingFilterTest {
     @Test
     @DisplayName("비동기로 넘어간 요청도 시작 줄을 남긴다 — SSE 연결이 로그에서 사라지면 안 된다")
     void logsAsyncStart() throws Exception {
-        ch.qos.logback.classic.Logger filterLogger =
-            (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(RequestLoggingFilter.class);
-        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
-            new ch.qos.logback.core.read.ListAppender<>();
+        Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         filterLogger.addAppender(appender);
 
@@ -135,12 +143,78 @@ class RequestLoggingFilterTest {
 
         filterLogger.detachAppender(appender);
         assertThat(appender.list)
-            .extracting(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+            .extracting(ILoggingEvent::getFormattedMessage)
             .anyMatch(message -> message.contains("비동기 응답 시작"));
         // 최종 상태가 아직 안 정해졌으므로 완료형 접근 로그는 남기지 않는다.
         assertThat(appender.list)
-            .extracting(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+            .extracting(ILoggingEvent::getFormattedMessage)
             .noneMatch(message -> message.contains("200 ("));
+    }
+
+    @Test
+    @DisplayName("비동기 요청이 정상 종료되면 종료 줄에 최종 status 가 실린다")
+    void putsFinalStatusIntoAsyncCompleteLog() throws Exception {
+        MdcSnapshot snapshot = runAsyncAndComplete(200, listener -> listener.onComplete(null));
+
+        assertThat(snapshot.forMessage("비동기 응답 종료")).containsEntry(LogFields.STATUS, "200");
+    }
+
+    @Test
+    @DisplayName("비동기 오류로 끝나면 종료 줄의 status 로 실패를 검색할 수 있다")
+    void putsFinalStatusIntoAsyncErrorLog() throws Exception {
+        MdcSnapshot snapshot = runAsyncAndComplete(500,
+            listener -> listener.onError(asyncEvent(new IllegalStateException("업스트림 끊김"))));
+
+        assertThat(snapshot.forMessage("비동기 응답 오류")).containsEntry(LogFields.STATUS, "500");
+    }
+
+    @Test
+    @DisplayName("비동기 타임아웃도 status 와 함께 남는다")
+    void putsFinalStatusIntoAsyncTimeoutLog() throws Exception {
+        MdcSnapshot snapshot = runAsyncAndComplete(503, listener -> listener.onTimeout(null));
+
+        assertThat(snapshot.forMessage("비동기 응답 타임아웃")).containsEntry(LogFields.STATUS, "503");
+    }
+
+    // 비동기로 넘어간 요청을 만들고, 등록된 리스너를 원하는 종료 시나리오로 직접 깨운다.
+    // 종료 시점의 응답 상태를 status 로 읽는지 보려면 완료 직전에 상태를 바꿔 둬야 한다.
+    private MdcSnapshot runAsyncAndComplete(int finalStatus, AsyncEnding ending) throws Exception {
+        Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
+        Level originalLevel = filterLogger.getLevel();
+        filterLogger.setLevel(Level.DEBUG);
+        MdcSnapshot snapshot = new MdcSnapshot();
+        filterLogger.addAppender(snapshot.appender());
+
+        MockHttpServletRequest request = get("/api/v1/rooms/1/events");
+        request.setAsyncSupported(true);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        try {
+            filter.doFilter(request, response, (req, res) -> ((MockHttpServletRequest) req).startAsync());
+            response.setStatus(finalStatus);
+            ending.end(listenerOf(request));
+        } finally {
+            filterLogger.detachAppender(snapshot.appender());
+            filterLogger.setLevel(originalLevel);
+        }
+        return snapshot;
+    }
+
+    private AsyncListener listenerOf(MockHttpServletRequest request) {
+        List<AsyncListener> listeners = ((MockAsyncContext) request.getAsyncContext()).getListeners();
+        assertThat(listeners).hasSize(1);
+        return listeners.get(0);
+    }
+
+    private AsyncEvent asyncEvent(Throwable error) {
+        return new AsyncEvent(null, error);
+    }
+
+    // AsyncListener 의 콜백은 IOException 을 던질 수 있어 Consumer 로는 못 받는다.
+    @FunctionalInterface
+    private interface AsyncEnding {
+
+        void end(AsyncListener listener) throws IOException;
     }
 
     private MockHttpServletRequest get(String path) {
@@ -158,6 +232,32 @@ class RequestLoggingFilterTest {
             if (snapshot != null) {
                 captured.putAll(snapshot);
             }
+        }
+    }
+
+    // 로그 한 줄이 어떤 레벨로, 어떤 MDC 를 달고 나갔는지 본다. 비동기 완료 콜백은 MDC 를 스스로
+    // 채웠다가 지우므로, 기록 시점에 붙어 있던 값은 이벤트에 남은 사본으로만 확인할 수 있다.
+    private static final class MdcSnapshot {
+
+        private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
+
+        private MdcSnapshot() {
+            appender.start();
+        }
+
+        private ListAppender<ILoggingEvent> appender() {
+            return appender;
+        }
+
+        private Map<String, String> forMessage(String fragment) {
+            return eventOf(fragment).getMDCPropertyMap();
+        }
+
+        private ILoggingEvent eventOf(String fragment) {
+            return appender.list.stream()
+                .filter(event -> event.getFormattedMessage().contains(fragment))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError(fragment + " 로그가 남지 않았습니다: " + appender.list));
         }
     }
 }
