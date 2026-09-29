@@ -66,5 +66,27 @@ services:
     networks:
       - sssok
 
+  prometheus:
+    image: prom/prometheus:v3.14.0
+    container_name: sssok-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      app:
+        condition: service_healthy
+    expose:
+      - "9090"
+    networks:
+      - sssok
+
 networks:
   sssok:
+
+volumes:
+  prometheus-data:

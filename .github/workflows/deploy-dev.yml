@@ -105,8 +105,9 @@ jobs:
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
-          mkdir -p "$DEPLOY_PATH"
+          mkdir -p "$DEPLOY_PATH/monitoring/prometheus"
           cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
+          cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
 
       - name: 이미지 교체 및 헬스체크
         env:
