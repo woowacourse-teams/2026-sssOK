@@ -201,6 +201,42 @@ class RequestLoggingFilterTest {
     }
 
     @Test
+    @DisplayName("durationMs 필드와 메시지의 처리 시간이 같다 — 한 줄 안에서 값이 갈리면 안 된다")
+    void writesSameDurationIntoFieldAndMessage() throws Exception {
+        RequestLoggingFilter steppingFilter = filterWithSteppingClock();
+
+        List<ILoggingEvent> logged = captureAccessLogs(() -> steppingFilter.doFilter(
+            get("/api/v1/rooms"), new MockHttpServletResponse(), new MockFilterChain()));
+
+        assertThat(logged).singleElement().satisfies(event ->
+            assertThat(event.getFormattedMessage())
+                .endsWith("(" + event.getMDCPropertyMap().get(LogFields.DURATION_MS) + "ms)"));
+    }
+
+    @Test
+    @DisplayName("비동기 종료 줄도 durationMs 필드와 메시지의 처리 시간이 같다")
+    void writesSameDurationIntoAsyncEndFieldAndMessage() throws Exception {
+        RequestLoggingFilter steppingFilter = filterWithSteppingClock();
+        MockHttpServletRequest request = get("/api/v1/rooms/1/events");
+        request.setAsyncSupported(true);
+
+        List<ILoggingEvent> logged = captureAccessLogs(() -> {
+            steppingFilter.doFilter(request, new MockHttpServletResponse(),
+                (req, res) -> ((MockHttpServletRequest) req).startAsync());
+            listenerOf(request).onComplete(null);
+        });
+
+        assertThat(logged)
+            .filteredOn(event -> event.getFormattedMessage().contains("비동기 응답 종료"))
+            .singleElement()
+            .satisfies(event -> {
+                String field = event.getMDCPropertyMap().get(LogFields.DURATION_MS);
+                assertThat(field).isNotNull();
+                assertThat(event.getFormattedMessage()).endsWith("(" + field + "ms)");
+            });
+    }
+
+    @Test
     @DisplayName("비동기로 넘어간 요청도 시작 줄을 남긴다 — SSE 연결이 로그에서 사라지면 안 된다")
     void logsAsyncStart() throws Exception {
         Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
@@ -274,6 +310,21 @@ class RequestLoggingFilterTest {
             asyncEvent(new IllegalStateException("래핑", new IOException("Connection reset by peer")))));
 
         assertThat(snapshot.levelOfMessage("클라이언트가 연결을 끊었습니다")).isEqualTo(Level.DEBUG);
+    }
+
+    // 시간을 부를 때마다 5ms 씩 밀어 준다. 실제 시계는 마이크로초 차이라 밀리초로 자르면 두 번 재도
+    // 같은 값이 나와, 시간을 두 번 재는 실수를 테스트가 놓친다. 여기서는 두 번 재면 반드시 달라진다.
+    private RequestLoggingFilter filterWithSteppingClock() {
+        return new RequestLoggingFilter() {
+
+            private long nanos;
+
+            @Override
+            long nanoTime() {
+                nanos += 5_000_000L;
+                return nanos;
+            }
+        };
     }
 
     // 비동기로 넘어간 요청을 만들고, 등록된 리스너를 원하는 종료 시나리오로 직접 깨운다.
