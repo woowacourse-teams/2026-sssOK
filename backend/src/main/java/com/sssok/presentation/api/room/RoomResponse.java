@@ -10,7 +10,7 @@ public record RoomResponse(
     @Schema(description = "방 식별자. 조회 이후 수정/삭제/입장/구독 API는 모두 이 값을 쓴다") Long roomId,
     @Schema(description = "공유 링크에 쓰이는 코드. 방 조회(GET /rooms/{code})에서만 식별자로 쓰인다") String code,
     @Schema(description = "방 이름") String name,
-    @Schema(description = "방 상태: ACTIVE(이용 가능) / EXPIRED(기간 만료) / DELETED(삭제됨) / PURGED(영구 삭제됨)") String status,
+    @Schema(description = "방 상태: ACTIVE(이용 가능) / EXPIRED(기간 만료) / DELETED(삭제됨)") String status,
     @Schema(description = "방장 계정 식별자. 요청자의 userId와 비교해 방장 여부를 판단하면 된다") Long hostId,
     @Schema(description = "방장의 표시 이름") String hostName,
     @Schema(description = "업로드 권한: everyone(누구나) 또는 host(방장만)") String uploadPolicy,

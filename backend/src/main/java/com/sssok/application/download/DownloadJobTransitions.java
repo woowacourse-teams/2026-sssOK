@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 // DownloadCompressionWorker의 각 상태 전이를 별도 빈으로 뺀 이유: 압축 자체는 트랜잭션을 오래
 // 붙들면 안 되는 긴 I/O라 워커 메서드 자체엔 @Transactional을 못 둔다. 그렇다고 워커 안에서
 // this.markRunning() 처럼 같은 빈의 메서드를 호출하면 프록시를 안 거쳐 @Transactional이
-// 조용히 무시된다(자기 호출 문제). 그래서 RoomPurger처럼 실제 트랜잭션이 필요한 단위를
+// 조용히 무시된다(자기 호출 문제). 그래서 실제 트랜잭션이 필요한 단위를
 // 별도 빈으로 분리해, 워커가 프록시를 거쳐 호출하게 한다.
 @Component
 @RequiredArgsConstructor
