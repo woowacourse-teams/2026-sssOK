@@ -26,7 +26,7 @@ spring:
         core-size: 4
         max-size: 8
         queue-capacity: 100
-    # 방 만료 TTL / 보관 기간 경과 후 영구 삭제 @Scheduled 배치
+    # 고아 객체·썸네일·다운로드 zip 정리 등 @Scheduled 배치
     scheduling:
       thread-name-prefix: batch-
       pool:
