@@ -73,6 +73,17 @@ class FeedbackApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.createdAt").value(Matchers.notNullValue()));
     }
 
+    // 이 컨텍스트에는 디스코드 웹훅 URL 이 없다 (테스트 기본값). 알림을 건너뛰어도 등록은 그대로 돼야 한다.
+    @Test
+    void 디스코드_웹훅_URL이_없어도_의견은_201로_등록되고_저장된다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+
+        long feedbackId = 의견_남기기(token, roomId, "알림이 꺼져 있어도 남아야 해요", CHROME_UA);
+
+        assertThat(feedbackJpaRepository.findById(feedbackId)).isPresent();
+    }
+
     @Test
     void 방_번호와_방_이름과_회원_번호와_닉네임이_함께_저장된다() throws Exception {
         String token = 익명_인증("가현");
