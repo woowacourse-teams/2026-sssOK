@@ -16,6 +16,7 @@ services:
     container_name: sssok-app-dev
     restart: unless-stopped
     ports:
+      # 호스트에 직접 설치된 Nginx 가 :80 으로 받아 여기로 넘긴다 (dev-api.ssssok.com).
       - "8080:8080"
     expose:
       # Actuator 관리 포트. 호스트에는 publish하지 않고 Prometheus만 내부에서 접근한다.
@@ -47,6 +48,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    labels:
+      # Alloy 가 이 라벨이 붙은 컨테이너만 수집하고, 값을 Loki 의 service 라벨로 쓴다.
+      com.sssok.log.service: sssok-backend
     networks:
       - sssok
 
@@ -90,6 +94,71 @@ services:
     networks:
       - sssok
 
+  loki:
+    image: grafana/loki:3.7.8
+    container_name: sssok-loki-dev
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/loki.yml
+      - -config.expand-env=true
+    environment:
+      # 팀 합의(dev 7일). 배포 직후 확인용이라 운영(30일)보다 짧게 둔다.
+      LOKI_RETENTION_PERIOD: 168h
+      # 앱과 같은 인스턴스에서 돈다. 한도(mem_limit)에 닿아 OOM 으로 죽기 전에 GC 가 먼저 돌게 한다.
+      GOMEMLIMIT: 400MiB
+    mem_limit: 512m
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      # 저장된 로그. 이 볼륨이 남아 있으면 Loki·앱 컨테이너를 재생성해도 로그가 그대로다.
+      - loki-data:/loki
+    expose:
+      - "3100"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sssok
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: sssok-alloy-dev
+    restart: unless-stopped
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+    environment:
+      # Loki 스트림의 environment 라벨이 된다.
+      SSSOK_ENVIRONMENT: dev
+      GOMEMLIMIT: 200MiB
+    mem_limit: 256m
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
+      - alloy-data:/var/lib/alloy/data
+      # 수집 대상 컨테이너를 찾고 로그를 읽는 Docker API. 앱은 Alloy 를 모르고, Alloy 가 멈춰도
+      # 앱 로그는 json-file 에 계속 쌓인다.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.
+      # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/nginx/README 참고).
+      - /var/log/nginx:/var/log/nginx-host:ro
+    depends_on:
+      - loki
+    expose:
+      # 파이프라인 상태를 보는 Alloy UI. 호스트에는 publish 하지 않는다.
+      - "12345"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sssok
+
   grafana:
     image: grafana/grafana:13.2.2
     container_name: sssok-grafana-dev
@@ -108,6 +177,7 @@ services:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
     networks:
       - sssok
 
@@ -118,6 +188,8 @@ volumes:
   prometheus-data:
   alertmanager-data:
   grafana-data:
+  loki-data:
+  alloy-data:
 
 secrets:
   discord_webhook_url:
