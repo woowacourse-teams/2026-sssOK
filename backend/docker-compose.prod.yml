@@ -17,6 +17,8 @@ services:
     restart: unless-stopped
     expose:
       - "8080"
+      # Actuator 관리 포트. Nginx로 전달하거나 호스트에 publish하지 않는다.
+      - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: prod
       # 배포마다 CI가 image.env 에 써 넣는다. 값이 없어도(구버전 image.env, 수동 기동) 뜨도록 기본값을 둔다.

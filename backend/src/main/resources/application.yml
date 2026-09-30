@@ -161,6 +161,10 @@ springdoc:
     tags-sorter: alpha
 
 management:
+  server:
+    # 일반 API 포트(8080)와 분리한다. Docker 호스트에는 이 포트를 공개하지 않고
+    # 같은 Compose 네트워크의 Prometheus만 app:8081로 접근한다.
+    port: 8081
   metrics:
     distribution:
       # HTTP 응답 시간을 bucket으로 집계해 Prometheus에서 p95를 계산할 수 있게 한다.

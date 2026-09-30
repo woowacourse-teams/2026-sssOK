@@ -18,4 +18,4 @@ scrape_configs:
     static_configs:
       # 같은 Docker Compose 네트워크에서는 서비스 이름으로 애플리케이션을 찾는다.
       - targets:
-          - app:8080
+          - app:8081

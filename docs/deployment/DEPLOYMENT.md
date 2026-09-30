@@ -37,8 +37,8 @@ flowchart LR
 | `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정 |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
-| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱 컨테이너 정의 (`8080` 직접 노출) |
-| `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx 컨테이너 정의 (`80`으로 헬스체크) |
+| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱 컨테이너 정의 (`8080` 직접 노출, Actuator `8081`은 내부 전용) |
+| `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx 컨테이너 정의 (`80`으로 헬스체크, Actuator `8081`은 내부 전용) |
 
 ## 최초 세팅 (1회만)
 
@@ -52,6 +52,7 @@ flowchart LR
 | 8080 | 0.0.0.0/0 | 백엔드 (Nginx 붙이기 전 임시) |
 
 CI(GitHub Actions)는 self-hosted 러너를 통해 EC2 내부에서 직접 실행되므로, 22번 포트를 CI용으로 별도 개방할 필요가 없다.
+Actuator가 사용하는 `8081`은 보안 그룹에 열지 않으며 Docker 네트워크 안의 Prometheus만 접근한다.
 
 ### 2. RDS 준비
 

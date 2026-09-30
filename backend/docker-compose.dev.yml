@@ -17,6 +17,9 @@ services:
     restart: unless-stopped
     ports:
       - "8080:8080"
+    expose:
+      # Actuator 관리 포트. 호스트에는 publish하지 않고 Prometheus만 내부에서 접근한다.
+      - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
       # 배포마다 CI가 image.env 에 써 넣는다. 값이 없어도(구버전 image.env, 수동 기동) 뜨도록 기본값을 둔다.
