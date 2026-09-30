@@ -152,9 +152,7 @@ class RoomPermissionPortAdapterTest {
 
         @Override
         public List<Room> findAllPurgeTargets(Instant threshold) {
-            return rooms.values().stream()
-                .filter(room -> room.endedAt().isBefore(threshold))
-                .toList();
+            return List.of();
         }
 
         @Override

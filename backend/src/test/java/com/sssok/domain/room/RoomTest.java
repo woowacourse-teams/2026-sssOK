@@ -138,38 +138,6 @@ class RoomTest {
     }
 
     @Test
-    void 삭제_후_보존_기간이_지나지_않으면_퍼지_대상이_아니다() {
-        Room room = createRoom();
-        Instant deletedAt = NOW;
-        room.delete(HOST, deletedAt);
-
-        assertThat(room.isPurgeable(deletedAt.plus(Duration.ofDays(6)))).isFalse();
-    }
-
-    @Test
-    void 삭제_후_보존_기간이_지나면_퍼지_대상이다() {
-        Room room = createRoom();
-        Instant deletedAt = NOW;
-        room.delete(HOST, deletedAt);
-
-        assertThat(room.isPurgeable(deletedAt.plus(Duration.ofDays(7)))).isTrue();
-    }
-
-    @Test
-    void 삭제되지_않아도_만료_후_보존_기간이_지나면_퍼지_대상이다() {
-        Room room = createRoom();
-
-        assertThat(room.isPurgeable(NOW.plus(Duration.ofDays(365)))).isTrue();
-    }
-
-    @Test
-    void 만료_전에는_퍼지_대상이_아니다() {
-        Room room = createRoom();
-
-        assertThat(room.isPurgeable(NOW.plus(Duration.ofHours(1)))).isFalse();
-    }
-
-    @Test
     void expire_호출하면_EXPIRED_상태로_전이한다() {
         Room room = createRoom();
 
@@ -177,7 +145,6 @@ class RoomTest {
 
         assertThat(room.getStatus()).isSameAs(ExpiredRoomStatus.INSTANCE);
     }
-
 
     @Test
     void purge는_DELETED_상태에서만_가능하다() {
@@ -190,38 +157,4 @@ class RoomTest {
 
         assertThat(room.getStatus()).isSameAs(PurgedRoomStatus.INSTANCE);
     }
-
-    @Test
-    void 삭제되지_않은_방은_만료_시각을_기준으로_영구_삭제_시각이_잡힌다() {
-        Room room = createRoom();
-
-        assertThat(room.endedAt()).isEqualTo(room.getExpiration().expiresAt());
-        assertThat(room.purgeAt()).isEqualTo(room.getExpiration().expiresAt().plus(Duration.ofDays(7)));
-    }
-
-    @Test
-    void 만료된_방을_뒤늦게_지워도_보관_기간이_늘어나지_않는다() {
-        Room room = createRoom();
-        Instant expiresAt = room.getExpiration().expiresAt();
-
-        room.delete(HOST, expiresAt.plus(Duration.ofDays(4)));
-
-        assertThat(room.endedAt()).isEqualTo(expiresAt);
-        assertThat(room.purgeAt()).isEqualTo(expiresAt.plus(Duration.ofDays(7)));
-    }
-
-    @Test
-    void 삭제하면_영구_삭제_예정_시각은_삭제_시각의_보존_기간_뒤다() {
-        Room room = createRoom();
-        Instant deletedAt = NOW.plus(Duration.ofMinutes(10));
-
-        room.delete(HOST, deletedAt);
-
-        assertThat(room.endedAt()).isEqualTo(deletedAt);
-        assertThat(room.purgeAt()).isEqualTo(deletedAt.plus(Duration.ofDays(7)));
-    }
-
-
-
-
 }

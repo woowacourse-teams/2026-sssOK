@@ -69,8 +69,6 @@ room:
   code-length: 8
   default-ttl: 24h
   expiration-change-limit: 3
-  # 수명을 다한 방을 실제로 지우는 시각. 보관 기간 자체는 RetentionPolicy 가 갖는다.
-  purge-cron: "0 0 4 * * *"
 
 upload:
   image-max-size: 20MB
