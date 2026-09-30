@@ -89,7 +89,7 @@ public class Room {
         return canEnter(now) && status.canUpload(uploadPolicy, isHost(requester));
     }
 
-    // 만료된 방은 아직 지울 수 있다. 지울 게 남지 않은 건 이미 삭제·정리된 방뿐이다.
+    // 만료된 방은 아직 지울 수 있다. 다시 지울 수 없는 건 이미 삭제된 방뿐이다.
     public boolean isDeleted() {
         return status.isDeleted();
     }
@@ -109,10 +109,6 @@ public class Room {
 
     public void expire() {
         this.status = status.toExpired();
-    }
-
-    public void purge() {
-        this.status = status.toPurged();
     }
 
     private void requireHost(Long requester) {

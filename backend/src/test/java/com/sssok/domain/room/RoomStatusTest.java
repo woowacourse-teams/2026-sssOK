@@ -20,7 +20,6 @@ class RoomStatusTest {
         assertThat(RoomStatus.from("ACTIVE")).isSameAs(RoomStatus.from("ACTIVE"));
         assertThat(RoomStatus.from("EXPIRED")).isSameAs(ExpiredRoomStatus.INSTANCE);
         assertThat(RoomStatus.from("DELETED")).isSameAs(DeletedRoomStatus.INSTANCE);
-        assertThat(RoomStatus.from("PURGED")).isSameAs(PurgedRoomStatus.INSTANCE);
     }
 
     @Test
@@ -35,7 +34,6 @@ class RoomStatusTest {
 
         assertThat(active.toExpired()).isSameAs(ExpiredRoomStatus.INSTANCE);
         assertThat(active.toDeleted()).isSameAs(DeletedRoomStatus.INSTANCE);
-        assertThatThrownBy(active::toPurged).isInstanceOf(IllegalRoomStatusTransitionException.class);
     }
 
     @Test
@@ -44,25 +42,14 @@ class RoomStatusTest {
 
         assertThat(expired.toDeleted()).isSameAs(DeletedRoomStatus.INSTANCE);
         assertThatThrownBy(expired::toExpired).isInstanceOf(IllegalRoomStatusTransitionException.class);
-        assertThatThrownBy(expired::toPurged).isInstanceOf(IllegalRoomStatusTransitionException.class);
     }
 
     @Test
-    void DELETED는_PURGED로만_전이할_수_있다() {
+    void DELETED는_종단_상태라_더_전이할_수_없다() {
         RoomStatus deleted = DeletedRoomStatus.INSTANCE;
 
-        assertThat(deleted.toPurged()).isSameAs(PurgedRoomStatus.INSTANCE);
         assertThatThrownBy(deleted::toExpired).isInstanceOf(IllegalRoomStatusTransitionException.class);
         assertThatThrownBy(deleted::toDeleted).isInstanceOf(IllegalRoomStatusTransitionException.class);
-    }
-
-    @Test
-    void PURGED는_종단_상태라_더_전이할_수_없다() {
-        RoomStatus purged = PurgedRoomStatus.INSTANCE;
-
-        assertThatThrownBy(purged::toExpired).isInstanceOf(IllegalRoomStatusTransitionException.class);
-        assertThatThrownBy(purged::toDeleted).isInstanceOf(IllegalRoomStatusTransitionException.class);
-        assertThatThrownBy(purged::toPurged).isInstanceOf(IllegalRoomStatusTransitionException.class);
     }
 
     @Test
@@ -70,11 +57,9 @@ class RoomStatusTest {
         assertThat(ActiveRoomStatus.INSTANCE.canEnter()).isTrue();
         assertThat(ExpiredRoomStatus.INSTANCE.canEnter()).isFalse();
         assertThat(DeletedRoomStatus.INSTANCE.canEnter()).isFalse();
-        assertThat(PurgedRoomStatus.INSTANCE.canEnter()).isFalse();
 
         assertThat(ActiveRoomStatus.INSTANCE.canUpload(UploadPolicy.ANYONE, false)).isTrue();
         assertThat(ExpiredRoomStatus.INSTANCE.canUpload(UploadPolicy.ANYONE, false)).isFalse();
         assertThat(DeletedRoomStatus.INSTANCE.canUpload(UploadPolicy.ANYONE, false)).isFalse();
-        assertThat(PurgedRoomStatus.INSTANCE.canUpload(UploadPolicy.ANYONE, false)).isFalse();
     }
 }

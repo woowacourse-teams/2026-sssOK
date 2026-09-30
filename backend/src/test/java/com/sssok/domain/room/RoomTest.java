@@ -12,7 +12,6 @@ import java.time.Instant;
 import com.sssok.domain.room.roomstatus.ActiveRoomStatus;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
-import com.sssok.domain.room.roomstatus.PurgedRoomStatus;
 import org.junit.jupiter.api.Test;
 
 class RoomTest {
@@ -144,17 +143,5 @@ class RoomTest {
         room.expire();
 
         assertThat(room.getStatus()).isSameAs(ExpiredRoomStatus.INSTANCE);
-    }
-
-    @Test
-    void purge는_DELETED_상태에서만_가능하다() {
-        Room room = createRoom();
-
-        assertThatThrownBy(room::purge).isInstanceOf(IllegalRoomStatusTransitionException.class);
-
-        room.delete(HOST, NOW);
-        room.purge();
-
-        assertThat(room.getStatus()).isSameAs(PurgedRoomStatus.INSTANCE);
     }
 }
