@@ -26,6 +26,12 @@ public final class LogFields {
     public static final String STATUS = "status";
     public static final String ERROR_CODE = "errorCode";
 
+    // 앱이 요청을 처리한 시간. 단위가 밀리초라는 걸 이름에 박아 둔 이유는, 같은 요청을 nginx 가
+    // durationSeconds(초, 소수점)로 남기기 때문이다. 두 값을 한 대시보드에 올릴 때 1,000배 차이가
+    // 나므로 이름만 보고 단위를 알 수 있어야 한다. nginx 쪽은 요청이 nginx 에 들어온 순간부터
+    // 응답을 다 쓸 때까지라, 이 값보다 항상 조금 크다.
+    public static final String DURATION_MS = "durationMs";
+
     private LogFields() {
     }
 }
