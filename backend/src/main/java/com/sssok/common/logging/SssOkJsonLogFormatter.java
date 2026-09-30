@@ -62,8 +62,9 @@ public class SssOkJsonLogFormatter implements StructuredLogFormatter<ILoggingEve
         members.add(LogFields.REQUEST_ID, event -> mdc(event, LogFields.REQUEST_ID)).whenHasLength();
         members.add(LogFields.METHOD, event -> mdc(event, LogFields.METHOD)).whenHasLength();
         members.add(LogFields.PATH, event -> mdc(event, LogFields.PATH)).whenHasLength();
-        members.add(LogFields.STATUS, this::status).whenNotNull();
+        members.add(LogFields.STATUS, event -> number(event, LogFields.STATUS)).whenNotNull();
         members.add(LogFields.ERROR_CODE, event -> mdc(event, LogFields.ERROR_CODE)).whenHasLength();
+        members.add(LogFields.DURATION_MS, event -> number(event, LogFields.DURATION_MS)).whenNotNull();
 
         members.add(LogFields.MESSAGE, event -> SensitiveValueMasker.mask(event.getFormattedMessage()));
         members.add("logger", ILoggingEvent::getLoggerName);
@@ -85,10 +86,11 @@ public class SssOkJsonLogFormatter implements StructuredLogFormatter<ILoggingEve
         return SensitiveValueMasker.mask(mdc.get(key));
     }
 
-    // status 만 문자열이 아닌 숫자로 내보낸다. Loki·Grafana 에서 `status >= 500` 같은 비교를
-    // 하려면 숫자여야 한다. MDC 는 문자열만 담으므로 여기서 되돌린다.
-    private Integer status(ILoggingEvent event) {
-        String raw = mdc(event, LogFields.STATUS);
+    // status 와 durationMs 만 문자열이 아닌 숫자로 내보낸다. Loki·Grafana 에서 `status >= 500`
+    // 이나 `durationMs > 1000` 같은 비교를 하려면 숫자여야 한다. MDC 는 문자열만 담으므로
+    // 여기서 되돌린다.
+    private Integer number(ILoggingEvent event, String key) {
+        String raw = mdc(event, key);
         if (raw == null || raw.isBlank()) {
             return null;
         }

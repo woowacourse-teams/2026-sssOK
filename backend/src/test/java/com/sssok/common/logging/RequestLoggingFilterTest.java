@@ -8,6 +8,8 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -24,6 +26,16 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class RequestLoggingFilterTest {
+
+    // 수집기·배포 헬스체크가 반복 호출하는 경로. 필터의 제외 목록이 좁아지면 여기서 먼저 깨진다.
+    private static final List<String> EXCLUDED_PATHS = List.of(
+        "/health",
+        "/actuator",
+        "/actuator/health",
+        "/actuator/health/liveness",
+        "/actuator/health/readiness",
+        "/actuator/info",
+        "/actuator/prometheus");
 
     private final RequestLoggingFilter filter = new RequestLoggingFilter();
 
@@ -128,28 +140,64 @@ class RequestLoggingFilterTest {
     }
 
     @Test
-    @DisplayName("반복 호출되는 헬스체크와 Prometheus 수집 요청은 접근 로그에서 제외한다")
+    @DisplayName("반복 호출되는 헬스체크와 Actuator 수집 요청은 접근 로그에서 제외한다")
     void skipsMonitoringAccessLogs() throws Exception {
-        Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
-        ListAppender<ILoggingEvent> appender = new ListAppender<>();
-        appender.start();
-        filterLogger.addAppender(appender);
-
-        try {
-            for (String path : List.of(
-                "/health",
-                "/actuator/health",
-                "/actuator/health/liveness",
-                "/actuator/health/readiness",
-                "/actuator/prometheus")) {
+        List<ILoggingEvent> logged = captureAccessLogs(() -> {
+            for (String path : EXCLUDED_PATHS) {
                 filter.doFilter(get(path), new MockHttpServletResponse(), new MockFilterChain());
             }
-        } finally {
-            filterLogger.detachAppender(appender);
-            appender.stop();
-        }
+        });
 
-        assertThat(appender.list).isEmpty();
+        assertThat(logged).isEmpty();
+    }
+
+    @Test
+    @DisplayName("접근 로그에서 뺀 경로도 요청 ID 는 발급해 돌려준다 — 헬스체크가 실패하면 그 ID 로 찾는다")
+    void issuesRequestIdForExcludedPaths() throws Exception {
+        for (String path : EXCLUDED_PATHS) {
+            MockHttpServletResponse response = new MockHttpServletResponse();
+
+            filter.doFilter(get(path), response, new MockFilterChain());
+
+            assertThat(response.getHeader(RequestLoggingFilter.REQUEST_ID_HEADER))
+                .as("%s 의 응답 요청 ID", path)
+                .isNotNull();
+        }
+    }
+
+    @Test
+    @DisplayName("접근 로그에서 뺀 경로라도 5xx 는 남긴다 — 헬스체크가 깨진 순간이 가장 보고 싶은 줄이다")
+    void logsServerErrorOnExcludedPaths() throws Exception {
+        List<ILoggingEvent> logged = captureAccessLogs(() -> {
+            for (String path : EXCLUDED_PATHS) {
+                filter.doFilter(get(path), new MockHttpServletResponse(), respondWith(503));
+            }
+        });
+
+        assertThat(logged)
+            .hasSize(EXCLUDED_PATHS.size())
+            .allSatisfy(event -> assertThat(event.getFormattedMessage()).contains("503"));
+    }
+
+    @Test
+    @DisplayName("4xx 는 제외 경로에서 계속 묻는다 — 헬스체크 경로 오타 하나로 로그가 쌓이면 안 된다")
+    void stillSkipsClientErrorOnExcludedPaths() throws Exception {
+        List<ILoggingEvent> logged = captureAccessLogs(
+            () -> filter.doFilter(get("/actuator/prometheus"), new MockHttpServletResponse(), respondWith(404)));
+
+        assertThat(logged).isEmpty();
+    }
+
+    @Test
+    @DisplayName("접근 로그에는 처리 시간이 durationMs 필드로 함께 실린다")
+    void putsDurationIntoAccessLog() throws Exception {
+        List<ILoggingEvent> logged = captureAccessLogs(
+            () -> filter.doFilter(get("/api/v1/rooms"), new MockHttpServletResponse(), new MockFilterChain()));
+
+        assertThat(logged).singleElement()
+            .satisfies(event -> assertThat(event.getMDCPropertyMap().get(LogFields.DURATION_MS))
+                .isNotNull()
+                .matches("\\d+"));
     }
 
     @Test
@@ -271,6 +319,31 @@ class RequestLoggingFilterTest {
 
     private MockHttpServletRequest get(String path) {
         return new MockHttpServletRequest("GET", path);
+    }
+
+    // 필터가 남긴 로그만 모은다. 접근 로그를 "남겼는지" 자체가 검증 대상이라 실제 appender 로 본다.
+    private List<ILoggingEvent> captureAccessLogs(ThrowingRunnable requests) throws Exception {
+        Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        filterLogger.addAppender(appender);
+        try {
+            requests.run();
+        } finally {
+            filterLogger.detachAppender(appender);
+            appender.stop();
+        }
+        return List.copyOf(appender.list);
+    }
+
+    private FilterChain respondWith(int status) {
+        return (request, response) -> ((HttpServletResponse) response).setStatus(status);
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+
+        void run() throws Exception;
     }
 
     // 체인 실행 시점의 MDC 를 찍어 둔다. 필터가 요청이 끝나며 지우므로 그 전에 봐야 한다.
