@@ -36,9 +36,9 @@ Prometheus·Alertmanager·Grafana를 모니터링 전용 EC2로 이전할 수 �
 
 - `monitor.ssssok.com` DNS와 HTTPS 인증서
 - 기존 ALB의 Grafana 전용 호스트 규칙
-- HTTP `3000`, `/api/health`를 사용하는 Grafana 전용 Target Group
-- 기존 `project-app → project-public` 보안 그룹 연결 재사용
-- Grafana의 `3000:3000` 게시와 외부 URL 설정
+- 기존 애플리케이션 Target Group(`HTTP :80`) 재사용
+- Nginx의 호스트 기반 `app:8080`·`grafana:3000` 분기
+- Grafana의 loopback 포트 바인딩과 외부 URL 설정
 - Grafana 자체 로그인, 익명 접근 및 회원가입 차단
 - 기존 `sssOK Backend Overview` 대시보드 접근
 - 기존 Prometheus의 애플리케이션 지표 수집 정상 여부 확인
@@ -60,7 +60,7 @@ Prometheus·Alertmanager·Grafana를 모니터링 전용 EC2로 이전할 수 �
 - [ ] 팀원이 SSH·SSM 터널 없이 `https://monitor.ssssok.com`에 접속할 수 있다.
 - [ ] 비로그인 사용자는 대시보드를 볼 수 없고 Grafana 로그인이 필요하다.
 - [ ] 기존 Backend Overview의 서비스 상태, 요청량, 5xx, p95, JVM Heap, HikariCP 패널이 조회된다.
-- [ ] Grafana Target Group이 healthy 상태다.
+- [ ] 기존 애플리케이션 Target Group이 healthy 상태를 유지한다.
 - [ ] EC2 공인 IP의 `3000`번 포트에는 인터넷에서 직접 접근할 수 없다.
 - [ ] Grafana를 중지해도 기존 API와 애플리케이션 Target Group은 정상이다.
 - [ ] 문제가 생기면 DNS·ALB 규칙과 Compose 바인딩을 이전 상태로 되돌릴 수 있다.
@@ -68,7 +68,7 @@ Prometheus·Alertmanager·Grafana를 모니터링 전용 EC2로 이전할 수 �
 MVP 완료 뒤 최소 하루 동안 Grafana·Prometheus의 메모리 사용량과 API 상태를 관찰하고 다음 수집기 추가
 여부를 결정한다.
 
-## 현재 구조
+## 변경 전 구조
 
 ```mermaid
 flowchart LR
@@ -89,7 +89,7 @@ flowchart LR
 - Grafana만 `127.0.0.1:3000:3000`으로 게시되어 EC2 내부에서만 접근할 수 있다.
 - Grafana의 익명 접근과 자체 회원가입은 비활성화되어 있다.
 
-따라서 현재는 EC2 로컬 포트로 연결되는 SSH 또는 SSM 터널 없이는 Grafana를 열 수 없다.
+따라서 변경 전에는 EC2 로컬 포트로 연결되는 SSH 또는 SSM 터널 없이는 Grafana를 열 수 없었다.
 
 ## 1단계 목표 구조: 기존 운영 EC2에서 외부 접근
 
@@ -97,28 +97,31 @@ flowchart LR
 flowchart LR
     U[팀원 브라우저] -->|HTTPS| DNS[monitor.ssssok.com]
     DNS --> ALB[기존 ALB HTTPS 리스너]
-    ALB -->|Host 규칙| TG[Grafana 전용 Target Group\nHTTP :3000]
-    TG -->|ALB SG만 허용| G[운영 EC2 Grafana :3000]
+    ALB -->|Host 규칙| TG[기존 애플리케이션 Target Group\nHTTP :80]
+    TG --> N[Nginx :80]
+    N -->|Host 분기| G[Grafana :3000]
     G -->|Docker network| P[Prometheus :9090]
     P -->|Docker network| APP[app :8081]
 
     API[api.ssssok.com] --> ALB
     ALB -->|기존 규칙| ATG[애플리케이션 Target Group\nHTTP :80]
-    ATG --> N[Nginx :80]
+    ATG --> N
     N --> APP2[app :8080]
 ```
 
-Grafana와 애플리케이션은 같은 EC2에 남지만 ALB 규칙과 Target Group을 분리한다. 이 경계가 있어야
-향후 Grafana Target Group의 대상만 새 인스턴스로 교체할 수 있다.
+Grafana와 애플리케이션은 같은 EC2에 남고 ALB Target Group도 재사용한다. 조직에서 고정한 보안 그룹이
+허용하는 `80`번 포트로만 들어온 뒤 Nginx가 `Host` 헤더로 목적지를 분리한다. 향후 모니터링 인스턴스를
+분리할 때는 Grafana 전용 Target Group을 새로 만들고 리스너 규칙의 전달 대상만 교체한다.
 
 ### 요청 경로
 
 1. 사용자가 `https://monitor.ssssok.com`에 접속한다.
 2. Route 53 Alias 레코드가 요청을 기존 ALB로 보낸다.
 3. ALB가 ACM 인증서로 TLS를 종료한다.
-4. HTTPS 리스너의 `Host = monitor.ssssok.com` 규칙이 요청을 Grafana 전용 Target Group으로 전달한다.
-5. Target Group은 운영 EC2의 `3000`번 포트로 요청을 보낸다.
-6. Grafana가 자체 로그인으로 사용자를 인증한다.
+4. HTTPS 리스너의 `Host = monitor.ssssok.com` 규칙이 요청을 기존 애플리케이션 Target Group으로 전달한다.
+5. Target Group은 운영 EC2의 Nginx `80`번 포트로 요청을 보낸다.
+6. Nginx가 `Host` 헤더를 기준으로 요청을 Docker 네트워크의 `grafana:3000`으로 전달한다.
+7. Grafana가 자체 로그인으로 사용자를 인증한다.
 
 ## 설계 결정
 
@@ -127,21 +130,22 @@ Grafana와 애플리케이션은 같은 EC2에 남지만 ALB 규칙과 Target Gr
 경로 기반의 `api.ssssok.com/grafana` 대신 `monitor.ssssok.com`을 사용한다. Grafana의 하위 경로 설정과
 리다이렉트 URL 보정을 피할 수 있고, 모니터링 인스턴스를 분리해도 외부 URL을 유지하기 쉽다.
 
-### Grafana 전용 Target Group을 사용한다
+### 현재는 기존 Target Group을 재사용한다
 
-애플리케이션 Target Group은 `80`번 포트와 `/health`를 기준으로 동작한다. Grafana는 `3000`번 포트와
-`/api/health`를 사용하므로 상태 판정과 장애 범위를 분리한다. Grafana가 비정상이어도 애플리케이션
-Target Group과 API 트래픽에는 영향을 주지 않아야 한다.
+운영 보안 그룹은 ALB에서 EC2의 Grafana `3000`번 포트로 가는 연결을 허용하지 않으며 변경할 수 없다.
+따라서 애플리케이션 Target Group의 `80`번 포트와 `/health` 헬스 체크를 그대로 사용한다. Nginx의
+기본 서버는 기존 `app:8080`을 향하므로 Grafana가 비정상이어도 Target Group과 API 트래픽은 정상 상태를
+유지한다. Grafana 상태는 외부 `/api/health` 요청과 대시보드 점검으로 별도 확인한다.
 
-권장 Target Group 설정은 다음과 같다.
+현재 Target Group 설정은 다음과 같다.
 
 | 항목 | 값 |
 | --- | --- |
 | 대상 유형 | Instance |
 | 프로토콜 | HTTP |
-| 포트 | 3000 |
+| 포트 | 80 |
 | 헬스체크 프로토콜 | HTTP |
-| 헬스체크 경로 | `/api/health` |
+| 헬스체크 경로 | `/health` |
 | 성공 코드 | `200` |
 | 대상 | 현재 운영 EC2 |
 
@@ -152,25 +156,20 @@ Target Group과 API 트래픽에는 영향을 주지 않아야 한다.
 격리하지는 않는다. 따라서 다음 조건을 함께 지켜야 한다.
 
 - 사용자는 반드시 ALB의 HTTPS 주소로 접속한다.
-- EC2의 `3000`번 포트는 ALB 보안 그룹에서 온 요청만 허용한다.
+- EC2의 `3000`번 포트는 loopback에만 바인딩하고 보안 그룹에 열지 않는다.
 - 관리자 비밀번호는 길고 고유한 값으로 설정하고 `.env` 외부에 복사하거나 저장소에 기록하지 않는다.
 - Grafana 이미지를 정기적으로 업데이트한다.
 - 계정 공유가 운영상 문제가 되면 사용자별 계정 또는 Cognito/OIDC를 도입한다.
 
-### 기존 보안 그룹 연결을 재사용한다
+### 기존 보안 그룹 규칙을 변경하지 않는다
 
-Compose에서 Grafana를 ALB가 접근할 수 있는 호스트 포트로 게시해야 하지만, 보안 그룹에서는
-`0.0.0.0/0`을 허용하지 않는다. Docker가 게시한 포트는 운영체제 방화벽 정책과 다르게 동작할 수 있으므로
-접근 통제의 기준은 EC2 보안 그룹으로 둔다.
-
-현재 `project-public`에는 `project-app`을 원본으로 하는 전체 프로토콜·전체 포트 인바운드 규칙이 있다.
-운영 ALB에 연결된 보안 그룹이 실제로 `project-app`과 같은 보안 그룹 ID인지 적용 전에 확인한다. 일치하면
-이 규칙으로 ALB에서 EC2의 `3000`번 포트에 접근할 수 있으므로 Grafana 전용 인바운드 규칙을 새로 만들지
-않는다. 조직에서 정한 기존 인바운드 규칙도 이번 작업에서 변경하지 않는다.
+Grafana는 Docker 네트워크 안에서만 Nginx에 `3000`번 포트를 제공하고 호스트에는
+`127.0.0.1:3000`으로만 게시한다. ALB는 기존에 허용된 EC2의 `80`번 포트만 사용한다. 조직에서 정한
+기존 `project-public`·`project-app` 규칙을 추가하거나 수정하지 않는다.
 
 | 대상 | 포트 | 허용 소스 |
 | --- | ---: | --- |
-| 운영 EC2 Grafana | 3000 | 기존 `project-public`의 `project-app` 원본 규칙 재사용 |
+| 운영 EC2 Grafana | 3000 | 외부 인바운드 없음(loopback 및 Docker 네트워크 전용) |
 | 운영 EC2 Nginx | 80 | 기존 보안 그룹 규칙 유지 |
 | 운영 EC2 Actuator | 8081 | 외부 인바운드 없음 |
 
@@ -185,11 +184,10 @@ Compose에서 Grafana를 ALB가 접근할 수 있는 호스트 포트로 게시�
 - [ ] `monitor.ssssok.com`을 관리하는 DNS Hosted Zone을 확인한다.
 - [ ] 기존 ALB와 HTTPS `443` 리스너를 확인한다.
 - [ ] ALB 보안 그룹과 운영 EC2 보안 그룹을 확인한다.
-- [ ] ALB의 `project-app` 보안 그룹 ID가 `project-public` 인바운드 규칙의 원본과 일치하는지 확인한다.
 - [ ] 운영 EC2가 ALB가 사용하는 가용 영역과 Target Group에 등록 가능한 네트워크인지 확인한다.
 - [ ] ACM 인증서의 SAN에 `monitor.ssssok.com` 또는 `*.ssssok.com`이 포함되는지 확인한다.
 - [ ] 현재 Grafana 관리자 계정 정보를 안전한 경로로 확보한다.
-- [ ] `3000`번 호스트 포트가 다른 프로세스에서 사용 중이지 않은지 확인한다.
+- [ ] 기존 애플리케이션 Target Group이 `80`번 포트와 `/health`에서 healthy인지 확인한다.
 
 ### 2. DNS와 인증서
 
@@ -202,27 +200,23 @@ Compose에서 Grafana를 ALB가 접근할 수 있는 호스트 포트로 게시�
 인증서가 준비되기 전에 HTTP 주소를 먼저 공개하지 않는다. Grafana 로그인 정보는 HTTPS 연결에서만
 전송되어야 한다.
 
-### 3. Grafana 전용 Target Group과 리스너 규칙
+### 3. 기존 Target Group을 사용하는 리스너 규칙
 
-1. HTTP `3000` 포트와 `/api/health` 헬스체크를 사용하는 Grafana 전용 Target Group을 생성한다.
-2. 현재 운영 EC2를 Target Group에 등록한다.
-3. ALB HTTPS 리스너에 `Host = monitor.ssssok.com` 조건을 추가한다.
-4. 규칙의 전달 대상을 Grafana 전용 Target Group으로 지정한다.
-5. 기존 API 규칙보다 우선순위가 높고 다른 호스트 규칙과 충돌하지 않는지 확인한다.
+1. ALB HTTPS 리스너에 `Host = monitor.ssssok.com` 조건을 추가한다.
+2. Nginx 변경을 운영에 먼저 배포한다.
+3. 규칙의 전달 대상을 기존 애플리케이션 Target Group(`HTTP :80`)으로 지정한다.
+4. 기존 API 규칙보다 우선순위가 높고 다른 호스트 규칙과 충돌하지 않는지 확인한다.
+5. 이전에 만든 Grafana `3000` Target Group은 전환 검증이 끝날 때까지 유지하고 이후 별도로 정리한다.
 
 ### 4. 보안 그룹
 
-`project-public`에 이미 존재하는 `project-app` 원본의 전체 트래픽 허용 규칙을 재사용한다. 두 보안 그룹
-ID가 일치하면 인바운드 규칙을 추가하거나 수정하지 않는다. Grafana를 위해 공인 IP CIDR이나
-`0.0.0.0/0`, `::/0`을 원본으로 하는 `3000`번 규칙은 만들지 않는다.
-
-두 보안 그룹 ID가 일치하지 않으면 임의로 새 규칙을 만들지 않고 인프라 관리자와 연결 관계를 먼저
-확인한다. 조직 정책상 정해진 보안 그룹 규칙을 우회하기 위해 EC2 공인 IP나 다른 공개 포트를 사용하지
-않는다.
+기존 ALB→Nginx `80` 경로만 사용한다. 인바운드 규칙을 추가하거나 수정하지 않으며, Grafana를 위해
+공인 IP CIDR이나 `0.0.0.0/0`, `::/0`, ALB 보안 그룹을 원본으로 하는 `3000`번 규칙도 만들지 않는다.
 
 ### 5. Compose와 Grafana 설정
 
-`docker-compose.prod.yml`의 Grafana 호스트 바인딩을 ALB가 접근할 수 있도록 변경한다.
+`docker-compose.prod.yml`은 Grafana 호스트 바인딩을 loopback으로 제한하고, Nginx가 Docker 네트워크로
+Grafana에 접근하도록 구성한다.
 
 ```yaml
 grafana:
@@ -231,21 +225,23 @@ grafana:
     GF_AUTH_ANONYMOUS_ENABLED: "false"
     GF_USERS_ALLOW_SIGN_UP: "false"
   ports:
-    - "3000:3000"
+    - "127.0.0.1:3000:3000"
 ```
 
 `GF_SERVER_ROOT_URL`은 Grafana가 로그인과 정적 자원 URL을 올바른 외부 주소로 생성하도록 한다.
-Grafana, Prometheus, Alertmanager의 내부 Docker 네트워크 연결은 변경하지 않는다.
+Nginx는 `monitor.ssssok.com`을 `grafana:3000`으로, 나머지 호스트를 `app:8080`으로 전달하며 Grafana
+Live를 위해 WebSocket 업그레이드 헤더도 전달한다. Grafana, Prometheus, Alertmanager의 내부 Docker
+네트워크 연결은 변경하지 않는다.
 
 이 저장소의 운영 배포는 `deploy` 브랜치 머지로 실행된다. Compose 변경을 실제 운영에 반영할 때는
 일반 작업 PR과 릴리스 승격 절차를 따른다. AWS 콘솔 변경과 코드 배포 사이에는 일시적으로 Target Group이
 비정상이 될 수 있으므로 다음 순서를 사용한다.
 
 1. DNS와 인증서를 준비한다.
-2. Target Group과 리스너 규칙을 만들되 사용자에게 공지하지 않는다.
-3. `project-app`에서 `project-public`로 향하는 기존 규칙이 `3000` 접근을 허용하는지 확인한다.
-4. Compose 변경을 배포한다.
-5. Target Group이 healthy가 된 것을 확인한다.
+2. Nginx와 Compose 변경을 배포한다.
+3. 기존 API와 Target Group 헬스 체크가 정상인지 확인한다.
+4. `monitor.ssssok.com` 리스너 규칙을 기존 애플리케이션 Target Group으로 전환한다.
+5. Grafana `/api/health`, 로그인, WebSocket 연결을 확인한다.
 6. 최종 검증 후 팀에 URL을 공유한다.
 
 ## 검증 계획
@@ -262,18 +258,17 @@ Grafana, Prometheus, Alertmanager의 내부 Docker 네트워크 연결은 변경
 
 ### 네트워크 검증
 
-- [ ] Grafana Target Group의 대상이 healthy인가.
+- [ ] 기존 애플리케이션 Target Group의 대상이 healthy인가.
 - [ ] EC2 공인 IP의 `3000`번 포트로 인터넷에서 직접 접근할 수 없는가.
-- [ ] ALB의 `project-app`과 `project-public` 인바운드 원본의 보안 그룹 ID가 일치하는가.
 - [ ] 인터넷 CIDR을 원본으로 하는 `3000`번 규칙이 추가되지 않았는가.
 - [ ] `8081`, `9090`, `9093`이 인터넷에 공개되지 않았는가.
 - [ ] `api.ssssok.com`의 기존 API와 헬스체크가 정상인가.
 
 ### 장애 격리 검증
 
-1. Grafana 컨테이너만 중지했을 때 Grafana Target Group이 unhealthy가 되는지 확인한다.
-2. 같은 동안 `https://api.ssssok.com/health`와 주요 API가 정상인지 확인한다.
-3. Grafana를 다시 시작하고 Target Group이 healthy로 복구되는지 확인한다.
+1. Grafana 컨테이너만 중지했을 때 모니터링 URL이 502를 반환하는지 확인한다.
+2. 같은 동안 기존 Target Group과 `https://api.ssssok.com/health`, 주요 API가 정상인지 확인한다.
+3. Grafana를 다시 시작하고 모니터링 URL이 정상으로 복구되는지 확인한다.
 
 운영 검증에서 의도적으로 컨테이너를 중지하는 경우 사용자 영향이 적은 시간에 수행하고 즉시 복구한다.
 
@@ -281,10 +276,10 @@ Grafana, Prometheus, Alertmanager의 내부 Docker 네트워크 연결은 변경
 
 문제가 발생하면 애플리케이션 경로는 유지한 채 Grafana 공개 경로만 되돌린다.
 
-1. ALB의 `monitor.ssssok.com` 리스너 규칙을 비활성화하거나 삭제한다.
-2. Route 53의 `monitor.ssssok.com` Alias 레코드를 제거한다.
-3. Compose의 Grafana 포트 바인딩을 `127.0.0.1:3000:3000`으로 되돌린다.
-4. Grafana를 재기동하고 Prometheus·Alertmanager와 API가 계속 정상인지 확인한다.
+1. ALB의 `monitor.ssssok.com` 리스너 규칙을 비활성화한다.
+2. 직전 Nginx 설정으로 애플리케이션 기본 프록시만 복구한다.
+3. Grafana의 `127.0.0.1:3000:3000` 바인딩은 유지한다.
+4. Prometheus·Alertmanager와 API가 계속 정상인지 확인한다.
 
 기존 `project-public`·`project-app` 보안 그룹 규칙은 이번 작업에서 만들거나 변경한 것이 아니므로
 롤백에서도 수정하지 않는다.
@@ -464,7 +459,7 @@ P1~P4로 애플리케이션 자체의 메모리 증폭과 반복 재시도를 �
 
 | 순서 | 이슈 제목 후보 | 핵심 산출물 | 선행 조건 |
 | ---: | --- | --- | --- |
-| 1 | `[BE] 운영 Grafana 외부 접근 구성` | DNS·ACM·ALB Target Group·Compose 설정 | 이 계획 승인 |
+| 1 | `[BE] 운영 Grafana 외부 접근 구성` | DNS·ACM·ALB 호스트 규칙·Nginx·Compose 설정 | 이 계획 승인 |
 | 2 | `[BE] 운영 호스트 자원 메트릭 수집` | node_exporter, Prometheus scrape, 호스트 대시보드 | Grafana MVP 안정화 |
 | 3 | `[BE] 이미지 처리 Executor 메트릭 추가` | active·queue·reject Micrometer 지표 | 메트릭 이름 합의 |
 | 4 | `[BE] 이미지 처리 결과와 재시도 메트릭 추가` | 성공·실패·영구 실패·재시도 지표 | 실패 분류 기준 합의 |
@@ -515,8 +510,9 @@ flowchart LR
     ATG --> APP
 ```
 
-외부 URL과 ALB 리스너 규칙은 유지하고 Grafana Target Group의 등록 대상을 모니터링 EC2로 바꾼다.
-가장 큰 내부 변화는 Prometheus가 더 이상 Docker 네트워크의 `app:8081`을 사용할 수 없다는 점이다.
+외부 URL과 ALB 리스너의 호스트 조건은 유지하되, 전용 Grafana Target Group을 새로 만들고 해당 규칙의
+전달 대상을 새 Target Group으로 바꾼다. 가장 큰 내부 변화는 Prometheus가 더 이상 Docker 네트워크의
+`app:8081`을 사용할 수 없다는 점이다.
 
 ### 분리 전 준비
 
@@ -570,9 +566,9 @@ Grafana 로컬 SQLite 데이터베이스를 두 인스턴스가 동시에 공유
 
 ### 분리 롤백
 
-새 모니터링 EC2에서 문제가 발생하면 Grafana Target Group에 기존 운영 EC2를 다시 등록한다.
-기존 모니터링 컨테이너와 볼륨은 안정화가 끝날 때까지 삭제하지 않는다. Prometheus 수집 경로와 보안 그룹도
-롤백 기간 동안 기존·신규 경로를 복구할 수 있게 유지한다.
+새 모니터링 EC2에서 문제가 발생하면 ALB 호스트 규칙의 전달 대상을 기존 애플리케이션 Target Group으로
+되돌려 Nginx 프록시 경로를 복구한다. 기존 모니터링 컨테이너와 볼륨은 안정화가 끝날 때까지 삭제하지
+않는다. Prometheus 수집 경로와 보안 그룹도 롤백 기간 동안 기존·신규 경로를 복구할 수 있게 유지한다.
 
 ## 후속 개선 조건
 
@@ -585,7 +581,7 @@ Grafana 로컬 SQLite 데이터베이스를 두 인스턴스가 동시에 공유
 - 사용자별 접근 이력과 계정 수명 주기 관리가 필요하다.
 - Grafana 편집자·조회자 권한을 팀 계정 체계와 연결해야 한다.
 
-ALB 인증을 추가하더라도 Grafana Target Group과 `monitor.ssssok.com` 구조는 유지할 수 있다.
+ALB 인증을 추가하더라도 `monitor.ssssok.com` 호스트 규칙과 현재 Nginx 프록시 구조를 유지할 수 있다.
 
 ### WAF와 요청 속도 제한
 
@@ -610,8 +606,9 @@ Grafana Cloud를 선택하면 운영 Prometheus의 `remote_write`를 사용하�
 ### 최초 공개 완료 조건
 
 - [ ] `monitor.ssssok.com` DNS와 ACM 인증서가 정상이다.
-- [ ] Grafana 전용 Target Group과 ALB 호스트 규칙이 분리되어 있다.
-- [ ] EC2 `3000`번 포트는 ALB 보안 그룹에서만 접근할 수 있다.
+- [ ] ALB의 `monitor.ssssok.com` 규칙이 기존 애플리케이션 Target Group(`HTTP :80`)을 사용한다.
+- [ ] Nginx가 모니터링 호스트만 `grafana:3000`으로 분기한다.
+- [ ] EC2 `3000`번 포트는 loopback에만 바인딩되고 외부 인바운드 규칙이 없다.
 - [ ] Grafana 익명 접근과 사용자 가입이 비활성화되어 있다.
 - [ ] 로그인 후 모든 기본 대시보드 패널에서 데이터가 조회된다.
 - [ ] Grafana 장애가 API 가용성에 영향을 주지 않는다.
