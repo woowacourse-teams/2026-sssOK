@@ -1,10 +1,11 @@
-import type { PostHog } from "posthog-js";
+import type { BeforeSendFn, PostHog } from "posthog-js";
 
-import { POSTHOG_HOST, POSTHOG_KEY } from "@/shared/config";
+import { APP_VERSION, POSTHOG_HOST, POSTHOG_KEY } from "@/shared/config";
 import type { AnalyticsEventName, AnalyticsEvents, AnalyticsRoomContext } from "./analyticsEvents";
 
 const INTERNAL_PARAM = "internal";
 const INTERNAL_PROPERTY = "is_internal";
+const APP_VERSION_PROPERTY = "app_version";
 
 /** SDK 를 받는 동안 쌓아둘 이벤트 상한. 초기화가 끝내 실패해도 메모리가 새지 않게 한다. */
 const MAX_PENDING_EVENTS = 100;
@@ -90,6 +91,19 @@ const applyInternalFlag = (posthog: PostHog) => {
   removeInternalParam();
 };
 
+/**
+ * 자동 수집 이벤트($pageview 등)까지 모든 이벤트에 이 번들의 버전을 붙인다.
+ *
+ * `register` 로 두지 않는 이유 — 기기에 저장돼 탭끼리 공유된다. 배포 전에 열어 둔 탭은 옛 번들을
+ * 돌리는데, 새로 연 탭이 버전을 덮어쓰면 옛 번들의 이벤트에 새 버전이 붙는다.
+ */
+export const attachAppVersion: BeforeSendFn = (event) => {
+  if (event) {
+    event.properties[APP_VERSION_PROPERTY] = APP_VERSION;
+  }
+  return event;
+};
+
 export const initAnalytics = async () => {
   // 배포 빌드에서만 수집한다. 이 비교는 빌드 시점에 상수로 접혀서
   // 아래 동적 import 가 죽은 코드가 되고, 개발 번들에는 SDK 가 딸려가지 않는다.
@@ -107,6 +121,7 @@ export const initAnalytics = async () => {
       // 게스트가 올린 사진·영상이 녹화에 남지 않도록 자리만 남기고 가린다
       blockSelector: "img, video",
     },
+    before_send: attachAppVersion,
   });
   applyInternalFlag(posthog);
 
