@@ -298,19 +298,14 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 방장이_방을_삭제하면_삭제_시각과_영구_삭제_예정_시각을_받는다() throws Exception {
+    void 방장이_방을_삭제하면_삭제_시각만_받는다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        MvcResult deleted = 삭제(token, roomId)
+        삭제(token, roomId)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.deletedAt").value(notNullValue()))
-            .andExpect(jsonPath("$.data.purgeAt").value(notNullValue()))
-            .andReturn();
-
-        Instant deletedAt = Instant.parse(값(deleted, "deletedAt"));
-        Instant purgeAt = Instant.parse(값(deleted, "purgeAt"));
-        assertThat(purgeAt).isEqualTo(deletedAt.plus(Duration.ofDays(7)));
+            .andExpect(jsonPath("$.data.purgeAt").doesNotExist());
     }
 
     @Test

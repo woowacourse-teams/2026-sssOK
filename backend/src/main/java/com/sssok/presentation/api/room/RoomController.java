@@ -93,8 +93,8 @@ public class RoomController {
 
     @Operation(
         summary = "방 삭제",
-        description = "방을 soft delete한다. 삭제 즉시 새로운 입장/업로드는 막히지만, 일정 보존 기간(purgeAt) "
-            + "동안은 데이터가 남아있다가 배치로 영구 삭제된다. 방장이 아니면 403, 이미 삭제된 방을 "
+        description = "방을 soft delete한다. 삭제 즉시 새로운 입장/업로드는 막히지만, 방과 업로드된 파일은 "
+            + "영구 삭제되지 않고 계속 보관된다. 방장이 아니면 403, 이미 삭제된 방을 "
             + "다시 삭제하면 410이 난다."
     )
     @DeleteMapping("/{roomId}")

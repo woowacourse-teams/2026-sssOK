@@ -333,16 +333,15 @@ class RoomControllerTest {
     }
 
     @Test
-    void 방을_삭제하면_200과_삭제_시각_영구삭제_예정_시각을_반환한다() throws Exception {
+    void 방을_삭제하면_200과_삭제_시각을_반환한다() throws Exception {
         given(deleteRoomService.delete(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(new DeleteRoomResult(
-            Instant.parse("2026-08-13T10:00:00Z"),
-            Instant.parse("2026-08-20T10:00:00Z")));
+            Instant.parse("2026-08-13T10:00:00Z")));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}", ROOM_ID)
                 .header("Authorization", BEARER))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.deletedAt").value("2026-08-13T10:00:00Z"))
-            .andExpect(jsonPath("$.data.purgeAt").value("2026-08-20T10:00:00Z"));
+            .andExpect(jsonPath("$.data.purgeAt").doesNotExist());
     }
 
     @Test
