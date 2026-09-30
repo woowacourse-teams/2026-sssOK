@@ -115,11 +115,14 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
+      # TLS는 ALB에서 종료한다. Grafana가 로그인·정적 리소스 URL을 공개 주소로 생성하게 한다.
+      GF_SERVER_ROOT_URL: https://monitor.ssssok.com
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_COOKIE_SECURE: "true"
     ports:
-      # 인터넷에 직접 공개하지 않고 SSH 터널을 통해서만 접속한다.
-      - "127.0.0.1:3000:3000"
+      # ALB의 Grafana 전용 Target Group만 접근한다. EC2 보안 그룹에서 인터넷 직접 접근은 허용하지 않는다.
+      - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
