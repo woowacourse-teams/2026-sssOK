@@ -31,21 +31,21 @@ class CreateRoomServiceTest {
     RoomMemberRepository roomMemberRepository;
 
     @Test
-    void uploadPolicy와_expiryHours를_생략하면_기본값이_적용된다() {
+    void uploadPolicy와_expiryDays를_생략하면_기본값이_적용된다() {
         RoomDetail detail = createRoomService.create(HOST, "우테코 회식", null, null);
 
         assertThat(detail.room().getUploadPolicy()).isEqualTo(UploadPolicy.ANYONE);
         assertThat(detail.room().getExpiration().expiresAt())
-            .isCloseTo(Instant.now().plus(Duration.ofHours(24)), within(1, ChronoUnit.MINUTES));
+            .isCloseTo(Instant.now().plus(Duration.ofDays(1)), within(1, ChronoUnit.MINUTES));
     }
 
     @Test
-    void uploadPolicy와_expiryHours를_보내면_그대로_반영된다() {
-        RoomDetail detail = createRoomService.create(HOST, "우테코 회식", "host", 72);
+    void uploadPolicy와_expiryDays를_보내면_그대로_반영된다() {
+        RoomDetail detail = createRoomService.create(HOST, "우테코 회식", "host", 7);
 
         assertThat(detail.room().getUploadPolicy()).isEqualTo(UploadPolicy.HOST_ONLY);
         assertThat(detail.room().getExpiration().expiresAt())
-            .isCloseTo(Instant.now().plus(Duration.ofHours(72)), within(1, ChronoUnit.MINUTES));
+            .isCloseTo(Instant.now().plus(Duration.ofDays(7)), within(1, ChronoUnit.MINUTES));
     }
 
     @Test

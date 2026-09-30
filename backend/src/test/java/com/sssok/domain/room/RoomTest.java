@@ -27,11 +27,11 @@ class RoomTest {
     }
 
     @Test
-    void 생성_직후엔_ACTIVE_상태이고_만료_시간은_24시간_뒤이며_업로드_권한은_ANYONE이다() {
+    void 생성_직후엔_ACTIVE_상태이고_만료_시간은_1일_뒤이며_업로드_권한은_ANYONE이다() {
         Room room = createRoom();
 
         assertThat(room.getStatus()).isSameAs(ActiveRoomStatus.INSTANCE);
-        assertThat(room.getExpiration().expiresAt()).isEqualTo(NOW.plus(Duration.ofHours(24)));
+        assertThat(room.getExpiration().expiresAt()).isEqualTo(NOW.plus(Duration.ofDays(1)));
         assertThat(room.getUploadPolicy()).isEqualTo(UploadPolicy.ANYONE);
     }
 

@@ -44,7 +44,7 @@ public class RoomController {
         summary = "방 생성",
         description = "새 공유방을 만든다. 만든 사람이 방장(host)이 되고, 방의 모든 권한(수정/삭제)을 가지며 "
             + "별도로 입장 API를 호출하지 않아도 곧바로 참여자로 등록된다(joined=true). 방 코드(code)는 이 API가 "
-            + "자동 생성해서 응답에 함께 내려준다. uploadPolicy/expiryHours는 생략하면 각각 everyone/24시간이 적용된다. "
+            + "자동 생성해서 응답에 함께 내려준다. uploadPolicy/expiryDays는 생략하면 각각 everyone/1일이 적용된다. expiryDays는 1~14일만 가능하고 벗어나면 400이 난다. "
             + "사용법: 응답의 code로 공유 링크(예: https://sssok.app/rooms/{code})를 만들어 공유하면, "
             + "받은 사람은 GET /rooms/{code}로 방 정보를 확인할 수 있다."
     )
@@ -54,7 +54,7 @@ public class RoomController {
         @RequestBody CreateRoomRequest request
     ) {
         RoomDetail detail = createRoomService.create(
-            memberId, request.name(), request.uploadPolicy(), request.expiryHours());
+            memberId, request.name(), request.uploadPolicy(), request.expiryDays());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.of(RoomResponse.from(detail)));
     }
@@ -76,7 +76,7 @@ public class RoomController {
 
     @Operation(
         summary = "방 설정 변경",
-        description = "방 이름/업로드 권한/만료 시간 중 원하는 항목만 부분 수정한다(PATCH). 보내지 않은 필드는 "
+        description = "방 이름/업로드 권한/만료 기간(1~14일, 지금부터 다시 계산) 중 원하는 항목만 부분 수정한다(PATCH). 보내지 않은 필드는 "
             + "그대로 유지되고, 아무 필드도 안 보내면 400(EMPTY_PATCH)이 난다. 방장이 아니면 403이 난다. "
             + "사용법: 바꾸고 싶은 필드만 body에 담아 보낸다. 예를 들어 이름만 바꾸려면 "
             + "{ \"name\": \"새 이름\" } 만 보내면 된다."
