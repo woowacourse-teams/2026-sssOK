@@ -128,6 +128,31 @@ class RequestLoggingFilterTest {
     }
 
     @Test
+    @DisplayName("반복 호출되는 헬스체크와 Prometheus 수집 요청은 접근 로그에서 제외한다")
+    void skipsMonitoringAccessLogs() throws Exception {
+        Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        filterLogger.addAppender(appender);
+
+        try {
+            for (String path : List.of(
+                "/health",
+                "/actuator/health",
+                "/actuator/health/liveness",
+                "/actuator/health/readiness",
+                "/actuator/prometheus")) {
+                filter.doFilter(get(path), new MockHttpServletResponse(), new MockFilterChain());
+            }
+        } finally {
+            filterLogger.detachAppender(appender);
+            appender.stop();
+        }
+
+        assertThat(appender.list).isEmpty();
+    }
+
+    @Test
     @DisplayName("비동기로 넘어간 요청도 시작 줄을 남긴다 — SSE 연결이 로그에서 사라지면 안 된다")
     void logsAsyncStart() throws Exception {
         Logger filterLogger = (Logger) LoggerFactory.getLogger(RequestLoggingFilter.class);

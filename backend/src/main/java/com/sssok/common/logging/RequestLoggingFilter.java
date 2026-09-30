@@ -42,8 +42,10 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     private static final Pattern REQUEST_ID_PATTERN =
         Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
-    // 배포 헬스체크가 수 초마다 때리는 경로. 접근 로그로 남기면 실제 트래픽이 묻힌다.
+    // 배포 헬스체크와 모니터링 수집기가 반복 호출하는 경로. 접근 로그로 남기면 실제 트래픽이 묻힌다.
     private static final String HEALTH_PATH = "/health";
+    private static final String ACTUATOR_HEALTH_PATH = "/actuator/health";
+    private static final String PROMETHEUS_PATH = "/actuator/prometheus";
 
     // 톰캣이 끊긴 소켓에 쓰다 던지는 예외. 클래스 이름으로만 보는 이유는 이 파일이 서블릿 컨테이너
     // 구현에 직접 의존하지 않게 하기 위해서다.
@@ -97,11 +99,18 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     }
 
     private void logAccess(HttpServletRequest request, HttpServletResponse response, long startedAt) {
-        if (HEALTH_PATH.equals(request.getRequestURI())) {
+        if (isMonitoringRequest(request.getRequestURI())) {
             return;
         }
         log.info("{} {} {} ({}ms)",
             request.getMethod(), request.getRequestURI(), response.getStatus(), elapsedMs(startedAt));
+    }
+
+    private boolean isMonitoringRequest(String path) {
+        return HEALTH_PATH.equals(path)
+            || ACTUATOR_HEALTH_PATH.equals(path)
+            || path.startsWith(ACTUATOR_HEALTH_PATH + "/")
+            || PROMETHEUS_PATH.equals(path);
     }
 
     // 비동기 요청은 시작과 끝을 따로 남긴다. 한 줄만 남기면 오래 열려 있는 SSE 연결이 로그에서
