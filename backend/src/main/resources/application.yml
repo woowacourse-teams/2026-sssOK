@@ -46,6 +46,20 @@ release:
   # 백엔드 버전의 1순위는 JAR 안의 build-info 다. 이 값은 build-info 가 없을 때만 쓰인다.
   backend-version: ${APP_BACKEND_VERSION:unknown}
 
+log:
+  # 구조화 로그의 service 필드. Loki 에서 다른 서비스와 구분하는 이름이라 환경과 무관하게 같다.
+  service: sssok-backend
+
+logging:
+  pattern:
+    # 평문 로그에는 MDC 가 안 찍혀서, 이대로면 로컬에서 요청 ID 로 로그를 묶어 볼 수 없다.
+    # 스프링 기본 콘솔 패턴이 비워 둔 상관관계 자리에 요청 ID 를 끼워 넣는다.
+    #
+    # dev·prod 에는 영향이 없다 — 구조화 인코더가 콘솔 패턴 자체를 대체하고, 거기서는
+    # requestId 가 이미 독립 필드로 나간다. application-local.yml 이 아니라 여기 두는 건
+    # 그 파일이 gitignore 대상(개발자별 파일)이라 팀에 전달되지 않기 때문이다.
+    correlation: "[%X{requestId:-}] "
+
 cors:
   # 브라우저에서 API를 호출할 수 있는 오리진. 콤마로 구분한다.
   # 로컬 기본값은 application-local.yml, 운영값은 환경변수로 공급한다.
@@ -145,3 +159,31 @@ springdoc:
   swagger-ui:
     operations-sorter: method
     tags-sorter: alpha
+
+management:
+  server:
+    # 일반 API 포트(8080)와 분리한다. Docker 호스트에는 이 포트를 공개하지 않고
+    # 같은 Compose 네트워크의 Prometheus만 app:8081로 접근한다.
+    port: 8081
+  metrics:
+    distribution:
+      # HTTP 응답 시간을 bucket으로 집계해 Prometheus에서 p95를 계산할 수 있게 한다.
+      percentiles-histogram:
+        http.server.requests: true
+      # 실제 API에서 의미 있는 범위로 bucket 수를 제한한다.
+      minimum-expected-value:
+        http.server.requests: 5ms
+      maximum-expected-value:
+        http.server.requests: 10s
+  endpoints:
+    web:
+      # 운영 정보가 불필요하게 공개되지 않도록 사용하는 엔드포인트만 명시한다.
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      # Kubernetes가 아닌 Docker 환경에서도 liveness/readiness 그룹을 제공한다.
+      probes:
+        enabled: true
+      # 외부 시스템과 내부 구성 요소의 상세 상태는 응답에 포함하지 않는다.
+      show-details: never
