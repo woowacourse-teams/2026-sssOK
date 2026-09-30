@@ -7,6 +7,18 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+/**
+ * 비동기 작업용 스레드 풀.
+ *
+ * <p>여기 만드는 실행기에는 {@code TaskDecorator} 를 걸지 않는다 — 요청 스레드의 MDC(requestId 등)를
+ * 워커로 옮기지 않겠다는 결정이다. 이 풀이 도는 작업(썸네일 생성·zip 압축·스토리지 정리)은 요청보다
+ * 오래 살고, 요청 하나가 여러 건을 던지고, 실패하면 나중에 다시 실행된다. 그 로그에 요청 ID 를
+ * 달면 요청은 이미 200 으로 끝났는데 같은 ID 의 로그가 한참 뒤에 또 나서, ID 하나로 요청 하나를
+ * 집어내는 추적이 흐려진다. 작업 쪽은 작업 자신의 식별자(jobId·mediaId)로 따라간다.
+ *
+ * <p>MDC 를 넘기지 않으면 워커 스레드는 요청 값을 아예 보지 못해, 스레드를 재사용해도 앞 요청의
+ * 값이 다음 작업 로그에 새지 않는다. {@code MdcIsolationTest} 가 이 두 가지를 확인한다.
+ */
 @Configuration
 @EnableConfigurationProperties(VideoWorkerProperties.class)
 public class VideoWorkerConfig {
