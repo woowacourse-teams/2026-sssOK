@@ -50,9 +50,25 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         Pattern.compile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
 
     // 배포 헬스체크와 모니터링 수집기가 반복 호출하는 경로. 접근 로그로 남기면 실제 트래픽이 묻힌다.
-    private static final String HEALTH_PATH = "/health";
-    private static final String ACTUATOR_HEALTH_PATH = "/actuator/health";
-    private static final String PROMETHEUS_PATH = "/actuator/prometheus";
+    // 지금 실제로 걸리는 건 /health 다 — 배포 헬스체크가 수 초마다 때린다.
+    //
+    // /actuator 는 지금은 이 필터에 닿지 않는다. management.server.port 를 8081 로 분리해 뒀고,
+    // 그 포트는 자기 자신의 필터 체인을 쓰는 별도 컨텍스트라 여기 등록된 필터가 걸리지 않는다.
+    // 그래도 목록에 남기는 이유는 두 가지다.
+    //   - 관리 포트를 다시 8080 으로 합치면(운영 편의상 충분히 있을 수 있다) 그날부터 Prometheus 의
+    //     15초 주기 수집이 하루 약 5,760줄을 쌓는다. 그때 이 목록이 이미 막고 있어야 한다.
+    //   - 공개 포트로 /actuator 를 긁어 보는 스캐너의 404 가 로그를 채우지 않는다.
+    //
+    // 하위 경로까지 통째로 빼는 이유는, 노출 엔드포인트(health·info·prometheus)가 늘거나 health
+    // 그룹(liveness·readiness)이 추가될 때마다 이 목록을 따라 고치게 두지 않기 위해서다.
+    //
+    // 목록으로 두는 이유는 값이 이 파일 밖에도 같이 적혀 있기 때문이다 — 바꿀 때 아래 세 곳을
+    // 함께 본다.
+    //   - docker-compose.{dev,prod}.yml 의 app healthcheck (지금 /health)
+    //   - .github/workflows/deploy-*.yml 의 배포 후 확인 요청 (지금 /health)
+    //   - monitoring/prometheus/*.yml 의 metrics_path (지금 /actuator/prometheus)
+    // 모니터링 쪽이 헬스체크 경로를 /actuator/health 로 옮겨도 여기 목록은 그대로 덮는다.
+    private static final List<String> ACCESS_LOG_EXCLUDED_PATHS = List.of("/health", "/actuator");
 
     // 톰캣이 끊긴 소켓에 쓰다 던지는 예외. 클래스 이름으로만 보는 이유는 이 파일이 서블릿 컨테이너
     // 구현에 직접 의존하지 않게 하기 위해서다.
@@ -106,18 +122,23 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     }
 
     private void logAccess(HttpServletRequest request, HttpServletResponse response, long startedAt) {
-        if (isMonitoringRequest(request.getRequestURI())) {
+        int status = response.getStatus();
+        if (isExcludedFromAccessLog(request.getRequestURI()) && !isServerError(status)) {
             return;
         }
-        log.info("{} {} {} ({}ms)",
-            request.getMethod(), request.getRequestURI(), response.getStatus(), elapsedMs(startedAt));
+        MDC.put(LogFields.DURATION_MS, String.valueOf(elapsedMs(startedAt)));
+        log.info("{} {} {} ({}ms)", request.getMethod(), request.getRequestURI(), status, elapsedMs(startedAt));
     }
 
-    private boolean isMonitoringRequest(String path) {
-        return HEALTH_PATH.equals(path)
-            || ACTUATOR_HEALTH_PATH.equals(path)
-            || path.startsWith(ACTUATOR_HEALTH_PATH + "/")
-            || PROMETHEUS_PATH.equals(path);
+    private boolean isExcludedFromAccessLog(String path) {
+        return ACCESS_LOG_EXCLUDED_PATHS.stream()
+            .anyMatch(excluded -> excluded.equals(path) || path.startsWith(excluded + "/"));
+    }
+
+    // 제외 경로라도 5xx 는 남긴다. 헬스체크가 실패하는 중이라면 그게 바로 보고 싶은 줄이고,
+    // Prometheus 수집이 500 으로 끊기면 지표가 비는 이유가 여기서만 드러난다.
+    private boolean isServerError(int status) {
+        return status >= 500;
     }
 
     // 비동기 요청은 시작과 끝을 따로 남긴다. 한 줄만 남기면 오래 열려 있는 SSE 연결이 로그에서
@@ -159,6 +180,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
                 // 비동기 종료 줄에도 status 를 실어야 "SSE 가 500 으로 끊긴 건수" 같은 질의가 선다.
                 // 동기 요청과 달리 이 값은 완료 콜백 시점에야 확정되므로 여기서 읽는다.
                 MDC.put(LogFields.STATUS, String.valueOf(response.getStatus()));
+                MDC.put(LogFields.DURATION_MS, String.valueOf(elapsedMs(startedAt)));
                 try {
                     // 브라우저가 SSE 탭을 닫으면 IOException(Broken pipe)이 난다. 정상 종료라
                     // WARN 으로 남기면 탭을 닫을 때마다 운영 로그가 쌓인다. 스택트레이스도 뺀다.
@@ -215,5 +237,6 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         MDC.remove(LogFields.PATH);
         MDC.remove(LogFields.STATUS);
         MDC.remove(LogFields.ERROR_CODE);
+        MDC.remove(LogFields.DURATION_MS);
     }
 }
