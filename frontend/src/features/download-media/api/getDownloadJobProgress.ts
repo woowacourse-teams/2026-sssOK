@@ -14,4 +14,11 @@ interface GetDownloadJobProgressParams {
  * `putToStorage` 와 같은 규칙이다: 이 안에 반복문을 두지 않는다.
  */
 export const getDownloadJobProgress = ({ roomId, jobId, token }: GetDownloadJobProgressParams) =>
-  apiClient<DownloadJobProgress>(`/rooms/${roomId}/downloads/zip/${jobId}`, { token });
+  apiClient<DownloadJobProgress>(`/rooms/${roomId}/downloads/zip/${jobId}`, {
+    token,
+    errorTracking: {
+      level: "error",
+      operation: "download.get_zip_progress",
+      route: "/rooms/:roomId/downloads/zip/:jobId",
+    },
+  });

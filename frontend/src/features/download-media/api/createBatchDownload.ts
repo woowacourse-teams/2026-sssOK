@@ -25,4 +25,9 @@ export const createBatchDownload = ({ roomId, token, mediaIds }: CreateBatchDown
     token,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(selectedMediaBody(mediaIds)),
+    errorTracking: {
+      level: "error",
+      operation: "download.create_batch",
+      route: "/rooms/:roomId/downloads/batch",
+    },
   });

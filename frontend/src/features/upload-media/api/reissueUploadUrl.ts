@@ -20,5 +20,10 @@ export const reissueUploadUrl = (
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
+    errorTracking: {
+      level: "error",
+      operation: "upload.reissue_url",
+      route: "/rooms/:roomId/media/:mediaId/upload-url",
+    },
   });
 };
