@@ -78,6 +78,18 @@ class SssOkJsonLogFormatterTest {
     }
 
     @Test
+    @DisplayName("durationMs 도 숫자로 낸다 — 느린 요청을 임계값으로 걸러야 한다")
+    void writesDurationAsNumber() throws Exception {
+        MDC.put(LogFields.DURATION_MS, "1234");
+
+        JsonNode duration = format(formatter(), event(Level.INFO, "GET /api/v1/rooms 200"))
+            .get(LogFields.DURATION_MS);
+
+        assertThat(duration.isNumber()).isTrue();
+        assertThat(duration.asInt()).isEqualTo(1234);
+    }
+
+    @Test
     @DisplayName("요청 밖에서 남긴 로그에는 요청 필드를 넣지 않는다")
     void omitsRequestContextOutsideRequest() throws Exception {
         JsonNode log = format(formatter(), event(Level.INFO, "만료된 방 12건을 정리했습니다"));
@@ -86,6 +98,7 @@ class SssOkJsonLogFormatterTest {
         assertThat(log.has(LogFields.METHOD)).isFalse();
         assertThat(log.has(LogFields.STATUS)).isFalse();
         assertThat(log.has(LogFields.ERROR_CODE)).isFalse();
+        assertThat(log.has(LogFields.DURATION_MS)).isFalse();
     }
 
     @Test
