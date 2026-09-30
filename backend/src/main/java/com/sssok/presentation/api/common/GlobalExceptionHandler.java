@@ -4,6 +4,7 @@ import com.sssok.application.admin.exception.AdminLoginRateLimitedException;
 import com.sssok.application.feedback.exception.FeedbackRateLimitedException;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
+import com.sssok.common.logging.LogContext;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -32,6 +33,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FeedbackRateLimitedException.class)
     public ResponseEntity<ErrorResponse> handleFeedbackRateLimited(FeedbackRateLimitedException e) {
         ErrorCode errorCode = e.errorCode();
+        record(errorCode, e);
         return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
             .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
@@ -40,6 +42,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AdminLoginRateLimitedException.class)
     public ResponseEntity<ErrorResponse> handleAdminLoginRateLimited(AdminLoginRateLimitedException e) {
         ErrorCode errorCode = e.errorCode();
+        record(errorCode, e);
         return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
             .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
@@ -49,6 +52,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(SssOkException.class)
     public ResponseEntity<ErrorResponse> handleSssOk(SssOkException e) {
         ErrorCode errorCode = e.errorCode();
+        record(errorCode, e);
         return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
     }
@@ -102,13 +106,19 @@ public class GlobalExceptionHandler {
     // Accept 가 JSON 을 받지 않는 요청. 등록하지 않으면 예상하지 못한 예외로 잡혀 ERROR 로그가 쌓인다.
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
     public ResponseEntity<ErrorResponse> handleNotAcceptable(HttpMediaTypeNotAcceptableException e) {
+        // 본문이 없는 응답이라 대응하는 ErrorCode 가 없다. 상태만 적어 둔다.
+        LogContext.putStatus(HttpStatus.NOT_ACCEPTABLE.value());
+        log.debug("Accept 헤더가 JSON 을 받지 않습니다");
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).build();
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
+        ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
+        LogContext.putResponse(errorCode.status(), errorCode.name());
         log.error("처리되지 않은 예외가 발생했습니다", e);
-        return respond(ErrorCode.INTERNAL_SERVER_ERROR);
+        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+            .body(new ErrorResponse(errorCode.name(), errorCode.message()));
     }
 
     // 위반이 여러 개여도 첫 번째만 내려준다. 프론트는 한 번에 한 문구만 띄운다.
@@ -121,7 +131,29 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ErrorResponse> respond(ErrorCode errorCode, Object... args) {
+        record(errorCode, null);
         return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
             .body(new ErrorResponse(errorCode.name(), errorCode.message(args)));
+    }
+
+    // 응답 결과를 MDC 에 적고, 심각도에 맞는 레벨로 한 줄 남긴다.
+    //
+    // 레벨 기준은 "누가 봐야 하는가"다. 5xx 는 우리 잘못이라 즉시 봐야 하므로 ERROR,
+    // 충돌·제한(409·429)은 정상 흐름은 아니지만 재시도로 풀리므로 WARN, 나머지 4xx 는
+    // 잘못 보낸 요청이라 평소엔 볼 필요가 없어 DEBUG 로 내린다. 4xx 를 전부 WARN 으로 두면
+    // 스캐너가 때리는 404 만으로 운영 로그가 가득 찬다.
+    private void record(ErrorCode errorCode, Exception e) {
+        int status = errorCode.status();
+        LogContext.putResponse(status, errorCode.name());
+        String message = e == null ? errorCode.name() : e.getMessage();
+        if (status >= 500) {
+            log.error("요청 처리에 실패했습니다: {}", message, e);
+            return;
+        }
+        if (status == HttpStatus.CONFLICT.value() || status == HttpStatus.TOO_MANY_REQUESTS.value()) {
+            log.warn("요청이 거절됐습니다: {}", message);
+            return;
+        }
+        log.debug("잘못된 요청입니다: {}", message);
     }
 }
