@@ -136,6 +136,15 @@ feedback:
   # 자동화된 반복 등록은 걸러내는 선으로 잡았다.
   rate-limit-window: 1m
 
+notification:
+  discord:
+    # 새 의견을 받을 디스코드 채널 웹훅. URL 자체가 비밀이라 저장소에 넣지 않고 환경변수로만 받는다.
+    # 비어 있으면 알림만 건너뛰고 기동·의견 등록은 그대로 된다 (로컬·테스트 기본값).
+    feedback-webhook-url: ${DISCORD_FEEDBACK_WEBHOOK_URL:}
+    connect-timeout: 2s
+    # 알림은 공용 워커 풀에서 돈다. 디스코드가 응답하지 않을 때 스레드를 오래 붙잡지 않게 짧게 둔다.
+    read-timeout: 5s
+
 storage:
   cleanup:
     # 삭제 커밋 뒤 오브젝트 정리를 비동기로 띄울지. 협력 객체를 목으로 둔 테스트에서만 끈다.
