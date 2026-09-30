@@ -18,6 +18,7 @@ import com.sssok.application.room.GetRoomService;
 import com.sssok.application.room.JoinRoomService;
 import com.sssok.application.room.RoomDetail;
 import com.sssok.application.room.UpdateRoomService;
+import com.sssok.common.logging.RequestLoggingFilter;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
@@ -102,6 +103,16 @@ class WebConfigCorsTest {
                 .header("Origin", ALLOWED_ORIGIN))
             .andExpect(status().isOk())
             .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
+    }
+
+    @Test
+    void 요청_ID_헤더는_교차_오리진_응답에서도_읽을_수_있게_노출된다() throws Exception {
+        given(getRoomService.getByCode(eq(new RoomCode(CODE)), isNull())).willReturn(roomDetail());
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", CODE)
+                .header("Origin", ALLOWED_ORIGIN))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Expose-Headers", RequestLoggingFilter.REQUEST_ID_HEADER));
     }
 
     private RoomDetail roomDetail() {
