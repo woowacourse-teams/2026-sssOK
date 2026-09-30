@@ -37,8 +37,9 @@ flowchart LR
 | `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정 |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
-| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱 컨테이너 정의 (`8080` 직접 노출, Actuator `8081`은 내부 전용) |
+| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱·모니터링 컨테이너 정의 (`8080` 직접 노출 — 호스트에 설치된 Nginx가 `80`에서 받아 넘긴다, Actuator `8081`은 내부 전용) |
 | `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx·모니터링 컨테이너 정의 (`80`은 앱, `3000`은 ALB 경유 Grafana, Actuator `8081`은 내부 전용) |
+| `monitoring/` | 두 CI 모두 배포마다 전송 | Prometheus·Alertmanager·Grafana·Loki·Alloy 설정. 로그 수집은 [monitoring/README.md](../../backend/monitoring/README.md#로그-수집과-조회) 참고 |
 
 ## 최초 세팅 (1회만)
 
@@ -268,6 +269,12 @@ tar xzf ./actions-runner-linux-arm64.tar.gz
 
 운영과 마찬가지로 배포 워크플로가 Discord Webhook URL을 서버의 권한 `600` 비밀 파일로 만들며,
 DB·JWT·R2·CORS 값은 dev 서버 `.env`에 둔다.
+
+### 7. 호스트 Nginx 로그 형식 추가
+
+dev의 Nginx는 컨테이너가 아니라 EC2에 직접 설치돼 `dev-api.ssssok.com`의 `80`을 앱 `8080`으로 넘긴다.
+이 Nginx가 prod와 같은 필드의 JSON 접근 로그를 남겨야 Alloy가 Loki로 수집한다. 설정 방법은
+[monitoring/README.md의 dev 호스트 Nginx 설정](../../backend/monitoring/README.md#dev-호스트-nginx-설정)을 따른다.
 
 ## 배포하기
 
