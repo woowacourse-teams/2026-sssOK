@@ -171,6 +171,33 @@ class DownloadCompressionWorkerTest {
     }
 
     @Test
+    void 압축에_실패하면_jobId와_스택트레이스를_ERROR로_남긴다() {
+        // 잡 행에는 사유 한 줄만 남아, 로그가 없으면 원인을 가릴 방법이 없다.
+        Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
+        DownloadJob job = job(List.of(media), 5L);
+        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+            .willThrow(new IllegalStateException("스토리지 연결 실패"));
+
+        ch.qos.logback.classic.Logger workerLogger = (ch.qos.logback.classic.Logger)
+            org.slf4j.LoggerFactory.getLogger(DownloadCompressionWorker.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+            new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        workerLogger.addAppender(appender);
+
+        downloadCompressionWorker.compress(job.getId());
+
+        workerLogger.detachAppender(appender);
+        assertThat(appender.list)
+            .singleElement()
+            .satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.ERROR);
+                assertThat(event.getFormattedMessage()).contains(String.valueOf(job.getId()));
+                assertThat(event.getThrowableProxy()).isNotNull();
+            });
+    }
+
+    @Test
     void 스토리지_연결_자체가_실패해도_FAILED로_전이한다() {
         Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
         DownloadJob job = job(List.of(media), 5L);

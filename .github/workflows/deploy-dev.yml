@@ -104,9 +104,25 @@ jobs:
       - name: compose 파일 배치
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          mkdir -p "$DEPLOY_PATH"
+          test -n "$DISCORD_WEBHOOK_URL" || { echo "DISCORD_WEBHOOK_URL secret is required"; exit 1; }
+          mkdir -p "$DEPLOY_PATH/monitoring/prometheus"
+          mkdir -p "$DEPLOY_PATH/monitoring/prometheus/rules"
+          mkdir -p "$DEPLOY_PATH/monitoring/alertmanager"
+          mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources"
+          mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards"
+          mkdir -p "$DEPLOY_PATH/monitoring/grafana/dashboards"
+          mkdir -p "$DEPLOY_PATH/secrets"
           cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
+          cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
+          cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
+          cp backend/monitoring/alertmanager/alertmanager.yml "$DEPLOY_PATH/monitoring/alertmanager/alertmanager.yml"
+          cp backend/monitoring/grafana/provisioning/datasources/prometheus.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources/prometheus.yml"
+          cp backend/monitoring/grafana/provisioning/dashboards/dashboards.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards/dashboards.yml"
+          cp backend/monitoring/grafana/dashboards/backend-overview.json "$DEPLOY_PATH/monitoring/grafana/dashboards/backend-overview.json"
+          install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
+          printf '%s' "$DISCORD_WEBHOOK_URL" > "$DEPLOY_PATH/secrets/discord-webhook-url"
 
       - name: 이미지 교체 및 헬스체크
         env:
