@@ -354,6 +354,11 @@ curl -s http://localhost/version
   바뀐 경우에만 만든다.
 - `release-v*` 태그에는 GitHub Release 를 함께 만들고 본문에 통합 릴리스·프론트엔드·백엔드
   버전과 배포 커밋을 적는다.
+- 본문 아래에는 직전 `release-v*` 이후 들어간 변경 내역을 프론트엔드·백엔드·공통으로 나눠 붙인다
+  (`.github/scripts/release-notes.sh`). 분류는 PR 라벨이 아니라 커밋이 바꾼 경로로 한다.
+  `frontend/` 만 바꾸면 프론트엔드, `backend/` 만 바꾸면 백엔드, 양쪽이거나 둘 다 아니면 공통이다.
+  버전 숫자만 올린 릴리스 준비 커밋과 승격 PR의 머지 커밋은 목록에서 빠진다.
+- 로컬에서 미리 보려면 `bash .github/scripts/release-notes.sh <직전 release 태그> <커밋>` 을 실행한다.
 
 이 잡은 **재실행해도 안전하다.** 태그 3종과 GitHub Release의 존재 여부를 각각 따로 보고 없는
 것만 만들기 때문에, 일부만 만들어진 채 실패해도 다시 돌리면 나머지가 채워진다. 이미 있는 태그는
