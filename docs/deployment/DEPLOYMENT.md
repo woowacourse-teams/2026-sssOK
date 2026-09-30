@@ -38,7 +38,7 @@ flowchart LR
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
 | `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱 컨테이너 정의 (`8080` 직접 노출, Actuator `8081`은 내부 전용) |
-| `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx 컨테이너 정의 (`80`으로 헬스체크, Actuator `8081`은 내부 전용) |
+| `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx·모니터링 컨테이너 정의 (`80`은 앱, `3000`은 ALB 경유 Grafana, Actuator `8081`은 내부 전용) |
 
 ## 최초 세팅 (1회만)
 
@@ -53,6 +53,11 @@ flowchart LR
 
 CI(GitHub Actions)는 self-hosted 러너를 통해 EC2 내부에서 직접 실행되므로, 22번 포트를 CI용으로 별도 개방할 필요가 없다.
 Actuator가 사용하는 `8081`은 보안 그룹에 열지 않으며 Docker 네트워크 안의 Prometheus만 접근한다.
+
+운영 ALB에는 `project-app`, 운영 EC2에는 `project-public` 보안 그룹이 연결된다. `project-public`에
+`project-app`을 원본으로 허용하는 기존 규칙이 있으므로 Grafana를 위해 별도의 `3000` 인바운드 규칙을
+추가하지 않는다. 두 보안 그룹의 실제 ID가 일치하는지 적용 전에 확인하고, 인터넷 CIDR을 원본으로 하는
+`3000` 규칙은 만들지 않는다.
 
 ### 2. RDS 준비
 
@@ -147,6 +152,38 @@ DB·JWT·R2·CORS 값은 서버 `.env` 에 있으므로 GitHub Secret으로 넣�
 첫 배포 후 패키지가 생성되면
 `https://github.com/orgs/woowacourse-teams/packages` 에서 `2026-sssok/backend` 를 열고
 **Package settings → Manage Actions access** 에서 이 저장소에 `Write` 권한이 있는지 확인한다.
+
+### 8. 운영 Grafana 외부 접근
+
+운영 Grafana는 SSH 터널 대신 `https://monitor.ssssok.com`으로 접근한다. Grafana의 `3000`번 포트를
+인터넷에 직접 공개하지 않고 기존 ALB를 통해서만 전달한다. 상세 설계와 향후 분리 계획은
+[운영 모니터링 외부 접근 계획](./MONITORING_ACCESS_PLAN.md)을 참고한다.
+
+AWS에서 다음 항목을 1회 설정한다.
+
+1. ACM 인증서가 `monitor.ssssok.com` 또는 `*.ssssok.com`을 포함하는지 확인한다.
+2. Route 53에서 `monitor.ssssok.com` A/AAAA Alias를 기존 운영 ALB로 연결한다.
+3. HTTP `3000` 포트의 Grafana 전용 Target Group을 만들고 헬스체크 경로를 `/api/health`로 설정한다.
+4. 운영 EC2를 Grafana Target Group에 등록한다.
+5. ALB HTTPS 리스너에 `Host = monitor.ssssok.com` 조건과 Grafana Target Group 전달 규칙을 추가한다.
+6. ALB의 `project-app` 보안 그룹 ID가 운영 EC2 `project-public` 인바운드 규칙의 원본과 일치하는지
+   확인한다. 일치하면 보안 그룹 규칙은 변경하지 않는다.
+
+운영 Compose가 반영된 뒤 Target Group이 `healthy`인지 확인하고 다음을 검증한다.
+
+```bash
+curl -I https://monitor.ssssok.com/login
+curl -fsS https://monitor.ssssok.com/api/health
+```
+
+- 비로그인 상태에서는 로그인 화면까지만 접근할 수 있어야 한다.
+- 정상 계정으로 `sssOK Backend Overview`의 모든 패널을 조회할 수 있어야 한다.
+- `http://<EC2-공인-IP>:3000`에는 외부에서 직접 접근할 수 없어야 한다.
+- Grafana Target Group 상태가 애플리케이션 Target Group 상태에 영향을 주지 않아야 한다.
+
+문제가 발생하면 ALB 호스트 규칙과 DNS Alias를 제거하고 Compose의 Grafana 포트 바인딩을
+`127.0.0.1:3000:3000`으로 되돌린다. 롤백할 때 `grafana-data`와 `prometheus-data` 볼륨은 삭제하지
+않는다.
 
 ## 개발(dev) 서버 세팅 (1회만)
 
