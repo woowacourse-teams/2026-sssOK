@@ -13,14 +13,12 @@ public interface RoomStatus {
 
     boolean canUpload(UploadPolicy uploadPolicy, boolean requesterIsHost);
 
-    // 이미 지워졌거나 정리된 상태인지. 만료는 아직 지울 수 있으므로 여기서 거짓이다.
+    // 이미 삭제된 상태인지. 만료는 아직 지울 수 있으므로 여기서 거짓이다.
     boolean isDeleted();
 
     RoomStatus toExpired();
 
     RoomStatus toDeleted();
-
-    RoomStatus toPurged();
 
     static RoomStatus initial() {
         return ActiveRoomStatus.INSTANCE;
@@ -31,7 +29,6 @@ public interface RoomStatus {
             case "ACTIVE" -> ActiveRoomStatus.INSTANCE;
             case "EXPIRED" -> ExpiredRoomStatus.INSTANCE;
             case "DELETED" -> DeletedRoomStatus.INSTANCE;
-            case "PURGED" -> PurgedRoomStatus.INSTANCE;
             default -> throw new IllegalArgumentException("알 수 없는 방 상태입니다: " + name);
         };
     }

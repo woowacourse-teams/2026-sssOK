@@ -9,14 +9,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.room.PurgeRoomService;
-import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.persistence.admin.AdminJpaEntity;
 import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +34,6 @@ import org.springframework.test.web.servlet.ResultActions;
 @AutoConfigureMockMvc
 abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
 
-    protected static final Duration RETENTION = Duration.ofDays(7);
 
     // V19 마이그레이션이 심는 초기 슈퍼관리자.
     protected static final String SUPER_ADMIN_LOGIN_ID = "superadmin";
@@ -62,9 +57,6 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
 
     @Autowired
     protected FeedbackJpaRepository feedbackJpaRepository;
-
-    @Autowired
-    protected PurgeRoomService purgeRoomService;
 
     @Autowired
     protected RoomRepository roomRepository;
@@ -135,22 +127,6 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     protected ResultActions 방_삭제(String token, long roomId) throws Exception {
         return mockMvc.perform(delete("/api/v1/rooms/{roomId}", roomId)
             .header("Authorization", "Bearer " + token));
-    }
-
-    protected void 보존_기간이_지난_삭제로_되돌리기(long roomId) {
-        Room stored = roomRepository.findById(roomId).orElseThrow();
-        roomRepository.save(Room.reconstruct(
-            stored.getId(),
-            stored.getVersion(),
-            stored.getCode(),
-            stored.getName(),
-            stored.getStatus(),
-            stored.getExpiration(),
-            stored.getUploadPolicy(),
-            stored.getHostId(),
-            stored.getCreatedAt(),
-            Instant.now().minus(RETENTION).minus(Duration.ofDays(1))
-        ));
     }
 
     // 초기 슈퍼관리자의 비밀번호는 테스트가 모르므로 테스트용으로 바꿔 두고 로그인한다.

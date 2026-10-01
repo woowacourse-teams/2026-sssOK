@@ -58,10 +58,10 @@ public class UpdateRoomService {
     }
 
     private RoomExpiration resolveExpiration(Room room, UpdateRoomCommand command, Instant now) {
-        if (command.expiryHours() == null) {
+        if (command.expiryDays() == null) {
             return room.getExpiration();
         }
-        return RoomExpiration.from(now, command.expiryHours());
+        return RoomExpiration.from(now, command.expiryDays());
     }
 
     private UploadPolicy resolveUploadPolicy(Room room, UpdateRoomCommand command) {

@@ -7,8 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-// 실물을 먼저 지운다. DB 행이 남아 있어야 중간에 실패해도 다음 회차에 다시 찾아 시도할 수 있다
-// (RoomPurger와 같은 이유).
+// 실물을 먼저 지운다. DB 행이 남아 있어야 중간에 실패해도 다음 회차에 다시 찾아 시도할 수 있다.
 @Component
 @RequiredArgsConstructor
 public class DownloadJobExpirer {

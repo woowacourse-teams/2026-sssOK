@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 // 시간이 줄줄이 쌓여 스케줄 스레드가 묶이고, 그동안 다른 스케줄 작업까지 밀린다.
 // 최초 등록과 같은 풀을 써, 영상은 영상 풀에서만 돌게 한다.
 //
-// 단일 인스턴스 전제로 분산 락이 없다 — PurgeBatch 와 같다.
+// 단일 인스턴스 전제로 분산 락이 없다 — OrphanObjectSweeper 와 같다.
 @Slf4j
 @Component
 public class ThumbnailSweeper {
