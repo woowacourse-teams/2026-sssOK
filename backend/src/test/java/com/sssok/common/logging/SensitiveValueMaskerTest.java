@@ -53,6 +53,15 @@ class SensitiveValueMaskerTest {
     }
 
     @Test
+    @DisplayName("Flyway 기동 로그의 JDBC URL 을 통째로 가린다")
+    void masksJdbcUrl() {
+        String masked = SensitiveValueMasker.mask(
+            "Database: jdbc:postgresql://sssok.abc123.ap-northeast-2.rds.amazonaws.com:5432/sssok_dev (PostgreSQL 16.14)");
+
+        assertThat(masked).isEqualTo("Database: *** (PostgreSQL 16.14)");
+    }
+
+    @Test
     @DisplayName("민감하지 않은 문구는 그대로 둔다")
     void keepsOrdinaryMessage() {
         String message = "방 1234 의 미디어 30건을 조회했습니다";
