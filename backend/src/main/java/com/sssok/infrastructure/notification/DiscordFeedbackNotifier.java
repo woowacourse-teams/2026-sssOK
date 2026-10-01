@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.sssok.application.port.out.FeedbackNotifierPort;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.infrastructure.config.DiscordNotificationProperties;
+import io.micrometer.common.KeyValue;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -13,8 +14,11 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.http.MediaType;
 import org.springframework.http.client.BufferingClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.observation.ClientRequestObservationContext;
+import org.springframework.http.client.observation.DefaultClientRequestObservationConvention;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 
 // 새 의견을 디스코드 웹훅으로 보낸다. 방 이름·닉네임·시각을 필드로 나눠 읽기 쉽게 Embed 로 싣는다.
 //
@@ -51,6 +55,7 @@ public class DiscordFeedbackNotifier implements FeedbackNotifierPort {
         // 길이 헤더만 보고 본문을 읽으면 빈 요청으로 받는다.
         this.restClient = restClientBuilder
             .requestFactory(new BufferingClientHttpRequestFactory(requestFactory))
+            .observationConvention(new WebhookUrlMaskingConvention())
             .build();
         if (!properties.hasFeedbackWebhook()) {
             log.info("디스코드 의견 알림 웹훅이 설정되지 않아 새 의견 알림을 보내지 않습니다.");
@@ -70,10 +75,15 @@ public class DiscordFeedbackNotifier implements FeedbackNotifierPort {
                 .body(payloadOf(feedback))
                 .retrieve()
                 .toBodilessEntity();
-        } catch (RuntimeException e) {
+        } catch (RestClientResponseException e) {
             // 의견은 이미 저장돼 있다. 다시 보내지 않고 로그만 남겨 관리자 조회로 확인하게 한다.
-            log.warn("디스코드 의견 알림 전송에 실패했습니다. feedbackId={}, reason={}",
-                feedback.getId(), e.getMessage());
+            log.warn("디스코드 의견 알림 전송에 실패했습니다. feedbackId={}, status={}",
+                feedback.getId(), e.getStatusCode().value());
+        } catch (RuntimeException e) {
+            // 예외 메시지는 남기지 않는다. 연결 실패 메시지에는 요청 URL 이 그대로 들어가는데,
+            // 웹훅 URL 은 그 자체로 채널에 글을 쓸 수 있는 비밀값이다. 원인은 타입으로만 가린다.
+            log.warn("디스코드 의견 알림 전송에 실패했습니다. feedbackId={}, error={}",
+                feedback.getId(), e.getClass().getSimpleName());
         }
     }
 
@@ -108,6 +118,24 @@ public class DiscordFeedbackNotifier implements FeedbackNotifierPort {
 
     private static String orUnknown(String value) {
         return value == null || value.isBlank() ? "알 수 없음" : value;
+    }
+
+    // 스프링이 남기는 HTTP 클라이언트 메트릭(http.client.requests)은 요청 경로를 uri 태그로 싣는다.
+    // 웹훅 URL 은 경로 끝이 토큰이라 그대로 두면 Prometheus·Grafana 에 비밀값이 쌓인다.
+    // 경로가 드러나는 두 키만 고정값으로 바꾸고, 호스트·상태 코드 같은 나머지 태그는 그대로 둔다.
+    static class WebhookUrlMaskingConvention extends DefaultClientRequestObservationConvention {
+
+        static final String MASKED_URI = "/discord-webhook";
+
+        @Override
+        protected KeyValue uri(ClientRequestObservationContext context) {
+            return KeyValue.of(super.uri(context).getKey(), MASKED_URI);
+        }
+
+        @Override
+        protected KeyValue requestUri(ClientRequestObservationContext context) {
+            return KeyValue.of(super.requestUri(context).getKey(), MASKED_URI);
+        }
     }
 
     record WebhookPayload(

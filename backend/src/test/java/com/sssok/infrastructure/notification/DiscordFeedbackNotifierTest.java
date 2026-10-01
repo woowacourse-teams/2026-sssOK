@@ -11,6 +11,10 @@ import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.UserAgent;
 import com.sssok.infrastructure.config.DiscordNotificationProperties;
 import com.sun.net.httpserver.HttpServer;
+import io.micrometer.core.instrument.Timer;
+import io.micrometer.core.instrument.observation.DefaultMeterObservationHandler;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -21,9 +25,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.web.client.RestClient;
 
 // 실제 HTTP 서버를 띄워 디스코드 웹훅이 받는 요청 본문을 그대로 확인한다.
+@ExtendWith(OutputCaptureExtension.class)
 class DiscordFeedbackNotifierTest {
 
     private static final Instant CREATED_AT = Instant.parse("2026-09-30T05:30:00Z");
@@ -129,6 +137,51 @@ class DiscordFeedbackNotifierTest {
 
         assertThatCode(() -> notifier(webhookUrl()).notifyCreated(feedback(1L, "본문", "가현")))
             .doesNotThrowAnyException();
+    }
+
+    // 웹훅 URL 은 채널에 글을 쓸 수 있는 비밀값이다. 연결 실패 예외 메시지에는 요청 URL 이 들어가므로
+    // 그 메시지를 그대로 로그에 남기면 안 된다.
+    @Test
+    void 연결_실패_로그에_웹훅_URL을_남기지_않는다(CapturedOutput output) {
+        String webhookUrl = webhookUrl();
+        server.stop(0);
+
+        notifier(webhookUrl).notifyCreated(feedback(1L, "본문", "가현"));
+
+        assertThat(output).contains("디스코드 의견 알림 전송에 실패했습니다", "ResourceAccessException");
+        assertThat(output).doesNotContain(webhookUrl);
+    }
+
+    @Test
+    void 실패_응답_로그에는_상태_코드만_남기고_웹훅_URL은_남기지_않는다(CapturedOutput output) {
+        responseStatus = 500;
+
+        notifier(webhookUrl()).notifyCreated(feedback(1L, "본문", "가현"));
+
+        assertThat(output).contains("status=500");
+        assertThat(output).doesNotContain(webhookUrl());
+    }
+
+    // 웹훅 URL 은 경로 끝이 토큰이다. 스프링의 HTTP 클라이언트 메트릭이 경로를 태그로 실으면
+    // Prometheus 로 수집돼 그대로 남는다.
+    @Test
+    void HTTP_클라이언트_메트릭_태그에_웹훅_경로를_남기지_않는다() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        ObservationRegistry observationRegistry = ObservationRegistry.create();
+        observationRegistry.observationConfig()
+            .observationHandler(new DefaultMeterObservationHandler(meterRegistry));
+        DiscordNotificationProperties properties = new DiscordNotificationProperties(
+            webhookUrl(), Duration.ofSeconds(1), Duration.ofSeconds(1));
+
+        new DiscordFeedbackNotifier(properties, RestClient.builder().observationRegistry(observationRegistry))
+            .notifyCreated(feedback(1L, "본문", "가현"));
+
+        Timer timer = meterRegistry.get("http.client.requests").timer();
+        assertThat(timer.getId().getTag("uri")).isEqualTo("/discord-webhook");
+        assertThat(timer.getId().getTag("status")).isEqualTo("204");
+        assertThat(meterRegistry.getMeters())
+            .flatMap(meter -> meter.getId().getTags())
+            .noneMatch(tag -> tag.getValue().contains("/webhook"));
     }
 
     @Test
