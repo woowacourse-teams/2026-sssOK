@@ -4,7 +4,13 @@ import { initAnalytics, parseInternalParam, track } from "./analytics";
 
 jest.mock("posthog-js", () => ({
   __esModule: true,
-  default: { init: jest.fn(), register: jest.fn(), unregister: jest.fn(), capture: jest.fn() },
+  default: {
+    init: jest.fn(),
+    register: jest.fn(),
+    unregister: jest.fn(),
+    capture: jest.fn(),
+    captureException: jest.fn(),
+  },
 }));
 
 describe("parseInternalParam", () => {
@@ -113,5 +119,30 @@ describe("배포 빌드일 때", () => {
     analytics.track("Room Create Started", {});
 
     expect(posthog.capture).toHaveBeenCalledWith("Room Create Started", {});
+  });
+
+  it("예외와 디버깅 문맥을 함께 보낸다", async () => {
+    const analytics = loadFresh();
+    await analytics.initAnalytics();
+    const error = new Error("요청 실패");
+
+    analytics.captureException(error, {
+      level: "error",
+      operation: "gallery.get_photos",
+      method: "GET",
+      route: "/rooms/:roomId/media/all",
+      status: 500,
+      code: "INTERNAL_SERVER_ERROR",
+    });
+
+    expect(posthog.captureException).toHaveBeenCalledWith(error, {
+      $exception_level: "error",
+      operation: "gallery.get_photos",
+      api_method: "GET",
+      api_route: "/rooms/:roomId/media/all",
+      api_status: 500,
+      api_error_code: "INTERNAL_SERVER_ERROR",
+      environment: "production",
+    });
   });
 });

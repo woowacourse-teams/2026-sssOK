@@ -3,7 +3,7 @@ import { reissueUploadUrl } from "../api/reissueUploadUrl";
 import type { IssuedUpload } from "../api/types";
 import { MAX_AUTO_RETRY, RETRY_BACKOFF_MS } from "../config";
 import { putToStorage } from "../lib/putToStorage";
-import { waitUnlessAborted } from "@/shared/lib";
+import { captureException, waitUnlessAborted } from "@/shared/lib";
 import type { FailedUpload, UploadFailureCode, UploadProgress } from "./types";
 
 export interface UploadOneParams {
@@ -83,6 +83,14 @@ export const uploadOne = async ({
 
     // 마지막 시도였다면 새 URL 을 받아둘 이유가 없다.
     if (attempt === MAX_AUTO_RETRY) {
+      captureException(new Error("스토리지 파일 업로드에 실패했습니다."), {
+        level: "error",
+        operation: "upload.put_file",
+        method: "PUT",
+        route: "storage_presigned_url",
+        status: sent.status,
+        code: "UPLOAD_FAILED",
+      });
       break;
     }
 
