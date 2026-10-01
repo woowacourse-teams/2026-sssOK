@@ -86,9 +86,22 @@ Loki 스트림 라벨은 네 개만 쓴다.
 
 # 앱이 502·504 로 응답하지 못한 요청
 {environment="dev", service="sssok-nginx"} | json | status >= 502
+
+# 앱이 5xx 로 응답한 요청 (앱 접근 로그, 요청당 한 줄. 예외 줄에도 status 가 있어 durationMs 로 거른다)
+{environment="dev", service="sssok-backend"} | json | __error__="" | status >= 500 | durationMs != ""
+
+# 예외가 담긴 앱 로그 (exception·stackTrace 필드)
+{environment="dev", service="sssok-backend"} | json | __error__="" | exception != ""
 ```
 
 prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app`·`sssok-nginx` 다.
+
+`| json` 뒤의 `__error__=""` 는 JSON 이 아닌 줄(Nginx 에러 로그, JVM 기동 실패 출력)을 뺀다. 빼지 않으면 숫자
+비교에 실패한 줄이 걸러지지 않고 그대로 섞여 나온다.
+
+위 질의와 Request ID·배포 버전 검색은 Grafana 의 **sssOK Logs** 대시보드(`grafana/dashboards/logs.json`)에
+패널로 들어 있다. `sssOK Backend Overview` 의 5xx 응답 비율 그래프와 Discord 알림 메시지에서 이 대시보드로
+바로 이동한다. 장애 상황별 대응 순서는 [로깅 Runbook](../../docs/troubleshooting/LOGGING_RUNBOOK.md)을 본다.
 
 ### 요청 하나 추적하기
 
