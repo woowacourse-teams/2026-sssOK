@@ -36,8 +36,8 @@ public class DeleteRoomService {
 
         room.delete(requesterId, now);
         Room saved = roomRepository.save(room);
-        DeleteRoomResult result = new DeleteRoomResult(saved.getDeletedAt(), saved.purgeAt());
-        eventPublisher.publishEvent(new RoomDeletedEvent(roomId, result.deletedAt(), result.purgeAt()));
+        DeleteRoomResult result = new DeleteRoomResult(saved.getDeletedAt());
+        eventPublisher.publishEvent(new RoomDeletedEvent(roomId, result.deletedAt()));
         return result;
     }
 }

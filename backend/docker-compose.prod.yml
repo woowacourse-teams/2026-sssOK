@@ -121,8 +121,8 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SECURITY_COOKIE_SECURE: "true"
     ports:
-      # ALB의 Grafana 전용 Target Group만 접근한다. EC2 보안 그룹에서 인터넷 직접 접근은 허용하지 않는다.
-      - "3000:3000"
+      # 운영 점검용 로컬 접근만 허용한다. 외부 요청은 ALB :443 → Nginx :80 → Docker network로 전달한다.
+      - "127.0.0.1:3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro

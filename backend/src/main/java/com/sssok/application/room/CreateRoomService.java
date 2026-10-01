@@ -27,7 +27,7 @@ public class CreateRoomService {
     private final RandomGenerator randomGenerator = new SecureRandom();
 
     @Transactional
-    public RoomDetail create(Long hostId, String name, String uploadPolicy, Integer expiryHours) {
+    public RoomDetail create(Long hostId, String name, String uploadPolicy, Integer expiryDays) {
         Instant now = Instant.now();
         Room room = Room.create(
             RoomCode.generate(randomGenerator),
@@ -35,7 +35,7 @@ public class CreateRoomService {
             hostId,
             now,
             resolveUploadPolicy(uploadPolicy),
-            resolveExpiration(now, expiryHours)
+            resolveExpiration(now, expiryDays)
         );
         Room saved = roomRepository.save(room);
 
@@ -50,7 +50,7 @@ public class CreateRoomService {
         return uploadPolicy == null ? UploadPolicy.ANYONE : UploadPolicy.from(uploadPolicy);
     }
 
-    private RoomExpiration resolveExpiration(Instant now, Integer expiryHours) {
-        return expiryHours == null ? RoomExpiration.defaultFrom(now) : RoomExpiration.from(now, expiryHours);
+    private RoomExpiration resolveExpiration(Instant now, Integer expiryDays) {
+        return expiryDays == null ? RoomExpiration.defaultFrom(now) : RoomExpiration.from(now, expiryDays);
     }
 }

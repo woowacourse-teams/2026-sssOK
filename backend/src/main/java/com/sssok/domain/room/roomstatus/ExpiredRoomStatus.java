@@ -39,9 +39,4 @@ public final class ExpiredRoomStatus implements RoomStatus {
     public RoomStatus toDeleted() {
         return DeletedRoomStatus.INSTANCE;
     }
-
-    @Override
-    public RoomStatus toPurged() {
-        throw new IllegalRoomStatusTransitionException(this, "PURGED");
-    }
 }

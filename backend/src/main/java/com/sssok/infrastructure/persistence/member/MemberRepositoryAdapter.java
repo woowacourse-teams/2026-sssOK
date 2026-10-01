@@ -34,14 +34,6 @@ public class MemberRepositoryAdapter implements MemberRepository {
         return jpaRepository.findAllById(memberIds).stream().map(this::toDomain).toList();
     }
 
-    @Override
-    public void deleteAllByIdIn(Collection<Long> memberIds) {
-        if (memberIds.isEmpty()) {
-            return;
-        }
-        jpaRepository.deleteAllByIdIn(memberIds);
-    }
-
     private MemberJpaEntity toEntity(Member member) {
         return new MemberJpaEntity(
             member.getId(),
