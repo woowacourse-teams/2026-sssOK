@@ -1,7 +1,8 @@
 export interface CreateRoomRequest {
   name: string;
   uploadPolicy: "everyone" | "host";
-  expiryHours: 24 | 72;
+  /** 1~14일 */
+  expiryDays: number;
 }
 
 export interface CreateRoomResponse {
