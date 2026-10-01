@@ -16,6 +16,8 @@ import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -97,6 +99,38 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void expiryDays를_생략하면_만료_시각은_1일_뒤다() throws Exception {
+        MvcResult created = 방_생성(익명_인증("가현"), "{\"name\":\"우테코 회식\"}")
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        assertThat(Instant.parse(값(created, "expiresAt")))
+            .isBetween(Instant.now().plus(Duration.ofDays(1)).minus(Duration.ofMinutes(1)),
+                Instant.now().plus(Duration.ofDays(1)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 14})
+    void expiryDays를_보내면_만료_시각은_그만큼_뒤다(int expiryDays) throws Exception {
+        MvcResult created = 방_생성(익명_인증("가현"),
+            "{\"name\":\"우테코 회식\",\"expiryDays\":" + expiryDays + "}")
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        assertThat(Instant.parse(값(created, "expiresAt")))
+            .isBetween(Instant.now().plus(Duration.ofDays(expiryDays)).minus(Duration.ofMinutes(1)),
+                Instant.now().plus(Duration.ofDays(expiryDays)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 15, -1})
+    void expiryDays가_1에서_14_사이가_아니면_400(int expiryDays) throws Exception {
+        방_생성(익명_인증("가현"), "{\"name\":\"우테코 회식\",\"expiryDays\":" + expiryDays + "}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_EXPIRATION"));
+    }
+
+    @Test
     void 이름_없이_생성하면_400() throws Exception {
         방_생성(익명_인증("가현"), "{\"name\":\"\"}")
             .andExpect(status().isBadRequest())
@@ -173,7 +207,7 @@ class RoomApiTest extends PostgresContainerSupport {
         생성된_방 room = 방_만들기(token);
         long roomId = room.roomId();
 
-        수정(token, roomId, "{\"name\":\"2차 회식\",\"uploadPolicy\":\"host\",\"expiryHours\":72}")
+        수정(token, roomId, "{\"name\":\"2차 회식\",\"uploadPolicy\":\"host\",\"expiryDays\":7}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.roomId").value(roomId))
             .andExpect(jsonPath("$.data.name").value("2차 회식"))
@@ -206,13 +240,13 @@ class RoomApiTest extends PostgresContainerSupport {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        MvcResult patched = 수정(token, roomId, "{\"expiryHours\":72}")
+        MvcResult patched = 수정(token, roomId, "{\"expiryDays\":3}")
             .andExpect(status().isOk())
             .andReturn();
 
         Instant expiresAt = Instant.parse(값(patched, "expiresAt"));
-        assertThat(expiresAt).isBefore(Instant.now().plus(Duration.ofHours(73)));
-        assertThat(expiresAt).isAfter(Instant.now().plus(Duration.ofHours(71)));
+        assertThat(expiresAt).isBefore(Instant.now().plus(Duration.ofDays(3)).plus(Duration.ofMinutes(1)));
+        assertThat(expiresAt).isAfter(Instant.now().plus(Duration.ofDays(3)).minus(Duration.ofMinutes(1)));
     }
 
     @Test
@@ -237,11 +271,11 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 허용되지_않은_만료_시간이면_400() throws Exception {
+    void 허용되지_않은_만료_기간이면_400() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        수정(token, roomId, "{\"expiryHours\":48}")
+        수정(token, roomId, "{\"expiryDays\":15}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_ROOM_EXPIRATION"));
     }
@@ -264,19 +298,14 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 방장이_방을_삭제하면_삭제_시각과_영구_삭제_예정_시각을_받는다() throws Exception {
+    void 방장이_방을_삭제하면_삭제_시각만_받는다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        MvcResult deleted = 삭제(token, roomId)
+        삭제(token, roomId)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.deletedAt").value(notNullValue()))
-            .andExpect(jsonPath("$.data.purgeAt").value(notNullValue()))
-            .andReturn();
-
-        Instant deletedAt = Instant.parse(값(deleted, "deletedAt"));
-        Instant purgeAt = Instant.parse(값(deleted, "purgeAt"));
-        assertThat(purgeAt).isEqualTo(deletedAt.plus(Duration.ofDays(7)));
+            .andExpect(jsonPath("$.data.purgeAt").doesNotExist());
     }
 
     @Test

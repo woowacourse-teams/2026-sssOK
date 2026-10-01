@@ -6,7 +6,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.Instant;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -179,23 +178,22 @@ class AdminFeedbackApiTest extends AdminFeedbackApiSupport {
     }
 
     @Test
-    void 방을_purge_해도_의견이_조회되고_맥락_값이_보존된다() throws Exception {
+    void 방을_삭제해도_의견이_조회되고_맥락_값이_보존된다() throws Exception {
         String memberToken = 익명_인증("가현");
         long roomId = 방_만들고_입장(memberToken);
-        long feedbackId = 의견_남기기(memberToken, roomId, "방이 사라져도 이 의견은 읽혀야 해요");
+        long feedbackId = 의견_남기기(memberToken, roomId, "방이 삭제돼도 이 의견은 읽혀야 해요");
         Long memberId = feedbackJpaRepository.findById(feedbackId).orElseThrow().getMemberId();
 
         방_삭제(memberToken, roomId).andExpect(status().isOk());
-        보존_기간이_지난_삭제로_되돌리기(roomId);
-        purgeRoomService.purgeAll(Instant.now());
 
-        assertThat(roomRepository.findById(roomId)).isEmpty();
-        assertThat(memberRepository.findById(memberId)).isEmpty();
+        // 영구 삭제가 없어 방과 회원 행도 그대로 남는다.
+        assertThat(roomRepository.findById(roomId)).isPresent();
+        assertThat(memberRepository.findById(memberId)).isPresent();
 
         String adminToken = 슈퍼관리자_토큰();
         단건_조회(adminToken, feedbackId)
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.content").value("방이 사라져도 이 의견은 읽혀야 해요"))
+            .andExpect(jsonPath("$.data.content").value("방이 삭제돼도 이 의견은 읽혀야 해요"))
             .andExpect(jsonPath("$.data.roomId").value(roomId))
             .andExpect(jsonPath("$.data.roomName").value("우테코 회식"))
             .andExpect(jsonPath("$.data.memberId").value(memberId))

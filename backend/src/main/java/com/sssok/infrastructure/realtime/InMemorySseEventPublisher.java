@@ -18,7 +18,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 // EventPublisherPort의 인메모리 SSE 구현체.
 // 구독 중인 SseEmitter를 이 JVM의 힙 메모리(Map)에만 들고 있으므로 단일 인스턴스 전제다
-// (스케일 아웃 시 Redis Pub/Sub 등으로 교체 필요 — #47 PurgeBatch와 같은 전제).
+// (스케일 아웃 시 Redis Pub/Sub 등으로 교체 필요 — 스케줄 배치들과 같은 전제).
 @Component
 @RequiredArgsConstructor
 public class InMemorySseEventPublisher implements EventPublisherPort, EventSubscriberPort {

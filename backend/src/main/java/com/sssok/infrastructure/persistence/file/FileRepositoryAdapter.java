@@ -203,11 +203,6 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
-    public void deleteAllByRoomId(Long roomId) {
-        jpaRepository.deleteAllByRoomId(roomId);
-    }
-
-    @Override
     public void deleteAllByIdIn(List<Long> ids) {
         if (!ids.isEmpty()) {
             jpaRepository.deleteAllByIdInBatch(ids);

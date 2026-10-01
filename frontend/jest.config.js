@@ -10,6 +10,7 @@ module.exports = {
   transformIgnorePatterns: [
     "<rootDir>/node_modules/.pnpm/(?!(rettime|until-async|@open-draft\\+deferred-promise)@)",
   ],
+  setupFiles: ["<rootDir>/test/setupEnv.js"],
   moduleNameMapper: {
     // 별칭 규칙보다 먼저 걸러야 @/shared/assets/*.png 이 그대로 파싱되지 않는다
     "\\.(png|jpe?g|gif|svg)$": "<rootDir>/test/fileMock.js",

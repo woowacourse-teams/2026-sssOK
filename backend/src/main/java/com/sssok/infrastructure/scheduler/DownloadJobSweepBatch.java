@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 // 보관 기간이 지난 다운로드 zip을 영구 삭제하는 스케줄 배치.
-// 단일 인스턴스 전제로 분산 락이 없다 (PurgeBatch와 같은 전제).
+// 단일 인스턴스 전제로 분산 락이 없다 (OrphanObjectSweeper와 같은 전제).
 @Slf4j
 @Component
 @RequiredArgsConstructor
