@@ -19,10 +19,13 @@ module.exports = {
   entry: "./src/index.tsx",
 
   output: {
-    filename: "bundle.js",
+    filename: "[name].[contenthash].js",
+    chunkFilename: "[name].[contenthash].js",
     path: path.resolve(__dirname, "dist"),
     // 중첩 경로(/rooms/:code)에서도 번들을 루트 기준으로 찾게 한다
     publicPath: "/",
+    // contenthash가 바뀐 이전 빌드 파일을 dist에 남기지 않는다.
+    clean: true,
   },
 
   resolve: {
