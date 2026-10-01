@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -36,6 +37,9 @@ class RoomApiTest extends PostgresContainerSupport {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @Test
     void 방을_생성하면_roomId와_방장_정보가_함께_내려오고_코드로_조회된다() throws Exception {
@@ -334,6 +338,41 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("ROOM_ALREADY_DELETED"));
     }
 
+    // 만료 시각이 지나도 저장된 상태는 ACTIVE 로 남는다. 응답은 시각까지 보고 EXPIRED 로 내려야 한다.
+    @Test
+    void 만료_시각이_지난_방을_조회하면_EXPIRED로_내려온다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+        만료시키기(room.roomId());
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code())
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("EXPIRED"));
+    }
+
+    @Test
+    void 만료_시각_전인_방은_ACTIVE로_내려온다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void 삭제된_방은_만료_시각이_지나도_DELETED로_내려온다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+        삭제(token, room.roomId()).andExpect(status().isOk());
+        만료시키기(room.roomId());
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("DELETED"));
+    }
+
     @Test
     void 삭제된_방은_수정할_수_없다() throws Exception {
         String token = 익명_인증("가현");
@@ -448,6 +487,11 @@ class RoomApiTest extends PostgresContainerSupport {
     private ResultActions 입장(String token, long roomId) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
             .header("Authorization", "Bearer " + token));
+    }
+
+    // 만료 시각이 지나기를 기다릴 수 없어 저장된 만료 시각을 과거로 돌린다. 상태 컬럼은 건드리지 않는다.
+    private void 만료시키기(long roomId) {
+        jdbcTemplate.update("UPDATE room SET expires_at = now() - interval '1 minute' WHERE id = ?", roomId);
     }
 
     // roomId 는 수정·삭제·입장에, code 는 조회에 쓴다.
