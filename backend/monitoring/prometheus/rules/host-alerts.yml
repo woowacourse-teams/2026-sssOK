@@ -1,0 +1,44 @@
+# 서버 디스크 알림. 앱·Loki·Docker 이미지·컨테이너 로그가 같은 루트 디스크를 쓴다.
+# 디스크가 차면 Loki 저장이 멈추는 데서 끝나지 않고, 이미지 pull(배포)과 컨테이너 로그 쓰기가 실패해
+# 앱까지 영향을 받는다. 그 전에 알아차리는 게 목적이다.
+groups:
+  - name: sssok-host
+    rules:
+      - alert: HostDiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{job="node", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", mountpoint="/"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 디스크 여유 부족
+          description: "루트 디스크 여유가 {{ $value | humanizePercentage }} 남았습니다. `docker system df -v` 로 Loki(loki-data)·이미지·로그 사용량을 확인하세요."
+
+      - alert: HostDiskSpaceCritical
+        expr: |
+          node_filesystem_avail_bytes{job="node", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", mountpoint="/"} < 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: sssok-host
+        annotations:
+          summary: 서버 디스크 고갈 임박
+          description: "루트 디스크 여유가 {{ $value | humanizePercentage }} 뿐입니다. 곧 배포와 로그 쓰기가 실패합니다."
+
+      # 아직 여유는 있지만 지금 속도면 하루 안에 찬다. 로그 폭주처럼 빠르게 차는 경우를 일찍 잡는다.
+      - alert: HostDiskWillFillIn24h
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{job="node", mountpoint="/"}[6h], 24 * 3600) < 0
+          and
+          node_filesystem_avail_bytes{job="node", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", mountpoint="/"} < 0.4
+        for: 30m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 디스크가 하루 안에 찰 것으로 예상
+          description: "최근 6시간 추세라면 24시간 안에 루트 디스크가 가득 찹니다."

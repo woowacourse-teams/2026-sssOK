@@ -19,3 +19,20 @@ scrape_configs:
       # 같은 Docker Compose 네트워크에서는 서비스 이름으로 애플리케이션을 찾는다.
       - targets:
           - app:8081
+
+  # 로그 수집 경로 자체의 상태. 앱은 멀쩡한데 로그만 비는 상황을 알아채기 위해 수집한다.
+  - job_name: alloy
+    static_configs:
+      - targets:
+          - alloy:12345
+
+  - job_name: loki
+    static_configs:
+      - targets:
+          - loki:3100
+
+  # 호스트 디스크 사용량 (HostDiskSpaceLow 알림).
+  - job_name: node
+    static_configs:
+      - targets:
+          - node-exporter:9100
