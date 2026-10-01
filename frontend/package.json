@@ -6,6 +6,7 @@
   "scripts": {
     "start": "pnpm type-check && webpack serve --mode development",
     "start:mock": "MOCK=full pnpm start",
+    "build:dev": "pnpm type-check && webpack --mode development",
     "build": "pnpm type-check && webpack --mode production",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
