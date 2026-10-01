@@ -3,14 +3,14 @@ package com.sssok.domain.room;
 import com.sssok.domain.room.exception.InvalidRoomExpirationException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Set;
 
 // 방 만료 시각을 담는 값 객체.
-// 방장은 24시간과 72시간 중에서 고를 수 있다
+// 방장은 1일부터 14일까지 하루 단위로 고를 수 있다
 public record RoomExpiration(Instant expiresAt) {
 
-    private static final int DEFAULT_HOURS = 24;
-    private static final Set<Integer> ALLOWED_HOURS = Set.of(24, 72);
+    private static final int DEFAULT_DAYS = 1;
+    private static final int MIN_DAYS = 1;
+    private static final int MAX_DAYS = 14;
 
     public RoomExpiration {
         if (expiresAt == null) {
@@ -18,16 +18,16 @@ public record RoomExpiration(Instant expiresAt) {
         }
     }
 
-    // 방 생성 시 기본 만료 시각 (지금부터 24시간 뒤)
+    // 방 생성 시 기본 만료 시각 (지금부터 1일 뒤)
     public static RoomExpiration defaultFrom(Instant now) {
-        return from(now, DEFAULT_HOURS);
+        return from(now, DEFAULT_DAYS);
     }
 
-    public static RoomExpiration from(Instant now, int expiryHours) {
-        if (!ALLOWED_HOURS.contains(expiryHours)) {
+    public static RoomExpiration from(Instant now, int expiryDays) {
+        if (expiryDays < MIN_DAYS || expiryDays > MAX_DAYS) {
             throw new InvalidRoomExpirationException();
         }
-        return new RoomExpiration(now.plus(Duration.ofHours(expiryHours)));
+        return new RoomExpiration(now.plus(Duration.ofDays(expiryDays)));
     }
 
     public boolean isExpired(Instant now) {
