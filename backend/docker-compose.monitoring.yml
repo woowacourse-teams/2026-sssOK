@@ -15,6 +15,68 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
 
+  # 로컬 앱은 IDE·Gradle 로 호스트에서 돌고 평문 로그를 내므로 Alloy 가 수집하지 않는다.
+  # Loki·Alloy 는 서버와 같은 설정이 뜨는지, 컨테이너로 띄운 앱의 로그가 흘러가는지 확인하는 용도다.
+  # 수집 경로 확인 방법은 monitoring/README.md 참고.
+  loki:
+    image: grafana/loki:3.7.8
+    container_name: sssok-loki-local
+    command:
+      - -config.file=/etc/loki/loki.yml
+      - -config.expand-env=true
+    environment:
+      LOKI_RETENTION_PERIOD: 24h
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
+      - loki-local-data:/loki
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: sssok-alloy-local
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --disable-reporting
+      - /etc/alloy/config.alloy
+    environment:
+      SSSOK_ENVIRONMENT: local
+      SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
+    ports:
+      - "127.0.0.1:12345:12345"
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - alloy-local-data:/var/lib/alloy/data
+    depends_on:
+      - loki
+      - docker-socket-proxy
+
+  # 서버와 같은 구성. 이유는 docker-compose.prod.yml 의 docker-socket-proxy 주석 참고.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: sssok-docker-socket-proxy-local
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # 서버와 같은 구성. Docker Desktop 에서는 Docker VM 의 디스크가 보인다.
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: sssok-node-exporter-local
+    command:
+      - --path.rootfs=/host
+      - --collector.disable-defaults
+      - --collector.filesystem
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$
+    volumes:
+      - /:/host:ro
+
   grafana:
     image: grafana/grafana:13.2.2
     container_name: sssok-grafana-local
@@ -31,7 +93,10 @@ services:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
 
 volumes:
   prometheus-local-data:
   grafana-local-data:
+  loki-local-data:
+  alloy-local-data:

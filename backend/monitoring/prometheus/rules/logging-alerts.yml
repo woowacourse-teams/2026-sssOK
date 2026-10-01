@@ -1,0 +1,50 @@
+# 로그 수집 경로(Alloy → Loki) 자체의 장애 알림.
+#
+# Alloy·Loki 가 죽어도 앱은 멀쩡하도록 분리해 뒀기 때문에, 알림이 없으면 아무도 모른 채 로그만 비게
+# 된다. 그러다 장애가 나서 로그를 찾을 때 처음 알게 되는 상황을 막는다.
+groups:
+  - name: sssok-logging
+    rules:
+      - alert: LogPipelineDown
+        expr: up{job=~"alloy|loki"} == 0
+        for: 5m
+        keep_firing_for: 5m
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: 로그 수집 구성 요소 중단
+          description: "{{ $labels.job }} 의 메트릭을 5분 이상 수집하지 못했습니다. 그동안의 로그는 서버 로컬(docker logs·/var/log/nginx)에만 남고, 회전 한도를 넘으면 사라집니다."
+
+      # Alloy 가 Loki 로 보내는 요청이 계속 실패한다. 일시적인 429·5xx 는 Alloy 가 재시도하므로
+      # 10분 넘게 이어질 때만 알린다.
+      - alert: LogShippingFailing
+        expr: sum by (job) (rate(loki_write_request_duration_seconds_count{job="alloy", status_code!~"2.."}[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: Loki 로그 전송 실패 지속
+          description: "Alloy 의 Loki 전송이 10분 넘게 실패하고 있습니다. Loki 상태와 디스크 여유를 확인하세요."
+
+      # 재시도를 다 쓰고 버린 로그. 이 줄들은 Loki 에서 영영 찾을 수 없다.
+      - alert: LogEntriesDropped
+        expr: sum(increase(loki_write_dropped_entries_total{job="alloy"}[10m])) > 0
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: 로그 유실 발생
+          description: "최근 10분간 Alloy 가 Loki 로 보내지 못하고 버린 로그가 {{ $value | humanize }} 줄 있습니다."
+
+      # Loki 가 수집량 한도(loki.yml 의 ingestion_rate_mb)를 넘어 거절한 로그. 평소 수집량은 한도에
+      # 한참 못 미치므로, 이게 뜨면 로그를 무한히 찍는 버그일 가능성이 높다. 방치하면 디스크를 빠르게 채운다.
+      - alert: LokiRejectingLogs
+        expr: sum by (reason) (increase(loki_discarded_samples_total{job="loki"}[10m])) > 0
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: Loki 가 로그를 거절함
+          description: "최근 10분간 Loki 가 {{ $labels.reason }} 사유로 로그 {{ $value | humanize }} 줄을 거절했습니다. 특정 로그가 비정상적으로 많이 찍히는지 확인하세요."
