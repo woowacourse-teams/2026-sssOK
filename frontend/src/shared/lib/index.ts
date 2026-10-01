@@ -1,4 +1,10 @@
-export { getAnalyticsRoom, initAnalytics, setAnalyticsRoom, track } from "./analytics";
+export {
+  captureException,
+  getAnalyticsRoom,
+  initAnalytics,
+  setAnalyticsRoom,
+  track,
+} from "./analytics";
 export type {
   AnalyticsDownloadSource,
   AnalyticsEntrySource,

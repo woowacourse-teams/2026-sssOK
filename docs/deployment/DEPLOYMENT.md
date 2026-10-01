@@ -24,6 +24,8 @@ flowchart LR
   배포·롤백에는 쓰지 않는다 (별칭은 다음 릴리스에서 다른 이미지로 옮겨간다 —
   [버전과 릴리스 태그](#버전과-릴리스-태그) 참고).
 - 배포 후 `/health`를 최대 150초간 폴링하고, 실패하면 자동으로 직전 이미지로 롤백한다.
+- 위 그림은 백엔드 경로다. 프론트엔드는 GitHub Actions 를 거치지 않고 AWS CodePipeline 이
+  `deploy` 브랜치를 받아 S3 에 올린다 — [프론트엔드 배포](#프론트엔드-배포) 참고.
 
 > **왜 self-hosted인가**: GitHub-hosted 러너는 매 실행마다 IP가 바뀌는 임시 VM이라, 보안 그룹에서 특정 IP만 허용하는 정책과 근본적으로 충돌한다. self-hosted 러너를 EC2 안에 두면 배포 스텝이 "밖에서 안으로 접속"하는 게 아니라 "그 자리에서 로컬 실행"이 되므로, 22번 포트를 CI용으로 열어둘 필요가 아예 없어진다.
 
@@ -37,8 +39,9 @@ flowchart LR
 | `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정 |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
-| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱 컨테이너 정의 (`8080` 직접 노출, Actuator `8081`은 내부 전용) |
+| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱·모니터링 컨테이너 정의 (`8080` 직접 노출 — 호스트에 설치된 Nginx가 `80`에서 받아 넘긴다, Actuator `8081`은 내부 전용) |
 | `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx·모니터링 컨테이너 정의 (`80`은 호스트별 앱·Grafana 프록시, `3000`과 Actuator `8081`은 외부 비공개) |
+| `monitoring/` | 두 CI 모두 배포마다 전송 | Prometheus·Alertmanager·Grafana·Loki·Alloy 설정. 로그 수집은 [monitoring/README.md](../../backend/monitoring/README.md#로그-수집과-조회) 참고 |
 
 ## 최초 세팅 (1회만)
 
@@ -268,6 +271,12 @@ tar xzf ./actions-runner-linux-arm64.tar.gz
 운영과 마찬가지로 배포 워크플로가 Discord Webhook URL을 서버의 권한 `600` 비밀 파일로 만들며,
 DB·JWT·R2·CORS 값은 dev 서버 `.env`에 둔다.
 
+### 7. 호스트 Nginx 로그 형식 추가
+
+dev의 Nginx는 컨테이너가 아니라 EC2에 직접 설치돼 `dev-api.ssssok.com`의 `80`을 앱 `8080`으로 넘긴다.
+이 Nginx가 prod와 같은 필드의 JSON 접근 로그를 남겨야 Alloy가 Loki로 수집한다. 설정 방법은
+[monitoring/README.md의 dev 호스트 Nginx 설정](../../backend/monitoring/README.md#dev-호스트-nginx-설정)을 따른다.
+
 ## 배포하기
 
 `main`, `develop`, `deploy` 모두 브랜치 보호가 걸려 있어 직접 push가 안 된다 — PR로만 반영한다.
@@ -354,6 +363,11 @@ curl -s http://localhost/version
   바뀐 경우에만 만든다.
 - `release-v*` 태그에는 GitHub Release 를 함께 만들고 본문에 통합 릴리스·프론트엔드·백엔드
   버전과 배포 커밋을 적는다.
+- 본문 아래에는 직전 `release-v*` 이후 들어간 변경 내역을 프론트엔드·백엔드·공통으로 나눠 붙인다
+  (`.github/scripts/release-notes.sh`). 분류는 PR 라벨이 아니라 커밋이 바꾼 경로로 한다.
+  `frontend/` 만 바꾸면 프론트엔드, `backend/` 만 바꾸면 백엔드, 양쪽이거나 둘 다 아니면 공통이다.
+  버전 숫자만 올린 릴리스 준비 커밋과 승격 PR의 머지 커밋은 목록에서 빠진다.
+- 로컬에서 미리 보려면 `bash .github/scripts/release-notes.sh <직전 release 태그> <커밋>` 을 실행한다.
 
 이 잡은 **재실행해도 안전하다.** 태그 3종과 GitHub Release의 존재 여부를 각각 따로 보고 없는
 것만 만들기 때문에, 일부만 만들어진 채 실패해도 다시 돌리면 나머지가 채워진다. 이미 있는 태그는
@@ -414,6 +428,127 @@ APP_BACKEND_VERSION=<그 커밋의 백엔드 버전>
 APP_GIT_SHA=<커밋SHA>
 EOF
 ```
+
+## 프론트엔드 배포
+
+### 구조
+
+```mermaid
+flowchart LR
+    P[deploy 브랜치] --> CP[CodePipeline]
+    CP --> CB[CodeBuild\n빌드]
+    CB --> S3[(S3 버킷)]
+    S3 --> CF[CloudFront]
+    CF --> U[www.ssssok.com]
+```
+
+- `deploy` 에 머지될 때마다 CodePipeline 이 `frontend/` 를 새로 빌드해 S3 에 덮어쓴다.
+  프론트엔드가 바뀌지 않은 배포에서도 같은 코드로 다시 빌드한다.
+- 빌드 명령(buildspec)은 저장소가 아니라 AWS 콘솔의 CodeBuild 프로젝트에 있다.
+- GitHub Actions 를 거치지 않으므로 **GitHub 에서는 프론트엔드 배포 성공 여부를 알 수 없다.**
+  성공·실패는 AWS 콘솔의 CodePipeline 실행 이력에서 확인한다.
+- S3 버킷은 **버전 관리가 켜져 있다** (응답의 `x-amz-version-id` 헤더). 덮어쓴 파일의 이전 버전이
+  남아 있어 아래 긴급 롤백에 쓴다.
+- `index.html`·`bundle.js` 모두 `cache-control: no-cache` 로 내려간다. 번들 파일명에 해시가 없어
+  (`bundle.js` 고정) 이 설정이 빠지면 브라우저·CloudFront 에 예전 번들이 남는다. 바꾸지 않는다.
+
+### 태그
+
+`frontend-v*` 태그는 프론트엔드 파이프라인이 아니라 `deploy-prod.yml` 이 찍는다
+([태그와 릴리스 생성](#태그와-릴리스-생성)). 그래서 두 가지를 알고 있어야 한다.
+
+- **프론트엔드만 바뀐 배포**에서는 워크플로가 돌지 않아 태그와 Release 가 생기지 않는다.
+  CodePipeline 배포가 끝난 것을 확인한 뒤 Actions 탭의 `Backend Prod Deploy` → `Run workflow`
+  로 수동 실행한다. 백엔드도 같은 코드로 한 번 더 배포되지만 동작은 바뀌지 않는다.
+- 태그는 백엔드 헬스체크 성공 기준으로 찍히므로, 프론트엔드 배포가 실패해도 `frontend-v*` 태그는
+  생길 수 있다. 태그가 있다고 프론트엔드가 떠 있다고 단정하지 말고 아래 방법으로 확인한다.
+
+### 현재 배포된 버전 확인
+
+1. **Releases 탭** — 최신 `release-v*` 본문의 `프론트엔드: x.y.z` 가 마지막 릴리스의 프론트엔드
+   버전이다. 가장 빠르지만 위 이유로 실제 배포와 어긋날 수 있다.
+2. **실제로 떠 있는 파일** — S3 에 올라간 시각과 `deploy` 브랜치의 머지 시각을 대조한다.
+
+   ```bash
+   # 운영 번들이 올라간 시각 (UTC)
+   curl -sI https://www.ssssok.com/bundle.js | grep -i last-modified
+
+   # deploy 브랜치에 들어간 머지 커밋과 시각
+   git fetch origin
+   git log --first-parent --format='%h %ci %s' -5 origin/deploy
+
+   # 번들 시각 직전 머지 커밋의 프론트엔드 버전
+   git show <커밋>:frontend/package.json | grep '"version"'
+   ```
+
+   번들 시각은 머지 몇 분 뒤다 (1.3.2 배포는 약 2분). 가장 최근 머지보다 번들 시각이 이르면 그
+   배포는 아직 진행 중이거나 실패한 것이므로 CodePipeline 실행 이력을 본다.
+
+### 롤백
+
+문제가 생긴 버전의 **직전 `frontend-v*` 태그**가 되돌아갈 기준이다. 태그별 변경 내역은 그 태그가
+포함된 `release-v*` Release 본문의 "변경 내역"에서 본다.
+
+되돌리는 방법은 두 가지다. 급하면 A 로 먼저 막고, **다음 배포 전에 반드시 B 로 코드를 맞춘다.**
+A 만 하고 두면 다음 `deploy` 머지 때 CodePipeline 이 `deploy` 브랜치 코드로 다시 덮어써서,
+백엔드만 바뀐 배포에서도 문제 버전이 다시 나간다.
+
+#### A. 긴급: S3 이전 버전 복원
+
+git·PR 을 거치지 않아 몇 분 안에 끝난다. AWS 콘솔 권한이 필요하다.
+
+1. 되돌아갈 배포의 시각을 정한다 (위 "현재 배포된 버전 확인" 2번의 머지 시각).
+2. 그 시각에 올라간 파일 버전을 찾는다. 한 번의 빌드가 올린 파일은 `LastModified` 가 같다.
+
+   ```bash
+   aws s3api list-object-versions --bucket <버킷> --prefix bundle.js \
+     --query 'Versions[].[VersionId,LastModified,IsLatest]' --output table
+   ```
+
+3. `index.html` 과 `bundle.js` 를 **같은 배포의 버전으로 함께** 되돌린다. 하나만 되돌리면
+   HTML 과 번들이 서로 다른 빌드가 된다. 그 배포에서 바뀐 다른 정적 파일이 있으면 같이 되돌린다.
+
+   ```bash
+   aws s3api copy-object --bucket <버킷> --key bundle.js \
+     --copy-source "<버킷>/bundle.js?versionId=<버전ID>"
+   aws s3api copy-object --bucket <버킷> --key index.html \
+     --copy-source "<버킷>/index.html?versionId=<버전ID>"
+   ```
+
+   콘솔에서는 버킷 → "버전 표시" 를 켜고 해당 버전을 선택해 같은 키로 복사한다. 이전 버전을
+   지우는 방식으로 되돌리지 않는다 — 삭제는 되돌릴 수 없다.
+
+4. CloudFront 캐시를 무효화한다. `no-cache` 라 대부분 바로 반영되지만 확실히 하기 위해서다.
+
+   ```bash
+   aws cloudfront create-invalidation --distribution-id <배포ID> --paths "/*"
+   ```
+
+5. "현재 배포된 버전 확인" 2번으로 번들이 바뀌었는지 확인한다.
+
+#### B. 정식: 코드로 되돌리기
+
+`main` 에서 `hotfix` 브랜치를 만들어 `main` → `deploy` 로 반영한다 (hotfix 규칙은
+[BRANCH_STRATEGY.md](../collaboration/BRANCH_STRATEGY.md) 참고).
+
+1. 문제가 된 변경을 되돌린다. 원인 PR 을 알면 그 커밋만 되돌리고, 모르면 `frontend/` 전체를
+   직전 태그 시점으로 맞춘다.
+
+   ```bash
+   # 원인 커밋을 알 때
+   git revert <커밋>
+
+   # frontend/ 전체를 태그 시점으로 (그 뒤에 추가된 파일은 삭제된다)
+   git restore --source=frontend-v<직전 버전> --staged --worktree -- frontend/
+   ```
+
+2. **버전은 되돌리지 않고 올린다.** 태그 시점으로 맞추면 `frontend/package.json` 의 버전도 옛 값이
+   되는데, `release-check.yml` 은 버전이 직전 릴리스보다 커야 통과한다. 문제 버전(예: 1.3.0)의
+   다음 PATCH(1.3.1)로 올리고, 루트 `VERSION` 도 PATCH 로 올린다. 이미 찍힌 문제 버전의 태그는
+   지우지 않는다 ([배포 실패·롤백 시](#배포-실패롤백-시)).
+3. `hotfix → main`, `main → deploy` PR 을 머지하면 CodePipeline 이 새로 빌드해 배포한다.
+4. 프론트엔드만 바뀐 배포이므로 위 "태그" 절대로 `Backend Prod Deploy` 를 수동 실행해 태그를 만든다.
+5. hotfix 를 `develop` 에도 반영한다. 빠뜨리면 다음 릴리스에 문제 변경이 다시 실린다.
 
 ## DB 마이그레이션
 

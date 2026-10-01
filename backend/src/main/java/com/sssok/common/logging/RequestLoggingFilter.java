@@ -94,7 +94,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         // 응답이 커밋되기 전에 박아야 한다. 예외로 빠져나가도 헤더는 이미 붙어 있다.
         response.setHeader(REQUEST_ID_HEADER, requestId);
 
-        long startedAt = System.nanoTime();
+        long startedAt = nanoTime();
         try {
             chain.doFilter(request, response);
         } finally {
@@ -126,8 +126,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         if (isExcludedFromAccessLog(request.getRequestURI()) && !isServerError(status)) {
             return;
         }
-        MDC.put(LogFields.DURATION_MS, String.valueOf(elapsedMs(startedAt)));
-        log.info("{} {} {} ({}ms)", request.getMethod(), request.getRequestURI(), status, elapsedMs(startedAt));
+        // 한 번만 재서 필드와 메시지가 같은 값을 쓰게 한다. 두 번 재면 경계에서 1ms 씩 갈려,
+        // 같은 줄 안에서 durationMs 와 메시지의 시간이 다르게 보인다.
+        long durationMs = elapsedMs(startedAt);
+        MDC.put(LogFields.DURATION_MS, String.valueOf(durationMs));
+        log.info("{} {} {} ({}ms)", request.getMethod(), request.getRequestURI(), status, durationMs);
     }
 
     private boolean isExcludedFromAccessLog(String path) {
@@ -180,19 +183,20 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
                 // 비동기 종료 줄에도 status 를 실어야 "SSE 가 500 으로 끊긴 건수" 같은 질의가 선다.
                 // 동기 요청과 달리 이 값은 완료 콜백 시점에야 확정되므로 여기서 읽는다.
                 MDC.put(LogFields.STATUS, String.valueOf(response.getStatus()));
-                MDC.put(LogFields.DURATION_MS, String.valueOf(elapsedMs(startedAt)));
+                long durationMs = elapsedMs(startedAt);
+                MDC.put(LogFields.DURATION_MS, String.valueOf(durationMs));
                 try {
                     // 브라우저가 SSE 탭을 닫으면 IOException(Broken pipe)이 난다. 정상 종료라
                     // WARN 으로 남기면 탭을 닫을 때마다 운영 로그가 쌓인다. 스택트레이스도 뺀다.
                     if (error != null && !isClientDisconnect(error)) {
-                        log.warn("{} {} {} ({}ms)", method, path, what, elapsedMs(startedAt), error);
+                        log.warn("{} {} {} ({}ms)", method, path, what, durationMs, error);
                         return;
                     }
                     if (error != null) {
-                        log.debug("{} {} 클라이언트가 연결을 끊었습니다 ({}ms)", method, path, elapsedMs(startedAt));
+                        log.debug("{} {} 클라이언트가 연결을 끊었습니다 ({}ms)", method, path, durationMs);
                         return;
                     }
-                    log.info("{} {} {} ({}ms)", method, path, what, elapsedMs(startedAt));
+                    log.info("{} {} {} ({}ms)", method, path, what, durationMs);
                 } finally {
                     clearMdc();
                 }
@@ -227,7 +231,14 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     }
 
     private long elapsedMs(long startedAt) {
-        return (System.nanoTime() - startedAt) / 1_000_000;
+        return (nanoTime() - startedAt) / 1_000_000;
+    }
+
+    // 시계를 한 군데로 모아 둔다. 실제 경과 시간은 마이크로초 단위로만 벌어져 밀리초로 자르면 대개
+    // 같은 값이 나오는데, 그래서 "시간을 두 번 재는" 실수는 테스트로 잡히지 않고 운영 로그에서
+    // 드물게만 드러난다. 테스트가 호출마다 시간을 밀어 그 어긋남을 확정적으로 재현하게 한다.
+    long nanoTime() {
+        return System.nanoTime();
     }
 
     // 우리가 넣은 키만 지운다. MDC.clear() 는 다른 코드가 넣어 둔 값까지 날린다.
