@@ -56,17 +56,6 @@ export const UpdateRoomForm = ({ room, accessToken, onSuccess }: UpdateRoomFormP
           ]}
           onValueChange={updateField("uploadPolicy")}
         />
-
-        <RadioGroup
-          label="방 만료 시간 다시 설정"
-          name="expiryHours"
-          value={formValues.expiryHours}
-          options={[
-            { label: "1일", value: "24" },
-            { label: "3일", value: "72" },
-          ]}
-          onValueChange={updateField("expiryHours")}
-        />
       </Stack>
 
       <SubmitArea>

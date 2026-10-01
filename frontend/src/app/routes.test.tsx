@@ -127,23 +127,6 @@ describe("라우트", () => {
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
   });
 
-  it("만료 시간만 변경한 뒤 설정 화면에 다시 진입할 수 있다", async () => {
-    const user = userEvent.setup();
-    renderAtGallery();
-
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
-    await user.click(screen.getByRole("button", { name: "방 설정" }));
-    await user.click(await screen.findByRole("radio", { name: "3일" }));
-    await user.click(screen.getByRole("button", { name: "변경 사항 저장" }));
-
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
-    await user.click(screen.getByRole("button", { name: "방 설정" }));
-
-    expect(await screen.findByRole("textbox", { name: "방 이름" })).toHaveValue("제주 여행");
-  });
-
   it("갤러리 메뉴에서 방을 삭제하면 세션을 지우고 홈으로 이동한다", async () => {
     const user = userEvent.setup();
     const router = renderAtGallery();
