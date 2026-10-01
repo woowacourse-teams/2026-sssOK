@@ -373,6 +373,33 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.status").value("DELETED"));
     }
 
+    // 브라우저 EventSource 는 Accept: text/event-stream 으로 요청한다.
+    @Test
+    void 만료된_방에_SSE_구독을_하면_410() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들기(token).roomId();
+        만료시키기(roomId);
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .param("token", token)
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    @Test
+    void 삭제된_방에_SSE_구독을_하면_410() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들기(token).roomId();
+        삭제(token, roomId).andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .param("token", token)
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
     @Test
     void 삭제된_방은_수정할_수_없다() throws Exception {
         String token = 익명_인증("가현");
