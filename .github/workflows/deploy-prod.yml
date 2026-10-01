@@ -330,6 +330,8 @@ jobs:
             echo "프론트엔드: ${FRONTEND_VERSION}"
             echo "백엔드: ${BACKEND_VERSION}"
             echo "배포 커밋: ${GITHUB_SHA}"
+            echo
+            bash .github/scripts/release-notes.sh "$PREVIOUS_RELEASE" "$GITHUB_SHA"
           } > release-notes.md
 
           gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --notes-file release-notes.md
