@@ -148,7 +148,7 @@ services:
       # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
       - alloy-data:/var/lib/alloy/data
       # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.
-      # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/nginx/README 참고).
+      # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/README.md 의 dev 호스트 Nginx 설정 참고).
       - /var/log/nginx:/var/log/nginx-host:ro
     depends_on:
       - loki

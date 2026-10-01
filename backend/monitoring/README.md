@@ -114,22 +114,45 @@ prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app`·`sssok-nginx`
 
 ### dev 호스트 Nginx 설정
 
-배포 파이프라인이 옮기지 않으므로 dev EC2 에서 한 번만 한다. 기존 설정과 `access.log` 는 건드리지 않고
-JSON 접근 로그 파일을 하나 더 남긴다.
+배포 파이프라인이 옮기지 않으므로 dev EC2 에서 한 번만 한다. 접근 로그를 쿼리스트링 없는 JSON
+파일(`sssok-access.log`) 하나로 바꾼다.
+
+기본 `access.log`(combined)는 요청 줄 `$request` 를 그대로 적어 SSE 의 `?token=<JWT>` 같은 쿼리스트링이
+서버 디스크에 평문으로 쌓인다. Loki 로 보내지 않아도 디스크에 남는 것 자체가 문제라 이 파일은 끈다.
+JSON 형식은 `$uri`(쿼리스트링 제외)만 적는다.
 
 ```bash
 sudo cp monitoring/nginx/sssok-log-format.conf /etc/nginx/conf.d/sssok-log-format.conf
-# dev-api 의 server 블록에 access_log 가 따로 있으면 그 블록에도
-#   access_log /var/log/nginx/sssok-access.log sssok_json;
-# 를 추가한다 (server 블록에 access_log 가 있으면 http 블록 설정을 물려받지 않는다).
+
+# 1. 기본 access.log 를 끈다. /etc/nginx/nginx.conf 의 http 블록에서
+#      access_log /var/log/nginx/access.log;
+#    줄을 주석 처리한다. `access_log off;` 로 바꾸면 안 된다 — 같은 http 블록의 conf.d 에 있는
+#    sssok-access.log 까지 같이 꺼진다.
+# 2. server 블록에 따로 적힌 access_log 가 있는지 본다.
+sudo grep -rn 'access_log' /etc/nginx/nginx.conf /etc/nginx/sites-enabled/ /etc/nginx/conf.d/
+#    dev-api 의 server 블록에 access_log 가 있으면 그 줄을
+#      access_log /var/log/nginx/sssok-access.log sssok_json;
+#    으로 바꾼다 (server 블록에 access_log 가 있으면 http 블록 설정을 물려받지 않는다).
 sudo nginx -t && sudo systemctl reload nginx
 
-curl -s -o /dev/null http://dev-api.ssssok.com/health
-sudo tail -n 1 /var/log/nginx/sssok-access.log   # JSON 한 줄이 보이면 된다
+curl -s -o /dev/null 'http://dev-api.ssssok.com/health?token=check'
+sudo tail -n 1 /var/log/nginx/sssok-access.log   # JSON 한 줄, path 에 ?token= 이 없으면 된다
+sudo grep -c 'token=check' /var/log/nginx/access.log   # 0 이어야 한다 — 기본 access.log 가 꺼졌다
+
+# 3. 이미 쌓인 기본 access.log 와 회전본에는 토큰이 남아 있으므로 지운다.
+#    reload 뒤에는 Nginx 가 이 파일을 더 쓰지 않는다. 위 grep 이 0 인 걸 먼저 확인하고 지운다.
+sudo rm -f /var/log/nginx/access.log /var/log/nginx/access.log.*
+sudo grep -rlE '[?&]token=' /var/log/nginx/   # error.log* 외에는 나오지 않아야 한다
 ```
 
+`sssok-access.log` 는 Ubuntu 기본 logrotate(`/etc/logrotate.d/nginx`)가 회전한다. 기본값은 일 단위 14개 보관이고,
+서버 값은 `cat /etc/logrotate.d/nginx` 로 확인한다.
+`error.log` 는 요청 줄을 쿼리스트링째 남기는 Nginx 동작을 바꿀 수 없다. Loki 로 보낼 때는 Alloy 가
+토큰 값을 가리고(`config.alloy` 의 `stage.replace`), 디스크 원본은 위 logrotate 보관 기간이 지나면 지워진다.
+
 필드는 `backend/nginx.conf`(prod)와 같다. 한쪽 필드를 바꾸면 다른 쪽도 같이 고친다.
-되돌릴 때는 `/etc/nginx/conf.d/sssok-log-format.conf` 와 추가한 `access_log` 줄을 지우고 reload 한다.
+prod 는 컨테이너 Nginx 의 server 블록에 `access_log /dev/stdout sssok_json;` 만 두어 combined 형식이 남지 않는다.
+되돌릴 때는 `/etc/nginx/conf.d/sssok-log-format.conf` 를 지우고 주석 처리한 `access_log` 줄을 되살린 뒤 reload 한다.
 
 ### 보존과 장애 시 동작
 

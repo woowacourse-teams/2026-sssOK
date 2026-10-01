@@ -182,8 +182,16 @@ docker start sssok-alloy-dev
 {environment="dev"} |= "<관리자 비밀번호 원문>"                          # 검색만 하고 질의 기록은 지운다
 ```
 
-Nginx 기본 `access.log`(combined)는 Loki 로 가지 않지만 쿼리스트링을 남기므로 서버에서 따로 본다.
+서버 디스크도 본다. dev 호스트 Nginx 는 기본 `access.log`(combined)를 끄고 쿼리스트링 없는 JSON 로그만
+남기도록 설정한다([dev 호스트 Nginx 설정](../../backend/monitoring/README.md#dev-호스트-nginx-설정)).
+기본 `access.log` 는 요청 줄을 쿼리스트링째 적어 SSE 토큰이 평문으로 남기 때문이다.
 
 ```bash
-sudo grep -c 'token=' /var/log/nginx/access.log
+sudo ls /var/log/nginx/                           # access.log* 가 없어야 한다
+sudo grep -c '[?&]token=' /var/log/nginx/sssok-access.log   # 0
 ```
+
+`access.log` 가 다시 생겼다면 Nginx 설정이 되돌아간 것이다. 위 문서 순서대로 기본 `access_log` 줄을 다시
+끄고 reload 한 뒤, 생긴 `access.log*` 를 지운다. `error.log` 원본에는 요청 줄의 토큰이 남을 수 있지만
+(Nginx 가 형식을 바꿀 수 없다) Loki 로 갈 때는 Alloy 가 가리고, 원본은 logrotate 보관 기간(Ubuntu 기본 14일)이
+지나면 지워진다.
