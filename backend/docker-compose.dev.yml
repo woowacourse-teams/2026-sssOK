@@ -37,6 +37,8 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      # 비어 있으면 의견 알림만 꺼진다.
+      DISCORD_FEEDBACK_WEBHOOK_URL: ${DISCORD_FEEDBACK_WEBHOOK_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s

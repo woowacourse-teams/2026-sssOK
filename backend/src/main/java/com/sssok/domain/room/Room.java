@@ -82,7 +82,16 @@ public class Room {
     }
 
     public boolean canEnter(Instant now) {
-        return status.canEnter() && !expiration.isExpired(now);
+        return statusAt(now).canEnter();
+    }
+
+    // 만료 시각이 지나도 저장된 상태는 ACTIVE 로 남아 있어, 응답에 내릴 상태는 시각까지 보고 정한다.
+    // 삭제·만료처럼 이미 닫힌 상태는 그대로 둔다.
+    public RoomStatus statusAt(Instant now) {
+        if (status.canEnter() && expiration.isExpired(now)) {
+            return status.toExpired();
+        }
+        return status;
     }
 
     public boolean canUpload(Long requester, Instant now) {

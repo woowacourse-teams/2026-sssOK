@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public class CreateFeedbackService {
     private final FeedbackRepository feedbackRepository;
     private final RoomRepository roomRepository;
     private final MemberRepository memberRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // 같은 회원이 이 간격 안에 다시 등록하면 429. 오타를 고쳐 다시 쓰는 정도는 막지 않으면서
     // 자동화된 반복 등록은 걸러내는 선으로 잡았다.
@@ -51,7 +53,7 @@ public class CreateFeedbackService {
             .map(displayName -> displayName.value())
             .orElse(null);
 
-        return feedbackRepository.save(Feedback.write(
+        Feedback saved = feedbackRepository.save(Feedback.write(
             feedbackContent,
             roomId,
             room.getName().value(),
@@ -61,6 +63,8 @@ public class CreateFeedbackService {
             FrontendVersion.from(rawFrontendVersion),
             Instant.now()
         ));
+        eventPublisher.publishEvent(new FeedbackCreatedEvent(saved));
+        return saved;
     }
 
     private void requireNotTooFrequent(Long memberId) {

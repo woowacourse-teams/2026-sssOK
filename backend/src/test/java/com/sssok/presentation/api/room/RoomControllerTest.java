@@ -115,7 +115,7 @@ class RoomControllerTest {
             CREATED_AT,
             null
         );
-        return new RoomDetail(room, "가현", joined, 0, List.of());
+        return new RoomDetail(room, room.getStatus(), "가현", joined, 0, List.of());
     }
 
     @Test
