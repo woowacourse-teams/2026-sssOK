@@ -50,8 +50,8 @@ describe("UpdateRoomForm", () => {
       }),
     );
 
-    await user.clear(screen.getByRole("textbox", { name: "방 이름" }));
-    await user.type(screen.getByRole("textbox", { name: "방 이름" }), "제주 3박 4일");
+    await user.clear(screen.getByRole("textbox", { name: "방 제목" }));
+    await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 3박 4일");
     await user.click(screen.getByRole("button", { name: "변경 사항 저장" }));
 
     await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
