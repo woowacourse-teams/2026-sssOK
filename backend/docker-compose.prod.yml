@@ -82,6 +82,9 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
+    environment:
+      # 알림의 environment 라벨이 된다 (prometheus.yml 의 external_labels).
+      SSSOK_ENVIRONMENT: prod
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
