@@ -755,10 +755,15 @@ export const roomHandlers = [
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { name, uploadPolicy, expiryDays } = (await request.json()) as {
+    // 백엔드처럼 expiryDays 를 생략하면 1일로 만든다.
+    const {
+      name,
+      uploadPolicy,
+      expiryDays = 1,
+    } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
-      expiryDays: number;
+      expiryDays?: number;
     };
 
     const now = Date.now();

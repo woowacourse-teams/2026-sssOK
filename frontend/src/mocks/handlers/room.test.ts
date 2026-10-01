@@ -101,7 +101,7 @@ describe("GET /rooms/{code} 목 핸들러", () => {
       await fetch(`${API_BASE_URL}/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: TOKEN },
-        body: JSON.stringify({ name: "제주 여행", uploadPolicy: "everyone", expiryHours: 24 }),
+        body: JSON.stringify({ name: "제주 여행", uploadPolicy: "everyone", expiryDays: 1 }),
       })
     ).json();
 
