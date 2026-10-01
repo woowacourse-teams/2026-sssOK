@@ -103,6 +103,11 @@ export const initAnalytics = async () => {
     api_host: POSTHOG_HOST,
     // SPA 라우팅의 페이지 이동(history 변경)도 $pageview 로 잡는 기본값 묶음
     defaults: "2026-08-30",
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false,
+    },
     session_recording: {
       // 게스트가 올린 사진·영상이 녹화에 남지 않도록 자리만 남기고 가린다
       blockSelector: "img, video",
@@ -113,4 +118,32 @@ export const initAnalytics = async () => {
   client = posthog;
   pendingEvents.forEach(([event, properties]) => posthog.capture(event, properties));
   pendingEvents = [];
+};
+
+type ExceptionLevel = "info" | "fatal" | "error" | "warning";
+
+interface CaptureExceptionOptions {
+  level: ExceptionLevel;
+  operation: string;
+  method?: string;
+  route?: string;
+  status?: number;
+  code?: string;
+}
+
+export const captureException = (
+  error: unknown,
+  { level, operation, method, route, status, code }: CaptureExceptionOptions,
+) => {
+  if (!client) return;
+
+  client.captureException(error, {
+    $exception_level: level,
+    operation,
+    api_method: method,
+    api_route: route,
+    api_status: status,
+    api_error_code: code,
+    environment: process.env.NODE_ENV,
+  });
 };
