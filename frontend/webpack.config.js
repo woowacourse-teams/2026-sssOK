@@ -3,6 +3,7 @@ const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const { version } = require("./package.json");
 
 const envPath = path.resolve(__dirname, ".env");
 
@@ -71,12 +72,15 @@ module.exports = {
       // PostHog 프로젝트를 바꿔 보낼 때만 넘긴다. src/shared/config/analytics.ts 참고
       "process.env.POSTHOG_KEY": JSON.stringify(process.env.POSTHOG_KEY),
       "process.env.POSTHOG_HOST": JSON.stringify(process.env.POSTHOG_HOST),
+      // 이 번들이 몇 버전인지. src/shared/config/version.ts 참고
+      "process.env.APP_VERSION": JSON.stringify(version),
     }),
 
     new HtmlWebpackPlugin({
       template: "./public/index.html",
       filename: "index.html",
       inject: true,
+      meta: { "app-version": version },
     }),
 
     new CopyWebpackPlugin({
