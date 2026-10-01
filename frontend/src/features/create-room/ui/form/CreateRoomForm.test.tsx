@@ -31,8 +31,8 @@ const renderForm = (props: ComponentProps<typeof CreateRoomForm> = {}) => {
 const fillRequiredFields = async () => {
   const user = userEvent.setup();
 
+  await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");
   await user.type(screen.getByRole("textbox", { name: "내 이름" }), "민수");
-  await user.type(screen.getByRole("textbox", { name: "방 이름" }), "제주 여행");
 
   return user;
 };
@@ -106,6 +106,14 @@ describe("CreateRoomForm", () => {
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("닉네임을 입력해주세요");
+  });
+
+  it("방 제목 입력이 내 이름 입력보다 먼저 나온다", () => {
+    renderForm();
+
+    const [firstInput, secondInput] = screen.getAllByRole("textbox");
+    expect(firstInput).toHaveAccessibleName("방 제목");
+    expect(secondInput).toHaveAccessibleName("내 이름");
   });
 
   it("방 만료 기간은 1일부터 14일까지 고르고 기본값은 1일이다", () => {

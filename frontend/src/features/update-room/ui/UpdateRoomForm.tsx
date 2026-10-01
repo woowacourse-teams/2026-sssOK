@@ -37,12 +37,12 @@ export const UpdateRoomForm = ({ room, accessToken, onSuccess }: UpdateRoomFormP
     <Form onSubmit={handleSubmit}>
       <Stack gap={16}>
         <Input
-          label="방 이름"
+          label="방 제목"
           name="name"
           value={formValues.name}
           maxLength={12}
           placeholder="예) 제주 여행"
-          errorMessage={!isValid ? "방 이름을 입력해주세요." : undefined}
+          errorMessage={!isValid ? "방 제목을 입력해주세요." : undefined}
           onValueChange={updateField("name")}
         />
 

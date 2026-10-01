@@ -117,7 +117,7 @@ describe("라우트", () => {
     await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
     await user.click(screen.getByRole("button", { name: "방 설정" }));
 
-    const nameInput = await screen.findByRole("textbox", { name: "방 이름" });
+    const nameInput = await screen.findByRole("textbox", { name: "방 제목" });
     await user.clear(nameInput);
     await user.type(nameInput, "제주 3박 4일");
     await user.click(screen.getByRole("radio", { name: "방장만" }));
@@ -263,7 +263,7 @@ describe("라우트", () => {
     const router = renderAt(ROUTES.createRoom);
 
     await user.type(screen.getByRole("textbox", { name: "내 이름" }), "민수");
-    await user.type(screen.getByRole("textbox", { name: "방 이름" }), "제주 여행");
+    await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
     expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
