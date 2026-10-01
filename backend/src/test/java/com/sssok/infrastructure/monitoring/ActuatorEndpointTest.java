@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.actuate.health.HealthEndpointGroups;
 import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -30,6 +31,9 @@ class ActuatorEndpointTest {
     @LocalManagementPort
     int managementPort;
 
+    @Autowired
+    HealthEndpointGroups healthGroups;
+
     @Test
     void liveness_상태를_확인할_수_있다() {
         ResponseEntity<String> response = getManagement("/actuator/health/liveness");
@@ -44,6 +48,12 @@ class ActuatorEndpointTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).contains("\"status\":\"UP\"");
+    }
+
+    @Test
+    void DB_연결은_readiness_에만_반영된다() {
+        assertThat(healthGroups.get("readiness").isMember("db")).isTrue();
+        assertThat(healthGroups.get("liveness").isMember("db")).isFalse();
     }
 
     @Test
