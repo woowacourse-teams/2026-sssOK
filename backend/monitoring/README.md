@@ -127,6 +127,37 @@ sudo tail -n 1 /var/log/nginx/sssok-access.log   # JSON 한 줄이 보이면 된
 - Loki 데이터는 `loki-data` 볼륨에 있어 컨테이너를 재생성해도 남는다. `down -v` 는 이 볼륨까지 지운다.
 - Loki 는 `mem_limit` 512MB, Alloy 는 256MB 로 묶어 앱 메모리를 잠식하지 않게 한다.
 
+### 디스크와 수집량
+
+Loki 는 용량 기준 보존이 없다. 보존 기간이 지나기 전에 디스크를 채우지 않도록 수집량 상한을 둔다.
+
+- 상한: 초당 1MB, 순간 4MB (`loki.yml` 의 `ingestion_rate_mb`). 넘는 로그는 거절되고 `LokiRejectingLogs` 알림이 뜬다.
+- 추정: 요청 하나에 앱·Nginx 로그가 약 1KB, 저장 시 압축으로 1/10 안팎 (로컬 측정: 87MB 수신 → 6MB 저장).
+  요청 하루 10만 건이면 하루 약 10MB, prod 30일 보존이면 약 300MB 다.
+- 확인: 서버에서 `df -h /` 와 `docker system df -v | grep loki-data` 로 남은 디스크와 Loki 사용량을 본다.
+- 디스크 알림: node_exporter 가 루트 디스크 사용량을 넘기고 `prometheus/rules/host-alerts.yml` 이 알린다.
+  여유 15% 미만 `HostDiskSpaceLow`, 5% 미만 `HostDiskSpaceCritical`, 최근 6시간 추세로 하루 안에 찰 것 같으면
+  `HostDiskWillFillIn24h`. Loki 만이 아니라 이미지·컨테이너 로그가 채우는 경우도 같이 잡는다.
+
+### 수집 경로 알림
+
+Prometheus 가 Alloy(`alloy:12345`)·Loki(`loki:3100`) 메트릭도 수집하고,
+`prometheus/rules/logging-alerts.yml` 의 규칙으로 Discord 에 알린다.
+
+| 알림 | 조건 |
+| --- | --- |
+| `LogPipelineDown` | Alloy 또는 Loki 가 5분 이상 응답 없음 |
+| `LogShippingFailing` | Alloy → Loki 전송이 10분 넘게 실패 |
+| `LogEntriesDropped` | 재시도를 다 쓰고 버린 로그가 생김 |
+| `LokiRejectingLogs` | Loki 가 수집량 상한 등으로 로그를 거절함 (로그 폭주 신호) |
+
+### Docker API 접근
+
+Alloy 는 `docker.sock` 을 직접 마운트하지 않고 `docker-socket-proxy` 를 거친다. 소켓은 `:ro` 로 마운트해도
+API 권한(컨테이너 생성·exec)은 그대로라서다. 프록시는 컨테이너·네트워크 조회(GET)만 허용하고 나머지는
+403 으로 막는다. 프록시는 Alloy 만 붙는 내부 네트워크(`docker-api`)에 있어 앱·Nginx·Grafana 는 닿지 않는다.
+컨테이너 조회 응답에는 환경변수가 들어 있다는 점은 남는 노출이다.
+
 ### 로컬에서 확인하기
 
 로컬 앱(IDE·Gradle)은 호스트 프로세스라 수집되지 않는다. 위 `docker-compose.monitoring.yml` 로 Loki·Alloy·
