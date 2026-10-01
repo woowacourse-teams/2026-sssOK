@@ -10,6 +10,10 @@ if (fs.existsSync(envPath)) {
   process.loadEnvFile(envPath);
 }
 
+if (!process.env.API_BASE_URL?.trim()) {
+  throw new Error("API_BASE_URL 환경변수가 필요합니다.");
+}
+
 module.exports = {
   mode: "development",
   entry: "./src/index.tsx",
