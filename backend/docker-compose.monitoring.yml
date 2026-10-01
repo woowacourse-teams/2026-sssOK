@@ -43,14 +43,39 @@ services:
       - /etc/alloy/config.alloy
     environment:
       SSSOK_ENVIRONMENT: local
+      SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
     ports:
       - "127.0.0.1:12345:12345"
     volumes:
       - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - alloy-local-data:/var/lib/alloy/data
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
       - loki
+      - docker-socket-proxy
+
+  # 서버와 같은 구성. 이유는 docker-compose.prod.yml 의 docker-socket-proxy 주석 참고.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: sssok-docker-socket-proxy-local
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  # 서버와 같은 구성. Docker Desktop 에서는 Docker VM 의 디스크가 보인다.
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: sssok-node-exporter-local
+    command:
+      - --path.rootfs=/host
+      - --collector.disable-defaults
+      - --collector.filesystem
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$
+    volumes:
+      - /:/host:ro
 
   grafana:
     image: grafana/grafana:13.2.2

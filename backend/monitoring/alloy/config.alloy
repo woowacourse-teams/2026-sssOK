@@ -8,10 +8,12 @@
 // `docker logs` 로 보는 로컬 로그와 회전 설정(max-size·max-file)도 그대로다.
 // 다시 뜨면 storage.path 에 저장된 위치부터 이어 읽는다. 다만 멈춘 사이 회전으로 밀려난 로그는 못 읽는다.
 
+// Docker API 는 소켓이 아니라 조회 전용 프록시(docker-socket-proxy)로 부른다. 주소는 compose 가 넘긴다.
+//
 // 라벨 com.sssok.log.service 가 붙은 컨테이너만 수집한다. Alloy·Loki·Prometheus 자신의 로그는
 // 조회 대상이 아니라서 넣지 않는다. 수집할 컨테이너가 늘면 compose 에 라벨만 붙이면 된다.
 discovery.docker "containers" {
-  host             = "unix:///var/run/docker.sock"
+  host             = sys.env("SSSOK_DOCKER_HOST")
   refresh_interval = "10s"
 
   filter {
@@ -45,7 +47,7 @@ discovery.relabel "containers" {
 }
 
 loki.source.docker "containers" {
-  host          = "unix:///var/run/docker.sock"
+  host          = sys.env("SSSOK_DOCKER_HOST")
   targets       = discovery.docker.containers.targets
   relabel_rules = discovery.relabel.containers.rules
   forward_to    = [loki.process.level.receiver]
