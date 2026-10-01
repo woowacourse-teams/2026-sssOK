@@ -69,6 +69,9 @@ room:
   code-length: 8
   default-ttl: 24h
   expiration-change-limit: 3
+  # 만료 시각이 지난 방의 저장된 상태를 EXPIRED 로 바꾸는 시각(10분마다).
+  # 응답은 조회 시각 기준으로 상태를 계산하므로, 이 주기는 저장값이 따라잡는 간격일 뿐이다.
+  expiration-cron: "0 */10 * * * *"
 
 upload:
   image-max-size: 20MB
