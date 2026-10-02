@@ -55,7 +55,8 @@ loki.source.docker "containers" {
 
 // 호스트에 직접 설치된 Nginx(dev) 의 로그 파일. dev compose 만 /var/log/nginx 를 이 경로로
 // 마운트한다. 마운트가 없는 환경(prod·local)에서는 맞는 파일이 없어 아무것도 읽지 않는다.
-// JSON 접근 로그(sssok-access.log)와 에러 로그만 읽고, 기존 combined 형식 access.log 는 읽지 않는다.
+// JSON 접근 로그(sssok-access.log)와 에러 로그만 읽는다. 쿼리스트링을 남기는 기본 combined 형식 access.log 는
+// 호스트에서 끈다 (monitoring/README.md 의 dev 호스트 Nginx 설정). 남아 있더라도 여기서는 읽지 않는다.
 local.file_match "host_nginx" {
   path_targets = [
     {__path__ = "/var/log/nginx-host/sssok-access.log", service = "sssok-nginx", container = "nginx-host"},
@@ -72,6 +73,15 @@ loki.source.file "host_nginx" {
 
 loki.process "level" {
   forward_to = [loki.write.loki.receiver]
+
+  // nginx 에러 로그는 요청 줄을 쿼리스트링째 남긴다: request: "GET /api/...?token=<JWT> HTTP/1.1".
+  // access log 는 $uri 만 적어 쿼리스트링이 없지만, 에러 로그 형식은 nginx 에서 바꿀 수 없다.
+  // SSE 토큰과 R2 서명 값을 Loki 에 넣기 전에 가린다. 캡처 그룹(값)만 바뀐다.
+  // 앱 로그는 SensitiveValueMasker 가 이미 가려서 오므로 여기서는 그대로 지나간다.
+  stage.replace {
+    expression = "(?i)[?&](?:token|x-amz-signature|x-amz-credential|x-amz-security-token|signature|awsaccesskeyid)=([^&\\s\"]+)"
+    replace    = "***"
+  }
 
   // 앱·nginx access log 는 JSON 한 줄이고 level 필드를 갖는다. JSON 이 아닌 줄은 그대로 통과한다.
   stage.json {

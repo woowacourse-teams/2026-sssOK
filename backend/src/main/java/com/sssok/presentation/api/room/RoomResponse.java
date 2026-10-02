@@ -27,7 +27,7 @@ public record RoomResponse(
             room.getId(),
             room.getCode().value(),
             room.getName().value(),
-            room.getStatus().name(),
+            detail.status().name(),
             room.getHostId(),
             detail.hostName(),
             room.getUploadPolicy().apiValue(),

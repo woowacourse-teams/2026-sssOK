@@ -126,6 +126,7 @@ jobs:
           cp backend/monitoring/grafana/provisioning/datasources/loki.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources/loki.yml"
           cp backend/monitoring/grafana/provisioning/dashboards/dashboards.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards/dashboards.yml"
           cp backend/monitoring/grafana/dashboards/backend-overview.json "$DEPLOY_PATH/monitoring/grafana/dashboards/backend-overview.json"
+          cp backend/monitoring/grafana/dashboards/logs.json "$DEPLOY_PATH/monitoring/grafana/dashboards/logs.json"
           cp backend/monitoring/loki/loki.yml "$DEPLOY_PATH/monitoring/loki/loki.yml"
           cp backend/monitoring/alloy/config.alloy "$DEPLOY_PATH/monitoring/alloy/config.alloy"
           install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
@@ -188,6 +189,10 @@ jobs:
 
           $COMPOSE pull
           $COMPOSE up -d
+          # 모니터링 설정은 위에서 cp 로 덮어쓰기만 해서 컨테이너가 재생성되지 않는다. Prometheus(알림 규칙)와
+          # Alertmanager 는 파일이 바뀌어도 스스로 다시 읽지 않으므로 SIGHUP 으로 다시 읽게 한다.
+          # 리로드 실패가 앱 배포를 막지는 않게 한다.
+          $COMPOSE kill -s SIGHUP prometheus alertmanager || echo "모니터링 설정 리로드 실패 - 수동으로 재시작 필요"
 
           echo "헬스체크 시작"
           # dev는 ALB/nginx 없이 인스턴스에 직접 붙으므로 8080을 바로 확인한다.

@@ -37,6 +37,8 @@ services:
       R2_BUCKET: ${R2_BUCKET}
       R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      # 비어 있으면 의견 알림만 꺼진다.
+      DISCORD_FEEDBACK_WEBHOOK_URL: ${DISCORD_FEEDBACK_WEBHOOK_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -62,6 +64,9 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=15d
+    environment:
+      # 알림의 environment 라벨이 된다 (prometheus.yml 의 external_labels).
+      SSSOK_ENVIRONMENT: dev
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
@@ -143,7 +148,7 @@ services:
       # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
       - alloy-data:/var/lib/alloy/data
       # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.
-      # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/nginx/README 참고).
+      # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/README.md 의 dev 호스트 Nginx 설정 참고).
       - /var/log/nginx:/var/log/nginx-host:ro
     depends_on:
       - loki

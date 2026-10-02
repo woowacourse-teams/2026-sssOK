@@ -62,6 +62,29 @@ class RoomTest {
     }
 
     @Test
+    void 만료_시각_전이면_ACTIVE_상태로_본다() {
+        Room room = createRoom();
+
+        assertThat(room.statusAt(NOW.plus(Duration.ofHours(1)))).isSameAs(ActiveRoomStatus.INSTANCE);
+    }
+
+    @Test
+    void 저장된_상태가_ACTIVE여도_만료_시각이_지나면_EXPIRED_상태로_본다() {
+        Room room = createRoom();
+
+        assertThat(room.statusAt(NOW.plus(Duration.ofHours(25)))).isSameAs(ExpiredRoomStatus.INSTANCE);
+        assertThat(room.getStatus()).isSameAs(ActiveRoomStatus.INSTANCE);
+    }
+
+    @Test
+    void 삭제된_방은_만료_시각이_지나도_DELETED_상태로_본다() {
+        Room room = createRoom();
+        room.delete(HOST, NOW);
+
+        assertThat(room.statusAt(NOW.plus(Duration.ofHours(25)))).isSameAs(DeletedRoomStatus.INSTANCE);
+    }
+
+    @Test
     void ANYONE_방은_방장도_게스트도_업로드할_수_있다() {
         Room room = createRoom();
         Instant soon = NOW.plus(Duration.ofMinutes(1));

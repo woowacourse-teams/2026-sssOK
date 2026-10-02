@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.ObjectError;
@@ -34,7 +35,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleFeedbackRateLimited(FeedbackRateLimitedException e) {
         ErrorCode errorCode = e.errorCode();
         record(errorCode, e);
-        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+        return errorResponse(errorCode)
             .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
     }
@@ -43,7 +44,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleAdminLoginRateLimited(AdminLoginRateLimitedException e) {
         ErrorCode errorCode = e.errorCode();
         record(errorCode, e);
-        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+        return errorResponse(errorCode)
             .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
     }
@@ -53,7 +54,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleSssOk(SssOkException e) {
         ErrorCode errorCode = e.errorCode();
         record(errorCode, e);
-        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+        return errorResponse(errorCode)
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
     }
 
@@ -117,8 +118,15 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = ErrorCode.INTERNAL_SERVER_ERROR;
         LogContext.putResponse(errorCode.status(), errorCode.name());
         log.error("처리되지 않은 예외가 발생했습니다", e);
-        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+        return errorResponse(errorCode)
             .body(new ErrorResponse(errorCode.name(), errorCode.message()));
+    }
+
+    // 오류 본문은 요청의 Accept 와 상관없이 JSON 으로 쓴다. SSE 구독(Accept: text/event-stream)처럼
+    // JSON 을 받지 않는 요청에서 협상에 맡기면 본문을 쓰지 못해 4xx 가 500 으로 바뀐다.
+    private ResponseEntity.BodyBuilder errorResponse(ErrorCode errorCode) {
+        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+            .contentType(MediaType.APPLICATION_JSON);
     }
 
     // 위반이 여러 개여도 첫 번째만 내려준다. 프론트는 한 번에 한 문구만 띄운다.
@@ -132,7 +140,7 @@ public class GlobalExceptionHandler {
 
     private ResponseEntity<ErrorResponse> respond(ErrorCode errorCode, Object... args) {
         record(errorCode, null);
-        return ResponseEntity.status(HttpStatus.valueOf(errorCode.status()))
+        return errorResponse(errorCode)
             .body(new ErrorResponse(errorCode.name(), errorCode.message(args)));
     }
 
