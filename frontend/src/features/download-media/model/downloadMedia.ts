@@ -1,4 +1,4 @@
-import { runWithLimit, waitUnlessAborted } from "@/shared/lib";
+import { captureException, runWithLimit, waitUnlessAborted } from "@/shared/lib";
 import { createBatchDownload } from "../api/createBatchDownload";
 import type { BatchDownloadFile } from "../api/types";
 import { createDownloadJob } from "../api/createDownloadJob";
@@ -93,6 +93,7 @@ const fetchAll = async (
       url: issuedFile.downloadUrl,
       size: target.size,
       signal,
+      operation: "download.fetch_media",
       onProgress: (loaded, total) => onProgress?.({ mediaId: target.mediaId, loaded, total }),
     });
 
@@ -161,6 +162,13 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
     }
 
     if (settled.status !== "READY" || settled.downloadUrl === null) {
+      captureException(new Error(settled.failureReason ?? "ZIP 생성에 실패했습니다."), {
+        level: "error",
+        operation: "download.create_zip",
+        method: "POST",
+        route: "/rooms/:roomId/downloads/zip",
+        code: `ZIP_${settled.status}`,
+      });
       return {
         type: "failed",
         reason: settled.failureReason ?? "압축에 실패했어요",
@@ -187,6 +195,7 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
       url: settled.downloadUrl,
       size: job.totalSize,
       signal,
+      operation: "download.fetch_zip",
       onProgress: (loaded, total) => onZipBytes?.({ loaded, total }),
     });
 

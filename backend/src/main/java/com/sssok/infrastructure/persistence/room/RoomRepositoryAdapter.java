@@ -5,10 +5,10 @@ import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
+import com.sssok.domain.room.roomstatus.ActiveRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.domain.room.UploadPolicy;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -37,23 +37,10 @@ public class RoomRepositoryAdapter implements RoomRepository {
     }
 
     @Override
-    public List<Room> findAllPurgeTargets(Instant threshold) {
-        return jpaRepository.findAllPurgeTargets(threshold).stream()
+    public List<Room> findAllExpiredActive(Instant now) {
+        return jpaRepository.findAllByStatusAndExpiresAtLessThanEqual(ActiveRoomStatus.INSTANCE.name(), now).stream()
             .map(this::toDomain)
             .toList();
-    }
-
-    @Override
-    public List<Long> findHostIdsIn(Collection<Long> memberIds) {
-        if (memberIds.isEmpty()) {
-            return List.of();
-        }
-        return jpaRepository.findHostIdsIn(memberIds);
-    }
-
-    @Override
-    public void delete(Room room) {
-        jpaRepository.deleteById(room.getId());
     }
 
     // 읽어온 version 을 그대로 실어 보내야 "내가 읽은 뒤 바뀌었는지"를 DB가 판정할 수 있다.

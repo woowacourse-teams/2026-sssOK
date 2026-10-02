@@ -11,7 +11,9 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: true
+    # show-sql 은 SQL 을 로거를 거치지 않고 표준 출력에 바로 찍는다. 그러면 JSON 이 아닌 줄이 SQL 한 줄마다
+    # 생겨 Loki 에서 level·requestId 없이 쪼개져 들어온다. SQL 은 아래 org.hibernate.SQL 로거로 남긴다.
+    show-sql: false
     properties:
       hibernate:
         format_sql: true
@@ -37,6 +39,8 @@ logging:
   level:
     root: info
     com.sssok: debug
+    # 실행한 SQL. 로거로 남겨야 JSON 한 줄에 requestId 와 함께 들어간다.
+    org.hibernate.SQL: debug
 
   # 수집 대상 환경이라 로그를 한 줄 JSON 으로 낸다. 필드 규격은 SssOkJsonLogFormatter 가 갖는다.
   # local 은 사람이 읽어야 하므로 이 설정 없이 평문 그대로 둔다.

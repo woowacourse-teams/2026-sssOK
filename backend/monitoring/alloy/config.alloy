@@ -1,0 +1,126 @@
+// 앱·Nginx 로그를 Loki 로 보낸다.
+//
+//   Docker(json-file)      → discovery.docker → loki.source.docker ┐
+//   호스트 Nginx 파일(dev) → local.file_match → loki.source.file   ┴→ loki.process → loki.write → Loki
+//
+// 앱·nginx 는 로그를 표준 출력에만 쓰고, Docker json-file 드라이버가 그걸 호스트 파일로 남긴다.
+// Alloy 는 그 파일을 Docker API 로 읽기만 한다. 그래서 Alloy·Loki 가 멈춰도 앱은 영향을 받지 않고
+// `docker logs` 로 보는 로컬 로그와 회전 설정(max-size·max-file)도 그대로다.
+// 다시 뜨면 storage.path 에 저장된 위치부터 이어 읽는다. 다만 멈춘 사이 회전으로 밀려난 로그는 못 읽는다.
+
+// Docker API 는 소켓이 아니라 조회 전용 프록시(docker-socket-proxy)로 부른다. 주소는 compose 가 넘긴다.
+//
+// 라벨 com.sssok.log.service 가 붙은 컨테이너만 수집한다. Alloy·Loki·Prometheus 자신의 로그는
+// 조회 대상이 아니라서 넣지 않는다. 수집할 컨테이너가 늘면 compose 에 라벨만 붙이면 된다.
+discovery.docker "containers" {
+  host             = sys.env("SSSOK_DOCKER_HOST")
+  refresh_interval = "10s"
+
+  filter {
+    name   = "label"
+    values = ["com.sssok.log.service"]
+  }
+}
+
+// 스트림 라벨은 service·environment·container·level 네 개만 둔다. 여기서는 앞의 셋을 정하고,
+// level 은 로그 내용에서 뽑는다 (loki.process). environment 는 loki.write 의 external_labels 가 붙인다.
+//
+// requestId·roomId·memberId·mediaId·예외 메시지·URL 처럼 요청마다 달라지는 값은 라벨로 만들지 않는다.
+// 라벨 값 조합마다 스트림이 따로 생겨서 인덱스와 메모리가 요청 수만큼 커진다. 그런 값은 로그 본문에
+// 남기고 질의할 때 `|= "..."` 나 `| json | requestId="..."` 로 거른다.
+discovery.relabel "containers" {
+  targets = []
+
+  // Docker API 가 주는 이름은 "/sssok-app" 처럼 앞에 슬래시가 붙어 있다.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // 로그 본문의 service 필드와 같은 값이다. 본문이 JSON 이 아닌 줄(JVM 기동 실패 출력, nginx 에러 로그)
+  // 에도 라벨이 있어야 해서 본문이 아니라 컨테이너 라벨에서 가져온다.
+  rule {
+    source_labels = ["__meta_docker_container_label_com_sssok_log_service"]
+    target_label  = "service"
+  }
+}
+
+loki.source.docker "containers" {
+  host          = sys.env("SSSOK_DOCKER_HOST")
+  targets       = discovery.docker.containers.targets
+  relabel_rules = discovery.relabel.containers.rules
+  forward_to    = [loki.process.level.receiver]
+}
+
+// 호스트에 직접 설치된 Nginx(dev) 의 로그 파일. dev compose 만 /var/log/nginx 를 이 경로로
+// 마운트한다. 마운트가 없는 환경(prod·local)에서는 맞는 파일이 없어 아무것도 읽지 않는다.
+// JSON 접근 로그(sssok-access.log)와 에러 로그만 읽는다. 쿼리스트링을 남기는 기본 combined 형식 access.log 는
+// 호스트에서 끈다 (monitoring/README.md 의 dev 호스트 Nginx 설정). 남아 있더라도 여기서는 읽지 않는다.
+local.file_match "host_nginx" {
+  path_targets = [
+    {__path__ = "/var/log/nginx-host/sssok-access.log", service = "sssok-nginx", container = "nginx-host"},
+    {__path__ = "/var/log/nginx-host/error.log", service = "sssok-nginx", container = "nginx-host"},
+  ]
+}
+
+// 회전(logrotate)으로 파일이 바뀌면 새 파일을 다시 연다. 읽은 위치는 storage.path 에 저장된다.
+// 이 source 는 파일 경로를 filename 라벨로 붙이는데, 라벨 수를 지키려고 loki.process 에서 뗀다.
+loki.source.file "host_nginx" {
+  targets    = local.file_match.host_nginx.targets
+  forward_to = [loki.process.level.receiver]
+}
+
+loki.process "level" {
+  forward_to = [loki.write.loki.receiver]
+
+  // nginx 에러 로그는 요청 줄을 쿼리스트링째 남긴다: request: "GET /api/...?token=<JWT> HTTP/1.1".
+  // access log 는 $uri 만 적어 쿼리스트링이 없지만, 에러 로그 형식은 nginx 에서 바꿀 수 없다.
+  // SSE 토큰과 R2 서명 값을 Loki 에 넣기 전에 가린다. 캡처 그룹(값)만 바뀐다.
+  // 앱 로그는 SensitiveValueMasker 가 이미 가려서 오므로 여기서는 그대로 지나간다.
+  stage.replace {
+    expression = "(?i)[?&](?:token|x-amz-signature|x-amz-credential|x-amz-security-token|signature|awsaccesskeyid)=([^&\\s\"]+)"
+    replace    = "***"
+  }
+
+  // 앱·nginx access log 는 JSON 한 줄이고 level 필드를 갖는다. JSON 이 아닌 줄은 그대로 통과한다.
+  stage.json {
+    expressions = { level = "level" }
+  }
+
+  // nginx 에러 로그는 JSON 이 아니다: "2026/09/30 12:00:00 [error] 29#29: ..."
+  stage.regex {
+    expression = "^\\d{4}/\\d{2}/\\d{2} \\d{2}:\\d{2}:\\d{2} \\[(?P<nginx_level>[a-z]+)\\]"
+  }
+
+  // 값의 종류를 앱과 같은 대문자 몇 개로 맞춘다. 원문 값을 그대로 라벨로 쓰면 소문자·대문자가 섞여
+  // `level="ERROR"` 한 번으로 다 못 찾는다. 뽑을 값이 없는 줄에는 level 라벨을 달지 않는다.
+  stage.template {
+    source   = "level"
+    template = `{{- $l := ToUpper (or .level .nginx_level "") -}}
+{{- if or (eq $l "CRIT") (eq $l "ALERT") (eq $l "EMERG") (eq $l "FATAL") -}}ERROR
+{{- else if eq $l "NOTICE" -}}INFO
+{{- else if eq $l "WARNING" -}}WARN
+{{- else -}}{{ $l }}{{- end -}}`
+  }
+
+  stage.labels {
+    values = { level = "" }
+  }
+
+  // loki.source.file 이 붙이는 파일 경로 라벨을 뗀다. 라벨은 네 개로 제한한다.
+  stage.label_drop {
+    values = ["filename"]
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+
+  // 한 Alloy 는 한 환경만 수집하므로 환경은 여기서 한 번에 붙인다. 값은 compose 가 넘긴다.
+  external_labels = {
+    environment = sys.env("SSSOK_ENVIRONMENT"),
+  }
+}

@@ -10,7 +10,7 @@ public enum ErrorCode {
     INVALID_LINK_CODE(400, "코드가 올바르지 않습니다"),
     INVALID_ROOM_CODE(400, "올바르지 않은 방 코드 형식입니다: %s"),
     INVALID_ROOM_NAME(400, "올바르지 않은 방 이름입니다: %s"),
-    INVALID_ROOM_EXPIRATION(400, "만료 시간은 24시간 또는 72시간만 선택할 수 있습니다"),
+    INVALID_ROOM_EXPIRATION(400, "만료 기간은 1일부터 14일까지만 선택할 수 있습니다"),
     INVALID_UPLOAD_POLICY(400, "업로드 권한은 everyone 또는 host 만 선택할 수 있습니다"),
     INVALID_ENTRY_PASSWORD(400, "%s"),
     INVALID_FOLDER_NAME(400, "폴더 이름을 입력해주세요"),

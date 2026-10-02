@@ -1,10 +1,16 @@
-import posthog from "posthog-js";
+import posthog, { type CaptureResult } from "posthog-js";
 
-import { initAnalytics, parseInternalParam, track } from "./analytics";
+import { attachAppVersion, initAnalytics, parseInternalParam, track } from "./analytics";
 
 jest.mock("posthog-js", () => ({
   __esModule: true,
-  default: { init: jest.fn(), register: jest.fn(), unregister: jest.fn(), capture: jest.fn() },
+  default: {
+    init: jest.fn(),
+    register: jest.fn(),
+    unregister: jest.fn(),
+    capture: jest.fn(),
+    captureException: jest.fn(),
+  },
 }));
 
 describe("parseInternalParam", () => {
@@ -20,6 +26,25 @@ describe("parseInternalParam", () => {
     expect(parseInternalParam("")).toBeNull();
     expect(parseInternalParam("?internal=yes")).toBeNull();
     expect(parseInternalParam("?code=abc")).toBeNull();
+  });
+});
+
+describe("attachAppVersion", () => {
+  it("보내는 이벤트에 번들 버전을 붙인다", () => {
+    const event: CaptureResult = {
+      uuid: "event-1",
+      event: "$pageview",
+      properties: { $current_url: "/" },
+    };
+
+    expect(attachAppVersion(event)?.properties).toEqual({
+      $current_url: "/",
+      app_version: "unknown",
+    });
+  });
+
+  it("앞선 단계가 버린 이벤트는 그대로 버린다", () => {
+    expect(attachAppVersion(null)).toBeNull();
   });
 });
 
@@ -56,6 +81,16 @@ describe("배포 빌드일 때", () => {
     });
     return analytics;
   };
+
+  it("모든 이벤트에 번들 버전이 붙도록 초기화한다", async () => {
+    const analytics = loadFresh();
+    await analytics.initAnalytics();
+
+    expect(posthog.init).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ before_send: analytics.attachAppVersion }),
+    );
+  });
 
   it("SDK 를 받기 전에 난 이벤트는 초기화가 끝난 뒤 보낸다", async () => {
     const analytics = loadFresh();
@@ -113,5 +148,30 @@ describe("배포 빌드일 때", () => {
     analytics.track("Room Create Started", {});
 
     expect(posthog.capture).toHaveBeenCalledWith("Room Create Started", {});
+  });
+
+  it("예외와 디버깅 문맥을 함께 보낸다", async () => {
+    const analytics = loadFresh();
+    await analytics.initAnalytics();
+    const error = new Error("요청 실패");
+
+    analytics.captureException(error, {
+      level: "error",
+      operation: "gallery.get_photos",
+      method: "GET",
+      route: "/rooms/:roomId/media/all",
+      status: 500,
+      code: "INTERNAL_SERVER_ERROR",
+    });
+
+    expect(posthog.captureException).toHaveBeenCalledWith(error, {
+      $exception_level: "error",
+      operation: "gallery.get_photos",
+      api_method: "GET",
+      api_route: "/rooms/:roomId/media/all",
+      api_status: 500,
+      api_error_code: "INTERNAL_SERVER_ERROR",
+      environment: "production",
+    });
   });
 });

@@ -259,6 +259,4 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
     List<StuckMediaRow> findStuckInProcessing(@Param("status") String status,
                                               @Param("stuckBefore") Instant stuckBefore,
                                               Limit limit);
-
-    void deleteAllByRoomId(Long roomId);
 }

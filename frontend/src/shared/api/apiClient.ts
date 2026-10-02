@@ -1,10 +1,20 @@
 import { API_BASE_URL } from "@/shared/config";
+import { captureException } from "@/shared/lib";
 import { ApiError } from "./ApiError";
 import { notifyUnauthorized } from "./unauthorized";
+
+type ExceptionLevel = "fatal" | "error" | "warning";
+
+interface ErrorTrackingOptions {
+  level: ExceptionLevel;
+  operation: string;
+  route: string;
+}
 
 interface ApiClientOptions extends RequestInit {
   token?: string;
   responseType?: "json" | "empty";
+  errorTracking?: ErrorTrackingOptions;
 }
 
 interface ErrorResponse {
@@ -44,11 +54,42 @@ const getRetryAfterSeconds = (response: Response): number | undefined => {
   return seconds;
 };
 
+const shouldCaptureApiError = (error: ApiError) =>
+  error.status === 0 || error.status >= 500 || error.code === "INVALID_RESPONSE";
+
+const reportApiError = (
+  error: ApiError,
+  tracking: ErrorTrackingOptions | undefined,
+  method: string,
+) => {
+  if (!tracking || !shouldCaptureApiError(error)) return;
+
+  captureException(error, {
+    level: error.status === 0 ? "warning" : tracking.level,
+    operation: tracking.operation,
+    method,
+    route: tracking.route,
+    status: error.status,
+    code: error.code,
+  });
+};
+
+const throwInvalidResponse = (
+  status: number,
+  tracking: ErrorTrackingOptions | undefined,
+  method: string,
+): never => {
+  const error = new ApiError(status, "INVALID_RESPONSE", "서버 응답을 이해하지 못했어요.");
+  reportApiError(error, tracking, method);
+  throw error;
+};
+
 /** path 는 접두사를 뺀 경로다 — 접두사는 여기서 한 번만 붙인다. */
 export const apiClient = async <T>(
   path: string,
-  { token, headers, responseType = "json", ...options }: ApiClientOptions = {},
+  { token, headers, responseType = "json", errorTracking, ...options }: ApiClientOptions = {},
 ): Promise<T> => {
+  const method = options.method?.toUpperCase() ?? "GET";
   const requestHeaders = new Headers(headers);
 
   if (token) {
@@ -63,7 +104,9 @@ export const apiClient = async <T>(
       headers: requestHeaders,
     });
   } catch {
-    throw new ApiError(0, "NETWORK_ERROR", "네트워크 연결을 확인해주세요.");
+    const error = new ApiError(0, "NETWORK_ERROR", "네트워크 연결을 확인해주세요.");
+    reportApiError(error, errorTracking, method);
+    throw error;
   }
 
   if (!response.ok) {
@@ -80,19 +123,21 @@ export const apiClient = async <T>(
       notifyUnauthorized(token);
     }
 
-    throw new ApiError(
+    const apiError = new ApiError(
       response.status,
       error.code ?? "UNKNOWN_ERROR",
       error.message ?? "API 요청에 실패했습니다.",
       getRetryAfterSeconds(response),
     );
+    reportApiError(apiError, errorTracking, method);
+    throw apiError;
   }
 
   // 삭제는 성공 상태 코드로 판정한다. 서버가 빈 본문 대신 JSON을 보내도 무시한다.
   if (responseType === "empty") {
     // 개발 서버의 HTML fallback까지 삭제 성공으로 오인하지는 않는다.
     if (response.headers.get("content-type")?.includes("text/html")) {
-      throw new ApiError(response.status, "INVALID_RESPONSE", "서버 응답을 이해하지 못했어요.");
+      throwInvalidResponse(response.status, errorTracking, method);
     }
     return undefined as T;
   }
@@ -102,7 +147,7 @@ export const apiClient = async <T>(
   // 200 인데 본문이 없거나 우리 API 형식이 아니면 서버 응답이 아니다.
   // (목이 준비되기 전 요청이 dev 서버로 새어 index.html 을 받는 경우가 그렇다)
   if (body === null || typeof body !== "object" || !("data" in body)) {
-    throw new ApiError(response.status, "INVALID_RESPONSE", "서버 응답을 이해하지 못했어요.");
+    throwInvalidResponse(response.status, errorTracking, method);
   }
 
   return (body as ApiResponse<T>).data;
