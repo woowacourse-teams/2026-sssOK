@@ -78,6 +78,7 @@
     "@emotion/styled": "^11.14.1",
     "@tanstack/react-query": "^5.101.4",
     "posthog-js": "^1.434.2",
+    "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-icons": "5.7.0",
