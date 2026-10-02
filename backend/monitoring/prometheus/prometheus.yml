@@ -2,6 +2,11 @@ global:
   # 대시보드와 2분 중단 알림에 충분한 해상도를 확보하면서 수집 부하는 낮게 유지한다.
   scrape_interval: 15s
   evaluation_interval: 15s
+  # 알림에 환경을 실어 보낸다. Alertmanager 는 이 값으로 Discord 메시지의 로그 링크(dev·prod Grafana)를
+  # 고른다. 값은 compose 가 SSSOK_ENVIRONMENT 로 넘기고, Prometheus 3 은 external_labels 의 ${...} 를
+  # 환경변수로 바꾼다. 수집한 시계열에는 붙지 않으므로 대시보드 질의는 그대로다.
+  external_labels:
+    environment: ${SSSOK_ENVIRONMENT}
 
 rule_files:
   - /etc/prometheus/rules/*.yml
@@ -19,3 +24,20 @@ scrape_configs:
       # 같은 Docker Compose 네트워크에서는 서비스 이름으로 애플리케이션을 찾는다.
       - targets:
           - app:8081
+
+  # 로그 수집 경로 자체의 상태. 앱은 멀쩡한데 로그만 비는 상황을 알아채기 위해 수집한다.
+  - job_name: alloy
+    static_configs:
+      - targets:
+          - alloy:12345
+
+  - job_name: loki
+    static_configs:
+      - targets:
+          - loki:3100
+
+  # 호스트 디스크 사용량 (HostDiskSpaceLow 알림).
+  - job_name: node
+    static_configs:
+      - targets:
+          - node-exporter:9100

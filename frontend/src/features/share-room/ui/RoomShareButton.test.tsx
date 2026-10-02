@@ -49,6 +49,16 @@ describe("RoomShareButton 공유 이벤트", () => {
     expect(track).toHaveBeenCalledWith("Invite Link Copied", { is_success: false });
   });
 
+  it("현재 방 주소를 담은 QR 코드 모달을 연다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    await user.click(screen.getByRole("menuitem", { name: /QR 코드 공유/ }));
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByTitle("현재 방 참여 QR 코드")).toBeInTheDocument();
+  });
+
   it("다른 기기에서 이어하기 링크를 복사하면 기기 연결 링크 복사를 남긴다", async () => {
     saveSession();
     const user = userEvent.setup();

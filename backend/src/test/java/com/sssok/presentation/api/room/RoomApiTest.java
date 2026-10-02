@@ -16,10 +16,13 @@ import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -34,6 +37,9 @@ class RoomApiTest extends PostgresContainerSupport {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @Test
     void 방을_생성하면_roomId와_방장_정보가_함께_내려오고_코드로_조회된다() throws Exception {
@@ -94,6 +100,38 @@ class RoomApiTest extends PostgresContainerSupport {
                 .content("{\"name\":\"우테코 회식\"}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void expiryDays를_생략하면_만료_시각은_1일_뒤다() throws Exception {
+        MvcResult created = 방_생성(익명_인증("가현"), "{\"name\":\"우테코 회식\"}")
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        assertThat(Instant.parse(값(created, "expiresAt")))
+            .isBetween(Instant.now().plus(Duration.ofDays(1)).minus(Duration.ofMinutes(1)),
+                Instant.now().plus(Duration.ofDays(1)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 14})
+    void expiryDays를_보내면_만료_시각은_그만큼_뒤다(int expiryDays) throws Exception {
+        MvcResult created = 방_생성(익명_인증("가현"),
+            "{\"name\":\"우테코 회식\",\"expiryDays\":" + expiryDays + "}")
+            .andExpect(status().isCreated())
+            .andReturn();
+
+        assertThat(Instant.parse(값(created, "expiresAt")))
+            .isBetween(Instant.now().plus(Duration.ofDays(expiryDays)).minus(Duration.ofMinutes(1)),
+                Instant.now().plus(Duration.ofDays(expiryDays)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 15, -1})
+    void expiryDays가_1에서_14_사이가_아니면_400(int expiryDays) throws Exception {
+        방_생성(익명_인증("가현"), "{\"name\":\"우테코 회식\",\"expiryDays\":" + expiryDays + "}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_EXPIRATION"));
     }
 
     @Test
@@ -173,7 +211,7 @@ class RoomApiTest extends PostgresContainerSupport {
         생성된_방 room = 방_만들기(token);
         long roomId = room.roomId();
 
-        수정(token, roomId, "{\"name\":\"2차 회식\",\"uploadPolicy\":\"host\",\"expiryHours\":72}")
+        수정(token, roomId, "{\"name\":\"2차 회식\",\"uploadPolicy\":\"host\",\"expiryDays\":7}")
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.roomId").value(roomId))
             .andExpect(jsonPath("$.data.name").value("2차 회식"))
@@ -206,13 +244,13 @@ class RoomApiTest extends PostgresContainerSupport {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        MvcResult patched = 수정(token, roomId, "{\"expiryHours\":72}")
+        MvcResult patched = 수정(token, roomId, "{\"expiryDays\":3}")
             .andExpect(status().isOk())
             .andReturn();
 
         Instant expiresAt = Instant.parse(값(patched, "expiresAt"));
-        assertThat(expiresAt).isBefore(Instant.now().plus(Duration.ofHours(73)));
-        assertThat(expiresAt).isAfter(Instant.now().plus(Duration.ofHours(71)));
+        assertThat(expiresAt).isBefore(Instant.now().plus(Duration.ofDays(3)).plus(Duration.ofMinutes(1)));
+        assertThat(expiresAt).isAfter(Instant.now().plus(Duration.ofDays(3)).minus(Duration.ofMinutes(1)));
     }
 
     @Test
@@ -237,11 +275,11 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 허용되지_않은_만료_시간이면_400() throws Exception {
+    void 허용되지_않은_만료_기간이면_400() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        수정(token, roomId, "{\"expiryHours\":48}")
+        수정(token, roomId, "{\"expiryDays\":15}")
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_ROOM_EXPIRATION"));
     }
@@ -264,19 +302,14 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 방장이_방을_삭제하면_삭제_시각과_영구_삭제_예정_시각을_받는다() throws Exception {
+    void 방장이_방을_삭제하면_삭제_시각만_받는다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들기(token).roomId();
 
-        MvcResult deleted = 삭제(token, roomId)
+        삭제(token, roomId)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.deletedAt").value(notNullValue()))
-            .andExpect(jsonPath("$.data.purgeAt").value(notNullValue()))
-            .andReturn();
-
-        Instant deletedAt = Instant.parse(값(deleted, "deletedAt"));
-        Instant purgeAt = Instant.parse(값(deleted, "purgeAt"));
-        assertThat(purgeAt).isEqualTo(deletedAt.plus(Duration.ofDays(7)));
+            .andExpect(jsonPath("$.data.purgeAt").doesNotExist());
     }
 
     @Test
@@ -303,6 +336,68 @@ class RoomApiTest extends PostgresContainerSupport {
         삭제(token, roomId)
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_ALREADY_DELETED"));
+    }
+
+    // 만료 시각이 지나도 저장된 상태는 ACTIVE 로 남는다. 응답은 시각까지 보고 EXPIRED 로 내려야 한다.
+    @Test
+    void 만료_시각이_지난_방을_조회하면_EXPIRED로_내려온다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+        만료시키기(room.roomId());
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code())
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("EXPIRED"));
+    }
+
+    @Test
+    void 만료_시각_전인_방은_ACTIVE로_내려온다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void 삭제된_방은_만료_시각이_지나도_DELETED로_내려온다() throws Exception {
+        String token = 익명_인증("가현");
+        생성된_방 room = 방_만들기(token);
+        삭제(token, room.roomId()).andExpect(status().isOk());
+        만료시키기(room.roomId());
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", room.code()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("DELETED"));
+    }
+
+    // 브라우저 EventSource 는 Accept: text/event-stream 으로 요청한다.
+    @Test
+    void 만료된_방에_SSE_구독을_하면_410() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들기(token).roomId();
+        만료시키기(roomId);
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .param("token", token)
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    @Test
+    void 삭제된_방에_SSE_구독을_하면_410() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들기(token).roomId();
+        삭제(token, roomId).andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/events", roomId)
+                .param("token", token)
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isGone())
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
     }
 
     @Test
@@ -419,6 +514,11 @@ class RoomApiTest extends PostgresContainerSupport {
     private ResultActions 입장(String token, long roomId) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
             .header("Authorization", "Bearer " + token));
+    }
+
+    // 만료 시각이 지나기를 기다릴 수 없어 저장된 만료 시각을 과거로 돌린다. 상태 컬럼은 건드리지 않는다.
+    private void 만료시키기(long roomId) {
+        jdbcTemplate.update("UPDATE room SET expires_at = now() - interval '1 minute' WHERE id = ?", roomId);
     }
 
     // roomId 는 수정·삭제·입장에, code 는 조회에 쓴다.

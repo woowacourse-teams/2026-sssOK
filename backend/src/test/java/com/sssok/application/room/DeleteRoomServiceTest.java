@@ -63,13 +63,12 @@ class DeleteRoomServiceTest {
     }
 
     @Test
-    void 방장이_삭제하면_삭제_시각과_영구_삭제_예정_시각을_받는다() {
+    void 방장이_삭제하면_삭제_시각을_받는다() {
         Room room = createRoom();
 
         DeleteRoomResult result = deleteRoomService.delete(room.getId(), HOST);
 
         assertThat(result.deletedAt()).isCloseTo(Instant.now(), within(1, ChronoUnit.MINUTES));
-        assertThat(result.purgeAt()).isEqualTo(result.deletedAt().plus(Duration.ofDays(7)));
     }
 
     @Test
@@ -138,19 +137,6 @@ class DeleteRoomServiceTest {
         assertThat(result.deletedAt()).isNotNull();
         assertThat(roomRepository.findById(expired.getId()).orElseThrow().getStatus())
             .isSameAs(DeletedRoomStatus.INSTANCE);
-    }
-
-    @Test
-    void 만료된_방을_삭제하면_만료_시각_기준으로_영구_삭제_시각이_잡힌다() {
-        Room expired = roomRepository.save(expiredRoom());
-        // DB는 마이크로초까지만 담아서, 저장 전 값과 비교하면 정밀도가 어긋난다.
-        Instant expiresAt = roomRepository.findById(expired.getId()).orElseThrow()
-            .getExpiration().expiresAt();
-
-        DeleteRoomResult result = deleteRoomService.delete(expired.getId(), HOST);
-
-        assertThat(result.purgeAt()).isEqualTo(expiresAt.plus(Duration.ofDays(7)));
-        assertThat(result.purgeAt()).isBefore(result.deletedAt().plus(Duration.ofDays(7)));
     }
 
     // CreateRoomService로는 만료된 방을 만들 수 없어 직접 복원한다.

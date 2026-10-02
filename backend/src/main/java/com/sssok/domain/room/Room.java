@@ -10,8 +10,6 @@ import lombok.Getter;
 @Getter
 public class Room {
 
-    private static final RetentionPolicy RETENTION_POLICY = new RetentionPolicy();
-
     private final Long id;
     // 읽은 뒤 저장하기까지 다른 요청이 이 방을 바꿨는지 판별하는 값. 저장 전이면 null 이다.
     private final Long version;
@@ -84,14 +82,23 @@ public class Room {
     }
 
     public boolean canEnter(Instant now) {
-        return status.canEnter() && !expiration.isExpired(now);
+        return statusAt(now).canEnter();
+    }
+
+    // 만료 시각이 지나도 저장된 상태는 ACTIVE 로 남아 있어, 응답에 내릴 상태는 시각까지 보고 정한다.
+    // 삭제·만료처럼 이미 닫힌 상태는 그대로 둔다.
+    public RoomStatus statusAt(Instant now) {
+        if (status.canEnter() && expiration.isExpired(now)) {
+            return status.toExpired();
+        }
+        return status;
     }
 
     public boolean canUpload(Long requester, Instant now) {
         return canEnter(now) && status.canUpload(uploadPolicy, isHost(requester));
     }
 
-    // 만료된 방은 아직 지울 수 있다. 지울 게 남지 않은 건 이미 삭제·정리된 방뿐이다.
+    // 만료된 방은 아직 지울 수 있다. 다시 지울 수 없는 건 이미 삭제된 방뿐이다.
     public boolean isDeleted() {
         return status.isDeleted();
     }
@@ -111,28 +118,6 @@ public class Room {
 
     public void expire() {
         this.status = status.toExpired();
-    }
-
-    public void purge() {
-        this.status = status.toPurged();
-    }
-
-    // 방이 더는 쓰이지 않게 된 시각. 삭제와 만료 중 먼저 온 쪽이다.
-    // 만료된 방을 뒤늦게 지웠다고 보관 기간이 늘어나면, 정리하려던 행동이 수명을 늘리는 셈이 된다.
-    public Instant endedAt() {
-        Instant expiresAt = expiration.expiresAt();
-        if (deletedAt == null || expiresAt.isBefore(deletedAt)) {
-            return expiresAt;
-        }
-        return deletedAt;
-    }
-
-    public Instant purgeAt() {
-        return RETENTION_POLICY.purgeAt(endedAt());
-    }
-
-    public boolean isPurgeable(Instant now) {
-        return !now.isBefore(purgeAt());
     }
 
     private void requireHost(Long requester) {

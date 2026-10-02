@@ -12,7 +12,6 @@ import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -151,24 +150,8 @@ class RoomPermissionPortAdapterTest {
         }
 
         @Override
-        public List<Room> findAllPurgeTargets(Instant threshold) {
-            return rooms.values().stream()
-                .filter(room -> room.endedAt().isBefore(threshold))
-                .toList();
-        }
-
-        @Override
-        public List<Long> findHostIdsIn(Collection<Long> memberIds) {
-            return rooms.values().stream()
-                .map(Room::getHostId)
-                .filter(memberIds::contains)
-                .distinct()
-                .toList();
-        }
-
-        @Override
-        public void delete(Room room) {
-            rooms.remove(room.getId());
+        public List<Room> findAllExpiredActive(Instant now) {
+            throw new UnsupportedOperationException();
         }
     }
 }

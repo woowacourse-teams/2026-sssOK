@@ -94,11 +94,11 @@ class UpdateRoomServiceTest {
         Room room = createRoom();
 
         RoomDetail updated = updateRoomService.update(room.getId(), HOST,
-            new UpdateRoomCommand(null, null, 72));
+            new UpdateRoomCommand(null, null, 3));
 
         assertThat(updated.room().getName()).isEqualTo(new RoomName("우테코 회식"));
         assertThat(updated.room().getExpiration().expiresAt())
-            .isCloseTo(Instant.now().plus(Duration.ofHours(72)), within(1, ChronoUnit.MINUTES));
+            .isCloseTo(Instant.now().plus(Duration.ofDays(3)), within(1, ChronoUnit.MINUTES));
     }
 
     @Test
@@ -106,12 +106,12 @@ class UpdateRoomServiceTest {
         Room room = createRoom();
 
         RoomDetail updated = updateRoomService.update(room.getId(), HOST,
-            new UpdateRoomCommand("2차 회식", "host", 72));
+            new UpdateRoomCommand("2차 회식", "host", 14));
 
         assertThat(updated.room().getName()).isEqualTo(new RoomName("2차 회식"));
         assertThat(updated.room().getUploadPolicy()).isEqualTo(UploadPolicy.HOST_ONLY);
         assertThat(updated.room().getExpiration().expiresAt())
-            .isCloseTo(Instant.now().plus(Duration.ofHours(72)), within(1, ChronoUnit.MINUTES));
+            .isCloseTo(Instant.now().plus(Duration.ofDays(14)), within(1, ChronoUnit.MINUTES));
     }
 
     @Test
@@ -120,10 +120,10 @@ class UpdateRoomServiceTest {
         Instant originalExpiresAt = room.getExpiration().expiresAt();
 
         RoomDetail updated = updateRoomService.update(room.getId(), HOST,
-            new UpdateRoomCommand(null, null, 24));
+            new UpdateRoomCommand(null, null, 1));
 
         assertThat(updated.room().getExpiration().expiresAt())
-            .isCloseTo(Instant.now().plus(Duration.ofHours(24)), within(1, ChronoUnit.MINUTES))
+            .isCloseTo(Instant.now().plus(Duration.ofDays(1)), within(1, ChronoUnit.MINUTES))
             .isBefore(originalExpiresAt.plus(Duration.ofHours(1)));
     }
 

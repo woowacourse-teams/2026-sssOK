@@ -175,6 +175,12 @@
               "mode": "none"
             }
           },
+          "links": [
+            {
+              "title": "이 시간대의 ERROR 로그 보기",
+              "url": "/d/sssok-logs/sssok-logs?${__url_time_range}&var-requestId=&var-version="
+            }
+          ],
           "thresholds": {
             "mode": "absolute",
             "steps": [

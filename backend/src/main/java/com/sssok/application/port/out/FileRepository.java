@@ -88,7 +88,5 @@ public interface FileRepository {
         }
     }
 
-    void deleteAllByRoomId(Long roomId);
-
     void deleteAllByIdIn(List<Long> ids);
 }

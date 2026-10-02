@@ -8,4 +8,11 @@ interface GetMediaParams {
 }
 
 export const getMedia = ({ roomId, mediaId, token }: GetMediaParams) =>
-  apiClient<MediaDetail>(`/rooms/${roomId}/media/${mediaId}`, { token });
+  apiClient<MediaDetail>(`/rooms/${roomId}/media/${mediaId}`, {
+    token,
+    errorTracking: {
+      level: "error",
+      operation: "gallery.get_media",
+      route: "/rooms/:roomId/media/:mediaId",
+    },
+  });

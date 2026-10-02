@@ -755,10 +755,15 @@ export const roomHandlers = [
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { name, uploadPolicy, expiryHours } = (await request.json()) as {
+    // 백엔드처럼 expiryDays 를 생략하면 1일로 만든다.
+    const {
+      name,
+      uploadPolicy,
+      expiryDays = 1,
+    } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
-      expiryHours: 24 | 72;
+      expiryDays?: number;
     };
 
     const now = Date.now();
@@ -772,7 +777,7 @@ export const roomHandlers = [
           hostId: MOCK_HOST_ID,
           hostName: "민수",
           createdAt: new Date(now).toISOString(),
-          expiresAt: new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
+          expiresAt: new Date(now + expiryDays * 24 * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,

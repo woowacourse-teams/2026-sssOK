@@ -3,6 +3,7 @@ const path = require("path");
 const webpack = require("webpack");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
+const { version } = require("./package.json");
 
 const envPath = path.resolve(__dirname, ".env");
 
@@ -10,15 +11,22 @@ if (fs.existsSync(envPath)) {
   process.loadEnvFile(envPath);
 }
 
+if (!process.env.API_BASE_URL?.trim()) {
+  throw new Error("API_BASE_URL 환경변수가 필요합니다.");
+}
+
 module.exports = {
   mode: "development",
   entry: "./src/index.tsx",
 
   output: {
-    filename: "bundle.js",
+    filename: "[name].[contenthash].js",
+    chunkFilename: "[name].[contenthash].js",
     path: path.resolve(__dirname, "dist"),
     // 중첩 경로(/rooms/:code)에서도 번들을 루트 기준으로 찾게 한다
     publicPath: "/",
+    // contenthash가 바뀐 이전 빌드 파일을 dist에 남기지 않는다.
+    clean: true,
   },
 
   resolve: {
@@ -64,12 +72,15 @@ module.exports = {
       // PostHog 프로젝트를 바꿔 보낼 때만 넘긴다. src/shared/config/analytics.ts 참고
       "process.env.POSTHOG_KEY": JSON.stringify(process.env.POSTHOG_KEY),
       "process.env.POSTHOG_HOST": JSON.stringify(process.env.POSTHOG_HOST),
+      // 이 번들이 몇 버전인지. src/shared/config/version.ts 참고
+      "process.env.APP_VERSION": JSON.stringify(version),
     }),
 
     new HtmlWebpackPlugin({
       template: "./public/index.html",
       filename: "index.html",
       inject: true,
+      meta: { "app-version": version },
     }),
 
     new CopyWebpackPlugin({

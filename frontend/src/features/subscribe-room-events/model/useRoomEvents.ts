@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import type { Media, MediaItem } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
+import { captureException } from "@/shared/lib";
 import type { MediaFoldersUpdatedEvent } from "./roomEventTypes";
 import { updateMediaReadyCache } from "./updateMediaReadyCache";
 import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
@@ -62,6 +63,20 @@ export const useRoomEvents = ({
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
+    let hasReportedConnectionError = false;
+
+    const handleConnectionError = () => {
+      if (hasReportedConnectionError) return;
+
+      hasReportedConnectionError = true;
+      captureException(new Error("실시간 구독 연결에 실패했습니다."), {
+        level: "warning",
+        operation: "room_events.subscribe",
+        method: "GET",
+        route: "/rooms/:roomId/events",
+        code: "EVENT_SOURCE_ERROR",
+      });
+    };
 
     const handleMediaCreated = (event: MessageEvent<string>) => {
       const media = JSON.parse(event.data) as Media;
@@ -109,6 +124,7 @@ export const useRoomEvents = ({
     );
     eventSource.addEventListener("folder.deleted", handleFolderDeleted);
     eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
+    eventSource.addEventListener("error", handleConnectionError);
 
     return () => {
       eventSource.removeEventListener("media.created", handleMediaCreated);
@@ -119,6 +135,7 @@ export const useRoomEvents = ({
       );
       eventSource.removeEventListener("folder.deleted", handleFolderDeleted);
       eventSource.removeEventListener("media.folders.updated", handleMediaFoldersUpdated);
+      eventSource.removeEventListener("error", handleConnectionError);
       eventSource.close();
     };
   }, [queryClient, roomId, userId, token]);
