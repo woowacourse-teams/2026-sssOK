@@ -27,6 +27,9 @@ public final class SensitiveValueMasker {
         "x-amz-signature|x-amz-credential|x-amz-security-token|signature|awsaccesskeyid";
 
     private static final List<Rule> RULES = List.of(
+        // JDBC URL 통째로. Flyway 가 기동할 때 "Database: jdbc:postgresql://<호스트>:5432/<DB>" 를 INFO 로
+        // 남기는데, 비밀번호가 없어도 DB 호스트와 이름이 드러난다. 어느 DB 에 붙었는지는 설정에서 알 수 있다.
+        new Rule(Pattern.compile("(?i)jdbc:[^\\s\"',;]+"), MASK),
         // Authorization: Bearer <토큰>
         new Rule(Pattern.compile("(?i)(bearer\\s+)[A-Za-z0-9\\-._~+/]+=*"), "$1" + MASK),
         // 헤더 이름 없이 본문에 박힌 JWT (header.payload.signature)

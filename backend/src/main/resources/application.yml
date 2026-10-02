@@ -195,5 +195,11 @@ management:
       # Kubernetes가 아닌 Docker 환경에서도 liveness/readiness 그룹을 제공한다.
       probes:
         enabled: true
+      group:
+        # readiness 는 "요청을 받을 준비가 됐는가" 라서 DB 연결까지 본다. DB 가 끊기면 DOWN 이 된다.
+        # liveness 에는 넣지 않는다 — DB 장애로 앱이 재시작되면 복구가 더 늦어진다.
+        # 컨테이너 healthcheck·배포 확인은 /health 를 쓰므로 이 설정으로 컨테이너가 재시작되지는 않는다.
+        readiness:
+          include: readinessState,db
       # 외부 시스템과 내부 구성 요소의 상세 상태는 응답에 포함하지 않는다.
       show-details: never
