@@ -44,11 +44,13 @@ public class CreateFeedbackService {
         String rawFrontendVersion
     ) {
         FeedbackContent feedbackContent = new FeedbackContent(content);
+        // 회원 행을 먼저 잠가 같은 회원의 동시 요청을 한 줄로 세운다.
+        Optional<Member> member = memberRepository.findByIdForUpdate(memberId);
         requireNotTooFrequent(memberId);
 
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
-        String nickname = memberRepository.findById(memberId)
+        String nickname = member
             .map(Member::getDisplayName)
             .map(displayName -> displayName.value())
             .orElse(null);
