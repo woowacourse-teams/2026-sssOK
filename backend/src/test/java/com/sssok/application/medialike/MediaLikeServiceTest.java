@@ -15,9 +15,6 @@ import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
-// Repository + Service 통합 테스트. 좋아요 추가가 PostgreSQL 전용 네이티브 쿼리(ON CONFLICT)를 쓰므로
-// H2가 아닌 실제 PostgreSQL로 돌린다. 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
-// 먼저 걸러주므로 여기서는 추가·취소의 멱등성, 개수, 이벤트 발행, 미디어 404만 검증한다.
 @SpringBootTest
 @Transactional
 @RecordApplicationEvents
@@ -156,9 +153,6 @@ class MediaLikeServiceTest extends PostgresContainerSupport {
             .isInstanceOf(MediaNotFoundException.class);
     }
 
-    // 대상 확인과 삽입 사이에 미디어가 FAILED 로 확정되는 경합은 삽입 쿼리가 상태를 다시 보는 것으로 막는다.
-    // 그 쿼리를 직접 불러, 상태가 맞지 않는 미디어에는 좋아요가 남지 않는지 본다.
-    // (서비스에 스파이를 끼워 재현하면 테스트 컨텍스트가 하나 더 떠 공유 컨테이너의 연결 수가 모자란다)
     @Test
     void 삽입_순간_상태가_맞지_않으면_좋아요를_남기지_않는다() {
         long mediaId = existingMedia(1L, "FAILED");

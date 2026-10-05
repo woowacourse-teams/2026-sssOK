@@ -9,9 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface MediaLikeJpaRepository extends JpaRepository<MediaLikeJpaEntity, Long> {
 
-    // 같은 회원이 동시에 두 번 눌러도 한 건만 남도록 DB 에 맡긴다. 상태 확인과 삽입을 한 문장에 둬서,
-    // 확인한 뒤 FAILED 로 확정된 미디어에 좋아요가 붙지 않게 한다.
-    // JPA 를 거치지 않아 BaseEntity 의 @PrePersist 가 돌지 않으므로 감사 컬럼을 직접 넣는다.
+    // JPA 를 거치지 않아 @PrePersist 가 돌지 않으므로 감사 컬럼을 직접 넣는다.
     @Modifying
     @Query(value = """
         INSERT INTO media_like (media_id, member_id, created_at, updated_at)
@@ -36,7 +34,6 @@ public interface MediaLikeJpaRepository extends JpaRepository<MediaLikeJpaEntity
 
     long countByMediaId(Long mediaId);
 
-    // 미디어마다 따로 세면 목록 한 페이지에 쿼리가 N 번 나간다.
     @Query("select l.mediaId, count(l) from MediaLikeJpaEntity l where l.mediaId in :mediaIds group by l.mediaId")
     List<Object[]> countGroupByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
 

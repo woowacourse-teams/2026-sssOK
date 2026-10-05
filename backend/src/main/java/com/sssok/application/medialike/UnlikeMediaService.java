@@ -6,8 +6,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 좋아요 취소. 누르지 않은 사진에 보내도 오류 없이 같은 결과를 돌려준다(멱등).
-// 방 존재/만료/입장 여부는 RoomMembershipInterceptor가 먼저 걸러준다.
 @Service
 @RequiredArgsConstructor
 public class UnlikeMediaService {

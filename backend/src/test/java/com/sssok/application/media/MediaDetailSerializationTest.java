@@ -10,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.json.JsonTest;
 
-// MediaDetail 은 media.created·media.ready 의 SSE payload 로 그대로 직렬화된다.
-// 방 전체에 한 번 뿌리는 payload 라 보는 사람마다 다른 likedByMe 가 실리면 안 된다.
 @JsonTest
 class MediaDetailSerializationTest {
 

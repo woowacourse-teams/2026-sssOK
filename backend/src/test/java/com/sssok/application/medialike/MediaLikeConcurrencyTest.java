@@ -16,8 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-// 좋아요 멱등성이 동시 요청에서도 지켜지는지 확인한다. 요청마다 트랜잭션이 따로 커밋돼야 하므로
-// 테스트 트랜잭션으로 감싸지 않는다. 롤백되지 않으니 미디어 id 를 매번 새로 발급한다.
 @SpringBootTest
 class MediaLikeConcurrencyTest extends PostgresContainerSupport {
 
@@ -44,7 +42,6 @@ class MediaLikeConcurrencyTest extends PostgresContainerSupport {
             "SELECT COUNT(*) FROM media_like WHERE media_id = ?", Integer.class, mediaId)).isEqualTo(1);
     }
 
-    // 같은 지점에서 한꺼번에 풀어 확인-삽입 구간을 겹치게 만든다.
     private List<MediaLikeResult> 동시에_좋아요(long mediaId) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(THREADS);
         CountDownLatch start = new CountDownLatch(1);

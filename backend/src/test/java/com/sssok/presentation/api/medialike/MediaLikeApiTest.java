@@ -28,14 +28,10 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-// API 인수 테스트 — 실제 PostgreSQL 위에서 좋아요 추가·취소, 미디어 응답의 좋아요 필드,
-// media.likes.updated 기록, 미디어 삭제 시 좋아요 정리까지 관통 확인한다.
-// 설정·목을 MediaDeleteApiTest 와 똑같이 맞춰 같은 테스트 컨텍스트를 재사용한다. 설정이 하나라도 다르면
-// 컨텍스트가 새로 떠서 공유 PostgreSQL 컨테이너의 연결 수가 모자란다.
+// MediaDeleteApiTest 와 같은 설정이라야 테스트 컨텍스트를 재사용해 DB 연결 수가 모자라지 않는다.
 @SpringBootTest(properties = "storage.cleanup.auto-purge=false")
 class MediaLikeApiTest extends PostgresContainerSupport {
 
-    // 테스트끼리 롤백 없이 같은 컨테이너를 공유하므로, 미디어 id/storage_key가 겹치지 않게 매번 새로 발급한다.
     private static final AtomicLong MEDIA_ID_SEQUENCE = new AtomicLong(System.currentTimeMillis());
 
     @Autowired
@@ -47,7 +43,6 @@ class MediaLikeApiTest extends PostgresContainerSupport {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
-    // 목록·상세 응답이 서명 URL 을 만들 때 실제 R2 를 부르지 않게 한다.
     @MockitoBean
     FileStoragePort fileStoragePort;
 

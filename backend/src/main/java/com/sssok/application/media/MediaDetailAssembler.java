@@ -13,11 +13,8 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-// 파일 행만으로는 응답을 만들 수 없다. 폴더 소속·업로더 이름·좋아요가 다른 테이블에 있어서다.
-// 미디어마다 찾아오면 30장짜리 목록에 쿼리가 수십 번 나가므로, 종류별로 한 번씩만 모아서 채운다.
-//
-// viewerId 는 likedByMe 를 판단할 사람이다. 방 전체에 뿌리는 SSE payload 처럼 보는 사람이 정해지지 않은
-// 곳에서는 null 을 넘기고, 그때 likedByMe 는 모두 false 다.
+// 파일 행만으로는 응답을 만들 수 없다. 폴더 소속과 업로더 이름이 다른 테이블에 있어서다.
+// 미디어마다 찾아오면 30장짜리 목록에 쿼리가 60번 나가므로, 종류별로 한 번씩만 모아서 채운다.
 @Component
 @RequiredArgsConstructor
 public class MediaDetailAssembler {

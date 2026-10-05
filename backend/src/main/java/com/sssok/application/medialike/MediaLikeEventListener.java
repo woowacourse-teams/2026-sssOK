@@ -10,8 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-// 좋아요 추가·취소가 실제로 커밋된 뒤에만 SSE로 내보낸다. 개수를 여기서 다시 세는 이유는
-// MediaLikeChangedEvent 참고. 그 사이 미디어가 지워졌다면 media.deleted 가 나가므로 아무것도 내보내지 않는다.
 @Component
 @RequiredArgsConstructor
 public class MediaLikeEventListener {
