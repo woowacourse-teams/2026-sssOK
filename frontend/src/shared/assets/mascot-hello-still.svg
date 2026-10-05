@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="5 25 880 670" width="880" height="670" role="img" aria-label="손을 흔드는 쏙 캐릭터">
+  <style>
+  svg { --orange: #f96b36; --dark: #2b231e; }
+</style>
+  <defs>
+    <path id="body" d="M203,760 L203,420 C203,175 300,12 458,12 C616,12 713,175 713,420 L713,760 Z" />
+    <path id="arm" d="M86.5,397.0 A64,64 0 0 1 172.4,302.1 L306.9,432.0 A58,58 0 0 1 229.1,518.0 Z" />
+    <!-- 오른손: 둥근 손등 + 아래쪽 발가락 세 개 -->
+    <path id="paw-shape" d="M565,632 A71,71 0 1 1 691,632 Q690,646 683,653 A22,22 0 0 1 641,657 A22,22 0 0 1 599,657 A22,22 0 0 1 571,651 Q566,644 565,632 Z" />
+    <!-- 구멍 앞쪽 가장자리 위만 보이게 -->
+    <clipPath id="inside-body"><use href="#body" /></clipPath>
+    <clipPath id="above-rim">
+      <path d="M-400,-600 H1300 V545 H885 A440,92 0 0 1 5,545 H-400 Z" />
+    </clipPath>
+        <g id="paw-art">
+      <use href="#paw-shape" fill="none" stroke="var(--dark)" stroke-width="39" stroke-linejoin="round" />
+      <use href="#paw-shape" fill="var(--orange)" />
+      <path d="M641,657 V648 M599,657 V648" stroke="var(--dark)" stroke-width="9" stroke-linecap="round" />
+    </g>
+  </defs>
+
+  <ellipse cx="445" cy="545" rx="440" ry="108" fill="var(--dark)" />
+
+  <g clip-path="url(#above-rim)">
+    <g transform="translate(0 35)">
+      <g>
+        <g>
+          <!-- 굵은 선을 먼저 깔고 면을 덮어서 몸과 팔이 하나로 이어진 외곽선을 만든다 -->
+          <g fill="none" stroke="var(--dark)" stroke-width="39" stroke-linejoin="round">
+            <use href="#body" />
+            <use href="#arm" />
+          </g>
+          <g fill="var(--orange)">
+            <use href="#body" />
+            <use href="#arm" />
+          </g>
+
+          <!-- 팔이 몸 위로 겹친 안쪽 선: 몸 안쪽에만 보이게 잘라서 외곽선과 겹쳐 뭉치지 않게 한다 -->
+          <g clip-path="url(#inside-body)" fill="none" stroke="var(--dark)" stroke-linecap="round">
+            <path d="M172.4,302.1 L255.8,382.6" stroke-width="13" />
+          </g>
+
+          <g fill="var(--dark)">
+            <ellipse cx="369" cy="232" rx="20" ry="21" />
+            <ellipse cx="553" cy="255" rx="20" ry="21" />
+            <ellipse cx="456" cy="272" rx="34" ry="25" />
+          </g>
+          <g fill="none" stroke="var(--dark)" stroke-width="13" stroke-linecap="round">
+            <path d="M408,312 C431,340 476,342 498,318" stroke-linecap="butt" />
+            <!-- 수염: 오른쪽 두 가닥과 대칭으로 왼쪽 두 가닥 -->
+            <path d="M659,284 L726,272 M659,322 L724,343 M257,284 L190,272 M257,322 L192,343" stroke-width="12" />
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <use href="#paw-art" />
+</svg>

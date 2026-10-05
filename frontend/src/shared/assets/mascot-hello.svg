@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-56 -170 1000 940" width="1000" height="940" role="img" aria-label="구멍에서 나와 손을 흔드는 쏙 캐릭터">
+  <style>
+  svg { --bg: #fff6ec; --orange: #f96b36; --dark: #2b231e; --paper: #fffbf8; }
+
+  svg * { transform-box: view-box; }
+  .anim { animation-duration: 4.6s; animation-iteration-count: infinite; animation-fill-mode: both; }
+
+  /* 몸 전체: 구멍에서 튀어나왔다가 다시 들어간다 */
+  .rise { animation-name: rise; }
+  @keyframes rise {
+    0%, 7.6% { transform: translateY(560px); animation-timing-function: cubic-bezier(0.34, 1.5, 0.64, 1); }
+    21.7%, 83.7% { transform: translateY(35px); animation-timing-function: cubic-bezier(0.36, 0, 0.66, -0.5); }
+    94.6%, 100% { transform: translateY(600px); }
+  }
+
+  /* 늘어났다 눌리는 탄성 */
+  .squash { transform-origin: 455px 640px; animation-name: squash; animation-timing-function: ease-in-out; }
+  @keyframes squash {
+    0%, 7.6% { transform: scale(1, 1); }
+    13% { transform: scale(0.94, 1.1); }
+    17.4%, 20.6% { transform: scale(1, 1); }
+    24% { transform: scale(1.04, 0.93); }
+    27.5%, 81.5% { transform: scale(1, 1); }
+    84.5% { transform: scale(1.04, 0.94); }
+    88% { transform: scale(0.97, 1.06); }
+    92%, 100% { transform: scale(1, 1); }
+  }
+
+  /* 인사하는 동안 몸을 살짝 흔든다 */
+  .tilt { transform-origin: 455px 640px; animation-name: tilt; animation-timing-function: ease-in-out; }
+  @keyframes tilt {
+    0%, 24% { transform: rotate(0deg); }
+    36% { transform: rotate(2deg); }
+    51% { transform: rotate(-2deg); }
+    66% { transform: rotate(2deg); }
+    78%, 100% { transform: rotate(0deg); }
+  }
+
+  /* 왼팔: 끌림 → 넘어감 → 예비 동작 → 흔들기 → 들어갈 때 다시 끌림 */
+  .arm { transform-origin: 268px 475px; animation-name: shoulder; animation-timing-function: ease-in-out; }
+  @keyframes shoulder {
+    0%, 7.6% { transform: rotate(-3deg); }
+    14% { transform: rotate(-9deg); }      /* 몸이 솟을 때 팔이 뒤로 끌린다 (drag) */
+    21% { transform: rotate(10deg); }       /* 몸이 멈추면 팔이 앞으로 넘어간다 (follow-through) */
+    24.5% { transform: rotate(-2deg); }
+    27% { transform: rotate(-3deg); }       /* 흔들기 전 살짝 내린다 (anticipation) */
+    31% { transform: rotate(12deg); }
+    37.5% { transform: rotate(-3deg); }
+    44% { transform: rotate(12deg); }
+    50.5% { transform: rotate(-3deg); }
+    57% { transform: rotate(12deg); }
+    63.5% { transform: rotate(-3deg); }
+    70% { transform: rotate(12deg); }
+    76.5% { transform: rotate(-2deg); }
+    80.5% { transform: rotate(3deg); }
+    84% { transform: rotate(0deg); }
+    90% { transform: rotate(18deg); }       /* 들어갈 때 팔이 위로 남는다 */
+    96%, 100% { transform: rotate(-3deg); }
+  }
+  /* 눈 깜빡임 */
+  .eye { transform-box: fill-box; transform-origin: center; animation-name: blink; }
+  @keyframes blink {
+    0%, 51% { transform: scaleY(1); }
+    52.7% { transform: scaleY(0.08); }
+    54.5%, 100% { transform: scaleY(1); }
+  }
+
+  /* 오른손: 구멍 위로 살짝 떴다가 가장자리에 걸친다 */
+  .paw { animation-name: paw; }
+  @keyframes paw {
+    0%, 8.3% { transform: translateY(560px); animation-timing-function: cubic-bezier(0.34, 1.9, 0.64, 1); }
+    21.7%, 82.6% { transform: translateY(0); animation-timing-function: cubic-bezier(0.36, 0, 0.66, -0.9); }
+    93.5%, 100% { transform: translateY(600px); }
+  }
+  /* 구멍 안에 있을 때만 가장자리로 가린다 */
+  .paw-inside { animation-name: inside; animation-timing-function: step-end; }
+  .paw-outside { animation-name: outside; animation-timing-function: step-end; }
+  @keyframes inside { 0% { opacity: 1; } 15.6% { opacity: 0; } 87% { opacity: 1; } }
+  @keyframes outside { 0% { opacity: 0; } 15.6% { opacity: 1; } 87% { opacity: 0; } }
+
+  /* 사진들이 흙처럼 튀어 올랐다가 땅에 떨어진다: 가로는 일정하게, 세로는 위로 감속 → 아래로 가속 */
+  .photo-x { opacity: 0; animation-name: photo-x; animation-timing-function: cubic-bezier(0.3, 0.5, 0.6, 1); }
+  @keyframes photo-x {
+    0%, 7% { transform: translateX(0); opacity: 0; }
+    7.5% { opacity: 1; }
+    21% { transform: translateX(var(--dx)); }
+    26% { transform: translateX(var(--dx)); opacity: 1; }
+    30%, 100% { transform: translateX(var(--dx)); opacity: 0; }
+  }
+  .photo-y { animation-name: photo-y; }
+  @keyframes photo-y {
+    0%, 7% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1); }
+    13.5% { transform: translateY(var(--up)); animation-timing-function: cubic-bezier(0.6, 0, 0.85, 0.5); }
+    21% { transform: translateY(var(--land)); animation-timing-function: ease-out; }
+    23% { transform: translateY(calc(var(--land) - 18px)); animation-timing-function: ease-in; }
+    25%, 100% { transform: translateY(var(--land)); }
+  }
+  .photo-spin { transform-box: fill-box; transform-origin: center; animation-name: photo-spin; animation-timing-function: ease-out; }
+  @keyframes photo-spin {
+    0%, 7% { transform: rotate(0deg) scale(0.4); }
+    13.5% { transform: rotate(calc(var(--r) * 0.55)) scale(calc(var(--s, 1) * 1.1)); }
+    21%, 100% { transform: rotate(var(--r)) scale(var(--s, 1)); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .anim { animation: none; }
+    .paw-inside, .photo-x { opacity: 0; }
+  }
+</style>
+  <defs>
+    <path id="body" d="M203,760 L203,420 C203,175 300,12 458,12 C616,12 713,175 713,420 L713,760 Z" />
+    <path id="arm" d="M86.5,397.0 A64,64 0 0 1 172.4,302.1 L306.9,432.0 A58,58 0 0 1 229.1,518.0 Z" />
+    <!-- 오른손: 둥근 손등 + 아래쪽 발가락 세 개 -->
+    <path id="paw-shape" d="M565,632 A71,71 0 1 1 691,632 Q690,646 683,653 A22,22 0 0 1 641,657 A22,22 0 0 1 599,657 A22,22 0 0 1 571,651 Q566,644 565,632 Z" />
+    <!-- 구멍 앞쪽 가장자리 위만 보이게 -->
+    <clipPath id="inside-body"><use href="#body" /></clipPath>
+    <clipPath id="above-rim">
+      <path d="M-400,-600 H1300 V545 H885 A440,92 0 0 1 5,545 H-400 Z" />
+    </clipPath>
+    <clipPath id="above-rim-deep">
+      <path d="M-400,-600 H1300 V545 H885 A440,68 0 0 1 5,545 H-400 Z" />
+    </clipPath>
+    <!-- 로고 속 사진 카드: 밝은 카드 + 해 + 산 -->
+    <g id="photo-card" stroke-linejoin="round">
+      <rect x="-60" y="-46" width="120" height="92" rx="14" fill="var(--paper)" stroke="var(--dark)" stroke-width="10" />
+      <circle cx="-26" cy="-14" r="13" fill="var(--orange)" />
+      <path d="M-44,32 L-12,-2 L6,16 L26,-12 L46,32 Z" fill="var(--orange)" stroke="var(--orange)" stroke-width="6" />
+    </g>
+    <g id="paw-art">
+      <use href="#paw-shape" fill="none" stroke="var(--dark)" stroke-width="39" stroke-linejoin="round" />
+      <use href="#paw-shape" fill="var(--orange)" />
+      <path d="M641,657 V648 M599,657 V648" stroke="var(--dark)" stroke-width="9" stroke-linecap="round" />
+    </g>
+  </defs>
+
+  <ellipse cx="445" cy="545" rx="440" ry="108" fill="var(--dark)" />
+
+  <!-- 사진은 몸 뒤로 지나가고, 땅에 떨어진 뒤 사라진다 -->
+  <g transform="translate(455 500)">
+      <g class="anim photo-x" style="--dx: -420px"><g class="anim photo-y" style="--up: -300px; --land: 175px"><g class="anim photo-spin" style="--r: -372deg"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -250px; animation-delay: 0.06s"><g class="anim photo-y" style="--up: -470px; --land: 195px; animation-delay: 0.06s"><g class="anim photo-spin" style="--r: -190deg; animation-delay: 0.06s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 60px; animation-delay: 0.12s"><g class="anim photo-y" style="--up: -560px; --land: 205px; animation-delay: 0.12s"><g class="anim photo-spin" style="--r: 168deg; animation-delay: 0.12s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 280px; animation-delay: 0.03s"><g class="anim photo-y" style="--up: -450px; --land: 190px; animation-delay: 0.03s"><g class="anim photo-spin" style="--r: 195deg; animation-delay: 0.03s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 420px; animation-delay: 0.09s"><g class="anim photo-y" style="--up: -280px; --land: 170px; animation-delay: 0.09s"><g class="anim photo-spin" style="--r: 372deg; animation-delay: 0.09s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -340px; animation-delay: 0.15s"><g class="anim photo-y" style="--up: -400px; --land: 215px; animation-delay: 0.15s"><g class="anim photo-spin" style="--s: 0.7; --r: -200deg; animation-delay: 0.15s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -130px; animation-delay: 0.02s"><g class="anim photo-y" style="--up: -520px; --land: 225px; animation-delay: 0.02s"><g class="anim photo-spin" style="--s: 0.7; --r: -345deg; animation-delay: 0.02s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 170px; animation-delay: 0.18s"><g class="anim photo-y" style="--up: -500px; --land: 220px; animation-delay: 0.18s"><g class="anim photo-spin" style="--s: 0.7; --r: 350deg; animation-delay: 0.18s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 360px; animation-delay: 0.11s"><g class="anim photo-y" style="--up: -380px; --land: 210px; animation-delay: 0.11s"><g class="anim photo-spin" style="--s: 0.7; --r: -170deg; animation-delay: 0.11s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -480px; animation-delay: 0.21s"><g class="anim photo-y" style="--up: -200px; --land: 150px; animation-delay: 0.21s"><g class="anim photo-spin" style="--s: 0.7; --r: 190deg; animation-delay: 0.21s"><use href="#photo-card" /></g></g></g>
+  </g>
+
+  <g clip-path="url(#above-rim)">
+    <g class="anim rise">
+      <g class="anim squash">
+        <g class="anim tilt">
+          <!-- 굵은 선을 먼저 깔고 면을 덮어서 몸과 팔이 하나로 이어진 외곽선을 만든다 -->
+          <g fill="none" stroke="var(--dark)" stroke-width="39" stroke-linejoin="round">
+            <use href="#body" />
+            <use href="#arm" class="anim arm" />
+          </g>
+          <g fill="var(--orange)">
+            <use href="#body" />
+            <use href="#arm" class="anim arm" />
+          </g>
+
+          <!-- 팔이 몸 위로 겹친 안쪽 선: 몸 안쪽에만 보이게 잘라서 외곽선과 겹쳐 뭉치지 않게 한다 -->
+          <g clip-path="url(#inside-body)" fill="none" stroke="var(--dark)" stroke-linecap="round">
+            <path class="anim arm" d="M172.4,302.1 L255.8,382.6" stroke-width="13" />
+          </g>
+
+          <g fill="var(--dark)">
+            <ellipse class="anim eye" cx="369" cy="232" rx="20" ry="21" />
+            <ellipse class="anim eye" cx="553" cy="255" rx="20" ry="21" />
+            <ellipse cx="456" cy="272" rx="34" ry="25" />
+          </g>
+          <g fill="none" stroke="var(--dark)" stroke-width="13" stroke-linecap="round">
+            <path d="M408,312 C431,340 476,342 498,318" stroke-linecap="butt" />
+            <!-- 수염: 오른쪽 두 가닥과 대칭으로 왼쪽 두 가닥 -->
+            <path d="M659,284 L726,272 M659,322 L724,343 M257,284 L190,272 M257,322 L192,343" stroke-width="12" />
+          </g>
+        </g>
+      </g>
+    </g>
+  </g>
+
+  <!-- 가림 영역은 움직이지 않는 바깥 그룹에 걸어야 손과 함께 따라 내려가지 않는다 -->
+  <g class="anim paw-inside" clip-path="url(#above-rim-deep)">
+    <g class="anim paw"><use href="#paw-art" /></g>
+  </g>
+  <g class="anim paw-outside">
+    <g class="anim paw"><use href="#paw-art" /></g>
+  </g>
+</svg>
