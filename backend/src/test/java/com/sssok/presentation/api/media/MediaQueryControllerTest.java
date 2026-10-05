@@ -112,6 +112,8 @@ class MediaQueryControllerTest {
             .andExpect(jsonPath("$.data.items[0].displayUrl").value(PREVIEW_URL))
             .andExpect(jsonPath("$.data.items[0].displayUrlExpiresAt").exists())
             .andExpect(jsonPath("$.data.items[0].uploadedAt").exists())
+            .andExpect(jsonPath("$.data.items[0].likeCount").value(3))
+            .andExpect(jsonPath("$.data.items[0].likedByMe").value(true))
             .andExpect(jsonPath("$.data.nextCursor").doesNotExist())
             .andExpect(jsonPath("$.data.hasNext").value(false))
             .andExpect(jsonPath("$.data.totalCount").value(1));
@@ -379,7 +381,7 @@ class MediaQueryControllerTest {
     private MediaDetail media() {
         return new MediaDetail(MEDIA_ID, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             null, null, null, null, null, null, null,
-            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now(), 0, false);
     }
 
     // 목록과 상세가 같은 표시용 URL 계약을 쓴다.
@@ -388,7 +390,7 @@ class MediaQueryControllerTest {
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
             PREVIEW_URL, Instant.now().plusSeconds(1800),
             1200, 900, null,
-            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now(), 3, true);
     }
 
     // 프리뷰가 있는 사진의 상세. 원본은 노출하지 않는다.
@@ -397,7 +399,7 @@ class MediaQueryControllerTest {
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
             PREVIEW_URL, Instant.now().plusSeconds(1800),
             1200, 900, null,
-            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now(), 0, false);
     }
 
     // 프리뷰가 없어 원본으로 내려앉는 상세. 이 기능 이전에 올라온 사진과 GIF 가 그렇다.
@@ -406,7 +408,7 @@ class MediaQueryControllerTest {
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
             ORIGINAL_URL, Instant.now().plusSeconds(300),
             1200, 900, null,
-            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now(), 0, false);
     }
 
     private MediaDetail videoWithOriginal() {
@@ -414,7 +416,7 @@ class MediaQueryControllerTest {
             THUMBNAIL_URL, Instant.now().plusSeconds(1800),
             ORIGINAL_URL, Instant.now().plusSeconds(300),
             1920, 1080, 12,
-            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now());
+            List.of(FOLDER_ID), 7L, "가현", "READY", Instant.now(), 0, false);
     }
 
     private ResultActions getMediaList(String query) throws Exception {

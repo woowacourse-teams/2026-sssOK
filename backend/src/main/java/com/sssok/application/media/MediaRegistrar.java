@@ -31,12 +31,13 @@ public class MediaRegistrar {
         List<Long> mediaIds = verified.stream().map(StoredFile::getId).toList();
         Map<Long, List<Long>> folderIds = folderMediaRepository.findFolderIdsByMedia(mediaIds);
 
+        // 방금까지 RESERVED 라 목록에 보이지 않았으므로 아직 아무도 좋아요를 누를 수 없었다.
         List<MediaDetail> registered = new ArrayList<>();
         for (StoredFile file : verified) {
             file.startProcessing();
             StoredFile saved = fileRepository.save(file);
             registered.add(MediaDetail.of(saved, uploaderName,
-                folderIds.getOrDefault(saved.getId(), List.of()), mediaUrlResolver.resolve(saved)));
+                folderIds.getOrDefault(saved.getId(), List.of()), mediaUrlResolver.resolve(saved), 0, false));
         }
         registered.forEach(media -> eventPublisher.publishEvent(new MediaCreatedEvent(roomId, media)));
         return registered;
