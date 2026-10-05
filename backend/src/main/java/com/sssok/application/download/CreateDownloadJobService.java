@@ -1,8 +1,10 @@
 package com.sssok.application.download;
 
+import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.media.MediaUploaderFilter;
+import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.DownloadFileNames;
@@ -25,19 +27,24 @@ public class CreateDownloadJobService {
 
     private final DownloadTargetResolver downloadTargetResolver;
     private final DownloadJobRepository downloadJobRepository;
+    private final MemberRepository memberRepository;
     private final DownloadProperties downloadProperties;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public CreateDownloadJobResult create(Long roomId, Long requesterId, List<Long> mediaIds,
                                           Long folderId, MediaUploaderFilter uploader) {
+        List<StoredFile> targets = downloadTargetResolver.resolve(
+            roomId, mediaIds, folderId, requesterId, uploader);
+
+        if (!memberRepository.lockById(requesterId)) {
+            throw new UnauthorizedException("다시 접속해주세요");
+        }
         long activeJobCount = downloadJobRepository.countByRequesterIdAndStatusIn(requesterId, ACTIVE_STATUSES);
         if (activeJobCount >= downloadProperties.maxConcurrentJobsPerRequester()) {
             throw new DownloadRateLimitedException();
         }
 
-        List<StoredFile> targets = downloadTargetResolver.resolve(
-            roomId, mediaIds, folderId, requesterId, uploader);
         int mediaCount = targets.size();
         long totalSizeBytes = targets.stream().mapToLong(file -> file.getFileSize().bytes()).sum();
         String fileName = DownloadFileNames.zipNameOf(roomId);
