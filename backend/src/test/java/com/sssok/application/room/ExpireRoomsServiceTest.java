@@ -15,6 +15,7 @@ import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -39,7 +40,7 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 만료_시각이_지난_ACTIVE_방을_EXPIRED로_바꾼다() {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Room room = 방(now.minus(Duration.ofMinutes(1)));
 
         int expired = expireRoomsService.expire(now);
@@ -50,7 +51,7 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 만료_시각과_같은_시각이면_만료로_본다() {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Room room = 방(now);
 
         expireRoomsService.expire(now);
@@ -60,7 +61,7 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 만료_시각_전인_방은_ACTIVE로_남는다() {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Room room = 방(now.plus(Duration.ofMinutes(1)));
 
         int expired = expireRoomsService.expire(now);
@@ -71,7 +72,7 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 삭제된_방은_만료_시각이_지나도_DELETED로_남는다() {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Room room = 방(now.minus(Duration.ofMinutes(1)));
         room.delete(HOST, now);
         Room deleted = roomRepository.save(room);
@@ -84,7 +85,7 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 다시_돌려도_이미_만료된_방은_대상이_아니다() {
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         Room room = 방(now.minus(Duration.ofMinutes(1)));
         expireRoomsService.expire(now);
 
