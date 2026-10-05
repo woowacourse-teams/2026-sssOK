@@ -9,11 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -21,8 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 // API 인수 테스트 (docs/backend/TEST_CONVENTION.md 참고)
 // 닉네임으로 익명 회원을 생성하고 토큰을 발급받는 흐름이 실제 PostgreSQL 위에서 맞물려 도는지 확인한다.
 // PostgresContainerSupport(싱글톤 컨테이너)를 상속하므로 다른 API 인수 테스트와 컨테이너를 공유한다.
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
-@AutoConfigureMockMvc
+@PostgresApiTest
 class AuthApiTest extends PostgresContainerSupport {
 
     @Autowired

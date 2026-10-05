@@ -16,6 +16,7 @@ import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomName;
 import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
+import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
@@ -27,16 +28,13 @@ import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 // 방 이벤트 구독(SSE)이 실제 PostgreSQL·실제 인증/입장 흐름 위에서 맞물려 도는지 확인하는 인수 테스트.
 // PostgresContainerSupport(싱글톤 컨테이너)를 상속하므로 다른 API 인수 테스트와 컨테이너를 공유한다.
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
-@AutoConfigureMockMvc
+@PostgresApiTest
 class RoomEventApiTest extends PostgresContainerSupport {
 
     private static final RandomGenerator RANDOM = new SecureRandom();
