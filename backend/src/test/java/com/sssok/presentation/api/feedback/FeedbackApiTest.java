@@ -26,8 +26,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 방 생성/입장부터 의견 등록까지 실제 PostgreSQL 위에서 관통 확인한다.
 @SpringBootTest(properties = {
-    "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s"
+    "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
 class FeedbackApiTest extends PostgresContainerSupport {

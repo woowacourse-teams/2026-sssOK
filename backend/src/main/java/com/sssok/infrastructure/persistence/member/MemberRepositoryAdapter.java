@@ -27,11 +27,6 @@ public class MemberRepositoryAdapter implements MemberRepository {
     }
 
     @Override
-    public Optional<Member> findByIdForUpdate(Long id) {
-        return jpaRepository.findWithLockById(id).map(this::toDomain);
-    }
-
-    @Override
     public List<Member> findAllByIdIn(Collection<Long> memberIds) {
         if (memberIds.isEmpty()) {
             return List.of();

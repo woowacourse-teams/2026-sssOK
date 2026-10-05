@@ -28,8 +28,7 @@ import org.springframework.test.web.servlet.ResultActions;
 // 관리자 의견 조회 인수 테스트가 함께 쓰는 준비 과정. 방을 만들고 입장해 의견을 남기고,
 // 관리자 토큰을 얻는 절차가 테스트마다 반복되는데 검증과 섞이면 읽기 어려워진다.
 @SpringBootTest(properties = {
-    "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s"
+    "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
 abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {

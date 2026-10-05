@@ -36,7 +36,6 @@ import org.springframework.test.web.servlet.MvcResult;
 // 디스코드 대신 로컬 HTTP 서버를 웹훅으로 두고, 그 서버가 멈추거나 실패해도 등록이 영향받지 않는지 본다.
 @SpringBootTest(properties = {
     "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s",
     "notification.discord.read-timeout=10s"
 })
 @AutoConfigureMockMvc

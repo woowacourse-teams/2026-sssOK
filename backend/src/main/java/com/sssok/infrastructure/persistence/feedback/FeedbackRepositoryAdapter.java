@@ -38,13 +38,6 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
         return toDomains(jpaRepository.findAllBefore(createdAt, id, Limit.of(limit)));
     }
 
-    @Override
-    public Optional<Feedback> findLatestByMemberIdSince(Long memberId, Instant since) {
-        return jpaRepository
-            .findFirstByMemberIdAndCreatedAtAfterOrderByCreatedAtDesc(memberId, since)
-            .map(this::toDomain);
-    }
-
     private List<Feedback> toDomains(List<FeedbackJpaEntity> entities) {
         return entities.stream().map(this::toDomain).toList();
     }
