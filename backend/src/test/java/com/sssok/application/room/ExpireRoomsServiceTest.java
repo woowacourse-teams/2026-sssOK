@@ -50,7 +50,7 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 만료_시각과_같은_시각이면_만료로_본다() {
-        Instant now = Instant.now();
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
         Room room = 방(now);
 
         expireRoomsService.expire(now);
