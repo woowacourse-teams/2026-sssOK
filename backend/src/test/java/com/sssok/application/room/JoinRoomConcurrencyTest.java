@@ -6,6 +6,7 @@ import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -16,10 +17,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 // 입장 멱등성이 동시 요청에서도 지켜지는지 확인한다.
-@SpringBootTest
+@PostgresIntegrationTest
 class JoinRoomConcurrencyTest extends PostgresContainerSupport {
 
     private static final int THREADS = 8;

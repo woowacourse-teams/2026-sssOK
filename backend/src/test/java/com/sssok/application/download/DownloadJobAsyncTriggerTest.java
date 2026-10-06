@@ -20,17 +20,15 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // 일부러 @Transactional을 안 쓴다 — CreateDownloadJobService가 QUEUED로 잡을 만드는 트랜잭션이
 // 실제로 커밋돼야 @TransactionalEventListener(AFTER_COMMIT)가 발화하고, 그래야 별도 스레드(media-worker)에서
 // 도는 DownloadJobEventListener/DownloadCompressionWorker까지 실제로 확인할 수 있다.
 // 테스트가 끝나면 데이터를 직접 지운다(자동 롤백이 없으므로).
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class DownloadJobAsyncTriggerTest {
 
     private static final Long ROOM_ID = 1L;

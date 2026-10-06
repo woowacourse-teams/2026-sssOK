@@ -18,6 +18,7 @@ import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -25,11 +26,10 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 // Repository + Service 통합 테스트
 // 입장이 PostgreSQL 전용 네이티브 쿼리를 쓰므로 H2가 아닌 실제 PostgreSQL로 돌린다.
-@SpringBootTest
+@PostgresIntegrationTest
 class JoinRoomServiceTest extends PostgresContainerSupport {
 
     @Autowired

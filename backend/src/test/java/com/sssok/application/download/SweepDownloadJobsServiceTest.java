@@ -12,16 +12,14 @@ import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 스토리지 삭제는 목으로 둔다.
 // @Transactional로 테스트마다 롤백한다 — 이 서비스는 status/ready_at만으로 대상을 고르기 때문에,
 // 다른 테스트가 남긴 READY 잡이 격리 없이 섞이면 (특히 "미래" now를 넣는 테스트에서) 서로 오염된다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 @Transactional
 class SweepDownloadJobsServiceTest {
 
