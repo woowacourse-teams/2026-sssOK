@@ -5,14 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.config.ScheduledTaskHolder;
-import org.springframework.test.context.ActiveProfiles;
 
 // 배치가 실제로 스케줄에 등록되는지 확인한다. @EnableScheduling 이 빠지면 여기서 걸린다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class ExpirationBatchSchedulingTest {
 
     @Autowired

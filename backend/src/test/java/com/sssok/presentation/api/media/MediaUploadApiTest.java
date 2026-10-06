@@ -20,6 +20,7 @@ import com.sssok.application.room.JoinRoomService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.AcceptanceTest;
 import java.time.Duration;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 // API 인수 테스트 (Testcontainers). 폴더 담기가 PostgreSQL 전용 ON CONFLICT 를 써서 H2 로는 못 돈다.
 // 스토리지만 목으로 두고 나머지는 실제 흐름 그대로 태운다.
+@AcceptanceTest
 @SpringBootTest
 class MediaUploadApiTest extends PostgresContainerSupport {
 

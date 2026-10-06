@@ -2,6 +2,7 @@ package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.PerformanceTest;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -19,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+@PerformanceTest
 @PostgresIntegrationTest
 @EnabledIfEnvironmentVariable(named = "RUN_MEDIA_QUERY_BENCHMARK", matches = "true")
 class FolderMediaQueryPerformanceTest extends PostgresContainerSupport {

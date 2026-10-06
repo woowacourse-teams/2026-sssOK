@@ -97,6 +97,36 @@ tasks.named('test') {
     useJUnitPlatform()
 }
 
+def registerTaggedTest = { String taskName, List<String> includedTags, List<String> excludedTags = [] ->
+    tasks.register(taskName, Test) {
+        group = 'verification'
+        description = "${taskName} 범주의 테스트를 실행한다"
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath
+        useJUnitPlatform {
+            if (includedTags) {
+                includeTags(*includedTags)
+            }
+            if (excludedTags) {
+                excludeTags(*excludedTags)
+            }
+        }
+    }
+}
+
+registerTaggedTest('unitTest', [], [
+    'integration-h2',
+    'integration-postgres',
+    'acceptance',
+    'performance',
+    'external'
+])
+registerTaggedTest('integrationTestH2', ['integration-h2'])
+registerTaggedTest('integrationTestPostgres', ['integration-postgres'], ['performance'])
+registerTaggedTest('acceptanceTest', ['acceptance'])
+registerTaggedTest('performanceTest', ['performance'])
+registerTaggedTest('externalTest', ['external'])
+
 
 // #291 파생 이미지 포맷 선정용 측정기. 표준 테스트에 섞으면 CI 가 매번 사진 수십 장을 인코딩하므로
 // 별도 태스크로 떼어 둔다. AVIF 측정에는 ffmpeg 이 PATH 에 있어야 한다.

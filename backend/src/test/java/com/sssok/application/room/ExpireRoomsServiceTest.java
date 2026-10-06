@@ -17,15 +17,13 @@ import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2).
 // @Transactional로 테스트마다 롤백한다 — 대상은 상태와 만료 시각만으로 고르기 때문에,
 // 다른 테스트가 남긴 ACTIVE 방이 섞이면 처리 개수가 어긋난다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 @Transactional
 class ExpireRoomsServiceTest {
 
