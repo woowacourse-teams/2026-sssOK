@@ -84,6 +84,8 @@ media:
   search:
     enabled: ${IMAGE_SEARCH_ENABLED:false}
     created-since: ${MEDIA_SEARCH_CREATED_SINCE:}
+    query:
+      min-similarity: ${MEDIA_SEARCH_QUERY_MIN_SIMILARITY:}
     provider: openai
     openai:
       api-key: ${OPENAI_API_KEY:}

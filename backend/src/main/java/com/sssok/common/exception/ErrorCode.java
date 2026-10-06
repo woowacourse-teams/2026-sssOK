@@ -88,6 +88,9 @@ public enum ErrorCode {
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
     UNSUPPORTED_FILE_TYPE(415, "지원하지 않는 파일 형식입니다: %s"),
 
+    INVALID_SEARCH_QUERY(400, "검색어는 공백 정리 후 1~200자여야 합니다"),
+    IMAGE_SEARCH_UNAVAILABLE(503, "이미지 검색을 사용할 수 없습니다. 잠시 후 다시 시도해주세요"),
+
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요");
 
