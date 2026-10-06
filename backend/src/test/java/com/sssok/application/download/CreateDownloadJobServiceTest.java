@@ -18,6 +18,7 @@ import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
 import com.sssok.infrastructure.config.DownloadProperties;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,12 +29,11 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
+@PostgresIntegrationTest
 @Transactional
 class CreateDownloadJobServiceTest extends PostgresContainerSupport {
 

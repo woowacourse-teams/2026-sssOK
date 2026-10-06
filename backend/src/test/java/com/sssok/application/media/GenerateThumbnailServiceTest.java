@@ -44,14 +44,12 @@ import javax.imageio.stream.ImageInputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 스토리지만 목으로 두고 실제로 이미지를 줄여본다.
 // 자동 기동(ThumbnailTrigger)은 test 프로파일에서 꺼져 있어, 여기서 직접 불러 결과를 확인한다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class GenerateThumbnailServiceTest {
 
     private static final Long ROOM_ID = 720L;

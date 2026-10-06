@@ -23,6 +23,7 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.AcceptanceTest;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 // 커밋 뒤 오브젝트 정리가 실제로 도는지 확인한다. MediaDeleteApiTest 는 이 트리거를 끄고
 // "커밋 시점에 무엇이 남는가"만 보므로, AFTER_COMMIT 과 @Async 배선 자체는 여기서만 검증된다.
+@AcceptanceTest
 @SpringBootTest(properties = "storage.cleanup.auto-purge=true")
 class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
 

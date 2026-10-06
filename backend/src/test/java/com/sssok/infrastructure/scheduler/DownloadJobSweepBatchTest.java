@@ -5,21 +5,20 @@ import static org.mockito.BDDMockito.then;
 
 import com.sssok.application.download.SweepDownloadJobsService;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 // 배치가 정리 작업을 서비스에 위임하는지 확인한다. 스케줄 등록 여부는
 // DownloadJobSweepBatchSchedulingTest 가 본다.
-@SpringBootTest
-@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 class DownloadJobSweepBatchTest {
 
-    @Autowired
+    @InjectMocks
     DownloadJobSweepBatch downloadJobSweepBatch;
 
-    @MockitoBean
+    @Mock
     SweepDownloadJobsService sweepDownloadJobsService;
 
     @Test

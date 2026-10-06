@@ -3,6 +3,7 @@ package com.sssok.infrastructure.monitoring;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.health.HealthEndpointGroups;
 import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
@@ -14,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
+@Tag("integration-h2")
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = "management.server.port=0"
