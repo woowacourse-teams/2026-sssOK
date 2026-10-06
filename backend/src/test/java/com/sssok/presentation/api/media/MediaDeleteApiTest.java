@@ -25,6 +25,7 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.AcceptanceTest;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ import org.springframework.web.context.WebApplicationContext;
 // 커밋 뒤 도는 오브젝트 정리를 끈다. 그 스레드가 fileStoragePort 목을 동시에 건드리면 검증이
 // 간헐적으로 깨진다. 여기서 확인할 것은 "커밋 시점에 정리 대상이 남았는가"이고,
 // 실제로 지우는 부분은 PurgeOrphanObjectsServiceTest 가 맡는다.
+@AcceptanceTest
 @SpringBootTest(properties = "storage.cleanup.auto-purge=false")
 class MediaDeleteApiTest extends PostgresContainerSupport {
 

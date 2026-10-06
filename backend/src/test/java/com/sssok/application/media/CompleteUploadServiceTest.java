@@ -28,14 +28,12 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 스토리지에 무엇이 올라와 있는지는 목으로 정해두고,
 // 그 결과에 따라 등록이 갈리는지를 본다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class CompleteUploadServiceTest {
 
     private static final long SIZE = 1024L;

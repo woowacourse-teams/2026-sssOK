@@ -11,15 +11,15 @@ import org.springframework.scheduling.config.ScheduledTaskHolder;
 
 // 배치가 실제로 스케줄에 등록되는지 확인한다. @EnableScheduling 이 빠지면 여기서 걸린다.
 @H2IntegrationTest
-class DownloadJobSweepBatchSchedulingTest {
+class ExpirationBatchSchedulingTest {
 
     @Autowired
     ApplicationContext applicationContext;
 
     @Test
-    void 정리_배치가_스케줄에_등록된다() {
+    void 만료_배치가_스케줄에_등록된다() {
         assertThat(scheduledTaskNames())
-            .anyMatch(name -> name.contains(DownloadJobSweepBatch.class.getName() + ".sweep"));
+            .anyMatch(name -> name.contains(ExpirationBatch.class.getName() + ".expire"));
     }
 
     // 스프링이 러너블을 감싸는 방식은 버전마다 달라서, 타입 대신 표기로 확인한다.
