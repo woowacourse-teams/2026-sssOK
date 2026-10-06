@@ -102,4 +102,29 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         """, nativeQuery = true)
     List<Long> findPending(@Param("now") Instant now, @Param("limit") int limit);
 
+    // MATERIALIZED로 모델·차원·방 선별을 먼저 완료하여 다른 차원의 거리 계산을 막는다.
+    @Query(value = """
+        WITH candidates AS MATERIALIZED (
+            SELECT d.media_id, d.embedding
+            FROM media_search_document d JOIN stored_file f ON f.id = d.media_id
+            WHERE f.room_id = :roomId AND f.status = 'READY'
+                AND f.media_type IN ('JPEG', 'PNG', 'GIF') AND d.status = 'READY'
+                AND d.embedding_model = :model AND d.embedding_dimensions = :dimensions
+                AND vector_dims(d.embedding) = :dimensions
+        ), scored AS (
+            SELECT media_id, 1 - (embedding <=> CAST(:vector AS vector)) AS similarity
+            FROM candidates
+        )
+        SELECT media_id AS "mediaId", similarity FROM scored
+        WHERE similarity >= :threshold
+        ORDER BY similarity DESC, media_id ASC
+        """, nativeQuery = true)
+    List<SearchMatch> search(@Param("roomId") Long roomId, @Param("vector") String vector,
+        @Param("model") String model, @Param("dimensions") int dimensions,
+        @Param("threshold") double threshold);
+
+    interface SearchMatch {
+        Long getMediaId();
+        double getSimilarity();
+    }
 }
