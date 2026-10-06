@@ -3,6 +3,7 @@ package com.sssok.support;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 // Testcontainers "싱글톤 컨테이너" 패턴
 // @Container(JUnit 확장의 클래스별 생명주기 관리) 대신 static 초기화 블록에서 한 번만 띄우고 stop() 안함
@@ -13,7 +14,9 @@ public abstract class PostgresContainerSupport {
     static final PostgreSQLContainer<?> POSTGRES;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+        POSTGRES = new PostgreSQLContainer<>(DockerImageName
+            .parse("pgvector/pgvector:0.8.6-pg16-bookworm")
+            .asCompatibleSubstituteFor("postgres"));
         POSTGRES.start();
     }
 
