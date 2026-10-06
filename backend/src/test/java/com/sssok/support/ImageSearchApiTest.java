@@ -13,6 +13,7 @@ import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.ImageDescriptionPort;
 import com.sssok.application.port.out.MediaSearchDocumentRepository;
+import com.sssok.application.port.out.MediaSearchDocumentRepository.AnalysisAttempt;
 import com.sssok.application.port.out.TextEmbeddingPort;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.search.ImageAnalysis;
@@ -31,7 +32,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 @SpringBootTest(properties = {
-    "media.search.enabled=true", "media.search.created-since=2026-01-01T00:00:00Z",
+    "media.search.enabled=true", "media.search.provider=test", "media.search.created-since=2026-01-01T00:00:00Z",
     "media.search.query.min-similarity=0", "media.search.sweep-delay=3600000",
     "media.thumbnail.auto-generate=false"
 })
@@ -62,6 +63,21 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     @AfterEach
     void cleanup() {
         jdbc.update("DELETE FROM stored_file WHERE id BETWEEN 460201 AND 460230");
+    }
+
+    @Test
+    void Swagger에_검색_응답과_오류_스키마를_제공한다() throws Exception {
+        mvc.perform(get("/v3/api-docs"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/search'].get.tags[0]")
+                .value("미디어 조회"))
+            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/search'].get.responses['200']"
+                + ".content['application/json'].schema").exists())
+            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/search'].get.responses['503']"
+                + ".content['application/json'].schema['$ref']").value("#/components/schemas/ErrorResponse"))
+            .andExpect(jsonPath("$.components.schemas.ImageSearchMatchResponse.properties.media").exists())
+            .andExpect(jsonPath("$.components.schemas.ImageSearchMatchResponse.properties.similarity.example")
+                .value(0.72));
     }
 
     @Test
@@ -103,7 +119,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
 
     @Test
     void 입장하지_않은_사용자는_검색할_수_없다() throws Exception {
-        var stranger = auth.authenticate("방 밖 사용자");
+        AuthResult stranger = auth.authenticate("방 밖 사용자");
         mvc.perform(get(path()).param("query", "사진").header("Authorization", "Bearer " + stranger.accessToken()))
             .andExpect(status().isForbidden());
         org.mockito.Mockito.verifyNoInteractions(embeddings);
@@ -158,7 +174,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, id, targetRoom, member.userId(), "search/" + id + ".jpg");
         documents.register(id);
-        var attempt = documents.claim(id, Instant.now().plusSeconds(1), 3).orElseThrow();
+        AnalysisAttempt attempt = documents.claim(id, Instant.now().plusSeconds(1), 3).orElseThrow();
         documents.complete(attempt, new ImageAnalysis("사진", "바다", "바다 사진", vector,
             model, "vision-test", "v1"), Instant.now());
     }
