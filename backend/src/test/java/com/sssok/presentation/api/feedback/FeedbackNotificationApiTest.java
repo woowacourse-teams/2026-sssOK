@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
+import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
 import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
@@ -34,6 +35,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 // API 인수 테스트 — 의견 등록부터 디스코드 웹훅 호출까지 관통 확인한다.
 // 디스코드 대신 로컬 HTTP 서버를 웹훅으로 두고, 그 서버가 멈추거나 실패해도 등록이 영향받지 않는지 본다.
+@AcceptanceTest
 @SpringBootTest(properties = {
     "spring.jpa.hibernate.ddl-auto=validate",
     "notification.discord.read-timeout=10s"

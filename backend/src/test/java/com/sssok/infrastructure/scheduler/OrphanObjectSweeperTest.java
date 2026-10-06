@@ -14,15 +14,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // 삭제 직후의 정리가 유실되면 오브젝트는 주인 없이 남아 계속 요금을 먹는다.
 // 이 배치가 유일한 회수 경로라, 실제로 회수되는지 확인해둔다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class OrphanObjectSweeperTest {
 
     @Autowired
