@@ -108,7 +108,7 @@ export const LinkBubble = styled.div`
   ${typography.caption1};
   font-size: 12px;
   line-height: 16px;
-  animation: onboarding-pop 400ms 200ms both;
+  animation: onboarding-pop 400ms 100ms both;
 `;
 
 export const LinkPreview = styled.span`

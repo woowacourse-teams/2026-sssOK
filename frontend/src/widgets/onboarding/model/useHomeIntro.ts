@@ -7,6 +7,8 @@ export const HOME_INTRO_PLAY_MS = 1000;
 /** 캐릭터가 로고 자리로 줄어들며 화면이 드러나는 시간 */
 export const HOME_INTRO_LEAVE_MS = 350;
 
+export const HOME_INTRO_SETTLE_MS = 250;
+
 export type HomeIntroPhase = "play" | "leave" | "done";
 
 /**
@@ -16,6 +18,7 @@ export type HomeIntroPhase = "play" | "leave" | "done";
 export const useHomeIntro = () => {
   const [phase, setPhase] = useState<HomeIntroPhase>(() => (readReducedMotion() ? "done" : "play"));
   const [hasIntro] = useState(phase !== "done");
+  const [settled, setSettled] = useState(!hasIntro);
 
   useEffect(() => {
     if (phase === "done") return;
@@ -27,8 +30,15 @@ export const useHomeIntro = () => {
     return () => window.clearTimeout(timer);
   }, [phase]);
 
+  useEffect(() => {
+    if (phase !== "done" || settled) return;
+
+    const timer = window.setTimeout(() => setSettled(true), HOME_INTRO_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [phase, settled]);
+
   /** 화면을 누르면 인사를 끊고 바로 물러난다 */
   const skip = () => setPhase((current) => (current === "play" ? "leave" : current));
 
-  return { phase, hasIntro, skip };
+  return { phase, hasIntro, settled, skip };
 };

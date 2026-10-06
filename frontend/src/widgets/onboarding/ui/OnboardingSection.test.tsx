@@ -3,7 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
 import { ROUTES } from "@/shared/config";
-import { HOME_INTRO_LEAVE_MS, HOME_INTRO_PLAY_MS } from "../model/useHomeIntro";
+import {
+  HOME_INTRO_LEAVE_MS,
+  HOME_INTRO_PLAY_MS,
+  HOME_INTRO_SETTLE_MS,
+} from "../model/useHomeIntro";
 import { PREVIEW_STEP_DURATIONS_MS } from "../model/usePreviewStep";
 
 const [LINK_MS, UPLOAD_MS, DOWNLOAD_MS] = PREVIEW_STEP_DURATIONS_MS;
@@ -33,13 +37,15 @@ const mockReducedMotion = (matches: boolean) => {
 const stepButtons = () =>
   within(screen.getByRole("list", { name: "쏙 사용 방법" })).getAllByRole("button");
 
-/** 인트로가 다 걷히면 미리보기가 첫 단계부터 시간을 센다. 물러나는 타이머는 인사가 끝나야 걸린다 */
 const finishIntro = () => {
   act(() => {
     jest.advanceTimersByTime(HOME_INTRO_PLAY_MS);
   });
   act(() => {
     jest.advanceTimersByTime(HOME_INTRO_LEAVE_MS);
+  });
+  act(() => {
+    jest.advanceTimersByTime(HOME_INTRO_SETTLE_MS);
   });
 };
 
@@ -197,11 +203,11 @@ describe("OnboardingSection", () => {
       expect(introPhase()).toBeNull();
     });
 
-    it("캐릭터가 로고 자리에 닿기 전에는 미리보기 첫 단계가 넘어가지 않는다", () => {
+    it("캐릭터가 로고 자리에 닿고 화면이 자리 잡기 전에는 미리보기 첫 단계가 넘어가지 않는다", () => {
       jest.useFakeTimers();
       renderSection();
 
-      // 인트로가 떠 있는 1.65초 동안은 첫 단계에 머문다
+      // 인트로가 떠 있다가 화면이 자리 잡을 때까지는 첫 단계에 머문다
       finishIntro();
       expect(currentStep()).toBe(0);
 

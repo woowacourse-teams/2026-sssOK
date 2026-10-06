@@ -15,7 +15,7 @@ import { ActionGroup, IntroArea, PreviewArea, Section } from "./OnboardingSectio
  *
  * 처음 온 사람에게는 캐릭터 인트로가 먼저 1초 인사하고 로고 자리로 들어간다.
  * 헤드라인·미리보기·버튼은 인트로가 걷히는 때에 맞춰 나타나고,
- * 미리보기의 첫 단계는 캐릭터가 로고 자리에 닿은 뒤부터 시간을 센다.
+ * 미리보기의 첫 단계는 캐릭터가 로고 자리에 닿고 화면이 다 나타난 뒤 잠깐 쉬었다가 시작한다.
  */
 export const OnboardingSection = () => {
   const logoRef = useRef<HTMLImageElement>(null);
@@ -28,7 +28,7 @@ export const OnboardingSection = () => {
       </IntroArea>
 
       <PreviewArea>
-        <OnboardingPreview paused={intro.phase !== "done"} />
+        <OnboardingPreview paused={!intro.settled} />
       </PreviewArea>
 
       <ActionGroup>
