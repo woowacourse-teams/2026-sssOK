@@ -9,6 +9,7 @@ import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -18,11 +19,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.OptimisticLockingFailureException;
 
 // 방 설정 변경이 조회-수정-저장으로 이뤄져서, 낙관적 락 없이는 동시 요청이 서로를 덮어쓴다.
-@SpringBootTest
+@PostgresIntegrationTest
 class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
 
     private static final int THREADS = 6;
