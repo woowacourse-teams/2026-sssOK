@@ -3,7 +3,6 @@ package com.sssok.presentation.api.feedback;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -29,8 +28,7 @@ import org.springframework.test.web.servlet.ResultActions;
 // API 인수 테스트 — 방 생성/입장부터 의견 등록까지 실제 PostgreSQL 위에서 관통 확인한다.
 @AcceptanceTest
 @SpringBootTest(properties = {
-    "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s"
+    "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
 class FeedbackApiTest extends PostgresContainerSupport {
@@ -314,82 +312,5 @@ class FeedbackApiTest extends PostgresContainerSupport {
             .andReturn();
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.get("data").get("accessToken").asText();
-    }
-
-    @SpringBootTest(properties = {
-        "spring.jpa.hibernate.ddl-auto=validate",
-        "feedback.rate-limit-window=1m"
-    })
-    @AutoConfigureMockMvc
-    static class 연속_등록_제한 extends PostgresContainerSupport {
-
-        @Autowired
-        MockMvc mockMvc;
-
-        @Autowired
-        ObjectMapper objectMapper;
-
-        @Test
-        void 짧은_시간에_연속으로_등록하면_429와_Retry_After를_받는다() throws Exception {
-            String token = 익명_인증("가현");
-            long roomId = 방_만들고_입장(token);
-
-            의견_등록(token, roomId, "첫 번째 의견").andExpect(status().isCreated());
-
-            의견_등록(token, roomId, "두 번째 의견")
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("FEEDBACK_RATE_LIMITED"))
-                .andExpect(header().exists(HttpHeaders.RETRY_AFTER));
-        }
-
-        @Test
-        void 다른_회원은_서로의_제한에_걸리지_않는다() throws Exception {
-            String first = 익명_인증("가현");
-            String second = 익명_인증("민수");
-            long roomId = 방_만들고_입장(first);
-            방_입장(second, roomId);
-
-            의견_등록(first, roomId, "가현의 의견").andExpect(status().isCreated());
-
-            의견_등록(second, roomId, "민수의 의견").andExpect(status().isCreated());
-        }
-
-        private ResultActions 의견_등록(String token, long roomId, String content) throws Exception {
-            return mockMvc.perform(post("/api/v1/rooms/{roomId}/feedbacks", roomId)
-                .header("Authorization", "Bearer " + token)
-                .header(HttpHeaders.USER_AGENT, CHROME_UA)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"content\":\"" + content + "\"}"));
-        }
-
-        private long 방_만들고_입장(String token) throws Exception {
-            MvcResult created = mockMvc.perform(post("/api/v1/rooms")
-                    .header("Authorization", "Bearer " + token)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"name\":\"우테코 회식\"}"))
-                .andReturn();
-            long roomId = Long.parseLong(값(created, "roomId"));
-            방_입장(token, roomId);
-            return roomId;
-        }
-
-        private void 방_입장(String token, long roomId) throws Exception {
-            mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-                .header("Authorization", "Bearer " + token));
-        }
-
-        private String 값(MvcResult result, String field) throws Exception {
-            JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-            return body.get("data").get(field).asText();
-        }
-
-        private String 익명_인증(String nickname) throws Exception {
-            MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"nickname\":\"" + nickname + "\"}"))
-                .andReturn();
-            JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-            return body.get("data").get("accessToken").asText();
-        }
     }
 }
