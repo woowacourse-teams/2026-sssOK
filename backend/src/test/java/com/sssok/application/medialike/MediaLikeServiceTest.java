@@ -7,15 +7,15 @@ import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.MediaLikeRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
+@PostgresIntegrationTest
 @Transactional
 @RecordApplicationEvents
 class MediaLikeServiceTest extends PostgresContainerSupport {

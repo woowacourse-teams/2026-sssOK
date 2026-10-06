@@ -3,6 +3,7 @@ package com.sssok.application.medialike;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -13,10 +14,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@SpringBootTest
+@PostgresIntegrationTest
 class MediaLikeConcurrencyTest extends PostgresContainerSupport {
 
     private static final int THREADS = 8;

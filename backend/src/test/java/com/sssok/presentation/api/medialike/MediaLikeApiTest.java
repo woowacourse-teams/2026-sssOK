@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
 // MediaDeleteApiTest 와 같은 설정이라야 테스트 컨텍스트를 재사용해 DB 연결 수가 모자라지 않는다.
+@AcceptanceTest
 @SpringBootTest(properties = "storage.cleanup.auto-purge=false")
 class MediaLikeApiTest extends PostgresContainerSupport {
 
