@@ -73,6 +73,6 @@ JUnit 태그와 Gradle 태스크를 연결해 필요한 범주만 독립적으�
 | `acceptanceTest` | `@AcceptanceTest` 또는 `@PostgresApiTest`가 적용된 API 인수 테스트 |
 | `performanceTest` | `@PerformanceTest`가 적용된 성능 테스트 |
 | `externalTest` | `@ExternalTest`가 적용된 실제 외부 서비스 연동 테스트 |
-| `test` | 모든 테스트 |
+| `test` | 필수 CI 범위 전체(성능·외부 연동 제외) |
 
-성능 테스트와 외부 연동 테스트는 데이터 크기, 자격증명, 네트워크 상태처럼 통제하기 어려운 실행 조건이 필요하므로 필수 CI에서 실행하지 않는다. `R2FileStorageAdapterTest`는 실제 R2 호환성과 CORS를 확인해야 할 때 `./gradlew externalTest`로 명시 실행한다. 필수 CI는 범주별 `Test` 태스크를 한 Job에서 순차 실행한다. 각 태스크가 별도 테스트 JVM을 사용하므로 Spring Context와 데이터베이스 연결 수명은 분리하면서, checkout·도구 설정·컴파일 비용은 한 번만 부담한다.
+성능 테스트와 외부 연동 테스트는 데이터 크기, 자격증명, 네트워크 상태처럼 통제하기 어려운 실행 조건이 필요하므로 기본 `test`와 필수 CI에서 제외한다. `R2FileStorageAdapterTest`는 실제 R2 호환성과 CORS를 확인해야 할 때 `./gradlew externalTest`로 명시 실행한다. 필수 CI는 `build`의 단일 `test` JVM에서 Spring Context 캐시를 재사용해 실행 시간을 줄인다. 테스트 범주별 태스크는 특정 범주를 로컬에서 재현하거나 실패 범위를 좁힐 때 사용한다.

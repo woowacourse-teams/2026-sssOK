@@ -94,7 +94,9 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'performance', 'external'
+    }
 }
 
 def registerTaggedTest = { String taskName, List<String> includedTags, List<String> excludedTags = [] ->
