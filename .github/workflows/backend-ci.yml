@@ -110,7 +110,7 @@ jobs:
       # 필수 CI는 한 Test JVM에서 Spring Context 캐시를 재사용한다. 성능·외부 연동 테스트는
       # test 태스크에서 제외하며, 문제를 좁혀야 할 때 범주별 태스크를 선택 실행한다.
       - name: 빌드 및 테스트
-        run: ./gradlew build --continue
+        run: ./gradlew build --continue --build-cache
         env:
           # CI 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
           JWT_SECRET: 5SWYqRqL3JIuYo1c/ecWhbU6RTRd2nWPQfeaDjGJSd0=
