@@ -32,3 +32,73 @@
 READY 상태에서는 필수 분석 정보와 벡터 차원의 일치를 DB 제약으로 검사한다.
 비어 있는 벡터·영벡터·NaN·무한대는 결과 객체 생성 시 거절한다.
 검색을 구현할 때 현재 모델·차원과 일치하는 문서만 비교해야 한다.
+
+## 업로드 이벤트와 분석 워커
+
+이미지 처리 완료 → 별도 트랜잭션으로 작업 등록 → 전용 실행기에 제출 → 선점 → 설명 생성 → 임베딩 → 결과 저장 순서다.
+
+- `ImageAnalysisTrigger`는 `MediaReadyEvent`의 AFTER_COMMIT 리스너다.
+- `ImageAnalysisRegistrar`는 REQUIRES_NEW 트랜잭션으로 등록을 확정한 뒤 반환한다.
+- `ImageAnalysisDispatcher`는 전용 실행기에 제출하고, 거절되면 PENDING 작업을 그대로 남긴다.
+- `AnalyzeImageService`는 프리뷰가 있으면 프리뷰, 없으면 원본의 GET 서명 URL을 설명 생성 포트에 전달한다.
+- `ImageDescriptionPort`와 `TextEmbeddingPort` 구현체는 전달받은 제한 시간을 실제 HTTP 요청에 적용해야 한다.
+- `ImageAnalysisSweeper`는 누락된 등록·중단된 작업·재시도 대기 작업을 회수한다.
+- DB의 이미지 타입은 IMAGE가 아닌 JPEG·PNG·GIF이므로 해당 타입만 등록·분석한다.
+
+## 활성화와 작업 제한
+
+현재 `media.search.enabled=false`가 기본값이다. 실제 제공자 어댑터가 없으므로 활성화하지 않는다.
+실제 활성화에는 두 AI 포트의 구현체와 `media.search.created-since` 설정이 필요하다.
+
+| 설정 | 기본값 | 목적 |
+| --- | --- | --- |
+| enabled | false | 이벤트·워커·배치 전체 활성화 |
+| created-since | 필수, 기본값 없음 | 최초 도입 이후 이미지에만 자동 분석 적용 |
+| concurrency | 2 | 동시 외부 호출 작업 수 |
+| queue-capacity | 20 | 실행기 메모리 대기열 상한 |
+| batch-size | 20 | 한 배치에서 등록·제출할 작업 수 |
+| max-attempts | 3 | 최초 실행을 포함한 최대 시도 횟수 |
+| request-timeout | 30s | 각 설명/임베딩 호출 제한 시간 계약 |
+| retry-delay | 1m | 실패 후 재시도 대기 시간 |
+| stuck-after | 3m | 중단된 PROCESSING 작업 회수 기준 |
+| image-url-ttl | 5m | 이미지 GET 서명 URL 유효기간 |
+| sweep-delay | 60000 (밀리초) | 배치 최초 대기 및 실행 간격 |
+
+도입 시각은 재시작할 때마다 현재 시각으로 바꾸지 않고 고정한다. 그래야 이전 실행에서
+등록하지 못했던 이미지를 재시작 후에도 찾을 수 있다. 배치 크기는 분석 작업 처리량 제한이며
+최종 검색 결과 개수 제한과 관계없다.
+
+외부 호출 타임아웃은 현재 인터페이스 계약이다. 실제 HTTP 시간 제한은 후속 제공자 어댑터에서
+구현·검증한다. 복구 시간은 두 AI 호출의 제한 시간 합보다 길게 설정한다.
+
+## 커밋 이후 처리와 독립 트랜잭션
+
+원본 이미지 변경이 확정된 뒤 분석을 등록해야 롤백된 업로드를 분석하지 않는다.
+
+- AFTER_COMMIT 리스너는 커밋 성공 시 호출된다. 트랜잭션 밖에서 발행한 이벤트는 기본적으로 처리하지 않는다.
+- 등록은 별도 빈의 REQUIRES_NEW 메서드에 맡긴다. 독립 트랜잭션으로 분석 대기 작업을 커밋한다.
+- 등록 실패는 기존 업로드를 실패 응답으로 바꾸지 않고 복구 배치에서 재시도한다.
+- REQUIRES_NEW는 별도 커넥션을 사용할 수 있으므로 커넥션 풀 크기를 고려해야 한다.
+- 근거: [트랜잭션 이벤트](https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/event.html),
+  [트랜잭션 전파](https://docs.spring.io/spring-framework/reference/6.2/data-access/transaction/declarative/tx-propagation.html).
+
+## DB 작업 기록과 실행기 대기열
+
+실행기 큐는 서버 종료 시 사라질 수 있으므로 DB에 기록한 작업 상태를 복구 기준으로 사용한다.
+
+- 분석 문서를 먼저 저장하고 실행기에 제출한다. 큐에서 기다리는 동안은 PENDING이다.
+- 실행을 시작한 워커가 조건부 갱신으로 PROCESSING 상태를 선점한다.
+- 큐가 가득 차서 제출이 거절되어도 시도 횟수를 늘리지 않고 다음 배치에서 다시 제출한다.
+- 전용 풀의 동시 실행 수와 큐 크기에 상한을 두어 AI 호출이 기존 썸네일 작업을 밀어내지 않게 한다.
+- 같은 작업이 여러 번 제출될 수 있지만 한 번만 선점된다. 다만 중단 복구 시 외부 AI 호출이
+  중복 발생할 가능성까지 없애는 것은 아니며, DB 결과 저장은 시도 번호로 보호한다.
+- 근거: [Spring 작업 실행과 스케줄링](https://docs.spring.io/spring-framework/reference/6.2/integration/scheduling.html).
+
+## 출력 포트로 외부 AI 의존성 분리
+
+출력 포트는 애플리케이션이 외부 서비스에 요구하는 호출 계약을 나타낸다.
+
+- 설명 생성 포트는 이미지 URL을 받아 설명·특징·모델·프롬프트 버전을 반환한다.
+- 임베딩 포트는 텍스트를 받아 벡터와 모델 이름을 반환한다. 이후 검색어에도 같은 구현체를 사용한다.
+- 워커는 제공자별 HTTP 응답 구조를 알 필요 없이 분석 순서와 실패 처리를 담당한다.
+- 현재 테스트는 외부 호출만 대체하고 실제 JPA·PostgreSQL 저장과 이벤트 트랜잭션을 검증한다.
