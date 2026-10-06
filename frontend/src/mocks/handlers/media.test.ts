@@ -1,4 +1,5 @@
 import { getMedia, getPhotos } from "@/entities/media";
+import { saveRoomSession } from "@/entities/session";
 import { deleteMedia, deleteMediaBatch } from "@/features/delete-media";
 import { API_BASE_URL } from "@/shared/config";
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
@@ -37,6 +38,47 @@ describe("미디어 단일 조회·삭제 및 다중 삭제 목", () => {
     await join(HOST);
     const host = await getMedia({ roomId: MOCK_ROOM_ID, mediaId: 5006, token: HOST });
     expect(host.canDelete).toBe(true);
+  });
+
+  it("좋아요 등록과 취소를 목록에 반영하며 중복 요청은 멱등하게 처리한다", async () => {
+    await join(MEMBER);
+    const url = `${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/5012/likes`;
+    const headers = { Authorization: `Bearer ${MEMBER}` };
+    const before = (await getPhotos({ roomId: MOCK_ROOM_ID, token: MEMBER })).items.find(
+      ({ mediaId }) => mediaId === 5012,
+    );
+
+    await fetch(url, { method: "PUT", headers });
+    await fetch(url, { method: "PUT", headers });
+    const liked = (await getPhotos({ roomId: MOCK_ROOM_ID, token: MEMBER })).items.find(
+      ({ mediaId }) => mediaId === 5012,
+    );
+
+    expect(liked).toMatchObject({ likedByMe: true, likeCount: (before?.likeCount ?? 0) + 1 });
+
+    await fetch(url, { method: "DELETE", headers });
+    await fetch(url, { method: "DELETE", headers });
+    const unliked = (await getPhotos({ roomId: MOCK_ROOM_ID, token: MEMBER })).items.find(
+      ({ mediaId }) => mediaId === 5012,
+    );
+
+    expect(unliked).toMatchObject({ likedByMe: false, likeCount: before?.likeCount });
+  });
+
+  it("저장된 방 세션이 있으면 mock 입장 기록이 없어도 좋아요를 허용한다", async () => {
+    saveRoomSession(MOCK_ROOM_CODES.active, {
+      accessToken: MEMBER,
+      userId: 12,
+      nickname: "로지",
+      expiresAt: "9999-12-31T23:59:59Z",
+    });
+
+    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/5012/likes`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${MEMBER}` },
+    });
+
+    expect(response.status).toBe(200);
   });
 
   it("단일 삭제 후 목록에서 빠지고 다시 조회하면 404를 반환한다", async () => {
