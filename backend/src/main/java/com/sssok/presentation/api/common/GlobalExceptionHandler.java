@@ -1,7 +1,6 @@
 package com.sssok.presentation.api.common;
 
 import com.sssok.application.admin.exception.AdminLoginRateLimitedException;
-import com.sssok.application.feedback.exception.FeedbackRateLimitedException;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
 import com.sssok.common.logging.LogContext;
@@ -29,16 +28,6 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final String DEFAULT_VIOLATION_MESSAGE = "요청 값이 올바르지 않습니다";
-
-    // 연속 등록 제한만 Retry-After 를 함께 내려준다.
-    @ExceptionHandler(FeedbackRateLimitedException.class)
-    public ResponseEntity<ErrorResponse> handleFeedbackRateLimited(FeedbackRateLimitedException e) {
-        ErrorCode errorCode = e.errorCode();
-        record(errorCode, e);
-        return errorResponse(errorCode)
-            .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
-            .body(new ErrorResponse(errorCode.name(), e.getMessage()));
-    }
 
     @ExceptionHandler(AdminLoginRateLimitedException.class)
     public ResponseEntity<ErrorResponse> handleAdminLoginRateLimited(AdminLoginRateLimitedException e) {
