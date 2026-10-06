@@ -90,6 +90,9 @@ jobs:
 
       - name: Gradle 설정
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # 작업 브랜치에서도 캐시를 저장해 다음 CI 실행에서 재사용한다.
+          cache-read-only: false
 
       - name: gradlew 실행 권한 부여
         run: chmod +x gradlew
