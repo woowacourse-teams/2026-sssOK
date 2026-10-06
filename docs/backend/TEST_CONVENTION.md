@@ -76,3 +76,13 @@ JUnit 태그와 Gradle 태스크를 연결해 필요한 범주만 독립적으�
 | `test` | 필수 CI 범위 전체(성능·외부 연동 제외) |
 
 성능 테스트와 외부 연동 테스트는 데이터 크기, 자격증명, 네트워크 상태처럼 통제하기 어려운 실행 조건이 필요하므로 기본 `test`와 필수 CI에서 제외한다. `R2FileStorageAdapterTest`는 실제 R2 호환성과 CORS를 확인해야 할 때 `./gradlew externalTest`로 명시 실행한다. 필수 CI는 `build`의 단일 `test` JVM에서 Spring Context 캐시를 재사용해 실행 시간을 줄인다. 테스트 범주별 태스크는 특정 범주를 로컬에서 재현하거나 실패 범위를 좁힐 때 사용한다.
+
+## CI의 Gradle 캐시
+
+`setup-gradle`로 의존성·Gradle 준비 상태·로컬 Build Cache를 저장하고, `--build-cache`로 입력이 같은 태스크의 결과를 재사용한다. 캐시 적중 여부는 태스크의 `FROM-CACHE` 로그로 확인한다.
+
+- 백엔드 관련 변경이 `develop`에 병합되면 `./gradlew classes testClasses --build-cache`로 애플리케이션·테스트 코드를 컴파일해 공통 캐시를 갱신한다. 실제 테스트 실행과 ffmpeg 설치는 생략하며, 프론트엔드만 변경된 push는 실행하지 않는다.
+- `develop` 대상 신규 PR은 대상 브랜치의 캐시를 복원할 수 있다. PR에서 저장한 캐시는 해당 PR 범위에 묶이며 다른 PR에 직접 공유되지 않는다.
+- 전체 빌드·테스트, 버전 의도, 기존 Flyway 마이그레이션 변경 검증은 PR에서 수행한다. 병합 후 실행은 공통 컴파일 캐시 갱신을 담당한다.
+- 캐시가 없거나 태스크 입력이 바뀌면 다시 실행한다. 캐시 저장·복원 비용도 있으므로 시간 단축은 실제 CI 로그로 평가한다.
+- 공식 문서: [Gradle Actions 캐시](https://github.com/gradle/actions/blob/v4/docs/setup-gradle.md), [GitHub 캐시 접근 범위](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).
