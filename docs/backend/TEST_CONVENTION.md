@@ -75,4 +75,4 @@ JUnit 태그와 Gradle 태스크를 연결해 필요한 범주만 독립적으�
 | `externalTest` | `@ExternalTest`가 적용된 실제 외부 서비스 연동 테스트 |
 | `test` | 모든 테스트 |
 
-성능 테스트와 외부 연동 테스트는 데이터 크기, 자격증명, 네트워크 상태처럼 통제하기 어려운 실행 조건이 필요하므로 필수 CI에서 실행하지 않는다. `R2FileStorageAdapterTest`는 실제 R2 호환성과 CORS를 확인해야 할 때 `./gradlew externalTest`로 명시 실행한다. PostgreSQL 통합 테스트와 인수 테스트는 CI에서 별도 Job으로 실행해 Spring Context와 데이터베이스 연결 수명 주기를 분리한다.
+성능 테스트와 외부 연동 테스트는 데이터 크기, 자격증명, 네트워크 상태처럼 통제하기 어려운 실행 조건이 필요하므로 필수 CI에서 실행하지 않는다. `R2FileStorageAdapterTest`는 실제 R2 호환성과 CORS를 확인해야 할 때 `./gradlew externalTest`로 명시 실행한다. 필수 CI는 범주별 `Test` 태스크를 한 Job에서 순차 실행한다. 각 태스크가 별도 테스트 JVM을 사용하므로 Spring Context와 데이터베이스 연결 수명은 분리하면서, checkout·도구 설정·컴파일 비용은 한 번만 부담한다.

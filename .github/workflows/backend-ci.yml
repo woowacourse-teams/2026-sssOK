@@ -69,32 +69,10 @@ jobs:
         run: bash .github/scripts/check-flyway-migrations.sh "$BASE_SHA"
 
   build:
-    name: 테스트 (${{ matrix.name }})
+    name: 빌드 및 테스트
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-
-    strategy:
-      # 한 범주가 실패해도 나머지 결과까지 확인해 재실행 전에 전체 실패 범위를 파악한다.
-      fail-fast: false
-      matrix:
-        include:
-          - name: 단위
-            task: unitTest
-            gradle_tasks: assemble unitTest
-            install_ffmpeg: true
-          - name: H2 통합
-            task: integrationTestH2
-            gradle_tasks: integrationTestH2
-            install_ffmpeg: true
-          - name: PostgreSQL 통합
-            task: integrationTestPostgres
-            gradle_tasks: integrationTestPostgres
-            install_ffmpeg: false
-          - name: API 인수
-            task: acceptanceTest
-            gradle_tasks: acceptanceTest
-            install_ffmpeg: false
 
     defaults:
       run:
@@ -120,7 +98,6 @@ jobs:
       # 건너뛰어져, 깨진 채로 머지돼도 CI 가 초록으로 통과한다.
       # 운영 이미지에도 같은 패키지가 깔린다(backend/Dockerfile).
       - name: ffmpeg 설치
-        if: matrix.install_ffmpeg
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
@@ -128,8 +105,12 @@ jobs:
           ffmpeg -version | head -1
           ffprobe -version | head -1
 
-      - name: ${{ matrix.name }} 테스트
-        run: ./gradlew ${{ matrix.gradle_tasks }}
+      # Test 태스크마다 별도 JVM을 사용해 Spring Context와 DB 연결 풀의 수명을 분리한다.
+      # --continue로 한 범주가 실패해도 나머지 범주와 리포트까지 모두 확인한다.
+      - name: 빌드 및 범주별 테스트
+        run: >-
+          ./gradlew assemble unitTest integrationTestH2 integrationTestPostgres acceptanceTest
+          --continue
         env:
           # CI 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
           JWT_SECRET: 5SWYqRqL3JIuYo1c/ecWhbU6RTRd2nWPQfeaDjGJSd0=
@@ -141,8 +122,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-report-${{ matrix.task }}
-          path: backend/build/reports/tests/${{ matrix.task }}
+          name: test-reports
+          path: |
+            backend/build/reports/tests/unitTest
+            backend/build/reports/tests/integrationTestH2
+            backend/build/reports/tests/integrationTestPostgres
+            backend/build/reports/tests/acceptanceTest
           retention-days: 7
 
   ci-ok:
@@ -151,8 +136,8 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      # build matrix가 스킵됐으면(backend 미변경) 통과로 본다. 브랜치 보호 규칙의 필수 체크는
-      # 이 job("백엔드 CI 결과")을 지정한다 — 개별 테스트를 지정하면 스킵된 PR에서 체크가
+      # build가 스킵됐으면(backend 미변경) 통과로 본다. 브랜치 보호 규칙의 필수 체크는
+      # 이 job("백엔드 CI 결과")을 지정한다 — build 자체를 지정하면 스킵된 PR에서 체크가
       # 안 생겨 머지가 막힌다.
       - name: 결과 판정
         run: |
