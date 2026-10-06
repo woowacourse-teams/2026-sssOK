@@ -12,12 +12,13 @@ import com.sssok.domain.room.roomstatus.ActiveRoomStatus;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.support.H2IntegrationTest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2).
@@ -48,7 +49,8 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 만료_시각과_같은_시각이면_만료로_본다() {
-        Instant now = Instant.now();
+        // DB 저장 정밀도보다 작은 나노초가 반올림돼 만료 시각이 조회 기준보다 미래가 되지 않게 한다.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Room room = 방(now);
 
         expireRoomsService.expire(now);
