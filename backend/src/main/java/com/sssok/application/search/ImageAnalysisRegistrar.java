@@ -9,15 +9,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @RequiredArgsConstructor
 public class ImageAnalysisRegistrar {
-    private final MediaSearchDocumentRepository documents;
-    private final FileRepository files;
+    private final MediaSearchDocumentRepository documentRepository;
+    private final FileRepository fileRepository;
     private final ImageSearchProperties properties;
 
     // AFTER_COMMIT 호출과 별도 트랜잭션에서 등록을 확정한다.
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void register(Long mediaId) {
-        files.findById(mediaId)
+        fileRepository.findById(mediaId)
             .filter(file -> !file.getCreatedAt().isBefore(properties.createdSince()))
-            .ifPresent(file -> documents.register(mediaId));
+            .ifPresent(file -> documentRepository.register(mediaId));
     }
 }

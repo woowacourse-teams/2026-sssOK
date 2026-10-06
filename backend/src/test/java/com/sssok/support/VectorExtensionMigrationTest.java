@@ -1,5 +1,9 @@
 package com.sssok.support;
 
+import java.sql.Connection;
+import java.sql.Statement;
+import java.sql.ResultSet;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.DriverManager;
@@ -14,9 +18,9 @@ class VectorExtensionMigrationTest extends PostgresContainerSupport {
     void 빈_DB에_전체_마이그레이션을_적용하면_벡터_유사도를_계산할_수_있다() throws Exception {
         // 공유 테스트 DB 대신 별도 스키마에서 전체 Flyway 이력을 검증한다.
         String schema = "vector_migration_test";
-        try (var connection = DriverManager.getConnection(
+        try (Connection connection = DriverManager.getConnection(
             POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
-            var statement = connection.createStatement()) {
+            Statement statement = connection.createStatement()) {
             try {
                 Flyway.configure()
                     .dataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword())
@@ -25,7 +29,7 @@ class VectorExtensionMigrationTest extends PostgresContainerSupport {
                     .migrate();
 
                 statement.execute("SET search_path TO " + schema + ", public");
-                try (var result = statement.executeQuery("""
+                try (ResultSet result = statement.executeQuery("""
                     SELECT 1 - ('[1,0,0]'::vector <=> '[1,0,0]'::vector) AS identical,
                            1 - ('[1,0,0]'::vector <=> '[0,1,0]'::vector) AS unrelated
                     """)) {

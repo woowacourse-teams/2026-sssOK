@@ -32,7 +32,7 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 @SpringBootTest(properties = {
-    "media.search.enabled=true", "media.search.created-since=2026-01-01T00:00:00Z",
+    "media.search.enabled=true", "media.search.provider=test", "media.search.created-since=2026-01-01T00:00:00Z",
     "media.search.sweep-delay=3600000", "media.thumbnail.auto-generate=false"
 })
 class ImageAnalysisWorkflowTest extends PostgresContainerSupport {

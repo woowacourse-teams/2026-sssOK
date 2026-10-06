@@ -13,11 +13,11 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 class ImageSearchQueryPolicyTest {
     @Test
     void 임계값을_정하지_않으면_외부_호출_없이_503_예외를_반환한다() {
-        var provider = mock(TextEmbeddingPort.class);
-        var factory = new StaticListableBeanFactory();
+        TextEmbeddingPort provider = mock(TextEmbeddingPort.class);
+        StaticListableBeanFactory factory = new StaticListableBeanFactory();
         factory.addBean("embedding", provider);
-        var assembler = mock(ImageSearchResultAssembler.class);
-        var service = new SearchImagesService(factory.getBeanProvider(TextEmbeddingPort.class), assembler,
+        ImageSearchResultAssembler assembler = mock(ImageSearchResultAssembler.class);
+        SearchImagesService service = new SearchImagesService(factory.getBeanProvider(TextEmbeddingPort.class), assembler,
             new ImageSearchQueryProperties(null, null), true);
         assertThatThrownBy(() -> service.search(1L, "사진"))
             .isInstanceOf(ImageSearchUnavailableException.class);

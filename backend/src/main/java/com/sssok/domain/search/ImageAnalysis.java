@@ -2,9 +2,15 @@ package com.sssok.domain.search;
 
 import java.util.List;
 
-public record ImageAnalysis(String description, String features, String searchText,
-                            List<Double> embedding, String embeddingModel,
-                            String analysisModel, String promptVersion) {
+public record ImageAnalysis(
+    String description,
+    String features,
+    String searchText,
+    List<Double> embedding,
+    String embeddingModel,
+    String analysisModel,
+    String promptVersion
+) {
     public ImageAnalysis {
         requireText(description);
         requireText(features);

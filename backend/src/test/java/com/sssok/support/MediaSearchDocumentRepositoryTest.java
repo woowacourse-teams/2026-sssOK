@@ -1,5 +1,13 @@
 package com.sssok.support;
 
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.persistence.EntityManager;
+
+import com.sssok.application.port.out.MediaSearchDocumentRepository.AnalysisAttempt;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -14,14 +22,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@org.springframework.boot.test.context.SpringBootTest
+@SpringBootTest
 class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     private Instant now;
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
     private JdbcTemplate jdbc;
-    @org.springframework.beans.factory.annotation.Autowired
-    private jakarta.persistence.EntityManager entityManager;
-    @org.springframework.beans.factory.annotation.Autowired
+    @Autowired
+    private EntityManager entityManager;
+    @Autowired
     private MediaSearchDocumentRepositoryAdapter repository;
 
     @BeforeEach
@@ -65,8 +73,8 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     void 동시에_실행해도_한_워커만_선점한다() throws Exception {
         repository.register(460001L);
         Callable<Boolean> claim = () -> repository.claim(460001L, now, 3).isPresent();
-        try (var executor = Executors.newFixedThreadPool(2)) {
-            var results = executor.invokeAll(List.of(claim, claim));
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            List<Future<Boolean>> results = executor.invokeAll(List.of(claim, claim));
             assertThat(List.of(results.get(0).get(), results.get(1).get()))
                 .containsExactlyInAnyOrder(true, false);
         }
@@ -75,7 +83,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @Test
     void 작업은_한번만_선점하고_분석_결과와_벡터를_저장한다() {
         repository.register(460001L);
-        var attempt = repository.claim(460001L, now, 3).orElseThrow();
+        AnalysisAttempt attempt = repository.claim(460001L, now, 3).orElseThrow();
         assertThat(repository.claim(460001L, now, 3)).isEmpty();
         assertThat(repository.complete(attempt, analysis(), now)).isTrue();
         assertThat(repository.complete(attempt, analysis(), now)).isFalse();
@@ -84,7 +92,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         assertThat(jdbc.queryForObject(
             "SELECT vector_dims(embedding) FROM media_search_document WHERE media_id = 460001", Integer.class)).isEqualTo(3);
         assertThat(repository.findPending(now, 10)).isEmpty();
-        var storedVector = entityManager.createNativeQuery(
+        Object storedVector = entityManager.createNativeQuery(
             "SELECT CAST(embedding AS text) FROM media_search_document WHERE media_id = 460001")
             .getSingleResult();
         assertThat(storedVector).isEqualTo("[1,0,0]");
@@ -93,11 +101,11 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @Test
     void 재시도_시각과_최대_시도_횟수를_지킨다() {
         repository.register(460001L);
-        var first = repository.claim(460001L, now, 2).orElseThrow();
+        AnalysisAttempt first = repository.claim(460001L, now, 2).orElseThrow();
         assertThat(repository.fail(first, "AI_TIMEOUT", now.plusSeconds(60), 2)).isTrue();
         assertThat(repository.claim(460001L, now, 2)).isEmpty();
         assertThat(repository.findPending(now, 10)).isEmpty();
-        var second = repository.claim(460001L, now.plusSeconds(60), 2).orElseThrow();
+        AnalysisAttempt second = repository.claim(460001L, now.plusSeconds(60), 2).orElseThrow();
         assertThat(repository.fail(second, "AI_TIMEOUT", now.plusSeconds(120), 2)).isTrue();
         assertThat(repository.claim(460001L, now.plusSeconds(120), 2)).isEmpty();
         assertThat(jdbc.queryForObject("SELECT status FROM media_search_document WHERE media_id = 460001", String.class))
@@ -107,10 +115,10 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @Test
     void 중단된_작업을_복구하면_이전_워커의_늦은_결과는_무시한다() {
         repository.register(460001L);
-        var oldAttempt = repository.claim(460001L, now, 2).orElseThrow();
+        AnalysisAttempt oldAttempt = repository.claim(460001L, now, 2).orElseThrow();
         assertThat(repository.recover(now.minusSeconds(1), now, 2)).isZero();
         assertThat(repository.recover(now.plusSeconds(1), now.plusSeconds(10), 2)).isEqualTo(1);
-        var newAttempt = repository.claim(460001L, now.plusSeconds(10), 2).orElseThrow();
+        AnalysisAttempt newAttempt = repository.claim(460001L, now.plusSeconds(10), 2).orElseThrow();
         assertThat(repository.complete(oldAttempt, analysis(), now)).isFalse();
         assertThat(repository.fail(oldAttempt, "LATE_ERROR", now, 2)).isFalse();
         assertThat(repository.complete(newAttempt, analysis(), now.plusSeconds(11))).isTrue();
@@ -129,7 +137,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @Test
     void 미디어_삭제는_문서를_삭제하고_늦은_분석_저장을_막는다() {
         repository.register(460001L);
-        var attempt = repository.claim(460001L, now, 3).orElseThrow();
+        AnalysisAttempt attempt = repository.claim(460001L, now, 3).orElseThrow();
         jdbc.update("DELETE FROM stored_file WHERE id = 460001");
         assertThat(repository.complete(attempt, analysis(), now)).isFalse();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM media_search_document WHERE media_id = 460001", Integer.class))

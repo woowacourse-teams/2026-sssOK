@@ -24,11 +24,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @EnableConfigurationProperties(ImageSearchProperties.class)
 public class ImageSearchWorkerConfig {
     @Bean(name = "imageAnalysisTaskExecutor")
-    public AsyncTaskExecutor executor(ImageSearchProperties properties) {
+    public AsyncTaskExecutor imageAnalysisTaskExecutor(ImageSearchProperties properties) {
         if (properties.createdSince() == null) {
             throw new IllegalArgumentException("media.search.created-since에 기능 도입 시각을 지정해주세요");
         }
-        var executor = new ThreadPoolTaskExecutor();
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("image-analysis-");
         executor.setCorePoolSize(properties.concurrency());
         executor.setMaxPoolSize(properties.concurrency());
@@ -37,7 +37,7 @@ public class ImageSearchWorkerConfig {
     }
 
     @Bean
-    public AnalyzeImageService analyzer(MediaSearchDocumentRepository documents, FileRepository files,
+    public AnalyzeImageService analyzeImageService(MediaSearchDocumentRepository documents, FileRepository files,
         FileStoragePort storage, ImageDescriptionPort descriptions, TextEmbeddingPort embeddings,
         ImageSearchProperties properties) {
         return new AnalyzeImageService(documents, files, storage, descriptions, embeddings,
@@ -45,24 +45,24 @@ public class ImageSearchWorkerConfig {
     }
 
     @Bean
-    public ImageAnalysisRegistrar registrar(MediaSearchDocumentRepository documents, FileRepository files,
+    public ImageAnalysisRegistrar imageAnalysisRegistrar(MediaSearchDocumentRepository documents, FileRepository files,
         ImageSearchProperties properties) {
         return new ImageAnalysisRegistrar(documents, files, properties);
     }
 
     @Bean
-    public ImageAnalysisDispatcher dispatcher(
+    public ImageAnalysisDispatcher imageAnalysisDispatcher(
         @Qualifier("imageAnalysisTaskExecutor") AsyncTaskExecutor executor, AnalyzeImageService analyzer) {
         return new ImageAnalysisDispatcher(executor, analyzer);
     }
 
     @Bean
-    public ImageAnalysisTrigger trigger(ImageAnalysisRegistrar registrar, ImageAnalysisDispatcher dispatcher) {
+    public ImageAnalysisTrigger imageAnalysisTrigger(ImageAnalysisRegistrar registrar, ImageAnalysisDispatcher dispatcher) {
         return new ImageAnalysisTrigger(registrar, dispatcher);
     }
 
     @Bean
-    public ImageAnalysisSweeper sweeper(MediaSearchDocumentRepository documents,
+    public ImageAnalysisSweeper imageAnalysisSweeper(MediaSearchDocumentRepository documents,
         ImageAnalysisDispatcher dispatcher, ImageSearchProperties properties) {
         return new ImageAnalysisSweeper(documents, dispatcher, properties, Clock.systemUTC());
     }
