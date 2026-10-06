@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.domain.search.ImageAnalysis;
 import com.sssok.infrastructure.persistence.search.MediaSearchDocumentRepositoryAdapter;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -23,6 +24,9 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @PostgresIntegrationTest
 class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
+    // 공유 DB의 다른 API 테스트가 남긴 이미지를 전역 등록 배치가 가져오지 않도록 시각을 분리한다.
+    private static final Instant TEST_CREATED_AT = Instant.parse("2100-01-01T00:00:00Z");
+
     private Instant now;
     @Autowired
     private JdbcTemplate jdbc;
@@ -35,7 +39,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     void setup() {
         cleanup();
         insert(460001L, "JPEG", "READY");
-        now = Instant.now().plusSeconds(1);
+        now = TEST_CREATED_AT.plusSeconds(1);
     }
 
     @AfterEach
@@ -164,8 +168,8 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         jdbc.update("""
             INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,
                 media_type, file_size_bytes, storage_key, status, created_at, updated_at, reserved_at)
-            VALUES (?, 1, 1, 'photo.jpg', ?, 100, ?, ?, CURRENT_TIMESTAMP,
+            VALUES (?, 1, 1, 'photo.jpg', ?, 100, ?, ?, ?,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            """, id, type, "test/" + id, status);
+            """, id, type, "test/" + id, status, Timestamp.from(TEST_CREATED_AT));
     }
 }
