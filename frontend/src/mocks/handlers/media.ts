@@ -160,28 +160,6 @@ export const mediaHandlers = [
     });
   }),
 
-  http.get(`${API_BASE_URL}/rooms/:roomId/media/search`, ({ request, params }) => {
-    const roomId = Number(params.roomId);
-    const auth = authorize(request, roomId);
-    if (typeof auth !== "number") return auth;
-
-    const query = (new URL(request.url).searchParams.get("query") ?? "")
-      .trim()
-      .replace(/\s+/g, " ");
-    if (query.length === 0 || query.length > 200) {
-      return error(400, "INVALID_SEARCH_QUERY", "검색어는 1~200자여야 합니다.");
-    }
-    if (query === "검색 장애") {
-      return error(503, "IMAGE_SEARCH_UNAVAILABLE", "이미지 검색을 사용할 수 없습니다.");
-    }
-
-    const matches = mediaOfRoom(roomId)
-      .filter((media) => media.type === "IMAGE" && (media.mediaId + query.length) % 3 === 0)
-      .map((media, index) => ({ media, similarity: Number((0.9 - index * 0.02).toFixed(2)) }));
-
-    return HttpResponse.json({ data: matches });
-  }),
-
   http.get(`${API_BASE_URL}/rooms/:roomId/media/:mediaId`, ({ request, params }) => {
     const roomId = Number(params.roomId);
     const auth = authorize(request, roomId);

@@ -42,13 +42,8 @@ const renderGallerySearch = (items: GalleryItem[], allItems: GalleryItem[] = ite
 
 const respondWith = (mediaIds: number[]) =>
   server.use(
-    http.get(`${API_BASE_URL}/rooms/:roomId/media/search`, () =>
-      HttpResponse.json({
-        data: mediaIds.map((mediaId, index) => ({
-          media: media(mediaId),
-          similarity: 0.9 - index,
-        })),
-      }),
+    http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, () =>
+      HttpResponse.json({ data: { items: mediaIds.map(media) } }),
     ),
   );
 
@@ -99,7 +94,7 @@ describe("useGallerySearch", () => {
 
   it("검색 기능이 꺼져 있으면 쓸 수 없다고 알려준다", async () => {
     server.use(
-      http.get(`${API_BASE_URL}/rooms/:roomId/media/search`, () =>
+      http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, () =>
         HttpResponse.json(
           { code: "IMAGE_SEARCH_UNAVAILABLE", message: "unavailable" },
           { status: 503 },

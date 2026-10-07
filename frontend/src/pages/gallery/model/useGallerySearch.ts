@@ -31,7 +31,8 @@ export const useGallerySearch = ({
     if (!isSearching) return items;
     if (!searchQuery.data) return [];
 
-    const rankById = new Map(searchQuery.data.map((match, index) => [match.media.mediaId, index]));
+    // 서버가 유사도 높은 순으로 내려주므로 응답 순서가 곧 순위다.
+    const rankById = new Map(searchQuery.data.items.map((media, index) => [media.mediaId, index]));
 
     return allItems
       .filter((item) => rankById.has(item.mediaId))
