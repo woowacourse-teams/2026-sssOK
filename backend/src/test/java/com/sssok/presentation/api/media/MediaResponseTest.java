@@ -32,6 +32,6 @@ class MediaResponseTest {
             1L, "IMAGE", "사진.jpg", "image/jpeg", 1024L,
             "https://storage.example.com/thumbnail", EXPIRES_AT,
             displayUrl, displayExpiresAt,
-            1200, 900, null, List.of(), 7L, "가현", "READY", Instant.now());
+            1200, 900, null, List.of(), 7L, "가현", "READY", Instant.now(), 0, false);
     }
 }

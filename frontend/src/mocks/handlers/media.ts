@@ -1,9 +1,22 @@
 import { http, HttpResponse } from "msw";
 
-import type { MediaDetail } from "@/entities/media";
+import { findRoomCodeByToken } from "@/entities/session/lib/roomSessionStorage";
 import { API_BASE_URL } from "@/shared/config";
-import { markMediaDeleted, type GalleryMedia } from "../db";
-import { hasFolder, hasJoinedRoom, mediaOfRoom, MOCK_HOST_ID, roomStatusOfId } from "./room";
+import {
+  addMediaLike,
+  markMediaDeleted,
+  mediaWithLikeState,
+  removeMediaLike,
+  type GalleryMedia,
+} from "../db";
+import {
+  hasFolder,
+  hasJoinedRoom,
+  mediaOfRoom,
+  MOCK_HOST_ID,
+  roomCodeOfId,
+  roomStatusOfId,
+} from "./room";
 
 const error = (status: number, code: string, message: string) =>
   HttpResponse.json({ code, message }, { status });
@@ -16,7 +29,9 @@ const authorize = (request: Request, roomId: number) => {
   if (status === null) return error(404, "ROOM_NOT_FOUND", "존재하지 않는 방입니다.");
   if (status !== "ACTIVE")
     return error(410, "ROOM_ALREADY_DELETED", "이미 삭제되었거나 만료된 방입니다.");
-  if (!hasJoinedRoom(authorization, roomId))
+  const token = authorization.replace("Bearer ", "");
+  const hasSavedRoomSession = findRoomCodeByToken(token) === roomCodeOfId(roomId);
+  if (!hasJoinedRoom(authorization, roomId) && !hasSavedRoomSession)
     return error(403, "NOT_ROOM_MEMBER", "입장한 방에서만 이용할 수 있습니다.");
   return Number(match[1]);
 };
@@ -42,6 +57,36 @@ const selectedIdsOf = (body: Record<string, unknown>) => {
 };
 
 export const mediaHandlers = [
+  http.put(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`, ({ request, params }) => {
+    const roomId = Number(params.roomId);
+    const memberId = authorize(request, roomId);
+    if (typeof memberId !== "number") return memberId;
+    const mediaId = Number(params.mediaId);
+    const media = mediaOfRoom(roomId).find((item) => item.mediaId === mediaId);
+    if (!media) return notFound();
+
+    addMediaLike(roomId, mediaId, memberId);
+    const result = mediaWithLikeState(roomId, media, memberId);
+    return HttpResponse.json({
+      data: { mediaId, liked: result.likedByMe, likeCount: result.likeCount },
+    });
+  }),
+
+  http.delete(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`, ({ request, params }) => {
+    const roomId = Number(params.roomId);
+    const memberId = authorize(request, roomId);
+    if (typeof memberId !== "number") return memberId;
+    const mediaId = Number(params.mediaId);
+    const media = mediaOfRoom(roomId).find((item) => item.mediaId === mediaId);
+    if (!media) return notFound();
+
+    removeMediaLike(roomId, mediaId, memberId);
+    const result = mediaWithLikeState(roomId, media, memberId);
+    return HttpResponse.json({
+      data: { mediaId, liked: result.likedByMe, likeCount: result.likeCount },
+    });
+  }),
+
   http.put(`${API_BASE_URL}/rooms/:roomId/media/folders`, async ({ request, params }) => {
     const roomId = Number(params.roomId);
     const auth = authorize(request, roomId);
@@ -188,8 +233,9 @@ export const mediaHandlers = [
     if (typeof auth !== "number") return auth;
     const media = mediaOfRoom(roomId).find((item) => item.mediaId === Number(params.mediaId));
     if (!media) return notFound();
+    const mediaWithLike = mediaWithLikeState(roomId, media, auth);
 
-    const data: MediaDetail = {
+    const data = {
       mediaId: media.mediaId,
       type: media.type,
       fileName: media.fileName,
@@ -204,6 +250,8 @@ export const mediaHandlers = [
       uploaderName: media.uploaderName,
       status: media.status,
       uploadedAt: media.uploadedAt,
+      likeCount: mediaWithLike.likeCount,
+      likedByMe: mediaWithLike.likedByMe,
       takenAt: media.mediaId === 5012 ? "2026-08-17T14:02:11+09:00" : null,
       location:
         media.mediaId === 5012

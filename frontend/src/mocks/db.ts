@@ -26,6 +26,8 @@ export interface GalleryMedia {
   uploaderName: string;
   status: "READY";
   uploadedAt: string;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 /**
@@ -43,6 +45,32 @@ export const displayUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
 /** 방 번호 → 이번 세션에 등록된 미디어. 최신이 앞이다. */
 const registeredByRoom = new Map<number, GalleryMedia[]>();
 const deletedIdsByRoom = new Map<number, Set<number>>();
+const likedMembersByMedia = new Map<string, Set<number>>();
+
+const mediaLikeKey = (roomId: number, mediaId: number) => `${roomId}:${mediaId}`;
+
+export const mediaWithLikeState = (roomId: number, media: GalleryMedia, memberId: number) => {
+  const likedMembers = likedMembersByMedia.get(mediaLikeKey(roomId, media.mediaId));
+
+  return {
+    ...media,
+    likeCount: media.likeCount + (likedMembers?.size ?? 0),
+    likedByMe: likedMembers?.has(memberId) ?? false,
+  };
+};
+
+export const addMediaLike = (roomId: number, mediaId: number, memberId: number) => {
+  const key = mediaLikeKey(roomId, mediaId);
+  const likedMembers = likedMembersByMedia.get(key) ?? new Set<number>();
+  likedMembers.add(memberId);
+  likedMembersByMedia.set(key, likedMembers);
+};
+
+export const removeMediaLike = (roomId: number, mediaId: number, memberId: number) => {
+  likedMembersByMedia.get(mediaLikeKey(roomId, mediaId))?.delete(memberId);
+};
+
+export const resetMediaLikes = () => likedMembersByMedia.clear();
 
 export const isDeletedMedia = (roomId: number, mediaId: number) =>
   deletedIdsByRoom.get(roomId)?.has(mediaId) ?? false;

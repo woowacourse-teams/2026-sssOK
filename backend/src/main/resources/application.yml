@@ -81,6 +81,15 @@ upload:
   max-retry-count: 5
 
 media:
+  search:
+    enabled: ${IMAGE_SEARCH_ENABLED:false}
+    created-since: ${MEDIA_SEARCH_CREATED_SINCE:}
+    query:
+      min-similarity: ${MEDIA_SEARCH_QUERY_MIN_SIMILARITY:}
+    provider: openai
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+    # 실제 AI 연동 후 활성화할 때 최초 도입 시각(created-since)을 고정하여 설정한다.
   resize-target-width: 1600
   # GIF는 애니메이션이 깨지므로 리사이즈/압축 대상에서 제외한다
   skip-formats: gif

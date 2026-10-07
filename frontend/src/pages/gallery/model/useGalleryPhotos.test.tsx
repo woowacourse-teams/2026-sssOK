@@ -134,6 +134,8 @@ describe("useGalleryPhotos", () => {
       duration: null,
       status: "READY",
       uploadedAt: "2026-09-28T00:00:00Z",
+      likeCount: 0,
+      likedByMe: false,
     };
     server.use(
       http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, () =>
