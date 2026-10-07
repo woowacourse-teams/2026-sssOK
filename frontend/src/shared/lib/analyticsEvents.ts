@@ -48,6 +48,9 @@ export interface AnalyticsEvents {
   /** 폴더 추가 진입점이 둘이라 어느 쪽을 누르는지 본다 */
   "Folder Create Started": { source: "menu" | "filter_plus" };
   "Folder Created": { source: "menu" | "filter_plus" };
+
+  "Gallery Filter Changed": { filter: "all" | "mine" | "others" | "liked" };
+  "Gallery Sort Changed": { sort: "upload" | "popular" };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

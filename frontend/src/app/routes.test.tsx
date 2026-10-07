@@ -80,11 +80,13 @@ describe("라우트", () => {
     expect(await screen.findByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "전체 필터 열기" }));
     await user.click(screen.getByRole("button", { name: "내 사진" }));
 
     expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "내 사진 필터 열기" }));
     await user.click(screen.getByRole("button", { name: "다른 사람 사진" }));
 
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
