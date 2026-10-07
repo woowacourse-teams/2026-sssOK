@@ -1,24 +1,19 @@
-import onboardingImage from "@/shared/assets/mascot.png";
-import { Description, Highlight, ImageSlot, IntroStack, Title } from "./OnboardingIntro.styles";
+import mascotHello from "@/shared/assets/mascot-hello.svg";
+import { Highlight, IntroStack, Logo, Title } from "./OnboardingIntro.styles";
 
 export const OnboardingIntro = () => {
   return (
-    <IntroStack gap={32} align="center">
-      <ImageSlot>
-        <img src={onboardingImage} alt="사진을 들고 있는 쏙 캐릭터" />
-      </ImageSlot>
+    <IntroStack gap={12}>
+      <Logo>
+        {/* 구멍에서 나와 인사하는 캐릭터가 계속 반복된다. 움직임을 줄이는 설정이면 SVG 가 스스로 멈춘다 */}
+        <img src={mascotHello} alt="" />쏙
+      </Logo>
 
       <Title>
-        사진 모으고
+        링크로 모으고,
         <br />
-        바로 <Highlight>쏙</Highlight> 나누기
+        <Highlight>쏙</Highlight> 골라 받기!
       </Title>
-
-      <Description>
-        링크 하나로 사진, 영상을 모으고
-        <br />
-        필요한 것만 쏙 빼가요.
-      </Description>
     </IntroStack>
   );
 };
