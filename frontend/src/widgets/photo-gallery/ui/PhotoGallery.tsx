@@ -10,6 +10,8 @@ interface PhotoGalleryProps {
   isPending: boolean;
   isError: boolean;
   expectedPhotoCount?: number;
+  emptyMessage?: string;
+  errorMessage?: string;
   onTogglePhoto: (photoId: number) => void;
   onOpenPhoto?: (mediaId: number) => void;
 }
@@ -21,12 +23,14 @@ export const PhotoGallery = ({
   isPending,
   isError,
   expectedPhotoCount,
+  emptyMessage = "조건에 맞는 사진이 없어요.",
+  errorMessage = "사진을 불러오지 못했어요.",
   onTogglePhoto,
   onOpenPhoto,
 }: PhotoGalleryProps) => {
   if (isPending && items.length === 0) return <PhotoGallerySkeleton count={expectedPhotoCount} />;
-  if (isError && items.length === 0) return <StateMessage>사진을 불러오지 못했어요.</StateMessage>;
-  if (items.length === 0) return <StateMessage>조건에 맞는 사진이 없어요.</StateMessage>;
+  if (isError && items.length === 0) return <StateMessage>{errorMessage}</StateMessage>;
+  if (items.length === 0) return <StateMessage>{emptyMessage}</StateMessage>;
 
   return (
     <GallerySection>
