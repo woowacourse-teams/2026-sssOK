@@ -81,7 +81,6 @@ public enum ErrorCode {
     // 429 Too Many Requests
     UPLOAD_RETRY_EXCEEDED(429, "재시도 횟수를 초과했습니다. 처음부터 다시 올려주세요"),
     RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
-    FEEDBACK_RATE_LIMITED(429, "의견을 너무 자주 보내고 있습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_LOGIN_RATE_LIMITED(429, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요"),
 
     // 415 Unsupported Media Type
