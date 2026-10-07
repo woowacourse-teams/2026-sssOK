@@ -4,12 +4,15 @@
   svg { --bg: #fff6ec; --orange: #f96b36; --dark: #2b231e; --paper: #fffbf8; }
 
   svg * { transform-box: view-box; }
-  .anim { animation-duration: 4.6s; animation-iteration-count: infinite; animation-fill-mode: both; }
+  /* 처음 0.35초(7.6%)는 구멍 속에서 기다리는 구간이라, 시작점을 그만큼 당겨 들어오자마자 튀어나오게 한다 */
+  svg { --start: -0.35s; }
+  .anim { animation-duration: 4.6s; animation-iteration-count: infinite; animation-fill-mode: both; animation-delay: var(--start); }
 
   /* 몸 전체: 구멍에서 튀어나왔다가 다시 들어간다 */
   .rise { animation-name: rise; }
   @keyframes rise {
-    0%, 7.6% { transform: translateY(560px); animation-timing-function: cubic-bezier(0.34, 1.5, 0.64, 1); }
+    /* 끝(100%)과 같은 깊이에서 시작해야 다음 바퀴가 이어질 때 머리가 툭 튀어 보이지 않는다 */
+    0%, 7.6% { transform: translateY(600px); animation-timing-function: cubic-bezier(0.34, 1.5, 0.64, 1); }
     21.7%, 83.7% { transform: translateY(35px); animation-timing-function: cubic-bezier(0.36, 0, 0.66, -0.5); }
     94.6%, 100% { transform: translateY(600px); }
   }
@@ -69,7 +72,7 @@
   /* 오른손: 구멍 위로 살짝 떴다가 가장자리에 걸친다 */
   .paw { animation-name: paw; }
   @keyframes paw {
-    0%, 8.3% { transform: translateY(560px); animation-timing-function: cubic-bezier(0.34, 1.9, 0.64, 1); }
+    0%, 8.3% { transform: translateY(600px); animation-timing-function: cubic-bezier(0.34, 1.9, 0.64, 1); }
     21.7%, 82.6% { transform: translateY(0); animation-timing-function: cubic-bezier(0.36, 0, 0.66, -0.9); }
     93.5%, 100% { transform: translateY(600px); }
   }
@@ -139,15 +142,15 @@
   <!-- 사진은 몸 뒤로 지나가고, 땅에 떨어진 뒤 사라진다 -->
   <g transform="translate(455 500)">
       <g class="anim photo-x" style="--dx: -420px"><g class="anim photo-y" style="--up: -300px; --land: 175px"><g class="anim photo-spin" style="--r: -372deg"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: -250px; animation-delay: 0.06s"><g class="anim photo-y" style="--up: -470px; --land: 195px; animation-delay: 0.06s"><g class="anim photo-spin" style="--r: -190deg; animation-delay: 0.06s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: 60px; animation-delay: 0.12s"><g class="anim photo-y" style="--up: -560px; --land: 205px; animation-delay: 0.12s"><g class="anim photo-spin" style="--r: 168deg; animation-delay: 0.12s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: 280px; animation-delay: 0.03s"><g class="anim photo-y" style="--up: -450px; --land: 190px; animation-delay: 0.03s"><g class="anim photo-spin" style="--r: 195deg; animation-delay: 0.03s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: 420px; animation-delay: 0.09s"><g class="anim photo-y" style="--up: -280px; --land: 170px; animation-delay: 0.09s"><g class="anim photo-spin" style="--r: 372deg; animation-delay: 0.09s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: -340px; animation-delay: 0.15s"><g class="anim photo-y" style="--up: -400px; --land: 215px; animation-delay: 0.15s"><g class="anim photo-spin" style="--s: 0.7; --r: -200deg; animation-delay: 0.15s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: -130px; animation-delay: 0.02s"><g class="anim photo-y" style="--up: -520px; --land: 225px; animation-delay: 0.02s"><g class="anim photo-spin" style="--s: 0.7; --r: -345deg; animation-delay: 0.02s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: 170px; animation-delay: 0.18s"><g class="anim photo-y" style="--up: -500px; --land: 220px; animation-delay: 0.18s"><g class="anim photo-spin" style="--s: 0.7; --r: 350deg; animation-delay: 0.18s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: 360px; animation-delay: 0.11s"><g class="anim photo-y" style="--up: -380px; --land: 210px; animation-delay: 0.11s"><g class="anim photo-spin" style="--s: 0.7; --r: -170deg; animation-delay: 0.11s"><use href="#photo-card" /></g></g></g>
-      <g class="anim photo-x" style="--dx: -480px; animation-delay: 0.21s"><g class="anim photo-y" style="--up: -200px; --land: 150px; animation-delay: 0.21s"><g class="anim photo-spin" style="--s: 0.7; --r: 190deg; animation-delay: 0.21s"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -250px; animation-delay: calc(var(--start) + 0.06s)"><g class="anim photo-y" style="--up: -470px; --land: 195px; animation-delay: calc(var(--start) + 0.06s)"><g class="anim photo-spin" style="--r: -190deg; animation-delay: calc(var(--start) + 0.06s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 60px; animation-delay: calc(var(--start) + 0.12s)"><g class="anim photo-y" style="--up: -560px; --land: 205px; animation-delay: calc(var(--start) + 0.12s)"><g class="anim photo-spin" style="--r: 168deg; animation-delay: calc(var(--start) + 0.12s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 280px; animation-delay: calc(var(--start) + 0.03s)"><g class="anim photo-y" style="--up: -450px; --land: 190px; animation-delay: calc(var(--start) + 0.03s)"><g class="anim photo-spin" style="--r: 195deg; animation-delay: calc(var(--start) + 0.03s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 420px; animation-delay: calc(var(--start) + 0.09s)"><g class="anim photo-y" style="--up: -280px; --land: 170px; animation-delay: calc(var(--start) + 0.09s)"><g class="anim photo-spin" style="--r: 372deg; animation-delay: calc(var(--start) + 0.09s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -340px; animation-delay: calc(var(--start) + 0.15s)"><g class="anim photo-y" style="--up: -400px; --land: 215px; animation-delay: calc(var(--start) + 0.15s)"><g class="anim photo-spin" style="--s: 0.7; --r: -200deg; animation-delay: calc(var(--start) + 0.15s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -130px; animation-delay: calc(var(--start) + 0.02s)"><g class="anim photo-y" style="--up: -520px; --land: 225px; animation-delay: calc(var(--start) + 0.02s)"><g class="anim photo-spin" style="--s: 0.7; --r: -345deg; animation-delay: calc(var(--start) + 0.02s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 170px; animation-delay: calc(var(--start) + 0.18s)"><g class="anim photo-y" style="--up: -500px; --land: 220px; animation-delay: calc(var(--start) + 0.18s)"><g class="anim photo-spin" style="--s: 0.7; --r: 350deg; animation-delay: calc(var(--start) + 0.18s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: 360px; animation-delay: calc(var(--start) + 0.11s)"><g class="anim photo-y" style="--up: -380px; --land: 210px; animation-delay: calc(var(--start) + 0.11s)"><g class="anim photo-spin" style="--s: 0.7; --r: -170deg; animation-delay: calc(var(--start) + 0.11s)"><use href="#photo-card" /></g></g></g>
+      <g class="anim photo-x" style="--dx: -480px; animation-delay: calc(var(--start) + 0.21s)"><g class="anim photo-y" style="--up: -200px; --land: 150px; animation-delay: calc(var(--start) + 0.21s)"><g class="anim photo-spin" style="--s: 0.7; --r: 190deg; animation-delay: calc(var(--start) + 0.21s)"><use href="#photo-card" /></g></g></g>
   </g>
 
   <g clip-path="url(#above-rim)">

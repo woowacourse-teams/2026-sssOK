@@ -28,7 +28,7 @@ export const SceneCanvas = styled.div`
 `;
 
 /** 세 장면을 겹쳐 두고 지금 장면만 드러낸다. 자리를 바꾸지 않아 높이가 흔들리지 않는다. */
-export const Scene = styled.div<{ $active: boolean; $paused: boolean }>`
+export const Scene = styled.div<{ $active: boolean }>`
   position: absolute;
   inset: 0;
   display: flex;
@@ -41,9 +41,6 @@ export const Scene = styled.div<{ $active: boolean; $paused: boolean }>`
 
   /* 장면에 들어올 때마다 안의 등장 효과를 처음부터 다시 튼다 */
   ${({ $active }) => !$active && "* { animation: none !important; }"}
-
-  /* 멈춘 동안은 등장 효과를 시작 전 모습에 붙잡아 둔다. 풀리면 장면을 새로 그려 처음부터 튼다 */
-  ${({ $paused }) => $paused && "* { animation-play-state: paused !important; }"}
 
   @keyframes onboarding-pop {
     from {

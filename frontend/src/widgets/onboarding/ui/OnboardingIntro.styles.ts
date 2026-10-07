@@ -14,9 +14,14 @@ export const Logo = styled.span`
   color: ${colors.textAccent};
   ${typography.heading2};
 
+  /*
+   * 반복 재생되는 인사 SVG 는 사진이 날아갈 여백까지 품고 있어 캐릭터가 작게 보인다.
+   * 그림을 키우고 위아래 여백은 겹쳐, 헤드라인 줄 높이는 그대로 둔다.
+   */
   img {
-    width: 40px;
+    width: 56px;
     height: auto;
+    margin: -10px -2px -8px -6px;
   }
 
   /* 넓은 화면에서는 헤드라인(40px)이 커지는 만큼 로고 글자도 키운다 */

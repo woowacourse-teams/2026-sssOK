@@ -44,13 +44,8 @@ const STATIC_SCENE = STEPS.length - 1;
  * 그림은 장식이라 스크린 리더와 키보드에서 뺀다(aria-hidden·inert). 장면이 바뀔 때마다
  * 다시 읽히면 시끄럽기만 하다. 같은 내용은 아래 단계 목록이 글로 한 번만 전한다.
  */
-interface OnboardingPreviewProps {
-  /** 홈 인트로가 덮고 있는 동안 멈춰 두고, 걷히면 첫 단계부터 튼다 */
-  paused?: boolean;
-}
-
-export const OnboardingPreview = ({ paused = false }: OnboardingPreviewProps) => {
-  const { step, goTo, round, reducedMotion } = usePreviewStep(paused);
+export const OnboardingPreview = () => {
+  const { step, goTo, round, reducedMotion } = usePreviewStep();
   const visibleScene = step ?? STATIC_SCENE;
   const stageRef = useRef<HTMLDivElement>(null);
   const { scale, fillWidth, fillHeight } = useFitScale(stageRef, SCENE_SIZE);
@@ -69,7 +64,7 @@ export const OnboardingPreview = ({ paused = false }: OnboardingPreviewProps) =>
             transform: `translate(-50%, -50%) scale(${scale})`,
           }}
         >
-          <Scene key={sceneKey(0)} $active={visibleScene === 0} $paused={paused}>
+          <Scene key={sceneKey(0)} $active={visibleScene === 0}>
             <ChatCard>
               <ChatRoomName>공쥬들의 방 👑</ChatRoomName>
               <LinkBubble>
@@ -84,11 +79,11 @@ export const OnboardingPreview = ({ paused = false }: OnboardingPreviewProps) =>
             </ChatCard>
           </Scene>
 
-          <Scene key={sceneKey(1)} $active={visibleScene === 1} $paused={paused}>
+          <Scene key={sceneKey(1)} $active={visibleScene === 1}>
             <UploadScene running={isRunning(1)} />
           </Scene>
 
-          <Scene key={sceneKey(2)} $active={visibleScene === 2} $paused={paused}>
+          <Scene key={sceneKey(2)} $active={visibleScene === 2}>
             <DownloadScene running={isRunning(2)} />
           </Scene>
         </SceneCanvas>
@@ -112,11 +107,7 @@ export const OnboardingPreview = ({ paused = false }: OnboardingPreviewProps) =>
                   key={round}
                   aria-hidden="true"
                   $state={
-                    step === null || index < step
-                      ? "done"
-                      : step === index && !paused
-                        ? "running"
-                        : "idle"
+                    step === null || index < step ? "done" : step === index ? "running" : "idle"
                   }
                   $duration={PREVIEW_STEP_DURATIONS_MS[index]}
                 />

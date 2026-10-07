@@ -17,11 +17,9 @@ const fadeUp = keyframes`
 /**
  * 처음 들어왔을 때 헤드라인 → 미리보기 → 버튼 순으로 짧게 나타나 읽는 순서를 잡아 준다.
  * 다 합쳐 0.65초 안에 끝나 "3초 안에 이해" 를 늦추지 않는다.
- * 캐릭터 인트로가 있으면 섹션이 `--enter-offset` 만큼 늦춰, 인트로가 걷힐 때 나타나게 한다.
  */
 const enter = (delayMs: number) => css`
-  animation: ${fadeUp} 400ms cubic-bezier(0.22, 0.61, 0.36, 1)
-    calc(var(--enter-offset, 0ms) + ${delayMs}ms) both;
+  animation: ${fadeUp} 400ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delayMs}ms both;
 
   @media (prefers-reduced-motion: reduce) {
     animation: none;
@@ -32,8 +30,7 @@ const enter = (delayMs: number) => css`
  * 휴대폰에서는 한 화면 폭으로 위에서 아래로 쌓는다.
  * 넓은 화면에서는 왼쪽에 헤드라인과 버튼, 오른쪽에 미리보기를 나란히 둔다.
  */
-export const Section = styled.section<{ enterOffsetMs: number }>`
-  --enter-offset: ${({ enterOffsetMs }) => enterOffsetMs}ms;
+export const Section = styled.section`
   display: flex;
   flex: 1;
   flex-direction: column;
