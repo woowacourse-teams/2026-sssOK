@@ -229,6 +229,13 @@ jobs:
           if ! $COMPOSE up -d; then
             echo "일부 서비스 기동 실패 - 앱 헬스체크와 모니터링 복구 절차를 계속한다"
           fi
+
+          # nginx.conf 는 bind mount라 파일이 바뀌어도 실행 중인 Nginx가 자동으로 다시 읽지 않는다.
+          # 새 설정을 먼저 검사해, 잘못된 설정으로 기존 정상 프로세스까지 reload하지 않게 한다.
+          echo "Nginx 설정 검사 및 리로드"
+          $COMPOSE exec -T nginx nginx -t
+          $COMPOSE exec -T nginx nginx -s reload
+
           # 모니터링 설정은 위에서 cp 로 덮어쓰기만 해서 컨테이너가 재생성되지 않는다. Prometheus(알림 규칙)와
           # Alertmanager 는 파일이 바뀌어도 스스로 다시 읽지 않으므로 SIGHUP 으로 다시 읽게 한다.
           # 리로드 실패가 앱 배포를 막지는 않게 한다.
@@ -274,6 +281,19 @@ jobs:
               exit 1
             fi
           fi
+
+          # 모니터링 복구를 마친 뒤 Host 헤더로 Grafana 라우팅까지 확인한다.
+          echo "호스트 기반 라우팅 확인 시작"
+          for i in $(seq 1 30); do
+            if curl -fsS -H 'Host: monitor.ssssok.com' http://localhost/api/health > /dev/null 2>&1; then
+              echo "호스트 기반 라우팅 확인 성공 ($i번째 시도)"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Grafana 호스트 기반 라우팅 확인 실패"
+          $COMPOSE logs --tail 100 nginx grafana || true
+          exit 1
 
   alias:
     name: 이미지 버전 별칭 발행
