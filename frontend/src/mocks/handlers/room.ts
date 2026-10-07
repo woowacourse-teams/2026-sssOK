@@ -4,8 +4,10 @@ import { API_BASE_URL } from "@/shared/config";
 import {
   isDeletedMedia,
   displayUrlOf,
+  mediaWithLikeState,
   registeredMediaOf,
   resetDeletedMedia,
+  resetMediaLikes,
   thumbnailUrlOf,
   type GalleryMedia,
 } from "../db";
@@ -246,6 +248,8 @@ const createMedia = ({
   uploaderName,
   status: "READY",
   uploadedAt: `2026-08-18T${String(18 + Math.floor((mediaId - 5000) / 6)).padStart(2, "0")}:00:00+09:00`,
+  likeCount: mediaId % 9,
+  likedByMe: false,
 });
 
 /**
@@ -404,6 +408,7 @@ export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 export const resetRoomHandlers = () => {
   resetJoinedRooms();
   resetDeletedMedia();
+  resetMediaLikes();
   activeRoomOverrides = {};
   roomExpiresAt = createRoomExpiresAt();
   ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
@@ -577,7 +582,7 @@ export const roomHandlers = [
 
     return HttpResponse.json({
       data: {
-        items: page,
+        items: page.map((media) => mediaWithLikeState(roomId, media, memberId)),
         nextCursor: hasNext && last ? `${scope}|${last.mediaId}` : null,
         hasNext,
         totalCount: matched.length,
@@ -597,6 +602,7 @@ export const roomHandlers = [
     }
 
     const roomId = Number(params.roomId);
+    const memberId = Number(token.replace("Bearer mock-token-", ""));
 
     if (roomId !== MOCK_ROOM_ID) {
       return roomNotFound();
@@ -643,9 +649,9 @@ export const roomHandlers = [
 
     return HttpResponse.json({
       data: {
-        items: mediaOfRoom(roomId).filter(
-          (media) => folderId === null || media.folderIds.includes(folderId),
-        ),
+        items: mediaOfRoom(roomId)
+          .filter((media) => folderId === null || media.folderIds.includes(folderId))
+          .map((media) => mediaWithLikeState(roomId, media, memberId)),
       },
     });
   }),

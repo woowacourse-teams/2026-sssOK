@@ -72,6 +72,38 @@ DB는 컨테이너가 아니라 RDS(PostgreSQL)를 쓴다.
 - RDS 보안 그룹의 인바운드에 EC2 보안 그룹발 5432 포트를 허용한다 (EC2가 있는 VPC/서브넷에서만 접근 가능하도록).
 - 마스터 계정과 DB 이름은 `.env`의 `DB_USERNAME`/`DB_PASSWORD`, `DB_URL`의 경로 부분과 일치시킨다.
 
+#### 이미지 검색용 pgvector 준비 (#460)
+
+로컬·테스트는 `pgvector/pgvector:0.8.6-pg16-bookworm` 이미지를 사용한다. RDS는 컨테이너를
+변경하지 않고 각 데이터베이스에서 `vector` 확장을 활성화한다. dev(`sssok_dev`)와
+prod(`sssok`)는 같은 인스턴스에 있어도 확장 설치는 각각 필요하다.
+
+배포 전에 대상 DB에서 지원 버전과 현재 설치 상태를 확인한다.
+
+```sql
+SELECT version();
+SELECT name, default_version, installed_version
+FROM pg_available_extensions WHERE name = 'vector';
+SELECT extversion FROM pg_extension WHERE extname = 'vector';
+```
+
+`pg_available_extensions`에 `vector`가 없으면 해당 RDS 엔진 버전의 확장 지원을 먼저 확인한다.
+V28 마이그레이션은 `CREATE EXTENSION IF NOT EXISTS vector`를 실행한다. 애플리케이션 계정에
+설치 권한이 없으면 배포 전 설치 권한이 있는 관리자 계정으로 해당 DB에 접속해 다음을 실행한다.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+SELECT 1 - ('[1,0,0]'::vector <=> '[1,0,0]'::vector) AS similarity;
+```
+
+검증 결과는 `1`이어야 한다. 확장 설치를 위해 애플리케이션 계정의 권한을 상시 높이지 않는다.
+지원 버전과 권한은 [AWS 확장 안내](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.PostgreSQL.CommonDBATasks.Extensions.html)와
+[pgvector 공식 문서](https://github.com/pgvector/pgvector)를 참고한다.
+
+로컬 이미지는 Alpine에서 Debian으로 바뀐다. 기존 볼륨을 삭제하지 않고, 변경 전 백업 후
+개발 DB가 정상적으로 시작되는지 확인한다. 로케일·collation 관련 문제가 있으면 기존 환경에서
+논리 백업 후 새 볼륨으로 복원한다.
+
 ### 3. Docker 설치
 
 ```bash

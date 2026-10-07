@@ -25,13 +25,16 @@ public record MediaResponse(
     Long uploaderId,
     String uploaderName,
     @Schema(description = "RESERVED / PROCESSING / READY / FAILED") String status,
-    Instant uploadedAt
+    Instant uploadedAt,
+    @Schema(description = "전체 좋아요 수") long likeCount,
+    @Schema(description = "요청한 사람이 좋아요를 눌렀는지") boolean likedByMe
 ) {
     public static MediaResponse from(MediaDetail detail) {
         return new MediaResponse(detail.mediaId(), detail.type(), detail.fileName(),
             detail.mimeType(), detail.size(), detail.thumbnailUrl(), detail.thumbnailUrlExpiresAt(),
             detail.displayUrl(), detail.displayUrlExpiresAt(),
             detail.width(), detail.height(), detail.duration(), detail.folderIds(),
-            detail.uploaderId(), detail.uploaderName(), detail.status(), detail.uploadedAt());
+            detail.uploaderId(), detail.uploaderName(), detail.status(), detail.uploadedAt(),
+            detail.likeCount(), detail.likedByMe());
     }
 }

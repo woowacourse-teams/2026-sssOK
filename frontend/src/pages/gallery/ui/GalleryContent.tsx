@@ -278,7 +278,9 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       />
       <PhotoGallery
         items={galleryItems}
+        roomId={room.roomId}
         userId={userId}
+        token={accessToken}
         selectedPhotoIds={selectedPhotoIds}
         isPending={isPending || search.isPending}
         isError={isError || search.isError}
