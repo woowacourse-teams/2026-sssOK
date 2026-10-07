@@ -45,7 +45,7 @@ describe("OnboardingSection", () => {
   it("무엇을 하는지·어떻게 쓰는지·무엇을 누르는지를 한 화면에 보여준다", () => {
     renderSection();
 
-    expect(screen.getByRole("heading", { name: /원하는 것만 쏙 다운 받기!/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /쏙 골라 받기/ })).toBeInTheDocument();
 
     const steps = within(screen.getByRole("list", { name: "쏙 사용 방법" })).getAllByRole(
       "listitem",

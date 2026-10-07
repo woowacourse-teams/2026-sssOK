@@ -43,7 +43,7 @@ describe("라우트", () => {
   it("/ 는 홈 화면을 보여준다", () => {
     renderAt(ROUTES.home);
 
-    expect(screen.getByRole("heading", { name: /링크 하나로 사진 모으고/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 
   // 방 조회 결과에 따른 화면 분기는 RoomEntryPage.test.tsx 가 검증한다.
@@ -141,9 +141,7 @@ describe("라우트", () => {
 
     await user.click(screen.getByRole("button", { name: "삭제하기" }));
 
-    expect(
-      await screen.findByRole("heading", { name: /링크 하나로 사진 모으고/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.home);
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
@@ -333,7 +331,7 @@ describe("라우트", () => {
     const router = renderAt("/이런-주소는-없다");
 
     expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(screen.getByRole("heading", { name: /링크 하나로 사진 모으고/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 });
 

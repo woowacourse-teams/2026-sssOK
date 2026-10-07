@@ -10,9 +10,9 @@ export const OnboardingIntro = () => {
       </Logo>
 
       <Title>
-        링크 하나로 사진 모으고,
+        링크로 모으고,
         <br />
-        원하는 것만 <Highlight>쏙</Highlight> 다운 받기!
+        <Highlight>쏙</Highlight> 골라 받기!
       </Title>
     </IntroStack>
   );
