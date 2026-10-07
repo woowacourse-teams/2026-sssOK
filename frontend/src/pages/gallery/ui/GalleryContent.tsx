@@ -25,6 +25,7 @@ import { useAnalyticsRoom } from "../model/useAnalyticsRoom";
 import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
+import { useGallerySearch } from "../model/useGallerySearch";
 import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
 import { GalleryModalHost } from "./GalleryModalHost";
@@ -89,17 +90,33 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const { galleryItems, completedUploadIds, totalCount, folderCounts, isPending, isError } =
-    useGalleryPhotos({
-      roomId: room.roomId,
-      accessToken,
-      userId,
-      selectedFolderId,
-      selectedOption,
-      initialTotalCount: room.photoCount,
-      initialFolders: room.folders,
-      uploadSlots,
-    });
+  const {
+    galleryItems: filteredItems,
+    allGalleryItems,
+    completedUploadIds,
+    totalCount,
+    folderCounts,
+    isPending,
+    isError,
+  } = useGalleryPhotos({
+    roomId: room.roomId,
+    accessToken,
+    userId,
+    selectedFolderId,
+    selectedOption,
+    initialTotalCount: room.photoCount,
+    initialFolders: room.folders,
+    uploadSlots,
+  });
+
+  const search = useGallerySearch({
+    roomId: room.roomId,
+    accessToken,
+    userId,
+    items: filteredItems,
+    allItems: allGalleryItems,
+  });
+  const galleryItems = search.items;
 
   useEffect(() => {
     if (completedUploadIds.length === 0) return;
@@ -194,6 +211,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onAddFolder={() => void handleCreateFolder("menu")}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
+        isSearchOpen={search.isSearchOpen}
+        onOpenSearch={search.openSearch}
+        onSearch={(query) => {
+          selectFolder(null);
+          search.search(query);
+          clearSelection();
+        }}
+        onCloseSearch={() => {
+          search.closeSearch();
+          clearSelection();
+        }}
       />
       <FolderFilter
         totalCount={totalCount}
@@ -254,9 +282,13 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         userId={userId}
         token={accessToken}
         selectedPhotoIds={selectedPhotoIds}
-        isPending={isPending}
-        isError={isError}
-        expectedPhotoCount={selectedFolder?.photoCount ?? room.photoCount}
+        isPending={isPending || search.isPending}
+        isError={isError || search.isError}
+        expectedPhotoCount={
+          search.isSearching ? undefined : (selectedFolder?.photoCount ?? room.photoCount)
+        }
+        emptyMessage={search.isSearching ? "검색어에 맞는 사진이 없어요." : undefined}
+        errorMessage={search.isError ? search.errorMessage : undefined}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={setActiveMediaId}
       />

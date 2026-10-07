@@ -67,6 +67,7 @@ export const useGalleryPhotos = ({
 
   return {
     galleryItems: visibleItems,
+    allGalleryItems,
     completedUploadIds,
     totalCount: hasLoadedPhotos ? allGalleryItems.length : initialTotalCount,
     folderCounts,

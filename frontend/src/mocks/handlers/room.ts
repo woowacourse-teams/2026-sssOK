@@ -592,6 +592,7 @@ export const roomHandlers = [
 
   /**
    * 페이지 없이 방의 미디어를 최신순으로 전부 내려준다.
+   * query 가 있으면 검색 결과를 유사도 높은 순으로 내려준다.
    */
   http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
@@ -607,7 +608,35 @@ export const roomHandlers = [
       return roomNotFound();
     }
 
-    const rawFolderId = new URL(request.url).searchParams.get("folderId");
+    const searchParams = new URL(request.url).searchParams;
+    const rawQuery = searchParams.get("query");
+
+    if (rawQuery !== null) {
+      const query = rawQuery.trim().replace(/\s+/g, " ");
+
+      if (query.length === 0 || query.length > 200) {
+        return HttpResponse.json(
+          { code: "INVALID_SEARCH_QUERY", message: "검색어는 공백 정리 후 1~200자여야 합니다" },
+          { status: 400 },
+        );
+      }
+      if (query === "검색 장애") {
+        return HttpResponse.json(
+          { code: "IMAGE_SEARCH_UNAVAILABLE", message: "이미지 검색을 사용할 수 없습니다." },
+          { status: 503 },
+        );
+      }
+
+      return HttpResponse.json({
+        data: {
+          items: mediaOfRoom(roomId)
+            .filter((media) => media.type === "IMAGE" && (media.mediaId + query.length) % 3 === 0)
+            .map((media) => mediaWithLikeState(roomId, media, memberId)),
+        },
+      });
+    }
+
+    const rawFolderId = searchParams.get("folderId");
     const folderId = rawFolderId === null ? null : Number(rawFolderId);
 
     if (folderId !== null && !Number.isInteger(folderId)) return invalidParameter("folderId");
