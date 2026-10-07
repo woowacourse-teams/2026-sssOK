@@ -214,6 +214,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         isSearchOpen={search.isSearchOpen}
         onOpenSearch={search.openSearch}
         onSearch={(query) => {
+          selectFolder(null);
           search.search(query);
           clearSelection();
         }}
