@@ -5,7 +5,9 @@ import { PhotoGallerySkeleton } from "./PhotoGallerySkeleton";
 
 interface PhotoGalleryProps {
   items: GalleryItem[];
+  roomId: number;
   userId: number;
+  token: string;
   selectedPhotoIds: number[];
   isPending: boolean;
   isError: boolean;
@@ -16,7 +18,9 @@ interface PhotoGalleryProps {
 
 export const PhotoGallery = ({
   items,
+  roomId,
   userId,
+  token,
   selectedPhotoIds,
   isPending,
   isError,
@@ -38,7 +42,9 @@ export const PhotoGallery = ({
             <GalleryMediaCard
               key={item.mediaId}
               item={item}
+              roomId={roomId}
               userId={userId}
+              token={token}
               isSelected={isSelected}
               onToggle={() => onTogglePhoto(item.mediaId)}
               onOpen={onOpenPhoto ? () => onOpenPhoto(item.mediaId) : undefined}

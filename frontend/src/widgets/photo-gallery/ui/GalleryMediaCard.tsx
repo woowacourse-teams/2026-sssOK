@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
-import { HiCheck, HiPlay } from "react-icons/hi2";
+import { HiCheck, HiHeart, HiOutlineHeart, HiPlay } from "react-icons/hi2";
 
 import type { GalleryItem } from "@/entities/media";
 import {
@@ -13,11 +13,14 @@ import {
   Thumbnail,
   UploaderBadge,
 } from "@/entities/media/ui/MediaCard.styles";
-import { colors, radius } from "@/shared/styles/tokens";
+import { useMediaLike } from "@/features/toggle-media-like";
+import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
 interface GalleryMediaCardProps {
   item: GalleryItem;
+  roomId: number;
   userId: number;
+  token: string;
   isSelected: boolean;
   onToggle: () => void;
   onOpen?: () => void;
@@ -41,9 +44,47 @@ const createImageUrl = (item: GalleryItem) => {
   return URL.createObjectURL(item.file);
 };
 
+const MediaLikeButton = ({
+  item,
+  roomId,
+  userId,
+  token,
+}: {
+  item: Extract<GalleryItem, { type: "server" }>;
+  roomId: number;
+  userId: number;
+  token: string;
+}) => {
+  const likeMutation = useMediaLike({
+    roomId,
+    mediaId: item.mediaId,
+    userId,
+    token,
+  });
+  const likeCount = item.media.likeCount ?? 0;
+  const likedByMe = item.media.likedByMe ?? false;
+
+  return (
+    <LikeButton
+      type="button"
+      $liked={likedByMe}
+      aria-label={`${item.media.fileName} 좋아요 ${likedByMe ? "취소" : "추가"}`}
+      aria-pressed={likedByMe}
+      aria-busy={likeMutation.isPending}
+      disabled={likeMutation.isPending}
+      onClick={() => likeMutation.mutate(!likedByMe)}
+    >
+      {likedByMe ? <HiHeart /> : <HiOutlineHeart />}
+      <span>{likeCount}</span>
+    </LikeButton>
+  );
+};
+
 export const GalleryMediaCard = ({
   item,
+  roomId,
   userId,
+  token,
   isSelected,
   onToggle,
   onOpen,
@@ -112,7 +153,7 @@ export const GalleryMediaCard = ({
                   <HiPlay />
                 </PlayMark>
                 {item.type !== "local" && item.media.duration !== null && (
-                  <Duration>{formatDuration(item.media.duration)}</Duration>
+                  <LikeAwareDuration>{formatDuration(item.media.duration)}</LikeAwareDuration>
                 )}
               </>
             )}
@@ -131,6 +172,10 @@ export const GalleryMediaCard = ({
       >
         <HiCheck />
       </SelectionMark>
+
+      {item.type === "server" && (
+        <MediaLikeButton item={item} roomId={roomId} userId={userId} token={token} />
+      )}
     </Card>
   );
 };
@@ -156,4 +201,42 @@ const LoadingSpinner = styled.span`
   border-top-color: ${colors.primary};
   border-radius: ${radius.full};
   animation: ${spin} 0.8s linear infinite;
+`;
+
+const LikeButton = styled.button<{ $liked: boolean }>`
+  position: absolute;
+  right: ${spacing[8]};
+  bottom: ${spacing[8]};
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 42px;
+  height: 28px;
+  padding: 4px 8px;
+  border-radius: ${radius.full};
+  background-color: ${colors.overlay};
+  color: ${({ $liked }) => ($liked ? colors.danger : colors.textInverse)};
+  font-variant-numeric: tabular-nums;
+
+  ${typography.caption4}
+
+  &:focus-visible {
+    outline: 2px solid ${colors.primary};
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: wait;
+  }
+
+  svg {
+    flex: none;
+    width: 17px;
+    height: 17px;
+  }
+`;
+
+/** 영상 길이와 좋아요가 카드 오른쪽 아래에서 겹치지 않게 한 줄 위에 둔다. */
+const LikeAwareDuration = styled(Duration)`
+  bottom: 42px;
 `;

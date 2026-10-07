@@ -47,6 +47,8 @@ const mediaOf = (mediaId: number, fileName: string): MediaItem => ({
   uploaderName: "나",
   status: "READY",
   uploadedAt: "2026-09-20T10:00:00Z",
+  likeCount: 0,
+  likedByMe: false,
 });
 
 const items: GalleryItem[] = [
