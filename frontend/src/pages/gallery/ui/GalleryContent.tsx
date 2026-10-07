@@ -15,6 +15,7 @@ import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
+import { track } from "@/shared/lib";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -86,7 +87,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
-  const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
+  const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
+    useGalleryFilter();
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
@@ -104,6 +106,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     userId,
     selectedFolderId,
     selectedOption,
+    selectedSort,
     initialTotalCount: room.photoCount,
     initialFolders: room.folders,
     uploadSlots,
@@ -236,9 +239,21 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       <GalleryOptions
         selectedOption={selectedOption}
         onSelectOption={(option) => {
+          if (option === selectedOption) return;
+
+          track("Gallery Filter Changed", { filter: option });
           selectOption(option);
           clearSelection();
         }}
+        selectedSort={selectedSort}
+        onSelectSort={(sort) => {
+          if (sort === selectedSort) return;
+
+          track("Gallery Sort Changed", { sort });
+          selectSort(sort);
+          clearSelection();
+        }}
+        hideViewControls={search.isSearching}
         isAllSelected={isAllSelected}
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
