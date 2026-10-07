@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
 import java.time.Instant;
@@ -19,8 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,8 +27,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 생성부터 삭제까지 실제 PostgreSQL 위에서 관통 확인한다.
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
-@AutoConfigureMockMvc
+@PostgresApiTest
 class RoomApiTest extends PostgresContainerSupport {
 
     @Autowired

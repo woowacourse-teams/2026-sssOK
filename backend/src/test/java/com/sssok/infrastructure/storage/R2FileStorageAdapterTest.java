@@ -7,6 +7,7 @@ import com.sssok.application.port.out.FileStoragePort.UploadedObject;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.R2Properties;
+import com.sssok.support.ExternalTest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -31,6 +32,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 // 실제 R2 에 붙어 서명 URL 과 HeadObject 가 동작하는지 확인한다.
 // 자격증명이 없으면 조용히 건너뛰므로 CI 는 이 테스트 없이도 통과한다.
 // 자격증명은 backend/.env 에 두며, 재현 방법은 docs/backend/R2_PRESIGNED_UPLOAD.md 에 있다.
+@ExternalTest
 @EnabledIf("hasCredentials")
 class R2FileStorageAdapterTest {
 

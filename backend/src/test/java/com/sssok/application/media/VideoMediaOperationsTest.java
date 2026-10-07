@@ -41,8 +41,7 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // 영상이 사진과 똑같이 다뤄지는지 네 흐름을 한 자리에서 확인한다.
@@ -50,8 +49,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // 썸네일이 붙기 전까지 영상은 목록에서 아예 빠져 있었고(thumbnailUrl 이 null),
 // 그래서 다운로드·삭제·폴더 이동이 실제로 되는지 확인된 적이 없다. 경로마다 타입 분기가
 // 없다는 것은 읽어서 알 수 있지만, 그 사실이 계속 유지되는지는 테스트만 지켜준다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class VideoMediaOperationsTest {
 
     private static final String PRESIGNED = "https://storage.example.com/signed";
