@@ -17,6 +17,7 @@ import type { GalleryItem } from "@/entities/media";
 import { DeleteMediaModal } from "@/features/delete-media";
 import { downloadMedia, prefersShareSheet } from "@/features/download-media";
 import { useMediaLike } from "@/features/toggle-media-like";
+import { track } from "@/shared/lib";
 import { colors } from "@/shared/styles/tokens";
 
 interface MediaViewerModalProps {
@@ -401,7 +402,15 @@ const ViewerLikeButton = ({
       aria-pressed={likedByMe}
       aria-busy={mutation.isPending}
       disabled={mutation.isPending}
-      onClick={() => mutation.mutate(!likedByMe)}
+      onClick={() =>
+        mutation.mutate(!likedByMe, {
+          onSuccess: (response) =>
+            track("Photo Like Changed", {
+              action: response.liked ? "like" : "unlike",
+              source: "viewer",
+            }),
+        })
+      }
     >
       {likedByMe ? <HiHeart size={21} /> : <HiOutlineHeart size={21} />}
       <span>{item.media.likeCount ?? 0}</span>

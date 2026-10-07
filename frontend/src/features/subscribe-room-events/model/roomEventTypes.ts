@@ -6,3 +6,9 @@ export interface MediaFoldersUpdatedEvent {
   mediaIds: number[];
   folders: Pick<RoomFolder, "id" | "name" | "photoCount">[];
 }
+
+export interface MediaLikesUpdatedEvent {
+  roomId: number;
+  mediaId: number;
+  likeCount: number;
+}
