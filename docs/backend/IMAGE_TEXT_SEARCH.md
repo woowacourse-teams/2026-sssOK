@@ -143,18 +143,19 @@ X-Client-Request-Id는 추적용이다. 이를 중복 실행 방지 키로 취�
 
 ## 검색 API와 처리 순서
 
-`GET /api/v1/rooms/{roomId}/media/search?query=바닷가에서 찍은 단체 사진`으로 요청한다.
+`GET /api/v1/rooms/{roomId}/media/all?query=바닷가에서 찍은 단체 사진`으로 요청한다.
 
 - 기존 방 입장 권한 검사를 그대로 거친다. 인증이 없으면 401, 미참여자는 403이다.
 - 검색어의 연속 공백을 정리하고 앞뒤 공백을 제거한 뒤 유니코드 코드 포인트 기준 1~200자를 허용한다.
-- 검색어 누락·빈 값·길이 초과는 400 `INVALID_SEARCH_QUERY`다.
+- query를 생략하면 AI 호출 없이 기존 전체 목록을 반환한다. 전달한 검색어가 빈 값·공백·길이 초과이면 400 `INVALID_SEARCH_QUERY`다.
+- folderId와 uploader(ALL/ME/OTHERS)는 검색에서도 후보 선별 전에 적용한다. 다른 방·없는 폴더는 AI 호출 전에 404로 거절한다.
 - `TextEmbeddingPort`로 임베딩을 생성하며 이 호출 동안 DB 트랜잭션을 유지하지 않는다.
 - 방·미디어 READY 상태·문서 READY 상태·이미지 종류·임베딩 모델·차원을 선별한 뒤 유사도를 계산한다.
 - 임계값 이상인 모든 결과를 유사도 내림차순, 동점은 미디어 ID 오름차순으로 반환한다.
 - 기존 미디어 응답 조립을 활용한다. 검색과 후속 미디어 조회 사이에 삭제된 항목은 제외한다.
 
-응답은 `data` 배열이며 각 항목은 `media`(기존 MediaResponse)와 `similarity`로 구성한다.
-정상 검색에서 일치 결과가 없으면 빈 배열이다. 기능 비활성화·임계값 미설정·외부 임베딩
+응답은 기존 전체 목록과 동일한 `data.items` 배열이며 항목은 MediaResponse다. 유사도는 정렬과 임계값 판정에만 사용하고 응답에 노출하지 않는다.
+정상 검색에서 일치 결과가 없으면 `data.items: []`다. 기능 비활성화·임계값 미설정·외부 임베딩
 장애·유효하지 않은 벡터는 503 `IMAGE_SEARCH_UNAVAILABLE`로 구분한다.
 
 `media.search.query.min-similarity`는 실제 모델 샘플 평가 후 지정한다. 임의의 기본값은 없다.
@@ -266,7 +267,7 @@ API 어댑터 구현과 로컬 HTTP 테스트를 완료했지만 실제 OpenAI �
 OpenAI 어댑터는 제공자 오류를 이 타입으로 변환하므로 분석 서비스가 제공자 구현을 알 필요가 없다.
 
 검색 Swagger는 기존 `미디어 조회` 태그에 포함한다. 요청 파라미터·정렬·임계값·빈 결과·오류 상태를
-명시하고, `ImageSearchMatchResponse`에 미디어와 유사도의 필드 설명·예시를 제공한다.
+명시하고, 전체 목록의 query 분기와 `AllMediaListResponse`의 정렬 규칙을 설명한다.
 `/v3/api-docs`를 조회하는 통합 테스트로 실제 생성되는 응답 스키마를 확인한다.
 
 현재 두 개의 동기 API만 호출하므로 Spring RestClient를 유지한다. 공식 SDK도 유효한 대안이다.

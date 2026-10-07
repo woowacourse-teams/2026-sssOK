@@ -18,8 +18,8 @@ class ImageSearchQueryPolicyTest {
         factory.addBean("embedding", provider);
         ImageSearchResultAssembler assembler = mock(ImageSearchResultAssembler.class);
         SearchImagesService service = new SearchImagesService(factory.getBeanProvider(TextEmbeddingPort.class), assembler,
-            new ImageSearchQueryProperties(null, null), true);
-        assertThatThrownBy(() -> service.search(1L, "사진", 1L))
+            new ImageSearchQueryProperties(null, null), mock(com.sssok.application.port.out.FolderRepository.class), true);
+        assertThatThrownBy(() -> service.search(1L, "사진", 1L, null, com.sssok.application.media.MediaUploaderFilter.ALL))
             .isInstanceOf(ImageSearchUnavailableException.class);
         verifyNoInteractions(provider, assembler);
     }

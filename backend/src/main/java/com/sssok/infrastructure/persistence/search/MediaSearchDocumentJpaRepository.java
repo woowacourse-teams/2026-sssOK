@@ -149,6 +149,12 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
             FROM media_search_document d
             JOIN stored_file f ON f.id = d.media_id
         WHERE f.room_id = :roomId AND f.status = 'READY'
+            AND (CAST(:folderId AS bigint) IS NULL OR EXISTS (
+                SELECT 1 FROM folder_media fm WHERE fm.media_id = f.id AND fm.folder_id = :folderId
+            ))
+            AND (:uploader = 'ALL'
+                OR (:uploader = 'ME' AND f.uploader_id = :requesterId)
+                OR (:uploader = 'OTHERS' AND f.uploader_id <> :requesterId))
             AND f.media_type IN ('JPEG', 'PNG', 'GIF') AND d.status = 'READY'
             AND d.embedding_model = :model AND d.embedding_dimensions = :dimensions
             AND vector_dims(d.embedding) = :dimensions
@@ -162,7 +168,8 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         """, nativeQuery = true)
     List<SearchMatch> search(@Param("roomId") Long roomId, @Param("vector") String vector,
         @Param("model") String model, @Param("dimensions") int dimensions,
-        @Param("threshold") double threshold);
+        @Param("threshold") double threshold, @Param("folderId") Long folderId,
+        @Param("requesterId") Long requesterId, @Param("uploader") String uploader);
 
     interface SearchMatch {
         Long getMediaId();

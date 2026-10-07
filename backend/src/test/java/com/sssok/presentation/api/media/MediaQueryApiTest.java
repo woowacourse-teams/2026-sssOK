@@ -86,7 +86,7 @@ class MediaQueryApiTest extends PostgresContainerSupport {
 
     @Test
     void 이미지_검색_비활성화는_503을_반환한다() throws Exception {
-        mockMvc.perform(get("/api/v1/rooms/" + roomId + "/media/search")
+        mockMvc.perform(get("/api/v1/rooms/" + roomId + "/media/all")
                 .param("query", "사진").header("Authorization", token))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("IMAGE_SEARCH_UNAVAILABLE"));

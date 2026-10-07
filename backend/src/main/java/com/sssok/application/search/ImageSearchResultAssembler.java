@@ -1,6 +1,7 @@
 package com.sssok.application.search;
 
 import com.sssok.application.media.MediaDetail;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.MediaDetailAssembler;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.MediaSearchQueryRepository;
@@ -24,8 +25,8 @@ public class ImageSearchResultAssembler {
 
     @Transactional(readOnly = true)
     public List<ImageSearchResult> search(Long roomId, String vector, String model,
-                                          int dimensions, double threshold, Long memberId) {
-        List<Match> matches = searchRepository.search(roomId, vector, model, dimensions, threshold);
+                                          int dimensions, double threshold, Long memberId, Long folderId, MediaUploaderFilter uploader) {
+        List<Match> matches = searchRepository.search(roomId, vector, model, dimensions, threshold, folderId, memberId, uploader);
         if (matches.isEmpty()) {
             return List.of();
         }

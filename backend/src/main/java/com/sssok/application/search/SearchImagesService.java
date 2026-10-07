@@ -1,6 +1,9 @@
 package com.sssok.application.search;
 
 import com.sssok.application.port.out.TextEmbeddingPort;
+import com.sssok.application.port.out.FolderRepository;
+import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.search.exception.ImageSearchUnavailableException;
 import com.sssok.application.search.exception.InvalidSearchQueryException;
 import com.sssok.infrastructure.config.ImageSearchQueryProperties;
@@ -20,25 +23,31 @@ public class SearchImagesService {
     private final ImageSearchResultAssembler resultAssembler;
     private final ImageSearchQueryProperties properties;
     private final boolean enabled;
+    private final FolderRepository folderRepository;
 
     public SearchImagesService(ObjectProvider<TextEmbeddingPort> embeddingProvider,
-        ImageSearchResultAssembler resultAssembler, ImageSearchQueryProperties properties,
+        ImageSearchResultAssembler resultAssembler, ImageSearchQueryProperties properties, FolderRepository folderRepository,
         @Value("${media.search.enabled:false}") boolean enabled) {
         this.embeddingProvider = embeddingProvider;
         this.resultAssembler = resultAssembler;
         this.properties = properties;
         this.enabled = enabled;
+        this.folderRepository = folderRepository;
     }
 
     // 임베딩 네트워크 호출을 DB 트랜잭션 밖에서 실행한다.
-    public List<ImageSearchResult> search(Long roomId, String query, Long memberId) {
+    public List<ImageSearchResult> search(Long roomId, String query, Long memberId, Long folderId, MediaUploaderFilter uploader) {
         String text = normalizeQuery(query);
         requireSearchEnabled();
+        if (folderId != null) {
+            folderRepository.findById(folderId).filter(folder -> folder.belongsTo(roomId))
+                .orElseThrow(() -> new FolderNotFoundException(folderId));
+        }
         TextEmbeddingPort.Embedding embedding = embedQuery(text);
         String vector = embedding.values().stream().map(String::valueOf)
             .collect(Collectors.joining(",", "[", "]"));
         return resultAssembler.search(roomId, vector, embedding.model(), embedding.values().size(),
-            properties.minSimilarity(), memberId);
+            properties.minSimilarity(), memberId, folderId, uploader);
     }
 
     private String normalizeQuery(String query) {

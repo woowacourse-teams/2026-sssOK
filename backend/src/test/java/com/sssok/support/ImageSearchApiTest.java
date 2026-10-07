@@ -43,6 +43,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired AnonymousAuthService auth;
     @Autowired CreateRoomService rooms;
+    @Autowired com.sssok.application.folder.CreateFolderService folders;
     @Autowired MediaSearchDocumentRepository documents;
     @MockitoBean TextEmbeddingPort embeddings;
     @MockitoBean ImageDescriptionPort descriptions;
@@ -63,6 +64,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
 
     @AfterEach
     void cleanup() {
+        jdbc.update("DELETE FROM folder_media WHERE media_id BETWEEN 460201 AND 460230");
         jdbc.update("DELETE FROM media_like WHERE media_id BETWEEN 460201 AND 460230");
         jdbc.update("DELETE FROM stored_file WHERE id BETWEEN 460201 AND 460230");
     }
@@ -71,15 +73,13 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     void Swagger에_검색_응답과_오류_스키마를_제공한다() throws Exception {
         mvc.perform(get("/v3/api-docs"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/search'].get.tags[0]")
+            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/all'].get.tags[0]")
                 .value("미디어 조회"))
-            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/search'].get.responses['200']"
+            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/all'].get.responses['200']"
                 + ".content['application/json'].schema").exists())
-            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/search'].get.responses['503']"
+            .andExpect(jsonPath("$.paths['/api/v1/rooms/{roomId}/media/all'].get.responses['503']"
                 + ".content['application/json'].schema['$ref']").value("#/components/schemas/ErrorResponse"))
-            .andExpect(jsonPath("$.components.schemas.ImageSearchMatchResponse.properties.media").exists())
-            .andExpect(jsonPath("$.components.schemas.ImageSearchMatchResponse.properties.similarity.example")
-                .value(0.72));
+            .andExpect(jsonPath("$.components.schemas.AllMediaListResponse.properties.items").exists());
     }
 
     @Test
@@ -91,12 +91,11 @@ class ImageSearchApiTest extends PostgresContainerSupport {
         insert(460205, roomId, List.of(1.0, 0.0), "test-model");
         insert(460206, roomId, List.of(1.0, 0.0, 0.0), "other-model");
         search("  바닷가\t단체 사진  ").andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.length()").value(3))
-            .andExpect(jsonPath("$.data[0].media.mediaId").value(460201))
-            .andExpect(jsonPath("$.data[1].media.mediaId").value(460202))
-            .andExpect(jsonPath("$.data[2].media.mediaId").value(460203))
-            .andExpect(jsonPath("$.data[2].similarity").value(0.0))
-            .andExpect(jsonPath("$.data[0].media.displayUrl").value("https://signed.test/image"));
+            .andExpect(jsonPath("$.data.items.length()").value(3))
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(460201))
+            .andExpect(jsonPath("$.data.items[1].mediaId").value(460202))
+            .andExpect(jsonPath("$.data.items[2].mediaId").value(460203))
+            .andExpect(jsonPath("$.data.items[0].displayUrl").value("https://signed.test/image"));
         verify(embeddings).embed(org.mockito.ArgumentMatchers.eq("바닷가 단체 사진"), any());
     }
 
@@ -109,10 +108,10 @@ class ImageSearchApiTest extends PostgresContainerSupport {
             VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, 460201L, member.userId());
         search("사진").andExpect(status().isOk())
-            .andExpect(jsonPath("$.data[0].media.likeCount").value(1))
-            .andExpect(jsonPath("$.data[0].media.likedByMe").value(true))
-            .andExpect(jsonPath("$.data[1].media.likeCount").value(0))
-            .andExpect(jsonPath("$.data[1].media.likedByMe").value(false));
+            .andExpect(jsonPath("$.data.items[0].likeCount").value(1))
+            .andExpect(jsonPath("$.data.items[0].likedByMe").value(true))
+            .andExpect(jsonPath("$.data.items[1].likeCount").value(0))
+            .andExpect(jsonPath("$.data.items[1].likedByMe").value(false));
     }
 
     @Test
@@ -120,7 +119,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
         for (long id = 460201; id <= 460225; id++) {
             insert(id, roomId, List.of(1.0, 0.0, 0.0), "test-model");
         }
-        search("단체 사진").andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(25));
+        search("단체 사진").andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(25));
     }
 
     @Test
@@ -131,7 +130,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
         insert(460203, roomId, List.of(1.0, 0.0, 0.0), "test-model");
         jdbc.update("UPDATE media_search_document SET status = 'PENDING' WHERE media_id = 460202");
         jdbc.update("DELETE FROM stored_file WHERE id = 460203");
-        search("사진").andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(0));
+        search("사진").andExpect(status().isOk()).andExpect(jsonPath("$.data.items.length()").value(0));
     }
 
     @Test
@@ -169,9 +168,43 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 검색어_누락은_400이다() throws Exception {
+    void 검색어_생략은_AI_호출_없이_기존_전체_목록을_반환한다() throws Exception {
+        insert(460201, roomId, List.of(1.0, 0.0, 0.0), "test-model");
+        jdbc.update("DELETE FROM media_search_document WHERE media_id = 460201");
         mvc.perform(get(path()).header("Authorization", "Bearer " + member.accessToken()))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items[0].mediaId").value(460201));
+        org.mockito.Mockito.verifyNoInteractions(embeddings);
+    }
+
+    @Test
+    void 검색에도_폴더와_업로더_필터를_함께_적용한다() throws Exception {
+        Long folderId = folders.create(roomId, "선택 폴더").getId();
+        AuthResult other = auth.authenticate("다른 업로더");
+        for (long id = 460201; id <= 460204; id++) {
+            insert(id, roomId, List.of(1.0, 0.0, 0.0), "test-model");
+        }
+        jdbc.update("UPDATE stored_file SET uploader_id = ? WHERE id IN (460202, 460204)", other.userId());
+        jdbc.update("INSERT INTO folder_media (folder_id, media_id, created_at, updated_at) VALUES (?, 460201, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), (?, 460202, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)", folderId, folderId);
+        for (String filter : List.of("ME", "OTHERS", "ALL")) {
+            mvc.perform(get(path()).param("query", "사진").param("folderId", folderId.toString())
+                    .param("uploader", filter).header("Authorization", "Bearer " + member.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(filter.equals("ALL") ? 2 : 1))
+                .andExpect(jsonPath("$.data.items[0].mediaId").value(filter.equals("OTHERS") ? 460202 : 460201));
+        }
+    }
+
+    @Test
+    void 다른_방_폴더와_없는_폴더는_AI_호출_전에_거절한다() throws Exception {
+        Long otherRoom = rooms.create(member.userId(), "다른 방", null, null).room().getId();
+        Long otherFolder = folders.create(otherRoom, "다른 폴더").getId();
+        for (Long folderId : List.of(otherFolder, Long.MAX_VALUE)) {
+            mvc.perform(get(path()).param("query", "사진").param("folderId", folderId.toString())
+                    .header("Authorization", "Bearer " + member.accessToken()))
+                .andExpect(status().isNotFound());
+        }
+        org.mockito.Mockito.verifyNoInteractions(embeddings);
     }
 
     private ResultActions search(String query) throws Exception {
@@ -180,7 +213,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     }
 
     private String path() {
-        return "/api/v1/rooms/" + roomId + "/media/search";
+        return "/api/v1/rooms/" + roomId + "/media/all";
     }
 
     private void insert(long id, Long targetRoom, List<Double> vector, String model) {
