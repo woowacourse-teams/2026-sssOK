@@ -63,6 +63,9 @@ class MediaQueryControllerTest {
     MockMvc mockMvc;
 
     @MockitoBean
+    com.sssok.application.search.SearchImagesService searchImagesService;
+
+    @MockitoBean
     GetMediaListService getMediaListService;
 
     @MockitoBean

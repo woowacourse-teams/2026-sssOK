@@ -2,12 +2,17 @@ package com.sssok.presentation.api.media;
 
 import com.sssok.application.media.GetMediaListService;
 import com.sssok.application.media.GetMediaService;
+import com.sssok.application.search.SearchImagesService;
+import com.sssok.application.search.ImageSearchResult;
 import com.sssok.application.media.MediaCursor;
 import com.sssok.application.media.MediaPage;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import com.sssok.presentation.api.common.ErrorResponse;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +33,7 @@ public class MediaQueryController {
     private final GetMediaListService getMediaListService;
     private final GetMediaService getMediaService;
     private final MediaCursorCodec mediaCursorCodec;
+    private final SearchImagesService searchImagesService;
 
     @Operation(
         summary = "미디어 목록 조회",
@@ -86,18 +92,35 @@ public class MediaQueryController {
             + "일반 사진은 preview, GIF와 preview가 없는 사진은 original, 영상은 재생할 original을 "
             + "서명해 반환한다. 각 URL은 대응하는 만료 시각이 지나면 다시 조회해야 한다. "
             + "likeCount·likedByMe로 좋아요순 정렬과 내가 좋아요한 사진 모아보기를 처리한다. "
+            + "query를 전달하면 폴더·업로더 필터를 유지한 채 분석 완료 이미지를 자연어 검색한다. "
+            + "검색 결과는 임계값 이상 전체를 유사도 내림차순, 동점은 mediaId 오름차순으로 반환한다. "
+            + "응답은 동일한 data.items 형식이며 유사도 점수는 노출하지 않는다. "
+            + "빈 검색어·공백·200자 초과는 400, 검색 기능 비활성화나 AI 장애는 503이다. "
             + "없는 폴더나 다른 방 폴더로 필터하면 404, 입장하지 않은 사용자는 403, "
             + "없는 방은 404, 만료·삭제된 방은 410이 난다."
     )
-    @GetMapping("/all")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "전체 목록 조회 또는 검색 성공")
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "503",
+        description = "query 전달 시 검색 비활성화·임계값 미설정·임베딩 장애",
+        content = @Content(mediaType = "application/json",
+            schema = @Schema(
+                implementation = ErrorResponse.class)))
+    @GetMapping(value = "/all", produces = "application/json")
     public ApiResponse<AllMediaListResponse> getAllMedia(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
         @Parameter(description = "이 폴더에 담긴 미디어만 조회한다. 생략하면 방 전체")
         @RequestParam(required = false) Long folderId,
         @Parameter(description = "업로더 필터. ALL(전체), ME(내 미디어), OTHERS(다른 사람 미디어)")
-        @RequestParam(defaultValue = "ALL") MediaUploaderFilter uploader
+        @RequestParam(defaultValue = "ALL") MediaUploaderFilter uploader,
+        @Parameter(description = "자연어 검색어. 생략하면 일반 목록, 전달하면 공백 정리 후 1~200자")
+        @RequestParam(required = false) String query
     ) {
+        if (query != null) {
+            return ApiResponse.of(AllMediaListResponse.from(
+                searchImagesService.search(roomId, query, memberId, folderId, uploader).stream()
+                    .map(ImageSearchResult::media).toList()));
+        }
         return ApiResponse.of(AllMediaListResponse.from(
             getMediaListService.list(roomId, folderId, memberId, uploader)));
     }
