@@ -11,15 +11,13 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 // 폴더 변경이 커밋된 뒤에만 room_events 에 남는지 확인한다.
 // room_events 에 남는다는 건 곧 구독자 브로드캐스트와 Last-Event-ID 재전송 대상이 된다는 뜻이다
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class FolderEventAfterCommitTest {
 
     private static final Long ROOM_ID = 348_000L;
