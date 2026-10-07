@@ -2,6 +2,7 @@ package com.sssok.application.search.exception;
 
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
+import java.time.Instant;
 
 public class AiCallException extends SssOkException {
     private final String safeMessage;
@@ -16,6 +17,7 @@ public class AiCallException extends SssOkException {
     }
 
     private final RetryDisposition retryDisposition;
+    private final Instant retryNotBefore;
 
     // 분류되지 않은 제공자 오류를 자동 재호출하지 않는다.
     protected AiCallException(String message, String code) {
@@ -23,7 +25,13 @@ public class AiCallException extends SssOkException {
     }
 
     public AiCallException(String message, String code, RetryDisposition retryDisposition) {
+        this(message, code, retryDisposition, null);
+    }
+
+    public AiCallException(String message, String code, RetryDisposition retryDisposition,
+                           Instant retryNotBefore) {
         super(ErrorCode.INTERNAL_SERVER_ERROR);
+        this.retryNotBefore = retryNotBefore;
         this.safeMessage = message;
         this.code = code;
         this.retryDisposition = java.util.Objects.requireNonNull(retryDisposition);
@@ -36,6 +44,10 @@ public class AiCallException extends SssOkException {
 
     public RetryDisposition retryDisposition() {
         return retryDisposition;
+    }
+
+    public Instant retryNotBefore() {
+        return retryNotBefore;
     }
 
     public String code() {
