@@ -88,7 +88,7 @@ SELECT extversion FROM pg_extension WHERE extname = 'vector';
 ```
 
 `pg_available_extensions`에 `vector`가 없으면 해당 RDS 엔진 버전의 확장 지원을 먼저 확인한다.
-V27 마이그레이션은 `CREATE EXTENSION IF NOT EXISTS vector`를 실행한다. 애플리케이션 계정에
+V28 마이그레이션은 `CREATE EXTENSION IF NOT EXISTS vector`를 실행한다. 애플리케이션 계정에
 설치 권한이 없으면 배포 전 설치 권한이 있는 관리자 계정으로 해당 DB에 접속해 다음을 실행한다.
 
 ```sql
