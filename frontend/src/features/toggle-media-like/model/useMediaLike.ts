@@ -25,10 +25,33 @@ export const useMediaLike = ({ roomId, mediaId, userId, token }: UseMediaLikePar
         : removeMediaLike({ roomId, mediaId, token }),
     onMutate: async (shouldLike) => {
       await queryClient.cancelQueries({ queryKey: photosKey, exact: true });
+      const previousMedia = queryClient
+        .getQueryData<MediaList>(photosKey)
+        ?.items.find((media) => media.mediaId === mediaId);
 
       updatePhotos((current) => setMyMediaLike(current, mediaId, shouldLike));
+
+      return {
+        previousLike: previousMedia
+          ? { likeCount: previousMedia.likeCount, likedByMe: previousMedia.likedByMe }
+          : undefined,
+      };
     },
-    onSettled: () => {
+    onError: (_error, _shouldLike, context) => {
+      if (!context?.previousLike) return;
+
+      updatePhotos((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          items: current.items.map((media) =>
+            media.mediaId === mediaId ? { ...media, ...context.previousLike } : media,
+          ),
+        };
+      });
+    },
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: photosKey, exact: true });
     },
   });

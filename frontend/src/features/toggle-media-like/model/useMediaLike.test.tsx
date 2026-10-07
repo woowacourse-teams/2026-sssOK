@@ -53,6 +53,7 @@ describe("useMediaLike", () => {
       ),
     );
     const { queryClient, result } = setup();
+    const invalidateQueries = jest.spyOn(queryClient, "invalidateQueries");
 
     act(() => result.current.mutate(true));
 
@@ -62,12 +63,24 @@ describe("useMediaLike", () => {
 
     respond();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: photosKey, exact: true });
   });
 
-  it("DELETE 실패 시에도 서버 상태를 다시 조회하도록 목록을 무효화한다", async () => {
+  it("DELETE 실패 시 재조회하지 않고 변경 전 목록 캐시로 되돌린다", async () => {
+    let respond: () => void = () => undefined;
     server.use(
-      http.delete(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`, () =>
-        HttpResponse.json({ code: "LIKE_FAILED", message: "좋아요 취소 실패" }, { status: 500 }),
+      http.delete(
+        `${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`,
+        () =>
+          new Promise<Response>((resolve) => {
+            respond = () =>
+              resolve(
+                HttpResponse.json(
+                  { code: "LIKE_FAILED", message: "좋아요 취소 실패" },
+                  { status: 500 },
+                ),
+              );
+          }),
       ),
     );
     const { queryClient, result } = setup();
@@ -78,7 +91,25 @@ describe("useMediaLike", () => {
 
     act(() => result.current.mutate(false));
 
+    await waitFor(() => expect(currentMedia(queryClient)?.likedByMe).toBe(false));
+    expect(currentMedia(queryClient)?.likeCount).toBe(7);
+
+    const mediaAddedWhilePending = {
+      ...media,
+      mediaId: 11,
+      likeCount: 3,
+      likedByMe: true,
+    };
+    queryClient.setQueryData<MediaList>(photosKey, (current) => ({
+      items: [...(current?.items ?? []), mediaAddedWhilePending],
+    }));
+
+    respond();
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: photosKey, exact: true });
+    expect(currentMedia(queryClient)).toMatchObject({ likeCount: 8, likedByMe: true });
+    expect(queryClient.getQueryData<MediaList>(photosKey)?.items[1]).toEqual(
+      mediaAddedWhilePending,
+    );
+    expect(invalidateQueries).not.toHaveBeenCalled();
   });
 });
