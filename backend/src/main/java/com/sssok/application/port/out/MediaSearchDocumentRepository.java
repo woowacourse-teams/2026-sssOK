@@ -14,7 +14,7 @@ public interface MediaSearchDocumentRepository {
 
     boolean complete(AnalysisAttempt attempt, ImageAnalysis analysis, Instant now);
 
-    boolean fail(AnalysisAttempt attempt, String errorCode, Instant retryAt, int maxAttempts);
+    boolean fail(AnalysisAttempt attempt, String errorCode, Instant now, Instant retryAt, int maxAttempts);
 
     int recover(Instant stuckBefore, Instant now, int maxAttempts);
 

@@ -15,6 +15,7 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.search.ImageAnalysis;
 import com.sssok.infrastructure.config.ImageSearchProperties;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,7 +81,8 @@ public class AnalyzeImageService {
             ? failure.code() : "ANALYSIS_FAILED";
         log.warn("이미지 분석 실패. mediaId={}, attempt={}, errorType={}, errorCode={}", attempt.mediaId(),
             attempt.attemptNumber(), exception.getClass().getSimpleName(), errorCode);
-        documentRepository.fail(attempt, errorCode, clock.instant().plus(properties.retryDelay()),
+        Instant now = clock.instant();
+        documentRepository.fail(attempt, errorCode, now, now.plus(properties.retryDelay()),
             properties.maxAttempts());
     }
 }

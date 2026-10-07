@@ -33,10 +33,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @org.junit.jupiter.api.Tag("integration-postgres")
 @SpringBootTest(properties = {
-    "media.search.enabled=true", "media.search.provider=test", "media.search.created-since=2026-01-01T00:00:00Z",
+    "media.search.enabled=true", "media.search.provider=test", "media.search.created-since=2090-01-01T00:00:00Z",
     "media.search.sweep-delay=3600000", "media.thumbnail.auto-generate=false"
 })
 class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
+    // 전역 복구 배치가 공유 DB의 다른 테스트 이미지를 등록하지 않도록 도입 시각을 분리한다.
     private static final long MEDIA_ID = 460101L;
     @Autowired JdbcTemplate jdbc;
     @Autowired AnalyzeImageService analyzer;
@@ -58,7 +59,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
                 media_type, file_size_bytes, storage_key, status, created_at, updated_at, reserved_at,
                 preview_key)
             VALUES (?, 1, 1, 'photo.jpg', 'JPEG', 100, 'test/source.jpg', 'READY',
-                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'test/preview.webp')
+                TIMESTAMPTZ '2090-01-01 00:00:00Z', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'test/preview.webp')
             """, MEDIA_ID);
         given(storage.presignGet(any(), anyString(), anyString(), any())).willReturn("https://signed.test/image");
         given(descriptions.describe(anyString(), any())).willReturn(
