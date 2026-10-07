@@ -48,9 +48,9 @@ public class MediaSearchDocumentRepositoryAdapter implements MediaSearchDocument
     }
 
     @Override
-    public boolean fail(AnalysisAttempt attempt, String errorCode, Instant retryAt, int maxAttempts) {
+    public boolean fail(AnalysisAttempt attempt, String errorCode, Instant now, Instant retryAt, int maxAttempts) {
         requirePositive(maxAttempts);
-        return jpaRepository.fail(maxAttempts, errorCode, retryAt,
+        return jpaRepository.fail(maxAttempts, errorCode, now, retryAt,
             attempt.mediaId(), attempt.attemptNumber()) == 1;
     }
 

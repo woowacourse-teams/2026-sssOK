@@ -16,6 +16,8 @@ import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,11 +77,26 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @Test
     void 동시에_실행해도_한_워커만_선점한다() throws Exception {
         repository.register(460001L);
-        Callable<Boolean> claim = () -> repository.claim(460001L, now, 3).isPresent();
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        Callable<Boolean> claim = () -> {
+            ready.countDown();
+            assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+            return repository.claim(460001L, now, 3).isPresent();
+        };
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
-            List<Future<Boolean>> results = executor.invokeAll(List.of(claim, claim));
-            assertThat(List.of(results.get(0).get(), results.get(1).get()))
+            List<Future<Boolean>> results = List.of(executor.submit(claim), executor.submit(claim));
+            try {
+                assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            } finally {
+                start.countDown();
+            }
+            assertThat(List.of(results.get(0).get(10, TimeUnit.SECONDS), results.get(1).get(10, TimeUnit.SECONDS)))
                 .containsExactlyInAnyOrder(true, false);
+            assertThat(jdbc.queryForObject("SELECT attempts FROM media_search_document WHERE media_id = 460001", Integer.class))
+                .isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT status FROM media_search_document WHERE media_id = 460001", String.class))
+                .isEqualTo("PROCESSING");
         }
     }
 
@@ -105,11 +122,13 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     void 재시도_시각과_최대_시도_횟수를_지킨다() {
         repository.register(460001L);
         AnalysisAttempt first = repository.claim(460001L, now, 2).orElseThrow();
-        assertThat(repository.fail(first, "AI_TIMEOUT", now.plusSeconds(60), 2)).isTrue();
+        assertThat(repository.fail(first, "AI_TIMEOUT", now.plusSeconds(5), now.plusSeconds(60), 2)).isTrue();
+        assertFailureTimes(now.plusSeconds(5), now.plusSeconds(60));
         assertThat(repository.claim(460001L, now, 2)).isEmpty();
         assertThat(repository.findPending(now, 10)).isEmpty();
         AnalysisAttempt second = repository.claim(460001L, now.plusSeconds(60), 2).orElseThrow();
-        assertThat(repository.fail(second, "AI_TIMEOUT", now.plusSeconds(120), 2)).isTrue();
+        assertThat(repository.fail(second, "AI_TIMEOUT", now.plusSeconds(65), now.plusSeconds(120), 2)).isTrue();
+        assertFailureTimes(now.plusSeconds(65), now.plusSeconds(120));
         assertThat(repository.claim(460001L, now.plusSeconds(120), 2)).isEmpty();
         assertThat(jdbc.queryForObject("SELECT status FROM media_search_document WHERE media_id = 460001", String.class))
             .isEqualTo("FAILED");
@@ -123,7 +142,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         assertThat(repository.recover(now.plusSeconds(1), now.plusSeconds(10), 2)).isEqualTo(1);
         AnalysisAttempt newAttempt = repository.claim(460001L, now.plusSeconds(10), 2).orElseThrow();
         assertThat(repository.complete(oldAttempt, analysis(), now)).isFalse();
-        assertThat(repository.fail(oldAttempt, "LATE_ERROR", now, 2)).isFalse();
+        assertThat(repository.fail(oldAttempt, "LATE_ERROR", now, now, 2)).isFalse();
         assertThat(repository.complete(newAttempt, analysis(), now.plusSeconds(11))).isTrue();
     }
 
@@ -153,6 +172,15 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
             .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> analysis(List.of(Double.NaN)))
             .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    private void assertFailureTimes(Instant failedAt, Instant retryAt) {
+        assertThat(jdbc.queryForObject(
+            "SELECT updated_at FROM media_search_document WHERE media_id = 460001", Timestamp.class).toInstant())
+            .isEqualTo(failedAt);
+        assertThat(jdbc.queryForObject(
+            "SELECT next_attempt_at FROM media_search_document WHERE media_id = 460001", Timestamp.class).toInstant())
+            .isEqualTo(retryAt);
     }
 
     private ImageAnalysis analysis() {

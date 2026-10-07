@@ -85,12 +85,13 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
     @Query(value = """
         UPDATE media_search_document
         SET status = CASE WHEN attempts >= :maxAttempts THEN 'FAILED' ELSE 'PENDING' END,
-            error_code = :errorCode, next_attempt_at = :retryAt, updated_at = CURRENT_TIMESTAMP
+            error_code = :errorCode, next_attempt_at = :retryAt, updated_at = :now
         WHERE media_id = :mediaId AND status = 'PROCESSING' AND attempts = :attemptNumber
         """, nativeQuery = true)
     int fail(
         @Param("maxAttempts") int maxAttempts,
         @Param("errorCode") String errorCode,
+        @Param("now") Instant now,
         @Param("retryAt") Instant retryAt,
         @Param("mediaId") Long mediaId,
         @Param("attemptNumber") int attemptNumber);
