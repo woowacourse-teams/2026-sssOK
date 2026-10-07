@@ -6,7 +6,7 @@ import java.util.List;
 
 @Schema(description = "페이지네이션 없이 반환하는 미디어 전체 목록")
 public record AllMediaListResponse(
-    @Schema(description = "createdAt·mediaId 기준 최신순으로 정렬된 전체 미디어 목록")
+    @Schema(description = "전체 미디어 목록. query 생략 시 최신순, 전달 시 유사도 내림차순·동점 mediaId 오름차순")
     List<MediaResponse> items
 ) {
 
