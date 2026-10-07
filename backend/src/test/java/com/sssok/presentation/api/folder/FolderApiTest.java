@@ -10,12 +10,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
+import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
 import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -23,8 +22,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 방 생성/입장부터 폴더 생성까지 실제 PostgreSQL 위에서 관통 확인한다.
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
-@AutoConfigureMockMvc
+@PostgresApiTest
 class FolderApiTest extends PostgresContainerSupport {
 
     // 테스트끼리 롤백 없이 같은 컨테이너를 공유하므로, 미디어 id/storage_key가 겹치지 않게 매번 새로 발급한다.

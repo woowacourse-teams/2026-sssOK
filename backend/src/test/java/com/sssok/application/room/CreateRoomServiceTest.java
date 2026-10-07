@@ -13,13 +13,11 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 
 // Repository + Service 통합 테스트 (H2)
 // 자동 입장은 방금 만든 roomId에 대한 단순 save()라 동시성 경쟁이 없어 PostgreSQL 전용 쿼리가 필요 없다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class CreateRoomServiceTest {
 
     private static final Long HOST = 1L;

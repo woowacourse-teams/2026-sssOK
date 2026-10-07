@@ -52,12 +52,37 @@ DB나 전체 Spring Context를 띄우지 않아 실행이 빠르다. Service 내
 
 Flyway 마이그레이션은 PostgreSQL 전용 문법(`BIGSERIAL`, `TIMESTAMPTZ` 등)을 쓰므로 H2에서 그대로 실행되지 않는다. Repository+Service 테스트는 Flyway를 끄고 Hibernate가 엔티티로부터 스키마를 직접 생성하도록 한다 (실제 마이그레이션-엔티티 정합성 검증은 API 인수 테스트의 `ddl-auto=validate`가 담당하므로 역할이 겹치지 않는다).
 
-H2 설정(데이터소스, `ddl-auto`, Flyway 끄기, 테스트 전용 `jwt.secret`)은 테스트 클래스마다 반복해서 적지 않고, `backend/src/test/resources/application-test.yml`(`test` 프로파일) 하나에 모아뒀다. 새 Repository+Service 테스트를 추가할 때는 아래처럼 프로파일만 지정하면 된다.
+H2 설정(데이터소스, `ddl-auto`, Flyway 끄기, 테스트 전용 `jwt.secret`)은 테스트 클래스마다 반복해서 적지 않고, `backend/src/test/resources/application-test.yml`(`test` 프로파일) 하나에 모아뒀다. 새 Repository+Service 테스트에는 Spring 설정과 JUnit 태그를 묶은 공통 어노테이션을 사용한다.
 
 ```java
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class SomeServiceTest {
     // ...
 }
 ```
+
+## 테스트 범주별 실행
+
+JUnit 태그와 Gradle 태스크를 연결해 필요한 범주만 독립적으로 실행한다. 기존 `test` 태스크는 전체 테스트 실행용으로 유지한다.
+
+| Gradle 태스크 | 실행 범위 |
+| --- | --- |
+| `unitTest` | DB 통합·인수·성능·외부 연동 태그가 없는 빠른 테스트 |
+| `integrationTestH2` | `@H2IntegrationTest`가 적용된 H2 통합 테스트 |
+| `integrationTestPostgres` | `@PostgresIntegrationTest`가 적용된 PostgreSQL 통합 테스트(성능 테스트 제외) |
+| `acceptanceTest` | `@AcceptanceTest` 또는 `@PostgresApiTest`가 적용된 API 인수 테스트 |
+| `performanceTest` | `@PerformanceTest`가 적용된 성능 테스트 |
+| `externalTest` | `@ExternalTest`가 적용된 실제 외부 서비스 연동 테스트 |
+| `test` | 필수 CI 범위 전체(성능·외부 연동 제외) |
+
+성능 테스트와 외부 연동 테스트는 데이터 크기, 자격증명, 네트워크 상태처럼 통제하기 어려운 실행 조건이 필요하므로 기본 `test`와 필수 CI에서 제외한다. `R2FileStorageAdapterTest`는 실제 R2 호환성과 CORS를 확인해야 할 때 `./gradlew externalTest`로 명시 실행한다. 필수 CI는 `build`의 단일 `test` JVM에서 Spring Context 캐시를 재사용해 실행 시간을 줄인다. 테스트 범주별 태스크는 특정 범주를 로컬에서 재현하거나 실패 범위를 좁힐 때 사용한다.
+
+## CI의 Gradle 캐시
+
+`setup-gradle`로 의존성·Gradle 준비 상태·로컬 Build Cache를 저장하고, `--build-cache`로 입력이 같은 태스크의 결과를 재사용한다. 캐시 적중 여부는 태스크의 `FROM-CACHE` 로그로 확인한다.
+
+- 백엔드 관련 변경이 `develop`에 병합되면 `./gradlew classes testClasses --build-cache`로 애플리케이션·테스트 코드를 컴파일해 공통 캐시를 갱신한다. 실제 테스트 실행과 ffmpeg 설치는 생략하며, 프론트엔드만 변경된 push는 실행하지 않는다.
+- `develop` 대상 신규 PR은 대상 브랜치의 캐시를 복원할 수 있다. PR에서 저장한 캐시는 해당 PR 범위에 묶이며 다른 PR에 직접 공유되지 않는다.
+- 전체 빌드·테스트, 버전 의도, 기존 Flyway 마이그레이션 변경 검증은 PR에서 수행한다. 병합 후 실행은 공통 컴파일 캐시 갱신을 담당한다.
+- 캐시가 없거나 태스크 입력이 바뀌면 다시 실행한다. 캐시 저장·복원 비용도 있으므로 시간 단축은 실제 CI 로그로 평가한다.
+- 공식 문서: [Gradle Actions 캐시](https://github.com/gradle/actions/blob/v4/docs/setup-gradle.md), [GitHub 캐시 접근 범위](https://docs.github.com/en/actions/reference/workflows-and-actions/dependency-caching#restrictions-for-accessing-a-cache).

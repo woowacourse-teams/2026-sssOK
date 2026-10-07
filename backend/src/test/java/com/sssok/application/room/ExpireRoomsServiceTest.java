@@ -12,20 +12,19 @@ import com.sssok.domain.room.roomstatus.ActiveRoomStatus;
 import com.sssok.domain.room.roomstatus.DeletedRoomStatus;
 import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.support.H2IntegrationTest;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2).
 // @Transactional로 테스트마다 롤백한다 — 대상은 상태와 만료 시각만으로 고르기 때문에,
 // 다른 테스트가 남긴 ACTIVE 방이 섞이면 처리 개수가 어긋난다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 @Transactional
 class ExpireRoomsServiceTest {
 
@@ -50,7 +49,8 @@ class ExpireRoomsServiceTest {
 
     @Test
     void 만료_시각과_같은_시각이면_만료로_본다() {
-        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        // DB 저장 정밀도보다 작은 나노초가 반올림돼 만료 시각이 조회 기준보다 미래가 되지 않게 한다.
+        Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Room room = 방(now);
 
         expireRoomsService.expire(now);

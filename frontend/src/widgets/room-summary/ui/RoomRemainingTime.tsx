@@ -13,9 +13,12 @@ export const formatRemainingTime = (expiresAt: string, now: number = Date.now())
   if (Number.isNaN(remaining) || remaining <= 0) return "만료됨";
 
   const totalMinutes = Math.floor(remaining / MINUTE);
-  const hours = Math.floor(totalMinutes / 60);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
   const minutes = totalMinutes % 60;
 
+  if (days > 0) return `${days}일 ${hours}시간`;
   if (hours > 0) return `${hours}시간 ${minutes}분`;
   if (totalMinutes > 0) return `${totalMinutes}분`;
 
