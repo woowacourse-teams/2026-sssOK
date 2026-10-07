@@ -17,6 +17,9 @@ import com.sssok.application.port.out.TextEmbeddingPort;
 import com.sssok.application.search.AnalyzeImageService;
 import com.sssok.infrastructure.scheduler.ImageAnalysisSweeper;
 import java.time.Instant;
+import java.time.Clock;
+import com.sssok.application.search.exception.AiCallException;
+import com.sssok.application.search.exception.AiCallException.RetryDisposition;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +31,7 @@ import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -39,9 +43,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     // 전역 복구 배치가 공유 DB의 다른 테스트 이미지를 등록하지 않도록 도입 시각을 분리한다.
     private static final long MEDIA_ID = 460101L;
+    private static final Instant NOW = Instant.parse("2000-01-01T00:00:00Z");
+    @MockitoBean(name = "imageAnalysisClock") Clock clock;
     @Autowired JdbcTemplate jdbc;
     @Autowired AnalyzeImageService analyzer;
-    @Autowired MediaSearchDocumentRepository documents;
+    @MockitoSpyBean MediaSearchDocumentRepository documents;
     @Autowired ImageAnalysisSweeper sweeper;
     @Autowired ApplicationEventPublisher events;
     @Autowired PlatformTransactionManager transactionManager;
@@ -54,6 +60,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     @BeforeEach
     void setup() {
         cleanup();
+        given(clock.instant()).willReturn(NOW);
         jdbc.update("""
             INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,
                 media_type, file_size_bytes, storage_key, status, created_at, updated_at, reserved_at,
@@ -103,7 +110,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
 
     @Test
     void 프리뷰_설명과_임베딩을_저장하고_중복_실행은_AI를_호출하지_않는다() {
-        documents.register(MEDIA_ID);
+        documents.register(MEDIA_ID, NOW);
         analyzer.analyze(MEDIA_ID);
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("READY");
@@ -118,19 +125,19 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
 
     @Test
     void AI_실패는_재시도_대기로_남고_업로드_상태는_READY다() {
-        documents.register(MEDIA_ID);
-        given(descriptions.describe(anyString(), any())).willThrow(new IllegalStateException("timeout"));
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willThrow(new AiCallException("일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY));
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("PENDING");
         assertThat(jdbc.queryForObject("SELECT status FROM stored_file WHERE id = ?", String.class, MEDIA_ID))
             .isEqualTo("READY");
         verify(embeddings, never()).embed(anyString(), any());
-        assertThat(documents.claim(MEDIA_ID, Instant.now(), 3)).isEmpty();
+        assertThat(documents.claim(MEDIA_ID, NOW, 3)).isEmpty();
     }
 
     @Test
     void 분석_도중_삭제되면_결과를_남기지_않는다() {
-        documents.register(MEDIA_ID);
+        documents.register(MEDIA_ID, NOW);
         given(descriptions.describe(anyString(), any())).willAnswer(call -> {
             jdbc.update("DELETE FROM stored_file WHERE id = ?", MEDIA_ID);
             return new ImageDescriptionPort.Description("사진", "바다", "vision-test", "v1");
@@ -143,9 +150,9 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     void 유실된_등록을_복구하고_중단된_작업을_다시_제출한다() {
         sweeper.sweep();
         assertThat(status()).isEqualTo("PENDING");
-        documents.claim(MEDIA_ID, Instant.now().plusSeconds(1), 3).orElseThrow();
+        documents.claim(MEDIA_ID, NOW.plusSeconds(1), 3).orElseThrow();
         jdbc.update("UPDATE media_search_document SET started_at = ? WHERE media_id = ?",
-            java.sql.Timestamp.from(Instant.now().minusSeconds(600)), MEDIA_ID);
+            java.sql.Timestamp.from(NOW.minusSeconds(600)), MEDIA_ID);
         sweeper.sweep();
         assertThat(status()).isEqualTo("PENDING");
         verify(executor, org.mockito.Mockito.times(2)).execute(any(Runnable.class));
@@ -160,6 +167,177 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         assertThat(count()).isZero();
         analyzer.analyze(MEDIA_ID);
         verify(descriptions, never()).describe(anyString(), any());
+    }
+
+    @Test
+    void DB보다_느린_앱_시각으로_등록해도_즉시_선점한다() {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+            events.publishEvent(new MediaReadyEvent(1L, MEDIA_ID)));
+        assertThat(jdbc.queryForObject("SELECT next_attempt_at FROM media_search_document WHERE media_id = ?",
+            java.sql.Timestamp.class, MEDIA_ID).toInstant()).isEqualTo(NOW);
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("READY");
+    }
+
+    @Test
+    void 임베딩_재시도는_저장된_설명을_재사용하고_완료_후_중복_호출하지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        given(embeddings.embed(anyString(), any()))
+            .willThrow(new AiCallException("일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY))
+            .willReturn(new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("PENDING");
+        given(clock.instant()).willReturn(NOW.plusSeconds(60));
+        analyzer.analyze(MEDIA_ID);
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("READY");
+        verify(descriptions).describe(anyString(), any());
+        verify(storage).presignGet(any(), anyString(), anyString(), any());
+        verify(embeddings, org.mockito.Mockito.times(2)).embed(
+            org.mockito.ArgumentMatchers.eq("해변 단체 사진\n바다, 사람"), any());
+    }
+
+    @Test
+    void 재시도는_지수_대기와_최대_횟수를_지킨다() {
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willThrow(
+            new AiCallException("일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY));
+        analyzer.analyze(MEDIA_ID);
+        given(clock.instant()).willReturn(NOW.plusSeconds(59));
+        analyzer.analyze(MEDIA_ID);
+        given(clock.instant()).willReturn(NOW.plusSeconds(60));
+        analyzer.analyze(MEDIA_ID);
+        assertThat(jdbc.queryForObject("SELECT next_attempt_at FROM media_search_document WHERE media_id = ?",
+            java.sql.Timestamp.class, MEDIA_ID).toInstant()).isEqualTo(NOW.plusSeconds(180));
+        given(clock.instant()).willReturn(NOW.plusSeconds(180));
+        analyzer.analyze(MEDIA_ID);
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        verify(descriptions, org.mockito.Mockito.times(3)).describe(anyString(), any());
+    }
+
+    @Test
+    void 영벡터는_재시도하지_않고_응답_오류로_종료한다() {
+        documents.register(MEDIA_ID, NOW);
+        given(embeddings.embed(anyString(), any())).willReturn(
+            new TextEmbeddingPort.Embedding(List.of(0.0, 0.0), "embedding-test"));
+        analyzer.analyze(MEDIA_ID);
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        assertThat(errorCode()).isEqualTo("INVALID_RESPONSE");
+        verify(embeddings).embed(anyString(), any());
+    }
+
+    @Test
+    void 불명확한_응답은_자동_재호출하지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willThrow(
+            new AiCallException("응답 여부 불명", "TIMEOUT", RetryDisposition.UNKNOWN_OUTCOME));
+        analyzer.analyze(MEDIA_ID);
+        given(clock.instant()).willReturn(NOW.plusSeconds(600));
+        sweeper.sweep();
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        assertThat(errorCode()).isEqualTo("UNKNOWN_EXTERNAL_OUTCOME");
+        verify(descriptions).describe(anyString(), any());
+    }
+
+    @Test
+    void 인증_실패는_원인_코드를_남기고_즉시_종료한다() {
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willThrow(
+            new AiCallException("인증 실패", "AUTHENTICATION_FAILED", RetryDisposition.PERMANENT));
+        analyzer.analyze(MEDIA_ID);
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        assertThat(errorCode()).isEqualTo("AUTHENTICATION_FAILED");
+        verify(descriptions).describe(anyString(), any());
+    }
+
+    @Test
+    void 외부_호출_중_서버가_중단되면_복구가_같은_API를_재호출하지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        MediaSearchDocumentRepository.AnalysisAttempt attempt = documents.claim(MEDIA_ID, NOW, 3).orElseThrow();
+        assertThat(documents.beginExternalCall(attempt, NOW)).isTrue();
+        given(clock.instant()).willReturn(NOW.plusSeconds(600));
+        sweeper.sweep();
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        assertThat(errorCode()).isEqualTo("UNKNOWN_EXTERNAL_OUTCOME");
+        verify(descriptions, never()).describe(anyString(), any());
+    }
+
+    @Test
+    void 서명_URL_실패는_외부_호출_없이_스토리지_오류로_재시도한다() {
+        documents.register(MEDIA_ID, NOW);
+        given(storage.presignGet(any(), anyString(), anyString(), any())).willThrow(new IllegalStateException("storage"));
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("PENDING");
+        assertThat(errorCode()).isEqualTo("STORAGE_FAILED");
+        verify(descriptions, never()).describe(anyString(), any());
+    }
+
+    @Test
+    void 결과와_실패_기록이_모두_실패해도_복구가_AI를_재호출하지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        doThrow(new IllegalStateException("database unavailable")).when(documents).complete(any(), any(), any());
+        doThrow(new IllegalStateException("database unavailable")).when(documents).fail(
+            any(), anyString(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("PROCESSING");
+        given(clock.instant()).willReturn(NOW.plusSeconds(600));
+        sweeper.sweep();
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        assertThat(errorCode()).isEqualTo("UNKNOWN_EXTERNAL_OUTCOME");
+        verify(descriptions).describe(anyString(), any());
+        verify(embeddings).embed(anyString(), any());
+    }
+
+    @Test
+    void 결과_저장_실패는_저장_오류로_종료하고_외부_호출을_반복하지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        doThrow(new IllegalStateException("database unavailable")).when(documents).complete(any(), any(), any());
+        analyzer.analyze(MEDIA_ID);
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("FAILED");
+        assertThat(errorCode()).isEqualTo("PERSISTENCE_FAILED");
+        verify(embeddings).embed(anyString(), any());
+    }
+
+    @Test
+    void 외부_API는_DB_트랜잭션_밖에서_호출한다() {
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                .isActualTransactionActive()).isFalse();
+            return new ImageDescriptionPort.Description("사진", "바다", "vision", "v1");
+        });
+        given(embeddings.embed(anyString(), any())).willAnswer(call -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+                .isActualTransactionActive()).isFalse();
+            return new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test");
+        });
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("READY");
+    }
+
+    @Test
+    void 설명_저장_후_중단되면_복구가_임베딩부터_재개한다() {
+        documents.register(MEDIA_ID, NOW);
+        MediaSearchDocumentRepository.AnalysisAttempt attempt = documents.claim(MEDIA_ID, NOW, 3).orElseThrow();
+        documents.beginExternalCall(attempt, NOW);
+        documents.saveDescription(attempt, new ImageDescriptionPort.Description("저장된 설명", "특징", "vision", "v1"), NOW);
+        given(clock.instant()).willReturn(NOW.plusSeconds(600));
+        sweeper.sweep();
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("READY");
+        verify(descriptions, never()).describe(anyString(), any());
+        verify(embeddings).embed(org.mockito.ArgumentMatchers.eq("저장된 설명\n특징"), any());
+    }
+
+    private String errorCode() {
+        return jdbc.queryForObject("SELECT error_code FROM media_search_document WHERE media_id = ?", String.class, MEDIA_ID);
     }
 
     private String status() {

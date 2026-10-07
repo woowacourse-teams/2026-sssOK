@@ -6,15 +6,21 @@ import java.util.List;
 import java.util.Optional;
 
 public interface MediaSearchDocumentRepository {
-    void register(Long mediaId);
+    void register(Long mediaId, Instant now);
 
-    int registerMissing(Instant createdSince, int limit);
+    int registerMissing(Instant createdSince, Instant now, int limit);
 
     Optional<AnalysisAttempt> claim(Long mediaId, Instant now, int maxAttempts);
 
     boolean complete(AnalysisAttempt attempt, ImageAnalysis analysis, Instant now);
 
-    boolean fail(AnalysisAttempt attempt, String errorCode, Instant now, Instant retryAt, int maxAttempts);
+    boolean fail(AnalysisAttempt attempt, String errorCode, Instant now, Instant retryAt, int maxAttempts, boolean retryable);
+
+    Optional<ImageDescriptionPort.Description> findDescription(AnalysisAttempt attempt);
+
+    boolean beginExternalCall(AnalysisAttempt attempt, Instant now);
+
+    boolean saveDescription(AnalysisAttempt attempt, ImageDescriptionPort.Description description, Instant now);
 
     int recover(Instant stuckBefore, Instant now, int maxAttempts);
 

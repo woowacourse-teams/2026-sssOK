@@ -18,9 +18,8 @@ public class ImageAnalysisSweeper {
     @Scheduled(fixedDelayString = "${media.search.sweep-delay:60000}",
         initialDelayString = "${media.search.sweep-delay:60000}")
     public void sweep() {
-        documentRepository.registerMissing(properties.createdSince(), properties.batchSize());
-        // 등록 행의 DEFAULT CURRENT_TIMESTAMP보다 뒤의 시각으로 대기 작업을 조회한다.
         Instant now = clock.instant();
+        documentRepository.registerMissing(properties.createdSince(), now, properties.batchSize());
         documentRepository.recover(now.minus(properties.stuckAfter()), now, properties.maxAttempts());
         documentRepository.findPending(now, properties.batchSize()).forEach(dispatcher::submit);
     }

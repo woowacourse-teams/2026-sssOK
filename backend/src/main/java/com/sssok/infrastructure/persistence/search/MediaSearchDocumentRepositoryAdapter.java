@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.persistence.search;
 
 import com.sssok.application.port.out.MediaSearchDocumentRepository;
+import com.sssok.application.port.out.ImageDescriptionPort.Description;
 import com.sssok.domain.search.ImageAnalysis;
 import java.time.Instant;
 import java.util.List;
@@ -17,14 +18,14 @@ public class MediaSearchDocumentRepositoryAdapter implements MediaSearchDocument
     private final MediaSearchDocumentJpaRepository jpaRepository;
 
     @Override
-    public void register(Long mediaId) {
-        jpaRepository.register(mediaId);
+    public void register(Long mediaId, Instant now) {
+        jpaRepository.register(mediaId, now);
     }
 
     @Override
-    public int registerMissing(Instant createdSince, int limit) {
+    public int registerMissing(Instant createdSince, Instant now, int limit) {
         requirePositive(limit);
-        return jpaRepository.registerMissing(createdSince, limit);
+        return jpaRepository.registerMissing(createdSince, now, limit);
     }
 
     @Override
@@ -48,10 +49,31 @@ public class MediaSearchDocumentRepositoryAdapter implements MediaSearchDocument
     }
 
     @Override
-    public boolean fail(AnalysisAttempt attempt, String errorCode, Instant now, Instant retryAt, int maxAttempts) {
+    public boolean fail(AnalysisAttempt attempt, String errorCode, Instant now, Instant retryAt, int maxAttempts, boolean retryable) {
         requirePositive(maxAttempts);
-        return jpaRepository.fail(maxAttempts, errorCode, now, retryAt,
+        return jpaRepository.fail(retryable, maxAttempts, errorCode, now, retryAt,
             attempt.mediaId(), attempt.attemptNumber()) == 1;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Description> findDescription(AnalysisAttempt attempt) {
+        return jpaRepository.findById(attempt.mediaId())
+            .filter(document -> "PROCESSING".equals(document.getStatus())
+                && document.getAttempts() == attempt.attemptNumber() && document.getDescription() != null)
+            .map(document -> new Description(document.getDescription(), document.getFeatures(),
+                document.getAnalysisModel(), document.getPromptVersion()));
+    }
+
+    @Override
+    public boolean beginExternalCall(AnalysisAttempt attempt, Instant now) {
+        return jpaRepository.beginExternalCall(attempt.mediaId(), attempt.attemptNumber(), now) == 1;
+    }
+
+    @Override
+    public boolean saveDescription(AnalysisAttempt attempt, Description description, Instant now) {
+        return jpaRepository.saveDescription(attempt.mediaId(), attempt.attemptNumber(), description.description(),
+            description.features(), description.model(), description.promptVersion(), now) == 1;
     }
 
     @Override
