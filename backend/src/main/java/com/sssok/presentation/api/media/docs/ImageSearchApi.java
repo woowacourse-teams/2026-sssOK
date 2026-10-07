@@ -54,6 +54,7 @@ public interface ImageSearchApi {
     com.sssok.presentation.api.common.ApiResponse<List<ImageSearchMatchResponse>> search(
         @Parameter(description = "방 조회 응답의 roomId", example = "6") Long roomId,
         @Parameter(description = "공백 정리 후 1~200자의 검색어", required = true,
-            example = "바닷가에서 찍은 사진") String query
+            example = "바닷가에서 찍은 사진") String query,
+        @Parameter(hidden = true) Long memberId
     );
 }

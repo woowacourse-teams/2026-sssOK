@@ -141,11 +141,6 @@ media:
       max-size: 2
       queue-capacity: 50
 
-feedback:
-  # 같은 회원이 이 간격 안에 다시 의견을 보내면 429. 오타를 고쳐 다시 쓰는 정도는 막지 않으면서
-  # 자동화된 반복 등록은 걸러내는 선으로 잡았다.
-  rate-limit-window: 1m
-
 notification:
   discord:
     # 새 의견을 받을 디스코드 채널 웹훅. URL 자체가 비밀이라 저장소에 넣지 않고 환경변수로만 받는다.

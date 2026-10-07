@@ -63,6 +63,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
 
     @AfterEach
     void cleanup() {
+        jdbc.update("DELETE FROM media_like WHERE media_id BETWEEN 460201 AND 460230");
         jdbc.update("DELETE FROM stored_file WHERE id BETWEEN 460201 AND 460230");
     }
 
@@ -97,6 +98,21 @@ class ImageSearchApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data[2].similarity").value(0.0))
             .andExpect(jsonPath("$.data[0].media.displayUrl").value("https://signed.test/image"));
         verify(embeddings).embed(org.mockito.ArgumentMatchers.eq("바닷가 단체 사진"), any());
+    }
+
+    @Test
+    void 검색_결과에도_요청자의_좋아요_상태를_반영한다() throws Exception {
+        insert(460201, roomId, List.of(1.0, 0.0, 0.0), "test-model");
+        insert(460202, roomId, List.of(1.0, 0.0, 0.0), "test-model");
+        jdbc.update("""
+            INSERT INTO media_like (media_id, member_id, created_at, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, 460201L, member.userId());
+        search("사진").andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].media.likeCount").value(1))
+            .andExpect(jsonPath("$.data[0].media.likedByMe").value(true))
+            .andExpect(jsonPath("$.data[1].media.likeCount").value(0))
+            .andExpect(jsonPath("$.data[1].media.likedByMe").value(false));
     }
 
     @Test
@@ -174,7 +190,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
             VALUES (?, ?, ?, 'photo.jpg', 'JPEG', 100, ?, 'READY',
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, id, targetRoom, member.userId(), "search/" + id + ".jpg");
-        documents.register(id);
+        documents.register(id, Instant.now());
         AnalysisAttempt attempt = documents.claim(id, Instant.now().plusSeconds(1), 3).orElseThrow();
         documents.complete(attempt, new ImageAnalysis("사진", "바다", "바다 사진", vector,
             model, "vision-test", "v1"), Instant.now());

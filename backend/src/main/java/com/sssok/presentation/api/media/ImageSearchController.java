@@ -4,6 +4,7 @@ import com.sssok.application.search.SearchImagesService;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.api.media.docs.ImageSearchApi;
 import java.util.List;
+import com.sssok.presentation.auth.AuthMember;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -21,9 +22,10 @@ public class ImageSearchController implements ImageSearchApi {
     @GetMapping(produces = "application/json")
     public ApiResponse<List<ImageSearchMatchResponse>> search(
         @PathVariable Long roomId,
-        @RequestParam(required = false) String query
+        @RequestParam(required = false) String query,
+        @AuthMember Long memberId
     ) {
-        List<ImageSearchMatchResponse> matches = searchImagesService.search(roomId, query).stream()
+        List<ImageSearchMatchResponse> matches = searchImagesService.search(roomId, query, memberId).stream()
             .map(ImageSearchMatchResponse::from)
             .toList();
         return ApiResponse.of(matches);

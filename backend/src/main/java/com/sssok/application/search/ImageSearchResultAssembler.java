@@ -24,13 +24,13 @@ public class ImageSearchResultAssembler {
 
     @Transactional(readOnly = true)
     public List<ImageSearchResult> search(Long roomId, String vector, String model,
-                                          int dimensions, double threshold) {
+                                          int dimensions, double threshold, Long memberId) {
         List<Match> matches = searchRepository.search(roomId, vector, model, dimensions, threshold);
         if (matches.isEmpty()) {
             return List.of();
         }
         List<StoredFile> orderedFiles = findAvailableFiles(roomId, matches);
-        List<MediaDetail> details = mediaDetailAssembler.assembleForList(orderedFiles);
+        List<MediaDetail> details = mediaDetailAssembler.assembleForList(orderedFiles, memberId);
         return combineScores(matches, details);
     }
 

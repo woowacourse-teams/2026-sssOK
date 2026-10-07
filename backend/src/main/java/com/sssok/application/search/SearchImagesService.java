@@ -31,14 +31,14 @@ public class SearchImagesService {
     }
 
     // 임베딩 네트워크 호출을 DB 트랜잭션 밖에서 실행한다.
-    public List<ImageSearchResult> search(Long roomId, String query) {
+    public List<ImageSearchResult> search(Long roomId, String query, Long memberId) {
         String text = normalizeQuery(query);
         requireSearchEnabled();
         TextEmbeddingPort.Embedding embedding = embedQuery(text);
         String vector = embedding.values().stream().map(String::valueOf)
             .collect(Collectors.joining(",", "[", "]"));
         return resultAssembler.search(roomId, vector, embedding.model(), embedding.values().size(),
-            properties.minSimilarity());
+            properties.minSimilarity(), memberId);
     }
 
     private String normalizeQuery(String query) {

@@ -11,12 +11,12 @@
 | PENDING | 최초 분석 또는 재시도 대기 | PROCESSING |
 | PROCESSING | 워커가 선점하여 처리 중 | READY, PENDING, FAILED |
 | READY | 설명·특징·검색 텍스트·벡터 저장 완료 | 이번 MVP에서는 재분석 없음 |
-| FAILED | 허용한 시도 횟수 소진 | 자동 재시도 없음 |
+| FAILED | 시도 횟수 소진·영구 오류·외부 처리 여부 불명 | 자동 재시도 없음 |
 
 `register`는 READY 이미지에만 대기 문서를 생성하고 중복 등록은 무시한다.
 `claim`은 조건부 UPDATE로 선점과 시도 횟수 증가를 한 번에 수행한다.
 선점 결과의 미디어 ID·시도 번호를 완료/실패 저장에 사용하므로 이전 실행의 늦은 결과는 무시한다.
-`fail`은 재시도 시각을 기록하고 시도 상한에 도달하면 FAILED로 바꾼다.
+`fail`은 안전한 재시도만 대기시키고 시도 상한·영구 오류·처리 여부 불명은 FAILED로 바꾼다.
 `recover`는 시작 시각이 복구 기준보다 오래된 PROCESSING 작업만 다시 대기시키거나 실패 처리한다.
 복구 기준은 외부 호출 제한 시간보다 충분히 길게 설정해야 한다.
 
@@ -59,7 +59,7 @@ READY 상태에서는 필수 분석 정보와 벡터 차원의 일치를 DB 제�
 | batch-size | 20 | 한 배치에서 등록·제출할 작업 수 |
 | max-attempts | 3 | 최초 실행을 포함한 최대 시도 횟수 |
 | request-timeout | 30s | 각 설명/임베딩 호출 제한 시간 계약 |
-| retry-delay | 1m | 실패 후 재시도 대기 시간 |
+| retry-delay | 1m | 지수 재시도의 기본 대기 시간(최대 64배) |
 | stuck-after | 3m | 중단된 PROCESSING 작업 회수 기준 |
 | image-url-ttl | 5m | 이미지 GET 서명 URL 유효기간 |
 | sweep-delay | 60000 (밀리초) | 배치 최초 대기 및 실행 간격 |
@@ -102,6 +102,44 @@ READY 상태에서는 필수 분석 정보와 벡터 차원의 일치를 DB 제�
 - 임베딩 포트는 텍스트를 받아 벡터와 모델 이름을 반환한다. 이후 검색어에도 같은 구현체를 사용한다.
 - 워커는 제공자별 HTTP 응답 구조를 알 필요 없이 분석 순서와 실패 처리를 담당한다.
 - 현재 테스트는 외부 호출만 대체하고 실제 JPA·PostgreSQL 저장과 이벤트 트랜잭션을 검증한다.
+
+## 등록 시각과 재시도 정책 (#464)
+
+등록·선점·실패·복구는 같은 `imageAnalysisClock`을 사용한다. 등록 시 next_attempt_at,
+created_at, updated_at을 명시하여 DB 시계가 앱보다 앞서도 등록 직후 선점할 수 있다.
+
+- 외부 어댑터는 `AiCallException.RetryDisposition`으로 실패를 분류한다.
+- `SAFE_TO_RETRY`: 미처리가 확인되었거나 제공자가 같은 요청의 멱등 재실행을 보장하는 경우만 사용한다.
+- `PERMANENT`: 인증·입력 오류 등 자동 재시도로 해결하지 않을 실패다.
+- `UNKNOWN_OUTCOME`: 응답 유실·타임아웃·연결 단절처럼 외부 처리 여부를 확인할 수 없는 경우다.
+  일반 5xx도 미처리를 보장하지 않으므로 상태 코드만으로 SAFE_TO_RETRY로 분류하지 않는다.
+- 이전 2인자 예외 생성자는 보수적으로 UNKNOWN_OUTCOME을 사용한다. #471 어댑터에서
+  분류를 명시하고 HTTP 클라이언트 자체의 자동 재시도를 비활성화해야 한다.
+- 안전한 재시도는 retry-delay × 2^(시도 번호 - 1), 최대 64배로 대기하며 max-attempts를 지킨다.
+- 잘못된 분석 결과는 INVALID_RESPONSE로 종료한다. 서명 URL 발급 실패는 STORAGE_FAILED로
+  재시도하고, DB 접근·저장 오류는 PERSISTENCE_FAILED로 종료한다. 외부 처리 불명은
+  UNKNOWN_EXTERNAL_OUTCOME으로 종료한다. 오류 응답 본문·서명 URL·설명은 로그에 남기지 않는다.
+
+## 재시도에서 보장하는 범위
+
+외부 API의 실행·과금까지 exactly-once로 보장하지 않는다. 제공자가 멱등 요청을 보장하지 않는
+상황에서 호출을 반복하는 대신, 성공한 단계의 결과를 보존하고 불명확한 호출의 자동 반복을 막는다.
+
+- 호출 전에 V30의 external_call_in_flight를 별도 DB 트랜잭션으로 기록한다.
+- 설명 성공 시 기존 설명·특징·모델·프롬프트 컬럼에 체크포인트를 저장하고 호출 중 표시를 해제한다.
+- 임베딩 재시도는 그 설명을 그대로 사용한다. 설명 API와 서명 URL 발급을 다시 수행하지 않는다.
+- 임베딩 결과 저장과 READY 전환은 한 UPDATE로 확정한다. 이미 완료된 작업은 선점하지 않는다.
+- 체크포인트 저장과 호출 시작 기록에도 시도 번호를 검사한다. 이전 워커는 새 실행을 덮어쓰거나
+  다음 외부 호출을 시작할 수 없다. 이번 MVP에서는 완료된 미디어의 재분석을 지원하지 않는다.
+- 외부 호출 중 서버가 종료되면 복구 배치는 UNKNOWN_EXTERNAL_OUTCOME으로 종료한다.
+  시작 기록 직후 실제 호출 전에 종료돼도 같은 정책을 적용하므로 자동 복구율보다 중복 방지를 우선한다.
+- API 성공 후 DB 기록 전에 장애가 나면 결과가 저장되지 않을 수 있다. 자동으로 재호출하지 않으며
+  제공자 측 처리 여부 확인 후 별도의 수동 복구 판단이 필요하다. 수동 복구 API는 이 PR 범위에 없다.
+- 실패 기록 자체도 DB 장애로 불가능하면 안전한 메타데이터만 로그에 남기고 배치 복구에 맡긴다.
+
+OpenAI 공식 [API 개요](https://developers.openai.com/api/reference/overview)의
+X-Client-Request-Id는 추적용이다. 이를 중복 실행 방지 키로 취급하지 않는다.
+워커는 제공자 독립 정책을 유지하고, OpenAI 어댑터가 아래 기준으로 오류를 분류한다.
 
 ## 검색 API와 처리 순서
 
@@ -269,6 +307,25 @@ RestClient가 항상 최선이라고 단정하지 않는다. 수동 JSON 코드�
 
 근거: [OpenAI 시작 안내](https://developers.openai.com/api/docs/quickstart),
 [비용 제한](https://developers.openai.com/api/docs/guides/spend-limits).
+
+
+## OpenAI 리뷰 반영: 오류 분류와 프롬프트 버전 (#465)
+
+- 프롬프트와 버전은 설명 어댑터에서 함께 관리한다. 설정으로 버전만 변경할 수 없다.
+  특징 개수는 프롬프트·JSON 스키마 모두 1~8개이며, 변경된 프롬프트 버전은 image-search-v2다.
+- HTTP 429 중 rate_limit_exceeded 또는 rate_limit_error/slow_down 조합만 안전한 재시도로 분류한다.
+  insufficient_quota는 영구 오류이며, 알 수 없는 429는 처리 여부 불명으로 종료한다.
+- 400·401·403 등 4xx는 영구 오류다. 408·5xx·네트워크 오류는 처리 여부가 불명확하므로 재호출하지 않는다.
+- Retry-After의 초 단위와 HTTP 날짜를 지원한다. 워커는 지수 대기와 제공자의 대기 시각 중
+  더 늦은 시각을 next_attempt_at으로 저장한다. 잘못된 헤더는 기본 지수 대기를 사용한다.
+- 완료 응답의 형식 오류·거절은 자동 재호출하지 않는다. 제공자 본문은 예외와 로그에 포함하지 않는다.
+- 같은 타임아웃의 RestClient와 요청 factory를 재사용한다. 최근 설정 하나만 보관하며,
+  다른 타임아웃 요청에는 새 인스턴스를 사용해 진행 중 요청의 설정이 바뀌지 않도록 한다.
+  기반 HttpClient는 계속 공유한다. HTTP 계층의 재시도나 대기 sleep은 추가하지 않는다.
+- store=false는 응답 저장을 끄는 설정이며 모든 데이터 보관을 없애는 보장은 아니다.
+
+근거: [OpenAI 오류 코드](https://developers.openai.com/api/docs/guides/error-codes),
+[데이터 처리 정책](https://developers.openai.com/api/docs/guides/your-data).
 
 ## 현재 구현 범위와 다음 단계
 
