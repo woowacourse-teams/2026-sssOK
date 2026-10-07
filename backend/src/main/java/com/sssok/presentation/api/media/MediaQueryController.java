@@ -43,6 +43,7 @@ public class MediaQueryController {
             + "업로드에 실패한 것)는 목록에 나오지 않는다. thumbnailUrl·width는 워커가 채우기 전까지 "
             + "null이고, duration은 영상에만 값이 있다. "
             + "목록 타일은 thumbnailUrl, 뷰어는 displayUrl을 사용한다. "
+            + "likeCount는 전체 좋아요 수, likedByMe는 요청한 사람이 좋아요를 눌렀는지다. "
             + "thumbnailUrl은 R2 서명 URL이라 만료 시각(thumbnailUrlExpiresAt)이 지나면 깨지므로, "
             + "지난 뒤에는 목록을 다시 받아야 한다. "
             + "없는 폴더나 다른 방 폴더로 필터하면 404, 입장하지 않은 사용자는 403, "
@@ -84,6 +85,7 @@ public class MediaQueryController {
             + "thumbnailUrl은 목록 카드와 동영상 poster에 사용한다. displayUrl은 상세 뷰어용이며, "
             + "일반 사진은 preview, GIF와 preview가 없는 사진은 original, 영상은 재생할 original을 "
             + "서명해 반환한다. 각 URL은 대응하는 만료 시각이 지나면 다시 조회해야 한다. "
+            + "likeCount·likedByMe로 좋아요순 정렬과 내가 좋아요한 사진 모아보기를 처리한다. "
             + "없는 폴더나 다른 방 폴더로 필터하면 404, 입장하지 않은 사용자는 403, "
             + "없는 방은 404, 만료·삭제된 방은 410이 난다."
     )

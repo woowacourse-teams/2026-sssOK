@@ -13,7 +13,7 @@ public abstract class PostgresContainerSupport {
     static final PostgreSQLContainer<?> POSTGRES;
 
     static {
-        POSTGRES = new PostgreSQLContainer<>("postgres:16-alpine");
+        POSTGRES = new PostgreSQLContainer<>("pgvector/pgvector:0.8.6-pg16-bookworm");
         POSTGRES.start();
     }
 
