@@ -83,10 +83,11 @@ export const Count = styled.span`
   color: ${colors.textStrong};
 `;
 
+/** 실제 바는 가운데에 버튼, 오른쪽에 삭제·이동을 둔다. 미리보기는 선택 수와 다운로드만 양 끝에 둔다 */
 export const SelectionLayout = styled.div`
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
+  justify-content: space-between;
   width: 100%;
   gap: ${spacing[16]};
 `;
@@ -113,13 +114,6 @@ export const SelectionCheck = styled.span`
     height: 12px;
     stroke-width: 2.5;
   }
-`;
-
-export const ActionGroup = styled.div`
-  display: flex;
-  align-items: center;
-  justify-self: end;
-  gap: 0;
 `;
 
 /** `$pressed` 는 실제 버튼을 누르고 있는 모습(`:active`)이다 */

@@ -3,10 +3,10 @@ import { useEffect, useState } from "react";
 import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 /**
- * 단계마다 보여주는 시간. 업로드·다운로드 장면은 사진이 붙거나 골라지는 모습과 결과 토스트까지
- * 보여줘야 해서 링크 장면보다 길다. 한 바퀴에 8초 남짓 걸린다.
+ * 단계마다 보여주는 시간. 장면 안의 움직임(말풍선이 차례로 뜨고, 사진이 붙고, 골라 받는 것)과
+ * 결과 토스트까지 다 보여줄 만큼 둔다. 한 바퀴에 9초 남짓 걸린다.
  */
-export const PREVIEW_STEP_DURATIONS_MS = [2400, 2300, 3600] as const;
+export const PREVIEW_STEP_DURATIONS_MS = [3100, 2300, 3600] as const;
 
 /**
  * 미리보기에서 지금 보여줄 단계와, 원하는 단계로 건너뛰는 함수.

@@ -1,10 +1,8 @@
 import { HiCheckCircle } from "react-icons/hi2";
-import { LuCheck, LuDownload, LuFolderInput, LuTrash2 } from "react-icons/lu";
+import { LuCheck, LuDownload } from "react-icons/lu";
 
 import { FloatingBar } from "@/shared/ui/floating-bar";
-import { IconButton } from "@/shared/ui/icon-button";
 import {
-  ActionGroup,
   Count,
   DownloadButton,
   SelectionCheck,
@@ -26,7 +24,10 @@ interface SelectionProps {
   pressed: boolean;
 }
 
-/** features/download-media 의 SelectionDownloadBar 가 사진을 고른 뒤 보이는 모습 */
+/**
+ * features/download-media 의 SelectionDownloadBar 가 사진을 고른 뒤 보이는 모습.
+ * 미리보기에서는 "골라서 받는다" 만 보이면 돼서 삭제·폴더 이동 버튼은 뺐다.
+ */
 export const PreviewSelectionBar = ({ count, pressed }: SelectionProps) => (
   <FloatingBar>
     <SelectionLayout>
@@ -40,14 +41,6 @@ export const PreviewSelectionBar = ({ count, pressed }: SelectionProps) => (
         <LuDownload />
         다운로드
       </DownloadButton>
-      <ActionGroup>
-        <IconButton size="sm" variant="danger" tabIndex={-1}>
-          <LuTrash2 />
-        </IconButton>
-        <IconButton size="sm" tabIndex={-1}>
-          <LuFolderInput />
-        </IconButton>
-      </ActionGroup>
     </SelectionLayout>
   </FloatingBar>
 );

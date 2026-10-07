@@ -105,7 +105,7 @@ export const LinkBubble = styled.div`
   ${typography.caption1};
   font-size: 12px;
   line-height: 16px;
-  animation: onboarding-pop 400ms 100ms both;
+  animation: onboarding-pop 400ms 700ms both;
 `;
 
 export const LinkPreview = styled.span`
@@ -224,34 +224,18 @@ export const StepItem = styled.li`
 `;
 
 /** 누르면 그 장면으로 건너뛴다. 자동으로 넘어가기를 기다리지 않아도 되게 한다. */
-export const StepButton = styled.button<{ $active: boolean }>`
+export const StepButton = styled.button`
   display: flex;
   flex: 1;
   flex-direction: column;
   align-items: center;
-  padding: 7px ${spacing[4]} 6px;
+  padding: 8px ${spacing[4]} 6px;
   border-radius: 10px;
-  background: ${({ $active }) => ($active ? colors.backgroundDefault : "transparent")};
   text-align: center;
-  transition: background-color 300ms ease;
 
   &:focus-visible {
     outline: 2px solid ${colors.primary};
     outline-offset: 2px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
-`;
-
-export const StepNumber = styled.span<{ $active: boolean }>`
-  color: ${({ $active }) => ($active ? colors.textAccent : colors.textSecondary)};
-  ${typography.caption4};
-
-  @media (min-width: 768px) {
-    font-size: 13px;
-    line-height: 18px;
   }
 `;
 

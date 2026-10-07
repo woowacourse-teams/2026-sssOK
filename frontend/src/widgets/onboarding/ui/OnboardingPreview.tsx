@@ -16,7 +16,6 @@ import {
   StepButton,
   StepItem,
   StepList,
-  StepNumber,
   StepProgress,
   StepTitle,
 } from "./OnboardingPreview.styles";
@@ -74,8 +73,8 @@ export const OnboardingPreview = () => {
                   ssssok.com/rooms/…
                 </LinkPreview>
               </LinkBubble>
-              <ReplyBubble $delay={1000}>오케이!</ReplyBubble>
-              <ReplyBubble $delay={1600}>방금 사진 올렸어용</ReplyBubble>
+              <ReplyBubble $delay={1500}>오케이!</ReplyBubble>
+              <ReplyBubble $delay={2100}>방금 사진 올렸어용</ReplyBubble>
             </ChatCard>
           </Scene>
 
@@ -96,11 +95,9 @@ export const OnboardingPreview = () => {
             <StepItem key={item.title}>
               <StepButton
                 type="button"
-                $active={isActive}
                 aria-current={step === index ? "step" : undefined}
                 onClick={() => goTo(index)}
               >
-                <StepNumber $active={isActive}>{index + 1}</StepNumber>
                 <StepTitle $active={isActive}>{item.title}</StepTitle>
                 <HiddenText>{item.caption}</HiddenText>
                 <StepProgress
