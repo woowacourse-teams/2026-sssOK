@@ -629,9 +629,9 @@ export const roomHandlers = [
 
       return HttpResponse.json({
         data: {
-          items: mediaOfRoom(roomId).filter(
-            (media) => media.type === "IMAGE" && (media.mediaId + query.length) % 3 === 0,
-          ),
+          items: mediaOfRoom(roomId)
+            .filter((media) => media.type === "IMAGE" && (media.mediaId + query.length) % 3 === 0)
+            .map((media) => mediaWithLikeState(roomId, media, memberId)),
         },
       });
     }
