@@ -23,7 +23,10 @@ flowchart LR
   뒤에 사람이 읽기 위한 `backend-vX.Y.Z`·`release-vX.Y.Z`·`latest` 별칭 태그가 추가로 붙지만,
   배포·롤백에는 쓰지 않는다 (별칭은 다음 릴리스에서 다른 이미지로 옮겨간다 —
   [버전과 릴리스 태그](#버전과-릴리스-태그) 참고).
-- 배포 후 `/health`를 최대 150초간 폴링하고, 실패하면 자동으로 직전 이미지로 롤백한다.
+- Compose 반영 후 컨테이너 안에서 `nginx -t`로 새 설정을 검사하고, 성공한 경우에만 Nginx를
+  reload한다. 문법 검사나 reload가 실패하면 배포 잡도 실패한다.
+- 배포 후 `/health`와 `monitor.ssssok.com` 호스트 기반 Grafana 라우팅을 최대 150초간 폴링하고,
+  실패하면 자동으로 직전 이미지로 롤백한다.
 - 위 그림은 백엔드 경로다. 프론트엔드는 GitHub Actions 를 거치지 않고 AWS CodePipeline 이
   `deploy` 브랜치를 받아 S3 에 올린다 — [프론트엔드 배포](#프론트엔드-배포) 참고.
 
@@ -441,7 +444,30 @@ export COMPOSE="docker compose --env-file .env --env-file image.env -f docker-co
 | 재시작 | `$COMPOSE restart app` |
 | 전체 내리기 | `$COMPOSE down` |
 | 헬스체크 | `curl -i http://localhost/health` |
+| Grafana 호스트 라우팅 확인 | `curl -i -H 'Host: monitor.ssssok.com' http://localhost/api/health` |
+| Nginx 설정 검사 | `$COMPOSE exec -T nginx nginx -t` |
+| Nginx 설정 reload | `$COMPOSE exec -T nginx nginx -s reload` |
 | 떠 있는 버전 확인 | `curl -s http://localhost/version` |
+
+### Nginx 설정 반영 실패 확인
+
+운영 배포는 `nginx.conf`를 배포 경로에 복사한 뒤, 실행 중인 컨테이너에서 문법 검사와 reload를
+순서대로 수행한다. `nginx -t`가 실패하면 reload하지 않고 배포 잡을 실패시켜 기존 Nginx 프로세스가
+마지막 정상 설정으로 계속 응답하게 한다. 애플리케이션 컨테이너는 Nginx reload 때문에 재시작되지 않는다.
+
+실패한 경우 Actions의 `Nginx 설정 검사 및 리로드` 로그에서 파일명과 줄 번호를 확인한다. 서버에서
+추가 확인이 필요하면 배포 디렉터리에서 다음 명령을 실행한다.
+
+```bash
+$COMPOSE exec -T nginx nginx -t
+$COMPOSE logs --tail 100 nginx
+curl -i http://localhost/health
+curl -i -H 'Host: monitor.ssssok.com' http://localhost/api/health
+```
+
+설정을 수정한 새 배포가 성공하기 전까지 수동 reload를 실행하지 않는다. 문법 검사가 성공했지만
+reload 단계만 실패했다면 Nginx 로그와 컨테이너 상태를 확인한 뒤 `$COMPOSE exec -T nginx nginx -s reload`로
+재시도한다.
 
 ### 수동 롤백
 
