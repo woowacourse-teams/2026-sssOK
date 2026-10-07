@@ -1,5 +1,5 @@
 import type { MediaItem, MediaList } from "@/entities/media";
-import { setMyMediaLike } from "./mediaLikeCache";
+import { setMediaLikeResponse, setMyMediaLike } from "./mediaLikeCache";
 
 const photos = {
   items: [{ mediaId: 1, likeCount: 7, likedByMe: false } as MediaItem],
@@ -11,5 +11,15 @@ describe("mediaLikeCache", () => {
     const duplicated = setMyMediaLike(liked, 1, true);
 
     expect(duplicated?.items[0]).toMatchObject({ likeCount: 8, likedByMe: true });
+  });
+
+  it("좋아요 API 응답으로 대상 미디어의 최종 상태를 확정한다", () => {
+    const result = setMediaLikeResponse(photos, {
+      mediaId: 1,
+      liked: true,
+      likeCount: 12,
+    });
+
+    expect(result?.items[0]).toMatchObject({ likeCount: 12, likedByMe: true });
   });
 });

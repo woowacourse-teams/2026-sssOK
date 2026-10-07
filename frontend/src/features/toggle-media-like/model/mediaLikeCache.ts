@@ -1,4 +1,5 @@
 import type { MediaList } from "@/entities/media";
+import type { MediaLikeResponse } from "../api/types";
 
 export const setMyMediaLike = (
   current: MediaList | undefined,
@@ -18,5 +19,21 @@ export const setMyMediaLike = (
         likeCount: Math.max(0, media.likeCount + (likedByMe ? 1 : -1)),
       };
     }),
+  };
+};
+
+export const setMediaLikeResponse = (
+  current: MediaList | undefined,
+  response: MediaLikeResponse,
+) => {
+  if (!current) return current;
+
+  return {
+    ...current,
+    items: current.items.map((media) =>
+      media.mediaId === response.mediaId
+        ? { ...media, likedByMe: response.liked, likeCount: response.likeCount }
+        : media,
+    ),
   };
 };

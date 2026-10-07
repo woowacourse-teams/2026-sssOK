@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { photosQueryKey, type MediaList } from "@/entities/media";
 import { addMediaLike } from "../api/addMediaLike";
 import { removeMediaLike } from "../api/removeMediaLike";
-import { setMyMediaLike } from "./mediaLikeCache";
+import { setMediaLikeResponse, setMyMediaLike } from "./mediaLikeCache";
 
 interface UseMediaLikeParams {
   roomId: number;
@@ -51,8 +51,8 @@ export const useMediaLike = ({ roomId, mediaId, userId, token }: UseMediaLikePar
         };
       });
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: photosKey, exact: true });
+    onSuccess: (response) => {
+      updatePhotos((current) => setMediaLikeResponse(current, response));
     },
   });
 };

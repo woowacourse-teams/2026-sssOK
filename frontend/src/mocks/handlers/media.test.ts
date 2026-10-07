@@ -48,21 +48,33 @@ describe("미디어 단일 조회·삭제 및 다중 삭제 목", () => {
       ({ mediaId }) => mediaId === 5012,
     );
 
+    const likeResponse = await fetch(url, { method: "PUT", headers });
     await fetch(url, { method: "PUT", headers });
-    await fetch(url, { method: "PUT", headers });
+    const likeResult = await likeResponse.json();
     const liked = (await getPhotos({ roomId: MOCK_ROOM_ID, token: MEMBER })).items.find(
       ({ mediaId }) => mediaId === 5012,
     );
 
     expect(liked).toMatchObject({ likedByMe: true, likeCount: (before?.likeCount ?? 0) + 1 });
+    expect(likeResult.data).toEqual({
+      mediaId: 5012,
+      liked: true,
+      likeCount: (before?.likeCount ?? 0) + 1,
+    });
 
+    const unlikeResponse = await fetch(url, { method: "DELETE", headers });
     await fetch(url, { method: "DELETE", headers });
-    await fetch(url, { method: "DELETE", headers });
+    const unlikeResult = await unlikeResponse.json();
     const unliked = (await getPhotos({ roomId: MOCK_ROOM_ID, token: MEMBER })).items.find(
       ({ mediaId }) => mediaId === 5012,
     );
 
     expect(unliked).toMatchObject({ likedByMe: false, likeCount: before?.likeCount });
+    expect(unlikeResult.data).toEqual({
+      mediaId: 5012,
+      liked: false,
+      likeCount: before?.likeCount,
+    });
   });
 
   it("저장된 방 세션이 있으면 mock 입장 기록이 없어도 좋아요를 허용한다", async () => {

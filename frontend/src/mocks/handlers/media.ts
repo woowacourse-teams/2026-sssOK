@@ -66,7 +66,10 @@ export const mediaHandlers = [
     if (!media) return notFound();
 
     addMediaLike(roomId, mediaId, memberId);
-    return new HttpResponse(null, { status: 200 });
+    const result = mediaWithLikeState(roomId, media, memberId);
+    return HttpResponse.json({
+      data: { mediaId, liked: result.likedByMe, likeCount: result.likeCount },
+    });
   }),
 
   http.delete(`${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`, ({ request, params }) => {
@@ -78,7 +81,10 @@ export const mediaHandlers = [
     if (!media) return notFound();
 
     removeMediaLike(roomId, mediaId, memberId);
-    return new HttpResponse(null, { status: 200 });
+    const result = mediaWithLikeState(roomId, media, memberId);
+    return HttpResponse.json({
+      data: { mediaId, liked: result.likedByMe, likeCount: result.likeCount },
+    });
   }),
 
   http.put(`${API_BASE_URL}/rooms/:roomId/media/folders`, async ({ request, params }) => {

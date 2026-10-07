@@ -48,7 +48,12 @@ describe("useMediaLike", () => {
         `${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`,
         () =>
           new Promise<Response>((resolve) => {
-            respond = () => resolve(new HttpResponse(null, { status: 200 }));
+            respond = () =>
+              resolve(
+                HttpResponse.json({
+                  data: { mediaId: MEDIA_ID, liked: true, likeCount: 9 },
+                }),
+              );
           }),
       ),
     );
@@ -63,7 +68,8 @@ describe("useMediaLike", () => {
 
     respond();
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: photosKey, exact: true });
+    expect(currentMedia(queryClient)).toMatchObject({ likeCount: 9, likedByMe: true });
+    expect(invalidateQueries).not.toHaveBeenCalled();
   });
 
   it("DELETE 실패 시 재조회하지 않고 변경 전 목록 캐시로 되돌린다", async () => {

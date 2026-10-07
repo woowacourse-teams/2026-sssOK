@@ -1,4 +1,5 @@
 import { apiClient } from "@/shared/api";
+import type { MediaLikeResponse } from "./types";
 
 interface RemoveMediaLikeParams {
   roomId: number;
@@ -7,10 +8,9 @@ interface RemoveMediaLikeParams {
 }
 
 export const removeMediaLike = ({ roomId, mediaId, token }: RemoveMediaLikeParams) =>
-  apiClient<void>(`/rooms/${roomId}/media/${mediaId}/likes`, {
+  apiClient<MediaLikeResponse>(`/rooms/${roomId}/media/${mediaId}/likes`, {
     method: "DELETE",
     token,
-    responseType: "empty",
     errorTracking: {
       level: "error",
       operation: "gallery.remove_media_like",
