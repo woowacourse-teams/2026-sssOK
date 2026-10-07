@@ -19,6 +19,8 @@ const media: MediaItem = {
   uploaderName: "사용자",
   status: "READY",
   uploadedAt: "2026-09-28T00:00:00Z",
+  likeCount: 7,
+  likedByMe: true,
 };
 
 const localItem: GalleryItem = {

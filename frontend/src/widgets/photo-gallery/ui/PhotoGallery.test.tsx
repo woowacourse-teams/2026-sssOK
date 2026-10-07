@@ -22,6 +22,8 @@ const photo: MediaItem = {
   uploaderName: "로지",
   status: "READY",
   uploadedAt: "2026-08-18T20:15:00+09:00",
+  likeCount: 0,
+  likedByMe: false,
 };
 
 describe("PhotoGallery", () => {
