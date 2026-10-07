@@ -1,4 +1,5 @@
-export type PhotoFilter = "all" | "mine" | "others";
+export type PhotoFilter = "all" | "mine" | "others" | "liked";
+export type PhotoSort = "upload" | "popular";
 
 /** backend MediaStatus 와 같다. 워커가 처리를 마치면 READY 가 된다. */
 export type MediaStatus = "RESERVED" | "PROCESSING" | "READY" | "FAILED";
@@ -36,6 +37,9 @@ export interface Media {
   uploaderName: string;
   status: MediaStatus;
   uploadedAt: string;
+  /** 목록 조회가 내려주는 값이라 업로드 처리 중 응답에는 없을 수 있다. */
+  likeCount?: number;
+  likedByMe?: boolean;
 }
 
 /**
@@ -48,6 +52,8 @@ export interface MediaItem extends Media {
   width: number;
   height: number;
   status: "READY";
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 /** 목록 조회 결과. 서버가 방의 미디어를 최신순으로 전부 내려준다. */

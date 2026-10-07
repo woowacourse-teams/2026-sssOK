@@ -1,4 +1,6 @@
-import { act, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, render as testingRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { MediaItem } from "@/entities/media";
@@ -22,6 +24,17 @@ const photo: MediaItem = {
   uploaderName: "로지",
   status: "READY",
   uploadedAt: "2026-08-18T20:15:00+09:00",
+  likeCount: 0,
+  likedByMe: false,
+};
+
+const render = (ui: ReactNode) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  return testingRender(ui, { wrapper: Wrapper });
 };
 
 describe("PhotoGallery", () => {
@@ -38,7 +51,9 @@ describe("PhotoGallery", () => {
             folderIds: photo.folderIds,
           },
         ]}
+        roomId={1024}
         userId={12}
+        token="token"
         selectedPhotoIds={[]}
         isPending={false}
         isError={false}
@@ -59,7 +74,9 @@ describe("PhotoGallery", () => {
       render(
         <PhotoGallery
           items={[]}
+          roomId={1024}
           userId={12}
+          token="token"
           selectedPhotoIds={[]}
           isPending
           isError={false}

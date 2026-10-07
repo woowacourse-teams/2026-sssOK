@@ -32,3 +32,20 @@ export const RoomTitle = styled.h1`
 
   ${typography.heading2}
 `;
+
+export const TitleArea = styled.div`
+  position: relative;
+  display: flex;
+  gap: ${spacing[8]};
+  flex: 1;
+  align-self: stretch;
+  align-items: center;
+  min-width: 0;
+`;
+
+export const SearchOverlay = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+`;

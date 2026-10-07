@@ -1,4 +1,6 @@
-import { act, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, render as testingRender, screen } from "@testing-library/react";
 
 import type { GalleryItem, MediaItem } from "@/entities/media";
 import { GalleryMediaCard } from "./GalleryMediaCard";
@@ -19,6 +21,8 @@ const media: MediaItem = {
   uploaderName: "사용자",
   status: "READY",
   uploadedAt: "2026-09-28T00:00:00Z",
+  likeCount: 7,
+  likedByMe: true,
 };
 
 const localItem: GalleryItem = {
@@ -35,7 +39,53 @@ const serverItem: GalleryItem = {
   folderIds: media.folderIds,
 };
 
+const render = (ui: ReactNode) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  return testingRender(ui, { wrapper: Wrapper });
+};
+
 describe("GalleryMediaCard", () => {
+  it("목록에서 받은 좋아요 수와 상태를 표시한다", () => {
+    render(
+      <GalleryMediaCard
+        item={serverItem}
+        roomId={1}
+        userId={2}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
+    );
+
+    const likeButton = screen.getByRole("button", { name: "photo.jpg 좋아요 취소" });
+    expect(likeButton).toHaveAttribute("aria-pressed", "true");
+    expect(likeButton).toHaveTextContent("7");
+  });
+
+  it("업로드 중인 로컬 아이템에는 좋아요 버튼을 표시하지 않는다", () => {
+    const localVideoItem: GalleryItem = {
+      ...localItem,
+      file: new File(["video"], "video.mp4", { type: "video/mp4" }),
+    };
+
+    render(
+      <GalleryMediaCard
+        item={localVideoItem}
+        roomId={1}
+        userId={1}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: /좋아요/ })).not.toBeInTheDocument();
+  });
+
   it("처리 중 사진은 media.created의 displayUrl로 표시한다", () => {
     const processingItem: GalleryItem = {
       type: "server",
@@ -51,7 +101,14 @@ describe("GalleryMediaCard", () => {
     };
 
     render(
-      <GalleryMediaCard item={processingItem} userId={2} isSelected={false} onToggle={jest.fn()} />,
+      <GalleryMediaCard
+        item={processingItem}
+        roomId={1}
+        userId={2}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
     );
 
     expect(screen.getByRole("img", { name: media.fileName })).toHaveAttribute(
@@ -89,12 +146,26 @@ describe("GalleryMediaCard", () => {
     });
 
     const { rerender, unmount } = render(
-      <GalleryMediaCard item={localItem} userId={1} isSelected={false} onToggle={jest.fn()} />,
+      <GalleryMediaCard
+        item={localItem}
+        roomId={1}
+        userId={1}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
     );
     const preview = screen.getByRole("img", { name: media.fileName });
 
     rerender(
-      <GalleryMediaCard item={serverItem} userId={1} isSelected={false} onToggle={jest.fn()} />,
+      <GalleryMediaCard
+        item={serverItem}
+        roomId={1}
+        userId={1}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
     );
 
     expect(screen.getByRole("img", { name: media.fileName })).toBe(preview);
