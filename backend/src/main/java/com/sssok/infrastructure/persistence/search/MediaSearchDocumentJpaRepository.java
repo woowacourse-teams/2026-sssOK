@@ -10,8 +10,8 @@ import org.springframework.data.repository.query.Param;
 public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSearchDocumentJpaEntity, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-        INSERT INTO media_search_document (media_id)
-        SELECT f.id
+        INSERT INTO media_search_document (media_id, next_attempt_at, created_at, updated_at)
+        SELECT f.id, :now, :now, :now
         FROM stored_file f
         WHERE f.media_type IN ('JPEG', 'PNG', 'GIF')
             AND f.status = 'READY'
@@ -22,18 +22,18 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         FOR KEY SHARE OF f
         ON CONFLICT (media_id) DO NOTHING
         """, nativeQuery = true)
-    int registerMissing(@Param("createdSince") Instant createdSince, @Param("limit") int limit);
+    int registerMissing(@Param("createdSince") Instant createdSince, @Param("now") Instant now, @Param("limit") int limit);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
-        INSERT INTO media_search_document (media_id)
-        SELECT id
+        INSERT INTO media_search_document (media_id, next_attempt_at, created_at, updated_at)
+        SELECT id, :now, :now, :now
         FROM stored_file
         WHERE id = :mediaId AND media_type IN ('JPEG', 'PNG', 'GIF') AND status = 'READY'
         FOR KEY SHARE
         ON CONFLICT (media_id) DO NOTHING
         """, nativeQuery = true)
-    int register(@Param("mediaId") Long mediaId);
+    int register(@Param("mediaId") Long mediaId, @Param("now") Instant now);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
@@ -60,7 +60,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
             search_text = :searchText, embedding = CAST(:vector AS vector),
             embedding_model = :embeddingModel, embedding_dimensions = :dimensions,
             analysis_model = :analysisModel, prompt_version = :promptVersion,
-            completed_at = :now, updated_at = :now, error_code = NULL
+            completed_at = :now, updated_at = :now, error_code = NULL, external_call_in_flight = false
         WHERE media_id = :mediaId AND status = 'PROCESSING' AND attempts = :attemptNumber
             AND EXISTS (
                 SELECT 1 FROM stored_file f
@@ -84,11 +84,12 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE media_search_document
-        SET status = CASE WHEN attempts >= :maxAttempts THEN 'FAILED' ELSE 'PENDING' END,
-            error_code = :errorCode, next_attempt_at = :retryAt, updated_at = :now
+        SET status = CASE WHEN NOT :retryable OR attempts >= :maxAttempts THEN 'FAILED' ELSE 'PENDING' END,
+            external_call_in_flight = false, error_code = :errorCode, next_attempt_at = :retryAt, updated_at = :now
         WHERE media_id = :mediaId AND status = 'PROCESSING' AND attempts = :attemptNumber
         """, nativeQuery = true)
     int fail(
+        @Param("retryable") boolean retryable,
         @Param("maxAttempts") int maxAttempts,
         @Param("errorCode") String errorCode,
         @Param("now") Instant now,
@@ -99,14 +100,37 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE media_search_document
-        SET status = CASE WHEN attempts >= :maxAttempts THEN 'FAILED' ELSE 'PENDING' END,
-            error_code = 'WORKER_INTERRUPTED', next_attempt_at = :now, updated_at = :now
+        SET status = CASE WHEN external_call_in_flight OR attempts >= :maxAttempts THEN 'FAILED' ELSE 'PENDING' END,
+            error_code = CASE WHEN external_call_in_flight THEN 'UNKNOWN_EXTERNAL_OUTCOME' ELSE 'WORKER_INTERRUPTED' END,
+            external_call_in_flight = false, next_attempt_at = :now, updated_at = :now
         WHERE status = 'PROCESSING' AND started_at < :stuckBefore
         """, nativeQuery = true)
     int recover(
         @Param("maxAttempts") int maxAttempts,
         @Param("now") Instant now,
         @Param("stuckBefore") Instant stuckBefore);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE media_search_document
+        SET external_call_in_flight = true, updated_at = :now
+        WHERE media_id = :mediaId AND status = 'PROCESSING' AND attempts = :attemptNumber
+            AND NOT external_call_in_flight
+        """, nativeQuery = true)
+    int beginExternalCall(@Param("mediaId") Long mediaId, @Param("attemptNumber") int attemptNumber,
+        @Param("now") Instant now);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+        UPDATE media_search_document
+        SET description = :description, features = :features, analysis_model = :model,
+            prompt_version = :promptVersion, external_call_in_flight = false, updated_at = :now
+        WHERE media_id = :mediaId AND status = 'PROCESSING' AND attempts = :attemptNumber
+            AND external_call_in_flight AND description IS NULL
+        """, nativeQuery = true)
+    int saveDescription(@Param("mediaId") Long mediaId, @Param("attemptNumber") int attemptNumber,
+        @Param("description") String description, @Param("features") String features,
+        @Param("model") String model, @Param("promptVersion") String promptVersion, @Param("now") Instant now);
 
     @Query(value = """
         SELECT d.media_id
