@@ -222,7 +222,13 @@ jobs:
           } > image.env
 
           $COMPOSE pull
-          $COMPOSE up -d
+          # 앱과 외부 헬스체크 경로를 먼저 교체해 모니터링 의존성 실패와 분리한다. nginx는
+          # 앱 readiness를 기다리지 않고 시작하고, 실제 요청 성공 여부는 아래 헬스체크가 판정한다.
+          $COMPOSE up -d app
+          $COMPOSE up -d --no-deps nginx
+          if ! $COMPOSE up -d; then
+            echo "일부 서비스 기동 실패 - 앱 헬스체크와 모니터링 복구 절차를 계속한다"
+          fi
           # 모니터링 설정은 위에서 cp 로 덮어쓰기만 해서 컨테이너가 재생성되지 않는다. Prometheus(알림 규칙)와
           # Alertmanager 는 파일이 바뀌어도 스스로 다시 읽지 않으므로 SIGHUP 으로 다시 읽게 한다.
           # 리로드 실패가 앱 배포를 막지는 않게 한다.
@@ -258,7 +264,9 @@ jobs:
           echo "Grafana 데이터소스 연결 확인 시작"
           if ! check_monitoring_connections; then
             echo "연결 실패 - Prometheus, Loki, Grafana를 한 차례 재생성한다"
-            $COMPOSE up -d --force-recreate prometheus loki grafana
+            if ! $COMPOSE up -d --force-recreate prometheus loki grafana; then
+              echo "모니터링 컨테이너 재생성 중 기동 실패 - 연결 재검증을 계속한다"
+            fi
 
             if ! check_monitoring_connections; then
               echo "재생성 후에도 Grafana 데이터소스 연결에 실패했다"
