@@ -1,4 +1,6 @@
-import { act, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, render as testingRender, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { MediaItem } from "@/entities/media";
@@ -26,6 +28,15 @@ const photo: MediaItem = {
   likedByMe: false,
 };
 
+const render = (ui: ReactNode) => {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const Wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  );
+
+  return testingRender(ui, { wrapper: Wrapper });
+};
+
 describe("PhotoGallery", () => {
   it("체크 버튼을 클릭하면 선택할 사진 ID를 전달한다", async () => {
     const user = userEvent.setup();
@@ -40,7 +51,9 @@ describe("PhotoGallery", () => {
             folderIds: photo.folderIds,
           },
         ]}
+        roomId={1024}
         userId={12}
+        token="token"
         selectedPhotoIds={[]}
         isPending={false}
         isError={false}
@@ -61,7 +74,9 @@ describe("PhotoGallery", () => {
       render(
         <PhotoGallery
           items={[]}
+          roomId={1024}
           userId={12}
+          token="token"
           selectedPhotoIds={[]}
           isPending
           isError={false}
