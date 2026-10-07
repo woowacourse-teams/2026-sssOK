@@ -64,67 +64,69 @@ export const GalleryOptions = ({
 
   return (
     <Options>
-      {!hideViewControls && <Controls>
-        <DropdownContainer>
-          <DropdownButton
-            type="button"
-            aria-label={`${selectedFilterLabel} 필터 열기`}
-            aria-expanded={openMenu === "filter"}
-            onClick={() => setOpenMenu((current) => (current === "filter" ? null : "filter"))}
-          >
-            {selectedFilterLabel}
-            <HiChevronDown />
-          </DropdownButton>
-          {openMenu === "filter" && (
-            <DropdownMenu align="start" onClose={() => setOpenMenu(null)}>
-              {FILTER_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  icon={
-                    <MenuCheck $visible={selectedOption === option.value}>
-                      <HiCheck />
-                    </MenuCheck>
-                  }
-                  aria-pressed={selectedOption === option.value}
-                  onClick={() => selectFilter(option.value)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
-          )}
-        </DropdownContainer>
+      {!hideViewControls && (
+        <Controls>
+          <DropdownContainer>
+            <DropdownButton
+              type="button"
+              aria-label={`${selectedFilterLabel} 필터 열기`}
+              aria-expanded={openMenu === "filter"}
+              onClick={() => setOpenMenu((current) => (current === "filter" ? null : "filter"))}
+            >
+              {selectedFilterLabel}
+              <HiChevronDown />
+            </DropdownButton>
+            {openMenu === "filter" && (
+              <DropdownMenu align="start" onClose={() => setOpenMenu(null)}>
+                {FILTER_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    icon={
+                      <MenuCheck $visible={selectedOption === option.value}>
+                        <HiCheck />
+                      </MenuCheck>
+                    }
+                    aria-pressed={selectedOption === option.value}
+                    onClick={() => selectFilter(option.value)}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            )}
+          </DropdownContainer>
 
-        <DropdownContainer>
-          <DropdownButton
-            type="button"
-            aria-label={`${selectedSortLabel} 정렬 열기`}
-            aria-expanded={openMenu === "sort"}
-            onClick={() => setOpenMenu((current) => (current === "sort" ? null : "sort"))}
-          >
-            {selectedSortLabel}
-            <HiChevronDown />
-          </DropdownButton>
-          {openMenu === "sort" && (
-            <DropdownMenu align="start" onClose={() => setOpenMenu(null)}>
-              {SORT_OPTIONS.map((option) => (
-                <DropdownMenuItem
-                  key={option.value}
-                  icon={
-                    <MenuCheck $visible={selectedSort === option.value}>
-                      <HiCheck />
-                    </MenuCheck>
-                  }
-                  aria-pressed={selectedSort === option.value}
-                  onClick={() => selectSort(option.value)}
-                >
-                  {option.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenu>
-          )}
-        </DropdownContainer>
-      </Controls>}
+          <DropdownContainer>
+            <DropdownButton
+              type="button"
+              aria-label={`${selectedSortLabel} 정렬 열기`}
+              aria-expanded={openMenu === "sort"}
+              onClick={() => setOpenMenu((current) => (current === "sort" ? null : "sort"))}
+            >
+              {selectedSortLabel}
+              <HiChevronDown />
+            </DropdownButton>
+            {openMenu === "sort" && (
+              <DropdownMenu align="start" onClose={() => setOpenMenu(null)}>
+                {SORT_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    icon={
+                      <MenuCheck $visible={selectedSort === option.value}>
+                        <HiCheck />
+                      </MenuCheck>
+                    }
+                    aria-pressed={selectedSort === option.value}
+                    onClick={() => selectSort(option.value)}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenu>
+            )}
+          </DropdownContainer>
+        </Controls>
+      )}
 
       <SelectAllButton
         type="button"
