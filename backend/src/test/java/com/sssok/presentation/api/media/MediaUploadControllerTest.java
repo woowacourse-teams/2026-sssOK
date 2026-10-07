@@ -211,7 +211,7 @@ class MediaUploadControllerTest {
     void 완료_등록하면_201과_registered_failed_를_반환한다() throws Exception {
         MediaDetail detail = new MediaDetail(MEDIA_ID, "IMAGE", "a.jpg", "image/jpeg", 1024L,
             null, null, null, null, null, null, null,
-            List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now());
+            List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now(), 0, false);
         CompleteUploadResult result = new CompleteUploadResult(List.of(detail),
             List.of(FailedMedia.of(5013L, UploadRejectionReason.UPLOAD_NOT_COMPLETED)));
         given(completeUploadService.complete(anyLong(), anyLong(), anyList())).willReturn(result);
@@ -220,6 +220,8 @@ class MediaUploadControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.registered[0].mediaId").value(MEDIA_ID))
             .andExpect(jsonPath("$.data.registered[0].status").value("PROCESSING"))
+            .andExpect(jsonPath("$.data.registered[0].likeCount").value(0))
+            .andExpect(jsonPath("$.data.registered[0].likedByMe").value(false))
             .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(31))
             .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
     }

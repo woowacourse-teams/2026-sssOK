@@ -23,6 +23,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 @ConditionalOnProperty(name = "media.search.enabled", havingValue = "true")
 @EnableConfigurationProperties(ImageSearchProperties.class)
 public class ImageSearchWorkerConfig {
+    @Bean(name = "imageAnalysisClock")
+    public Clock imageAnalysisClock() {
+        return Clock.systemUTC();
+    }
+
     @Bean(name = "imageAnalysisTaskExecutor")
     public AsyncTaskExecutor imageAnalysisTaskExecutor(ImageSearchProperties properties) {
         if (properties.createdSince() == null) {
@@ -39,15 +44,15 @@ public class ImageSearchWorkerConfig {
     @Bean
     public AnalyzeImageService analyzeImageService(MediaSearchDocumentRepository documents, FileRepository files,
         FileStoragePort storage, ImageDescriptionPort descriptions, TextEmbeddingPort embeddings,
-        ImageSearchProperties properties) {
+        ImageSearchProperties properties, @Qualifier("imageAnalysisClock") Clock clock) {
         return new AnalyzeImageService(documents, files, storage, descriptions, embeddings,
-            properties, Clock.systemUTC());
+            properties, clock);
     }
 
     @Bean
     public ImageAnalysisRegistrar imageAnalysisRegistrar(MediaSearchDocumentRepository documents, FileRepository files,
-        ImageSearchProperties properties) {
-        return new ImageAnalysisRegistrar(documents, files, properties);
+        ImageSearchProperties properties, @Qualifier("imageAnalysisClock") Clock clock) {
+        return new ImageAnalysisRegistrar(documents, files, properties, clock);
     }
 
     @Bean
@@ -63,7 +68,7 @@ public class ImageSearchWorkerConfig {
 
     @Bean
     public ImageAnalysisSweeper imageAnalysisSweeper(MediaSearchDocumentRepository documents,
-        ImageAnalysisDispatcher dispatcher, ImageSearchProperties properties) {
-        return new ImageAnalysisSweeper(documents, dispatcher, properties, Clock.systemUTC());
+        ImageAnalysisDispatcher dispatcher, ImageSearchProperties properties, @Qualifier("imageAnalysisClock") Clock clock) {
+        return new ImageAnalysisSweeper(documents, dispatcher, properties, clock);
     }
 }

@@ -7,15 +7,35 @@ public class AiCallException extends SssOkException {
     private final String safeMessage;
     private final String code;
 
+    public enum RetryDisposition {
+        // 제공자가 미처리를 확정했거나 동일 요청의 멱등 재실행을 보장할 때만 사용한다.
+        SAFE_TO_RETRY,
+        PERMANENT,
+        // 타임아웃·연결 단절·일반 5xx만으로는 미처리를 확정할 수 없다.
+        UNKNOWN_OUTCOME
+    }
+
+    private final RetryDisposition retryDisposition;
+
+    // 분류되지 않은 제공자 오류를 자동 재호출하지 않는다.
     protected AiCallException(String message, String code) {
+        this(message, code, RetryDisposition.UNKNOWN_OUTCOME);
+    }
+
+    public AiCallException(String message, String code, RetryDisposition retryDisposition) {
         super(ErrorCode.INTERNAL_SERVER_ERROR);
         this.safeMessage = message;
         this.code = code;
+        this.retryDisposition = java.util.Objects.requireNonNull(retryDisposition);
     }
 
     @Override
     public String getMessage() {
         return safeMessage;
+    }
+
+    public RetryDisposition retryDisposition() {
+        return retryDisposition;
     }
 
     public String code() {

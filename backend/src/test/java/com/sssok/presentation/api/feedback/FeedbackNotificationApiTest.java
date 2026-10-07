@@ -38,7 +38,6 @@ import org.springframework.test.web.servlet.MvcResult;
 @AcceptanceTest
 @SpringBootTest(properties = {
     "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s",
     "notification.discord.read-timeout=10s"
 })
 @AutoConfigureMockMvc
