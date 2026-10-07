@@ -1,2 +1,2 @@
 export { useRoomEvents } from "./model/useRoomEvents";
-export type { MediaFoldersUpdatedEvent } from "./model/roomEventTypes";
+export type { MediaFoldersUpdatedEvent, MediaLikesUpdatedEvent } from "./model/roomEventTypes";

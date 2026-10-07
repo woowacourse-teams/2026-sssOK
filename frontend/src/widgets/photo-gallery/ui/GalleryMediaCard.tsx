@@ -14,6 +14,7 @@ import {
   UploaderBadge,
 } from "@/entities/media/ui/MediaCard.styles";
 import { useMediaLike } from "@/features/toggle-media-like";
+import { track } from "@/shared/lib";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
 interface GalleryMediaCardProps {
@@ -72,7 +73,15 @@ const MediaLikeButton = ({
       aria-pressed={likedByMe}
       aria-busy={likeMutation.isPending}
       disabled={likeMutation.isPending}
-      onClick={() => likeMutation.mutate(!likedByMe)}
+      onClick={() =>
+        likeMutation.mutate(!likedByMe, {
+          onSuccess: (response) =>
+            track("Photo Like Changed", {
+              action: response.liked ? "like" : "unlike",
+              source: "gallery",
+            }),
+        })
+      }
     >
       {likedByMe ? <HiHeart /> : <HiOutlineHeart />}
       <span>{likeCount}</span>
