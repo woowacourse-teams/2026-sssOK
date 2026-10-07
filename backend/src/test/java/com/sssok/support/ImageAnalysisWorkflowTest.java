@@ -136,6 +136,27 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 제공자의_대기_시각_전에는_재시도하지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willThrow(new AiCallException(
+            "일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY, NOW.plusSeconds(600)));
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("PENDING");
+        assertThat(documents.claim(MEDIA_ID, NOW.plusSeconds(599), 3)).isEmpty();
+        assertThat(documents.claim(MEDIA_ID, NOW.plusSeconds(600), 3)).isPresent();
+    }
+
+    @Test
+    void 제공자의_짧은_대기_시각이_기본_지수_대기를_줄이지_않는다() {
+        documents.register(MEDIA_ID, NOW);
+        given(descriptions.describe(anyString(), any())).willThrow(new AiCallException(
+            "일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY, NOW.plusSeconds(1)));
+        analyzer.analyze(MEDIA_ID);
+        assertThat(status()).isEqualTo("PENDING");
+        assertThat(documents.claim(MEDIA_ID, NOW.plusSeconds(1), 3)).isEmpty();
+    }
+
+    @Test
     void 분석_도중_삭제되면_결과를_남기지_않는다() {
         documents.register(MEDIA_ID, NOW);
         given(descriptions.describe(anyString(), any())).willAnswer(call -> {

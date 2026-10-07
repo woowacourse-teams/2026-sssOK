@@ -139,7 +139,7 @@ created_at, updated_at을 명시하여 DB 시계가 앱보다 앞서도 등록 �
 
 OpenAI 공식 [API 개요](https://developers.openai.com/api/reference/overview)의
 X-Client-Request-Id는 추적용이다. 이를 중복 실행 방지 키로 취급하지 않는다.
-이 PR은 제공자 독립 워커이며, 실제 HTTP 어댑터의 오류 매핑은 #471에서 검증한다.
+워커는 제공자 독립 정책을 유지하고, OpenAI 어댑터가 아래 기준으로 오류를 분류한다.
 
 ## OpenAI 모델 선정 이유
 
@@ -253,3 +253,22 @@ RestClient가 항상 최선이라고 단정하지 않는다. 수동 JSON 코드�
 
 근거: [OpenAI 시작 안내](https://developers.openai.com/api/docs/quickstart),
 [비용 제한](https://developers.openai.com/api/docs/guides/spend-limits).
+
+
+## OpenAI 리뷰 반영: 오류 분류와 프롬프트 버전 (#465)
+
+- 프롬프트와 버전은 설명 어댑터에서 함께 관리한다. 설정으로 버전만 변경할 수 없다.
+  특징 개수는 프롬프트·JSON 스키마 모두 1~8개이며, 변경된 프롬프트 버전은 image-search-v2다.
+- HTTP 429 중 rate_limit_exceeded 또는 rate_limit_error/slow_down 조합만 안전한 재시도로 분류한다.
+  insufficient_quota는 영구 오류이며, 알 수 없는 429는 처리 여부 불명으로 종료한다.
+- 400·401·403 등 4xx는 영구 오류다. 408·5xx·네트워크 오류는 처리 여부가 불명확하므로 재호출하지 않는다.
+- Retry-After의 초 단위와 HTTP 날짜를 지원한다. 워커는 지수 대기와 제공자의 대기 시각 중
+  더 늦은 시각을 next_attempt_at으로 저장한다. 잘못된 헤더는 기본 지수 대기를 사용한다.
+- 완료 응답의 형식 오류·거절은 자동 재호출하지 않는다. 제공자 본문은 예외와 로그에 포함하지 않는다.
+- 같은 타임아웃의 RestClient와 요청 factory를 재사용한다. 최근 설정 하나만 보관하며,
+  다른 타임아웃 요청에는 새 인스턴스를 사용해 진행 중 요청의 설정이 바뀌지 않도록 한다.
+  기반 HttpClient는 계속 공유한다. HTTP 계층의 재시도나 대기 sleep은 추가하지 않는다.
+- store=false는 응답 저장을 끄는 설정이며 모든 데이터 보관을 없애는 보장은 아니다.
+
+근거: [OpenAI 오류 코드](https://developers.openai.com/api/docs/guides/error-codes),
+[데이터 처리 정책](https://developers.openai.com/api/docs/guides/your-data).

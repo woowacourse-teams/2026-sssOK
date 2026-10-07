@@ -3,6 +3,10 @@ package com.sssok.infrastructure.ai;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sssok.application.port.out.ImageDescriptionPort;
 import com.sssok.application.port.out.TextEmbeddingPort;
+import com.sssok.application.search.exception.AiCallException.RetryDisposition;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,6 +32,8 @@ class OpenAiImageSearchAdapterTest {
     private OpenAiImageSearchProperties properties;
     private OpenAiImageDescriptionAdapter descriptions;
     private OpenAiTextEmbeddingAdapter embeddings;
+    private final java.util.concurrent.atomic.AtomicInteger requestCount = new java.util.concurrent.atomic.AtomicInteger();
+    private volatile String retryAfter;
     private volatile String response;
     private volatile int responseStatus;
     private volatile long delayMillis;
@@ -43,6 +49,7 @@ class OpenAiImageSearchAdapterTest {
         server.setExecutor(executor);
         server.createContext("/v1", exchange -> {
             try {
+                requestCount.incrementAndGet();
                 request = mapper.readTree(exchange.getRequestBody());
                 path = exchange.getRequestURI().getPath();
                 authorization = exchange.getRequestHeaders().getFirst("Authorization");
@@ -52,13 +59,14 @@ class OpenAiImageSearchAdapterTest {
                 }
                 byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().set("Content-Type", "application/json");
+                if (retryAfter != null) exchange.getResponseHeaders().set("Retry-After", retryAfter);
                 exchange.sendResponseHeaders(responseStatus, bytes.length);
                 exchange.getResponseBody().write(bytes);
             } finally { exchange.close(); }
         });
         server.start();
         properties = new OpenAiImageSearchProperties("test-key", URI.create(
-            "http://127.0.0.1:" + server.getAddress().getPort() + "/v1"), null, null, 3, null, null);
+            "http://127.0.0.1:" + server.getAddress().getPort() + "/v1"), null, null, 3, null);
         OpenAiSearchClient client = new OpenAiSearchClient(properties);
         descriptions = new OpenAiImageDescriptionAdapter(client, properties, mapper);
         embeddings = new OpenAiTextEmbeddingAdapter(client, properties);
@@ -77,7 +85,7 @@ class OpenAiImageSearchAdapterTest {
         ImageDescriptionPort.Description result = descriptions.describe("https://signed.test/image", Duration.ofSeconds(3));
         assertThat(result.description()).isEqualTo("해변 단체 사진");
         assertThat(result.features()).isEqualTo("바다, 사람");
-        assertThat(result.promptVersion()).isEqualTo("image-search-v1");
+        assertThat(result.promptVersion()).isEqualTo("image-search-v2");
         assertThat(path).isEqualTo("/v1/responses");
         assertThat(authorization).isEqualTo("Bearer test-key");
         assertThat(request.path("model").asText()).isEqualTo("gpt-6-luna");
@@ -147,7 +155,11 @@ class OpenAiImageSearchAdapterTest {
         delayMillis = 1000;
         long started = System.nanoTime();
         assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofMillis(100)))
-            .isInstanceOf(OpenAiCallException.class);
+            .isInstanceOfSatisfying(OpenAiCallException.class, failure -> {
+                assertThat(failure.retryDisposition()).isEqualTo(RetryDisposition.UNKNOWN_OUTCOME);
+                assertThat(failure.retryNotBefore()).isNull();
+            });
+        assertThat(requestCount.get()).isEqualTo(1);
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(3));
     }
 
@@ -155,8 +167,117 @@ class OpenAiImageSearchAdapterTest {
     void 설정_문자열에서_키를_가리고_키_누락은_시작_전에_검사한다() {
         assertThat(properties.toString()).doesNotContain("test-key");
         assertThatThrownBy(() -> new OpenAiSearchClient(new OpenAiImageSearchProperties(
-            null, null, null, null, null, null, null)))
+            null, null, null, null, null, null)))
             .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("OPENAI_API_KEY");
+    }
+
+    @Test
+    void 일시적인_요청_제한만_재시도하고_서버의_대기_시각을_전달한다() {
+        responseStatus = 429;
+        response = "{\"error\":{\"code\":\"rate_limit_exceeded\"}}";
+        retryAfter = "120";
+        Instant before = Instant.now();
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+            .isInstanceOfSatisfying(OpenAiCallException.class, failure -> {
+                assertThat(failure.retryDisposition()).isEqualTo(
+                    RetryDisposition.SAFE_TO_RETRY);
+                assertThat(failure.retryNotBefore()).isAfterOrEqualTo(before.plusSeconds(120));
+            });
+        // 날짜와 요일이 맞는 RFC 1123 헤더를 생성한다.
+        Instant date = Instant.parse("2099-10-21T07:28:00Z");
+        retryAfter = DateTimeFormatter.RFC_1123_DATE_TIME.format(
+            date.atZone(ZoneOffset.UTC));
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+            .isInstanceOfSatisfying(OpenAiCallException.class,
+                failure -> assertThat(failure.retryNotBefore()).isEqualTo(date));
+        retryAfter = "invalid";
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+            .isInstanceOfSatisfying(OpenAiCallException.class,
+                failure -> assertThat(failure.retryNotBefore()).isNull());
+    }
+
+    @Test
+    void 할당량과_알수없는_오류는_재시도하지_않는다() {
+        responseStatus = 429;
+        response = "{\"error\":{\"type\":\"insufficient_quota\",\"code\":\"rate_limit_exceeded\"}}";
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+            .isInstanceOfSatisfying(OpenAiCallException.class, failure ->
+                assertThat(failure.retryDisposition()).isEqualTo(
+                    RetryDisposition.PERMANENT));
+        for (int status : new int[] {429, 408, 500, 503}) {
+            responseStatus = status;
+            response = "not-json";
+            assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+                .isInstanceOfSatisfying(OpenAiCallException.class, failure ->
+                    assertThat(failure.retryDisposition()).isEqualTo(
+                        RetryDisposition.UNKNOWN_OUTCOME));
+        }
+        for (int status : new int[] {400, 401, 403}) {
+            responseStatus = status;
+            assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+                .isInstanceOfSatisfying(OpenAiCallException.class, failure ->
+                    assertThat(failure.retryDisposition()).isEqualTo(
+                        RetryDisposition.PERMANENT));
+        }
+    }
+
+    @Test
+    void 속도_제한은_정확한_타입과_코드_조합만_재시도한다() {
+        responseStatus = 429;
+        response = "{\"error\":{\"type\":\"rate_limit_error\",\"code\":\"slow_down\"}}";
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+            .isInstanceOfSatisfying(OpenAiCallException.class, failure -> {
+                assertThat(failure.retryDisposition()).isEqualTo(RetryDisposition.SAFE_TO_RETRY);
+                assertThat(failure.retryNotBefore()).isNull();
+            });
+        assertThat(requestCount.get()).isEqualTo(1); // HTTP 계층에서는 재시도하지 않는다.
+        for (String error : new String[] {
+            "{\"type\":\"other\",\"code\":\"slow_down\"}",
+            "{\"type\":\"rate_limit_error\",\"code\":\"other\"}", "{}"
+        }) {
+            response = "{\"error\":" + error + "}";
+            assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+                .isInstanceOfSatisfying(OpenAiCallException.class, failure ->
+                    assertThat(failure.retryDisposition()).isEqualTo(RetryDisposition.UNKNOWN_OUTCOME));
+        }
+        assertThat(requestCount.get()).isEqualTo(4);
+    }
+
+    @Test
+    void 할당량_코드만_있어도_영구_오류이며_대기_헤더는_무시한다() {
+        responseStatus = 429;
+        response = "{\"error\":{\"code\":\"insufficient_quota\"}}";
+        retryAfter = "120";
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+            .isInstanceOfSatisfying(OpenAiCallException.class, failure -> {
+                assertThat(failure.retryDisposition()).isEqualTo(RetryDisposition.PERMANENT);
+                assertThat(failure.retryNotBefore()).isNull();
+            });
+        assertThat(requestCount.get()).isEqualTo(1);
+    }
+
+    @Test
+    void 음수와_오버플로_대기_헤더는_기본_대기로_넘긴다() {
+        responseStatus = 429;
+        response = "{\"error\":{\"code\":\"rate_limit_exceeded\"}}";
+        for (String header : new String[] {"-1", "999999999999999999999999999999"}) {
+            retryAfter = header;
+            assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofSeconds(3)))
+                .isInstanceOfSatisfying(OpenAiCallException.class, failure -> {
+                    assertThat(failure.retryDisposition()).isEqualTo(RetryDisposition.SAFE_TO_RETRY);
+                    assertThat(failure.retryNotBefore()).isNull();
+                });
+        }
+    }
+
+    @Test
+    void 타임아웃이_다른_호출에도_각각의_제한을_적용한다() {
+        response = embeddingResponse("[1,0,0]");
+        delayMillis = 300;
+        assertThat(embeddings.embed("사진", Duration.ofSeconds(3)).values()).hasSize(3);
+        assertThatThrownBy(() -> embeddings.embed("사진", Duration.ofMillis(50)))
+            .isInstanceOf(OpenAiCallException.class);
+        assertThat(embeddings.embed("사진", Duration.ofSeconds(3)).values()).hasSize(3);
     }
 
     private String descriptionResponse(String status, String type, String text) throws Exception {

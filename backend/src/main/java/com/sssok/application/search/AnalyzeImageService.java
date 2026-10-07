@@ -127,6 +127,10 @@ public class AnalyzeImageService {
         Instant now = clock.instant();
         long multiplier = 1L << Math.min(attempt.attemptNumber() - 1, 6);
         Instant retryAt = retryable ? now.plus(properties.retryDelay().multipliedBy(multiplier)) : now;
+        if (retryable && exception instanceof AiCallException failure && failure.retryNotBefore() != null
+            && failure.retryNotBefore().isAfter(retryAt)) {
+            retryAt = failure.retryNotBefore();
+        }
         try {
             documentRepository.fail(attempt, errorCode, now, retryAt, properties.maxAttempts(), retryable);
         } catch (RuntimeException persistenceFailure) {

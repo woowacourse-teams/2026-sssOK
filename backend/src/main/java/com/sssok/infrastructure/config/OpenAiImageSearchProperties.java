@@ -10,8 +10,7 @@ public record OpenAiImageSearchProperties(
     String descriptionModel,
     String embeddingModel,
     Integer dimensions,
-    Integer maxOutputTokens,
-    String promptVersion
+    Integer maxOutputTokens
 ) {
     public OpenAiImageSearchProperties {
         baseUrl = baseUrl == null ? URI.create("https://api.openai.com/v1") : baseUrl;
@@ -19,8 +18,7 @@ public record OpenAiImageSearchProperties(
         embeddingModel = embeddingModel == null ? "text-embedding-3-small" : embeddingModel;
         dimensions = dimensions == null ? 1536 : dimensions;
         maxOutputTokens = maxOutputTokens == null ? 384 : maxOutputTokens;
-        promptVersion = promptVersion == null ? "image-search-v1" : promptVersion;
-        if (descriptionModel.isBlank() || embeddingModel.isBlank() || promptVersion.isBlank()
+        if (descriptionModel.isBlank() || embeddingModel.isBlank()
             || dimensions < 1 || dimensions > 1536 || maxOutputTokens < 128 || maxOutputTokens > 1024) {
             throw new IllegalArgumentException("OpenAI 이미지 검색 설정을 확인해주세요");
         }
