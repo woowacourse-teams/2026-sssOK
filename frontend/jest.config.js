@@ -13,7 +13,7 @@ module.exports = {
   setupFiles: ["<rootDir>/test/setupEnv.js"],
   moduleNameMapper: {
     // 별칭 규칙보다 먼저 걸러야 @/shared/assets/*.png 이 그대로 파싱되지 않는다
-    "\\.(png|jpe?g|gif|svg)$": "<rootDir>/test/fileMock.js",
+    "\\.(png|jpe?g|gif|svg|webp)$": "<rootDir>/test/fileMock.js",
     "^@/(.*)$": "<rootDir>/src/$1",
   },
   setupFilesAfterEnv: ["<rootDir>/src/setupTests.ts"],
