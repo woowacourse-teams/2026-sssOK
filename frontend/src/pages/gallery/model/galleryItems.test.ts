@@ -1,7 +1,18 @@
 import type { GalleryItem, MediaItem } from "@/entities/media";
-import { countItemsByFolder, filterGalleryItems, mergeGalleryItems } from "./galleryItems";
+import {
+  countItemsByFolder,
+  filterGalleryItems,
+  mergeGalleryItems,
+  sortGalleryItems,
+} from "./galleryItems";
 
-const photo = (mediaId: number, folderIds: number[], uploaderId = 1): MediaItem => ({
+const photo = (
+  mediaId: number,
+  folderIds: number[],
+  uploaderId = 1,
+  likeCount = 0,
+  likedByMe = false,
+): MediaItem => ({
   mediaId,
   folderIds,
   uploaderId,
@@ -17,8 +28,8 @@ const photo = (mediaId: number, folderIds: number[], uploaderId = 1): MediaItem 
   duration: null,
   status: "READY",
   uploadedAt: "2026-09-28T00:00:00Z",
-  likeCount: 0,
-  likedByMe: false,
+  likeCount,
+  likedByMe,
 });
 
 const preview = (mediaId: number, folderIds: number[]): GalleryItem => ({
@@ -90,6 +101,31 @@ describe("갤러리 목록에서 파생하는 개수", () => {
 
   it("화면에 표시하지 않는 빈 썸네일은 세지 않는다", () => {
     expect(mergeGalleryItems([{ ...photo(1, []), thumbnailUrl: " " }], [])).toHaveLength(0);
+  });
+
+  it("좋아요한 서버 사진만 필터링한다", () => {
+    const items = mergeGalleryItems(
+      [photo(1, [], 1, 3, true), photo(2, [], 2, 5, false)],
+      [preview(3, [])],
+    );
+
+    expect(filterGalleryItems(items, null, "liked", 1).map((item) => item.mediaId)).toEqual([1]);
+  });
+
+  it("인기순은 좋아요 수가 높은 순서로 정렬하고 원본은 유지한다", () => {
+    const items = mergeGalleryItems(
+      [photo(1, [], 1, 2), photo(2, [], 1, 8), photo(3, [], 1, 2)],
+      [],
+    );
+
+    expect(sortGalleryItems(items, "popular").map((item) => item.mediaId)).toEqual([2, 1, 3]);
+    expect(items.map((item) => item.mediaId)).toEqual([1, 2, 3]);
+  });
+
+  it("업로드 순은 서버에서 받은 순서를 그대로 사용한다", () => {
+    const items = mergeGalleryItems([photo(3, []), photo(1, []), photo(2, [])], []);
+
+    expect(sortGalleryItems(items, "upload").map((item) => item.mediaId)).toEqual([3, 1, 2]);
   });
 
   it("썸네일 생성 중에는 미리보기를 유지하고 서버의 최신 폴더 정보를 반영한다", () => {

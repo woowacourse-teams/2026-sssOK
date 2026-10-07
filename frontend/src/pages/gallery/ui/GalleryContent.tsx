@@ -86,7 +86,8 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
-  const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
+  const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
+    useGalleryFilter();
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
@@ -104,6 +105,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     userId,
     selectedFolderId,
     selectedOption,
+    selectedSort,
     initialTotalCount: room.photoCount,
     initialFolders: room.folders,
     uploadSlots,
@@ -239,6 +241,12 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           selectOption(option);
           clearSelection();
         }}
+        selectedSort={selectedSort}
+        onSelectSort={(sort) => {
+          selectSort(sort);
+          clearSelection();
+        }}
+        hideViewControls={search.isSearching}
         isAllSelected={isAllSelected}
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
