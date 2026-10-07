@@ -1,5 +1,10 @@
 package com.sssok.application.media;
 
+import com.sssok.common.monitoring.MediaProcessingMetrics;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Result;
+import io.micrometer.core.instrument.Timer;
 import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
@@ -46,31 +51,43 @@ public class GenerateThumbnailService {
     private final DerivativeImageProperties imageProperties;
     private final VideoProperties videoProperties;
 
-    public void generate(Long mediaId) {
+    private final MediaProcessingMetrics metrics;
+
+    public void generate(Long mediaId, Kind kind, Source source) {
+        Timer.Sample sample = metrics.start();
+        Result result = Result.RETRYABLE;
+        try {
+            result = generateAttempt(mediaId);
+        } finally {
+            metrics.completed(sample, kind, source, result);
+        }
+    }
+
+    private Result generateAttempt(Long mediaId) {
         StoredFile file = fileRepository.findById(mediaId).orElse(null);
         if (file == null || file.getStatus() != UploadStatus.PROCESSING) {
-            return;
+            return Result.SKIPPED;
         }
         try {
-            process(file);
+            return process(file);
         } catch (RuntimeException e) {
             // 스토리지나 네트워크 오류는 대개 일시적이다. 여기서 FAILED 로 내리면 멀쩡히 올라간
             // 사진이 목록에서 사라진다. PROCESSING 으로 두면 회수 배치가 다시 태운다.
             log.warn("썸네일 생성에 실패했습니다. 회수 배치가 다시 시도합니다. mediaId={}", mediaId, e);
+            return Result.RETRYABLE;
         }
     }
 
-    private void process(StoredFile file) {
+    private Result process(StoredFile file) {
         if (file.getMediaType().isVideo()) {
-            processVideo(file);
-            return;
+            return processVideo(file);
         }
-        processImage(file);
+        return processImage(file);
     }
 
     // 영상은 원본을 내려받지 않는다. 최대 1GB 라 통째로 메모리에 올리면 서버가 죽는다.
     // 대신 서명 URL 을 추출기에 넘겨, 프레임 한 장에 필요한 구간만 Range 로 읽게 한다.
-    private void processVideo(StoredFile file) {
+    private Result processVideo(StoredFile file) {
         String sourceUrl = fileStoragePort.presignGet(file.getStorageKey(), "inline",
             file.getMediaType().contentType(), videoProperties.sourceUrlTtl());
 
@@ -80,7 +97,7 @@ public class GenerateThumbnailService {
             // 영상이 깨졌다는 근거가 없는데 여기서 확정하면 멀쩡한 영상이 썸네일 없이 굳는다.
             log.warn("영상 처리가 일시적으로 실패했습니다. 회수 배치가 다시 시도합니다. mediaId={}",
                 file.getId());
-            return;
+            return Result.RETRYABLE;
         }
         if (!extracted.hasFrame()) {
             // 깨졌거나 코덱을 읽지 못하는 영상이다. 다시 태워도 결과가 같다.
@@ -88,7 +105,7 @@ public class GenerateThumbnailService {
             // 영영 다시 집어 드므로, 썸네일 없이 완료로 넘긴다.
             log.warn("영상에서 프레임을 뽑지 못했습니다. 썸네일 없이 완료합니다. mediaId={}", file.getId());
             mediaFinisher.finish(file.getId(), ProcessedMedia.none());
-            return;
+            return Result.COMPLETED_WITHOUT_THUMBNAIL;
         }
 
         ExtractedFrame frame = extracted.frame();
@@ -100,9 +117,10 @@ public class GenerateThumbnailService {
         mediaFinisher.finish(file.getId(), ProcessedMedia.ofVideo(
             thumbnailKey, frame.width(), frame.height(), frame.durationSeconds(),
             frame.takenAt(), frame.location()));
+        return Result.SUCCESS;
     }
 
-    private void processImage(StoredFile file) {
+    private Result processImage(StoredFile file) {
         // 원본이 없으면 여기서 예외가 난다. 등록 때 실물을 확인했으므로 원래는 있어야 하고,
         // 지금 안 보이는 것은 일시적일 수 있어 바깥에서 PROCESSING 으로 남긴다.
         byte[] original = readOriginal(file.getStorageKey());
@@ -119,7 +137,7 @@ public class GenerateThumbnailService {
             // 축소·인코딩이 흔들린 것은 여기로 오지 않고 예외로 올라가 PROCESSING 에 남는다.
             log.warn("이미지를 읽을 수 없습니다. mediaId={}", file.getId());
             mediaFinisher.markFailed(file.getId());
-            return;
+            return Result.PERMANENT_FAILURE;
         }
 
         DerivedImages images = derived.get();
@@ -135,6 +153,7 @@ public class GenerateThumbnailService {
         // 크기는 파생본이 아니라 원본의 것을 저장한다. 클라이언트가 자리를 미리 잡는 데 쓴다.
         mediaFinisher.finish(file.getId(), ProcessedMedia.ofImage(thumbnailKey, previewKey,
             images.sourceWidth(), images.sourceHeight(), capture.takenAt(), capture.location()));
+        return Result.SUCCESS;
     }
 
     private DerivativeSpec specOf(Variant variant, DerivativeFormat format) {
