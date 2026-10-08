@@ -1,5 +1,7 @@
 package com.sssok.application.download;
 
+import com.sssok.common.monitoring.DownloadProcessingMetrics;
+import io.micrometer.core.instrument.Timer;
 import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
@@ -32,8 +34,21 @@ public class DownloadCompressionWorker {
     private final FileRepository fileRepository;
     private final FileStoragePort fileStoragePort;
 
+    private final DownloadProcessingMetrics metrics;
+
     public void compress(Long jobId) {
+        Timer.Sample sample = metrics.start();
+        boolean success = false;
+        try {
+            success = compressAttempt(jobId);
+        } finally {
+            metrics.completed(sample, success);
+        }
+    }
+
+    private boolean compressAttempt(Long jobId) {
         DownloadJob job = downloadJobTransitions.markRunning(jobId);
+        metrics.startedAt(job.getCreatedAt());
         StorageKey zipStorageKey = new StorageKey("rooms/%d/downloads/%d.zip".formatted(job.getRoomId(), jobId));
 
         // openUploadStream(스토리지 연결) 자체도 실패할 수 있어 try 안에 둔다
@@ -44,6 +59,7 @@ public class DownloadCompressionWorker {
             out = fileStoragePort.openUploadStream(zipStorageKey, ZIP_CONTENT_TYPE);
             writeZip(out, targets, jobId);
             downloadJobTransitions.markReady(jobId, zipStorageKey);
+            return true;
         } catch (Exception e) {
             if (out != null) {
                 out.abort();
@@ -53,6 +69,7 @@ public class DownloadCompressionWorker {
             // 사용자에게는 실패로 끝난 요청이므로 ERROR 다.
             log.error("zip 압축에 실패했습니다. jobId={}", jobId, e);
             downloadJobTransitions.markFailed(jobId, failureReasonOf(e));
+            return false;
         }
     }
 
