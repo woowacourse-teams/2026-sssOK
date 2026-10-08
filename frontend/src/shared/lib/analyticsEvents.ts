@@ -35,6 +35,10 @@ export interface AnalyticsEvents {
     reason: string;
     failed_count: number;
   };
+  "Photo Like Changed": {
+    action: "like" | "unlike";
+    source: "gallery" | "viewer";
+  };
 
   "Device Link Copied": { is_success: boolean };
   /** 다른 기기에서 연결 링크로 들어와 세션을 이어받았을 때 */
@@ -44,6 +48,9 @@ export interface AnalyticsEvents {
   /** 폴더 추가 진입점이 둘이라 어느 쪽을 누르는지 본다 */
   "Folder Create Started": { source: "menu" | "filter_plus" };
   "Folder Created": { source: "menu" | "filter_plus" };
+
+  "Gallery Filter Changed": { filter: "all" | "mine" | "others" | "liked" };
+  "Gallery Sort Changed": { sort: "upload" | "popular" };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

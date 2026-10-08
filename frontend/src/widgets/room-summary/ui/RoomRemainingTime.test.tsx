@@ -13,6 +13,12 @@ describe("RoomRemainingTime", () => {
     ).toBe("23시간 10분");
   });
 
+  it("남은 시간이 하루 이상이면 일·시간으로 표시한다", () => {
+    expect(
+      formatRemainingTime("2026-08-28T06:18:00Z", new Date("2026-08-18T06:20:00Z").getTime()),
+    ).toBe("9일 23시간");
+  });
+
   it("남은 시간이 1분 미만이면 초로 표시한다", () => {
     expect(
       formatRemainingTime("2026-08-18T06:20:42Z", new Date("2026-08-18T06:20:00Z").getTime()),

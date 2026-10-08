@@ -390,6 +390,8 @@ const galleryEntryOf = (media: MockMedia): GalleryMedia => {
     uploaderName: nicknameOf(media.uploaderId) ?? `멤버 ${media.uploaderId}`,
     status: "READY",
     uploadedAt: new Date().toISOString(),
+    likeCount: 0,
+    likedByMe: false,
   };
 };
 

@@ -15,6 +15,7 @@ import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
+import { track } from "@/shared/lib";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -25,6 +26,7 @@ import { useAnalyticsRoom } from "../model/useAnalyticsRoom";
 import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
+import { useGallerySearch } from "../model/useGallerySearch";
 import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
 import { GalleryModalHost } from "./GalleryModalHost";
@@ -85,21 +87,39 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
   const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
 
   // 옵션 선택
-  const { selectedFolderId, selectedOption, selectFolder, selectOption } = useGalleryFilter();
+  const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
+    useGalleryFilter();
   const selectedFolder = room.folders.find((folder) => folder.id === selectedFolderId) ?? null;
 
   // 사진 조회
-  const { galleryItems, completedUploadIds, totalCount, folderCounts, isPending, isError } =
-    useGalleryPhotos({
-      roomId: room.roomId,
-      accessToken,
-      userId,
-      selectedFolderId,
-      selectedOption,
-      initialTotalCount: room.photoCount,
-      initialFolders: room.folders,
-      uploadSlots,
-    });
+  const {
+    galleryItems: filteredItems,
+    allGalleryItems,
+    completedUploadIds,
+    totalCount,
+    folderCounts,
+    isPending,
+    isError,
+  } = useGalleryPhotos({
+    roomId: room.roomId,
+    accessToken,
+    userId,
+    selectedFolderId,
+    selectedOption,
+    selectedSort,
+    initialTotalCount: room.photoCount,
+    initialFolders: room.folders,
+    uploadSlots,
+  });
+
+  const search = useGallerySearch({
+    roomId: room.roomId,
+    accessToken,
+    userId,
+    items: filteredItems,
+    allItems: allGalleryItems,
+  });
+  const galleryItems = search.items;
 
   useEffect(() => {
     if (completedUploadIds.length === 0) return;
@@ -194,6 +214,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onAddFolder={() => void handleCreateFolder("menu")}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
+        isSearchOpen={search.isSearchOpen}
+        onOpenSearch={search.openSearch}
+        onSearch={(query) => {
+          selectFolder(null);
+          search.search(query);
+          clearSelection();
+        }}
+        onCloseSearch={() => {
+          search.closeSearch();
+          clearSelection();
+        }}
       />
       <FolderFilter
         totalCount={totalCount}
@@ -208,9 +239,21 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       <GalleryOptions
         selectedOption={selectedOption}
         onSelectOption={(option) => {
+          if (option === selectedOption) return;
+
+          track("Gallery Filter Changed", { filter: option });
           selectOption(option);
           clearSelection();
         }}
+        selectedSort={selectedSort}
+        onSelectSort={(sort) => {
+          if (sort === selectedSort) return;
+
+          track("Gallery Sort Changed", { sort });
+          selectSort(sort);
+          clearSelection();
+        }}
+        hideViewControls={search.isSearching}
         isAllSelected={isAllSelected}
         canSelectAll={photoIds.length > 0}
         onToggleAll={toggleAllPhotos}
@@ -250,11 +293,17 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       />
       <PhotoGallery
         items={galleryItems}
+        roomId={room.roomId}
         userId={userId}
+        token={accessToken}
         selectedPhotoIds={selectedPhotoIds}
-        isPending={isPending}
-        isError={isError}
-        expectedPhotoCount={selectedFolder?.photoCount ?? room.photoCount}
+        isPending={isPending || search.isPending}
+        isError={isError || search.isError}
+        expectedPhotoCount={
+          search.isSearching ? undefined : (selectedFolder?.photoCount ?? room.photoCount)
+        }
+        emptyMessage={search.isSearching ? "검색어에 맞는 사진이 없어요." : undefined}
+        errorMessage={search.isError ? search.errorMessage : undefined}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={setActiveMediaId}
       />

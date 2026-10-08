@@ -3,7 +3,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 
-import type { GalleryItem, MediaItem, PhotoFilter } from "@/entities/media";
+import type { GalleryItem, MediaItem, PhotoFilter, PhotoSort } from "@/entities/media";
 import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
@@ -25,6 +25,7 @@ const createWrapper = () => {
 const renderGalleryPhotos = (initial: {
   selectedFolderId: number | null;
   selectedOption: PhotoFilter;
+  selectedSort?: PhotoSort;
   uploadSlots?: GalleryItem[];
 }) =>
   renderHook(
@@ -33,6 +34,7 @@ const renderGalleryPhotos = (initial: {
         roomId: MOCK_ROOM_ID,
         accessToken: `mock-token-${HOST_ID}`,
         userId: HOST_ID,
+        selectedSort: filter.selectedSort ?? "upload",
         initialTotalCount: 13,
         initialFolders: [
           { id: 32, name: "여름", createdAt: "2026-09-28T00:00:00Z", photoCount: 4 },
@@ -134,6 +136,8 @@ describe("useGalleryPhotos", () => {
       duration: null,
       status: "READY",
       uploadedAt: "2026-09-28T00:00:00Z",
+      likeCount: 0,
+      likedByMe: false,
     };
     server.use(
       http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, () =>

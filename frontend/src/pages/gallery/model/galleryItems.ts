@@ -1,4 +1,4 @@
-import type { GalleryItem, MediaItem, PhotoFilter } from "@/entities/media";
+import type { GalleryItem, MediaItem, PhotoFilter, PhotoSort } from "@/entities/media";
 
 export const mergeGalleryItems = (photos: MediaItem[], uploadSlots: GalleryItem[]) => {
   const itemsById = new Map<number, GalleryItem>();
@@ -53,5 +53,17 @@ export const filterGalleryItems = (
     const isMine = item.type === "local" || item.media.uploaderId === userId;
     if (option === "mine") return isMine;
     if (option === "others") return !isMine;
+    if (option === "liked") return item.type === "server" && item.media.likedByMe;
     return true;
   });
+
+export const sortGalleryItems = (items: GalleryItem[], sort: PhotoSort) => {
+  if (sort === "upload") return items;
+
+  return [...items].sort((left, right) => {
+    const leftLikeCount = left.type === "server" ? (left.media.likeCount ?? 0) : 0;
+    const rightLikeCount = right.type === "server" ? (right.media.likeCount ?? 0) : 0;
+
+    return rightLikeCount - leftLikeCount;
+  });
+};

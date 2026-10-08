@@ -23,7 +23,10 @@ flowchart LR
   뒤에 사람이 읽기 위한 `backend-vX.Y.Z`·`release-vX.Y.Z`·`latest` 별칭 태그가 추가로 붙지만,
   배포·롤백에는 쓰지 않는다 (별칭은 다음 릴리스에서 다른 이미지로 옮겨간다 —
   [버전과 릴리스 태그](#버전과-릴리스-태그) 참고).
-- 배포 후 `/health`를 최대 150초간 폴링하고, 실패하면 자동으로 직전 이미지로 롤백한다.
+- Compose 반영 후 컨테이너 안에서 `nginx -t`로 새 설정을 검사하고, 성공한 경우에만 Nginx를
+  reload한다. 문법 검사나 reload가 실패하면 배포 잡도 실패한다.
+- 배포 후 `/health`와 `monitor.ssssok.com` 호스트 기반 Grafana 라우팅을 최대 150초간 폴링하고,
+  실패하면 자동으로 직전 이미지로 롤백한다.
 - 위 그림은 백엔드 경로다. 프론트엔드는 GitHub Actions 를 거치지 않고 AWS CodePipeline 이
   `deploy` 브랜치를 받아 S3 에 올린다 — [프론트엔드 배포](#프론트엔드-배포) 참고.
 
@@ -68,6 +71,38 @@ DB는 컨테이너가 아니라 RDS(PostgreSQL)를 쓴다.
 - RDS는 퍼블릭 서브넷에 두지 않는다.
 - RDS 보안 그룹의 인바운드에 EC2 보안 그룹발 5432 포트를 허용한다 (EC2가 있는 VPC/서브넷에서만 접근 가능하도록).
 - 마스터 계정과 DB 이름은 `.env`의 `DB_USERNAME`/`DB_PASSWORD`, `DB_URL`의 경로 부분과 일치시킨다.
+
+#### 이미지 검색용 pgvector 준비 (#460)
+
+로컬·테스트는 `pgvector/pgvector:0.8.6-pg16-bookworm` 이미지를 사용한다. RDS는 컨테이너를
+변경하지 않고 각 데이터베이스에서 `vector` 확장을 활성화한다. dev(`sssok_dev`)와
+prod(`sssok`)는 같은 인스턴스에 있어도 확장 설치는 각각 필요하다.
+
+배포 전에 대상 DB에서 지원 버전과 현재 설치 상태를 확인한다.
+
+```sql
+SELECT version();
+SELECT name, default_version, installed_version
+FROM pg_available_extensions WHERE name = 'vector';
+SELECT extversion FROM pg_extension WHERE extname = 'vector';
+```
+
+`pg_available_extensions`에 `vector`가 없으면 해당 RDS 엔진 버전의 확장 지원을 먼저 확인한다.
+V28 마이그레이션은 `CREATE EXTENSION IF NOT EXISTS vector`를 실행한다. 애플리케이션 계정에
+설치 권한이 없으면 배포 전 설치 권한이 있는 관리자 계정으로 해당 DB에 접속해 다음을 실행한다.
+
+```sql
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+SELECT 1 - ('[1,0,0]'::vector <=> '[1,0,0]'::vector) AS similarity;
+```
+
+검증 결과는 `1`이어야 한다. 확장 설치를 위해 애플리케이션 계정의 권한을 상시 높이지 않는다.
+지원 버전과 권한은 [AWS 확장 안내](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Appendix.PostgreSQL.CommonDBATasks.Extensions.html)와
+[pgvector 공식 문서](https://github.com/pgvector/pgvector)를 참고한다.
+
+로컬 이미지는 Alpine에서 Debian으로 바뀐다. 기존 볼륨을 삭제하지 않고, 변경 전 백업 후
+개발 DB가 정상적으로 시작되는지 확인한다. 로케일·collation 관련 문제가 있으면 기존 환경에서
+논리 백업 후 새 볼륨으로 복원한다.
 
 ### 3. Docker 설치
 
@@ -409,7 +444,30 @@ export COMPOSE="docker compose --env-file .env --env-file image.env -f docker-co
 | 재시작 | `$COMPOSE restart app` |
 | 전체 내리기 | `$COMPOSE down` |
 | 헬스체크 | `curl -i http://localhost/health` |
+| Grafana 호스트 라우팅 확인 | `curl -i -H 'Host: monitor.ssssok.com' http://localhost/api/health` |
+| Nginx 설정 검사 | `$COMPOSE exec -T nginx nginx -t` |
+| Nginx 설정 reload | `$COMPOSE exec -T nginx nginx -s reload` |
 | 떠 있는 버전 확인 | `curl -s http://localhost/version` |
+
+### Nginx 설정 반영 실패 확인
+
+운영 배포는 `nginx.conf`를 배포 경로에 복사한 뒤, 실행 중인 컨테이너에서 문법 검사와 reload를
+순서대로 수행한다. `nginx -t`가 실패하면 reload하지 않고 배포 잡을 실패시켜 기존 Nginx 프로세스가
+마지막 정상 설정으로 계속 응답하게 한다. 애플리케이션 컨테이너는 Nginx reload 때문에 재시작되지 않는다.
+
+실패한 경우 Actions의 `Nginx 설정 검사 및 리로드` 로그에서 파일명과 줄 번호를 확인한다. 서버에서
+추가 확인이 필요하면 배포 디렉터리에서 다음 명령을 실행한다.
+
+```bash
+$COMPOSE exec -T nginx nginx -t
+$COMPOSE logs --tail 100 nginx
+curl -i http://localhost/health
+curl -i -H 'Host: monitor.ssssok.com' http://localhost/api/health
+```
+
+설정을 수정한 새 배포가 성공하기 전까지 수동 reload를 실행하지 않는다. 문법 검사가 성공했지만
+reload 단계만 실패했다면 Nginx 로그와 컨테이너 상태를 확인한 뒤 `$COMPOSE exec -T nginx nginx -s reload`로
+재시도한다.
 
 ### 수동 롤백
 

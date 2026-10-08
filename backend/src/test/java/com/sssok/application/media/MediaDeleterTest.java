@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.application.port.out.MediaLikeRepository;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.application.storage.OrphanObjectCollector;
 import com.sssok.domain.file.DerivativeFormat;
@@ -33,11 +34,12 @@ class MediaDeleterTest {
 
     private final FileRepository fileRepository = mock(FileRepository.class);
     private final FolderMediaRepository folderMediaRepository = mock(FolderMediaRepository.class);
+    private final MediaLikeRepository mediaLikeRepository = mock(MediaLikeRepository.class);
     private final OrphanObjectCollector orphanObjectCollector = mock(OrphanObjectCollector.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
 
     private final MediaDeleter mediaDeleter = new MediaDeleter(
-        fileRepository, folderMediaRepository, orphanObjectCollector, eventPublisher,
+        fileRepository, folderMediaRepository, mediaLikeRepository, orphanObjectCollector, eventPublisher,
         new DerivativeImageProperties(
             DerivativeFormat.WEBP,
             new DerivativeImageProperties.Variant(400, 0.80f),
@@ -48,9 +50,10 @@ class MediaDeleterTest {
         mediaDeleter.delete(10L, List.of(fileWithThumbnail()));
 
         InOrder order = inOrder(
-            orphanObjectCollector, folderMediaRepository, fileRepository, eventPublisher);
+            orphanObjectCollector, folderMediaRepository, mediaLikeRepository, fileRepository, eventPublisher);
         order.verify(orphanObjectCollector).enqueue(ALL_KEYS);
         order.verify(folderMediaRepository).detachFromAllFolders(List.of(1L));
+        order.verify(mediaLikeRepository).deleteAllByMediaIds(List.of(1L));
         order.verify(fileRepository).deleteAllByIdIn(List.of(1L));
         order.verify(eventPublisher).publishEvent(new MediaDeletedEvent(10L, List.of(1L)));
         order.verify(eventPublisher)
