@@ -81,12 +81,14 @@ public enum ErrorCode {
     // 429 Too Many Requests
     UPLOAD_RETRY_EXCEEDED(429, "재시도 횟수를 초과했습니다. 처음부터 다시 올려주세요"),
     RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
-    FEEDBACK_RATE_LIMITED(429, "의견을 너무 자주 보내고 있습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_LOGIN_RATE_LIMITED(429, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요"),
 
     // 415 Unsupported Media Type
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
     UNSUPPORTED_FILE_TYPE(415, "지원하지 않는 파일 형식입니다: %s"),
+
+    INVALID_SEARCH_QUERY(400, "검색어는 공백 정리 후 1~200자여야 합니다"),
+    IMAGE_SEARCH_UNAVAILABLE(503, "이미지 검색을 사용할 수 없습니다. 잠시 후 다시 시도해주세요"),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요");

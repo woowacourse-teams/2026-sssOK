@@ -11,10 +11,10 @@ import com.sssok.application.media.ResolvedMediaIds;
 import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamException;
 import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 // Repository + Service 통합 테스트. 담기가 PostgreSQL 전용 네이티브 쿼리(ON CONFLICT)를 쓰므로
 // H2가 아닌 실제 PostgreSQL로 돌린다. 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
 // 먼저 걸러주므로 여기서는 미디어 여러 개를 폴더 하나에 담기, 멱등성, notFoundMediaIds, folderId 404만 검증한다.
-@SpringBootTest
+@PostgresIntegrationTest
 @Transactional
 @RecordApplicationEvents
 class AddMediaToFoldersServiceTest extends PostgresContainerSupport {

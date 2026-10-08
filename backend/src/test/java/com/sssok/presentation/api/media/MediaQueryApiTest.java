@@ -22,6 +22,7 @@ import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.AcceptanceTest;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
@@ -39,6 +40,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 // API 인수 테스트 (Testcontainers). 폴더 담기가 PostgreSQL 전용 ON CONFLICT 를 써서 H2 로는 못 돈다.
 // 업로드부터 조회까지 실제 흐름 그대로 태우고, 스토리지만 목으로 둔다.
+@AcceptanceTest
 @SpringBootTest
 class MediaQueryApiTest extends PostgresContainerSupport {
 
@@ -80,6 +82,14 @@ class MediaQueryApiTest extends PostgresContainerSupport {
             .willReturn("https://storage.example.com/signed");
         given(fileStoragePort.findUploaded(any()))
             .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
+    }
+
+    @Test
+    void 이미지_검색_비활성화는_503을_반환한다() throws Exception {
+        mockMvc.perform(get("/api/v1/rooms/" + roomId + "/media/all")
+                .param("query", "사진").header("Authorization", token))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("IMAGE_SEARCH_UNAVAILABLE"));
     }
 
     @Test

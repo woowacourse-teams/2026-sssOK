@@ -3,14 +3,16 @@ package com.sssok.infrastructure.persistence.file;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.PerformanceTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-@SpringBootTest
+@PerformanceTest
+@PostgresIntegrationTest
 @EnabledIfEnvironmentVariable(named = "RUN_MEDIA_ALL_FILTER_BENCHMARK", matches = "true")
 class MediaAllFilterQueryPerformanceTest extends PostgresContainerSupport {
 

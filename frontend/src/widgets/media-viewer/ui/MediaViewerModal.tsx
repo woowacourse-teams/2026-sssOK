@@ -8,12 +8,16 @@ import {
   HiCheck,
   HiChevronLeft,
   HiChevronRight,
+  HiHeart,
+  HiOutlineHeart,
   HiOutlineTrash,
 } from "react-icons/hi2";
 
 import type { GalleryItem } from "@/entities/media";
 import { DeleteMediaModal } from "@/features/delete-media";
 import { downloadMedia, prefersShareSheet } from "@/features/download-media";
+import { useMediaLike } from "@/features/toggle-media-like";
+import { track } from "@/shared/lib";
 import { colors } from "@/shared/styles/tokens";
 
 interface MediaViewerModalProps {
@@ -190,6 +194,7 @@ export const MediaViewerModal = ({
             key={item.mediaId}
             item={item}
             roomId={roomId}
+            userId={userId}
             token={token}
             canDelete={
               item.type === "local" || item.media.uploaderId === userId || hostId === userId
@@ -296,12 +301,14 @@ const ViewerVideo = ({ item }: { item: GalleryItem }) => {
 const ViewerFooter = ({
   item,
   roomId,
+  userId,
   token,
   canDelete,
   onDelete,
 }: {
   item: GalleryItem;
   roomId: number;
+  userId: number;
   token: string;
   canDelete: boolean;
   onDelete: () => void;
@@ -346,6 +353,9 @@ const ViewerFooter = ({
         </Subtitle>
         {download.isError && <ErrorMessage role="alert">{download.error.message}</ErrorMessage>}
       </Metadata>
+      {item.type === "server" && (
+        <ViewerLikeButton item={item} roomId={roomId} userId={userId} token={token} />
+      )}
       <ActionButton
         type="button"
         $danger
@@ -367,6 +377,44 @@ const ViewerFooter = ({
         <HiArrowDownTray size={21} />
       </ActionButton>
     </Footer>
+  );
+};
+
+const ViewerLikeButton = ({
+  item,
+  roomId,
+  userId,
+  token,
+}: {
+  item: Extract<GalleryItem, { type: "server" }>;
+  roomId: number;
+  userId: number;
+  token: string;
+}) => {
+  const mutation = useMediaLike({ roomId, mediaId: item.mediaId, userId, token });
+  const likedByMe = item.media.likedByMe ?? false;
+
+  return (
+    <LikeActionButton
+      type="button"
+      $liked={likedByMe}
+      aria-label={`좋아요 ${likedByMe ? "취소" : "추가"}`}
+      aria-pressed={likedByMe}
+      aria-busy={mutation.isPending}
+      disabled={mutation.isPending}
+      onClick={() =>
+        mutation.mutate(!likedByMe, {
+          onSuccess: (response) =>
+            track("Photo Like Changed", {
+              action: response.liked ? "like" : "unlike",
+              source: "viewer",
+            }),
+        })
+      }
+    >
+      {likedByMe ? <HiHeart size={21} /> : <HiOutlineHeart size={21} />}
+      <span>{item.media.likeCount ?? 0}</span>
+    </LikeActionButton>
   );
 };
 
@@ -576,6 +624,17 @@ const ActionButton = styled.button<{ $danger?: boolean }>`
     cursor: default;
     opacity: 0.4;
   }
+`;
+
+const LikeActionButton = styled(ActionButton)<{ $liked: boolean }>`
+  display: flex;
+  gap: 4px;
+  width: auto;
+  min-width: 40px;
+  padding: 0 8px;
+  color: ${({ $liked }) => ($liked ? colors.danger : "#fff")};
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 `;
 
 const StateMessage = styled.p`
