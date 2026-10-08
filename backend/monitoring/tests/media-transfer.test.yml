@@ -1,0 +1,66 @@
+{
+  "evaluation_interval": "1m",
+  "tests": [
+    {
+      "interval": "1m",
+      "input_series": [
+        {
+          "series": "http_server_requests_seconds_count{job=\"sssok-backend\",uri=\"/api/v1/rooms/{roomId}/media\",method=\"POST\",status=\"201\"}",
+          "values": "0+2x20"
+        },
+        {
+          "series": "http_server_requests_seconds_count{job=\"sssok-backend\",uri=\"/api/v1/rooms/{roomId}/media\",method=\"GET\",status=\"200\"}",
+          "values": "0+100x20"
+        },
+        {
+          "series": "sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",source=\"initial\",result=\"success\"}",
+          "values": "0+4x20"
+        },
+        {
+          "series": "sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",source=\"initial\",result=\"retryable\"}",
+          "values": "0+1x20"
+        },
+        {
+          "series": "sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",source=\"initial\",result=\"skipped\"}",
+          "values": "0+10x20"
+        },
+        {
+          "series": "sssok_download_processing_seconds_count{job=\"sssok-backend\",result=\"success\"}",
+          "values": "0+3x20"
+        }
+      ],
+      "promql_expr_test": [
+        {
+          "expr": "sum by (uri,status) (increase(http_server_requests_seconds_count{job=\"sssok-backend\",method=\"POST\",uri=~\"(/api/v1)?/rooms/[^/]+/media(/upload-urls|/[^/]+/upload-url)?\"}[15m]))",
+          "eval_time": "15m",
+          "exp_samples": [
+            {
+              "labels": "{uri=\"/api/v1/rooms/{roomId}/media\",status=\"201\"}",
+              "value": 30
+            }
+          ]
+        },
+        {
+          "expr": "100 * sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result=\"success\",kind=\"image\"}[15m])) / sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result!=\"skipped\",kind=\"image\"}[15m]))",
+          "eval_time": "15m",
+          "exp_samples": [
+            {
+              "labels": "{}",
+              "value": 80
+            }
+          ]
+        },
+        {
+          "expr": "sum (increase(sssok_download_processing_seconds_count{job=\"sssok-backend\",result=\"success\"}[15m]))",
+          "eval_time": "15m",
+          "exp_samples": [
+            {
+              "labels": "{}",
+              "value": 45
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

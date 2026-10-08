@@ -1,5 +1,8 @@
 package com.sssok.application.media;
 
+import com.sssok.common.monitoring.MediaProcessingMetrics;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,34 +34,38 @@ public class ThumbnailTrigger {
     private final GenerateThumbnailService generateThumbnailService;
     private final AsyncTaskExecutor imageTaskExecutor;
     private final AsyncTaskExecutor videoTaskExecutor;
+    private final MediaProcessingMetrics metrics;
 
     // ffmpeg는 파일 하나에도 수십 초가 걸릴 수 있다. ZIP 압축·사진 썸네일과 같은 풀을 쓰면
     // 영상 몇 개만으로 공용 풀이 차므로, 영상만 별도 풀에서 처리한다.
     public ThumbnailTrigger(
         GenerateThumbnailService generateThumbnailService,
         @Qualifier("applicationTaskExecutor") AsyncTaskExecutor imageTaskExecutor,
-        @Qualifier("videoThumbnailTaskExecutor") AsyncTaskExecutor videoTaskExecutor) {
+        @Qualifier("videoThumbnailTaskExecutor") AsyncTaskExecutor videoTaskExecutor, MediaProcessingMetrics metrics) {
         this.generateThumbnailService = generateThumbnailService;
         this.imageTaskExecutor = imageTaskExecutor;
         this.videoTaskExecutor = videoTaskExecutor;
+        this.metrics = metrics;
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT,
         condition = "#event.media().type() == 'IMAGE'")
     public void onImageCreated(MediaCreatedEvent event) {
-        submit(imageTaskExecutor, event.media().mediaId());
+        submit(imageTaskExecutor, event.media().mediaId(), Kind.IMAGE);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT,
         condition = "#event.media().type() == 'VIDEO'")
     public void onVideoCreated(MediaCreatedEvent event) {
-        submit(videoTaskExecutor, event.media().mediaId());
+        submit(videoTaskExecutor, event.media().mediaId(), Kind.VIDEO);
     }
 
-    private void submit(AsyncTaskExecutor taskExecutor, Long mediaId) {
+    private void submit(AsyncTaskExecutor taskExecutor, Long mediaId, Kind kind) {
         try {
-            taskExecutor.execute(() -> generateThumbnailService.generate(mediaId));
+            taskExecutor.execute(() -> generateThumbnailService.generate(mediaId, kind, Source.INITIAL));
+            metrics.submitted(kind, Source.INITIAL, true);
         } catch (TaskRejectedException e) {
+            metrics.submitted(kind, Source.INITIAL, false);
             // 등록은 이미 커밋됐다. 지금 못 태운 것은 PROCESSING 으로 남아 있으므로 배치가 맡는다.
             log.warn("썸네일 작업을 제출하지 못했습니다. 회수 배치가 다시 처리합니다. mediaId={}", mediaId);
         }
