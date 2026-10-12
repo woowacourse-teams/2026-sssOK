@@ -27,8 +27,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,8 +54,32 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
     @Autowired
     MemberRepository memberRepository;
 
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long committedMediaId;
+    private Long committedRequesterId;
+
     @MockitoBean
     DownloadCompressionWorker downloadCompressionWorker;
+
+    @AfterEach
+    void cleanUpCommittedData() {
+        // NOT_SUPPORTED 테스트가 직접 커밋한 데이터만 자식 테이블부터 정리한다.
+        if (committedRequesterId != null) {
+            jdbcTemplate.update("""
+                delete from download_job_media
+                where download_job_id in (select id from download_job where requester_id = ?)
+                """, committedRequesterId);
+            jdbcTemplate.update("delete from download_job where requester_id = ?", committedRequesterId);
+        }
+        if (committedMediaId != null) {
+            jdbcTemplate.update("delete from stored_file where id = ?", committedMediaId);
+        }
+        if (committedRequesterId != null) {
+            jdbcTemplate.update("delete from member where id = ?", committedRequesterId);
+        }
+    }
 
     private Long member(String nickname) {
         return memberRepository.save(Member.register(new Nickname(nickname), Instant.now())).getId();
@@ -153,8 +179,9 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     void 같은_요청자의_동시_요청도_진행_중인_잡_상한을_넘지_않는다() throws Exception {
-        Long media = media(1L, UploadStatus.READY);
-        Long requesterId = member("동시요청자");
+        Long media = committedMediaId = media(1L, UploadStatus.READY);
+        Long requesterId = committedRequesterId = member("동시요청자");
+        // 공통 DB 풀은 2개이므로 10개 요청 중 최대 2개 트랜잭션이 동시에 경합한다.
         int requestCount = 10;
         int maxJobs = downloadProperties.maxConcurrentJobsPerRequester();
         CountDownLatch ready = new CountDownLatch(requestCount);
@@ -193,6 +220,8 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
                 .isEqualTo(maxJobs);
         } finally {
             executor.shutdownNow();
+            // 정리 이후에도 요청 스레드가 데이터를 저장하지 않도록 종료를 기다린다.
+            assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
         }
     }
 }
