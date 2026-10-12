@@ -7,7 +7,13 @@ import type { GalleryItem, MediaItem } from "@/entities/media";
 import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { track } from "@/shared/lib/analytics";
 import { useGallerySearch } from "./useGallerySearch";
+
+jest.mock("@/shared/lib/analytics", () => ({
+  ...jest.requireActual("@/shared/lib/analytics"),
+  track: jest.fn(),
+}));
 
 const HOST_ID = 10234;
 
@@ -108,5 +114,90 @@ describe("useGallerySearch", () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.items).toEqual([]);
     expect(result.current.errorMessage).toBe("지금은 사진 검색을 쓸 수 없어요.");
+  });
+
+  describe("이벤트", () => {
+    beforeEach(() => jest.mocked(track).mockClear());
+
+    it("검색창을 열면 Search Opened 를 보낸다", () => {
+      const { result } = renderGallerySearch([item(1)]);
+
+      act(() => result.current.openSearch());
+
+      expect(track).toHaveBeenCalledWith("Search Opened", {});
+    });
+
+    it("결과를 받으면 검색어 길이와 보이는 결과 수를 보내고 검색어 원문은 보내지 않는다", async () => {
+      respondWith([1, 9]);
+      const { result } = renderGallerySearch([item(2), item(1)]);
+
+      act(() => result.current.search("바다"));
+
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith("Photo Searched", {
+          query_length: 2,
+          result_count: 1,
+          duration_ms: expect.any(Number),
+        }),
+      );
+      expect(JSON.stringify(jest.mocked(track).mock.calls)).not.toContain("바다");
+    });
+
+    it("같은 검색어를 다시 제출해 캐시로 답해도 다시 보낸다", async () => {
+      respondWith([1]);
+      const { result } = renderGallerySearch([item(1)]);
+
+      act(() => result.current.search("바다"));
+      await waitFor(() => expect(track).toHaveBeenCalledTimes(1));
+
+      act(() => result.current.search("바다"));
+
+      await waitFor(() => expect(track).toHaveBeenCalledTimes(2));
+      expect(jest.mocked(track).mock.calls.map(([event]) => event)).toEqual([
+        "Photo Searched",
+        "Photo Searched",
+      ]);
+    });
+
+    it("요청이 실패하면 에러 코드를 담아 Photo Search Failed 를 보낸다", async () => {
+      server.use(
+        http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, () =>
+          HttpResponse.json(
+            { code: "IMAGE_SEARCH_UNAVAILABLE", message: "unavailable" },
+            { status: 503 },
+          ),
+        ),
+      );
+      const { result } = renderGallerySearch([item(1)]);
+
+      act(() => result.current.search("바다"));
+
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith("Photo Search Failed", {
+          reason: "IMAGE_SEARCH_UNAVAILABLE",
+        }),
+      );
+      expect(track).not.toHaveBeenCalledWith("Photo Searched", expect.anything());
+    });
+
+    it("검색 결과에서 사진을 열면 결과 속 순위와 결과 수를 보낸다", async () => {
+      respondWith([3, 1]);
+      const { result } = renderGallerySearch([item(1), item(2), item(3)]);
+
+      act(() => result.current.search("바다"));
+      await waitFor(() => expect(result.current.items).toHaveLength(2));
+
+      act(() => result.current.trackResultOpened(1));
+
+      expect(track).toHaveBeenCalledWith("Search Result Opened", { rank: 2, result_count: 2 });
+    });
+
+    it("검색 중이 아닐 때 사진을 열면 보내지 않는다", () => {
+      const { result } = renderGallerySearch([item(1)]);
+
+      act(() => result.current.trackResultOpened(1));
+
+      expect(track).not.toHaveBeenCalled();
+    });
   });
 });
