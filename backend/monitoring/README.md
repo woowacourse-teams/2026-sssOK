@@ -117,6 +117,10 @@ prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app`·`sssok-nginx`
 
 ### dev 호스트 Nginx 설정
 
+중앙 수집용 개발 API·메트릭 통합 설정은 [중앙 구성 안내](central/README.md#개발-연결과-재배포)를
+따른다. 개발 Compose는 node_exporter를 loopback 9100에 연결하고, 개발 CD는 배포 후
+호스트 지표와 Nginx 접근 제한을 검사한다. 아래 공통 로그 형식 설정은 유지한다.
+
 배포 파이프라인이 옮기지 않으므로 dev EC2 에서 한 번만 한다. 접근 로그를 쿼리스트링 없는 JSON
 파일(`sssok-access.log`) 하나로 바꾼다.
 

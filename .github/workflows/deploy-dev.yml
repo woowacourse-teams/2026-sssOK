@@ -117,6 +117,7 @@ jobs:
           mkdir -p "$DEPLOY_PATH/monitoring/alloy"
           mkdir -p "$DEPLOY_PATH/secrets"
           cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
+          cp backend/monitoring/check-dev-node.sh "$DEPLOY_PATH/monitoring/check-dev-node.sh"
           cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
           cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
           cp backend/monitoring/prometheus/rules/logging-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/logging-alerts.yml"
@@ -262,3 +263,7 @@ jobs:
               exit 1
             fi
           fi
+
+          # 중앙 연결 설정이 다음 앱 배포에서 사라지는 것을 탐지한다.
+          # 실패 시 배포를 실패로 보고하되, 헬스체크를 통과한 앱은 롤백하지 않는다.
+          bash monitoring/check-dev-node.sh

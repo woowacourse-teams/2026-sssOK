@@ -35,3 +35,7 @@ scrape_configs:
     static_configs:
       - targets: [node-exporter:9100]
         labels: *central
+      - targets: [10.0.0.69:19100]
+        labels:
+          environment: dev
+          server: dev

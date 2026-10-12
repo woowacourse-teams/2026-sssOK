@@ -34,8 +34,10 @@ for attempt in range(12):
 else:
     raise SystemExit('수집 대상 확인 실패: ' + repr(targets))
 
-for expression in ('node_cpu_seconds_total', 'node_memory_MemAvailable_bytes',
-                   'node_vmstat_pswpin', 'node_filesystem_avail_bytes{mountpoint="/"}'):
+for expression in ('node_cpu_seconds_total{environment="monitoring",server="monitoring"}',
+                   'node_memory_MemAvailable_bytes{environment="monitoring",server="monitoring"}',
+                   'node_vmstat_pswpin{environment="monitoring",server="monitoring"}',
+                   'node_filesystem_avail_bytes{environment="monitoring",server="monitoring",mountpoint="/"}'):
     assert query(expression), '호스트 지표 누락: ' + expression
 
 # 실제 앱 로그 대신 식별 가능한 테스트 로그 한 줄로 쓰기·읽기를 검증한다.
