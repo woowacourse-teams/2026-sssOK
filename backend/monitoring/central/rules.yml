@@ -1,0 +1,24 @@
+groups:
+  - name: central-bootstrap
+    rules:
+      - alert: CentralComponentDown
+        expr: up{environment="monitoring"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "중앙 {{ $labels.job }} 메트릭 수집 실패"
+      - alert: CentralMemoryLow
+        expr: node_memory_MemAvailable_bytes{environment="monitoring"} / node_memory_MemTotal_bytes{environment="monitoring"} < 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: 중앙 서버 사용 가능 메모리 10% 미만
+      - alert: CentralDiskSpaceLow
+        expr: node_filesystem_avail_bytes{environment="monitoring",mountpoint="/"} / node_filesystem_size_bytes{environment="monitoring",mountpoint="/"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: 중앙 서버 루트 디스크 여유 15% 미만

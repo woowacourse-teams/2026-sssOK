@@ -1,5 +1,8 @@
 # 로컬 모니터링 실행
 
+중앙 서버 분리 작업의 기동 검증 구성은 [central/README.md](central/README.md)를 참고한다.
+아래는 기존 로컬·개발·운영 구성 안내다.
+
 백엔드는 IDE 또는 Gradle로 실행하고 Prometheus와 Grafana만 Docker Compose로 실행한다.
 
 ```bash

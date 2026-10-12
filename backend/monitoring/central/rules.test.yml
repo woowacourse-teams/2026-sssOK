@@ -1,0 +1,32 @@
+rule_files: [rules.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{environment="monitoring",server="monitoring",job="loki",instance="loki:3100"}'
+        values: '0+0x3'
+      - series: 'up{environment="dev",server="app-dev",job="loki",instance="dev:3100"}'
+        values: '0+0x3'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: CentralComponentDown
+        exp_alerts: []
+      - eval_time: 2m
+        alertname: CentralComponentDown
+        exp_alerts:
+          - exp_labels:
+              environment: monitoring
+              server: monitoring
+              job: loki
+              instance: loki:3100
+              severity: warning
+            exp_annotations:
+              summary: 중앙 loki 메트릭 수집 실패
+  - interval: 1m
+    input_series:
+      - series: 'up{environment="monitoring",server="monitoring",job="loki",instance="loki:3100"}'
+        values: '1+0x3'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: CentralComponentDown
+        exp_alerts: []

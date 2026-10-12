@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [alertmanager:9093]
+
+# 수집 시 라벨을 붙여 저장하는 시계열에도 환경·서버를 남긴다.
+# 개발·운영 대상은 각 서버의 포트 연결을 검증한 뒤 추가한다.
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [prometheus:9090]
+        labels: &central
+          environment: monitoring
+          server: monitoring
+  - job_name: alertmanager
+    static_configs:
+      - targets: [alertmanager:9093]
+        labels: *central
+  - job_name: loki
+    static_configs:
+      - targets: [loki:3100]
+        labels: *central
+  - job_name: grafana
+    static_configs:
+      - targets: [grafana:3000]
+        labels: *central
+  - job_name: node
+    static_configs:
+      - targets: [node-exporter:9100]
+        labels: *central
