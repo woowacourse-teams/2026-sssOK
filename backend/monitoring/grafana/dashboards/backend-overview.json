@@ -6,7 +6,14 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "업로드 · 다운로드",
+      "type": "link",
+      "url": "/d/sssok-media-transfer",
+      "keepTime": true
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -81,8 +88,9 @@
           "refId": "A"
         }
       ],
-      "title": "서비스 상태",
-      "type": "stat"
+      "title": "메트릭 수집 상태",
+      "type": "stat",
+      "description": "Prometheus의 백엔드 수집 성공 여부. 외부 사용자 접근 성공 여부가 아닙니다."
     },
     {
       "datasource": {

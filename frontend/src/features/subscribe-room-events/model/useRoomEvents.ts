@@ -1,10 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import type { Media, MediaItem } from "@/entities/media";
+import { photosQueryKey, type Media, type MediaItem, type MediaList } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
-import type { MediaFoldersUpdatedEvent } from "./roomEventTypes";
+import type { MediaFoldersUpdatedEvent, MediaLikesUpdatedEvent } from "./roomEventTypes";
 import { updateMediaReadyCache } from "./updateMediaReadyCache";
 import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
@@ -116,6 +116,23 @@ export const useRoomEvents = ({
       onMediaFoldersUpdatedRef.current?.(payload);
     };
 
+    const handleMediaLikesUpdated = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as MediaLikesUpdatedEvent;
+
+      queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((media) =>
+                media.mediaId === payload.mediaId
+                  ? { ...media, likeCount: payload.likeCount }
+                  : media,
+              ),
+            }
+          : current,
+      );
+    };
+
     eventSource.addEventListener("media.created", handleMediaCreated);
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
@@ -124,6 +141,7 @@ export const useRoomEvents = ({
     );
     eventSource.addEventListener("folder.deleted", handleFolderDeleted);
     eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
+    eventSource.addEventListener("media.likes.updated", handleMediaLikesUpdated);
     eventSource.addEventListener("error", handleConnectionError);
 
     return () => {
@@ -135,6 +153,7 @@ export const useRoomEvents = ({
       );
       eventSource.removeEventListener("folder.deleted", handleFolderDeleted);
       eventSource.removeEventListener("media.folders.updated", handleMediaFoldersUpdated);
+      eventSource.removeEventListener("media.likes.updated", handleMediaLikesUpdated);
       eventSource.removeEventListener("error", handleConnectionError);
       eventSource.close();
     };

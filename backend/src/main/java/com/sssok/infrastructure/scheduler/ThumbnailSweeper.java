@@ -1,5 +1,8 @@
 package com.sssok.infrastructure.scheduler;
 
+import com.sssok.common.monitoring.MediaProcessingMetrics;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
 import com.sssok.application.media.GenerateThumbnailService;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileRepository.StuckMedia;
@@ -32,18 +35,20 @@ public class ThumbnailSweeper {
     private final ThumbnailProperties properties;
     private final AsyncTaskExecutor imageTaskExecutor;
     private final AsyncTaskExecutor videoTaskExecutor;
+    private final MediaProcessingMetrics metrics;
 
     public ThumbnailSweeper(
         FileRepository fileRepository,
         GenerateThumbnailService generateThumbnailService,
         ThumbnailProperties properties,
         @Qualifier("applicationTaskExecutor") AsyncTaskExecutor imageTaskExecutor,
-        @Qualifier("videoThumbnailTaskExecutor") AsyncTaskExecutor videoTaskExecutor) {
+        @Qualifier("videoThumbnailTaskExecutor") AsyncTaskExecutor videoTaskExecutor, MediaProcessingMetrics metrics) {
         this.fileRepository = fileRepository;
         this.generateThumbnailService = generateThumbnailService;
         this.properties = properties;
         this.imageTaskExecutor = imageTaskExecutor;
         this.videoTaskExecutor = videoTaskExecutor;
+        this.metrics = metrics;
     }
 
     @Scheduled(cron = "${media.thumbnail.sweep-cron:0 */5 * * * *}")
@@ -51,18 +56,21 @@ public class ThumbnailSweeper {
         Instant stuckBefore = Instant.now().minus(properties.stuckAfter());
         List<StuckMedia> stuck = fileRepository.findStuckInProcessing(
             stuckBefore, properties.sweepBatchSize());
-        if (stuck.isEmpty()) {
-            return;
+        if (!stuck.isEmpty()) {
+            log.info("썸네일이 밀린 미디어 {}개를 다시 처리합니다", stuck.size());
         }
-        log.info("썸네일이 밀린 미디어 {}개를 다시 처리합니다", stuck.size());
         stuck.forEach(this::submit);
+        metrics.swept(stuck.size());
     }
 
     private void submit(StuckMedia media) {
+        Kind kind = Kind.of(media.isVideo());
         AsyncTaskExecutor taskExecutor = media.isVideo() ? videoTaskExecutor : imageTaskExecutor;
         try {
-            taskExecutor.execute(() -> generateThumbnailService.generate(media.mediaId()));
+            taskExecutor.execute(() -> generateThumbnailService.generate(media.mediaId(), kind, Source.SWEEPER));
+            metrics.submitted(kind, Source.SWEEPER, true);
         } catch (TaskRejectedException e) {
+            metrics.submitted(kind, Source.SWEEPER, false);
             // 풀이 이미 밀려 있다는 뜻이다. 행은 PROCESSING 그대로라 다음 배치가 다시 집어 간다.
             log.warn("밀린 썸네일 작업을 제출하지 못했습니다. 다음 배치에서 다시 시도합니다. mediaId={}",
                 media.mediaId());

@@ -1,5 +1,7 @@
 package com.sssok.application.media;
 
+import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.then;
@@ -21,12 +23,17 @@ class ThumbnailTriggerConfigurationTest {
 
     private static final Long MEDIA_ID = 77L;
 
+    private final io.micrometer.core.instrument.simple.SimpleMeterRegistry registry =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    private final com.sssok.common.monitoring.MediaProcessingMetrics metrics =
+        new com.sssok.common.monitoring.MediaProcessingMetrics(registry);
+
     private final GenerateThumbnailService generateThumbnailService =
         mock(GenerateThumbnailService.class);
     private final AsyncTaskExecutor imageTaskExecutor = mock(AsyncTaskExecutor.class);
     private final AsyncTaskExecutor videoTaskExecutor = mock(AsyncTaskExecutor.class);
     private final ThumbnailTrigger trigger = new ThumbnailTrigger(
-        generateThumbnailService, imageTaskExecutor, videoTaskExecutor);
+        generateThumbnailService, imageTaskExecutor, videoTaskExecutor, metrics);
 
     @Test
     void 사진은_공용_비동기_실행기를_사용한다() {
@@ -50,7 +57,7 @@ class ThumbnailTriggerConfigurationTest {
 
         submittedTask(videoTaskExecutor).run();
 
-        then(generateThumbnailService).should().generate(MEDIA_ID);
+        then(generateThumbnailService).should().generate(MEDIA_ID, Kind.VIDEO, Source.INITIAL);
     }
 
     // 거부가 그대로 튀어나오면 등록은 이미 커밋된 채 사용자만 오류를 본다.
@@ -61,6 +68,12 @@ class ThumbnailTriggerConfigurationTest {
 
         assertThatCode(() -> trigger.onVideoCreated(event("VIDEO")))
             .doesNotThrowAnyException();
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.submissions")
+            .tags("kind", "video", "source", "initial", "result", "rejected").counter().count())
+            .isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.submissions")
+            .tags("kind", "video", "source", "initial", "result", "accepted").counter().count())
+            .isZero();
     }
 
     private Runnable submittedTask(AsyncTaskExecutor taskExecutor) {

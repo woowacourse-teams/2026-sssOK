@@ -1,5 +1,7 @@
 package com.sssok.application.media;
 
+import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
+import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -199,7 +201,7 @@ class VideoMediaOperationsTest {
         file.startProcessing();
         StoredFile saved = fileRepository.save(file);
 
-        generateThumbnailService.generate(saved.getId());
+        generateThumbnailService.generate(saved.getId(), Kind.of(saved.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = fileRepository.findById(saved.getId()).orElseThrow();
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);

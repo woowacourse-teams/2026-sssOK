@@ -203,3 +203,73 @@ Grafana 를 띄우면 `com.sssok.log.service` 라벨이 붙은 컨테이너의 �
 
 - Loki: <http://localhost:3100/ready>
 - Alloy 파이프라인 상태: <http://localhost:12345>
+
+## 업로드·다운로드 대시보드 (#441)
+
+Grafana의 **sssOK → sssOK Upload & Download** (`/d/sssok-media-transfer`)에서 확인한다.
+기존 Backend Overview 상단에도 링크가 있다. `grafana/dashboards/media-transfer.json`은 기존
+프로비저닝 경로로 자동 로드된다. **새 앱 배포 후부터** 추가 지표가 쌓이며 과거 값은 복원되지 않는다.
+
+확인 순서:
+
+1. **업로드**: URL 발급·완료 등록의 파일별 접수/거절 → API 상태 코드·p95.
+   HTTP 200/201 안에서도 파일별 실패가 있어 API 오류율만으로 판단하지 않는다.
+2. **미디어 처리**: 사진·영상 처리량 → 정상 생성 비율 → 결과별 건수 → 평균/p95.
+   `retryable`이 늘면 회수 결과, 제출 거부와 실행기 큐를 함께 본다.
+3. **회수**: 마지막 배치 발견 수와 정상 실행 시각을 같이 본다. 발견 수는 한 배치에서 선택한
+   개수(현재 최대 50)이며 DB 전체 적체 수가 아니다. 빈 배치도 발견 수 0·실행 시각을 갱신한다.
+4. **다운로드**: API 요청·응답 → ZIP 준비 성공/실패 → 실행 중·대기/처리 시간.
+   ZIP 상태 조회 폴링은 다운로드 API 요청 수에 포함된다.
+5. **실행기**: 공용 풀(사진·ZIP·정리 등)과 영상 전용 풀의 큐·활성 스레드·남은 용량을 비교한다.
+   큐에는 아직 제출되지 못한 DB 작업이 포함되지 않는다.
+
+상단 `집계 구간`은 5분/15분/1시간 이동 구간이다. 작은 트래픽에서도 추세를 볼 수 있게 기본 15분을
+쓴다. 건수는 Prometheus `increase`의 추정값이므로 소수가 나타날 수 있다. 결과 0건은 성공률 100%로
+바꾸지 않는다. 수집이 끊긴 경우와 구분하려면 `백엔드 메트릭 수집 상태`도 확인한다.
+
+| Prometheus 메트릭 | 라벨 | 의미 |
+| --- | --- | --- |
+| `sssok_upload_files_total` | `stage=issue/register`, `result=accepted/rejected` | API 응답의 파일 항목 수. 재요청도 다시 집계 |
+| `sssok_media_processing_seconds_count/sum/bucket` | `kind=image/video`, `source=initial/sweeper`, `result` | 한 번의 미디어 처리 시도 횟수·누적 시간·분포 |
+| `sssok_media_submissions_total` | `kind`, `source`, `result=accepted/rejected` | 실행기 제출 결과. 접수와 처리 성공은 다름 |
+| `sssok_media_sweep_found` | 없음 | 마지막으로 완료된 배치가 선택한 항목 수 |
+| `sssok_media_sweep_last_success_seconds` | 없음 | 마지막 배치 완료 Unix 시각. 최초 실행 전 0 |
+| `sssok_download_processing_seconds_count/sum/bucket` | `result=success/failure` | ZIP 워커 실행 결과와 시간 |
+| `sssok_download_waiting_seconds_count/sum/bucket` | 없음 | 잡 생성부터 워커의 RUNNING 전환까지. 실제 시작한 잡만 표본 |
+| `sssok_download_active` | 없음 | 이 프로세스에서 실행 중인 ZIP 워커 수 |
+
+미디어 `result`: `success`(정상 파생본 생성), `retryable`(재처리 필요), `permanent_failure`(읽지 못하는
+이미지), `completed_without_thumbnail`(영상 썸네일 없이 완료), `skipped`(삭제됐거나 이미 처리된 작업).
+처리 결과는 **실행 시도 기준**이며 중복 실행·동시 삭제 상황의 고유 파일 상태 전이 수는 아니다.
+성공률 분모에는 `skipped`를 제외한다. 평균·p95 패널은 빠른 실패가 정상 처리 시간을 낮춰 보이지
+않도록 `success`만 조회한다. 결과별 모든 시간은 동일 메트릭의 `result` 필터로 조회할 수 있다.
+
+Timer로 횟수와 시간을 함께 수집하고, histogram 경계는 미디어 0.1~120초, ZIP 0.1~1800초로 제한했다.
+경계는 경보 임계값이 아니다. 경계 사이 p95는 보간값이고 최상위 유한 경계를 넘는 값이 많으면
+p95가 실제보다 낮게 보일 수 있으므로 분포를 보고 경계를 조정한다. `mediaId`·`jobId`·파일명·예외
+메시지는 라벨에 넣지 않는다. 개별 실패는 기존 로그의 `mediaId`·`jobId`로 찾는다.
+
+**관측 경계**: R2 직접 PUT/GET, 사용자 기기 저장 완료는 백엔드에서 볼 수 없다. ZIP 성공은 ZIP
+업로드와 READY 반영을 마친 것이지 사용자가 파일을 받은 것이 아니다. 워커의 실행 시간에는 큐·회수
+대기가 포함되지 않는다. JVM 재시작으로 남은 DB `PROCESSING`/`QUEUED`/`RUNNING`의 전체 수나
+가장 오래된 항목은 이 화면에서 직접 집계하지 않는다. 경보와 운영 임계값은 별도 작업이다.
+
+공식 문서와 구현 연결:
+
+- [Micrometer Timer](https://docs.micrometer.io/micrometer/reference/concepts/timers.html): 처리 결과가 정해진
+  후 `Timer.Sample`을 종료해 횟수와 시간을 같은 결과 라벨로 기록한다.
+- [Prometheus 계측](https://prometheus.io/docs/practices/instrumentation/): 비동기 처리·실행기·배치 상태를
+  구분하고, 마지막 성공 시각과 제한된 라벨을 사용한다.
+- [Spring Boot 3.5 Metrics](https://docs.spring.io/spring-boot/3.5/reference/actuator/metrics.html): HTTP와
+  실행기의 자동 계측을 재사용한다.
+
+조회식 회귀 테스트(저장소 루트에서 실행):
+
+```bash
+docker run --rm --entrypoint /bin/promtool \
+  -v "$PWD/backend/monitoring/tests:/tests:ro" \
+  prom/prometheus:v3.14.0 test rules /tests/media-transfer.test.yml
+```
+
+테스트는 실제 `/api/v1` 경로의 업로드 POST만 선택하는지, 건너뜀을 제외한 처리 시도 성공률과 ZIP
+완료 건수가 맞는지 검증한다. 대시보드의 해당 조회식을 바꾸면 테스트 식도 함께 갱신한다.

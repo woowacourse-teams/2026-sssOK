@@ -35,6 +35,10 @@ export interface AnalyticsEvents {
     reason: string;
     failed_count: number;
   };
+  "Photo Like Changed": {
+    action: "like" | "unlike";
+    source: "gallery" | "viewer";
+  };
 
   "Device Link Copied": { is_success: boolean };
   /** 다른 기기에서 연결 링크로 들어와 세션을 이어받았을 때 */

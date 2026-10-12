@@ -57,6 +57,9 @@ class MediaUploadControllerTest {
     private static final Long MEDIA_ID = 5012L;
     private static final String BEARER = "Bearer valid-token";
 
+    @MockitoBean
+    com.sssok.common.monitoring.UploadMetrics metrics;
+
     @Autowired
     MockMvc mockMvc;
 
@@ -133,6 +136,7 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.data.issued[0].headers['Content-Type']").value("image/jpeg"))
             .andExpect(jsonPath("$.data.issued[0].expiresIn").value(600))
             .andExpect(jsonPath("$.data.rejected[0].code").value("UNSUPPORTED_MEDIA_TYPE"));
+        org.mockito.Mockito.verify(metrics).issued(1, 1);
     }
 
     @Test
@@ -224,6 +228,7 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.data.registered[0].likedByMe").value(false))
             .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(31))
             .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
+        org.mockito.Mockito.verify(metrics).registered(1, 1);
     }
 
     @Test

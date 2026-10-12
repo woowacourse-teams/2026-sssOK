@@ -52,6 +52,13 @@ class DownloadCompressionWorkerTest {
     DownloadJobRepository downloadJobRepository;
 
     @Autowired
+    io.micrometer.core.instrument.MeterRegistry registry;
+
+    private long count(String result) {
+        return registry.get("sssok.download.processing").tag("result", result).timer().count();
+    }
+
+    @Autowired
     FileRepository fileRepository;
 
     @MockitoBean
@@ -79,6 +86,7 @@ class DownloadCompressionWorkerTest {
 
     @Test
     void 성공하면_모든_파일을_zip으로_묶어_올리고_READY로_전이한다() throws IOException {
+        long before = count("success");
         byte[] contentA = "hello-a".getBytes(StandardCharsets.UTF_8);
         byte[] contentB = "hello-b".getBytes(StandardCharsets.UTF_8);
         Long mediaA = media("a.jpg", contentA);
@@ -97,6 +105,8 @@ class DownloadCompressionWorkerTest {
         assertThat(updated.getZipStorageKey()).isNotNull();
         assertThat(zipEntries(captured.toByteArray())).containsEntry("a.jpg", "hello-a")
             .containsEntry("b.jpg", "hello-b");
+        assertThat(count("success") - before).isEqualTo(1);
+        assertThat(registry.get("sssok.download.active").gauge().value()).isZero();
     }
 
     @Test
@@ -197,6 +207,7 @@ class DownloadCompressionWorkerTest {
 
     @Test
     void 스토리지_연결_자체가_실패해도_FAILED로_전이한다() {
+        long before = count("failure");
         Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
         DownloadJob job = job(List.of(media), 5L);
 
@@ -207,12 +218,17 @@ class DownloadCompressionWorkerTest {
 
         DownloadJob updated = downloadJobRepository.findById(job.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo(DownloadJobStatus.FAILED);
+        assertThat(count("failure") - before).isEqualTo(1);
+        assertThat(registry.get("sssok.download.active").gauge().value()).isZero();
     }
 
     @Test
     void 없는_잡을_압축하려_하면_예외() {
+        long before = count("failure");
         assertThatThrownBy(() -> downloadCompressionWorker.compress(999L))
             .isInstanceOf(IllegalStateException.class);
+        assertThat(count("failure") - before).isEqualTo(1);
+        assertThat(registry.get("sssok.download.active").gauge().value()).isZero();
     }
 
     private AbortableOutputStream capturing(ByteArrayOutputStream captured) {

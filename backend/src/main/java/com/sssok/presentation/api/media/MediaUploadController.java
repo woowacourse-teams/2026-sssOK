@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.media;
 
+import com.sssok.common.monitoring.UploadMetrics;
 import com.sssok.application.media.CompleteUploadResult;
 import com.sssok.application.media.CompleteUploadService;
 import com.sssok.application.media.IssueUploadUrlsResult;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MediaUploadController {
 
+    private final UploadMetrics metrics;
     private final IssueUploadUrlsService issueUploadUrlsService;
     private final CompleteUploadService completeUploadService;
     private final ReissueUploadUrlService reissueUploadUrlService;
@@ -55,6 +57,7 @@ public class MediaUploadController {
 
         IssueUploadUrlsResult result =
             issueUploadUrlsService.issue(roomId, memberId, files, request.folderIds());
+        metrics.issued(result.issued().size(), result.rejected().size());
         return ApiResponse.of(IssueUploadUrlsResponse.from(result));
     }
 
@@ -75,6 +78,7 @@ public class MediaUploadController {
     ) {
         CompleteUploadResult result =
             completeUploadService.complete(roomId, memberId, request.mediaIds());
+        metrics.registered(result.registered().size(), result.failed().size());
         return ApiResponse.of(CompleteUploadResponse.from(result));
     }
 
