@@ -51,6 +51,11 @@ export interface AnalyticsEvents {
 
   "Gallery Filter Changed": { filter: "all" | "mine" | "others" | "liked" };
   "Gallery Sort Changed": { sort: "upload" | "popular" };
+
+  "Search Opened": Record<string, never>;
+  "Photo Searched": { query_length: number; result_count: number; duration_ms: number };
+  "Photo Search Failed": { reason: string };
+  "Search Result Opened": { rank: number; result_count: number };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

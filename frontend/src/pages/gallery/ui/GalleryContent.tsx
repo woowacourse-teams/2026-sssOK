@@ -305,7 +305,10 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         emptyMessage={search.isSearching ? "검색어에 맞는 사진이 없어요." : undefined}
         errorMessage={search.isError ? search.errorMessage : undefined}
         onTogglePhoto={togglePhoto}
-        onOpenPhoto={setActiveMediaId}
+        onOpenPhoto={(mediaId) => {
+          search.trackResultOpened(mediaId);
+          setActiveMediaId(mediaId);
+        }}
       />
       {activeMediaId !== null && (
         <MediaViewerModal
