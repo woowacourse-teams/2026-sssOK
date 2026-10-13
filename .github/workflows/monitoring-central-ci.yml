@@ -5,12 +5,14 @@ on:
     branches: [develop, main, deploy]
     paths:
       - 'backend/monitoring/central/**'
+      - '!backend/monitoring/central/**/*.md'
       - '.github/workflows/monitoring-central-ci.yml'
       - '.github/workflows/monitoring-central-deploy.yml'
   push:
     branches: [develop]
     paths:
       - 'backend/monitoring/central/**'
+      - '!backend/monitoring/central/**/*.md'
       - '.github/workflows/monitoring-central-ci.yml'
       - '.github/workflows/monitoring-central-deploy.yml'
   workflow_dispatch:
