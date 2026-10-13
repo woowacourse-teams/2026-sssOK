@@ -5,16 +5,11 @@ import { track } from "@/shared/lib";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { RadioGroup } from "@/shared/ui/radio-group";
-import { Slider } from "@/shared/ui/slider";
 import { Stack } from "@/shared/ui/stack";
 import type { CreateRoomResponse } from "../../api/types";
-import { MAX_EXPIRY_DAYS, MIN_EXPIRY_DAYS } from "../../model/createRoomForm";
-import { createExpiryDayMarks } from "../../model/expiryDayMarks";
 import { useCreateRoomForm } from "../../model/useCreateRoomForm";
 import { useCreateRoomMutation } from "../../model/useCreateRoomMutation";
 import { Form, SubmitArea, SubmitError } from "./CreateRoomForm.styles";
-
-const EXPIRY_DAY_MARKS = createExpiryDayMarks(MIN_EXPIRY_DAYS, MAX_EXPIRY_DAYS);
 
 interface CreateRoomFormProps {
   onSuccess?: (room: CreateRoomResponse) => void;
@@ -67,17 +62,6 @@ export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
             { label: "방장만", value: "host" },
           ]}
           onValueChange={(value) => updateField("uploadPolicy")(value as "everyone" | "host")}
-        />
-
-        <Slider
-          label="방 만료 기간"
-          name="expiryDays"
-          value={formValues.expiryDays}
-          min={MIN_EXPIRY_DAYS}
-          max={MAX_EXPIRY_DAYS}
-          formatValue={(days) => `${days}일`}
-          marks={EXPIRY_DAY_MARKS}
-          onValueChange={updateField("expiryDays")}
         />
       </Stack>
 
