@@ -1,5 +1,69 @@
 # 중앙 모니터링 기동 검증 (#468, 1단계)
 
+## 최신 서버 적용 상태 (2026-10-13)
+
+[중앙 CD 첫 실행](https://github.com/woowacourse-teams/2026-sssOK/actions/runs/38416851150)이 성공했다.
+적용 커밋은 `c9756cc61980af43ea84ba350f1d6636d27a5fb9`이며, 설정·Grafana 데이터 백업,
+중앙 자체 수집 5개 대상, 호스트 지표, Loki 시험 로그 저장·조회, 대시보드 5개 자동 등록을 확인했다.
+백업 경로는 `/home/ubuntu/monitoring/backups/20261013T145150.855227Z-c9756cc61980`이다.
+기동 직후 준비 상태 조회의 503은 재시도 후 정상화됐다. 실패 복구는 이번 실배포에서 실행되지 않았다.
+
+아래 추가 알림 규칙 11개는 후속 작업이며 이 첫 배포에 포함되지 않았다. 중앙 서버는 기존
+기본 알림 규칙과 외부 발송 없는 receiver를 사용한다. 배포 후 개발·운영의 node/backend/alloy
+6개 대상 수집, 실제 로그 전송과 모든 패널 값은 별도로 확인해야 한다.
+과거 절의 수동 Import·서버 적용 전 설명보다 이 상태 기록을 우선한다.
+
+## 중앙 알림 이전 준비 (#468, 발송 전)
+
+중앙 규칙은 앱·로그·호스트 알림과 중앙 자체 상태를 포함한 11개다. 기존 개발·운영
+규칙·발송 설정은 변경하지 않는다. 중앙 receiver `bootstrap`에는 전송 설정이 없으므로
+이번 구성을 배포해도 외부 알림은 보내지 않는다. 실제 Discord 연결과 기존 발송 중지는 후속 작업이다.
+
+| 규칙 | 계산 단위·판정 |
+| --- | --- |
+| BackendDown | dev/prod 수집 대상별 up=0, 2분 (복구 후 5분 유지) |
+| BackendHigh5xxErrorRate | 환경·서버별 최근 5분 요청 20건 이상, 5xx 비율 5% 초과 (복구 후 5분 유지) |
+| HostDiskSpaceLow / Critical | dev/prod/monitoring 루트 파일시스템별 여유 15% 미만 10분 / 5% 미만 5분 |
+| HostDiskWillFillIn24h | 같은 파일시스템의 6시간 추세로 24시간 내 고갈 예상, 여유 40% 미만 30분 |
+| LogPipelineDown | dev/prod Alloy 수집 실패 5분 (복구 후 5분 유지) |
+| LogShippingFailing | 환경·서버·목적지별 5분 실패 요청의 초당 발생량(rate)이 양수인 상태 10분 |
+| LogEntriesDropped | 환경·서버·목적지·사유별 10분 폐기 증가량 > 0 |
+| LokiRejectingLogs | 중앙 Loki·사유별 10분 거절 증가량 > 0 |
+| CentralComponentDown / CentralMemoryLow | 중앙 구성 요소 수집 실패 2분 / 가용 메모리 10% 미만 5분 |
+
+오류율의 분자·분모·최소 요청 수 모두 같은 환경·서버로 묶는다. 기존 Actuator 제외 조건과
+임계값을 유지한다. Alloy `host`는 발신 서버가 아니라 목적지다. 중앙 Loki의 거절 지표는
+발신 환경을 제공하지 않으므로 monitoring으로 알리며 dev/prod로 추측하지 않는다.
+전송 목적지 하나의 폐기가 다른 목적지에서도 유실됐음을 뜻하지 않는다.
+`up=0`은 실제 서비스 중단 확정이 아닌 수집 실패다. 수집 대상 설정 자체가 빠진 경우의
+누락 검사는 별도 과제이며, 시계열이 없다는 이유로 정상 0을 만들어내지 않는다.
+
+중복 처리는 다음과 같다.
+
+- 중앙 디스크 전용 규칙은 공통 호스트 규칙으로 대체한다.
+- 중앙 Loki 중단은 CentralComponentDown이 담당하며 LogPipelineDown은 Alloy만 검사한다.
+- 디스크 critical은 같은 대상의 low를, low/critical은 같은 대상의 예측 알림을 억제한다.
+- 대상 비교에는 environment·server·instance·device·mountpoint를 사용한다. 필수 대상
+  라벨이 비어 있는 알림을 억제 근거로 사용하지 않는다.
+- 전송 실패와 실제 폐기는 둘 다 유지한다. 앱·Alloy의 동시 수집 실패도 원인을 단정해 숨기지 않는다.
+- 알림 그룹은 environment·server·alertname·severity·host, 대기/변경/반복은 30초/5분/4시간이다.
+  실제 복구 알림 발송(send_resolved)은 추후 Discord receiver를 연결할 때 설정한다.
+
+기존 서버와 중앙 사이의 중복 발송은 inhibit 규칙으로 해결되지 않는다. 먼저 중앙에서 발송 없이
+판정 결과를 비교하고, 검증된 개발 알림 묶음부터 기존 발송 중지 → 중앙 발송 활성화 순으로
+담당을 이전한다. 전환 시각과 짧은 공백을 기록한다. 복귀 시 중앙 발송을 끄고 기존 발송을
+다시 켠다. 운영은 개발 검증 후 진행한다. 중앙이 관측하지 못하는 기존 Loki 자체 알림은 유지한다.
+
+기존 `validate.py`에서 promtool 가상 지표 시험과 실제 격리 Alertmanager 시험을 수행한다.
+`test-alertmanager.py`는 외부 통신 없는 임시 컨테이너에 14개 가상 알림을 넣어 같은 대상의
+억제·다른 환경/서버/디스크의 비억제·critical 복구 후 warning 재활성화를 확인한다.
+규칙 시험은 개발 오류와 운영 트래픽 분리, 서버별 최소 요청 수, 발생 대기·복구,
+전송 목적지·폐기 사유 유지, 중앙 귀속, 디스크 임계값·예측을 확인한다.
+이 검증은 실제 장애 발생이나 Discord 메시지 수신 검증을 대신하지 않는다.
+
+공식 기준: [Prometheus 규칙 시험](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/),
+[Alertmanager 그룹·억제 설정](https://prometheus.io/docs/alerting/latest/configuration/).
+
 ## 중앙 전용 CI (2026-10-13)
 
 `.github/workflows/monitoring-central-ci.yml`은 중앙 폴더·해당 워크플로 변경 PR,
@@ -19,7 +83,7 @@ develop 병합 또는 수동 실행 때 GitHub-hosted `ubuntu-latest`에서 검�
 - 경로 필터가 있는 별도 워크플로이므로 무관한 PR에는 실행되지 않는다. 저장소 필수 체크
   설정은 이번에 변경하지 않았다. 설정 검증 성공은 중앙 서버 배포 성공을 뜻하지 않는다.
 
-## 중앙 수동 CD (2026-10-13, 서버 적용 전)
+## 중앙 수동 CD (첫 실행 완료)
 
 사용자 확인: 중앙 `sssok-monitoring` 러너(ubuntu, Linux ARM64, `monitoring` 라벨)는
 서비스로 실행 중이며 GitHub Idle, Docker 접근, 배포 폴더 쓰기, 기존 `.env` 읽기를 확인했다.
@@ -53,7 +117,7 @@ Grafana 데이터 볼륨인지 확인한다. 링크·특수 파일·하위 마�
 검증: `test-deploy.py`는 성공 기록, 배포/헬스체크 실패 복구, 백업 실패, 이미지 변경 거절과
 신규 파일 제거·권한 복원·잘못된 백업/볼륨 거절·추출 실패 시 데이터 보존을 확인한다. `test-dashboards.py`는 실제 격리 Grafana에서 같은 백업/복원
 메서드를 사용해 수동 대시보드 → 자동 등록 → 재생성 → 이전 DB 복원을 확인한다.
-로컬 검증은 통과했으며 실제 GitHub 실행과 중앙 서버 배포는 아직 하지 않았다.
+로컬 복구 검증과 중앙 CD 첫 실행은 통과했다. 실제 서버에서 장애를 유발하는 복구 시험은 아직 하지 않았다.
 
 배포 중 중앙 수집·조회와 Grafana 화면이 잠시 중단될 수 있다. Alloy의 제한된 재시도로 인해
 중앙 로그 일부가 누락될 수 있어 배포 후 개발·운영 전송 지표도 확인한다. 기존 환경의 Loki와
@@ -67,7 +131,7 @@ Prometheus·Loki 데이터 볼륨의 시점 복원은 이 스크립트 범위가
 ## 대시보드 자동 등록 (2026-10-13)
 
 로컬 저장소의 `compose.yml`에 provider와 아래 다섯 JSON의 읽기 전용 마운트를 연결했다.
-서버 적용 전까지 기존 수동 Import 상태는 그대로다. Grafana는 `sssOK` 폴더에 같은 UID의
+첫 중앙 CD에서 5개 자동 등록을 확인했다. Grafana는 `sssOK` 폴더에 같은 UID의
 대시보드를 등록·갱신한다. 기존 데이터소스 UID `prometheus`·`loki`와 `grafana-data` 볼륨은 유지한다.
 
 | 파일 | UID |

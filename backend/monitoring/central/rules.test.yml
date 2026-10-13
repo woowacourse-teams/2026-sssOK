@@ -1,32 +1,272 @@
-rule_files: [rules.yml]
+rule_files:
+- rules.yml
 evaluation_interval: 1m
 tests:
-  - interval: 1m
-    input_series:
-      - series: 'up{environment="monitoring",server="monitoring",job="loki",instance="loki:3100"}'
-        values: '0+0x3'
-      - series: 'up{environment="dev",server="app-dev",job="loki",instance="dev:3100"}'
-        values: '0+0x3'
-    alert_rule_test:
-      - eval_time: 1m
-        alertname: CentralComponentDown
-        exp_alerts: []
-      - eval_time: 2m
-        alertname: CentralComponentDown
-        exp_alerts:
-          - exp_labels:
-              environment: monitoring
-              server: monitoring
-              job: loki
-              instance: loki:3100
-              severity: warning
-            exp_annotations:
-              summary: 중앙 loki 메트릭 수집 실패
-  - interval: 1m
-    input_series:
-      - series: 'up{environment="monitoring",server="monitoring",job="loki",instance="loki:3100"}'
-        values: '1+0x3'
-    alert_rule_test:
-      - eval_time: 3m
-        alertname: CentralComponentDown
-        exp_alerts: []
+- interval: 1m
+  input_series:
+  - series: up{environment="monitoring",server="monitoring",job="loki",instance="loki:3100"}
+    values: 0+0x3
+  - series: up{environment="dev",server="app-dev",job="loki",instance="dev:3100"}
+    values: 0+0x3
+  alert_rule_test:
+  - eval_time: 1m
+    alertname: CentralComponentDown
+    exp_alerts: []
+  - eval_time: 2m
+    alertname: CentralComponentDown
+    exp_alerts:
+    - exp_labels:
+        environment: monitoring
+        server: monitoring
+        job: loki
+        instance: loki:3100
+        severity: warning
+      exp_annotations:
+        summary: 중앙 loki 메트릭 수집 실패
+- interval: 1m
+  input_series:
+  - series: up{environment="monitoring",server="monitoring",job="loki",instance="loki:3100"}
+    values: 1+0x3
+  alert_rule_test:
+  - eval_time: 3m
+    alertname: CentralComponentDown
+    exp_alerts: []
+- name: 개발 오류가 운영 트래픽에 섞이지 않음
+  interval: 1m
+  input_series:
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="dev",server="dev",status="500",uri="/api/rooms"}
+    values: 0+10x20
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="dev",server="dev",status="200",uri="/api/rooms"}
+    values: 0+10x20
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="prod",server="prod",status="200",uri="/api/rooms"}
+    values: 0+1000x20
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="BackendHigh5xxErrorRate",alertstate="firing",environment="dev",server="dev"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="BackendHigh5xxErrorRate",alertstate="firing",environment="prod"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: 서버별 최소 요청 수와 Actuator 제외
+  interval: 1m
+  input_series:
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="dev",server="busy",status="200",uri="/api/rooms"}
+    values: 0+1000x10
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="dev",server="quiet",status="500",uri="/api/rooms"}
+    values: 0+1x10
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="prod",server="prod",status="500",uri="/api/rooms"}
+    values: 0+0x10
+  - series: http_server_requests_seconds_count{job="sssok-backend",environment="prod",server="prod",status="500",uri="/actuator/health"}
+    values: 0+1000x10
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="BackendHigh5xxErrorRate",alertstate="firing"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: 앱 수집 중단 대기와 복구
+  interval: 1m
+  input_series:
+  - series: up{job="sssok-backend",environment="dev",server="dev",instance="dev:19100"}
+    values: 0+0x3 1+0x10
+  - series: up{job="sssok-backend",environment="prod",server="prod",instance="prod:19100"}
+    values: 1+0x14
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="BackendDown",alertstate="firing"}) or vector(0)
+    eval_time: 1m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="BackendDown",alertstate="firing",environment="dev"}) or vector(0)
+    eval_time: 2m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="BackendDown",alertstate="firing"}) or vector(0)
+    eval_time: 10m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: Alloy와 중앙 Loki 수집 중단은 서로 다른 규칙
+  interval: 1m
+  input_series:
+  - series: up{job="alloy",environment="dev",server="dev",instance="dev:19100"}
+    values: 0+0x6
+  - series: up{job="loki",environment="monitoring",server="monitoring",instance="loki:3100"}
+    values: 0+0x6
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="LogPipelineDown",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="LogPipelineDown",alertstate="firing",environment="dev"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="LogPipelineDown",alertstate="firing",environment="monitoring"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="CentralComponentDown",alertstate="firing"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: 중앙 전송 실패 목적지 분리와 복구
+  interval: 1m
+  input_series:
+  - series: loki_write_request_duration_seconds_count{job="alloy",environment="dev",server="dev",host="10.0.20.46:13100",status_code="500"}
+    values: 0+10x15 150+0x20
+  - series: loki_write_request_duration_seconds_count{job="alloy",environment="dev",server="dev",host="loki:3100",status_code="204"}
+    values: 0+10x36
+  - series: loki_write_request_duration_seconds_count{job="alloy",environment="prod",server="prod",host="10.0.20.46:13100",status_code="204"}
+    values: 0+10x36
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing"}) or vector(0)
+    eval_time: 10m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing",environment="dev",server="dev",host="10.0.20.46:13100"}) or vector(0)
+    eval_time: 12m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing",host="loki:3100"}) or vector(0)
+    eval_time: 12m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing",environment="prod"}) or vector(0)
+    eval_time: 12m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing"}) or vector(0)
+    eval_time: 25m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: 폐기는 목적지와 사유별 유지
+  interval: 1m
+  input_series:
+  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="10.0.20.46:13100",reason="rate_limited"}
+    values: 0+2x10
+  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="10.0.20.46:13100",reason="queue_is_full"}
+    values: 0+3x10
+  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="loki:3100",reason="rate_limited"}
+    values: 0+0x10
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="LogEntriesDropped",alertstate="firing"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 2
+  - expr: count(ALERTS{alertname="LogEntriesDropped",alertstate="firing",host="10.0.20.46:13100",reason="rate_limited",environment="dev",server="dev"})
+      or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="LogEntriesDropped",alertstate="firing",host="loki:3100"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: 중앙 Loki 거절을 발신 환경으로 오인하지 않음
+  interval: 1m
+  input_series:
+  - series: loki_discarded_samples_total{job="loki",environment="monitoring",server="monitoring",reason="rate_limited"}
+    values: 0+2x10
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="LokiRejectingLogs",alertstate="firing",environment="monitoring",server="monitoring",reason="rate_limited"})
+      or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="LokiRejectingLogs",alertstate="firing",environment="dev"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: 세 환경 디스크 임계값과 대기 시간
+  interval: 1m
+  input_series:
+  - series: node_filesystem_avail_bytes{job="node",environment="dev",server="dev",instance="dev:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 4+0x15
+  - series: node_filesystem_size_bytes{job="node",environment="dev",server="dev",instance="dev:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 100+0x15
+  - series: node_filesystem_avail_bytes{job="node",environment="prod",server="prod",instance="prod:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 50+0x15
+  - series: node_filesystem_size_bytes{job="node",environment="prod",server="prod",instance="prod:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 100+0x15
+  - series: node_filesystem_avail_bytes{job="node",environment="monitoring",server="monitoring",instance="monitoring:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 10+0x15
+  - series: node_filesystem_size_bytes{job="node",environment="monitoring",server="monitoring",instance="monitoring:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 100+0x15
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="HostDiskSpaceCritical",alertstate="firing"}) or vector(0)
+    eval_time: 4m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="HostDiskSpaceCritical",alertstate="firing",environment="dev"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 1
+  - expr: count(ALERTS{alertname="HostDiskSpaceLow",alertstate="firing"}) or vector(0)
+    eval_time: 10m
+    exp_samples:
+    - labels: '{}'
+      value: 2
+  - expr: count(ALERTS{alertname="HostDiskSpaceLow",alertstate="firing",environment="prod"}) or vector(0)
+    eval_time: 10m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="CentralDiskSpaceLow",alertstate="firing"}) or vector(0)
+    eval_time: 10m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+- name: 감소하는 디스크 예측
+  interval: 1m
+  input_series:
+  - series: node_filesystem_avail_bytes{job="node",environment="dev",server="dev",instance="dev:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 50-0.1x390
+  - series: node_filesystem_size_bytes{job="node",environment="dev",server="dev",instance="dev:19100",mountpoint="/",device="/dev/root",fstype="ext4"}
+    values: 100+0x390
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="HostDiskWillFillIn24h",alertstate="firing",environment="dev"}) or vector(0)
+    eval_time: 6h
+    exp_samples:
+    - labels: '{}'
+      value: 1
+- name: 데이터 없음은 정상 수치로 대체하지 않음
+  interval: 1m
+  input_series: []
+  promql_expr_test:
+  - expr: count(ALERTS{alertname="BackendHigh5xxErrorRate",alertstate="firing"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="BackendDown",alertstate="firing"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0
+  - expr: count(ALERTS{alertname="LogEntriesDropped",alertstate="firing"}) or vector(0)
+    eval_time: 5m
+    exp_samples:
+    - labels: '{}'
+      value: 0

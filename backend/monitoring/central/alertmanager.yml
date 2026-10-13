@@ -1,6 +1,33 @@
-# 기동 검증 단계에서는 알림 상태만 확인한다. Discord 발송은 전환 단계에서 연결한다.
+# 알림 판정·중복 억제만 검증한다. 외부 발송 설정과 비밀값은 연결하지 않는다.
 route:
   receiver: bootstrap
-  group_by: [environment, server, alertname]
+  group_by: [environment, server, alertname, severity, host]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
 receivers:
   - name: bootstrap
+
+inhibit_rules:
+  # 라벨이 없는 알림끼리 같다고 판정되지 않도록 필수 대상 라벨도 검사한다.
+  - source_matchers:
+      - 'alertname="HostDiskSpaceCritical"'
+      - 'severity="critical"'
+      - 'environment=~"dev|prod|monitoring"'
+      - 'server!=""'
+      - 'instance!=""'
+      - 'mountpoint!=""'
+    target_matchers:
+      - 'alertname="HostDiskSpaceLow"'
+      - 'severity="warning"'
+    equal: [environment, server, instance, device, mountpoint]
+  - source_matchers:
+      - 'alertname=~"HostDiskSpaceLow|HostDiskSpaceCritical"'
+      - 'environment=~"dev|prod|monitoring"'
+      - 'server!=""'
+      - 'instance!=""'
+      - 'mountpoint!=""'
+    target_matchers:
+      - 'alertname="HostDiskWillFillIn24h"'
+      - 'severity="warning"'
+    equal: [environment, server, instance, device, mountpoint]
