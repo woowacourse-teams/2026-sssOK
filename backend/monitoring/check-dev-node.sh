@@ -19,11 +19,20 @@ if ! grep -E '^node_filesystem_avail_bytes\{' "$metrics_file" | grep -q 'mountpo
   exit 1
 fi
 
-# 개발 호스트 자신은 중앙 IP가 아니므로 거절되어야 한다.
-status=$(curl --noproxy '*' --silent --show-error --max-time 5 \
-  -o /dev/null -w '%{http_code}' http://10.0.0.69:19100/metrics)
-if [ "$status" != 403 ]; then
-  echo "개발 Nginx 접근 제한 확인 실패: HTTP $status (예상 403)" >&2
-  exit 1
-fi
-echo '개발 호스트 지표·Nginx 차단 확인 성공 (중앙 수집 성공 여부는 중앙에서 별도 확인)'
+# 세 경로 모두 실제 출발지로 제한한다. 헤더가 없거나 중앙 IP를 위조해도 차단한다.
+for path in metrics app-metrics alloy-metrics; do
+  for forwarded in "" 10.0.0.69 10.0.20.46; do
+    status=$(curl --noproxy '*' --silent --show-error --max-time 5 \
+      -H "X-Forwarded-For: $forwarded" \
+      -o /dev/null -w '%{http_code}' "http://10.0.0.69:19100/$path")
+    if [ "$status" != 403 ]; then
+      echo "개발 Nginx 접근 제한 실패: $path HTTP $status (예상 403)" >&2
+      exit 1
+    fi
+  done
+done
+curl --noproxy '*' --fail --silent --show-error --max-time 5 \
+  --retry 5 --retry-delay 2 --retry-all-errors \
+  http://127.0.0.1:8081/actuator/prometheus -o "$metrics_file"
+grep -q '^jvm_memory_used_bytes{' "$metrics_file" || { echo '앱 JVM 지표 누락' >&2; exit 1; }
+echo '개발 호스트·앱 지표와 호스트·앱·Alloy 경로 차단 정상 (중앙 수집은 중앙에서 별도 확인)'

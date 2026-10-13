@@ -16,10 +16,12 @@ services:
     container_name: sssok-app-dev
     restart: unless-stopped
     ports:
-      # 호스트에 직접 설치된 Nginx 가 :80 으로 받아 여기로 넘긴다 (dev-api.ssssok.com).
+      # 전환 검증 동안 기존 직접 접근과 복귀 경로를 유지한다.
       - "8080:8080"
+      # 전환 후 제거할 호스트 Nginx 복귀용 포트. Docker Nginx는 app:8081로 접근한다.
+      - "127.0.0.1:8081:8081"
     expose:
-      # Actuator 관리 포트. 호스트에는 publish하지 않고 Prometheus만 내부에서 접근한다.
+      # 기존 개발 Prometheus의 Docker 내부 수집도 유지한다.
       - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
@@ -57,6 +59,33 @@ services:
     labels:
       # Alloy 가 이 라벨이 붙은 컨테이너만 수집하고, 값을 Loki 의 service 라벨로 쓴다.
       com.sssok.log.service: sssok-backend
+    networks:
+      - sssok
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sssok-nginx-dev
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      SSSOK_ENVIRONMENT: dev
+      CENTRAL_PRIVATE_IP: 10.0.20.46
+      NGINX_ENVSUBST_FILTER: '^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$$'
+    ports:
+      - "80:80"
+      - "10.0.0.69:19100:19100"
+    volumes:
+      - ./monitoring/nginx/container/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.sssok.log.service: sssok-nginx
     networks:
       - sssok
 

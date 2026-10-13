@@ -176,8 +176,8 @@ springdoc:
 
 management:
   server:
-    # 일반 API 포트(8080)와 분리한다. Docker 호스트에는 이 포트를 공개하지 않고
-    # 같은 Compose 네트워크의 Prometheus만 app:8081로 접근한다.
+    # 일반 API 포트(8080)와 분리한다. 기존 Prometheus는 Docker 내부 app:8081로 접근한다.
+    # 개발은 호스트 Nginx용 loopback 포트도 사용한다. 중앙에는 지표 경로만 제한적으로 연결한다.
     port: 8081
   metrics:
     distribution:

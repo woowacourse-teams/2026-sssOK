@@ -13,6 +13,7 @@ on:
       - '.github/backend-version-intents/**'
       - '.github/scripts/*backend-version*.sh'
       - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/deploy-dev.yml'
 
 permissions:
   contents: read
@@ -40,6 +41,7 @@ jobs:
               - '.github/backend-version-intents/**'
               - '.github/scripts/*backend-version*.sh'
               - '.github/workflows/backend-ci.yml'
+              - '.github/workflows/deploy-dev.yml'
 
   version-check:
     name: 백엔드 버전 검증
@@ -143,9 +145,22 @@ jobs:
           path: backend/build/reports/tests/test
           retention-days: 7
 
+  monitoring-check:
+    name: 개발 호스트 관측 설정 검증
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+      - name: Compose 수집 설정 및 Nginx 문법 검증
+        run: bash backend/monitoring/validate-dev-node.sh
+      - name: 운영 배포 후 검사 스크립트 문법 검증
+        run: bash -n backend/monitoring/check-prod-node.sh
+
   ci-ok:
     name: 백엔드 CI 결과
-    needs: [ changes, version-check, migration-check, build ]
+    needs: [ changes, version-check, migration-check, build, monitoring-check ]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -155,6 +170,7 @@ jobs:
       - name: 결과 판정
         run: |
           if [ "${{ needs.build.result }}" = "failure" ] || \
+             { [ "${{ needs.monitoring-check.result }}" != "success" ] && [ "${{ needs.monitoring-check.result }}" != "skipped" ]; } || \
              { [ "${{ needs.version-check.result }}" != "success" ] && [ "${{ needs.version-check.result }}" != "skipped" ]; } || \
              { [ "${{ needs.migration-check.result }}" != "success" ] && [ "${{ needs.migration-check.result }}" != "skipped" ]; }; then
             echo "::error::백엔드 CI 검증 실패"

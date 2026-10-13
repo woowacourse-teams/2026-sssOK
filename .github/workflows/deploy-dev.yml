@@ -101,6 +101,15 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
+      # 최초 포트 인계는 서버에서 검증 후 수행한다. CD가 호스트 서비스를 임의 중지하지 않는다.
+      - name: 호스트 Nginx 전환 완료 확인
+        run: |
+          set -eu
+          if systemctl is-active --quiet nginx || systemctl is-enabled --quiet nginx; then
+            echo "::error::호스트 Nginx가 활성화돼 있습니다. Docker 전환 검증 후 호스트 서비스를 중지·비활성화하세요."
+            exit 1
+          fi
+
       - name: compose 파일 배치
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -115,9 +124,11 @@ jobs:
           mkdir -p "$DEPLOY_PATH/monitoring/grafana/dashboards"
           mkdir -p "$DEPLOY_PATH/monitoring/loki"
           mkdir -p "$DEPLOY_PATH/monitoring/alloy"
+          mkdir -p "$DEPLOY_PATH/monitoring/nginx/container"
           mkdir -p "$DEPLOY_PATH/secrets"
           cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
           cp backend/monitoring/check-dev-node.sh "$DEPLOY_PATH/monitoring/check-dev-node.sh"
+          cp backend/monitoring/nginx/container/default.conf.template "$DEPLOY_PATH/monitoring/nginx/container/default.conf.template"
           cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
           cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
           cp backend/monitoring/prometheus/rules/logging-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/logging-alerts.yml"
@@ -212,6 +223,8 @@ jobs:
           } > image.env
 
           $COMPOSE pull
+          # 템플릿 치환과 문법을 포트 게시 없이 먼저 검사한다.
+          $COMPOSE run --rm --no-deps nginx nginx -t
           # 앱을 먼저 교체해 모니터링 의존성 실패와 분리한다. 이후 전체 스택 기동이 실패해도
           # 앱 헬스체크와 모니터링 자동 복구 절차까지 계속 진행한다.
           $COMPOSE up -d app
@@ -224,7 +237,7 @@ jobs:
           $COMPOSE kill -s SIGHUP prometheus alertmanager || echo "모니터링 설정 리로드 실패 - 수동으로 재시작 필요"
 
           echo "헬스체크 시작"
-          # dev는 ALB/nginx 없이 인스턴스에 직접 붙으므로 8080을 바로 확인한다.
+          # 호스트 Nginx를 경유하지 않고 앱의 8080을 직접 확인한다.
           APP_HEALTHY=false
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
@@ -249,6 +262,12 @@ jobs:
 
             exit 1
           fi
+
+          # bind mount 템플릿 변경도 반영한다. 개발 Nginx의 짧은 연결 중단이 발생한다.
+          $COMPOSE up -d --no-deps --force-recreate nginx
+          $COMPOSE exec -T nginx nginx -t
+          curl --noproxy '*' -fsS --max-time 5 --retry 10 --retry-delay 2 --retry-all-errors \
+            -H 'Host: dev-api.ssssok.com' http://127.0.0.1/health > /dev/null
 
           echo "Grafana 데이터소스 연결 확인 시작"
           if ! check_monitoring_connections; then

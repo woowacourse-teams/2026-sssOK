@@ -128,6 +128,7 @@ jobs:
           mkdir -p "$DEPLOY_PATH/secrets"
           cp backend/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
           cp backend/nginx.conf "$DEPLOY_PATH/nginx.conf"
+          cp backend/monitoring/check-prod-node.sh "$DEPLOY_PATH/monitoring/check-prod-node.sh"
           cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
           cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
           cp backend/monitoring/prometheus/rules/logging-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/logging-alerts.yml"
@@ -267,6 +268,9 @@ jobs:
 
             exit 1
           fi
+
+          # 정상 앱의 자동 롤백 없이 관측 경로 회귀를 배포 실패로 보고한다.
+          bash monitoring/check-prod-node.sh
 
           echo "Grafana 데이터소스 연결 확인 시작"
           if ! check_monitoring_connections; then

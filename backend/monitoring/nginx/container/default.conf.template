@@ -1,0 +1,77 @@
+# 개발 Docker Nginx의 API·지표 프록시 템플릿.
+# 운영 ALB realip·기존 Grafana 라우팅은 운영 전환 전에 별도로 통합해야 한다.
+map $upstream_http_x_request_id $sssok_request_id {
+    '' $request_id;
+    default $upstream_http_x_request_id;
+}
+map $status $sssok_log_level {
+    ~^5 ERROR;
+    ~^4 WARN;
+    default INFO;
+}
+geo $realip_remote_addr $sssok_central_allowed {
+    default 0;
+    ${CENTRAL_PRIVATE_IP} 1;
+}
+log_format sssok_json escape=json
+    '{"timestamp":"$time_iso8601","level":"$sssok_log_level",'
+    '"service":"sssok-nginx","environment":"${SSSOK_ENVIRONMENT}",'
+    '"requestId":"$sssok_request_id","method":"$request_method",'
+    '"path":"$uri","status":$status,"message":"$request_method $uri $status",'
+    '"durationSeconds":$request_time,"upstreamStatus":"$upstream_status",'
+    '"bytesSent":$body_bytes_sent,"clientIp":"$remote_addr"}';
+
+server {
+    listen 80 default_server;
+    server_name _;
+    access_log /dev/stdout sssok_json;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $sssok_app_upstream app:8080;
+    add_header X-Request-ID $sssok_request_id always;
+
+    location / {
+        proxy_pass http://$sssok_app_upstream;
+        proxy_hide_header X-Request-ID;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Request-ID $http_x_request_id;
+        proxy_set_header Connection "";
+        # 개발의 기존 SSE 전달 설정을 유지한다.
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_cache off;
+    }
+}
+
+server {
+    listen 19100;
+    server_name _;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    set $sssok_node_upstream node-exporter:9100;
+    set $sssok_management_upstream app:8081;
+    access_log off;
+
+    location = /metrics {
+        if ($sssok_central_allowed = 0) { return 403; }
+        proxy_pass http://$sssok_node_upstream/metrics;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+    location = /app-metrics {
+        if ($sssok_central_allowed = 0) { return 403; }
+        proxy_pass http://$sssok_management_upstream/actuator/prometheus;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+    location = /alloy-metrics {
+        if ($sssok_central_allowed = 0) { return 403; }
+        set $sssok_alloy_upstream alloy:12345;
+        proxy_pass http://$sssok_alloy_upstream/metrics;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+    location / { return 404; }
+}
