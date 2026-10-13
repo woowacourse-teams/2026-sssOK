@@ -273,14 +273,6 @@ jobs:
             exit 1
           fi
 
-          # 실행 중인 Alloy에 복사된 설정을 검사·재적용한다. HTTP 실패는 배포 실패로 처리한다.
-          # 내부 네트워크만 사용하며 수집 위치 볼륨과 컨테이너는 유지한다.
-          $COMPOSE exec -T alloy /bin/alloy validate /etc/alloy/config
-          $COMPOSE exec -T nginx wget -q -T 10 -O - --post-data='' http://alloy:12345/-/reload
-
-          # 정상 앱의 자동 롤백 없이 관측 경로 회귀를 배포 실패로 보고한다.
-          bash monitoring/check-prod-node.sh
-
           echo "Grafana 데이터소스 연결 확인 시작"
           if ! check_monitoring_connections; then
             echo "연결 실패 - Prometheus, Loki, Grafana를 한 차례 재생성한다"
@@ -297,16 +289,28 @@ jobs:
 
           # 모니터링 복구를 마친 뒤 Host 헤더로 Grafana 라우팅까지 확인한다.
           echo "호스트 기반 라우팅 확인 시작"
+          GRAFANA_ROUTE_HEALTHY=false
           for i in $(seq 1 30); do
             if curl -fsS -H 'Host: monitor.ssssok.com' http://localhost/api/health > /dev/null 2>&1; then
               echo "호스트 기반 라우팅 확인 성공 ($i번째 시도)"
-              exit 0
+              GRAFANA_ROUTE_HEALTHY=true
+              break
             fi
             sleep 5
           done
-          echo "Grafana 호스트 기반 라우팅 확인 실패"
-          $COMPOSE logs --tail 100 nginx grafana || true
-          exit 1
+          if [ "$GRAFANA_ROUTE_HEALTHY" != true ]; then
+            echo "Grafana 호스트 기반 라우팅 확인 실패"
+            $COMPOSE logs --tail 100 nginx grafana || true
+            exit 1
+          fi
+
+          # 기존 모니터링 복구·라우팅 확인을 마친 뒤 추가 관측 경로를 검사한다.
+          # set -e로 종료되더라도 앞선 복구 절차를 건너뛰지 않는다.
+          $COMPOSE exec -T alloy /bin/alloy validate /etc/alloy/config
+          $COMPOSE exec -T nginx wget -q -T 10 -O - --post-data='' http://alloy:12345/-/reload
+
+          # 실패 시 정상 앱을 롤백하지 않고 배포 실패로 보고한다.
+          bash monitoring/check-prod-node.sh
 
   alias:
     name: 이미지 버전 별칭 발행
