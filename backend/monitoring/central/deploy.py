@@ -5,11 +5,12 @@ from datetime import datetime, timezone
 import fcntl
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import shutil
 import subprocess
 import sys
+import tarfile
 
 FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
          'alertmanager.yml', 'loki.yml', 'datasources.yml', 'dashboards.yml', 'nginx.conf',
@@ -81,6 +82,7 @@ class Deployment:
             if image_id != inspected['Image']:
                 raise RuntimeError(f'{name}: 로컬 이미지 태그와 실행 이미지 ID가 다릅니다')
         self.grafana_id = self.container('grafana')
+        self.grafana_volume = self.data_volume(self.grafana_id)
         self.grafana_image = old['services']['grafana']['image']
         self.grafana_owner = run(['docker', 'exec', self.grafana_id, 'id', '-u'], capture=True).stdout.strip()
         self.grafana_group = run(['docker', 'exec', self.grafana_id, 'id', '-g'], capture=True).stdout.strip()
@@ -91,9 +93,17 @@ class Deployment:
             raise RuntimeError('Grafana 백업과 256MiB 여유 공간이 필요합니다')
         run([sys.executable, str(self.source / 'verify-dashboards.py'), '--container', self.grafana_id, '--auth-only'])
 
-    def helper(self, command):
+    def data_volume(self, container):
+        mounts = json.loads(run(['docker', 'inspect', container], capture=True).stdout)[0]['Mounts']
+        data = [m for m in mounts if m['Destination'] == '/var/lib/grafana']
+        if (len(data) != 1 or data[0]['Type'] != 'volume' or not data[0].get('RW')
+                or any(m['Destination'].startswith('/var/lib/grafana/') for m in mounts)):
+            raise RuntimeError('Grafana 데이터 볼륨과 하위 마운트를 확인하세요')
+        return data[0]['Name']
+
+    def helper(self, command, container=None):
         run(['docker', 'run', '--rm', '--network', 'none', '--user', '0',
-             '--volumes-from', self.container('grafana'),
+             '--volumes-from', container or self.container('grafana'),
              '--mount', f'type=bind,src={self.backup},dst=/backup',
              '--entrypoint', 'sh', self.grafana_image, '-ec', command])
 
@@ -115,15 +125,43 @@ class Deployment:
                     'chmod 600 /backup/grafana-data.tar')
 
     def restore_grafana(self):
+        # 삭제 전 백업 전체를 읽어 손상·경로 이탈·링크/특수 파일을 거부한다.
+        # 실제 추출도 별도 디렉터리에 먼저 끝내므로 추출 실패가 현재 DB를 지우지 않는다.
+        archive = self.backup / 'grafana-data.tar'
+        total = 0
+        has_database = False
+        with tarfile.open(archive, 'r:') as backup:
+            for member in backup:
+                path = PurePosixPath(member.name)
+                if path.is_absolute() or '..' in path.parts or not (member.isfile() or member.isdir()):
+                    raise RuntimeError('Grafana 백업에 지원하지 않는 경로·파일이 있습니다')
+                if member.isfile():
+                    has_database |= str(path) == 'grafana.db'
+                    total += member.size
+                    with backup.extractfile(member) as content:
+                        while content.read(1024 * 1024):
+                            pass
+        if not has_database:
+            raise RuntimeError('Grafana 백업 DB가 없습니다')
+        if shutil.disk_usage(self.backup).free < total + 256 * 1024 * 1024:
+            raise RuntimeError('Grafana 복원 임시 공간이 부족합니다')
         self.compose('stop', 'grafana')
-        self.helper('rm -f /var/lib/grafana/grafana.db-wal /var/lib/grafana/grafana.db-shm; '
-                    'tar -xf /backup/grafana-data.tar -C /var/lib/grafana')
+        container = self.container('grafana')
+        if self.data_volume(container) != self.grafana_volume:
+            raise RuntimeError('Grafana 복원 대상이 백업 당시 볼륨과 다릅니다')
+        self.helper('stage=$(mktemp -d /backup/grafana-restore.XXXXXX); '
+                    'trap \'rm -rf "$stage"\' EXIT; '
+                    'tar -xpf /backup/grafana-data.tar -C "$stage"; '
+                    'test -f "$stage/grafana.db"; '
+                    'test -d /var/lib/grafana && test ! -L /var/lib/grafana; '
+                    'find /var/lib/grafana -mindepth 1 -maxdepth 1 -exec rm -rf {} +; '
+                    'cp -a "$stage/." /var/lib/grafana/', container=container)
 
     def restore(self, snapshot):
         self.compose('stop', 'grafana')
         if snapshot:
             # 현재 컨테이너의 마운트 파일이 아직 존재할 때 같은 볼륨으로 복원한다.
-            # 실패한 배포의 SQLite WAL이 복원 DB에 재적용되지 않게 보조 파일만 제거한다.
+            # 신규 플러그인·숨김 파일·SQLite 보조 파일까지 백업 당시 상태로 되돌린다.
             self.restore_grafana()
         for name in FILES:
             saved = self.backup / name

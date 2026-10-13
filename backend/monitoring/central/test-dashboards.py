@@ -85,6 +85,7 @@ snapshot.backup = Path(backup.name)
 snapshot.grafana_image = service['image']
 try:
  start(False)
+ snapshot.grafana_volume = snapshot.data_volume(cid)
  first=next(iter(expected))
  old={'uid':first,'title':'기존 수동 등록 시험','schemaVersion':39,'panels':[]}
  imported=json.loads(api('POST','/api/dashboards/db',{'dashboard':old,'overwrite':False}).stdout)
