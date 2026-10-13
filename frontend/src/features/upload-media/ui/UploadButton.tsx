@@ -1,5 +1,5 @@
 import { useRef, type ChangeEvent } from "react";
-import { LuPlus } from "react-icons/lu";
+import { LuImagePlus } from "react-icons/lu";
 
 import { MEDIA_FILE_ACCEPT } from "../lib/mediaFileRules";
 import { selectMediaFiles, type MediaSelection } from "../model/selectMediaFiles";
@@ -41,7 +41,7 @@ export const UploadButton = ({ onSelect, hidden = false }: UploadButtonProps) =>
             aria-label={UPLOAD_BUTTON_LABEL}
             onClick={() => inputRef.current?.click()}
           >
-            <LuPlus size={19} aria-hidden="true" focusable="false" />
+            <LuImagePlus size={19} aria-hidden="true" focusable="false" />
             올리기
           </FloatingUploadButton>
         </Dock>
