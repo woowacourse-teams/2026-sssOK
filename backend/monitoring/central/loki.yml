@@ -1,4 +1,4 @@
-# 기동 확인용 단일 테넌트. 실제 dev/prod 로그는 아직 전송하지 않는다.
+# 중앙 단일 테넌트. environment 라벨에 따라 개발 7일·운영 30일 보존.
 auth_enabled: false
 server:
   http_listen_port: 3100
@@ -24,7 +24,16 @@ schema_config:
         prefix: index_
         period: 24h
 limits_config:
+  # 환경 라벨이 없는 기동 확인 로그 등은 하루만 보관한다.
   retention_period: 24h
+  retention_stream:
+    - selector: '{environment="dev"}'
+      priority: 1
+      period: 168h
+    - selector: '{environment="prod"}'
+      priority: 1
+      period: 720h
+  # 보관 기간과 별개인 수신 제한. 과거 로그 이관 없이 신규 로그부터 연결한다.
   reject_old_samples: true
   reject_old_samples_max_age: 24h
   ingestion_rate_mb: 1
