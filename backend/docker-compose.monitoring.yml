@@ -40,14 +40,15 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
       - --disable-reporting
-      - /etc/alloy/config.alloy
+      - /etc/alloy/config
     environment:
       SSSOK_ENVIRONMENT: local
       SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
     ports:
       - "127.0.0.1:12345:12345"
     volumes:
-      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config/config.alloy:ro
+      - ./monitoring/alloy/write.local.alloy:/etc/alloy/config/write.alloy:ro
       - alloy-local-data:/var/lib/alloy/data
     depends_on:
       - loki

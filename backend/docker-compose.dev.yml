@@ -180,16 +180,18 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
       - --disable-reporting
-      - /etc/alloy/config.alloy
+      - /etc/alloy/config
     environment:
       # Loki 스트림의 environment 라벨이 된다.
       SSSOK_ENVIRONMENT: dev
       # Docker API 를 프록시로만 부른다 (아래 docker-socket-proxy 참고).
       SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
       GOMEMLIMIT: 200MiB
     mem_limit: 256m
     volumes:
-      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config/config.alloy:ro
+      - ./monitoring/alloy/write.dual.alloy:/etc/alloy/config/write.alloy:ro
       # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
       - alloy-data:/var/lib/alloy/data
       # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.

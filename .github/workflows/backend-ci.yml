@@ -157,6 +157,11 @@ jobs:
         run: bash backend/monitoring/validate-dev-node.sh
       - name: 운영 배포 후 검사 스크립트 문법 검증
         run: bash -n backend/monitoring/check-prod-node.sh
+      - name: 로컬·개발·운영 Alloy 설정 검증
+        run: |
+          bash backend/monitoring/validate-alloy.sh local
+          bash backend/monitoring/validate-alloy.sh dev
+          bash backend/monitoring/validate-alloy.sh prod
 
   ci-ok:
     name: 백엔드 CI 결과

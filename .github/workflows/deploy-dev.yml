@@ -110,6 +110,9 @@ jobs:
             exit 1
           fi
 
+      - name: 배치 전 Alloy 설정 검증
+        run: bash backend/monitoring/validate-alloy.sh dev
+
       - name: compose 파일 배치
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -141,6 +144,7 @@ jobs:
           cp backend/monitoring/grafana/dashboards/logs.json "$DEPLOY_PATH/monitoring/grafana/dashboards/logs.json"
           cp backend/monitoring/loki/loki.yml "$DEPLOY_PATH/monitoring/loki/loki.yml"
           cp backend/monitoring/alloy/config.alloy "$DEPLOY_PATH/monitoring/alloy/config.alloy"
+          cp backend/monitoring/alloy/write.dual.alloy "$DEPLOY_PATH/monitoring/alloy/write.dual.alloy"
           install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
           printf '%s' "$DISCORD_WEBHOOK_URL" > "$DEPLOY_PATH/secrets/discord-webhook-url"
 
@@ -282,6 +286,11 @@ jobs:
               exit 1
             fi
           fi
+
+          # 파일 복사만으로는 Alloy가 새 설정을 읽지 않는다. 실행 중인 버전으로 다시 검사하고
+          # 내부 HTTP reload 응답을 확인한다. 수집 위치 볼륨과 컨테이너는 유지한다.
+          $COMPOSE exec -T alloy /bin/alloy validate /etc/alloy/config
+          $COMPOSE exec -T nginx wget -q -T 10 -O - --post-data='' http://alloy:12345/-/reload
 
           # 중앙 연결 설정이 다음 앱 배포에서 사라지는 것을 탐지한다.
           # 실패 시 배포를 실패로 보고하되, 헬스체크를 통과한 앱은 롤백하지 않는다.
