@@ -20,6 +20,23 @@ Compose 실행과 접근 제한 검사에 전달한다. 검사는 비밀값이 �
 예: `MONITORING_PRIVATE_IP=10.0.20.127 bash monitoring/check-prod-node.sh`.
 이 검사는 주소 불일치를 사전에 차단하며, 포트 충돌 등 모든 Nginx 기동 실패를 보장하지는 않는다.
 
+## 개발 Nginx 설정 변경 감지
+
+개발 CD는 배치된 `default.conf.template`의 SHA-256을 `NGINX_CONFIG_SHA`로 전달한다.
+이 값은 Nginx 컨테이너 라벨에 저장되어, 템플릿 내용 변경을 Compose가 감지할 수 있게 한다.
+앱 이미지만 바뀌면 Nginx를 강제 재생성하지 않는다. 템플릿·Nginx 이미지·포트 등 Nginx의
+구성이 바뀌면 재생성한다. 최초 적용 시에는 새 라벨 추가로 한 번 재생성될 수 있다.
+
+개발 서버에서 수동으로 Compose를 실행할 때도 배포 폴더에서 아래 값을 먼저 설정한다.
+같은 셸에서 이어서 Compose를 실행해야 CD가 기록한 해시와 일치한다.
+
+```bash
+NGINX_CONFIG_SHA=$(sha256sum monitoring/nginx/container/default.conf.template | cut -d ' ' -f 1)
+export NGINX_CONFIG_SHA
+```
+
+변수를 생략하면 라벨은 `manual`이 되며, 이후 템플릿 내용 변경만으로는 자동 재생성되지 않는다.
+
 ## 환경별 Alloy 전송 설정
 
 공통 `alloy/config.alloy`는 로그 탐색·수집·민감값 마스킹·수준 라벨을 처리한다.

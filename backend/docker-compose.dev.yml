@@ -86,6 +86,7 @@ services:
         max-file: "3"
     labels:
       com.sssok.log.service: sssok-nginx
+      com.sssok.nginx.config-sha: ${NGINX_CONFIG_SHA:-manual}
     networks:
       - sssok
 
