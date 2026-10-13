@@ -790,15 +790,9 @@ export const roomHandlers = [
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
-    // 백엔드처럼 expiryDays 를 생략하면 1일로 만든다.
-    const {
-      name,
-      uploadPolicy,
-      expiryDays = 1,
-    } = (await request.json()) as {
+    const { name, uploadPolicy } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
-      expiryDays?: number;
     };
 
     const now = Date.now();
@@ -812,7 +806,7 @@ export const roomHandlers = [
           hostId: MOCK_HOST_ID,
           hostName: "민수",
           createdAt: new Date(now).toISOString(),
-          expiresAt: new Date(now + expiryDays * 24 * HOUR_IN_MILLISECONDS).toISOString(),
+          expiresAt: new Date(now + 24 * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,
@@ -835,7 +829,6 @@ export const roomHandlers = [
     const updates = (await request.json().catch(() => ({}))) as {
       name?: string;
       uploadPolicy?: "everyone" | "host";
-      expiryHours?: number;
     };
 
     if (Object.keys(updates).length === 0) {
@@ -849,9 +842,6 @@ export const roomHandlers = [
       ...activeRoomOverrides,
       ...(updates.name !== undefined && { name: updates.name }),
       ...(updates.uploadPolicy !== undefined && { uploadPolicy: updates.uploadPolicy }),
-      ...(updates.expiryHours !== undefined && {
-        expiresAt: new Date(Date.now() + updates.expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
-      }),
     };
 
     return HttpResponse.json({ data: room(MOCK_ROOM_CODES.active, "ACTIVE", true) });

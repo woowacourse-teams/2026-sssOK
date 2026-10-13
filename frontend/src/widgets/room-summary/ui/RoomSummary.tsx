@@ -7,13 +7,11 @@ import { IconButton } from "@/shared/ui/icon-button";
 import { Row } from "@/shared/ui/row";
 import { Stack } from "@/shared/ui/stack";
 import { RoomMenuButton } from "./RoomMenuButton";
-import { RoomRemainingTime } from "./RoomRemainingTime";
 import { Header, RoomTitle, SearchOverlay, TitleArea } from "./RoomSummary.styles";
 
 interface RoomSummaryProps {
   roomCode: string;
   hostId: number;
-  expiresAt: string;
   roomName: string;
   isHost?: boolean;
   hasSelectedFolder?: boolean;
@@ -33,7 +31,6 @@ interface RoomSummaryProps {
 export const RoomSummary = ({
   roomCode,
   hostId,
-  expiresAt,
   roomName,
   isHost = false,
   hasSelectedFolder = false,
@@ -54,7 +51,6 @@ export const RoomSummary = ({
       <Stack gap={8}>
         <Row align="center" justify="space-between">
           <RoomSessionBadge roomCode={roomCode} hostId={hostId} />
-          <RoomRemainingTime expiresAt={expiresAt} />
         </Row>
 
         <Row align="center" justify="space-between" gap={4}>

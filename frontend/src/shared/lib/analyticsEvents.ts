@@ -8,7 +8,7 @@
  */
 export interface AnalyticsEvents {
   "Room Create Started": Record<string, never>;
-  "Room Created": { room_code: string; expiry_hours: number; upload_policy: "everyone" | "host" };
+  "Room Created": { room_code: string; upload_policy: "everyone" | "host" };
   "Invite Link Copied": { is_success: boolean };
 
   /** 이름 입력 화면이 떴을 때. 이미 세션이 있어 곧장 들어가는 재방문은 세지 않는다. */
