@@ -15,7 +15,7 @@ import tarfile
 FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
          'alertmanager.yml', 'loki.yml', 'datasources.yml', 'dashboards.yml', 'nginx.conf',
          'host-overview.json', 'backend-overview.json', 'logs.json', 'media-transfer.json',
-         'log-transfer.json', 'check.sh', 'verify-dashboards.py')
+         'log-transfer.json', 'check.sh', 'check-alerts.py', 'verify-dashboards.py')
 SERVICES = ('prometheus', 'alertmanager', 'loki', 'grafana', 'node-exporter', 'nginx')
 
 

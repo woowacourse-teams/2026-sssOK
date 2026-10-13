@@ -26,6 +26,7 @@ def compose_config():
 
 
 def main():
+    run([sys.executable, '-B', str(ROOT / 'test-check-alerts.py')])
     services = compose_config()['services']
     assert set(services) == {'prometheus', 'loki', 'grafana', 'alertmanager', 'node-exporter', 'nginx'}
 

@@ -64,6 +64,32 @@
 공식 기준: [Prometheus 규칙 시험](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/),
 [Alertmanager 그룹·억제 설정](https://prometheus.io/docs/alerting/latest/configuration/).
 
+## 발송 없는 적용 후 점검
+
+알림 규칙 PR을 develop에 병합한 뒤 해당 커밋으로 중앙 CD를 실행한다. 첫 배포 커밋
+`c9756cc6`에는 새 규칙과 이 점검 도구가 없으므로 후속 배포 전에는 실행할 수 없다.
+중앙 호스트에서 평가 주기(15초)가 지난 뒤 실행한다.
+
+```bash
+cd /home/ubuntu/monitoring || exit 1
+python3 check-alerts.py
+```
+
+이 도구는 loopback Prometheus API를 GET으로 조회한다. 설정 변경·재시작·시험 알림 발송을
+하지 않는다. 11개 규칙의 이름·중복·평가 상태와 dev/prod 6개 수집 대상의 up=1을 검사한다.
+실제 장애로 pending/firing인 규칙은 대상 라벨과 함께 표시하며, 그 사실만으로 점검을 실패시키지
+않는다. 적용 누락·평가 오류·수집 실패는 종료 코드 1로 보고한다. 자동 CD 성공 판정에는
+연결하지 않아 앱 수집 장애를 이유로 중앙 설정을 자동 롤백하지 않는다.
+
+추가로 확인할 사항:
+
+1. 출력의 firing/pending 대상을 기존 Prometheus 판정과 비교한다. 임계값·집계 단위·평가 시간을
+   함께 확인하며, 알림이 없다는 사실만으로 정상 동작을 확정하지 않는다.
+2. 기존 Alertmanager의 발송은 유지하고 중앙 receiver는 bootstrap으로 비워 둔다.
+   이 도구는 Alertmanager의 실제 receiver·억제 상태나 Discord 수신 여부를 검사하지 않는다.
+3. 실제 로그 전송과 대시보드 값은 별도 확인한다. 새 규칙이 안정적으로 평가되는 것을 확인한
+   후 개발 알림 묶음부터 발송 담당을 전환한다. 서버 장애를 일부러 유발하는 시험은 별도 진행한다.
+
 ## 중앙 전용 CI (2026-10-13)
 
 `.github/workflows/monitoring-central-ci.yml`은 중앙 폴더·해당 워크플로 변경 PR,
