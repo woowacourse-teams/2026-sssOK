@@ -6,8 +6,9 @@ import java.util.Set;
 
 public enum AdminRole {
 
-    SUPER_ADMIN(Set.of(AdminPermission.FEEDBACK_READ, AdminPermission.ADMIN_ACCOUNT_MANAGE)),
-    ADMIN(Set.of(AdminPermission.FEEDBACK_READ));
+    SUPER_ADMIN(Set.of(
+        AdminPermission.FEEDBACK_READ, AdminPermission.FEEDBACK_MANAGE, AdminPermission.ADMIN_ACCOUNT_MANAGE)),
+    ADMIN(Set.of(AdminPermission.FEEDBACK_READ, AdminPermission.FEEDBACK_MANAGE));
 
     private final Set<AdminPermission> permissions;
 

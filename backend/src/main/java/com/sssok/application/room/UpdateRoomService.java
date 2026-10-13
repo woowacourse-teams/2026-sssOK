@@ -5,18 +5,16 @@ import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.RoomPermissionPolicy;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
-import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 방 이름, 만료, 업로드 권한 변경
+// 방 이름, 업로드 권한 변경
 @Service
 @RequiredArgsConstructor
 public class UpdateRoomService {
@@ -33,18 +31,16 @@ public class UpdateRoomService {
             throw new EmptyPatchException();
         }
 
-        Instant now = Instant.now();
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
         if (!permissionPolicy.canChangeSettings(room, requesterId)) {
             throw new RoomHostRequiredException();
         }
-        if (!room.canEnter(now)) {
+        if (!room.canEnter()) {
             throw new RoomExpiredException();
         }
 
-        room.updateSettings(requesterId, resolveName(room, command), resolveExpiration(room, command, now),
-            resolveUploadPolicy(room, command));
+        room.updateSettings(requesterId, resolveName(room, command), resolveUploadPolicy(room, command));
         Room saved = roomRepository.save(room);
         eventPublisher.publishEvent(RoomUpdatedEvent.from(saved));
         return roomDetailReader.read(saved, requesterId);
@@ -55,13 +51,6 @@ public class UpdateRoomService {
             return room.getName();
         }
         return new RoomName(command.name());
-    }
-
-    private RoomExpiration resolveExpiration(Room room, UpdateRoomCommand command, Instant now) {
-        if (command.expiryDays() == null) {
-            return room.getExpiration();
-        }
-        return RoomExpiration.from(now, command.expiryDays());
     }
 
     private UploadPolicy resolveUploadPolicy(Room room, UpdateRoomCommand command) {

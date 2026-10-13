@@ -91,7 +91,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         host = anonymousAuthService.authenticate("방장");
         uploader = anonymousAuthService.authenticate("가현");
         other = anonymousAuthService.authenticate("의찬");
-        Room room = createRoomService.create(host.userId(), "우테코 회식", null, null).room();
+        Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
         joinRoomService.join(roomId, uploader.userId());
         joinRoomService.join(roomId, other.userId());

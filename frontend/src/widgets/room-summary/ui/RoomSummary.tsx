@@ -1,7 +1,7 @@
 import { HiMagnifyingGlass } from "react-icons/hi2";
 
 import { RoomSessionBadge } from "@/entities/session";
-import { MediaSearchField } from "@/features/search-media";
+import { MediaSearchField, type SearchType } from "@/features/search-media";
 import { RoomShareButton } from "@/features/share-room";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Row } from "@/shared/ui/row";
@@ -16,6 +16,8 @@ interface RoomSummaryProps {
   isHost?: boolean;
   hasSelectedFolder?: boolean;
   isSearchOpen?: boolean;
+  searchType?: SearchType;
+  onSearchTypeChange?: (searchType: SearchType) => void;
   onOpenSearch?: () => void;
   onSearch?: (query: string) => void;
   onCloseSearch?: () => void;
@@ -33,6 +35,8 @@ export const RoomSummary = ({
   isHost = false,
   hasSelectedFolder = false,
   isSearchOpen = false,
+  searchType = "keyword",
+  onSearchTypeChange,
   onOpenSearch,
   onSearch,
   onCloseSearch,
@@ -62,9 +66,14 @@ export const RoomSummary = ({
                 <HiMagnifyingGlass />
               </IconButton>
             )}
-            {isSearchOpen && onSearch && onCloseSearch && (
+            {isSearchOpen && onSearchTypeChange && onSearch && onCloseSearch && (
               <SearchOverlay>
-                <MediaSearchField onSearch={onSearch} onClose={onCloseSearch} />
+                <MediaSearchField
+                  searchType={searchType}
+                  onSearchTypeChange={onSearchTypeChange}
+                  onSearch={onSearch}
+                  onClose={onCloseSearch}
+                />
               </SearchOverlay>
             )}
           </TitleArea>

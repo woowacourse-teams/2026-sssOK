@@ -53,9 +53,15 @@ export interface AnalyticsEvents {
   "Gallery Sort Changed": { sort: "upload" | "popular" };
 
   "Search Opened": Record<string, never>;
-  "Photo Searched": { query_length: number; result_count: number; duration_ms: number };
+  "Photo Searched":
+    | { search_type: "keyword"; query_length: number; result_count: number; duration_ms: number }
+    | { search_type: "nickname"; query_length: number; result_count: number };
   "Photo Search Failed": { reason: string };
-  "Search Result Opened": { rank: number; result_count: number };
+  "Search Result Opened": {
+    search_type: "keyword" | "nickname";
+    rank: number;
+    result_count: number;
+  };
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents;

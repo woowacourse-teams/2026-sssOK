@@ -31,11 +31,6 @@ public final class DeletedRoomStatus implements RoomStatus {
     }
 
     @Override
-    public RoomStatus toExpired() {
-        throw new IllegalRoomStatusTransitionException(this, "EXPIRED");
-    }
-
-    @Override
     public RoomStatus toDeleted() {
         throw new IllegalRoomStatusTransitionException(this, "DELETED");
     }
