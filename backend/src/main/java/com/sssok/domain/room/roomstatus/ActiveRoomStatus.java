@@ -2,7 +2,7 @@ package com.sssok.domain.room.roomstatus;
 
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.exception.IllegalRoomStatusTransitionException;
-// 활성 상태 — 입장·업로드 가능, 만료·삭제로만 전이할 수 있다.
+// 활성 상태 — 입장·업로드 가능, 삭제로만 전이할 수 있다.
 public final class ActiveRoomStatus implements RoomStatus {
 
     public static final ActiveRoomStatus INSTANCE = new ActiveRoomStatus();
@@ -28,11 +28,6 @@ public final class ActiveRoomStatus implements RoomStatus {
     @Override
     public boolean isDeleted() {
         return false;
-    }
-
-    @Override
-    public RoomStatus toExpired() {
-        return ExpiredRoomStatus.INSTANCE;
     }
 
     @Override

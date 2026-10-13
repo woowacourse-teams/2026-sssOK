@@ -4,7 +4,6 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
@@ -27,15 +26,14 @@ public class CreateRoomService {
     private final RandomGenerator randomGenerator = new SecureRandom();
 
     @Transactional
-    public RoomDetail create(Long hostId, String name, String uploadPolicy, Integer expiryDays) {
+    public RoomDetail create(Long hostId, String name, String uploadPolicy) {
         Instant now = Instant.now();
         Room room = Room.create(
             RoomCode.generate(randomGenerator),
             new RoomName(name),
             hostId,
             now,
-            resolveUploadPolicy(uploadPolicy),
-            resolveExpiration(now, expiryDays)
+            resolveUploadPolicy(uploadPolicy)
         );
         Room saved = roomRepository.save(room);
 
@@ -48,9 +46,5 @@ public class CreateRoomService {
 
     private UploadPolicy resolveUploadPolicy(String uploadPolicy) {
         return uploadPolicy == null ? UploadPolicy.ANYONE : UploadPolicy.from(uploadPolicy);
-    }
-
-    private RoomExpiration resolveExpiration(Instant now, Integer expiryDays) {
-        return expiryDays == null ? RoomExpiration.defaultFrom(now) : RoomExpiration.from(now, expiryDays);
     }
 }

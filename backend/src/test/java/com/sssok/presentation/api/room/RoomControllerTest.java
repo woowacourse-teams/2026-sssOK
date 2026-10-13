@@ -33,10 +33,8 @@ import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.exception.InvalidRoomExpirationException;
 import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
@@ -60,7 +58,6 @@ class RoomControllerTest {
     private static final Long ROOM_ID = 10L;
     private static final Long HOST_ID = 1L;
     private static final Long MEMBER_ID = 2L;
-    private static final Instant EXPIRES_AT = Instant.parse("2026-08-14T00:00:00Z");
     private static final Instant CREATED_AT = Instant.parse("2026-08-13T00:00:00Z");
     private static final String BEARER = "Bearer valid-token";
 
@@ -109,18 +106,17 @@ class RoomControllerTest {
             new RoomCode(CODE),
             new RoomName("우테코 회식"),
             RoomStatus.initial(),
-            new RoomExpiration(EXPIRES_AT),
             uploadPolicy,
             HOST_ID,
             CREATED_AT,
             null
         );
-        return new RoomDetail(room, room.getStatus(), "가현", joined, 0, List.of());
+        return new RoomDetail(room, "가현", joined, 0, List.of());
     }
 
     @Test
     void 방을_생성하면_201과_roomId를_포함한_방_정보를_반환한다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull(), isNull()))
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull()))
             .willReturn(roomDetail(UploadPolicy.ANYONE, false));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -135,14 +131,14 @@ class RoomControllerTest {
     }
 
     @Test
-    void 방_생성_시_uploadPolicy와_expiryDays를_보내면_그대로_전달된다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host"), eq(7)))
+    void 방_생성_시_uploadPolicy를_보내면_그대로_전달된다() throws Exception {
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host")))
             .willReturn(roomDetail(UploadPolicy.HOST_ONLY, true));
 
         mockMvc.perform(post("/api/v1/rooms")
                 .header("Authorization", BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"우테코 회식\",\"uploadPolicy\":\"host\",\"expiryDays\":7}"))
+                .content("{\"name\":\"우테코 회식\",\"uploadPolicy\":\"host\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.uploadPolicy").value("host"))
             .andExpect(jsonPath("$.data.joined").value(true));
@@ -172,7 +168,7 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.hostName").value("가현"))
             .andExpect(jsonPath("$.data.uploadPolicy").value("everyone"))
             .andExpect(jsonPath("$.data.joined").value(true))
-            .andExpect(jsonPath("$.data.expiresAt").value("2026-08-14T00:00:00Z"));
+            .andExpect(jsonPath("$.data.expiresAt").doesNotExist());
     }
 
     @Test
@@ -225,7 +221,7 @@ class RoomControllerTest {
         mockMvc.perform(patch("/api/v1/rooms/{roomId}", ROOM_ID)
                 .header("Authorization", BEARER)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"2차 회식\",\"uploadPolicy\":\"host\",\"expiryDays\":7}"))
+                .content("{\"name\":\"2차 회식\",\"uploadPolicy\":\"host\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.roomId").value(ROOM_ID))
             .andExpect(jsonPath("$.data.code").value(CODE))
@@ -237,7 +233,7 @@ class RoomControllerTest {
     @Test
     void 보내지_않은_항목은_null_커맨드로_전달된다() throws Exception {
         given(updateRoomService.update(eq(ROOM_ID), eq(MEMBER_ID),
-            eq(new UpdateRoomCommand("2차 회식", null, null))))
+            eq(new UpdateRoomCommand("2차 회식", null))))
             .willReturn(roomDetail(UploadPolicy.ANYONE, true));
 
         mockMvc.perform(patch("/api/v1/rooms/{roomId}", ROOM_ID)
@@ -304,19 +300,6 @@ class RoomControllerTest {
                 .content("{\"name\":\"2차 회식\"}"))
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
-    }
-
-    @Test
-    void 허용되지_않은_만료_기간이면_400을_반환한다() throws Exception {
-        given(updateRoomService.update(anyLong(), anyLong(), any()))
-            .willThrow(new InvalidRoomExpirationException());
-
-        mockMvc.perform(patch("/api/v1/rooms/{roomId}", ROOM_ID)
-                .header("Authorization", BEARER)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"expiryDays\":15}"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.code").value("INVALID_ROOM_EXPIRATION"));
     }
 
     @Test

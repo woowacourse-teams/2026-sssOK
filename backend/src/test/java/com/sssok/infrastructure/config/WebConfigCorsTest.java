@@ -21,7 +21,6 @@ import com.sssok.application.room.UpdateRoomService;
 import com.sssok.common.logging.RequestLoggingFilter;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
@@ -118,8 +117,8 @@ class WebConfigCorsTest {
     private RoomDetail roomDetail() {
         Room room = Room.reconstruct(
             10L, null, new RoomCode(CODE), new RoomName("우테코 회식"), RoomStatus.initial(),
-            new RoomExpiration(Instant.parse("2026-08-14T00:00:00Z")), UploadPolicy.ANYONE, 1L,
+            UploadPolicy.ANYONE, 1L,
             Instant.parse("2026-08-13T00:00:00Z"), null);
-        return new RoomDetail(room, room.getStatus(), "가현", false, 0, List.of());
+        return new RoomDetail(room, "가현", false, 0, List.of());
     }
 }
