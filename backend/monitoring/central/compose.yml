@@ -1,0 +1,139 @@
+# #468 1단계: 중앙 서버 기동·자체 관측 검증. 운영 전환용 구성은 아직 아니다.
+name: sssok-monitoring
+
+x-defaults: &defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  prometheus:
+    <<: *defaults
+    image: prom/prometheus:v3.14.0
+    mem_limit: 192m
+    environment:
+      GOMEMLIMIT: 150MiB
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --storage.tsdb.retention.size=2GB
+      - --query.max-concurrency=2
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./rules.yml:/etc/prometheus/rules.yml:ro
+      - prometheus-data:/prometheus
+
+  alertmanager:
+    <<: *defaults
+    image: prom/alertmanager:v0.34.1
+    mem_limit: 64m
+    environment:
+      GOMEMLIMIT: 48MiB
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --data.retention=120h
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+
+  loki:
+    <<: *defaults
+    image: grafana/loki:3.7.8
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 200MiB
+    command:
+      - -config.file=/etc/loki/loki.yml
+    ports:
+      - "127.0.0.1:3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/loki.yml:ro
+      - loki-data:/loki
+
+  grafana:
+    <<: *defaults
+    image: grafana/grafana:13.2.2
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 200MiB
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Run bash init.sh first}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./datasources.yml:/etc/grafana/provisioning/datasources/central.yml:ro
+      # 지정한 다섯 화면만 등록한다. 파일 누락을 빈 디렉터리 생성으로 숨기지 않는다.
+      - type: bind
+        source: ./dashboards.yml
+        target: /etc/grafana/provisioning/dashboards/central.yml
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./host-overview.json
+        target: /etc/grafana/provisioning/dashboards/json/host-overview.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./backend-overview.json
+        target: /etc/grafana/provisioning/dashboards/json/backend-overview.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./logs.json
+        target: /etc/grafana/provisioning/dashboards/json/logs.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./media-transfer.json
+        target: /etc/grafana/provisioning/dashboards/json/media-transfer.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./log-transfer.json
+        target: /etc/grafana/provisioning/dashboards/json/log-transfer.json
+        read_only: true
+        bind: { create_host_path: false }
+      - grafana-data:/var/lib/grafana
+
+  node-exporter:
+    <<: *defaults
+    image: prom/node-exporter:v1.12.1
+    mem_limit: 48m
+    environment:
+      GOMEMLIMIT: 36MiB
+    # 호스트의 PID/mount 정보와 /proc을 읽는다. 이 단계에서는 네트워크 지표를 수집하지 않는다.
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.vmstat
+      - --collector.loadavg
+      - --collector.filesystem
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$$
+    volumes:
+      - /:/host:ro,rslave
+
+volumes:
+  prometheus-data:
+  alertmanager-data:
+  loki-data:
+  grafana-data:

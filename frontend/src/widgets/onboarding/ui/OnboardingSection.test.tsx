@@ -153,13 +153,4 @@ describe("OnboardingSection", () => {
 
     expect(router.state.location.pathname).toBe(ROUTES.createRoom);
   });
-
-  it("코드로 입장을 누르면 코드 입장 화면으로 간다", async () => {
-    const user = userEvent.setup();
-    const router = renderSection();
-
-    await user.click(screen.getByRole("button", { name: /코드로 입장/ }));
-
-    expect(router.state.location.pathname).toBe(ROUTES.joinRoom);
-  });
 });

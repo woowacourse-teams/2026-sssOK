@@ -16,8 +16,6 @@ public interface RoomStatus {
     // 이미 삭제된 상태인지. 만료는 아직 지울 수 있으므로 여기서 거짓이다.
     boolean isDeleted();
 
-    RoomStatus toExpired();
-
     RoomStatus toDeleted();
 
     static RoomStatus initial() {

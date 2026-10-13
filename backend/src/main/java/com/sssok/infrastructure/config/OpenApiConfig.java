@@ -23,7 +23,7 @@ public class OpenApiConfig {
         return new OpenAPI()
             .info(new Info()
                 .title("sssOK API")
-                .description("링크 하나로 여는 단발성 이미지·영상 공유 공간, sssOK의 백엔드 API 명세")
+                .description("링크 하나로 여는 이미지·영상 공유 공간, sssOK의 백엔드 API 명세")
                 .version("v0.0.1")
                 .contact(new Contact()
                     .name("sssOK Backend")

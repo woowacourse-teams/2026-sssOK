@@ -4,5 +4,6 @@ package com.sssok.domain.admin;
 public enum AdminPermission {
 
     FEEDBACK_READ,
+    FEEDBACK_MANAGE,
     ADMIN_ACCOUNT_MANAGE,
 }

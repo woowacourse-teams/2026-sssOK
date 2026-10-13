@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import type { GalleryItem } from "@/entities/media";
 import { GalleryMediaCard } from "./GalleryMediaCard";
 import { GalleryGrid, GallerySection, StateMessage } from "./PhotoGallery.styles";
@@ -12,7 +14,7 @@ interface PhotoGalleryProps {
   isPending: boolean;
   isError: boolean;
   expectedPhotoCount?: number;
-  emptyMessage?: string;
+  emptyMessage?: ReactNode;
   errorMessage?: string;
   onTogglePhoto: (photoId: number) => void;
   onOpenPhoto?: (mediaId: number) => void;

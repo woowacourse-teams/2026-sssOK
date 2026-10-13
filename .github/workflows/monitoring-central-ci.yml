@@ -1,0 +1,46 @@
+name: Central Monitoring CI
+
+on:
+  pull_request:
+    branches: [develop, main, deploy]
+    paths:
+      - 'backend/monitoring/central/**'
+      - '!backend/monitoring/central/**/*.md'
+      - '.github/workflows/monitoring-central-ci.yml'
+      - '.github/workflows/monitoring-central-deploy.yml'
+  push:
+    branches: [develop]
+    paths:
+      - 'backend/monitoring/central/**'
+      - '!backend/monitoring/central/**/*.md'
+      - '.github/workflows/monitoring-central-ci.yml'
+      - '.github/workflows/monitoring-central-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoring-central-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: 중앙 모니터링 설정 검증
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Python 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compose·서비스·알림·대시보드 쿼리 검사
+        run: python3 backend/monitoring/central/validate.py
+      - name: Grafana 자동 등록·재생성 보존 검사
+        run: python3 backend/monitoring/central/test-dashboards.py
+      - name: 배포 실패 복구 회귀 검사
+        run: python3 backend/monitoring/central/test-deploy.py

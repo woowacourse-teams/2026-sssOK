@@ -2,9 +2,17 @@ import styled from "@emotion/styled";
 
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
+export const FolderFilterBar = styled.div`
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding-right: ${spacing[16]};
+`;
+
 export const FolderScrollArea = styled.div`
   position: relative;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
 
   &::before,
@@ -51,9 +59,23 @@ export const FolderList = styled.div`
   }
 `;
 
-export const AddFolderButtonItem = styled.div`
-  display: flex;
+export const AddFolderButton = styled.button`
+  display: inline-flex;
   flex: none;
+  align-items: center;
+  gap: ${spacing[4]};
+  padding: ${spacing[4]} ${spacing[12]};
+  border: 1px solid ${colors.borderDefault};
+  border-radius: ${radius.full};
+  color: ${colors.textPrimary};
+  white-space: nowrap;
+
+  ${typography.caption1}
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 `;
 
 export const FolderButton = styled.button<{ $active: boolean }>`

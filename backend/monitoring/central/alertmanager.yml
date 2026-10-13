@@ -1,0 +1,6 @@
+# 기동 검증 단계에서는 알림 상태만 확인한다. Discord 발송은 전환 단계에서 연결한다.
+route:
+  receiver: bootstrap
+  group_by: [environment, server, alertname]
+receivers:
+  - name: bootstrap
