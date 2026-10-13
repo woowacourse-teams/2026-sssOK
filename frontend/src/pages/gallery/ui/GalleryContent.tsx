@@ -205,7 +205,6 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
       <RoomSummary
         roomCode={room.code}
         hostId={room.hostId}
-        expiresAt={room.expiresAt}
         roomName={room.name}
         isHost={userId === room.hostId}
         hasSelectedFolder={selectedFolderId !== null}
