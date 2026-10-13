@@ -1,0 +1,192 @@
+#!/usr/bin/env python3
+"""중앙 설정 전용 배포. 같은 이미지·볼륨을 유지하고 실패 시 설정/Grafana DB를 복구한다."""
+import argparse
+from datetime import datetime, timezone
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+
+FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
+         'alertmanager.yml', 'loki.yml', 'datasources.yml', 'dashboards.yml', 'nginx.conf',
+         'host-overview.json', 'backend-overview.json', 'logs.json', 'media-transfer.json',
+         'log-transfer.json', 'check.sh', 'verify-dashboards.py')
+SERVICES = ('prometheus', 'alertmanager', 'loki', 'grafana', 'node-exporter', 'nginx')
+
+
+def run(args, capture=False, **kwargs):
+    return subprocess.run(args, check=True, text=True, capture_output=capture, timeout=300, **kwargs)
+
+
+class Deployment:
+    def __init__(self, source, target, commit):
+        self.source, self.target, self.commit = source, target, commit
+        self.backup = None
+        self.old_config = None
+        self.lock = None
+
+    def compose(self, *args, source=None, capture=False):
+        source = source or self.target
+        return run(['docker', 'compose', '--project-name', 'sssok-monitoring',
+                    '--project-directory', str(self.target), '--env-file', str(self.target / '.env'),
+                    '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.web.yml'), *args],
+                   capture=capture)
+
+    def container(self, service):
+        ids = self.compose('ps', '-a', '-q', service, capture=True).stdout.split()
+        if len(ids) != 1:
+            raise RuntimeError(f'{service}: 컨테이너 하나가 필요합니다')
+        return ids[0]
+
+    def preflight(self):
+        if not self.target.is_dir() or not (self.target / '.env').is_file():
+            raise RuntimeError('기존 중앙 배포 폴더와 .env가 필요합니다')
+        if self.source == self.target:
+            raise RuntimeError('후보 소스와 배포 폴더를 분리하세요')
+        if not (self.target / 'check.sh').is_file():
+            raise RuntimeError('복구 확인에 사용할 기존 check.sh가 필요합니다')
+        self.lock = (self.target / '.central-deploy.lock').open('a')
+        fcntl.flock(self.lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        for name in FILES:
+            if not (self.source / name).is_file():
+                raise RuntimeError(f'후보 파일 누락: {name}')
+            if (self.target / name).is_symlink():
+                raise RuntimeError(f'기존 배포 파일의 심볼릭 링크는 지원하지 않습니다: {name}')
+        old = json.loads(self.compose('config', '--format', 'json', capture=True).stdout)
+        new = json.loads(self.compose('config', '--format', 'json', source=self.source, capture=True).stdout)
+        self.old_config = old
+        if set(old['services']) != set(SERVICES) or set(new['services']) != set(SERVICES):
+            raise RuntimeError('기존 중앙 6개 서비스만 배포할 수 있습니다')
+        if old.get('volumes') != new.get('volumes'):
+            raise RuntimeError('저장 볼륨 정의 변경은 별도 이전 검증이 필요합니다')
+        for name in SERVICES:
+            before, after = old['services'][name], new['services'][name]
+            if before['image'] != after['image']:
+                raise RuntimeError(f'{name}: 이미지 버전 변경은 별도 배포 검증이 필요합니다')
+            if before.get('mem_limit') != after.get('mem_limit'):
+                raise RuntimeError(f'{name}: 메모리 한도 변경은 부하 검증 후 적용하세요')
+            volumes = lambda svc: [v for v in svc.get('volumes', []) if v['type'] == 'volume']
+            if volumes(before) != volumes(after):
+                raise RuntimeError(f'{name}: 데이터 마운트 변경 감지')
+            cid = self.container(name)
+            inspected = json.loads(run(['docker', 'inspect', cid], capture=True).stdout)[0]
+            if not inspected['State']['Running'] or inspected['Config']['Image'] != before['image']:
+                raise RuntimeError(f'{name}: 실행 상태와 기존 Compose 이미지를 먼저 일치시키세요')
+            # 태그가 재게시됐어도 현재 실행 중인 이미지 ID와 같아야 한다. pull은 수행하지 않는다.
+            image_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', after['image']], capture=True).stdout.strip()
+            if image_id != inspected['Image']:
+                raise RuntimeError(f'{name}: 로컬 이미지 태그와 실행 이미지 ID가 다릅니다')
+        self.grafana_id = self.container('grafana')
+        self.grafana_image = old['services']['grafana']['image']
+        self.grafana_owner = run(['docker', 'exec', self.grafana_id, 'id', '-u'], capture=True).stdout.strip()
+        self.grafana_group = run(['docker', 'exec', self.grafana_id, 'id', '-g'], capture=True).stdout.strip()
+        if not self.grafana_owner.isdigit() or not self.grafana_group.isdigit():
+            raise RuntimeError('Grafana 데이터 소유자 확인 실패')
+        size_kb = int(run(['docker', 'exec', self.grafana_id, 'du', '-sk', '/var/lib/grafana'], capture=True).stdout.split()[0])
+        if shutil.disk_usage(self.target).free < size_kb * 1024 + 256 * 1024 * 1024:
+            raise RuntimeError('Grafana 백업과 256MiB 여유 공간이 필요합니다')
+        run([sys.executable, str(self.source / 'verify-dashboards.py'), '--container', self.grafana_id, '--auth-only'])
+
+    def helper(self, command):
+        run(['docker', 'run', '--rm', '--network', 'none', '--user', '0',
+             '--volumes-from', self.container('grafana'),
+             '--mount', f'type=bind,src={self.backup},dst=/backup',
+             '--entrypoint', 'sh', self.grafana_image, '-ec', command])
+
+    def backup_files(self):
+        stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
+        self.backup = self.target / 'backups' / (stamp + '-' + self.commit[:12])
+        self.backup.mkdir(parents=True, mode=0o700)
+        for name in FILES:
+            path = self.target / name
+            if path.exists():
+                shutil.copy2(path, self.backup / name)
+        # .env는 덮어쓰지도, CI 산출물이나 백업에 복사하지도 않는다.
+        print(f'설정 백업: {self.backup}', flush=True)
+
+    def snapshot_grafana(self):
+        self.compose('stop', 'grafana')
+        self.helper('tar -cf /backup/grafana-data.tar -C /var/lib/grafana .; '
+                    f'chown {os.getuid()}:{os.getgid()} /backup/grafana-data.tar; '
+                    'chmod 600 /backup/grafana-data.tar')
+
+    def restore_grafana(self):
+        self.compose('stop', 'grafana')
+        self.helper('rm -f /var/lib/grafana/grafana.db-wal /var/lib/grafana/grafana.db-shm; '
+                    'tar -xf /backup/grafana-data.tar -C /var/lib/grafana')
+
+    def restore(self, snapshot):
+        self.compose('stop', 'grafana')
+        if snapshot:
+            # 현재 컨테이너의 마운트 파일이 아직 존재할 때 같은 볼륨으로 복원한다.
+            # 실패한 배포의 SQLite WAL이 복원 DB에 재적용되지 않게 보조 파일만 제거한다.
+            self.restore_grafana()
+        for name in FILES:
+            saved = self.backup / name
+            if saved.exists():
+                shutil.copy2(saved, self.target / name)
+            elif (self.target / name).exists():
+                (self.target / name).unlink()
+        self.apply_services()
+        # 최초 전환 이전에는 자동 등록이 없을 수 있으므로 이전 check.sh 범위로 확인한다.
+        run(['bash', str(self.target / 'check.sh')])
+        print('이전 설정·Grafana 데이터 복구 및 기본 점검 완료', flush=True)
+
+    def apply_services(self):
+        # 한꺼번에 재생성하지 않고 설정 읽기가 필요한 저장 서비스부터 순차 적용한다.
+        for service in ('loki', 'prometheus', 'alertmanager', 'grafana', 'nginx'):
+            self.compose('up', '-d', '--no-deps', '--pull', 'never', '--force-recreate', service)
+        self.compose('up', '-d', '--no-deps', '--pull', 'never', 'node-exporter')
+
+    def execute(self):
+        self.preflight()
+        self.backup_files()
+        snapshot = False
+        try:
+            self.snapshot_grafana()
+            snapshot = True
+            # bind mount의 inode를 유지하도록 복사한다. 모든 프로세스는 이후 재생성한다.
+            for name in FILES:
+                shutil.copyfile(self.source / name, self.target / name)
+                (self.target / name).chmod(0o644)
+            self.compose('config', '--quiet')
+            self.apply_services()
+            run(['bash', str(self.target / 'check.sh')])
+            run([sys.executable, str(self.target / 'verify-dashboards.py'), '--container', self.container('grafana')])
+            marker = self.target / '.deployed-commit.tmp'
+            marker.write_text(self.commit + '\n')
+            marker.replace(self.target / 'deployed-commit.txt')
+            print(f'중앙 설정 배포 성공: {self.commit}', flush=True)
+        except Exception:
+            print('중앙 배포 실패: 이전 설정 복구 시작', file=sys.stderr, flush=True)
+            try:
+                if snapshot:
+                    self.restore(snapshot=True)
+                else:
+                    # 아직 설정 파일을 바꾸지 않은 백업 실패 단계다.
+                    self.compose('start', 'grafana')
+            except Exception as error:
+                print(f'자동 복구 실패. 백업 경로: {self.backup}; 원인: {error}', file=sys.stderr)
+            raise
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--source', type=Path, required=True)
+    parser.add_argument('--target', type=Path, required=True)
+    parser.add_argument('--commit', required=True)
+    args = parser.parse_args()
+    if not re.fullmatch(r'[0-9a-f]{40}', args.commit):
+        parser.error('40자리 소문자 커밋 SHA가 필요합니다')
+    if args.target.resolve() != Path('/home/ubuntu/monitoring'):
+        parser.error('중앙 배포 경로 /home/ubuntu/monitoring만 허용합니다')
+    os.umask(0o077)
+    Deployment(args.source.resolve(), args.target.resolve(), args.commit).execute()
+
+
+if __name__ == '__main__':
+    main()
