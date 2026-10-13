@@ -8,20 +8,6 @@ export const Header = styled.header`
   padding: ${spacing[12]} ${spacing[16]} 0;
 `;
 
-export const RemainingTimeText = styled.time<{ $urgent: boolean }>`
-  display: inline-flex;
-  align-items: center;
-  gap: ${spacing[4]};
-  color: ${({ $urgent }) => ($urgent ? colors.danger : colors.textAccent)};
-
-  ${typography.caption2}
-
-  svg {
-    width: 14px;
-    height: 14px;
-  }
-`;
-
 export const RoomTitle = styled.h1`
   flex: 1;
   min-width: 0;
