@@ -64,6 +64,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      - "${MONITORING_PRIVATE_IP:-10.0.20.127}:19100:19100"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -171,16 +172,18 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
       - --disable-reporting
-      - /etc/alloy/config.alloy
+      - /etc/alloy/config
     environment:
       # Loki 스트림의 environment 라벨이 된다.
       SSSOK_ENVIRONMENT: prod
       # Docker API 를 프록시로만 부른다 (아래 docker-socket-proxy 참고).
       SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
       GOMEMLIMIT: 200MiB
     mem_limit: 256m
     volumes:
-      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config/config.alloy:ro
+      - ./monitoring/alloy/write.dual.alloy:/etc/alloy/config/write.alloy:ro
       # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
       - alloy-data:/var/lib/alloy/data
     depends_on:
@@ -232,15 +235,22 @@ services:
     image: prom/node-exporter:v1.12.1
     container_name: sssok-node-exporter
     restart: unless-stopped
+    pid: host
     command:
       - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
       - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.vmstat
+      - --collector.loadavg
       - --collector.filesystem
       # 컨테이너 내부·가상 파일시스템은 빼고 실제 디스크만 본다.
-      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($|/)
-      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$$
     volumes:
-      - /:/host:ro
+      - /:/host:ro,rslave
     mem_limit: 64m
     expose:
       - "9100"

@@ -1,0 +1,321 @@
+# 중앙 모니터링 기동 검증 (#468, 1단계)
+
+## 중앙 전용 CI (2026-10-13)
+
+`.github/workflows/monitoring-central-ci.yml`은 중앙 폴더·해당 워크플로 변경 PR,
+develop 병합 또는 수동 실행 때 GitHub-hosted `ubuntu-latest`에서 검사한다.
+실제 서버 접속·비밀값·자체 호스팅 러너는 사용하지 않으며 중앙 micro에서 검사를 돌리지 않는다.
+
+- `validate.py`: 두 Compose 병합, Prometheus 설정·알림 규칙과 기존 규칙 시험,
+  Alertmanager·Loki·Nginx 설정, 대시보드 JSON·UID·데이터소스 참조·PromQL 문법을 검사한다.
+  Grafana 변수는 대표값으로 치환해 문법만 검사한다. LogQL 실행과 실데이터 의미 검증은 포함하지 않는다.
+- `test-dashboards.py`: 같은 Grafana 이미지로 수동 등록 화면의 동일 UID 갱신, sssOK 폴더의
+  5개 자동 등록, 같은 데이터 볼륨으로 재생성 후 UID·DB ID 보존 및 이전 DB 복원을 검사한다. 시험은 외부
+  통신 없는 컨테이너와 고유한 임시 볼륨을 사용하며 해당 시험 자원만 정리한다.
+- 로컬 재현: 저장소 루트에서 `python3 backend/monitoring/central/validate.py`,
+  `python3 backend/monitoring/central/test-dashboards.py`,
+  `python3 backend/monitoring/central/test-deploy.py`. Python 3·Docker·Compose가 필요하다.
+  설정 검사 컨테이너에는 설정 파일만 읽기 전용으로 연결하며 실제 `.env`나 저장 볼륨은 연결하지 않는다.
+- 경로 필터가 있는 별도 워크플로이므로 무관한 PR에는 실행되지 않는다. 저장소 필수 체크
+  설정은 이번에 변경하지 않았다. 설정 검증 성공은 중앙 서버 배포 성공을 뜻하지 않는다.
+
+## 중앙 수동 CD (2026-10-13, 서버 적용 전)
+
+사용자 확인: 중앙 `sssok-monitoring` 러너(ubuntu, Linux ARM64, `monitoring` 라벨)는
+서비스로 실행 중이며 GitHub Idle, Docker 접근, 배포 폴더 쓰기, 기존 `.env` 읽기를 확인했다.
+GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ubuntu/monitoring`도 준비했다.
+
+`monitoring-central-deploy.yml`은 수동 실행만 지원한다. 다음 절차는 저장소 반영 후 사용한다.
+
+1. 워크플로가 기본 브랜치에 있어야 GitHub에서 수동 실행할 수 있다.
+   [GitHub 수동 실행 문서](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
+   실행 브랜치는 develop 또는 main이며, 입력 `commit`은 develop에 포함된 전체 40자리 SHA다.
+2. GitHub-hosted 러너가 해당 SHA를 checkout하고 설정·대시보드·복구 시험을 통과시킨다.
+   허용 목록의 파일만 같은 실행의 artifact로 전달한다. `.env`는 포함하지 않는다.
+3. 중앙 전용 러너가 `/home/ubuntu/monitoring`의 기존 6개 서비스·이미지 ID·메모리 한도·
+   데이터 볼륨을 대조한다. 이미지 업그레이드나 볼륨 변경은 이 배포에서 거절한다.
+   기존 Grafana 관리자 인증과 백업 공간도 확인한다.
+4. `backups/<UTC 시각>-<SHA 앞 12자리>/`에 이전 설정을 저장하고 Grafana를 정지한 상태에서
+   데이터 전체를 tar로 보관한다. Grafana DB에는 자격증명 관련 정보가 있으므로 백업 폴더는
+   700, 데이터 tar는 600 권한이다. 기존 `.env`는 복사하거나 덮어쓰지 않는다.
+5. 설정을 배치하고 Loki·Prometheus·Alertmanager·Grafana·Nginx를 순차 재생성한다.
+   node_exporter는 Compose 변경이 있을 때만 재생성한다. 이미지 pull이나 볼륨 삭제는 하지 않는다.
+6. 서비스 준비 상태·중앙 자체 수집 5개·호스트 지표·Loki 시험 로그 저장/조회·Nginx 경로·
+   대시보드 자동 등록 5개를 확인한 뒤 `deployed-commit.txt`에 SHA를 기록한다.
+   오류 시 이전 설정과 Grafana 데이터를 복원하고 이전 `check.sh`를 실행하며, 배포 결과는 실패다.
+
+복원 전에 tar 전체를 읽어 DB 존재·경로·파일 종류를 검사하고, 백업 당시와 같은 쓰기 가능한
+Grafana 데이터 볼륨인지 확인한다. 링크·특수 파일·하위 마운트가 있으면 자동 복원을 거절한다.
+백업을 별도 임시 폴더에 먼저 추출한 뒤 볼륨 내용을 교체하므로 새 플러그인·숨김 파일·SQLite
+보조 파일도 제거된다. 추출 공간으로 백업 원본 크기와 256MiB의 여유가 추가로 필요하다.
+복사 도중 디스크 오류·전원 장애까지 원자적으로 복구하는 방식은 아니며 원본 tar는 보존한다.
+
+검증: `test-deploy.py`는 성공 기록, 배포/헬스체크 실패 복구, 백업 실패, 이미지 변경 거절과
+신규 파일 제거·권한 복원·잘못된 백업/볼륨 거절·추출 실패 시 데이터 보존을 확인한다. `test-dashboards.py`는 실제 격리 Grafana에서 같은 백업/복원
+메서드를 사용해 수동 대시보드 → 자동 등록 → 재생성 → 이전 DB 복원을 확인한다.
+로컬 검증은 통과했으며 실제 GitHub 실행과 중앙 서버 배포는 아직 하지 않았다.
+
+배포 중 중앙 수집·조회와 Grafana 화면이 잠시 중단될 수 있다. Alloy의 제한된 재시도로 인해
+중앙 로그 일부가 누락될 수 있어 배포 후 개발·운영 전송 지표도 확인한다. 기존 환경의 Loki와
+운영 데이터는 유지한다. 중앙 micro와 서비스 메모리 한도는 바꾸지 않는다.
+
+백업은 같은 서버 디스크에 있으며 자동 정리하지 않는다. 서버 전체 손실 대비 백업은 별도 과제다.
+Prometheus·Loki 데이터 볼륨의 시점 복원은 이 스크립트 범위가 아니다. 작업 강제 취소·러너 종료·
+전원 장애 또는 자동 복구 실패는 백업 경로를 확인한 후 수동 복구가 필요하다.
+배포 성공 검사에는 ALB/TLS 외부 경로와 모든 실데이터 패널의 의미 검증은 포함하지 않는다.
+
+## 대시보드 자동 등록 (2026-10-13)
+
+로컬 저장소의 `compose.yml`에 provider와 아래 다섯 JSON의 읽기 전용 마운트를 연결했다.
+서버 적용 전까지 기존 수동 Import 상태는 그대로다. Grafana는 `sssOK` 폴더에 같은 UID의
+대시보드를 등록·갱신한다. 기존 데이터소스 UID `prometheus`·`loki`와 `grafana-data` 볼륨은 유지한다.
+
+| 파일 | UID |
+| --- | --- |
+| `host-overview.json` | `sssok-host-overview` |
+| `backend-overview.json` | `sssok-central-backend` |
+| `logs.json` | `sssok-central-logs` |
+| `media-transfer.json` | `sssok-central-media` |
+| `log-transfer.json` | `sssok-log-transfer` |
+
+- 같은 UID의 기존 화면은 파일 내용으로 갱신된다. 최초 서버 적용 전에 기존 화면 JSON을
+  내보내 수동 편집 내용을 보관·비교한다. UID를 수동으로 바꾼 화면은 별개이므로 먼저 확인한다.
+- `allowUiUpdates: false`: 변경은 저장소 JSON에서 관리한다. 화면 편집 내용을 저장하려면
+  JSON으로 내보내 저장소에 반영한다. 기존 DB를 덮어쓰는 것이므로 단순 재시작으로 이전 편집이 복원되지는 않는다.
+- `disableDeletion: true`: 배치 파일이 빠졌다는 이유만으로 DB의 기존 대시보드를 자동 삭제하지 않는다.
+  실제 제거가 필요하면 별도 정리한다. 잘못된 파일 내용의 덮어쓰기까지 막는 옵션은 아니다.
+- 30초 간격으로 파일 변경을 확인한다. JSON 마운트는 `create_host_path: false`로 두어 파일
+  누락 시 빈 디렉터리를 만드는 대신 기동을 실패시킨다.
+- 중앙에는 `compose.yml`, `compose.web.yml`, `dashboards.yml`과 다섯 JSON을 함께 배치한다.
+  대시보드만 수동 적용한다면 두 Compose를 함께 지정하고 `up -d --no-deps grafana`로
+  Grafana만 재생성할 수 있다. 위 중앙 CD는 전체 설정을 배포하므로 다른 중앙 서비스도 재생성한다.
+- 재생성 후 다섯 UID·폴더·데이터소스 연결과 실제 패널 값을 확인한다. 자동 등록 성공과
+  로그·지표 쿼리의 실데이터 성공은 별개다. 중앙 micro와 서비스별 메모리 한도는 변경하지 않는다.
+
+## 미디어 화면 중앙 연결 (2026-10-13)
+
+`media-transfer.json`을 중앙 Grafana에 Import하면 `sssOK Central Upload & Download`
+(UID `sssok-central-media`)가 추가된다. 기존 환경별 화면은 변경하지 않는다.
+
+- 기존 미디어 화면의 52개 조회식 모두에 environment 필터를 추가했다.
+- 개발·운영 선택과 집계 구간(5m/15m/1h)을 제공하고, 앱·로그 링크는 `/central/` 경로를 사용한다.
+- 업로드, 미디어 처리, 회수 배치, 다운로드, 실행기 포화의 5개 행·21개 지표 패널이다.
+  기본은 업로드 행만 펼치고 갱신은 60초로 둔다. 필요한 행을 펼쳐 본다.
+- 업로드 항목은 고유 파일 수나 실제 R2 전송 성공률이 아니다. ZIP 준비 성공은 기기 저장 완료가 아니다.
+- 최근 관측이 없는 지연·성공률 패널이나 아직 배포되지 않은 계측은 비어 있을 수 있다.
+  정상 0으로 대체하지 않고 실제 수집 지표와 작업 발생 여부를 확인한다.
+- 52개 PromQL 문법 검사는 통과했으며, 실제 환경별 값과 링크·행 펼치기는 Import 후 검증한다.
+
+## 앱 화면 보강 (2026-10-13)
+
+`backend-overview.json`은 기존 UID `sssok-central-backend`를 유지한 12개 패널 구성이다.
+초기에는 수동 Import로 갱신했고, 자동 등록 적용 후에는 JSON 파일로 갱신한다. 서버 수집 설정이나 앱은 변경하지 않는다.
+
+- API별 p95 상위 항목, 상태 코드별 4xx/5xx 응답량, Heap/Non-Heap 용량을 추가했다.
+- GC 평균 정지 시간, JVM 스레드 상태, DB 연결 획득 평균 시간을 추가했다.
+- HikariCP는 인스턴스·풀별 active/idle/pending/max를 구분한다.
+- 일반 HTTP 패널에서 상태 검사·Actuator·장기 SSE를 제외한다. p95 상위 5개는
+  시점별 순위라 전체 기간 범례는 5개보다 많을 수 있다.
+- GC/DB 연결 기록이 없거나 시계열이 노출되지 않으면 빈 패널이 생길 수 있다.
+  빈 값을 정상 0으로 대체하지 않고 실제 노출 지표와 발생 여부를 확인한다.
+- 15개 PromQL 문법 검사를 통과했다. 새 JVM/Hikari 시계열의 실제 존재와 화면은
+  개발·운영 각각 Import 후 확인해야 한다. 기본 갱신은 30초다.
+
+## 호스트 화면 보강 (2026-10-13)
+
+`host-overview.json`은 기존 UID `sssok-host-overview`를 유지한 10개 패널 구성이다.
+같은 UID의 기존 화면을 갱신한다. 사용자 편집이 있다면 먼저 기존 화면 JSON을 내보내
+보관한다. 자동 등록 구성과 적용 조건은 위 절을 따른다.
+
+- 환경 선택으로 monitoring/dev/prod 또는 전체를 조회한다. 서버는 instance별로 구분한다.
+- 가용 메모리 비율·용량, Swap 사용량·전체 용량·읽기·쓰기를 분리한다.
+- CPU 비유휴 비율에는 iowait·steal이 포함된다. 별도 대기 비율과 CPU 수 대비 Load를 함께 본다.
+- 루트 디스크 가용 공간 제외 비율과 실제 남은 용량을 함께 표시한다.
+- 기존 cpu/meminfo/vmstat/loadavg/filesystem 수집기를 사용한다. 컨테이너 한도·OOM·CPU 크레딧은 포함하지 않는다.
+- 13개 PromQL의 문법 검사를 통과했다. 실제 서버의 시계열 존재와 Grafana 렌더링은 Import 후 확인한다.
+
+## 중앙 로그 대시보드 추가 (2026-10-13)
+
+`logs.json`은 수동 Import용 `sssOK Central Logs` 대시보드다. 중앙 Grafana
+(`/central/`)의 Dashboards → Import에서 업로드한다. 데이터소스 UID는 현재 중앙
+설정의 `loki`를 사용하며, 기존 `sssok-logs`와 다른 UID라 기존 화면을 덮어쓰지 않는다.
+
+- 환경은 dev/prod, 서비스는 sssok-backend/sssok-nginx, 수준은 All 또는 개별 수준을 선택한다.
+- 최근 로그는 세 선택을 모두 적용하고, WARN/ERROR 패널은 환경·서비스만 적용한다.
+- Request ID 패널은 환경과 응답 헤더 X-Request-ID만 적용해 앱·Nginx를 함께 찾는다.
+  빈 ID는 결과가 없고, `/health` 요청은 앱 접근 로그를 생략하므로 Nginx만 나올 수 있다.
+- 기본 최근 1시간, 자동 갱신 없음, 패널당 최대 100줄이다. 표시 건수는 전체 로그 건수가 아니다.
+- JSON 정렬 표시와 상세 보기를 사용한다. 기존 Loki의 과거 로그는 중앙 조회에 포함되지 않는다.
+- JSON 구조는 로컬 검사했으며 실제 중앙 Grafana Import·환경별 조회·Request ID 검색은
+  서버 적용 후 확인해야 한다. 자동 등록 적용도 실제 로그 조회 검증을 대신하지 않는다.
+
+> 2026-10-13 현재 상태는 [중앙 모니터링 작업 기록](../../../docs/deployment/CENTRAL_MONITORING_WORK_LOG_2026-10-13.md)을 참고한다.
+> 개발·운영 호스트 수집과 ALB `/central/` 접속은 완료됐다. 아래 초기 기동 설명의
+> 운영 미연결·ALB 미연결·SSM 조회 부분은 이전 단계 기록이며, 앱 지표·로그 이전과 중앙 전용 CD는 여전히 남아 있다.
+
+중앙 서버에서 다섯 서비스를 기동하고 자체 메트릭·테스트 로그를 검증하는 구성이다.
+개발 node_exporter 연결 검증을 추가한다. 운영 연결, 앱 지표·로그 전환, ALB 전환,
+Discord 발송, CI/CD 분리와 사양 하향은 이후 단계다.
+개발 Compose에는 검증한 호스트 수집 설정을 반영하며, 기존 개발 Prometheus 내부 수집과
+운영 구성은 유지한다.
+
+## 확인한 인프라
+
+| 서버 | 사설 IP | 현재 사양 | 서브넷 |
+| --- | --- | --- | --- |
+| 중앙 | 10.0.20.46 | t4g.micro 후보, RAM 약 906MiB 확인 | project-app-a |
+| 개발 | 10.0.0.69 | t4g.small (기존 micro) | project-public-a |
+| 운영 | 10.0.20.127 | t4g.medium (기존 micro) | project-app-a |
+
+같은 TECHCOURSE-PROJECT VPC, ap-northeast-2a에 위치한다. 중앙은 Ubuntu 24.04 ARM64,
+20GiB 루트 디스크, Swap 1GiB, project-app 보안 그룹, Session Manager 접속을 사용한다.
+중앙 배포 디렉터리는 `/home/ubuntu/monitoring`이다. 서버에서 확인한 Docker는 29.9.0,
+Compose는 5.6.0이다. 개발·운영 메트릭 보존은 15일, Loki 보존 환경변수는 각각 7일·30일이다.
+
+project-app의 self 규칙은 같은 그룹을 가진 모든 서버 사이의 트래픽을 허용한다.
+중앙만 접근 가능한 제한으로 오해하지 않는다. 중앙 Compose의 호스트 공개 포트는 모두
+127.0.0.1에 묶어 서버 내부에서만 사용하며 ALB도 아직 연결하지 않는다.
+
+## 자원 시험값
+
+| 서비스 | 메모리 상한 | Go 메모리 목표 |
+| --- | --- | --- |
+| Prometheus | 192MiB | 150MiB |
+| Loki | 256MiB | 200MiB |
+| Grafana | 256MiB | 200MiB |
+| Alertmanager | 64MiB | 48MiB |
+| node_exporter | 48MiB | 36MiB |
+
+상한 합계 816MiB는 예약량도 예상 사용량도 아니다. OS·Docker 메모리는 별도로 필요하고,
+Go 메모리 목표는 프로세스 전체의 하드 한도가 아니다. 모든 컨테이너가 상한에 접근하면
+1GiB 호스트가 부족할 수 있다. 기동 성공만으로 운영 사양을 확정하지 않는다.
+수집량과 동시 조회를 늘리며 재시작·OOM·지속적인 Swap 입출력·응답 지연을 관찰한다.
+Compose의 기본 Swap 동작을 사용하며 실제 할당은 `docker inspect`로 확인한다.
+Grafana의 추가 플러그인 자동 설치는 꺼서 초기 다운로드와 저장 공간 사용을 줄인다.
+
+Prometheus는 15일 또는 2GB 보존 제한 중 먼저 도달하는 기준을 적용한다. 크기 제한은
+호스트 디스크 전체의 하드 한도가 아니므로 WAL·head 데이터와 여유 공간을 별도로 본다.
+Loki는 기동 검증용 24시간 보존이며 **실제 개발·운영 로그를 보내지 않는다**.
+환경별 7일·30일 보존과 수집량 제한을 구현한 뒤 전환해야 한다.
+
+## 서버에 파일을 전달한 뒤 실행
+
+이 디렉터리의 파일들을 `/home/ubuntu/monitoring`에 배치한다. 아직 GitHub에 푸시하지 않은
+파일은 서버에서 git pull로 받을 수 없다. 전달 전에 파일·커밋 버전을 확인한다.
+
+```bash
+cd /home/ubuntu/monitoring
+bash init.sh
+docker compose config --quiet
+docker compose pull
+docker compose up -d
+bash check.sh
+docker compose ps
+docker stats --no-stream
+free -h
+vmstat 1 6
+```
+
+`init.sh`는 난수 관리자 비밀번호를 `.env`에 권한 600으로 저장한다. 재실행해도 덮어쓰지
+않는다. `.env`나 비밀번호가 포함된 `docker compose config` 출력을 채팅·Git에 공유하지 않는다.
+Grafana 관리자 비밀번호는 최초 DB 생성 시 적용되므로 볼륨 생성 후 `.env`를 바꿔도 기존
+관리자 비밀번호가 자동 변경되지는 않는다.
+
+`check.sh`는 준비 상태, 다섯 대상의 up=1, CPU·메모리·Swap·루트 디스크 지표 및 Loki 테스트
+로그의 저장·조회를 검사한다. Python 3와 curl을 사용한다. Docker Desktop에서 실행하면
+node_exporter는 Linux VM을 관측하므로 EC2 호스트 지표는 EC2에서도 다시 검증한다.
+`sssOK Host Overview` 대시보드에는 중앙·개발 호스트의 수집 상태, CPU 사용률,
+가용 메모리, 루트 디스크 사용률, Swap 입출력을 표시한다. `dashboards.yml`과
+`host-overview.json`을 함께 배치한 뒤 Grafana 컨테이너를 재생성하면 파일에서 등록된다.
+운영 호스트는 수집 연결 후 별도 검증을 거쳐 추가한다.
+
+Grafana는 127.0.0.1:3000으로만 공개하므로 임시 조회는 로컬 AWS CLI의 Session Manager
+포트 포워딩(`AWS-StartPortForwardingSession`, 원격 3000)을 이용한다. 로컬 PC에 AWS CLI,
+Session Manager 플러그인, 유효한 AWS 자격 증명이 필요하다. 포트 포워딩 세션 동안만
+`http://127.0.0.1:<로컬 포트>/d/sssok-host-overview`로 접속한다. 이 접속은
+`monitor.ssssok.com` 전환과 무관하다. 관리자 비밀번호는 중앙 서버의 `.env`에만 저장하고
+콘솔이나 채팅에 출력하지 않는다.
+
+## 개발 연결과 재배포
+
+개발 서버에서 임시 `dev-node.override.yml`로 검증한 CPU·메모리·Swap·부하·디스크 수집과
+`127.0.0.1:9100` 포트를 `backend/docker-compose.dev.yml` 본문으로 옮겼다.
+개발 CD는 기존처럼 이 Compose 하나로 실행하므로 별도 override가 필요 없다.
+해당 변경이 develop에 병합되고 자동 배포되기 전까지는 종전 배포가 임시 설정을 되돌릴 수 있다.
+새 Compose로 배포된 것을 확인한 뒤 서버에 남은 임시 override를 정리한다.
+기존 개발 Prometheus는 같은 Docker 네트워크에서 계속 node-exporter:9100을 수집한다.
+개발 CD는 앱·기존 모니터링 확인 후 `monitoring/check-dev-node.sh`로 호스트 지표와
+Nginx의 비허용 IP 차단(403)을 검사한다. 실패 시 배포를 실패로 보고하되 정상 앱을 롤백하지 않는다.
+이는 중앙에서의 실제 수집 성공을 보장하지 않으므로 중앙의 up 지표도 확인한다.
+
+개발 호스트 Nginx용 `dev.nginx.conf`는 `/etc/nginx/conf.d/sssok-dev.conf`로 통합한다.
+사용자가 확인한 기존 `conf.d/app.conf`와 `sites-available/dev-api.ssssok.com`은
+server_name만 다르고 동작은 동일하다. 두 호스트 이름과 기존 SSE 설정을 하나의 80 포트
+블록에 보존한다. 이 설정은 DNS나 운영 서버를 변경하지 않는다.
+적용 전 `/etc/nginx` 전체를 권한 제한한 별도 경로에 백업한다. 기존 `conf.d/app.conf`와
+`sites-enabled/dev-api.ssssok.com` 링크를 include 경로 밖으로 옮기고 새 파일을 설치한다.
+별도 `sssok-node-metrics.conf`를 이미 설치했다면 중복되지 않도록 함께 비활성화한다.
+공통 로그 형식 파일은 유지한다. `nginx -t`가 실패하면 reload하지 말고 기존 파일과 링크를
+복원한다. 검사 성공 후 reload하고 두 Host 헤더의 `/health` 응답이 기존과 같은지 확인한다.
+사설 주소 `10.0.0.69:19100`에서는 `/metrics`만 프록시하며 중앙 `10.0.20.46`만 허용한다.
+개발 호스트에서 해당 사설 주소로 요청하면 403, 중앙 호스트에서 요청하면 200과 node 지표를
+반환하는지 확인한다. 공유 보안 그룹 규칙은 수정하지 않는다. 설정 검사만으로 포트 충돌이나
+실제 접근 제한이 검증되지는 않으므로 두 서버의 HTTP 검증이 필요하다.
+롤백은 통합 파일을 제거하고 백업한 기존 파일과 링크를 원래 위치에 복원한 뒤,
+`nginx -t` 성공 후 reload한다. `sites-enabled/*`는 확장자와 무관하게 읽으므로
+그 디렉터리 안에서 `.bak`로 이름만 바꾸는 방식은 사용하지 않는다.
+중앙 Prometheus의 node job에는 개발 `10.0.0.69:19100`을 environment=dev, server=dev로
+등록한다. 개발 Nginx와 새 Compose 구성이 준비되지 않으면 이 대상은 DOWN이다.
+컨테이너의 `promtool check config /etc/prometheus/prometheus.yml` 성공 후 Prometheus에
+SIGHUP을 보내 반영한다. 중앙 호스트 curl 성공과 컨테이너에서의 수집 성공은 별도로 확인해야 한다.
+`up{job="node",environment="dev",server="dev"}`가 1인지 확인한다.
+`check.sh`는 중앙 자체 관측을 검사하므로 개발 수집 검증을 대신하지 않는다.
+
+호스트 Nginx는 서버에서 검증한 설정을 수동 관리하며 개발 CD는 `/etc/nginx`를 덮어쓰지 않는다.
+`dev.nginx.conf`는 해당 설정의 저장소 원본이다. 새 서버에서는 먼저 위 설치 절차를 수행해야 한다.
+중앙 서버는 현재 수동 배포 상태다. 전용 CI/CD 코드는 위 절차로 준비했으며 실제 실행은 남아 있다.
+
+### 개발 재배포 안정화 완료 기준
+
+- PR CI의 `개발 호스트 관측 설정 검증`은 기본 Compose 하나만으로 loopback 9100,
+  호스트 마운트, CPU·메모리·Swap 수집 옵션을 유지하는지 검사하고 Nginx 문법도 검사한다.
+- 개발 CD는 앱 교체 전에 `/etc/nginx/conf.d/sssok-dev.conf`가 레포의
+  `dev.nginx.conf`와 같은지 검사한다. 주석·공백 차이도 실패하므로 최초 한 번은 검토한
+  레포 파일을 그대로 설치해야 한다. 서버에서 수동 작성한 파일이 동작하더라도 이 절차가 필요하다.
+- 검토한 소스가 있는 개발 서버 체크아웃에서 기존 파일을 별도 경로에 백업하고
+  `sudo install -m 644 backend/monitoring/central/dev.nginx.conf /etc/nginx/conf.d/sssok-dev.conf`로
+  설치한다. `sudo nginx -t` 성공 후에만 `sudo systemctl reload nginx`를 실행한다.
+  검사 실패 시 백업 파일을 복원하며 reload하지 않는다. 기존 중복 설정 비활성화 절차는 위와 같다.
+- PR을 develop에 병합하고 개발 CD가 성공한 뒤, 중앙 서버에서 최신 `check-dev.sh`를
+  배치하고 `bash check-dev.sh`를 실행한다. 이는 중앙 Prometheus의 실제 수집과 필수 지표를 검사한다.
+- 후속 개발 배포에서도 같은 검증을 통과하고 Grafana의 dev 지표가 유지되는지 확인한다.
+  그때 임시 `dev-node.override.yml`을 제거할 수 있다. 병합·배포 이전 수동 복구는 완료로 보지 않는다.
+
+GitHub CI 성공은 서버 적용 성공을 의미하지 않는다. 중앙 서버에 전용 배포 경로가 마련되기 전까지
+중앙 검증은 수동 실행이다. 서버 시크릿·이미지 태그 파일은 Git으로 복사하지 않는다.
+
+## 알림과 중지
+
+중앙 서비스 수집 실패·메모리 여유 10% 미만·디스크 여유 15% 미만을 계산하지만,
+Alertmanager 수신기는 외부 발송을 하지 않는다. 중앙 전체 장애를 외부에서 탐지하는
+수단과 Discord 연결은 운영 전환 전에 추가해야 한다.
+
+```bash
+# 문제가 생기면 중앙 구성만 중지한다. 볼륨은 보존된다.
+docker compose down
+```
+
+데이터를 유지하려면 `down -v`를 사용하지 않는다. 실제 로그 전환 전에 일관된 볼륨 백업,
+복원 시험, 과거 데이터 조회 범위와 ALB·수집 경로 롤백 절차를 마련한다.
+
+## 공식 참고
+
+이번 단계 로컬 검증: Compose 해석, promtool 설정·규칙 테스트, amtool 설정, Loki 설정 검사,
+네 서비스 기동·메트릭 수집, Grafana 데이터소스 연결·익명 접근 차단, Loki 테스트 로그
+저장·조회, `.env` 권한·재실행 보존을 확인했다. Mac Docker의 root mount propagation 제한으로
+node_exporter 기동은 로컬에서 확인하지 못했다. EC2에서 `bash check.sh`로 최종 확인한다.
+로컬 시험용 컨테이너와 볼륨은 정리하며 실제 서버 데이터는 사용하지 않는다.
+
+- [컨테이너에서 호스트 수집](https://github.com/prometheus/node_exporter#docker)
+- [Prometheus 보존 정책](https://prometheus.io/docs/prometheus/latest/storage/)
+- [Grafana Docker 설정](https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/)

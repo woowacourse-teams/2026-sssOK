@@ -114,13 +114,4 @@ loki.process "level" {
   }
 }
 
-loki.write "loki" {
-  endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
-  }
-
-  // 한 Alloy 는 한 환경만 수집하므로 환경은 여기서 한 번에 붙인다. 값은 compose 가 넘긴다.
-  external_labels = {
-    environment = sys.env("SSSOK_ENVIRONMENT"),
-  }
-}
+// 전송 목적지는 Compose가 선택한 write.alloy에서 정의한다.

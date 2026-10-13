@@ -1,0 +1,24 @@
+// 개발·운영: 기존 Loki와 중앙 Loki에 함께 전송한다.
+// 기존 component ID를 유지해 대시보드와 수집 위치의 연속성을 보존한다.
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+
+  // 중앙 전환 검증 동안 기존 Loki와 함께 전송한다.
+  // 전송 대상 간 완전한 장애 격리는 아니다. 중앙 장애로 인한 장시간 대기를 줄인다.
+  // 재시도 소진 시 중앙 사본은 누락될 수 있으므로 양쪽 수신·장애 검증이 필요하다.
+  endpoint {
+    name               = "central"
+    url                = sys.env("CENTRAL_LOKI_URL")
+    remote_timeout     = "5s"
+    min_backoff_period = "500ms"
+    max_backoff_period = "2s"
+    max_backoff_retries = 3
+  }
+
+  // 한 Alloy 는 한 환경만 수집하므로 환경은 여기서 한 번에 붙인다. 값은 compose 가 넘긴다.
+  external_labels = {
+    environment = sys.env("SSSOK_ENVIRONMENT"),
+  }
+}
