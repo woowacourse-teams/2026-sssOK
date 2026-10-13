@@ -215,6 +215,11 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
         isSearchOpen={search.isSearchOpen}
+        searchType={search.searchType}
+        onSearchTypeChange={(searchType) => {
+          search.changeSearchType(searchType);
+          clearSelection();
+        }}
         onOpenSearch={search.openSearch}
         onSearch={(query) => {
           selectFolder(null);
