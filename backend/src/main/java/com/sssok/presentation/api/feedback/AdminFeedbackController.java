@@ -2,6 +2,7 @@ package com.sssok.presentation.api.feedback;
 
 import com.sssok.application.feedback.FeedbackPage;
 import com.sssok.application.feedback.FeedbackQueryService;
+import com.sssok.application.feedback.FeedbackStatusService;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthAdmin;
@@ -10,19 +11,22 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// 의견 조회는 관리자만 할 수 있어 전부 /admin 아래에 둔다.
-@Tag(name = "관리자 의견", description = "관리자가 사용자 의견을 읽는다. 일반 관리자와 슈퍼관리자 모두 조회할 수 있다.")
+// 의견 조회·반영 상태 변경은 관리자만 할 수 있어 전부 /admin 아래에 둔다.
+@Tag(name = "관리자 의견", description = "관리자가 사용자 의견을 읽고 반영 상태를 관리한다. 일반 관리자와 슈퍼관리자 모두 할 수 있다.")
 @RestController
 @RequestMapping("/admin/feedbacks")
 @RequiredArgsConstructor
 public class AdminFeedbackController {
 
     private final FeedbackQueryService feedbackQueryService;
+    private final FeedbackStatusService feedbackStatusService;
 
     @Operation(
         summary = "의견 목록 조회",
@@ -38,6 +42,9 @@ public class AdminFeedbackController {
 
             userAgent·frontendVersion 은 null 이 정상 값이다. 헤더 없이 들어온 의견(curl·봇·구버전 \
             클라이언트)이 있어서, 값이 없다고 조회가 실패하거나 항목이 빠지지 않는다.
+
+            status 는 반영 상태다. 새로 들어온 의견은 UNREFLECTED(미반영)이고, 관리자가 반영 상태 변경 \
+            API 로 REFLECTED(반영)로 바꾼다.
 
             익명 사용자 토큰으로 호출하면 관리자 토큰이 아니라 토큰 단계에서 401로 걸린다.\
             """
@@ -70,6 +77,26 @@ public class AdminFeedbackController {
         @Parameter(description = "조회할 의견의 ID") @PathVariable Long feedbackId
     ) {
         Feedback feedback = feedbackQueryService.findById(adminId, feedbackId);
+        return ApiResponse.of(FeedbackResponse.from(feedback));
+    }
+
+    @Operation(
+        summary = "의견 반영 상태 변경",
+        description = """
+            의견의 반영 상태를 바꾼다. status 에 REFLECTED(반영) 또는 UNREFLECTED(미반영)를 보낸다. \
+            반영했던 의견을 미반영으로 되돌릴 수도 있고, 이미 같은 상태로 바꾸는 요청도 그대로 성공한다.
+
+            그 외의 값이나 빈 값을 보내면 400, 없는 의견 식별자면 404가 난다. \
+            응답은 바뀐 의견의 단건 조회 결과와 같다.\
+            """
+    )
+    @PatchMapping("/{feedbackId}/status")
+    public ApiResponse<FeedbackResponse> changeStatus(
+        @Parameter(hidden = true) @AuthAdmin Long adminId,
+        @Parameter(description = "상태를 바꿀 의견의 ID") @PathVariable Long feedbackId,
+        @RequestBody UpdateFeedbackStatusRequest request
+    ) {
+        Feedback feedback = feedbackStatusService.changeStatus(adminId, feedbackId, request.status());
         return ApiResponse.of(FeedbackResponse.from(feedback));
     }
 }

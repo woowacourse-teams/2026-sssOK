@@ -10,7 +10,6 @@ import com.sssok.application.room.UpdateRoomCommand;
 import com.sssok.application.room.UpdateRoomService;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
@@ -65,12 +64,12 @@ class BaseEntityTest {
 
     @Test
     void 수정하면_수정_시각만_바뀌고_생성_시각은_그대로다() {
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         RoomJpaEntity before = roomJpaRepository.findById(room.getId()).orElseThrow();
         Instant createdAt = before.getCreatedAt();
         Instant updatedAt = before.getUpdatedAt();
 
-        updateRoomService.update(room.getId(), hostId, new UpdateRoomCommand("2차 회식", null, null));
+        updateRoomService.update(room.getId(), hostId, new UpdateRoomCommand("2차 회식", null));
 
         RoomJpaEntity after = roomJpaRepository.findById(room.getId()).orElseThrow();
         assertThat(after.getCreatedAt()).isEqualTo(createdAt);
@@ -93,7 +92,6 @@ class BaseEntityTest {
             RoomCode.generate(new SecureRandom()),
             new RoomName("지난 회식"),
             RoomStatus.initial(),
-            new RoomExpiration(Instant.now().plus(Duration.ofHours(24))),
             UploadPolicy.ANYONE,
             hostId,
             createdAt,

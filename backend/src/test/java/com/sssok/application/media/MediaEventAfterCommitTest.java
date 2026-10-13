@@ -60,7 +60,7 @@ class MediaEventAfterCommitTest {
     @BeforeEach
     void setUp() {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         roomId = room.getId();
         file = StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
             new FileSize(1024L), Instant.now(), SIZE_POLICY);

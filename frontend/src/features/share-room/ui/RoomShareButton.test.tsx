@@ -107,7 +107,7 @@ describe("RoomShareButton 공유 이벤트", () => {
       expect(writeText).not.toHaveBeenCalled();
       const item = write.mock.calls[0][0][0] as unknown as MockClipboardItem;
       const copied = await (await item.items["text/plain"]).text();
-      expect(copied).toBe(`${window.location.origin}/rooms/${ROOM_CODE}?linkCode=483920`);
+      expect(copied).toBe(`${window.location.origin}/join/${ROOM_CODE}?linkCode=483920`);
     } finally {
       Reflect.deleteProperty(globalThis, "ClipboardItem");
     }

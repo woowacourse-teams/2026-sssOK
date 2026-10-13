@@ -66,7 +66,7 @@ class CompleteUploadServiceTest {
     @BeforeEach
     void setUp() {
         hostId = anonymousAuthService.authenticate("가현").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         roomId = room.getId();
         given(roomPermissionPort.canUpload(any(), any())).willReturn(true);
         given(fileStoragePort.presignPut(any(), anyString(), any(Duration.class))).willReturn("url");

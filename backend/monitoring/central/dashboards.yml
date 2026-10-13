@@ -1,0 +1,13 @@
+apiVersion: 1
+providers:
+  - name: sssok-central
+    orgId: 1
+    folder: sssOK
+    type: file
+    # 배치 파일 누락만으로 기존 화면을 DB에서 삭제하지 않는다.
+    disableDeletion: true
+    # 변경은 JSON에 기록한다. 화면에서 수정한 내용을 다음 배포가 덮어쓰는 혼동을 방지한다.
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      path: /etc/grafana/provisioning/dashboards/json

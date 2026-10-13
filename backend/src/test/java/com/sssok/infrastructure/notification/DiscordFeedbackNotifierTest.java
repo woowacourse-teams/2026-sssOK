@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
+import com.sssok.domain.feedback.FeedbackStatus;
 import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.UserAgent;
 import com.sssok.infrastructure.config.DiscordNotificationProperties;
@@ -226,6 +227,7 @@ class DiscordFeedbackNotifierTest {
             nickname,
             UserAgent.from(null),
             FrontendVersion.from(null),
+            FeedbackStatus.UNREFLECTED,
             CREATED_AT
         );
     }

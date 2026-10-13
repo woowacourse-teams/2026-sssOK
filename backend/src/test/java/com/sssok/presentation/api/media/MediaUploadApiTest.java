@@ -73,7 +73,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         AuthResult host = anonymousAuthService.authenticate("가현");
         token = "Bearer " + host.accessToken();
-        Room room = createRoomService.create(host.userId(), "우테코 회식", null, null).room();
+        Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
         given(fileStoragePort.presignPut(any(), anyString(), any(Duration.class)))
             .willReturn("https://storage.example.com/signed");

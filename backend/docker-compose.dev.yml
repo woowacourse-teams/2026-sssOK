@@ -16,10 +16,12 @@ services:
     container_name: sssok-app-dev
     restart: unless-stopped
     ports:
-      # 호스트에 직접 설치된 Nginx 가 :80 으로 받아 여기로 넘긴다 (dev-api.ssssok.com).
+      # 전환 검증 동안 기존 직접 접근과 복귀 경로를 유지한다.
       - "8080:8080"
+      # 전환 후 제거할 호스트 Nginx 복귀용 포트. Docker Nginx는 app:8081로 접근한다.
+      - "127.0.0.1:8081:8081"
     expose:
-      # Actuator 관리 포트. 호스트에는 publish하지 않고 Prometheus만 내부에서 접근한다.
+      # 기존 개발 Prometheus의 Docker 내부 수집도 유지한다.
       - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
@@ -57,6 +59,34 @@ services:
     labels:
       # Alloy 가 이 라벨이 붙은 컨테이너만 수집하고, 값을 Loki 의 service 라벨로 쓴다.
       com.sssok.log.service: sssok-backend
+    networks:
+      - sssok
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sssok-nginx-dev
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      SSSOK_ENVIRONMENT: dev
+      CENTRAL_PRIVATE_IP: 10.0.20.46
+      NGINX_ENVSUBST_FILTER: '^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$$'
+    ports:
+      - "80:80"
+      - "${MONITORING_PRIVATE_IP:-10.0.0.69}:19100:19100"
+    volumes:
+      - ./monitoring/nginx/container/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.sssok.log.service: sssok-nginx
+      com.sssok.nginx.config-sha: ${NGINX_CONFIG_SHA:-manual}
     networks:
       - sssok
 
@@ -151,16 +181,18 @@ services:
       - --storage.path=/var/lib/alloy/data
       - --server.http.listen-addr=0.0.0.0:12345
       - --disable-reporting
-      - /etc/alloy/config.alloy
+      - /etc/alloy/config
     environment:
       # Loki 스트림의 environment 라벨이 된다.
       SSSOK_ENVIRONMENT: dev
       # Docker API 를 프록시로만 부른다 (아래 docker-socket-proxy 참고).
       SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
       GOMEMLIMIT: 200MiB
     mem_limit: 256m
     volumes:
-      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config/config.alloy:ro
+      - ./monitoring/alloy/write.dual.alloy:/etc/alloy/config/write.alloy:ro
       # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
       - alloy-data:/var/lib/alloy/data
       # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.
@@ -208,23 +240,31 @@ services:
       # Alloy 만 붙는 내부 네트워크. 앱·Nginx·Grafana 는 이 프록시에 닿지 않고, 외부로도 나가지 않는다.
       - docker-api
 
-  # 호스트 디스크 사용량을 Prometheus 에 넘긴다. Loki·Docker 이미지·json-file 로그가 모두 같은
-  # 루트 디스크를 쓰므로, 어느 쪽이 채우든 앱까지 멈추기 전에 알림(HostDiskSpaceLow)을 받기 위해 둔다.
-  # 호스트 루트를 읽기 전용으로만 마운트하고, 필요한 파일시스템 수집기 외에는 끈다.
+  # 기존 개발 Prometheus와 중앙 Prometheus가 함께 관측한다.
+  # 중앙 요청은 호스트 Nginx의 IP 제한을 거쳐 loopback 포트로 전달된다.
   node-exporter:
     image: prom/node-exporter:v1.12.1
     container_name: sssok-node-exporter-dev
     restart: unless-stopped
+    pid: host
     command:
       - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
       - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.vmstat
+      - --collector.loadavg
       - --collector.filesystem
       # 컨테이너 내부·가상 파일시스템은 빼고 실제 디스크만 본다.
-      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($|/)
-      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$$
     volumes:
-      - /:/host:ro
+      - /:/host:ro,rslave
     mem_limit: 64m
+    ports:
+      - "127.0.0.1:9100:9100"
     expose:
       - "9100"
     logging:

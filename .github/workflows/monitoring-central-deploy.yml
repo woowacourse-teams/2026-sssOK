@@ -1,0 +1,95 @@
+name: Central Monitoring Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: 'develop에 포함된 검증 대상 커밋의 전체 SHA (40자리)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoring-central-deploy
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: 지정 커밋 검증 및 배포 파일 준비
+    # 작업 브랜치의 workflow를 중앙 러너에서 실행하지 않는다.
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      commit: ${{ steps.commit.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 커밋 형식과 develop 포함 여부 확인
+        id: commit
+        env:
+          REQUESTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          set -euo pipefail
+          [[ "$REQUESTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo '40자리 소문자 SHA가 필요합니다'; exit 1; }
+          git cat-file -e "${REQUESTED_COMMIT}^{commit}"
+          git merge-base --is-ancestor "$REQUESTED_COMMIT" origin/develop
+          git checkout --detach "$REQUESTED_COMMIT"
+          test "$(git rev-parse HEAD)" = "$REQUESTED_COMMIT"
+          echo "sha=$REQUESTED_COMMIT" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 중앙 설정과 배포 실패 복구 검사
+        run: |
+          python3 backend/monitoring/central/validate.py
+          python3 backend/monitoring/central/test-dashboards.py
+          python3 backend/monitoring/central/test-deploy.py
+      - name: 허용된 배포 파일만 패키징
+        run: |
+          python3 - <<'PY'
+          import shutil
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, 'backend/monitoring/central')
+          from deploy import FILES
+          source = Path('backend/monitoring/central')
+          target = Path('central-release')
+          target.mkdir()
+          for name in (*FILES, 'deploy.py'):
+              shutil.copyfile(source / name, target / name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: central-${{ steps.commit.outputs.sha }}
+          path: central-release/
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  deploy:
+    name: 중앙 설정 배포
+    needs: validate
+    runs-on: [self-hosted, linux, ARM64, monitoring]
+    environment: monitoring
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: central-${{ needs.validate.outputs.commit }}
+          path: ${{ runner.temp }}/central-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: 백업·배포·실패 복구
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          DEPLOY_COMMIT: ${{ needs.validate.outputs.commit }}
+          RELEASE_PATH: ${{ runner.temp }}/central-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          test "$DEPLOY_PATH" = '/home/ubuntu/monitoring'
+          python3 "$RELEASE_PATH/deploy.py" \
+            --source "$RELEASE_PATH" --target "$DEPLOY_PATH" --commit "$DEPLOY_COMMIT"
