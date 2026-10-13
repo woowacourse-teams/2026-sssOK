@@ -2,6 +2,7 @@
 # 운영 서버에서 실행. 중앙 장애와 독립적으로 로컬 지표·접근 제한만 검사한다.
 # 실패해도 앱 롤백·컨테이너 재시작·볼륨 변경은 하지 않는다.
 set -euo pipefail
+private_ip=${MONITORING_PRIVATE_IP:-10.0.20.127}
 metrics_file=$(mktemp)
 trap 'rm -f "$metrics_file"' EXIT
 
@@ -42,10 +43,10 @@ fetch_metrics http://alloy:12345/metrics
 require_metric loki_write_sent_entries_total
 
 for path in metrics app-metrics alloy-metrics; do
-  for forwarded in "" 10.0.20.127 10.0.20.46; do
+  for forwarded in "" "$private_ip" 10.0.20.46; do
     status=$(curl --noproxy '*' --silent --show-error --max-time 5 \
       -H "X-Forwarded-For: $forwarded" \
-      -o /dev/null -w '%{http_code}' "http://10.0.20.127:19100/$path")
+      -o /dev/null -w '%{http_code}' "http://${private_ip}:19100/$path")
     if [ "$status" != 403 ]; then
       echo "운영 Nginx 접근 제한 실패: $path HTTP $status (예상 403)" >&2
       exit 1

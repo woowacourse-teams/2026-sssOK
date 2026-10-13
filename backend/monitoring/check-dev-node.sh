@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 개발 호스트에서 실행한다. 실패해도 정상 앱을 롤백하지 않고 배포 실패로 보고한다.
 set -euo pipefail
+private_ip=${MONITORING_PRIVATE_IP:-10.0.0.69}
 metrics_file=$(mktemp)
 trap 'rm -f "$metrics_file"' EXIT
 
@@ -21,10 +22,10 @@ fi
 
 # 세 경로 모두 실제 출발지로 제한한다. 헤더가 없거나 중앙 IP를 위조해도 차단한다.
 for path in metrics app-metrics alloy-metrics; do
-  for forwarded in "" 10.0.0.69 10.0.20.46; do
+  for forwarded in "" "$private_ip" 10.0.20.46; do
     status=$(curl --noproxy '*' --silent --show-error --max-time 5 \
       -H "X-Forwarded-For: $forwarded" \
-      -o /dev/null -w '%{http_code}' "http://10.0.0.69:19100/$path")
+      -o /dev/null -w '%{http_code}' "http://${private_ip}:19100/$path")
     if [ "$status" != 403 ]; then
       echo "개발 Nginx 접근 제한 실패: $path HTTP $status (예상 403)" >&2
       exit 1

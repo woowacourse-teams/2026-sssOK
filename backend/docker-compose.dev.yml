@@ -73,7 +73,7 @@ services:
       NGINX_ENVSUBST_FILTER: '^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$$'
     ports:
       - "80:80"
-      - "10.0.0.69:19100:19100"
+      - "${MONITORING_PRIVATE_IP:-10.0.0.69}:19100:19100"
     volumes:
       - ./monitoring/nginx/container/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:

@@ -110,6 +110,14 @@ jobs:
             exit 1
           fi
 
+      - name: 배치 전 지표 포트 사설 IP 확인
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -eu
+          PRIVATE_IP=$(python3 -B backend/monitoring/check-private-ip.py dev "$DEPLOY_PATH")
+          echo "MONITORING_PRIVATE_IP=$PRIVATE_IP" >> "$GITHUB_ENV"
+
       - name: 배치 전 Alloy 설정 검증
         run: bash backend/monitoring/validate-alloy.sh dev
 

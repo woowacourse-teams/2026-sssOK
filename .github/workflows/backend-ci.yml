@@ -159,6 +159,9 @@ jobs:
         run: bash backend/monitoring/validate-dev-node.sh
       - name: 운영 배포 후 검사 스크립트 문법 검증
         run: bash -n backend/monitoring/check-prod-node.sh
+      - name: 배포 전 사설 IP 검사 검증
+        run: python3 -B backend/monitoring/test-private-ip.py
+
       - name: 운영 관측 검사 실패 시 복구 순서 검증
         run: python3 -B backend/monitoring/test-prod-deploy.py
       - name: 로컬·개발·운영 Alloy 설정 검증
