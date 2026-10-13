@@ -270,3 +270,221 @@ tests:
     exp_samples:
     - labels: '{}'
       value: 0
+
+- name: "CPU 지속 시간·환경 분리·코어 평균·복구"
+  interval: "1m"
+  input_series:
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"dev\",server=\"dev\",instance=\"dev:19100\",cpu=\"0\",mode=\"idle\"}"
+      values: "0+6x16 156+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"dev\",server=\"dev\",instance=\"dev:19100\",cpu=\"1\",mode=\"idle\"}"
+      values: "0+6x16 156+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"prod\",server=\"prod\",instance=\"prod:19100\",cpu=\"0\",mode=\"idle\"}"
+      values: "0+54x16 924+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"prod\",server=\"prod\",instance=\"prod:19100\",cpu=\"1\",mode=\"idle\"}"
+      values: "0+54x16 924+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"monitoring\",server=\"monitoring\",instance=\"monitoring:19100\",cpu=\"0\",mode=\"idle\"}"
+      values: "0+6x16 156+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"monitoring\",server=\"monitoring\",instance=\"monitoring:19100\",cpu=\"1\",mode=\"idle\"}"
+      values: "0+6x16 156+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"dev\",server=\"balanced\",instance=\"balanced:19100\",cpu=\"0\",mode=\"idle\"}"
+      values: "0+0x16 60+60x14"
+    - series: "node_cpu_seconds_total{job=\"node\",environment=\"dev\",server=\"balanced\",instance=\"balanced:19100\",cpu=\"1\",mode=\"idle\"}"
+      values: "0+60x16 1020+60x14"
+  promql_expr_test:
+    - expr: "count(ALERTS{alertname=\"HostHighCPU\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "10m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"HostHighCPU\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "11m"
+      exp_samples:
+        - labels: "{}"
+          value: 2
+    - expr: "count(ALERTS{alertname=\"HostHighCPU\",alertstate=\"firing\",environment=\"prod\"}) or vector(0)"
+      eval_time: "15m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"HostHighCPU\",alertstate=\"firing\",server=\"balanced\"}) or vector(0)"
+      eval_time: "15m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"HostHighCPU\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "22m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+- name: "메모리 세 환경 대기·10퍼센트 경계·복구"
+  interval: "1m"
+  input_series:
+    - series: "node_memory_MemTotal_bytes{job=\"node\",environment=\"dev\",server=\"dev\",instance=\"dev:19100\"}"
+      values: "1000+0x15"
+    - series: "node_memory_MemAvailable_bytes{job=\"node\",environment=\"dev\",server=\"dev\",instance=\"dev:19100\"}"
+      values: "99+0x7 200+0x7"
+    - series: "node_memory_MemTotal_bytes{job=\"node\",environment=\"prod\",server=\"prod\",instance=\"prod:19100\"}"
+      values: "1000+0x15"
+    - series: "node_memory_MemAvailable_bytes{job=\"node\",environment=\"prod\",server=\"prod\",instance=\"prod:19100\"}"
+      values: "99+0x7 200+0x7"
+    - series: "node_memory_MemTotal_bytes{job=\"node\",environment=\"monitoring\",server=\"monitoring\",instance=\"monitoring:19100\"}"
+      values: "1000+0x15"
+    - series: "node_memory_MemAvailable_bytes{job=\"node\",environment=\"monitoring\",server=\"monitoring\",instance=\"monitoring:19100\"}"
+      values: "99+0x7 200+0x7"
+    - series: "node_memory_MemTotal_bytes{job=\"node\",environment=\"dev\",server=\"boundary\",instance=\"boundary:19100\"}"
+      values: "1000+0x15"
+    - series: "node_memory_MemAvailable_bytes{job=\"node\",environment=\"dev\",server=\"boundary\",instance=\"boundary:19100\"}"
+      values: "100+0x15"
+  promql_expr_test:
+    - expr: "count(ALERTS{alertname=\"HostMemoryLow\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "4m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"HostMemoryLow\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "5m"
+      exp_samples:
+        - labels: "{}"
+          value: 3
+    - expr: "count(ALERTS{alertname=\"HostMemoryLow\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "9m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"CentralMemoryLow\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "5m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+- name: "P95 지연 최소 요청·5분 지속·운영 희석 방지·복구"
+  interval: "1m"
+  input_series:
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"dev\",uri=\"/api/rooms\",status=\"200\"}"
+      values: "0+30x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"dev\",uri=\"/api/rooms\",status=\"200\",le=\"1\"}"
+      values: "0+0x12 30+30x17"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"dev\",uri=\"/api/rooms\",status=\"200\",le=\"2\"}"
+      values: "0+30x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"dev\",uri=\"/api/rooms\",status=\"200\",le=\"+Inf\"}"
+      values: "0+30x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"prod\",server=\"prod\",uri=\"/api/rooms\",status=\"200\"}"
+      values: "0+3000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"prod\",server=\"prod\",uri=\"/api/rooms\",status=\"200\",le=\"1\"}"
+      values: "0+3000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"prod\",server=\"prod\",uri=\"/api/rooms\",status=\"200\",le=\"2\"}"
+      values: "0+3000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"prod\",server=\"prod\",uri=\"/api/rooms\",status=\"200\",le=\"+Inf\"}"
+      values: "0+3000x30"
+  promql_expr_test:
+    - expr: "count(ALERTS{alertname=\"BackendHighLatency\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "4m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"BackendHighLatency\",alertstate=\"firing\",environment=\"dev\"}) or vector(0)"
+      eval_time: "10m"
+      exp_samples:
+        - labels: "{}"
+          value: 1
+    - expr: "count(ALERTS{alertname=\"BackendHighLatency\",alertstate=\"firing\",environment=\"prod\"}) or vector(0)"
+      eval_time: "10m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"BackendHighLatency\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "19m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+- name: "P95와 최소 요청 수 양쪽에서 SSE·상태조회 제외"
+  interval: "1m"
+  input_series:
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/rooms\",status=\"200\"}"
+      values: "0+1x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/rooms\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/rooms\",status=\"200\",le=\"2\"}"
+      values: "0+1x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/rooms\",status=\"200\",le=\"+Inf\"}"
+      values: "0+1x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/rooms\",status=\"200\"}"
+      values: "0+100x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/rooms\",status=\"200\",le=\"1\"}"
+      values: "0+100x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/rooms\",status=\"200\",le=\"2\"}"
+      values: "0+100x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/rooms\",status=\"200\",le=\"+Inf\"}"
+      values: "0+100x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/actuator/prometheus\",status=\"200\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/actuator/prometheus\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/actuator/prometheus\",status=\"200\",le=\"2\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/actuator/prometheus\",status=\"200\",le=\"+Inf\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/actuator/prometheus\",status=\"200\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/actuator/prometheus\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/actuator/prometheus\",status=\"200\",le=\"2\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/actuator/prometheus\",status=\"200\",le=\"+Inf\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/health\",status=\"200\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/health\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/health\",status=\"200\",le=\"2\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/health\",status=\"200\",le=\"+Inf\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/health\",status=\"200\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/health\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/health\",status=\"200\",le=\"2\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/health\",status=\"200\",le=\"+Inf\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\",le=\"2\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"quiet\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\",le=\"+Inf\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\",le=\"1\"}"
+      values: "0+0x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\",le=\"2\"}"
+      values: "0+10000x30"
+    - series: "http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"dev\",server=\"healthy\",uri=\"/api/v1/rooms/{roomId}/events\",status=\"200\",le=\"+Inf\"}"
+      values: "0+10000x30"
+  promql_expr_test:
+    - expr: "count(ALERTS{alertname=\"BackendHighLatency\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "15m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+- name: "자원과 지연 지표 부재를 장애 값으로 만들지 않음"
+  interval: "1m"
+  input_series: []
+  promql_expr_test:
+    - expr: "count(ALERTS{alertname=\"HostHighCPU\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "20m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"HostMemoryLow\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "20m"
+      exp_samples:
+        - labels: "{}"
+          value: 0
+    - expr: "count(ALERTS{alertname=\"BackendHighLatency\",alertstate=\"firing\"}) or vector(0)"
+      eval_time: "20m"
+      exp_samples:
+        - labels: "{}"
+          value: 0

@@ -6,7 +6,7 @@ import urllib.parse
 import urllib.request
 
 EXPECTED = {
-    'CentralComponentDown', 'CentralMemoryLow', 'BackendDown', 'BackendHigh5xxErrorRate',
+    'CentralComponentDown', 'HostMemoryLow', 'HostHighCPU', 'BackendHighLatency', 'BackendDown', 'BackendHigh5xxErrorRate',
     'HostDiskSpaceLow', 'HostDiskSpaceCritical', 'HostDiskWillFillIn24h',
     'LogPipelineDown', 'LogShippingFailing', 'LogEntriesDropped', 'LokiRejectingLogs',
 }
@@ -61,7 +61,7 @@ def main():
         print('\n'.join(lines))
         if errors:
             raise RuntimeError('\n'.join(errors))
-        print('정상: 11개 알림 규칙 평가, 개발·운영 6개 대상 수집')
+        print(f'정상: {len(EXPECTED)}개 알림 규칙 평가, 개발·운영 6개 대상 수집')
         print('pending/firing은 실제 판정 결과입니다. Discord 발송·억제 상태·로그 전송 성공은 별도 확인하세요.')
     except (OSError, ValueError, KeyError, RuntimeError) as error:
         print(f'알림 적용 점검 실패: {error}', file=sys.stderr)

@@ -9,14 +9,6 @@ groups:
           severity: warning
         annotations:
           summary: 중앙 {{ $labels.job }} 메트릭 수집 실패
-      - alert: CentralMemoryLow
-        expr: |
-          node_memory_MemAvailable_bytes{environment="monitoring"} / node_memory_MemTotal_bytes{environment="monitoring"} < 0.1
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: 중앙 서버 사용 가능 메모리 10% 미만
   - name: sssok-backend-availability
     rules:
       - alert: BackendDown
@@ -47,8 +39,49 @@ groups:
         annotations:
           summary: sssOK 백엔드 5xx 오류율 증가
           description: '최근 5분간 요청이 20건 이상이며 5xx 오류율이 5%를 초과했습니다. 현재 오류율: {{ $value | humanizePercentage }}'
+      - alert: BackendHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (environment, server, le) (
+              rate(http_server_requests_seconds_bucket{job="sssok-backend",environment=~"dev|prod",uri!~"/actuator.*|/health|/api/v1/rooms/[^/]+/events"}[5m])
+            )
+          ) > 1
+          and
+          sum by (environment, server) (
+            increase(http_server_requests_seconds_count{job="sssok-backend",environment=~"dev|prod",uri!~"/actuator.*|/health|/api/v1/rooms/[^/]+/events"}[5m])
+          ) >= 100
+        for: 5m
+        labels:
+          severity: warning
+          service: sssok-backend
+        annotations:
+          summary: 백엔드 응답 지연
+          description: '{{ $labels.environment }} / {{ $labels.server }}: 최근 5분 요청 100건 이상이며 P95 응답 시간 1초 초과가 5분 지속됐습니다. 현재 P95: {{ $value | humanizeDuration }}'
   - name: sssok-host
     rules:
+      - alert: HostHighCPU
+        expr: |
+          1 - avg by (environment, server, instance) (
+            rate(node_cpu_seconds_total{job="node",environment=~"dev|prod|monitoring",mode="idle"}[5m])
+          ) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 CPU 사용률 증가
+          description: '{{ $labels.environment }} / {{ $labels.server }}: 최근 5분 평균 CPU 사용률 85% 초과가 10분 지속됐습니다. 현재 사용률: {{ $value | humanizePercentage }}'
+      - alert: HostMemoryLow
+        expr: |
+          node_memory_MemAvailable_bytes{job="node",environment=~"dev|prod|monitoring"}
+            / node_memory_MemTotal_bytes{job="node",environment=~"dev|prod|monitoring"} < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 사용 가능 메모리 부족
+          description: '{{ $labels.environment }} / {{ $labels.server }}: 사용 가능 메모리 10% 미만이 5분 지속됐습니다. 현재 여유: {{ $value | humanizePercentage }}. 컨테이너별 메모리 한도는 별도 확인하세요.'
       - alert: HostDiskSpaceLow
         expr: |
           node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
