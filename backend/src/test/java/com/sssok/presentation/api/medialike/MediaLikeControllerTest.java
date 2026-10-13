@@ -17,10 +17,10 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
+import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.security.SecureRandom;
 import java.time.Instant;
@@ -51,7 +51,7 @@ class MediaLikeControllerTest {
     @BeforeEach
     void setUp() {
         given(tokenProvider.parse("valid-token")).willReturn(MEMBER_ID);
-        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.of(roomExpiringAt(Instant.now().plusSeconds(3600))));
+        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.of(roomIn(RoomStatus.initial())));
         given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
             .willReturn(Optional.of(RoomMember.reconstruct(1L, ROOM_ID, MEMBER_ID, Instant.now())));
     }
@@ -100,7 +100,7 @@ class MediaLikeControllerTest {
 
     @Test
     void 만료된_방이면_410을_반환한다() throws Exception {
-        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.of(roomExpiringAt(Instant.now().minusSeconds(1))));
+        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.of(roomIn(ExpiredRoomStatus.INSTANCE)));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}/likes", ROOM_ID, MEDIA_ID)
                 .header("Authorization", BEARER))
@@ -118,10 +118,9 @@ class MediaLikeControllerTest {
             .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
     }
 
-    private Room roomExpiringAt(Instant expiresAt) {
+    private Room roomIn(RoomStatus status) {
         return Room.reconstruct(ROOM_ID, null, RoomCode.generate(new SecureRandom()),
-            new RoomName("우테코 회식"), RoomStatus.initial(),
-            new RoomExpiration(expiresAt), UploadPolicy.ANYONE,
+            new RoomName("우테코 회식"), status, UploadPolicy.ANYONE,
             1L, Instant.now(), null);
     }
 }

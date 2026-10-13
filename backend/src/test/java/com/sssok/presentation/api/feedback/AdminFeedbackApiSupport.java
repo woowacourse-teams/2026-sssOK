@@ -2,6 +2,7 @@ package com.sssok.presentation.api.feedback;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -86,6 +87,13 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     protected ResultActions 단건_조회(String token, long feedbackId) throws Exception {
         return mockMvc.perform(get("/api/v1/admin/feedbacks/{feedbackId}", feedbackId)
             .header("Authorization", "Bearer " + token));
+    }
+
+    protected ResultActions 상태_변경(String token, long feedbackId, String status) throws Exception {
+        return mockMvc.perform(patch("/api/v1/admin/feedbacks/{feedbackId}/status", feedbackId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(status == null ? "{}" : "{\"status\":\"" + status + "\"}"));
     }
 
     protected long 의견_남기기(String token, long roomId, String content) throws Exception {

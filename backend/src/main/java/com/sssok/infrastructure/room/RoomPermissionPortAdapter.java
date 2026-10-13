@@ -5,7 +5,6 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomPermissionPolicy;
-import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -28,14 +27,14 @@ public class RoomPermissionPortAdapter implements RoomPermissionPort {
     @Override
     public boolean canUpload(Long roomId, Long memberId) {
         return findRoom(roomId)
-                .map(room -> permissionPolicy.canUploadTo(room, memberId, Instant.now()))
+                .map(room -> permissionPolicy.canUploadTo(room, memberId))
                 .orElse(false);
     }
 
     @Override
     public boolean isRoomUsable(Long roomId) {
         return findRoom(roomId)
-                .map(room -> room.canEnter(Instant.now()))
+                .map(Room::canEnter)
                 .orElse(false);
     }
 

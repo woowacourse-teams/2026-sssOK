@@ -11,10 +11,9 @@ import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
@@ -68,7 +67,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     }
 
     private Room createRoom() {
-        return createRoomService.create(hostId, "우테코 회식", null, null).room();
+        return createRoomService.create(hostId, "우테코 회식", null).room();
     }
 
 
@@ -222,19 +221,17 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
             .isInstanceOf(RoomExpiredException.class);
     }
 
-    // CreateRoomService로는 만료된 방을 만들 수 없어 직접 복원한다.
+    // 만료 기한이 있던 시절에 만료된 방. 지금은 만료되는 방이 생기지 않아 저장된 상태로 직접 복원한다.
     private Room expiredRoom() {
-        Instant past = Instant.now().minus(Duration.ofHours(1));
         return Room.reconstruct(
             null,
             null,
             RoomCode.generate(new SecureRandom()),
             new RoomName("지난 회식"),
-            RoomStatus.initial(),
-            new RoomExpiration(past),
+            ExpiredRoomStatus.INSTANCE,
             UploadPolicy.ANYONE,
             hostId,
-            past.minus(Duration.ofHours(24)),
+            Instant.now().minus(Duration.ofDays(2)),
             null
         );
     }

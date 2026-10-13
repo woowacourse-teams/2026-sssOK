@@ -10,7 +10,6 @@ public enum ErrorCode {
     INVALID_LINK_CODE(400, "코드가 올바르지 않습니다"),
     INVALID_ROOM_CODE(400, "올바르지 않은 방 코드 형식입니다: %s"),
     INVALID_ROOM_NAME(400, "올바르지 않은 방 이름입니다: %s"),
-    INVALID_ROOM_EXPIRATION(400, "만료 기간은 1일부터 14일까지만 선택할 수 있습니다"),
     INVALID_UPLOAD_POLICY(400, "업로드 권한은 everyone 또는 host 만 선택할 수 있습니다"),
     INVALID_ENTRY_PASSWORD(400, "%s"),
     INVALID_FOLDER_NAME(400, "폴더 이름을 입력해주세요"),
@@ -33,6 +32,7 @@ public enum ErrorCode {
     INVALID_ADMIN_PASSWORD(400, "비밀번호는 8자 이상이어야 합니다"),
     INVALID_ADMIN_NAME(400, "이름은 1자 이상 20자 이하여야 합니다"),
     INVALID_ADMIN_ROLE(400, "올바르지 않은 역할입니다: %s"),
+    INVALID_FEEDBACK_STATUS(400, "올바르지 않은 반영 상태입니다: %s"),
 
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),

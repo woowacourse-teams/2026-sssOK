@@ -215,6 +215,11 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
         isSearchOpen={search.isSearchOpen}
+        searchType={search.searchType}
+        onSearchTypeChange={(searchType) => {
+          search.changeSearchType(searchType);
+          clearSelection();
+        }}
         onOpenSearch={search.openSearch}
         onSearch={(query) => {
           selectFolder(null);
@@ -302,7 +307,13 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         expectedPhotoCount={
           search.isSearching ? undefined : (selectedFolder?.photoCount ?? room.photoCount)
         }
-        emptyMessage={search.isSearching ? "검색어에 맞는 사진이 없어요." : undefined}
+        emptyMessage={
+          search.isSearching
+            ? search.searchType === "nickname"
+              ? "이 닉네임으로 올린 사진이 없어요."
+              : "검색어에 맞는 사진이 없어요."
+            : undefined
+        }
         errorMessage={search.isError ? search.errorMessage : undefined}
         onTogglePhoto={togglePhoto}
         onOpenPhoto={(mediaId) => {
