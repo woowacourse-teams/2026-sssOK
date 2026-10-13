@@ -3,6 +3,37 @@
 중앙 서버 분리 작업의 기동 검증 구성은 [central/README.md](central/README.md)를 참고한다.
 아래는 기존 로컬·개발·운영 구성 안내다.
 
+## 환경별 Alloy 전송 설정
+
+공통 `alloy/config.alloy`는 로그 탐색·수집·민감값 마스킹·수준 라벨을 처리한다.
+Compose는 공통 파일과 아래 전송 파일 하나만 `/etc/alloy/config/`에 읽기 전용으로
+연결한다. Alloy는 이 디렉터리의 두 파일을 하나의 설정으로 읽는다.
+
+| 환경 | 전송 파일 | 목적지 |
+| --- | --- | --- |
+| local | `alloy/write.local.alloy` | `loki:3100` 한 곳 |
+| dev·prod | `alloy/write.dual.alloy` | 기존 `loki:3100` + `CENTRAL_LOKI_URL` |
+
+개발·운영의 `CENTRAL_LOKI_URL` 기본값은
+`http://10.0.20.46:13100/loki/api/v1/push`다. 서버 `.env`에서 전체 push URL을 변경할 수 있다.
+로컬은 중앙 환경변수와 전송 파일을 연결하지 않아 중앙 클라이언트 자체가 생성되지 않는다.
+전체 `alloy/` 폴더를 마운트하면 두 전송 파일의 component 이름이 충돌하므로 두 파일만 선택한다.
+
+저장소 루트에서 `bash backend/monitoring/validate-alloy.sh local`을 실행한다.
+`dev`, `prod`도 같은 방식으로 검사한다. 검사는 해당 Compose의 이미지·환경변수·마운트를
+사용하지만 Docker 소켓과 실제 수집 위치 볼륨을 연결하지 않으며 외부 네트워크도 사용하지 않는다.
+서버 `.env`에 중앙 URL을 별도로 설정한 경우 실행 중인 Alloy의 추가 validate가 실제 값을 검사한다.
+
+최초 적용은 공통 파일·전송 파일·Compose를 함께 배치해야 한다. 공통 파일 하나만 복사해서
+기존 Alloy에 reload하면 안 된다. 실행 경로와 마운트가 바뀌므로 최초 Compose 적용 시 Alloy가
+재생성되며 잠시 수집이 중단될 수 있다. `loki.write.loki` 등 component 이름,
+`--storage.path=/var/lib/alloy/data`, 기존 수집 위치 볼륨은 유지한다.
+그 이후 파일 내용 변경은 validate 후 내부 `POST /-/reload`로 적용한다.
+환경변수·마운트·실행 옵션 변경은 reload만으로 반영되지 않으며 Compose 재생성이 필요하다.
+중앙 장애 시 두 목적지의 완전한 격리나 로그 무손실을 보장하는 변경은 아니다.
+
+## 로컬 실행
+
 백엔드는 IDE 또는 Gradle로 실행하고 Prometheus와 Grafana만 Docker Compose로 실행한다.
 
 ```bash
