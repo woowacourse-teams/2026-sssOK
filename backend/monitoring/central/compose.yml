@@ -76,6 +76,37 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - ./datasources.yml:/etc/grafana/provisioning/datasources/central.yml:ro
+      # 지정한 다섯 화면만 등록한다. 파일 누락을 빈 디렉터리 생성으로 숨기지 않는다.
+      - type: bind
+        source: ./dashboards.yml
+        target: /etc/grafana/provisioning/dashboards/central.yml
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./host-overview.json
+        target: /etc/grafana/provisioning/dashboards/json/host-overview.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./backend-overview.json
+        target: /etc/grafana/provisioning/dashboards/json/backend-overview.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./logs.json
+        target: /etc/grafana/provisioning/dashboards/json/logs.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./media-transfer.json
+        target: /etc/grafana/provisioning/dashboards/json/media-transfer.json
+        read_only: true
+        bind: { create_host_path: false }
+      - type: bind
+        source: ./log-transfer.json
+        target: /etc/grafana/provisioning/dashboards/json/log-transfer.json
+        read_only: true
+        bind: { create_host_path: false }
       - grafana-data:/var/lib/grafana
 
   node-exporter:
