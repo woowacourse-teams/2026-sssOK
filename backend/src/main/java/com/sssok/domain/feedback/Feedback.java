@@ -15,6 +15,7 @@ public class Feedback {
     private final String nickname;
     private final UserAgent userAgent;
     private final FrontendVersion frontendVersion;
+    private FeedbackStatus status;
     private final Instant createdAt;
 
     private Feedback(
@@ -26,6 +27,7 @@ public class Feedback {
         String nickname,
         UserAgent userAgent,
         FrontendVersion frontendVersion,
+        FeedbackStatus status,
         Instant createdAt
     ) {
         this.id = id;
@@ -36,6 +38,7 @@ public class Feedback {
         this.nickname = nickname;
         this.userAgent = userAgent;
         this.frontendVersion = frontendVersion;
+        this.status = status;
         this.createdAt = createdAt;
     }
 
@@ -49,7 +52,9 @@ public class Feedback {
         FrontendVersion frontendVersion,
         Instant now
     ) {
-        return new Feedback(null, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, now);
+        return new Feedback(
+            null, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion,
+            FeedbackStatus.UNREFLECTED, now);
     }
 
     public static Feedback reconstruct(
@@ -61,8 +66,14 @@ public class Feedback {
         String nickname,
         UserAgent userAgent,
         FrontendVersion frontendVersion,
+        FeedbackStatus status,
         Instant createdAt
     ) {
-        return new Feedback(id, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, createdAt);
+        return new Feedback(
+            id, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, status, createdAt);
+    }
+
+    public void changeStatus(FeedbackStatus newStatus) {
+        this.status = newStatus;
     }
 }
