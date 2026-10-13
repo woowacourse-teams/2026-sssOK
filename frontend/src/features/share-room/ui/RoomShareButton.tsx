@@ -79,7 +79,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     setNotice(null);
     try {
       // 쿼리나 해시에 담긴 일시적인 상태는 공유하지 않는다.
-      const url = new URL(ROUTES.gallery(roomCode), window.location.origin).href;
+      const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin).href;
       await navigator.clipboard.writeText(url);
       track("Invite Link Copied", { is_success: true });
       setNotice({ message: "공유 링크를 복사했어요.", tone: "success" });
@@ -108,7 +108,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     setNotice(null);
     try {
       const deviceLink = issueLinkCode(accessToken).then(({ linkCode }) => {
-        const url = new URL(ROUTES.roomEntry(roomCode), window.location.origin);
+        const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin);
         url.searchParams.set("linkCode", linkCode);
         return url.href;
       });
@@ -206,7 +206,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
           </Menu>
         )}
       </Anchor>
-      {isQrModalOpen && <RoomQrModal onClose={() => setIsQrModalOpen(false)} />}
+      {isQrModalOpen && <RoomQrModal roomCode={roomCode} onClose={() => setIsQrModalOpen(false)} />}
       {notice && <Toast {...notice} onClose={() => setNotice(null)} />}
     </>
   );

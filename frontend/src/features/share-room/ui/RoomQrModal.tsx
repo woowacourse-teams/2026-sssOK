@@ -1,15 +1,17 @@
 import styled from "@emotion/styled";
 import { QRCodeSVG } from "qrcode.react";
 
+import { ROUTES } from "@/shared/config";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { Modal } from "@/shared/ui/modal";
 
 interface RoomQrModalProps {
+  roomCode: string;
   onClose: () => void;
 }
 
-export const RoomQrModal = ({ onClose }: RoomQrModalProps) => {
-  const url = window.location.href;
+export const RoomQrModal = ({ roomCode, onClose }: RoomQrModalProps) => {
+  const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin).href;
 
   return (
     <Modal title={<Title>QR 코드로 공유</Title>} onClose={onClose}>
