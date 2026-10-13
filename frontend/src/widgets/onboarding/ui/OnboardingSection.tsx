@@ -1,5 +1,4 @@
 import { CreateRoomNavButton } from "./CreateRoomNavButton";
-import { JoinRoomNavButton } from "./JoinRoomNavButton";
 import { OnboardingIntro } from "./OnboardingIntro";
 import { OnboardingPreview } from "./OnboardingPreview";
 import { ActionGroup, IntroArea, PreviewArea, Section } from "./OnboardingSection.styles";
@@ -22,7 +21,6 @@ export const OnboardingSection = () => {
 
       <ActionGroup>
         <CreateRoomNavButton />
-        <JoinRoomNavButton />
       </ActionGroup>
     </Section>
   );
