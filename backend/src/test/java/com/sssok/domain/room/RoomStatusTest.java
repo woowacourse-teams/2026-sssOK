@@ -29,10 +29,9 @@ class RoomStatusTest {
     }
 
     @Test
-    void ACTIVE는_EXPIRED와_DELETED로만_전이할_수_있다() {
+    void ACTIVE는_DELETED로_전이할_수_있다() {
         RoomStatus active = ActiveRoomStatus.INSTANCE;
 
-        assertThat(active.toExpired()).isSameAs(ExpiredRoomStatus.INSTANCE);
         assertThat(active.toDeleted()).isSameAs(DeletedRoomStatus.INSTANCE);
     }
 
@@ -41,14 +40,12 @@ class RoomStatusTest {
         RoomStatus expired = ExpiredRoomStatus.INSTANCE;
 
         assertThat(expired.toDeleted()).isSameAs(DeletedRoomStatus.INSTANCE);
-        assertThatThrownBy(expired::toExpired).isInstanceOf(IllegalRoomStatusTransitionException.class);
     }
 
     @Test
     void DELETED는_종단_상태라_더_전이할_수_없다() {
         RoomStatus deleted = DeletedRoomStatus.INSTANCE;
 
-        assertThatThrownBy(deleted::toExpired).isInstanceOf(IllegalRoomStatusTransitionException.class);
         assertThatThrownBy(deleted::toDeleted).isInstanceOf(IllegalRoomStatusTransitionException.class);
     }
 

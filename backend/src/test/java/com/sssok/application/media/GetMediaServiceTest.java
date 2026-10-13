@@ -65,7 +65,7 @@ class GetMediaServiceTest {
     void setUp() {
         hostId = memberRepository.save(Member.register(new Nickname("방장"), Instant.now())).getId();
         uploaderId = memberRepository.save(Member.register(new Nickname("가현"), Instant.now())).getId();
-        roomId = createRoomService.create(hostId, "우테코 회식", null, null).room().getId();
+        roomId = createRoomService.create(hostId, "우테코 회식", null).room().getId();
         given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }

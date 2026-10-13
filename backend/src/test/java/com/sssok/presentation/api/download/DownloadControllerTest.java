@@ -35,7 +35,6 @@ import com.sssok.application.port.out.TokenProvider;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
@@ -99,7 +98,7 @@ class DownloadControllerTest {
     private Room activeRoom() {
         return Room.reconstruct(ROOM_ID, null, RoomCode.generate(new SecureRandom()),
             new RoomName("우테코 회식"), RoomStatus.initial(),
-            new RoomExpiration(Instant.now().plusSeconds(3600)), UploadPolicy.ANYONE,
+            UploadPolicy.ANYONE,
             1L, Instant.now(), null);
     }
 
