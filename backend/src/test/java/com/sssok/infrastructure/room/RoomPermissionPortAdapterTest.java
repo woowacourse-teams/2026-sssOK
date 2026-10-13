@@ -7,13 +7,12 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
+import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,14 +34,13 @@ class RoomPermissionPortAdapterTest {
         adapter = new RoomPermissionPortAdapter(roomRepository);
     }
 
-    private Room roomWith(UploadPolicy uploadPolicy, Instant expiresAt) {
+    private Room roomWith(UploadPolicy uploadPolicy, RoomStatus status) {
         return Room.reconstruct(
             ROOM_ID,
             null,
             new RoomCode("A3F9K2M7"),
             new RoomName("우테코 데모데이"),
-            RoomStatus.initial(),
-            new RoomExpiration(expiresAt),
+            status,
             uploadPolicy,
             HOST_ID,
             Instant.now().minusSeconds(60),
@@ -54,17 +52,9 @@ class RoomPermissionPortAdapterTest {
         roomRepository.save(room);
     }
 
-    private Instant farFuture() {
-        return Instant.now().plusSeconds(3600);
-    }
-
-    private Instant past() {
-        return Instant.now().minusSeconds(1);
-    }
-
     @Test
     void 방장이면_isHost_가_참이다() {
-        givenRoom(roomWith(UploadPolicy.ANYONE, farFuture()));
+        givenRoom(roomWith(UploadPolicy.ANYONE, RoomStatus.initial()));
 
         assertThat(adapter.isHost(ROOM_ID, HOST_ID)).isTrue();
         assertThat(adapter.isHost(ROOM_ID, GUEST_ID)).isFalse();
@@ -72,14 +62,14 @@ class RoomPermissionPortAdapterTest {
 
     @Test
     void ANYONE_방에서는_누구나_업로드할_수_있다() {
-        givenRoom(roomWith(UploadPolicy.ANYONE, farFuture()));
+        givenRoom(roomWith(UploadPolicy.ANYONE, RoomStatus.initial()));
 
         assertThat(adapter.canUpload(ROOM_ID, GUEST_ID)).isTrue();
     }
 
     @Test
     void HOST_ONLY_방에서는_방장만_업로드할_수_있다() {
-        givenRoom(roomWith(UploadPolicy.HOST_ONLY, farFuture()));
+        givenRoom(roomWith(UploadPolicy.HOST_ONLY, RoomStatus.initial()));
 
         assertThat(adapter.canUpload(ROOM_ID, HOST_ID)).isTrue();
         assertThat(adapter.canUpload(ROOM_ID, GUEST_ID)).isFalse();
@@ -87,28 +77,28 @@ class RoomPermissionPortAdapterTest {
 
     @Test
     void 만료된_방에는_방장도_업로드할_수_없다() {
-        givenRoom(roomWith(UploadPolicy.ANYONE, past()));
+        givenRoom(roomWith(UploadPolicy.ANYONE, ExpiredRoomStatus.INSTANCE));
 
         assertThat(adapter.canUpload(ROOM_ID, HOST_ID)).isFalse();
     }
 
     @Test
     void 살아있는_방은_사용_가능하다() {
-        givenRoom(roomWith(UploadPolicy.ANYONE, farFuture()));
+        givenRoom(roomWith(UploadPolicy.ANYONE, RoomStatus.initial()));
 
         assertThat(adapter.isRoomUsable(ROOM_ID)).isTrue();
     }
 
     @Test
     void 만료된_방은_사용할_수_없다() {
-        givenRoom(roomWith(UploadPolicy.ANYONE, past()));
+        givenRoom(roomWith(UploadPolicy.ANYONE, ExpiredRoomStatus.INSTANCE));
 
         assertThat(adapter.isRoomUsable(ROOM_ID)).isFalse();
     }
 
     @Test
     void 방_코드를_조회할_수_있다() {
-        givenRoom(roomWith(UploadPolicy.ANYONE, farFuture()));
+        givenRoom(roomWith(UploadPolicy.ANYONE, RoomStatus.initial()));
 
         assertThat(adapter.getRoomCode(ROOM_ID)).isEqualTo("A3F9K2M7");
     }
@@ -147,11 +137,6 @@ class RoomPermissionPortAdapterTest {
         @Override
         public Optional<Room> findById(Long id) {
             return Optional.ofNullable(rooms.get(id));
-        }
-
-        @Override
-        public List<Room> findAllExpiredActive(Instant now) {
-            throw new UnsupportedOperationException();
         }
     }
 }

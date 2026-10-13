@@ -10,11 +10,10 @@ import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -53,8 +52,7 @@ class SubscribeRoomEventsServiceTest {
             null,
             RoomCode.generate(RANDOM),
             new RoomName("만료방"),
-            RoomStatus.initial(),
-            new RoomExpiration(Instant.now().minus(1, ChronoUnit.HOURS)),
+            ExpiredRoomStatus.INSTANCE,
             UploadPolicy.ANYONE,
             MEMBER_ID,
             Instant.now().minus(2, ChronoUnit.DAYS),

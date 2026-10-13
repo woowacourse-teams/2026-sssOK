@@ -32,7 +32,7 @@ public class JoinRoomService {
         Instant now = Instant.now();
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
-        if (!room.canEnter(now)) {
+        if (!room.canEnter()) {
             throw new RoomExpiredException();
         }
         Member member = memberRepository.findById(memberId)

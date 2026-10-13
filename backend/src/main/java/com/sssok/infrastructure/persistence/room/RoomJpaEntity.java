@@ -35,9 +35,6 @@ public class RoomJpaEntity extends BaseEntity {
     @Column(nullable = false, length = 20)
     private String status;
 
-    @Column(name = "expires_at", nullable = false)
-    private Instant expiresAt;
-
     @Column(name = "upload_policy", nullable = false, length = 20)
     private String uploadPolicy;
 
@@ -53,7 +50,6 @@ public class RoomJpaEntity extends BaseEntity {
         String code,
         String name,
         String status,
-        Instant expiresAt,
         String uploadPolicy,
         Long hostId,
         Instant createdAt,
@@ -65,7 +61,6 @@ public class RoomJpaEntity extends BaseEntity {
         this.code = code;
         this.name = name;
         this.status = status;
-        this.expiresAt = expiresAt;
         this.uploadPolicy = uploadPolicy;
         this.hostId = hostId;
         this.deletedAt = deletedAt;

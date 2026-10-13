@@ -35,7 +35,7 @@ public class RoomEventController {
 
             인증: 브라우저 EventSource는 커스텀 헤더를 못 붙이므로, Authorization 헤더 대신 \
             ?token={accessToken} 쿼리 파라미터로도 인증할 수 있다(이 API에서만 허용). \
-            방에 입장하지 않은 회원이 구독을 시도하면 403이 난다.
+            방에 입장하지 않은 회원이 구독을 시도하면 403, 만료·삭제된 방이면 410이 난다.
 
             재연결: 연결이 끊겼다가 다시 구독할 때 Last-Event-ID 헤더에 마지막으로 받은 \
             이벤트 id를 실어 보내면, 그 사이 놓친 이벤트를 순서대로 재전송받는다.

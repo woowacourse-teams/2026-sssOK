@@ -37,9 +37,9 @@ class RoomPermissionPolicyTest {
     @Test
     void 업로드_권한은_Room의_규칙을_그대로_따른다() {
         Room room = createRoom();
-        room.updateSettings(HOST, room.getName(), room.getExpiration(), UploadPolicy.HOST_ONLY);
+        room.updateSettings(HOST, room.getName(), UploadPolicy.HOST_ONLY);
 
-        assertThat(policy.canUploadTo(room, HOST, NOW)).isTrue();
-        assertThat(policy.canUploadTo(room, GUEST, NOW)).isFalse();
+        assertThat(policy.canUploadTo(room, HOST)).isTrue();
+        assertThat(policy.canUploadTo(room, GUEST)).isFalse();
     }
 }

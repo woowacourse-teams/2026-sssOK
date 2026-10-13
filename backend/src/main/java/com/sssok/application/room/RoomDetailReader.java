@@ -8,7 +8,6 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +27,6 @@ public class RoomDetailReader {
     public RoomDetail read(Room room, Long requesterId) {
         return new RoomDetail(
             room,
-            room.statusAt(Instant.now()),
             hostNameOf(room),
             isJoined(room, requesterId),
             photoCountOf(room),

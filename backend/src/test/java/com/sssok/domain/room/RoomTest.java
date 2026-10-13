@@ -25,12 +25,16 @@ class RoomTest {
         return Room.create(code, new RoomName("우테코 회식"), HOST, NOW);
     }
 
+    private Room expiredRoom() {
+        return Room.reconstruct(1L, 0L, RoomCode.generate(new SecureRandom()), new RoomName("지난 회식"),
+            ExpiredRoomStatus.INSTANCE, UploadPolicy.ANYONE, HOST, NOW, null);
+    }
+
     @Test
-    void 생성_직후엔_ACTIVE_상태이고_만료_시간은_1일_뒤이며_업로드_권한은_ANYONE이다() {
+    void 생성_직후엔_ACTIVE_상태이고_업로드_권한은_ANYONE이다() {
         Room room = createRoom();
 
         assertThat(room.getStatus()).isSameAs(ActiveRoomStatus.INSTANCE);
-        assertThat(room.getExpiration().expiresAt()).isEqualTo(NOW.plus(Duration.ofDays(1)));
         assertThat(room.getUploadPolicy()).isEqualTo(UploadPolicy.ANYONE);
     }
 
@@ -43,72 +47,50 @@ class RoomTest {
     }
 
     @Test
-    void ACTIVE_상태이고_만료_전이면_입장할_수_있다() {
+    void ACTIVE_상태면_입장할_수_있다() {
         Room room = createRoom();
 
-        assertThat(room.canEnter(NOW.plus(Duration.ofHours(1)))).isTrue();
+        assertThat(room.canEnter()).isTrue();
     }
 
     @Test
-    void 만료_시각이_지나면_상태_전이와_무관하게_입장할_수_없다() {
-        Room room = createRoom();
+    void EXPIRED_상태로_저장된_방은_입장할_수_없다() {
+        Room room = expiredRoom();
 
-        // 배치가 아직 expire()를 호출하지 않아 상태는 여전히 ACTIVE 이지만,
-        // 실제 만료 시각은 지난 상황을 가정한다.
-        boolean canEnterAfterExpiry = room.canEnter(NOW.plus(Duration.ofHours(25)));
-
-        assertThat(room.getStatus()).isSameAs(ActiveRoomStatus.INSTANCE);
-        assertThat(canEnterAfterExpiry).isFalse();
-    }
-
-    @Test
-    void 만료_시각_전이면_ACTIVE_상태로_본다() {
-        Room room = createRoom();
-
-        assertThat(room.statusAt(NOW.plus(Duration.ofHours(1)))).isSameAs(ActiveRoomStatus.INSTANCE);
-    }
-
-    @Test
-    void 저장된_상태가_ACTIVE여도_만료_시각이_지나면_EXPIRED_상태로_본다() {
-        Room room = createRoom();
-
-        assertThat(room.statusAt(NOW.plus(Duration.ofHours(25)))).isSameAs(ExpiredRoomStatus.INSTANCE);
-        assertThat(room.getStatus()).isSameAs(ActiveRoomStatus.INSTANCE);
-    }
-
-    @Test
-    void 삭제된_방은_만료_시각이_지나도_DELETED_상태로_본다() {
-        Room room = createRoom();
-        room.delete(HOST, NOW);
-
-        assertThat(room.statusAt(NOW.plus(Duration.ofHours(25)))).isSameAs(DeletedRoomStatus.INSTANCE);
+        assertThat(room.canEnter()).isFalse();
     }
 
     @Test
     void ANYONE_방은_방장도_게스트도_업로드할_수_있다() {
         Room room = createRoom();
-        Instant soon = NOW.plus(Duration.ofMinutes(1));
 
-        assertThat(room.canUpload(HOST, soon)).isTrue();
-        assertThat(room.canUpload(GUEST, soon)).isTrue();
+        assertThat(room.canUpload(HOST)).isTrue();
+        assertThat(room.canUpload(GUEST)).isTrue();
     }
 
     @Test
     void HOST_ONLY_방은_방장만_업로드할_수_있다() {
         Room room = createRoom();
-        Instant soon = NOW.plus(Duration.ofMinutes(1));
-        room.updateSettings(HOST, room.getName(), room.getExpiration(), UploadPolicy.HOST_ONLY);
+        room.updateSettings(HOST, room.getName(), UploadPolicy.HOST_ONLY);
 
-        assertThat(room.canUpload(HOST, soon)).isTrue();
-        assertThat(room.canUpload(GUEST, soon)).isFalse();
+        assertThat(room.canUpload(HOST)).isTrue();
+        assertThat(room.canUpload(GUEST)).isFalse();
     }
 
     @Test
-    void 만료된_방은_업로드_권한과_무관하게_업로드할_수_없다() {
-        Room room = createRoom();
-        Instant afterExpiry = NOW.plus(Duration.ofHours(25));
+    void EXPIRED_상태로_저장된_방은_업로드_권한과_무관하게_업로드할_수_없다() {
+        Room room = expiredRoom();
 
-        assertThat(room.canUpload(HOST, afterExpiry)).isFalse();
+        assertThat(room.canUpload(HOST)).isFalse();
+    }
+
+    @Test
+    void EXPIRED_상태로_저장된_방도_방장이_삭제할_수_있다() {
+        Room room = expiredRoom();
+
+        room.delete(HOST, NOW);
+
+        assertThat(room.getStatus()).isSameAs(DeletedRoomStatus.INSTANCE);
     }
 
     @Test
@@ -116,7 +98,7 @@ class RoomTest {
         Room room = createRoom();
         RoomName newName = new RoomName("2차 회식");
 
-        room.updateSettings(HOST, newName, room.getExpiration(), UploadPolicy.HOST_ONLY);
+        room.updateSettings(HOST, newName, UploadPolicy.HOST_ONLY);
 
         assertThat(room.getName()).isEqualTo(newName);
         assertThat(room.getUploadPolicy()).isEqualTo(UploadPolicy.HOST_ONLY);
@@ -127,18 +109,8 @@ class RoomTest {
         Room room = createRoom();
 
         assertThatThrownBy(() ->
-            room.updateSettings(GUEST, room.getName(), room.getExpiration(), UploadPolicy.HOST_ONLY)
+            room.updateSettings(GUEST, room.getName(), UploadPolicy.HOST_ONLY)
         ).isInstanceOf(RoomHostRequiredException.class);
-    }
-
-    @Test
-    void 방장은_설정_변경으로_만료_시간을_늘릴_수_있다() {
-        Room room = createRoom();
-        RoomExpiration extended = new RoomExpiration(NOW.plus(Duration.ofHours(48)));
-
-        room.updateSettings(HOST, room.getName(), extended, room.getUploadPolicy());
-
-        assertThat(room.getExpiration()).isEqualTo(extended);
     }
 
     @Test
@@ -156,15 +128,6 @@ class RoomTest {
         room.delete(HOST, NOW.plus(Duration.ofMinutes(10)));
 
         assertThat(room.getStatus()).isSameAs(DeletedRoomStatus.INSTANCE);
-        assertThat(room.canEnter(NOW.plus(Duration.ofMinutes(11)))).isFalse();
-    }
-
-    @Test
-    void expire_호출하면_EXPIRED_상태로_전이한다() {
-        Room room = createRoom();
-
-        room.expire();
-
-        assertThat(room.getStatus()).isSameAs(ExpiredRoomStatus.INSTANCE);
+        assertThat(room.canEnter()).isFalse();
     }
 }

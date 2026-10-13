@@ -6,7 +6,6 @@ import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
-import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -21,7 +20,7 @@ public class SubscribeRoomEventsService {
     public void validate(Long roomId, Long memberId) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
-        if (!room.canEnter(Instant.now())) {
+        if (!room.canEnter()) {
             throw new RoomExpiredException();
         }
         roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)
