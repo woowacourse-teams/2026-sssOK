@@ -3,7 +3,6 @@ package com.sssok.infrastructure.persistence.room;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.domain.room.UploadPolicy;
@@ -41,7 +40,6 @@ public class RoomRepositoryAdapter implements RoomRepository {
             room.getCode().value(),
             room.getName().value(),
             room.getStatus().name(),
-            room.getExpiration().expiresAt(),
             room.getUploadPolicy().name(),
             room.getHostId(),
             room.getCreatedAt(),
@@ -56,7 +54,6 @@ public class RoomRepositoryAdapter implements RoomRepository {
             new RoomCode(entity.getCode()),
             new RoomName(entity.getName()),
             RoomStatus.from(entity.getStatus()),
-            new RoomExpiration(entity.getExpiresAt()),
             UploadPolicy.valueOf(entity.getUploadPolicy()),
             entity.getHostId(),
             entity.getCreatedAt(),

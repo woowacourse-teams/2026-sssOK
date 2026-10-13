@@ -46,11 +46,11 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     @Test
     void 동시에_수정해도_한_번에_하나씩만_반영된다() throws Exception {
         Long hostId = 방장_생성();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         Long before = roomRepository.findById(room.getId()).orElseThrow().getVersion();
 
         List<Object> outcomes = 동시에(THREADS, i -> updateRoomService.update(room.getId(), hostId,
-            new UpdateRoomCommand("회식 " + i, null, null)));
+            new UpdateRoomCommand("회식 " + i, null)));
 
         long succeeded = outcomes.stream().filter(o -> o instanceof RoomDetail).count();
         Long after = roomRepository.findById(room.getId()).orElseThrow().getVersion();
@@ -63,11 +63,11 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
     @Test
     void 읽은_뒤_삭제된_방에는_수정을_저장할_수_없다() {
         Long hostId = 방장_생성();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         Room stale = roomRepository.findById(room.getId()).orElseThrow();
 
         deleteRoomService.delete(room.getId(), hostId);
-        stale.updateSettings(hostId, new RoomName("2차 회식"), stale.getExpiration(), stale.getUploadPolicy());
+        stale.updateSettings(hostId, new RoomName("2차 회식"), stale.getUploadPolicy());
 
         // 읽어둔 옛 상태를 그대로 저장하면 status·deleted_at 까지 되돌아가 방이 되살아난다.
         assertThatThrownBy(() -> roomRepository.save(stale))
@@ -81,12 +81,12 @@ class UpdateRoomConcurrencyTest extends PostgresContainerSupport {
         Long hostId = 방장_생성();
 
         for (int round = 0; round < ROUNDS; round++) {
-            Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+            Room room = createRoomService.create(hostId, "우테코 회식", null).room();
 
             List<Object> outcomes = 동시에(2, i -> {
                 if (i == 0) {
                     return updateRoomService.update(room.getId(), hostId,
-                        new UpdateRoomCommand("2차 회식", null, null));
+                        new UpdateRoomCommand("2차 회식", null));
                 }
                 return deleteRoomService.delete(room.getId(), hostId);
             });

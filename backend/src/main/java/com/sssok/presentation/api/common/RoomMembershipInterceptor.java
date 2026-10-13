@@ -11,7 +11,6 @@ import com.sssok.common.exception.InvalidRequestParameterException;
 import com.sssok.domain.room.Room;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import java.time.Instant;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -43,7 +42,7 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
 
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
-        if (!room.canEnter(Instant.now())) {
+        if (!room.canEnter()) {
             throw new RoomExpiredException();
         }
         roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)

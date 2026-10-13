@@ -67,8 +67,6 @@ cors:
 
 room:
   code-length: 8
-  default-ttl: 24h
-  expiration-change-limit: 3
 
 upload:
   image-max-size: 20MB
