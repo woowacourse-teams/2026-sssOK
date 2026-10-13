@@ -30,7 +30,12 @@ import { useGallerySearch } from "../model/useGallerySearch";
 import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
 import { GalleryModalHost } from "./GalleryModalHost";
-import { Page } from "./GalleryPage.styles";
+import {
+  FolderEmptyDescription,
+  FolderEmptyState,
+  FolderEmptyTitle,
+  Page,
+} from "./GalleryPage.styles";
 
 interface GalleryContentProps {
   room: Room;
@@ -308,11 +313,22 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
           search.isSearching ? undefined : (selectedFolder?.photoCount ?? room.photoCount)
         }
         emptyMessage={
-          search.isSearching
-            ? search.searchType === "nickname"
-              ? "이 닉네임으로 올린 사진이 없어요."
-              : "검색어에 맞는 사진이 없어요."
-            : undefined
+          search.isSearching ? (
+            search.searchType === "nickname" ? (
+              "이 닉네임으로 올린 사진이 없어요."
+            ) : (
+              "검색어에 맞는 사진이 없어요."
+            )
+          ) : selectedFolder?.photoCount === 0 ? (
+            <FolderEmptyState>
+              <FolderEmptyTitle>‘{selectedFolder.name}’ 폴더가 비어 있어요</FolderEmptyTitle>
+              <FolderEmptyDescription>
+                {canUploadTo(room, userId)
+                  ? "전체에서 사진을 선택해 이 폴더로 옮기거나,\n여기서 올리면 이 폴더에 바로 담겨요."
+                  : "전체에서 사진을 선택해 이 폴더로 옮겨 보세요."}
+              </FolderEmptyDescription>
+            </FolderEmptyState>
+          ) : undefined
         }
         errorMessage={search.isError ? search.errorMessage : undefined}
         onTogglePhoto={togglePhoto}
