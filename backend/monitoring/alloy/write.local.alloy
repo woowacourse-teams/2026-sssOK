@@ -1,0 +1,9 @@
+// 로컬: 중앙 클라이언트 자체를 만들지 않는다.
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+  external_labels = {
+    environment = sys.env("SSSOK_ENVIRONMENT"),
+  }
+}

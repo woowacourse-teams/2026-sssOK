@@ -1,0 +1,29 @@
+# 독립 프로젝트로 Nginx 하나만 실행한다. 기존 앱·수집기·볼륨은 관리하지 않는다.
+name: sssok-nginx-dev-preview
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    restart: "no"
+    mem_limit: 64m
+    environment:
+      SSSOK_ENVIRONMENT: dev
+      CENTRAL_PRIVATE_IP: 10.0.20.46
+      NGINX_ENVSUBST_FILTER: '^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$$'
+    ports:
+      - "127.0.0.1:18080:80"
+      - "${DEV_PRIVATE_IP:-10.0.0.69}:19101:19100"
+    volumes:
+      - ./default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    labels:
+      com.sssok.log.service: sssok-nginx-preview
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - app
+networks:
+  app:
+    external: true
+    name: ${DEV_DOCKER_NETWORK:?개발 앱의 실제 Docker 네트워크 이름 필요}

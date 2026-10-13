@@ -2,6 +2,8 @@ export const ROUTES = {
   home: "/",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
+  /** 외부 공유 링크에서 브라우저를 확인하는 진입점 */
+  roomInvite: (code: string) => `/join/${code}`,
   /** 공유 링크·QR 로 들어오는 진입점 */
   roomEntry: (code: string) => `/rooms/${code}`,
   gallery: (code: string) => `/rooms/${code}/gallery`,
@@ -19,6 +21,7 @@ export const ROUTE_PATTERNS = {
   home: "/",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
+  roomInvite: "/join/:code",
   roomEntry: "/rooms/:code",
   gallery: "/rooms/:code/gallery",
   mediaDetail: "/rooms/:code/media/:mediaId",

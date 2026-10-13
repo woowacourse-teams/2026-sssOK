@@ -1,0 +1,543 @@
+{
+  "uid": "sssok-host-overview",
+  "title": "sssOK Host Overview",
+  "description": "서버 전체 자원 관측. 컨테이너별 메모리 한도·OOM·CPU 크레딧은 이 화면에 포함하지 않는다. 비율과 실제 여유 용량, Swap 사용량과 입출력을 구분한다.",
+  "tags": [
+    "sssok",
+    "hosts",
+    "monitoring"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 2,
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "호스트 지표 수집 상태 · 1=성공",
+      "description": "up은 node_exporter 수집 성공 여부다. API 정상 여부가 아니다. 수집 대상 자체가 없으면 0이 아닌 데이터 없음으로 표시된다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"node\",environment=~\"${environment:regex}\"}",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "CPU 비유휴 비율 · 대기 포함",
+      "description": "기존 CPU 사용률과 같은 1-idle 값. iowait·steal도 포함하므로 아래 대기 비율과 함께 해석한다. 최근 5분 평균.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - avg by (environment,instance) (rate(node_cpu_seconds_total{job=\"node\",environment=~\"${environment:regex}\",mode=\"idle\"}[5m])))",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "가용 메모리 비율",
+      "description": "MemAvailable / MemTotal. 캐시 중 회수 가능한 부분을 고려한 서버 전체 여유다. Grafana 컨테이너 한도와 다르다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * node_memory_MemAvailable_bytes{job=\"node\",environment=~\"${environment:regex}\"} / node_memory_MemTotal_bytes{job=\"node\",environment=~\"${environment:regex}\"}",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "가용 메모리 · 실제 용량",
+      "description": "추가 작업에 사용할 수 있는 서버 전체 메모리. free -h의 available과 비교한다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_MemAvailable_bytes{job=\"node\",environment=~\"${environment:regex}\"}",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Swap 사용량 / 전체 용량",
+      "description": "사용 중인 Swap이 많아도 현재 메모리 압박이라고 단정할 수 없다. 오른쪽 입출력과 함께 본다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_SwapTotal_bytes{job=\"node\",environment=~\"${environment:regex}\"} - node_memory_SwapFree_bytes{job=\"node\",environment=~\"${environment:regex}\"}",
+          "legendFormat": "{{environment}} · {{instance}} · 사용 중",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "node_memory_SwapTotal_bytes{job=\"node\",environment=~\"${environment:regex}\"}",
+          "legendFormat": "{{environment}} · {{instance}} · 전체",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Swap 읽기 / 쓰기 · 페이지/초",
+      "description": "읽기=Swap→RAM, 쓰기=RAM→Swap. 최근 5분 평균으로 vmstat 1초 값과 차이가 난다. 지속적인 입출력과 지연을 함께 확인한다. 페이지 크기를 가정하지 않아 bytes로 변환하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_vmstat_pswpin{job=\"node\",environment=~\"${environment:regex}\"}[5m])",
+          "legendFormat": "{{environment}} · {{instance}} · 읽기",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_vmstat_pswpout{job=\"node\",environment=~\"${environment:regex}\"}[5m])",
+          "legendFormat": "{{environment}} · {{instance}} · 쓰기",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "CPU 대기 비율 · iowait / steal",
+      "description": "iowait는 I/O 대기와 관련된 CPU 시간, steal은 가상 CPU가 하이퍼바이저 때문에 기다린 시간이다. 둘만으로 원인을 확정하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * avg by (environment,instance,mode) (rate(node_cpu_seconds_total{job=\"node\",environment=~\"${environment:regex}\",mode=~\"iowait|steal\"}[5m]))",
+          "legendFormat": "{{environment}} · {{instance}} · {{mode}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "CPU 수 대비 Load · 1분 / 5분",
+      "description": "Load는 실행 가능 작업과 일부 I/O 대기 작업을 포함한다. CPU 개수로 나눈 값이며 1을 넘는다고 CPU 병목으로 단정할 수 없다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_load1{job=\"node\",environment=~\"${environment:regex}\"} / on (environment,instance) count by (environment,instance) (node_cpu_seconds_total{job=\"node\",environment=~\"${environment:regex}\",mode=\"idle\"})",
+          "legendFormat": "{{environment}} · {{instance}} · 1분",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "node_load5{job=\"node\",environment=~\"${environment:regex}\"} / on (environment,instance) count by (environment,instance) (node_cpu_seconds_total{job=\"node\",environment=~\"${environment:regex}\",mode=\"idle\"})",
+          "legendFormat": "{{environment}} · {{instance}} · 5분",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "루트 디스크 · 가용 공간 제외 비율",
+      "description": "1-avail/size. 예약 영역도 포함하므로 df Use%와 다를 수 있다. 로그·지표뿐 아니라 이미지·Swap 등 루트 디스크 전체를 본다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - node_filesystem_avail_bytes{job=\"node\",environment=~\"${environment:regex}\",mountpoint=\"/\"} / node_filesystem_size_bytes{job=\"node\",environment=~\"${environment:regex}\",mountpoint=\"/\"})",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "max": 100
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "루트 디스크 · 남은 용량",
+      "description": "일반 프로세스가 사용할 수 있는 루트 디스크 공간. 시간 범위를 늘려 감소 추세를 본다. 보존 기간만으로 디스크가 충분하다고 판단하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_filesystem_avail_bytes{job=\"node\",environment=~\"${environment:regex}\",mountpoint=\"/\"}",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ],
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "custom",
+        "query": "monitoring,dev,prod",
+        "multi": false,
+        "includeAll": true,
+        "allValue": "monitoring|dev|prod",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": "$__all",
+            "selected": true
+          },
+          {
+            "text": "monitoring",
+            "value": "monitoring",
+            "selected": false
+          },
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": false
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  }
+}

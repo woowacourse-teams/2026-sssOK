@@ -14,7 +14,6 @@ const formValues = {
   nickname: "민수",
   name: "제주 여행",
   uploadPolicy: "host",
-  expiryDays: 3,
 } satisfies CreateRoomFormValues;
 
 const createWrapper = () => {

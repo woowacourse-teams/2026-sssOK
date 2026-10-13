@@ -1,5 +1,87 @@
 # 로컬 모니터링 실행
 
+중앙 서버 분리 작업의 기동 검증 구성은 [central/README.md](central/README.md)를 참고한다.
+아래는 기존 로컬·개발·운영 구성 안내다.
+
+## CI 실행 범위
+
+| 변경 범위 | 실행하는 주요 검사 |
+| --- | --- |
+| 앱 소스·Gradle·Dockerfile 등 | 백엔드 빌드·테스트 (develop push는 컴파일 캐시 갱신) |
+| 개발·운영 Compose·Nginx·Alloy·관측 스크립트·배포 워크플로 | 개발·운영 관측 설정 검사 |
+| `central/` 설정·코드 | 기존 중앙 모니터링 전용 CI |
+| Markdown 설명 문서만 변경 | 빌드·관측 컨테이너 검사 생략 |
+
+PR과 develop push 모두 변경 경로를 구분한다. 여러 범위를 변경하면 해당 검사를 함께 실행한다.
+Backend CI를 수동 실행하거나 `backend-ci.yml` 자체를 변경하면 앱·관측 검사를 모두 실행한다.
+기존 PR 버전·마이그레이션 검사와 최종 `백엔드 CI 결과`는 유지한다.
+중앙 수동 배포 직전 검증도 그대로 유지한다.
+
+## 개발·운영 지표 포트의 서버 주소
+
+`MONITORING_PRIVATE_IP`는 **지표를 제공하는 개발·운영 서버 자신의 사설 IPv4**다.
+서버 배포 폴더의 `.env`에서 지정하며, 생략하면 기존 주소(dev `10.0.0.69`, prod
+`10.0.20.127`)를 사용한다. 중앙 서버 주소를 넣거나 `0.0.0.0`으로 열지 않는다.
+
+개발·운영 CD는 파일을 복사하기 전에 후보 Compose를 실제 서버 `.env`로 해석하고,
+19100 포트의 주소가 RFC1918 사설 IPv4이며 해당 호스트에 할당되어 있는지 검사한다.
+실패하면 기존 배포 파일과 컨테이너를 변경하기 전에 중단한다. 통과한 주소는 같은 배포의
+Compose 실행과 접근 제한 검사에 전달한다. 검사는 비밀값이 담긴 Compose 출력을 표시하지 않는다.
+러너에는 Python 3, Docker Compose, `ip` 명령(iproute2)이 필요하다.
+
+서버 교체 시 `.env`의 주소뿐 아니라 중앙 Prometheus의 수집 대상과 보안 그룹 허용 주소도
+함께 갱신해야 한다. 수동으로 접근 제한 검사를 실행할 때는 동일한 주소를 전달한다.
+예: `MONITORING_PRIVATE_IP=10.0.20.127 bash monitoring/check-prod-node.sh`.
+이 검사는 주소 불일치를 사전에 차단하며, 포트 충돌 등 모든 Nginx 기동 실패를 보장하지는 않는다.
+
+## 개발 Nginx 설정 변경 감지
+
+개발 CD는 배치된 `default.conf.template`의 SHA-256을 `NGINX_CONFIG_SHA`로 전달한다.
+이 값은 Nginx 컨테이너 라벨에 저장되어, 템플릿 내용 변경을 Compose가 감지할 수 있게 한다.
+앱 이미지만 바뀌면 Nginx를 강제 재생성하지 않는다. 템플릿·Nginx 이미지·포트 등 Nginx의
+구성이 바뀌면 재생성한다. 최초 적용 시에는 새 라벨 추가로 한 번 재생성될 수 있다.
+
+개발 서버에서 수동으로 Compose를 실행할 때도 배포 폴더에서 아래 값을 먼저 설정한다.
+같은 셸에서 이어서 Compose를 실행해야 CD가 기록한 해시와 일치한다.
+
+```bash
+NGINX_CONFIG_SHA=$(sha256sum monitoring/nginx/container/default.conf.template | cut -d ' ' -f 1)
+export NGINX_CONFIG_SHA
+```
+
+변수를 생략하면 라벨은 `manual`이 되며, 이후 템플릿 내용 변경만으로는 자동 재생성되지 않는다.
+
+## 환경별 Alloy 전송 설정
+
+공통 `alloy/config.alloy`는 로그 탐색·수집·민감값 마스킹·수준 라벨을 처리한다.
+Compose는 공통 파일과 아래 전송 파일 하나만 `/etc/alloy/config/`에 읽기 전용으로
+연결한다. Alloy는 이 디렉터리의 두 파일을 하나의 설정으로 읽는다.
+
+| 환경 | 전송 파일 | 목적지 |
+| --- | --- | --- |
+| local | `alloy/write.local.alloy` | `loki:3100` 한 곳 |
+| dev·prod | `alloy/write.dual.alloy` | 기존 `loki:3100` + `CENTRAL_LOKI_URL` |
+
+개발·운영의 `CENTRAL_LOKI_URL` 기본값은
+`http://10.0.20.46:13100/loki/api/v1/push`다. 서버 `.env`에서 전체 push URL을 변경할 수 있다.
+로컬은 중앙 환경변수와 전송 파일을 연결하지 않아 중앙 클라이언트 자체가 생성되지 않는다.
+전체 `alloy/` 폴더를 마운트하면 두 전송 파일의 component 이름이 충돌하므로 두 파일만 선택한다.
+
+저장소 루트에서 `bash backend/monitoring/validate-alloy.sh local`을 실행한다.
+`dev`, `prod`도 같은 방식으로 검사한다. 검사는 해당 Compose의 이미지·환경변수·마운트를
+사용하지만 Docker 소켓과 실제 수집 위치 볼륨을 연결하지 않으며 외부 네트워크도 사용하지 않는다.
+서버 `.env`에 중앙 URL을 별도로 설정한 경우 실행 중인 Alloy의 추가 validate가 실제 값을 검사한다.
+
+최초 적용은 공통 파일·전송 파일·Compose를 함께 배치해야 한다. 공통 파일 하나만 복사해서
+기존 Alloy에 reload하면 안 된다. 실행 경로와 마운트가 바뀌므로 최초 Compose 적용 시 Alloy가
+재생성되며 잠시 수집이 중단될 수 있다. `loki.write.loki` 등 component 이름,
+`--storage.path=/var/lib/alloy/data`, 기존 수집 위치 볼륨은 유지한다.
+그 이후 파일 내용 변경은 validate 후 내부 `POST /-/reload`로 적용한다.
+환경변수·마운트·실행 옵션 변경은 reload만으로 반영되지 않으며 Compose 재생성이 필요하다.
+중앙 장애 시 두 목적지의 완전한 격리나 로그 무손실을 보장하는 변경은 아니다.
+
+## 로컬 실행
+
 백엔드는 IDE 또는 Gradle로 실행하고 Prometheus와 Grafana만 Docker Compose로 실행한다.
 
 ```bash
@@ -113,6 +195,10 @@ prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app`·`sssok-nginx`
 5. 같은 시간대를 데이터 소스 `Prometheus` 나 `sssOK Backend Overview` 대시보드에서 요청량으로 확인한다.
 
 ### dev 호스트 Nginx 설정
+
+중앙 수집용 개발 API·메트릭 통합 설정은 [중앙 구성 안내](central/README.md#개발-연결과-재배포)를
+따른다. 개발 Compose는 node_exporter를 loopback 9100에 연결하고, 개발 CD는 배포 후
+호스트 지표와 Nginx 접근 제한을 검사한다. 아래 공통 로그 형식 설정은 유지한다.
 
 배포 파이프라인이 옮기지 않으므로 dev EC2 에서 한 번만 한다. 접근 로그를 쿼리스트링 없는 JSON
 파일(`sssok-access.log`) 하나로 바꾼다.
