@@ -56,7 +56,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     void setup() {
         cleanup();
         member = auth.authenticate("검색 사용자");
-        roomId = rooms.create(member.userId(), "검색 방", null, null).room().getId();
+        roomId = rooms.create(member.userId(), "검색 방", null).room().getId();
         given(embeddings.embed(anyString(), any())).willReturn(
             new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "test-model"));
         given(storage.presignGet(any(), anyString(), anyString(), any())).willReturn("https://signed.test/image");
@@ -124,7 +124,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
 
     @Test
     void 다른_방과_미완료_문서와_삭제된_이미지는_제외한다() throws Exception {
-        Long otherRoom = rooms.create(member.userId(), "다른 방", null, null).room().getId();
+        Long otherRoom = rooms.create(member.userId(), "다른 방", null).room().getId();
         insert(460201, otherRoom, List.of(1.0, 0.0, 0.0), "test-model");
         insert(460202, roomId, List.of(1.0, 0.0, 0.0), "test-model");
         insert(460203, roomId, List.of(1.0, 0.0, 0.0), "test-model");
@@ -197,7 +197,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
 
     @Test
     void 다른_방_폴더와_없는_폴더는_AI_호출_전에_거절한다() throws Exception {
-        Long otherRoom = rooms.create(member.userId(), "다른 방", null, null).room().getId();
+        Long otherRoom = rooms.create(member.userId(), "다른 방", null).room().getId();
         Long otherFolder = folders.create(otherRoom, "다른 폴더").getId();
         for (Long folderId : List.of(otherFolder, Long.MAX_VALUE)) {
             mvc.perform(get(path()).param("query", "사진").param("folderId", folderId.toString())

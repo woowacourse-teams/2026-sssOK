@@ -44,6 +44,9 @@ public class FeedbackJpaEntity extends BaseEntity {
     @Column(name = "frontend_version", length = 32)
     private String frontendVersion;
 
+    @Column(nullable = false, length = 20)
+    private String status;
+
     public FeedbackJpaEntity(
         Long id,
         String content,
@@ -53,6 +56,7 @@ public class FeedbackJpaEntity extends BaseEntity {
         String nickname,
         String userAgent,
         String frontendVersion,
+        String status,
         Instant createdAt
     ) {
         super(createdAt);
@@ -64,5 +68,6 @@ public class FeedbackJpaEntity extends BaseEntity {
         this.nickname = nickname;
         this.userAgent = userAgent;
         this.frontendVersion = frontendVersion;
+        this.status = status;
     }
 }

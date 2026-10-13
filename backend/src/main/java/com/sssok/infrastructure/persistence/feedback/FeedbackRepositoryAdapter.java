@@ -4,6 +4,7 @@ import com.sssok.application.port.out.FeedbackRepository;
 import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
+import com.sssok.domain.feedback.FeedbackStatus;
 import com.sssok.domain.feedback.UserAgent;
 import java.time.Instant;
 import java.util.List;
@@ -52,6 +53,7 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
             feedback.getNickname(),
             feedback.getUserAgent().value(),
             feedback.getFrontendVersion().value(),
+            feedback.getStatus().name(),
             feedback.getCreatedAt()
         );
     }
@@ -66,6 +68,7 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
             entity.getNickname(),
             UserAgent.from(entity.getUserAgent()),
             FrontendVersion.from(entity.getFrontendVersion()),
+            FeedbackStatus.valueOf(entity.getStatus()),
             entity.getCreatedAt()
         );
     }
