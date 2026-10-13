@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 // 조회만 code 로 받고, 나머지는 roomId 로 받는다.
-@Tag(name = "방", description = "링크 하나로 여는 단발성 공유방의 생성·조회·수정·삭제·입장")
+@Tag(name = "방", description = "링크 하나로 여는 공유방의 생성·조회·수정·삭제·입장")
 @RestController
 @RequestMapping("/rooms")
 @RequiredArgsConstructor
@@ -79,7 +79,7 @@ public class RoomController {
         summary = "방 설정 변경",
         description = "방 이름/업로드 권한 중 원하는 항목만 부분 수정한다(PATCH). 보내지 않은 필드는 "
             + "그대로 유지되고, 아무 필드도 안 보내면 400(EMPTY_PATCH)이 난다. 만료 기간(expiryDays)은 더 이상 바꿀 수 없어 "
-            + "이것만 보내도 400(EMPTY_PATCH)이다. 방장이 아니면 403이 난다. "
+            + "이것만 보내도 400(EMPTY_PATCH)이다. 방장이 아니면 403, 만료·삭제된 방이면 410이 난다. "
             + "사용법: 바꾸고 싶은 필드만 body에 담아 보낸다. 예를 들어 이름만 바꾸려면 "
             + "{ \"name\": \"새 이름\" } 만 보내면 된다."
     )
@@ -113,7 +113,7 @@ public class RoomController {
         description = "이 계정을 방의 참여자로 등록한다. 같은 사람이 여러 번 호출해도 참여 기록은 늘어나지 "
             + "않는다 — 처음 입장이면 201, 이미 입장한 상태에서 다시 호출하면 200을 반환한다(응답 바디는 동일). "
             + "사용법: 방 구독(SSE)이나 업로드 전에 이 API로 먼저 입장 처리를 해둬야 한다 "
-            + "(미입장 상태로 구독을 시도하면 403이 난다)."
+            + "(미입장 상태로 구독을 시도하면 403이 난다). 만료·삭제된 방이면 410이 난다."
     )
     @PostMapping("/{roomId}/members")
     public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(
