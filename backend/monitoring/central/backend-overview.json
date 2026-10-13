@@ -1,0 +1,906 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name",
+        "wideLayout": true
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "min(up{job=\"sssok-backend\",environment=\"$environment\"})",
+          "instant": true,
+          "legendFormat": "$environment",
+          "range": false,
+          "refId": "A"
+        }
+      ],
+      "title": "메트릭 수집 상태",
+      "type": "stat",
+      "description": "Prometheus의 백엔드 수집 성공 여부. 외부 사용자 접근 성공 여부가 아닙니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "reqps",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 4,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval]))",
+          "legendFormat": "요청/초",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "요청량",
+      "type": "timeseries",
+      "description": "상태 검사(/health), Actuator, 장기 SSE 요청은 제외한다. 최근 요청이 없으면 오류율·p95가 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "percent",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 10,
+        "x": 14,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * (sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\",status=~\"5..\"}[$__rate_interval])) or (0 * sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval])))) / (sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval])) > 0)",
+          "legendFormat": "5xx 비율",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "5xx 응답 비율",
+      "type": "timeseries",
+      "description": "상태 검사(/health), Actuator, 장기 SSE 요청은 제외한다. 최근 요청이 없으면 오류율·p95가 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "p95 응답 시간",
+      "type": "timeseries",
+      "description": "상태 검사(/health), Actuator, 장기 SSE 요청은 제외한다. 최근 요청이 없으면 오류율·p95가 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum(jvm_memory_used_bytes{job=\"sssok-backend\",environment=\"$environment\",area=\"heap\"}) / sum(jvm_memory_max_bytes{job=\"sssok-backend\",environment=\"$environment\",area=\"heap\"} > 0)",
+          "legendFormat": "Heap 사용률",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "JVM Heap 사용률",
+      "type": "timeseries",
+      "description": "Heap 메모리 풀의 used 합계 / 양수인 max 합계. max=-1인 미정의 풀은 분모에서 제외한다. 컨테이너 전체 메모리 사용률은 아니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "min": 0,
+          "unit": "short",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "hikaricp_connections_active{job=\"sssok-backend\",environment=\"$environment\"}",
+          "legendFormat": "{{instance}} · {{pool}} · active",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "editorMode": "code",
+          "expr": "hikaricp_connections_idle{job=\"sssok-backend\",environment=\"$environment\"}",
+          "legendFormat": "{{instance}} · {{pool}} · idle",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "editorMode": "code",
+          "expr": "hikaricp_connections_pending{job=\"sssok-backend\",environment=\"$environment\"}",
+          "legendFormat": "{{instance}} · {{pool}} · pending",
+          "range": true,
+          "refId": "C"
+        },
+        {
+          "editorMode": "code",
+          "expr": "hikaricp_connections_max{job=\"sssok-backend\",environment=\"$environment\"}",
+          "legendFormat": "{{instance}} · {{pool}} · max",
+          "range": true,
+          "refId": "D"
+        }
+      ],
+      "title": "HikariCP · 연결 풀 사용 / 대기",
+      "type": "timeseries",
+      "description": "풀별 active=사용 중, idle=유휴, pending=연결을 기다리는 요청, max=최대 연결 수. DB 서버의 CPU·쿼리 성능 자체를 보여주지는 않는다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(5, histogram_quantile(0.95, sum by (le,uri,method) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval]))))",
+          "legendFormat": "{{method}} {{uri}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "API별 p95 · 각 시점 상위 5개",
+      "type": "timeseries",
+      "description": "선택 환경의 URI 템플릿·HTTP 메서드별 p95. 매 시점 상위 5개이므로 기간 전체 범례는 5개보다 많을 수 있다. 요청이 적으면 값이 불안정하고 요청이 없으면 비어 있을 수 있다. SSE는 제외한다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "reqps",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (status) (rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\",status=~\"4..|5..\"}[$__rate_interval]))",
+          "legendFormat": "HTTP {{status}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP 4xx / 5xx 응답량 · 상태 코드별",
+      "type": "timeseries",
+      "description": "오류 비율이 아닌 초당 응답 건수다. 4xx는 요청·인증·권한 등 원인과 함께 보고 5xx와 구분한다. SSE·상태 검사 제외. 아직 발생하지 않은 상태 코드는 시계열이 없을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "bytes",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance,area) (jvm_memory_used_bytes{job=\"sssok-backend\",environment=\"$environment\"})",
+          "legendFormat": "{{instance}} · {{area}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "JVM Heap / Non-Heap · 사용 용량",
+      "type": "timeseries",
+      "description": "JVM 메모리 영역별 사용량이다. 스레드 스택·네이티브 메모리 등 컨테이너 전체 사용량과 같지 않다. Heap 사용률과 GC 변화도 함께 확인한다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance) (rate(jvm_gc_pause_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (instance) (rate(jvm_gc_pause_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{instance}} · 평균",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "GC 평균 정지 시간",
+      "type": "timeseries",
+      "description": "GC는 불필요한 객체의 메모리를 회수하는 작업이다. 최근 구간에 발생한 GC 정지 시간 합계/횟수이며 최악의 정지 시간은 아니다. GC가 발생하지 않으면 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance,state) (jvm_threads_states_threads{job=\"sssok-backend\",environment=\"$environment\"})",
+          "legendFormat": "{{instance}} · {{state}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "JVM 스레드 · 상태별",
+      "type": "timeseries",
+      "description": "스레드 상태별 개수다. WAITING/TIMED_WAITING은 유휴 작업자 등 정상 대기일 수도 있다. RUNNABLE은 반드시 CPU 실행 중이라는 뜻은 아니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance,pool) (rate(hikaricp_connections_acquire_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (instance,pool) (rate(hikaricp_connections_acquire_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{instance}} · {{pool}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB 연결 획득 · 평균 대기 시간",
+      "type": "timeseries",
+      "description": "연결 풀에서 연결을 얻는 데 걸린 시간이다. SQL 실행 시간이 아니다. pending 증가와 함께 보면 풀 포화를 판단하는 데 도움이 된다. 획득 기록이 없으면 비어 있을 수 있다."
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "sssOK",
+    "backend"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "custom",
+        "query": "dev,prod",
+        "current": {
+          "text": "dev",
+          "value": "dev"
+        },
+        "options": [
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": true
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sssOK Central Backend Overview",
+  "uid": "sssok-central-backend",
+  "version": 2,
+  "weekStart": "",
+  "description": "개발·운영 앱의 HTTP, JVM, DB 연결 관측. 상태 검사·Actuator·장기 SSE는 HTTP 집계에서 제외한다. JVM 메모리는 컨테이너 전체 메모리가 아니다. 없는 지표를 정상 0으로 대체하지 않는다."
+}

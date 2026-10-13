@@ -101,6 +101,26 @@ jobs:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
 
+      # 최초 포트 인계는 서버에서 검증 후 수행한다. CD가 호스트 서비스를 임의 중지하지 않는다.
+      - name: 호스트 Nginx 전환 완료 확인
+        run: |
+          set -eu
+          if systemctl is-active --quiet nginx || systemctl is-enabled --quiet nginx; then
+            echo "::error::호스트 Nginx가 활성화돼 있습니다. Docker 전환 검증 후 호스트 서비스를 중지·비활성화하세요."
+            exit 1
+          fi
+
+      - name: 배치 전 지표 포트 사설 IP 확인
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -eu
+          PRIVATE_IP=$(python3 -B backend/monitoring/check-private-ip.py dev "$DEPLOY_PATH")
+          echo "MONITORING_PRIVATE_IP=$PRIVATE_IP" >> "$GITHUB_ENV"
+
+      - name: 배치 전 Alloy 설정 검증
+        run: bash backend/monitoring/validate-alloy.sh dev
+
       - name: compose 파일 배치
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -115,8 +135,11 @@ jobs:
           mkdir -p "$DEPLOY_PATH/monitoring/grafana/dashboards"
           mkdir -p "$DEPLOY_PATH/monitoring/loki"
           mkdir -p "$DEPLOY_PATH/monitoring/alloy"
+          mkdir -p "$DEPLOY_PATH/monitoring/nginx/container"
           mkdir -p "$DEPLOY_PATH/secrets"
           cp backend/docker-compose.dev.yml "$DEPLOY_PATH/docker-compose.dev.yml"
+          cp backend/monitoring/check-dev-node.sh "$DEPLOY_PATH/monitoring/check-dev-node.sh"
+          cp backend/monitoring/nginx/container/default.conf.template "$DEPLOY_PATH/monitoring/nginx/container/default.conf.template"
           cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
           cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
           cp backend/monitoring/prometheus/rules/logging-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/logging-alerts.yml"
@@ -129,6 +152,7 @@ jobs:
           cp backend/monitoring/grafana/dashboards/logs.json "$DEPLOY_PATH/monitoring/grafana/dashboards/logs.json"
           cp backend/monitoring/loki/loki.yml "$DEPLOY_PATH/monitoring/loki/loki.yml"
           cp backend/monitoring/alloy/config.alloy "$DEPLOY_PATH/monitoring/alloy/config.alloy"
+          cp backend/monitoring/alloy/write.dual.alloy "$DEPLOY_PATH/monitoring/alloy/write.dual.alloy"
           install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
           printf '%s' "$DISCORD_WEBHOOK_URL" > "$DEPLOY_PATH/secrets/discord-webhook-url"
 
@@ -145,6 +169,10 @@ jobs:
           set -eu
           cd "$DEPLOY_PATH"
 
+          # bind mount 파일 내용은 Compose가 감지하지 않으므로 해시를 컨테이너 라벨로 전달한다.
+          # 전체 기동·롤백·후속 검사에서도 같은 값을 사용한다.
+          NGINX_CONFIG_SHA=$(sha256sum monitoring/nginx/container/default.conf.template | cut -d ' ' -f 1)
+          export NGINX_CONFIG_SHA
           COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml"
           IMAGE_REPOSITORY="${NEW_IMAGE%:*}"
 
@@ -211,6 +239,8 @@ jobs:
           } > image.env
 
           $COMPOSE pull
+          # 템플릿 치환과 문법을 포트 게시 없이 먼저 검사한다.
+          $COMPOSE run --rm --no-deps nginx nginx -t
           # 앱을 먼저 교체해 모니터링 의존성 실패와 분리한다. 이후 전체 스택 기동이 실패해도
           # 앱 헬스체크와 모니터링 자동 복구 절차까지 계속 진행한다.
           $COMPOSE up -d app
@@ -223,7 +253,7 @@ jobs:
           $COMPOSE kill -s SIGHUP prometheus alertmanager || echo "모니터링 설정 리로드 실패 - 수동으로 재시작 필요"
 
           echo "헬스체크 시작"
-          # dev는 ALB/nginx 없이 인스턴스에 직접 붙으므로 8080을 바로 확인한다.
+          # 호스트 Nginx를 경유하지 않고 앱의 8080을 직접 확인한다.
           APP_HEALTHY=false
           for i in $(seq 1 30); do
             if curl -fsS http://localhost:8080/health > /dev/null 2>&1; then
@@ -249,6 +279,12 @@ jobs:
             exit 1
           fi
 
+          # 템플릿 해시·이미지·Compose 설정이 바뀐 경우에만 재생성한다.
+          $COMPOSE up -d --no-deps nginx
+          $COMPOSE exec -T nginx nginx -t
+          curl --noproxy '*' -fsS --max-time 5 --retry 10 --retry-delay 2 --retry-all-errors \
+            -H 'Host: dev-api.ssssok.com' http://127.0.0.1/health > /dev/null
+
           echo "Grafana 데이터소스 연결 확인 시작"
           if ! check_monitoring_connections; then
             echo "연결 실패 - Prometheus, Loki, Grafana를 한 차례 재생성한다"
@@ -262,3 +298,12 @@ jobs:
               exit 1
             fi
           fi
+
+          # 파일 복사만으로는 Alloy가 새 설정을 읽지 않는다. 실행 중인 버전으로 다시 검사하고
+          # 내부 HTTP reload 응답을 확인한다. 수집 위치 볼륨과 컨테이너는 유지한다.
+          $COMPOSE exec -T alloy /bin/alloy validate /etc/alloy/config
+          $COMPOSE exec -T nginx wget -q -T 10 -O - --post-data='' http://alloy:12345/-/reload
+
+          # 중앙 연결 설정이 다음 앱 배포에서 사라지는 것을 탐지한다.
+          # 실패 시 배포를 실패로 보고하되, 헬스체크를 통과한 앱은 롤백하지 않는다.
+          bash monitoring/check-dev-node.sh
