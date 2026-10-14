@@ -51,7 +51,7 @@ import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 스토리지만 목으로 두고 실제로 이미지를 줄여본다.
-// 자동 기동(ThumbnailTrigger)은 test 프로파일에서 꺼져 있어, 여기서 직접 불러 결과를 확인한다.
+// 자동 디스패치은 test 프로파일에서 꺼져 있어, 여기서 직접 불러 결과를 확인한다.
 @H2IntegrationTest
 class GenerateThumbnailServiceTest {
 
@@ -127,7 +127,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(file.getStorageKey(), image(1200, 900, "jpg"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
@@ -142,7 +142,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(1200, 900, "jpg"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getWidth()).isEqualTo(1200);
@@ -155,7 +155,7 @@ class GenerateThumbnailServiceTest {
         byte[] original = image(1200, 900, "jpg");
         givenOriginal(original);
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(widthOf(uploadedThumbnail())).isEqualTo(400);
     }
@@ -166,7 +166,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("작은사진.jpg", "image/jpeg");
         givenOriginal(image(120, 90, "jpg"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(widthOf(uploadedThumbnail())).isEqualTo(120);
     }
@@ -181,7 +181,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.png", "image/png");
         givenOriginal(image(800, 600, "png"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         verify(fileStoragePort, times(2)).openUploadStream(any(), eq("image/webp"));
         assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("webp");
@@ -193,7 +193,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(800, 600, "jpg"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("webp");
     }
@@ -204,11 +204,11 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(3000, 2000, "jpg"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
-        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().thumbnail("webp"));
-        assertThat(after.getPreviewKey()).isEqualTo(file.getStorageKey().preview("webp"));
+        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().attempt(lastToken).thumbnail("webp"));
+        assertThat(after.getPreviewKey()).isEqualTo(file.getStorageKey().attempt(lastToken).preview("webp"));
         assertThat(widthOf(uploadedThumbnail())).isEqualTo(400);
         assertThat(widthOf(uploadedPreview())).isEqualTo(1600);
     }
@@ -220,7 +220,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("움짤.gif", "image/gif");
         givenOriginal(image(800, 600, "gif"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getThumbnailKey()).isNotNull();
@@ -233,12 +233,12 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("영상.mp4", "video/mp4");
         givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
         // 추출기가 JPEG 프레임을 주므로 영상 썸네일만 파생본 포맷 설정을 따르지 않는다.
-        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().thumbnail("jpg"));
+        assertThat(after.getThumbnailKey()).isEqualTo(file.getStorageKey().attempt(lastToken).thumbnail("jpg"));
         assertThat(after.getPreviewKey()).isNull();
         assertRecorded("video", "initial", "success");
     }
@@ -249,7 +249,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("영상.mp4", "video/mp4");
         givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getWidth()).isEqualTo(1920);
@@ -261,7 +261,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("영상.mp4", "video/mp4");
         givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(reload(file).getDurationSeconds()).isEqualTo(12);
     }
@@ -272,7 +272,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("세로영상.mov", "video/quicktime");
         givenExtractedFrame(new ExtractedFrame(1080, 1920, 5, null, null, image(400, 711, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getWidth()).isEqualTo(1080);
@@ -285,7 +285,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("영상.mp4", "video/mp4");
         givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         verify(fileStoragePort).openUploadStream(any(), eq("image/jpeg"));
     }
@@ -296,7 +296,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("영상.mp4", "video/mp4");
         givenExtractedFrame(new ExtractedFrame(1920, 1080, 12, null, null, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         verify(fileStoragePort, never()).openDownloadStream(any());
     }
@@ -309,7 +309,7 @@ class GenerateThumbnailServiceTest {
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
             .willReturn(ExtractionResult.unreadable());
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
@@ -329,7 +329,7 @@ class GenerateThumbnailServiceTest {
             .willThrow(new RuntimeException("R2 가 잠깐 흔들렸다"));
 
         assertThatNoException()
-            .isThrownBy(() -> generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL));
+            .isThrownBy(() -> generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL));
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.PROCESSING);
@@ -348,7 +348,7 @@ class GenerateThumbnailServiceTest {
             argThat(key -> key != null && key.value().contains("/previews/")), anyString()))
             .willThrow(new RuntimeException("프리뷰만 실패"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.PROCESSING);
@@ -363,7 +363,7 @@ class GenerateThumbnailServiceTest {
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
             .willReturn(ExtractionResult.retryLater());
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.PROCESSING);
         assertRecorded("video", "initial", "retryable");
@@ -379,7 +379,7 @@ class GenerateThumbnailServiceTest {
         givenExtractedFrame(new ExtractedFrame(
             1920, 1080, 12, takenAt, location, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getTakenAt()).isEqualTo(takenAt);
@@ -392,7 +392,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("영상.webm", "video/webm");
         givenExtractedFrame(new ExtractedFrame(1280, 720, null, null, null, image(400, 225, "jpg")));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         StoredFile after = reload(file);
         assertThat(after.getThumbnailKey()).isNotNull();
@@ -405,7 +405,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("깨진사진.jpg", "image/jpeg");
         givenOriginal("이건 이미지가 아니다".getBytes());
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.FAILED);
         assertRecorded("image", "initial", "permanent_failure");
@@ -417,7 +417,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         given(fileStoragePort.openDownloadStream(any())).willThrow(new RuntimeException("없는 키"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.PROCESSING);
         assertRecorded("image", "initial", "retryable");
@@ -428,7 +428,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         given(fileStoragePort.openDownloadStream(any())).willThrow(new RuntimeException("R2 장애"));
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.PROCESSING);
     }
@@ -441,7 +441,7 @@ class GenerateThumbnailServiceTest {
             file.getStorageKey().preview("webp"), 100, 100, null, null));
         fileRepository.save(file);
 
-        generateThumbnailService.generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
+        generate(file.getId(), Kind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         verify(fileStoragePort, never()).openDownloadStream(any());
         verify(fileStoragePort, never()).openUploadStream(any(), anyString());
@@ -450,7 +450,7 @@ class GenerateThumbnailServiceTest {
 
     @Test
     void 없는_미디어면_아무것도_하지_않는다() {
-        generateThumbnailService.generate(999_999L, Kind.IMAGE, Source.INITIAL);
+        generate(999_999L, Kind.IMAGE, Source.INITIAL);
 
         verify(fileStoragePort, never()).openDownloadStream(any());
         assertRecorded("image", "initial", "skipped");
@@ -460,23 +460,38 @@ class GenerateThumbnailServiceTest {
     void 재시도_후_회수_성공은_최초_실패와_별도로_기록한다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         given(fileStoragePort.openDownloadStream(any())).willThrow(new RuntimeException("일시 장애"));
-        generateThumbnailService.generate(file.getId(), Kind.IMAGE, Source.INITIAL);
+        generate(file.getId(), Kind.IMAGE, Source.INITIAL);
         org.mockito.BDDMockito.willReturn(new ByteArrayInputStream(image(400, 300, "jpg")))
             .given(fileStoragePort).openDownloadStream(file.getStorageKey());
-        generateThumbnailService.generate(file.getId(), Kind.IMAGE, Source.SWEEPER);
+        generate(file.getId(), Kind.IMAGE, Source.SWEEPER);
         assertRecorded("image", "initial", "retryable");
         assertRecorded("image", "sweeper", "success");
         assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.READY);
     }
 
     @Test
-    void 대시보드에서_공용과_영상_실행기_상태를_조회할_수_있다() {
-        for (String name : List.of("applicationTaskExecutor", "videoThumbnailTaskExecutor")) {
+    void 대시보드에서_공용과_사진과_영상_실행기_상태를_조회할_수_있다() {
+        for (String name : List.of("applicationTaskExecutor", "imageThumbnailTaskExecutor", "videoThumbnailTaskExecutor")) {
             for (String metric : List.of("executor.queued", "executor.active", "executor.pool.max",
                 "executor.queue.remaining")) {
                 assertThat(registry.find(metric).tag("name", name).gauge()).isNotNull();
             }
         }
+    }
+
+    @Autowired
+    com.sssok.infrastructure.persistence.thumbnail.ThumbnailJobRepository thumbnailJobs;
+
+    private java.util.UUID lastToken;
+
+    private void generate(Long mediaId, Kind kind, Source source) {
+        // 이 테스트는 이미지 변환을 검증한다. 선점 경쟁/백오프는 PostgreSQL 큐 테스트에서 검증한다.
+        var job = new com.sssok.infrastructure.persistence.thumbnail.ThumbnailJob(mediaId, kind, Instant.now());
+        job.claim(Instant.now(), Instant.now().plusSeconds(120));
+        thumbnailJobs.saveAndFlush(job);
+        lastToken = job.getClaimToken();
+        generateThumbnailService.generate(new com.sssok.application.media.thumbnail.ThumbnailClaim(
+            mediaId, kind, lastToken, job.getAttempts(), Instant.now()), source);
     }
 
     private StoredFile processing(String fileName, String mimeType) {
