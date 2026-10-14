@@ -80,6 +80,13 @@ export function writeSummary(data, { scenario, apis, phases, config, resultsDir,
     };
   }
 
+  // 측정값이 하나도 없으면 k6 는 rate==1 같은 기준을 걸리지 않은 것으로 본다.
+  // setup 에서 멈춰 반복이 0번이면 "통과" 로 보이지 않게 판정하지 않음으로 남긴다.
+  const iterations = Object.values(report.phases).reduce((sum, p) => sum + p.iterations, 0);
+  if (iterations === 0) {
+    report.thresholds = { passed: false, failed: ['실행된 반복 없음'], notJudged: true };
+  }
+
   return {
     [fromCwd(`${base}.json`)]: JSON.stringify(report, null, 2),
     [fromCwd(`${base}.k6.json`)]: JSON.stringify(data, null, 2),
@@ -148,7 +155,11 @@ function renderText(report, path) {
   for (const [name, values] of Object.entries(report.extras)) {
     lines.push(`   ${name.padEnd(30)} ${values ? Object.entries(values).map(([k, v]) => `${k}=${v}`).join(' ') : '없음'}`);
   }
-  lines.push(report.thresholds.passed ? '판정 기준 통과' : `판정 기준 미달: ${report.thresholds.failed.join(', ')}`);
+  if (report.thresholds.notJudged) {
+    lines.push('실행된 반복 없음 — 판정하지 않음 (setup 에서 멈췄는지 위 로그를 본다)');
+  } else {
+    lines.push(report.thresholds.passed ? '판정 기준 통과' : `판정 기준 미달: ${report.thresholds.failed.join(', ')}`);
+  }
   lines.push(`결과 파일: ${path}`, '');
   return lines.join('\n');
 }
