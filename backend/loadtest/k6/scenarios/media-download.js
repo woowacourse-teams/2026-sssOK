@@ -47,11 +47,13 @@ const APIS = [MODE === 'single' ? 'download_single' : 'download_batch', 'storage
 const CONFIG = buildConfig();
 const PHASES = Object.keys(CONFIG.phaseDurations);
 
+const SCENARIOS = buildScenarios();
+
 export const options = {
-  scenarios: buildScenarios(),
+  scenarios: SCENARIOS,
   thresholds: {
     ...trackApis(APIS, PHASES),
-    ...stopConditions(PROFILE, PROFILE === 'smoke' ? 'smoke' : 'main'),
+    ...stopConditions(PROFILE, PROFILE === 'smoke' ? 'smoke' : 'main', SCENARIOS),
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };

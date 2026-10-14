@@ -1,27 +1,40 @@
 // 시나리오 공통 실행 뼈대. 구간 나누기, 중단 기준, 시작 전 대상·데이터 확인을 한 곳에 둔다.
 import http from 'k6/http';
 import exec from 'k6/execution';
+import { sleep } from 'k6';
 
-import { env, expectedPhotos } from './config.js';
+import { abortEvalDelay, env, expectedPhotos } from './config.js';
 
 // 본 측정은 예열(warmup) 뒤 본 측정(main) 구간을 따로 집계한다. executor 설정만 시나리오가 정한다.
-export function warmupMain(executor, { warmup, main }) {
-  const phase = (name, startTime, duration) => ({ ...executor, startTime, duration, tags: { phase: name }, gracefulStop: '10s' });
+// 예열은 기본으로 끝나는 즉시 멈춘다. 진행 중인 반복을 기다리면 본 측정 사용자와 겹쳐 전환 순간 요청이 몰린다.
+// 반복을 중간에 끊으면 안 되는 시나리오(업로드)만 warmupGracefulStop 으로 기다린다.
+export function warmupMain(executor, { warmup, main }, { warmupGracefulStop = '0s' } = {}) {
+  const phase = (name, startTime, duration, gracefulStop) => ({ ...executor, startTime, duration, tags: { phase: name }, gracefulStop });
   return {
-    warmup: phase('warmup', '0s', warmup),
-    main: phase('main', warmup, main),
+    warmup: phase('warmup', '0s', warmup, warmupGracefulStop),
+    main: phase('main', warmup, main, '10s'),
   };
 }
 
-// 사전 점검은 하나라도 실패하면 실패다. 본 측정은 실패율 5% 초과가 1분 이어지면 멈춘다(#517 중단 기준).
+// 사용자 수 고정(constant-vus) 구간은 시작하는 순간 모든 가상 사용자가 같이 첫 요청을 보낸다.
+// 실제 사용자는 한꺼번에 들어오지 않으므로 구간마다 첫 반복만 0~seconds 초 사이로 흩는다.
+export function spreadFirstIteration(seconds) {
+  if (seconds > 0 && exec.vu.iterationInScenario === 0) {
+    sleep(Math.random() * seconds);
+  }
+}
+
+// 사전 점검은 하나라도 실패하면 실패다. 본 측정은 구간 시작 1분 뒤부터 누적 실패율이 5% 를 넘는 즉시 멈춘다(#517 중단 기준).
+// 판정 구간이 예열 뒤에 시작하면 scenarios 에서 그 시작 시각을 읽어 유예에 더한다.
 // 공유 RDS CPU·운영 경보는 k6 가 보지 못하므로 사람이 Grafana 를 보고 중단한다.
-export function stopConditions(profile, judgedPhase) {
+export function stopConditions(profile, judgedPhase, scenarios = {}) {
   if (profile === 'smoke') {
     return { [`business_ok{phase:${judgedPhase}}`]: ['rate==1'] };
   }
+  const delayAbortEval = abortEvalDelay(scenarios[judgedPhase]?.startTime);
   return {
-    [`http_req_failed{phase:${judgedPhase}}`]: [{ threshold: 'rate<0.05', abortOnFail: true, delayAbortEval: '1m' }],
-    [`business_ok{phase:${judgedPhase}}`]: [{ threshold: 'rate>0.95', abortOnFail: true, delayAbortEval: '1m' }],
+    [`http_req_failed{phase:${judgedPhase}}`]: [{ threshold: 'rate<0.05', abortOnFail: true, delayAbortEval }],
+    [`business_ok{phase:${judgedPhase}}`]: [{ threshold: 'rate>0.95', abortOnFail: true, delayAbortEval }],
   };
 }
 

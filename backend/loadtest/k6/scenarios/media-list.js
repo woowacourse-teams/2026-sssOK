@@ -15,7 +15,7 @@ import {
   buildUsers, durationEnv, env, intEnv, loadFixtures, resolveBaseUrl, resolveResultsDir, userForVu,
 } from '../lib/config.js';
 import { createClient } from '../lib/http.js';
-import { checkTarget, jitter, runInfo, stopConditions, warmupMain } from '../lib/run.js';
+import { checkTarget, jitter, runInfo, spreadFirstIteration, stopConditions, warmupMain } from '../lib/run.js';
 import { trackApis, writeSummary } from '../lib/summary.js';
 
 const SCENARIO = 'media-list';
@@ -44,11 +44,13 @@ const APIS = LIST_API === 'all' ? ['media_all'] : ['media_list_first', 'media_li
 const CONFIG = buildConfig();
 const PHASES = Object.keys(CONFIG.phaseDurations);
 
+const SCENARIOS = buildScenarios();
+
 export const options = {
-  scenarios: buildScenarios(),
+  scenarios: SCENARIOS,
   thresholds: {
     ...trackApis(APIS, PHASES),
-    ...stopConditions(PROFILE, PROFILE === 'smoke' ? 'smoke' : 'main'),
+    ...stopConditions(PROFILE, PROFILE === 'smoke' ? 'smoke' : 'main', SCENARIOS),
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   // 응답 본문은 검증에 필요하다. discardResponseBodies 를 켜지 않는다.
@@ -96,6 +98,7 @@ export function setup() {
 const client = createClient(BASE_URL);
 
 export default function () {
+  spreadFirstIteration(CONFIG.thinkTimeSec);
   const user = userForVu(USERS, exec.vu.idInTest);
   if (LIST_API === 'all') {
     openGallery(user);

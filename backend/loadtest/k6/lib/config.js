@@ -26,6 +26,18 @@ export function durationEnv(name, fallback) {
   return value;
 }
 
+export function toSeconds(duration) {
+  const match = /^(\d+)(ms|s|m|h)$/.exec(duration);
+  if (!match) throw new Error(`30s·3m 같은 형식이어야 합니다 (입력: ${duration})`);
+  return Number(match[1]) * { ms: 0.001, s: 1, m: 60, h: 3600 }[match[2]];
+}
+
+// k6 의 delayAbortEval 은 판정 구간이 아니라 시험 전체 시작부터 센다.
+// 예열 뒤에 시작하는 본 측정도 시작 후 grace 만큼은 판정하지 않도록 구간 시작 시각을 더한다.
+export function abortEvalDelay(phaseStartTime = '0s', grace = '1m') {
+  return `${toSeconds(phaseStartTime) + toSeconds(grace)}s`;
+}
+
 // k6 의 open() 은 상대 경로를 스크립트 위치 기준으로 푼다. 사용자가 실행한 위치 기준으로 맞춘다.
 export function fromCwd(path) {
   return path.startsWith('/') ? path : `${__ENV.PWD}/${path}`;

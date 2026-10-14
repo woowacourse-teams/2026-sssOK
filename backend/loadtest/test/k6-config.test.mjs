@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 // k6 전용 API(open·__ENV)는 함수 안에서만 쓰므로 순수 함수는 Node 에서 바로 검증할 수 있다.
-import { buildEntrants, buildUsers, readyPhotoIds } from '../k6/lib/config.js';
+import { abortEvalDelay, buildEntrants, buildUsers, readyPhotoIds, toSeconds } from '../k6/lib/config.js';
 
 function room(roomId, { entrants = [], photos = [] } = {}) {
   return {
@@ -34,4 +34,11 @@ test('상세·좋아요·폴더에는 썸네일이 준비된 사진만 쓰고, �
   assert.equal(users.length, 2);
   assert.equal(users[0].expectedPhotos, 3);
   assert.deepEqual(users[0].photoIds, [1, 5]);
+});
+
+test('중단 판정 유예는 판정 구간 시작 시각부터 센다', () => {
+  assert.equal(abortEvalDelay(), '60s');
+  assert.equal(abortEvalDelay('2m'), '180s');
+  assert.equal(abortEvalDelay('123s', '30s'), '153s');
+  assert.throws(() => toSeconds('2분'));
 });

@@ -45,12 +45,14 @@ const CONFIG = buildConfig();
 const PHASES = Object.keys(CONFIG.phaseDurations);
 const JUDGED = PROFILE === 'smoke' ? 'smoke' : 'main';
 
+const SCENARIOS = buildScenarios();
+
 export const options = {
-  scenarios: buildScenarios(),
+  scenarios: SCENARIOS,
   thresholds: {
     ...trackApis(APIS, PHASES),
     ...trackMetrics(Object.fromEntries(PHASES.map((phase) => [`rooms_left{phase:${phase}}`, 'count']))),
-    ...stopConditions(PROFILE, JUDGED),
+    ...stopConditions(PROFILE, JUDGED, SCENARIOS),
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
