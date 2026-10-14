@@ -40,9 +40,18 @@ const renderAt = (path: string) => {
 describe("라우트", () => {
   beforeEach(() => localStorage.clear());
 
-  it("/ 는 홈 화면을 보여준다", () => {
+  it("/home 은 홈 화면을 보여준다", () => {
     renderAt(ROUTES.home);
 
+    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+  });
+
+  // 운영에서 / 는 CloudFront 가 랜딩(landing.html)을 바로 주므로 앱까지 오지 않는다.
+  // 그 설정 전이나 로컬 개발 서버처럼 앱이 / 를 받으면 홈으로 보낸다.
+  it("/ 로 들어오면 홈으로 보낸다", () => {
+    const router = renderAt("/");
+
+    expect(router.state.location.pathname).toBe(ROUTES.home);
     expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 

@@ -39,17 +39,38 @@ if [ "$version_changed" = false ]; then
     }
 
     if [ "$backend_changed" = true ]; then
-        [ "${#added_intents[@]}" -eq 1 ] || {
-            echo "::error::백엔드 작업 PR에는 버전 의도 파일이 정확히 하나 필요하다 (현재 ${#added_intents[@]}개)."
+        # Actions의 merge ref 대신 PR 원본 브랜치에서 이슈 번호를 확인한다.
+        # 로컬 검증에서는 현재 작업 브랜치를 사용한다. 입력은 코드로 실행하지 않는다.
+        head_ref="${PR_HEAD_REF:-$(git symbolic-ref --quiet --short HEAD || true)}"
+        # 버전 의도 식별에 필요한 번호만 읽는다. 브랜치 네이밍은 검사하지 않는다.
+        issue_pattern='#([0-9]+)'
+        [[ "$head_ref" =~ $issue_pattern ]] || {
+            echo '::error::백엔드 작업 PR의 원본 브랜치에서 이슈 번호를 확인할 수 없다.'
             exit 1
         }
-        echo "${added_intents[0]}" | grep -Eq "^${intent_dir}/[0-9]+\.txt$" || {
-            echo "::error::버전 의도 파일명은 이슈 번호여야 한다: '${added_intents[0]}'"
+        intent_file="$intent_dir/${BASH_REMATCH[1]}.txt"
+        if [ "${#added_intents[@]}" -eq 1 ]; then
+            [ "${added_intents[0]}" = "$intent_file" ] || {
+                echo '::error::새 버전 의도 파일은 PR 브랜치의 이슈 번호와 같아야 한다.'
+                exit 1
+            }
+        elif [ "${#added_intents[@]}" -eq 0 ]; then
+            git cat-file -e "$base_sha:$intent_file" 2>/dev/null || {
+                echo '::error::동일 이슈의 기존 버전 의도가 없다. 새 의도 파일이 필요하다.'
+                exit 1
+            }
+            echo "동일 이슈의 기존 버전 의도 재사용: $intent_file"
+        else
+            echo '::error::백엔드 작업 PR에는 여러 버전 의도를 추가할 수 없다.'
+            exit 1
+        fi
+        [ -f "$intent_file" ] && [ ! -L "$intent_file" ] || {
+            echo '::error::버전 의도는 일반 파일이어야 한다.'
             exit 1
         }
-        bump="$(tr -d ' \t\r\n' < "${added_intents[0]}")"
+        bump="$(tr -d ' \t\r\n' < "$intent_file")"
         bash .github/scripts/backend-version.sh next 0.0.0 "$bump" > /dev/null
-        echo "백엔드 작업 버전 의도 확인: $bump (${added_intents[0]})"
+        echo "백엔드 작업 버전 의도 확인: $bump ($intent_file)"
     else
         [ "${#added_intents[@]}" -eq 0 ] || {
             echo '::error::백엔드 변경이 없는 PR에는 백엔드 버전 의도를 추가할 수 없다.'

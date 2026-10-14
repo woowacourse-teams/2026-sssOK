@@ -70,11 +70,14 @@ jobs:
           fetch-depth: 0
 
       - name: 백엔드 버전 도우미 테스트
-        run: bash .github/scripts/test-backend-version.sh
+        run: |
+          bash .github/scripts/test-backend-version.sh
+          python3 .github/scripts/test-backend-version-pr.py
 
       - name: 작업·릴리스 버전 규칙 검증
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: bash .github/scripts/check-backend-version-pr.sh "$BASE_SHA"
 
   migration-check:
