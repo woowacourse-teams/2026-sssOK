@@ -15,7 +15,7 @@ import {
   buildUsers, durationEnv, env, intEnv, loadFixtures, resolveBaseUrl, resolveResultsDir, userForVu,
 } from '../lib/config.js';
 import { createClient } from '../lib/http.js';
-import { checkTarget, jitter, runInfo, stopConditions, warmupMain } from '../lib/run.js';
+import { checkTarget, jitter, runInfo, spreadFirstIteration, stopConditions, warmupMain } from '../lib/run.js';
 import { trackApis, writeSummary } from '../lib/summary.js';
 
 const SCENARIO = 'media-list';
@@ -98,6 +98,7 @@ export function setup() {
 const client = createClient(BASE_URL);
 
 export default function () {
+  spreadFirstIteration(CONFIG.thinkTimeSec);
   const user = userForVu(USERS, exec.vu.idInTest);
   if (LIST_API === 'all') {
     openGallery(user);

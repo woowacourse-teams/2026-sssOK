@@ -1,6 +1,7 @@
 // 시나리오 공통 실행 뼈대. 구간 나누기, 중단 기준, 시작 전 대상·데이터 확인을 한 곳에 둔다.
 import http from 'k6/http';
 import exec from 'k6/execution';
+import { sleep } from 'k6';
 
 import { abortEvalDelay, env, expectedPhotos } from './config.js';
 
@@ -13,6 +14,14 @@ export function warmupMain(executor, { warmup, main }, { warmupGracefulStop = '0
     warmup: phase('warmup', '0s', warmup, warmupGracefulStop),
     main: phase('main', warmup, main, '10s'),
   };
+}
+
+// 사용자 수 고정(constant-vus) 구간은 시작하는 순간 모든 가상 사용자가 같이 첫 요청을 보낸다.
+// 실제 사용자는 한꺼번에 들어오지 않으므로 구간마다 첫 반복만 0~seconds 초 사이로 흩는다.
+export function spreadFirstIteration(seconds) {
+  if (seconds > 0 && exec.vu.iterationInScenario === 0) {
+    sleep(Math.random() * seconds);
+  }
 }
 
 // 사전 점검은 하나라도 실패하면 실패다. 본 측정은 구간 시작 1분 뒤부터 누적 실패율이 5% 를 넘는 즉시 멈춘다(#517 중단 기준).

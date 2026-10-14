@@ -22,7 +22,7 @@ import {
   durationEnv, env, intEnv, loadFixtures, readyPhotoIds, resolveBaseUrl, resolveResultsDir,
 } from '../lib/config.js';
 import { createClient } from '../lib/http.js';
-import { checkTarget, jitter, pickMany, runInfo, stopConditions, warmupMain } from '../lib/run.js';
+import { checkTarget, jitter, pickMany, runInfo, spreadFirstIteration, stopConditions, warmupMain } from '../lib/run.js';
 import { trackApis, writeSummary } from '../lib/summary.js';
 
 const SCENARIO = 'folder-ops';
@@ -103,6 +103,7 @@ export function setup() {
 const client = createClient(BASE_URL);
 
 export default function () {
+  spreadFirstIteration(CONFIG.thinkTimeSec);
   const actor = ACTORS[(exec.vu.idInTest - 1) % ACTORS.length];
   const base = `/rooms/${actor.roomId}`;
   const opts = (extra) => ({ token: actor.token, ...extra });

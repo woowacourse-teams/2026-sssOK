@@ -22,7 +22,7 @@ import {
   buildUsers, durationEnv, env, intEnv, loadFixtures, resolveBaseUrl, resolveResultsDir, userForVu,
 } from '../lib/config.js';
 import { createClient } from '../lib/http.js';
-import { checkTarget, jitter, pick, runInfo, stopConditions, warmupMain } from '../lib/run.js';
+import { checkTarget, jitter, pick, runInfo, spreadFirstIteration, stopConditions, warmupMain } from '../lib/run.js';
 import { trackApis, writeSummary } from '../lib/summary.js';
 
 const SCENARIO = 'gallery-browse';
@@ -90,6 +90,7 @@ export function setup() {
 const client = createClient(BASE_URL);
 
 export default function () {
+  spreadFirstIteration(CONFIG.thinkTimeSec);
   const user = userForVu(USERS, exec.vu.idInTest);
   const list = client.get('media_all', `/rooms/${user.roomId}/media/all`, {
     token: user.token,
