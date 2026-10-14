@@ -62,10 +62,15 @@ def main():
             {'record': f'destination_check_{i}', 'expr': expr} for i, expr in enumerate(expressions)]}]}))
         (path / 'test.yml').write_text(json.dumps({'rule_files': [], 'evaluation_interval': '1m',
             'tests': [{'interval': '1m', 'input_series': series, 'promql_expr_test': tests}]}))
+        # 임시 폴더(700) 전체를 마운트하면 Linux의 비루트 promtool이 접근할 수 없다.
+        mounts = []
+        for name in ('queries.yml', 'test.yml'):
+            (path / name).chmod(0o644)
+            mounts += ['--mount', f'type=bind,src={path / name},dst=/tests/{name},readonly']
         image = compose_config()['services']['prometheus']['image']
         for args in (['check', 'rules', '/tests/queries.yml'], ['test', 'rules', '/tests/test.yml']):
-            subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--mount',
-                f'type=bind,src={path},dst=/tests,readonly', '--entrypoint', '/bin/promtool',
+            subprocess.run(['docker', 'run', '--rm', '--network', 'none', *mounts,
+                '--entrypoint', '/bin/promtool',
                 image, *args], check=True)
     print(f'목적지 필터: PromQL {len(expressions)}개·환경/목적지 격리 {len(tests)}개 통과')
 
