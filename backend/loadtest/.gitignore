@@ -1,0 +1,8 @@
+# fixtures 에는 실험 계정의 accessToken 이 들어 있다. 절대 커밋하지 않는다.
+fixtures/*
+!fixtures/.gitkeep
+results/*
+!results/.gitkeep
+# 실제 사진은 개인 사진일 수 있어 저장소에 두지 않는다.
+images/*
+!images/.gitkeep
