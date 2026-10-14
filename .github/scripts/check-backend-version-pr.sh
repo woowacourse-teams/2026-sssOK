@@ -42,12 +42,13 @@ if [ "$version_changed" = false ]; then
         # Actions의 merge ref 대신 PR 원본 브랜치에서 이슈 번호를 확인한다.
         # 로컬 검증에서는 현재 작업 브랜치를 사용한다. 입력은 코드로 실행하지 않는다.
         head_ref="${PR_HEAD_REF:-$(git symbolic-ref --quiet --short HEAD || true)}"
-        branch_pattern='^(feature|fix|refactor|chore|hotfix)/(be|fe|common)-#([0-9]+)-[a-z][a-z-]*$'
-        [[ "$head_ref" =~ $branch_pattern ]] || {
+        # 버전 의도 식별에 필요한 번호만 읽는다. 브랜치 네이밍은 검사하지 않는다.
+        issue_pattern='#([0-9]+)'
+        [[ "$head_ref" =~ $issue_pattern ]] || {
             echo '::error::백엔드 작업 PR의 원본 브랜치에서 이슈 번호를 확인할 수 없다.'
             exit 1
         }
-        intent_file="$intent_dir/${BASH_REMATCH[3]}.txt"
+        intent_file="$intent_dir/${BASH_REMATCH[1]}.txt"
         if [ "${#added_intents[@]}" -eq 1 ]; then
             [ "${added_intents[0]}" = "$intent_file" ] || {
                 echo '::error::새 버전 의도 파일은 PR 브랜치의 이슈 번호와 같아야 한다.'

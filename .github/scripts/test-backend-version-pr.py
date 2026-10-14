@@ -62,6 +62,13 @@ class VersionPolicyTest(unittest.TestCase):
         self.commit()
         self.check()
 
+    def test_only_issue_number_matters_not_branch_naming(self):
+        self.backend_change()
+        self.commit()
+        for branch in ('feature/be-#468-r2-upload', 'custom/#468-OAuth2_update'):
+            with self.subTest(branch=branch):
+                self.check(head_ref=branch)
+
     def test_detached_ci_uses_explicit_pr_branch(self):
         self.backend_change()
         self.commit()
