@@ -62,9 +62,11 @@ const JUDGED = PROFILE === 'smoke' ? 'smoke' : 'main';
 // 업로드는 관찰자가 구독을 연 뒤에 시작한다. 서버는 구독 등록 즉시 이벤트를 쌓아 두므로 몇 초면 충분하다.
 const UPLOAD_START_SEC = 3;
 
+const UPLOAD_SCENARIOS = buildUploadScenarios();
+
 export const options = {
   scenarios: {
-    ...buildUploadScenarios(),
+    ...UPLOAD_SCENARIOS,
     watch: {
       executor: 'per-vu-iterations', vus: 1, iterations: 1, exec: 'watch',
       maxDuration: `${UPLOAD_START_SEC + CONFIG.uploadSec + CONFIG.readyTimeoutSec + 60}s`, tags: { phase: 'watch' },
@@ -78,7 +80,7 @@ export const options = {
       media_registered: 'count', media_created_seen: 'count', media_ready_ms: 'trend', media_ready_ok: 'rate',
       media_ready_missing: 'count', media_ready_late: 'count', media_ready_without_created: 'count', 'sse_ok{phase:watch}': 'rate',
     }),
-    ...stopConditions(PROFILE, JUDGED),
+    ...stopConditions(PROFILE, JUDGED, UPLOAD_SCENARIOS),
     ...(PROFILE === 'smoke' && { media_ready_ok: ['rate==1'], 'sse_ok{phase:watch}': ['rate==1'] }),
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],

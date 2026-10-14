@@ -2,7 +2,7 @@
 import http from 'k6/http';
 import exec from 'k6/execution';
 
-import { env, expectedPhotos } from './config.js';
+import { abortEvalDelay, env, expectedPhotos } from './config.js';
 
 // 본 측정은 예열(warmup) 뒤 본 측정(main) 구간을 따로 집계한다. executor 설정만 시나리오가 정한다.
 export function warmupMain(executor, { warmup, main }) {
@@ -13,15 +13,17 @@ export function warmupMain(executor, { warmup, main }) {
   };
 }
 
-// 사전 점검은 하나라도 실패하면 실패다. 본 측정은 실패율 5% 초과가 1분 이어지면 멈춘다(#517 중단 기준).
+// 사전 점검은 하나라도 실패하면 실패다. 본 측정은 구간 시작 1분 뒤부터 누적 실패율이 5% 를 넘는 즉시 멈춘다(#517 중단 기준).
+// 판정 구간이 예열 뒤에 시작하면 scenarios 에서 그 시작 시각을 읽어 유예에 더한다.
 // 공유 RDS CPU·운영 경보는 k6 가 보지 못하므로 사람이 Grafana 를 보고 중단한다.
-export function stopConditions(profile, judgedPhase) {
+export function stopConditions(profile, judgedPhase, scenarios = {}) {
   if (profile === 'smoke') {
     return { [`business_ok{phase:${judgedPhase}}`]: ['rate==1'] };
   }
+  const delayAbortEval = abortEvalDelay(scenarios[judgedPhase]?.startTime);
   return {
-    [`http_req_failed{phase:${judgedPhase}}`]: [{ threshold: 'rate<0.05', abortOnFail: true, delayAbortEval: '1m' }],
-    [`business_ok{phase:${judgedPhase}}`]: [{ threshold: 'rate>0.95', abortOnFail: true, delayAbortEval: '1m' }],
+    [`http_req_failed{phase:${judgedPhase}}`]: [{ threshold: 'rate<0.05', abortOnFail: true, delayAbortEval }],
+    [`business_ok{phase:${judgedPhase}}`]: [{ threshold: 'rate>0.95', abortOnFail: true, delayAbortEval }],
   };
 }
 
