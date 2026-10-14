@@ -110,6 +110,17 @@ jobs:
             exit 1
           fi
 
+      - name: 개발 모니터링 전환 모드 확인
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -eu
+          source backend/monitoring/dev-monitoring-mode.sh "$DEPLOY_PATH"
+          echo "DEV_MONITORING_MODE=$DEV_MONITORING_MODE" >> "$GITHUB_ENV"
+          echo "COMPOSE_PROFILES=$COMPOSE_PROFILES" >> "$GITHUB_ENV"
+          echo "DEV_ALLOY_WRITER=$DEV_ALLOY_WRITER" >> "$GITHUB_ENV"
+          echo "개발 모니터링 모드: $DEV_MONITORING_MODE"
+
       - name: 배치 전 지표 포트 사설 IP 확인
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
@@ -126,7 +137,10 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          test -n "$DISCORD_WEBHOOK_URL" || { echo "DISCORD_WEBHOOK_URL secret is required"; exit 1; }
+          set -eu
+          if [ "$DEV_MONITORING_MODE" = legacy ]; then
+            test -n "$DISCORD_WEBHOOK_URL" || { echo "DISCORD_WEBHOOK_URL secret is required"; exit 1; }
+          fi
           mkdir -p "$DEPLOY_PATH/monitoring/prometheus"
           mkdir -p "$DEPLOY_PATH/monitoring/prometheus/rules"
           mkdir -p "$DEPLOY_PATH/monitoring/alertmanager"
@@ -153,8 +167,12 @@ jobs:
           cp backend/monitoring/loki/loki.yml "$DEPLOY_PATH/monitoring/loki/loki.yml"
           cp backend/monitoring/alloy/config.alloy "$DEPLOY_PATH/monitoring/alloy/config.alloy"
           cp backend/monitoring/alloy/write.dual.alloy "$DEPLOY_PATH/monitoring/alloy/write.dual.alloy"
-          install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
-          printf '%s' "$DISCORD_WEBHOOK_URL" > "$DEPLOY_PATH/secrets/discord-webhook-url"
+          cp backend/monitoring/alloy/write.central.alloy "$DEPLOY_PATH/monitoring/alloy/write.central.alloy"
+          cp backend/monitoring/dev-monitoring-mode.sh "$DEPLOY_PATH/monitoring/dev-monitoring-mode.sh"
+          if [ "$DEV_MONITORING_MODE" = legacy ]; then
+            install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
+            printf '%s' "$DISCORD_WEBHOOK_URL" > "$DEPLOY_PATH/secrets/discord-webhook-url"
+          fi
 
       - name: 이미지 교체 및 헬스체크
         env:
@@ -250,7 +268,9 @@ jobs:
           # 모니터링 설정은 위에서 cp 로 덮어쓰기만 해서 컨테이너가 재생성되지 않는다. Prometheus(알림 규칙)와
           # Alertmanager 는 파일이 바뀌어도 스스로 다시 읽지 않으므로 SIGHUP 으로 다시 읽게 한다.
           # 리로드 실패가 앱 배포를 막지는 않게 한다.
-          $COMPOSE kill -s SIGHUP prometheus alertmanager || echo "모니터링 설정 리로드 실패 - 수동으로 재시작 필요"
+          if [ "$DEV_MONITORING_MODE" = legacy ]; then
+            $COMPOSE kill -s SIGHUP prometheus alertmanager || echo "모니터링 설정 리로드 실패 - 수동으로 재시작 필요"
+          fi
 
           echo "헬스체크 시작"
           # 호스트 Nginx를 경유하지 않고 앱의 8080을 직접 확인한다.
@@ -285,17 +305,19 @@ jobs:
           curl --noproxy '*' -fsS --max-time 5 --retry 10 --retry-delay 2 --retry-all-errors \
             -H 'Host: dev-api.ssssok.com' http://127.0.0.1/health > /dev/null
 
-          echo "Grafana 데이터소스 연결 확인 시작"
-          if ! check_monitoring_connections; then
-            echo "연결 실패 - Prometheus, Loki, Grafana를 한 차례 재생성한다"
-            if ! $COMPOSE up -d --force-recreate prometheus loki grafana; then
-              echo "모니터링 컨테이너 재생성 중 기동 실패 - 연결 재검증을 계속한다"
-            fi
-
+          if [ "$DEV_MONITORING_MODE" = legacy ]; then
+            echo "Grafana 데이터소스 연결 확인 시작"
             if ! check_monitoring_connections; then
-              echo "재생성 후에도 Grafana 데이터소스 연결에 실패했다"
-              $COMPOSE logs --tail 100 prometheus loki grafana || true
-              exit 1
+              echo "연결 실패 - Prometheus, Loki, Grafana를 한 차례 재생성한다"
+              if ! $COMPOSE up -d --force-recreate prometheus loki grafana; then
+                echo "모니터링 컨테이너 재생성 중 기동 실패 - 연결 재검증을 계속한다"
+              fi
+
+              if ! check_monitoring_connections; then
+                echo "재생성 후에도 Grafana 데이터소스 연결에 실패했다"
+                $COMPOSE logs --tail 100 prometheus loki grafana || true
+                exit 1
+              fi
             fi
           fi
 
@@ -307,3 +329,22 @@ jobs:
           # 중앙 연결 설정이 다음 앱 배포에서 사라지는 것을 탐지한다.
           # 실패 시 배포를 실패로 보고하되, 헬스체크를 통과한 앱은 롤백하지 않는다.
           bash monitoring/check-dev-node.sh
+
+          # 중앙 단독 전송 설정 검증·reload와 앱/지표 검사가 성공한 뒤에만 기존 저장·조회 서비스를 중지한다.
+          # 컨테이너와 볼륨은 삭제하지 않는다. Docker 재시작 후에도 다시 올라오지 않도록 restart를 해제한다.
+          if [ "$DEV_MONITORING_MODE" = central ]; then
+            # 중앙 Loki가 개발 출발지의 로그를 수락하는지 확인한다. 실패하면 기존 서비스는 중지하지 않는다.
+            CENTRAL_URL=$($COMPOSE exec -T alloy printenv CENTRAL_LOKI_URL)
+            payload=$(printf '{"streams":[{"stream":{"environment":"dev","service":"monitoring-cutover"},"values":[["%s","dev central cutover probe"]]}]}' "$(date +%s%N)")
+            status=$(curl --noproxy '*' --silent --show-error --max-time 15 \
+              -H 'Content-Type: application/json' --data "$payload" -o /dev/null -w '%{http_code}' "$CENTRAL_URL")
+            [ "$status" = 204 ] || { echo "중앙 Loki 수신 검사 실패: HTTP $status — 기존 서비스 유지"; exit 1; }
+            for service in prometheus alertmanager grafana loki; do
+              container="sssok-${service}-dev"
+              if docker container inspect "$container" > /dev/null 2>&1; then
+                docker update --restart=no "$container"
+                docker stop "$container"
+              fi
+            done
+            echo "개발 기존 모니터링 중지 완료 — 데이터 볼륨 보존"
+          fi

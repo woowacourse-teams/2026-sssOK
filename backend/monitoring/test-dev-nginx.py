@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """실제 Compose 설정 해시로 앱·Nginx 변경의 재생성 범위를 확인한다."""
 import hashlib
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -33,6 +34,35 @@ class NginxConfigTest(unittest.TestCase):
             self.assertEqual(initial, config_hash('app:new', template))
             self.assertNotEqual(initial, config_hash('app:new', template + b'\n# changed\n'))
             self.assertNotEqual(initial, config_hash('app:old', template, '10.0.0.70'))
+
+    def test_monitoring_modes_preserve_collectors_and_volumes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory)
+            env_file = target / '.env'
+            env_file.write_text('GRAFANA_ADMIN_PASSWORD=validation-only\n')
+            script = ROOT / 'backend/monitoring/dev-monitoring-mode.sh'
+            legacy = {'prometheus', 'alertmanager', 'grafana', 'loki'}
+            collectors = {'app', 'nginx', 'alloy', 'node-exporter', 'docker-socket-proxy'}
+            for index, mode in enumerate(('legacy', 'central', 'legacy')):
+                if index:
+                    (target / 'monitoring-mode').write_text(mode + '\n')
+                result = subprocess.run(['bash', '-ec',
+                    'source "$1" "$2"; docker compose --env-file "$3" -f "$4" config --format json',
+                    'test', str(script), str(target), str(env_file), str(COMPOSE)],
+                    env={**os.environ, 'BACKEND_IMAGE': 'app:test'},
+                    capture_output=True, text=True, check=True)
+                config = json.loads(result.stdout)
+                self.assertEqual(set(config['services']), collectors | (legacy if mode == 'legacy' else set()))
+                alloy = config['services']['alloy']
+                self.assertNotIn('loki', alloy.get('depends_on', {}))
+                writer = 'dual' if mode == 'legacy' else 'central'
+                self.assertTrue(any(v.get('source', '').endswith(f'write.{writer}.alloy')
+                                    for v in alloy['volumes']))
+                self.assertTrue(any(v.get('source') == 'alloy-data' for v in alloy['volumes']))
+            (target / 'monitoring-mode').write_text('typo')
+            result = subprocess.run(['bash', '-ec', 'source "$1" "$2"', 'test', str(script), str(target)],
+                                    capture_output=True)
+            self.assertNotEqual(result.returncode, 0)
 
     def test_workflow_exports_hash_before_all_compose_calls(self):
         workflow = (ROOT / '.github/workflows/deploy-dev.yml').read_text()
