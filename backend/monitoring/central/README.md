@@ -419,7 +419,7 @@ node_exporter 기동은 로컬에서 확인하지 못했다. EC2에서 `bash che
 ### Discord 연결 준비 — 아직 발송·배포하지 않음
 
 `notifications.py`는 현재 설정의 그룹화·중복 억제 규칙을 유지하면서 **검토용 후보**를 생성한다.
-CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다. 기본 Compose와 저장소의 `alertmanager.yml`은 계속 무발송 상태이며, 코드 병합만으로 발송이 켜지지 않는다.
+CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선택 파일이 없거나 모든 환경의 목록이 비어 있으면 무발송이다. 기본 Compose와 저장소의 `alertmanager.yml`은 계속 무발송 상태이며, 코드 병합만으로 발송이 켜지지 않는다.
 
 | 선택 | 포함하는 개발 알림 | 확인할 화면 |
 | --- | --- | --- |
@@ -438,7 +438,7 @@ python3 notifications.py --enable-dev app
 python3 notifications.py --enable-dev app --enable-dev logs
 ```
 
-- **라우팅**은 누가 받을지를 결정한다. `environment=dev`, `server=dev`, 선택한 알림 이름을 모두 만족해야 `discord-dev`로 간다. 나머지와 운영·중앙 알림은 기존 무발송 수신자로 간다.
+- **라우팅**은 누가 받을지를 결정한다. `environment=dev`, `server=dev`, 선택한 알림 이름을 모두 만족해야 `discord-dev`로 간다. 운영도 별도 선택한 묶음에 한해 `environment=prod`, `server=prod`를 모두 만족하면 `discord-prod`로 간다. 선택하지 않은 알림과 중앙 알림은 무발송이다.
 - **메시지 템플릿**은 무엇을 보여줄지를 결정한다. 발생/복구 상태, 환경·서버·심각도, 로그 전송 목적지(`host`), 유실 사유와 중앙 Grafana 링크를 넣는다. 최대 3개 알림의 요약·설명을 길이 제한하여 표시한다. 누락한 상세는 대시보드에서 확인한다.
 - **복구 알림**은 `send_resolved: true`로 설정한다. 실제 Discord 수신·전송 성공을 확인한 것은 아니며, 이번 검증은 라우팅과 메시지 렌더링까지다.
 - **비밀값**은 `/run/secrets/central_discord_webhook` 파일로 읽는다. `compose.discord.yml`의 환경변수 기반 secret이 서버 `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL`을 전달한다. Python은 비밀 파일 생성·chown·버전별 보관을 하지 않는다. 현재 고정한 Alertmanager 이미지의 사용자 65534에 맞춰 Compose에 uid/gid 65534, mode 0400을 선언하고 실제 이미지로 읽기 검증한다. 이미지 사용자 변경 시 선언도 함께 검증해야 한다. URL을 Git·명령 인수·CI 로그에 넣지 않는다.
@@ -459,7 +459,7 @@ python3 notifications.py --enable-dev app --enable-dev logs
 | `compose.discord.yml` | 저장소 | 환경변수 기반 secret과 컨테이너 내 권한 선언 |
 | `alertmanager.yml`, `compose.notifications.yml` | CD | 선택에 따라 생성한 설정. 실패 시 이전 설정 복원 |
 
-1. 배포 잠금을 획득하고 선택을 검사한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다.
+1. 배포 잠금을 획득하고 선택을 검사한다. 선택 파일이 없거나 모든 환경의 목록이 비어 있으면 무발송이다.
 2. 후보 설정을 생성한다. 선택한 묶음이 있을 때만 Compose secret 선언을 포함한다.
 3. 실제 이미지·네트워크 차단 컨테이너에서 `.env` 값 전달, URL 형식, 파일 읽기, Alertmanager 문법을 검사한다. 누락·오류는 기존 서비스 중단 전에 실패한다. Docker Compose의 dotenv 해석을 사용하고 셸의 동명 변수는 제거한다.
 4. 기존 실행 설정이 환경변수 secret을 사용하면 컨테이너에서 이전 값을 읽어 배포 프로세스 메모리에만 보관한다. 읽을 수 없으면 중단한다.
@@ -467,7 +467,7 @@ python3 notifications.py --enable-dev app --enable-dev logs
 
 **복구 범위:** 같은 배포 실행 안의 자동 복구는 직전 웹훅을 사용한다. 과거 웹훅 파일을 서버에 누적하지 않으므로, 프로세스 강제 종료 후 수동 복원 또는 과거 백업 복원에는 현재 `.env` 값이 사용된다. 이전 발송 대상이 필요하면 담당자가 `.env`를 복원해야 한다. `.env`의 새 값과 서버 선택은 자동 복구 후에도 다음 배포 의도로 남는다. 이미 폐기한 Discord 웹훅은 복구할 수 없다.
 
-알림 연결 후 수동 Compose 조작에는 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 발송 해제는 선택을 `{"dev": []}`로 변경한 뒤 중앙 CD로 배포한다. 배포 중에는 `.env`와 선택을 바꾸지 않는다. 실제 서버 적용·Discord 수신은 별도 확인한다.
+알림 연결 후 수동 Compose 조작에는 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 발송 해제는 해당 환경의 목록을 비우고 중앙 CD로 배포한다. 다른 환경의 선택은 유지한다. 배포 중에는 `.env`와 선택을 바꾸지 않는다. 실제 서버 적용·Discord 수신은 별도 확인한다.
 
 
 ### 자원·응답 지연 초기 기준
@@ -521,3 +521,82 @@ Compose 환경변수 secret·권한 동작은 Docker Compose 2.32.4에서 격리
 
 알림 설정 생성은 `notifications.py`로 합쳤고, 라우팅·메시지·Compose secret 검사는
 `test-notifications.py`에서 함께 실행한다. `prepare-discord.py`, `test-discord.py`는 제거했다.
+
+
+### 개발·운영 앱 알림 이전
+
+선택 파일은 환경별로 독립적이다. 기존 `{"dev": ["app"]}`도 그대로 지원하며,
+운영을 추가할 때만 `{"dev": ["app"], "prod": ["app"]}`로 바꾼다.
+키가 없는 환경이나 빈 목록은 무발송이다. 두 환경은 같은 서버 `.env` 웹훅을 사용하고,
+수신자·메시지 환경·대시보드 링크는 dev/prod를 구분한다.
+후보 확인에는 `--enable-dev app --enable-prod app`을 사용한다.
+
+전환 순서:
+1. 운영의 기존 알림 목록·중앙 수집 상태를 확인한다.
+2. 기존 운영 앱 알림 2개만 임시 음소거하고 중앙 선택에 prod/app을 추가한다.
+3. 운영 선택을 지원하는 커밋으로 중앙 CD를 실행하고 운영 발생·복구 메시지를 확인한다.
+4. 개발 app은 중앙 발생·복구 수신을 확인했으므로 병합 후 개발 자동 CD에서 기존 앱 발송을 해제한다.
+   **운영은 중앙 발생·복구 수신 확인 전 main → deploy 승격을 하지 않는다.** 운영 CD는 승격 후 기존 앱 발송을 해제한다.
+   기존 설정은 `environment=dev|prod`의 `BackendDown`, `BackendHigh5xxErrorRate`만
+   무발송 수신자 `migrated-app`으로 보낸다. 디스크·로그 알림은 기존 발송을 유지한다.
+5. 임시 음소거 만료 전에 영구 설정 적용을 확인한다. 배포가 늦으면 음소거를 연장한다.
+
+중앙 운영 수신을 확인하기 전에 기존 운영 발송 해제 설정을 적용하지 않는다.
+롤백은 중앙 해당 환경의 app 선택을 해제하고 CD 적용을 확인한 뒤 기존 발송을 복원한다.
+알림 선택에 운영을 추가하기 전까지 개발만 발송하는 현재 서버 설정은 유지한다.
+
+
+### 개발 기존 모니터링 중지까지의 전환
+
+병합만으로 기존 4개 서비스를 중지하지 않는다. 개발 CD는 서버의
+`/home/ubuntu/app/monitoring-mode`를 읽고, 파일이 없으면 `legacy`로 동작한다.
+`dev-monitoring-mode.sh`에서 모드에 맞는 Compose 프로필과 Alloy writer를 선택한다.
+
+| 모드 | 기동 서비스 | Alloy 전송 |
+| --- | --- | --- |
+| legacy (기본) | 앱·수집기 및 기존 Prometheus/Alertmanager/Grafana/Loki | 로컬 + 중앙 |
+| central | 앱·Nginx·Alloy·node-exporter·소켓 프록시 | 중앙만 |
+
+**전환 전 조건:** 개발 app/host/logs 및 중앙 platform/host 알림을 활성화하고 발생·복구 수신,
+개발 최신 로그·호스트/앱/Alloy 수집을 확인한다. `LokiRejectingLogs`는 개발 라벨이 아니라
+중앙 Loki의 `monitoring` 라벨로 평가하므로 `monitoring/platform`도 필요하다.
+중앙 자체 알림은 중앙 서버 전체 장애를 외부에서 감시하는 기능은 아니다.
+운영은 별도 수신 검증 전까지 기존 발송을 유지한다.
+
+중앙 선택 예시(기존 웹훅 재사용, 환경별 메시지 구분):
+```json
+{"dev":["app","host","logs"],"prod":["app"],"monitoring":["platform","host"]}
+```
+기존 개발 host/logs는 전환 중만 임시 음소거해 중복을 막는다. 중앙 수신 확인 후 개발에서:
+```bash
+cd /home/ubuntu/app || exit 1
+printf '%s\n' central > monitoring-mode
+```
+그다음 개발 CD를 실행한다. 새 Alloy 설정 검증/reload, 앱·Nginx·지표 경로 검증과 중앙 Loki 시험 로그 HTTP 204 확인이 통과한 뒤
+기존 4개 컨테이너의 재시작 정책을 끄고 중지한다. 컨테이너·데이터 볼륨·기존 설정 파일은 삭제하지 않는다.
+후속 CD는 legacy 프로필을 켜지 않으므로 기존 서비스를 다시 기동하지 않는다.
+실제 중앙 수집·로그·Discord 수신은 배포 후 중앙에서 재확인한다.
+
+수동 Compose 조작도 반드시 모드를 적용한다:
+```bash
+source monitoring/dev-monitoring-mode.sh "$PWD"
+docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml ps -a
+```
+원복은 `monitoring-mode`를 `legacy`로 바꾼 뒤 개발 CD를 실행한다. 기존 볼륨을 다시 사용하고
+Compose의 `restart: unless-stopped`도 복구한다. 중앙 수집 위치는 보존되지만 중앙 단독 전송 기간의
+로그가 로컬 Loki로 소급 전송되지는 않는다. 앱 알림 무발송 설정은 별도이므로, 중앙 app 선택을 끄려면
+기존 앱 발송 설정도 복원해야 한다. 모니터링 모드 변경과 앱 이미지 롤백은 별개다.
+
+개발 제거 검증 후 같은 사양으로 부하 시험한다. 운영 저장 서비스 제거·인스턴스 축소·기존 데이터 삭제는
+이번 PR의 자동 동작에 포함하지 않는다.
+
+
+개발 임시 앱 음소거를 24시간 더 유지해야 할 때는 개발 서버에서 같은 범위의 새 Silence를 등록한다.
+기존 Silence와 겹쳐도 대상이 늘어나지 않는다. 새 ID와 만료 시각을 확인하고, 배포가 완료되면
+기존 앱 알림의 무발송 라우팅을 확인한다. 이 명령은 디스크·로그 알림을 음소거하지 않는다.
+```bash
+docker exec sssok-alertmanager-dev amtool --alertmanager.url=http://localhost:9093 silence add \
+  'alertname=~"^(BackendDown|BackendHigh5xxErrorRate)$"' \
+  --duration=24h --author=monitoring-migration --comment='중앙 앱 알림 이전 배포 대기'
+docker exec sssok-alertmanager-dev amtool --alertmanager.url=http://localhost:9093 silence query
+```
