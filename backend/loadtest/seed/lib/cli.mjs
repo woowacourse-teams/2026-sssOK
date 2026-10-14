@@ -23,6 +23,14 @@ export function requirePositiveInt(name, raw) {
   return value;
 }
 
+export function requireNonNegativeInt(name, raw) {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    fail(`--${name} 은 0 이상의 정수여야 합니다 (입력: ${raw})`);
+  }
+  return value;
+}
+
 // 로컬이 아닌 대상은 데이터·스토리지·AI 비용이 실제로 발생하므로 --yes 로 의도를 확인받는다.
 export function guardTarget(baseUrl, confirmed) {
   let url;

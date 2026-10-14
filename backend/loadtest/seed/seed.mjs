@@ -5,9 +5,9 @@ import { randomBytes } from 'node:crypto';
 import { relative as relativePath, resolve } from 'node:path';
 
 import { createApi, mapWithConcurrency, putToStorage, sleep } from './lib/api.mjs';
-import { fail, guardTarget, log, parseCli, requirePositiveInt } from './lib/cli.mjs';
+import { fail, guardTarget, log, parseCli, requireNonNegativeInt, requirePositiveInt } from './lib/cli.mjs';
 import {
-  createFixtures, fixturesExists, loadFixtures, registeredPhotos, saveFixtures, Status, usersOf,
+  createFixtures, fixturesExists, loadFixtures, registeredPhotos, saveFixtures, Status, unusedEntrants, usersOf,
 } from './lib/fixtures.mjs';
 import { createImageSource } from './lib/images.mjs';
 
@@ -17,6 +17,8 @@ const USAGE = `사용법: node seed/seed.mjs --base-url <URL> [옵션]
   --rooms <n>             만들 방 수 (기본 1)
   --members <n>           방당 계정 수, 방장 포함 (기본 30)
   --photos <n>            방당 사진 수 (기본 300)
+  --entrants <n>          방당 신규 입장 시험용 미입장 계정 수 (기본 0).
+                          --resume 과 함께 쓰면 이미 입장한 계정을 빼고 n 개가 되도록 채운다
   --images-dir <dir>      실제 사진 디렉터리. 생략하면 PNG 를 생성한다
   --out <file>            fixtures 경로 (기본 fixtures/<runId>.json)
   --resume <file>         실패한 fixtures 를 이어서 준비한다
@@ -35,6 +37,7 @@ const args = parseCli({
   rooms: { type: 'string', default: '1' },
   members: { type: 'string', default: '30' },
   photos: { type: 'string', default: '300' },
+  entrants: { type: 'string' },
   'images-dir': { type: 'string' },
   out: { type: 'string' },
   resume: { type: 'string' },
@@ -90,6 +93,9 @@ async function prepareFixtures() {
     if (loaded.status === Status.CLEANED) {
       fail('이미 정리된 fixtures 는 이어서 준비할 수 없습니다');
     }
+    if (args.entrants !== undefined) {
+      loaded.condition.entrantsPerRoom = requireNonNegativeInt('entrants', args.entrants);
+    }
     loaded.status = Status.IN_PROGRESS;
     loaded.lastError = null;
     return { fixtures: loaded, path: resumePath };
@@ -98,8 +104,9 @@ async function prepareFixtures() {
   const rooms = requirePositiveInt('rooms', args.rooms);
   const members = requirePositiveInt('members', args.members);
   const photos = requirePositiveInt('photos', args.photos);
-  if (rooms > MAX_PER_NAME_SLOT || members > MAX_PER_NAME_SLOT) {
-    fail(`--rooms·--members 는 ${MAX_PER_NAME_SLOT} 이하여야 합니다 (닉네임 12자 제한)`);
+  const entrants = requireNonNegativeInt('entrants', args.entrants ?? '0');
+  if (rooms > MAX_PER_NAME_SLOT || members > MAX_PER_NAME_SLOT || entrants > MAX_PER_NAME_SLOT) {
+    fail(`--rooms·--members·--entrants 는 ${MAX_PER_NAME_SLOT} 이하여야 합니다 (닉네임 12자 제한)`);
   }
 
   const { data: version } = await api.version().catch((e) => fail(`대상 서버에 연결하지 못했습니다: ${e.message}`));
@@ -116,6 +123,7 @@ async function prepareFixtures() {
       rooms,
       membersPerRoom: members,
       photosPerRoom: photos,
+      entrantsPerRoom: entrants,
       image: images.summary ?? { description: images.description },
     },
   });
@@ -132,7 +140,7 @@ function nameTag() {
 }
 
 async function seedRoom(index) {
-  const room = fixtures.rooms[index] ?? { index, name: `${nameTag()}-r${index + 1}`, host: null, participants: [], photos: [] };
+  const room = fixtures.rooms[index] ?? { index, name: `${nameTag()}-r${index + 1}`, host: null, participants: [], entrants: [], photos: [] };
   fixtures.rooms[index] = room;
   const label = `방 ${index + 1}/${fixtures.condition.rooms}`;
 
@@ -164,8 +172,41 @@ async function seedRoom(index) {
   });
   log(`${label}: 계정 ${usersOf(room).length}개 준비·입장 완료`);
 
+  await prepareEntrants(room, index, label);
   await guardAiCost(room);
   await uploadPhotos(room, label);
+}
+
+// 신규 입장 시험용 계정은 만들기만 하고 방에 넣지 않는다. 입장은 k6 가 측정하면서 한다.
+// 시험에서 한 번 입장한 계정은 서버에 joined 로 남으므로, 이어서 준비할 때 서버 상태로 표시하고 새 계정을 채운다.
+async function prepareEntrants(room, index, label) {
+  await refreshEntrantJoined(room);
+  const target = fixtures.condition.entrantsPerRoom;
+  const missing = target - unusedEntrants(room).length;
+  if (missing <= 0) {
+    return;
+  }
+  if (room.entrants.length + missing > MAX_PER_NAME_SLOT) {
+    throw new Error(`${label}: 미입장 계정을 ${MAX_PER_NAME_SLOT}개 넘게 만들 수 없습니다 (닉네임 12자 제한). 시드를 새로 준비한다`);
+  }
+  const numbers = Array.from({ length: missing }, (_, i) => room.entrants.length + i + 1);
+  await mapWithConcurrency(numbers, ACCOUNT_CONCURRENCY, async (entrantNo) => {
+    const { data } = await api.createAnonymous(`${nameTag()}r${index + 1}e${entrantNo}`);
+    room.entrants[entrantNo - 1] = { userId: data.userId, nickname: data.nickname, accessToken: data.accessToken, expiresAt: data.expiresAt, joined: false };
+    save();
+  });
+  log(`${label}: 신규 입장용 미입장 계정 ${unusedEntrants(room).length}개 준비`);
+}
+
+async function refreshEntrantJoined(room) {
+  const unknown = unusedEntrants(room);
+  await mapWithConcurrency(unknown, ACCOUNT_CONCURRENCY, async (entrant) => {
+    const { data } = await api.getRoom(entrant.accessToken, room.code);
+    entrant.joined = data.joined;
+  });
+  if (unknown.length > 0) {
+    save();
+  }
 }
 
 // 검색 분석이 켜진 서버는 등록된 사진마다 설명 생성·임베딩을 외부 AI 에 요청한다.
@@ -370,7 +411,11 @@ async function verify() {
       }
     });
 
+    await refreshEntrantJoined(room);
+    const entrants = unusedEntrants(room).length;
+
     const label = `방 ${room.index + 1}`;
+    if (entrants !== fixtures.condition.entrantsPerRoom) problems.push(`${label}: 미입장 계정 ${entrants}/${fixtures.condition.entrantsPerRoom}`);
     if (detail.hostId !== room.host.userId) problems.push(`${label}: 방장이 fixtures 와 다름`);
     if (usersOf(room).length !== fixtures.condition.membersPerRoom) problems.push(`${label}: 계정 수 불일치`);
     if (notJoined > 0) problems.push(`${label}: 입장하지 않은 계정 ${notJoined}개`);
@@ -379,7 +424,7 @@ async function verify() {
     if (page.totalCount !== expected) problems.push(`${label}: 목록 totalCount ${page.totalCount} ≠ 등록 ${expected}`);
     if (readyTimeoutSec > 0 && notReady > 0) problems.push(`${label}: READY 가 아닌 사진 ${notReady}장`);
 
-    rooms.push({ roomId: room.roomId, users: usersOf(room).length, notJoined, photoCount: detail.photoCount, listTotalCount: page.totalCount, notReady });
+    rooms.push({ roomId: room.roomId, users: usersOf(room).length, notJoined, entrants, photoCount: detail.photoCount, listTotalCount: page.totalCount, notReady });
   }
   return { passed: problems.length === 0, checkedAt: new Date().toISOString(), problems, rooms };
 }
@@ -388,7 +433,7 @@ function printSummary() {
   const v = fixtures.verification;
   console.log(`\n시드 ${fixtures.status} (runId=${fixtures.runId})`);
   for (const room of v?.rooms ?? []) {
-    console.log(`  roomId=${room.roomId} 계정 ${room.users}개(미입장 ${room.notJoined}) 사진 ${room.photoCount}장(목록 ${room.listTotalCount}, 미준비 ${room.notReady})`);
+    console.log(`  roomId=${room.roomId} 계정 ${room.users}개(미입장 ${room.notJoined}) 신규 입장용 ${room.entrants ?? 0}개 사진 ${room.photoCount}장(목록 ${room.listTotalCount}, 미준비 ${room.notReady})`);
   }
   for (const problem of v?.problems ?? []) {
     console.log(`  ✗ ${problem}`);
