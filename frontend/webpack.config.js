@@ -81,6 +81,29 @@ module.exports = {
       filename: "index.html",
       inject: true,
       meta: { "app-version": version },
+      og: {
+        title: "사진 공유, 쏙으로 더 가볍게!",
+        description: "링크 하나로 모으고, 고르고, 쏙 나누세요",
+        url: "https://www.ssssok.com/",
+        image: "https://www.ssssok.com/og/default.png",
+        imageAlt: "링크 하나로 사진 모으고 쏙! — 사진을 든 쏙이",
+      },
+    }),
+
+    // 초대 링크(/join/:code)와 방 주소(/rooms/:code/...) 전용이다. 앱과 같은 번들을 싣고 미리보기만 초대용으로 바꾼다.
+    // CloudFront Function(cloudfront/invite-preview.js)이 이 요청들을 이 파일로 보낸다
+    new HtmlWebpackPlugin({
+      template: "./public/index.html",
+      filename: "join.html",
+      inject: true,
+      meta: { "app-version": version },
+      og: {
+        title: "사진방에 초대받았어요 📸",
+        description: "설치 없이 바로 들어와서 사진을 쏙 올려 주세요!",
+        // 방마다 주소가 달라 og:url 은 두지 않는다. 루트를 적으면 수집기가 랜딩 미리보기를 가져갈 수 있다
+        image: "https://www.ssssok.com/og/invite.png",
+        imageAlt: "사진방에 초대받았어요 — 손 흔드는 쏙이",
+      },
     }),
 
     new CopyWebpackPlugin({
@@ -113,7 +136,14 @@ module.exports = {
     devMiddleware: {
       index: "landing.html",
     },
-    historyApiFallback: true,
+    // 초대 링크·방 주소를 join.html 로 보내는 CloudFront Function 도 함께 흉내 낸다.
+    // 판단 규칙은 cloudfront/invite-preview.js 와 같게 둔다 (/rooms/create, /rooms/closed 는 제외)
+    historyApiFallback: {
+      rewrites: [
+        { from: /^\/join\//, to: "/join.html" },
+        { from: /^\/rooms\/(?!(create|closed)(\/|$))[^/]+/, to: "/join.html" },
+      ],
+    },
     client: {
       overlay: true,
     },
