@@ -81,6 +81,13 @@ module.exports = {
       filename: "index.html",
       inject: true,
       meta: { "app-version": version },
+      og: {
+        title: "사진 공유, 쏙으로 더 가볍게!",
+        description: "링크 하나로 모으고, 고르고, 쏙 나누세요",
+        url: "https://www.ssssok.com/",
+        image: "https://www.ssssok.com/og/default.png",
+        imageAlt: "링크 하나로 사진 모으고 쏙! — 사진을 든 쏙이",
+      },
     }),
 
     new CopyWebpackPlugin({
