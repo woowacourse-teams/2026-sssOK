@@ -91,6 +91,14 @@ module.exports = {
             ignore: ["**/index.html", "**/mockServiceWorker.js"],
           },
         },
+        // 루트(/)의 랜딩. 검색, 미리보기용 정적 HTML 이라 번들을 거치지 않고 그대로 내보낸다.
+        // CloudFront 의 기본 루트 객체가 landing.html 을 가리킨다
+        { from: "landing/index.html", to: "landing.html" },
+        {
+          from: "landing",
+          to: "landing",
+          globOptions: { ignore: ["**/index.html"] },
+        },
       ],
     }),
   ],
@@ -101,6 +109,10 @@ module.exports = {
     port: 3000,
     open: true,
     hot: true,
+    // 운영에서 / 를 랜딩으로 보내는 CloudFront 기본 루트 객체를 로컬에서도 흉내 낸다.
+    devMiddleware: {
+      index: "landing.html",
+    },
     historyApiFallback: true,
     client: {
       overlay: true,
