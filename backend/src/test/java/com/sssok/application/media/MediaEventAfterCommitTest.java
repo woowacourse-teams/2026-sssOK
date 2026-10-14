@@ -44,6 +44,9 @@ class MediaEventAfterCommitTest {
     FileRepository fileRepository;
 
     @MockitoBean
+    com.sssok.application.media.thumbnail.ThumbnailJobs thumbnailJobs;
+
+    @MockitoBean
     RoomPermissionPort roomPermissionPort;
 
     // 실제 발행 지점을 목으로 잡는다. room_events 행은 롤백되지만 이미 나간 SSE 는 되돌아가지 않으므로,
@@ -64,6 +67,7 @@ class MediaEventAfterCommitTest {
         roomId = room.getId();
         file = StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
             new FileSize(1024L), Instant.now(), SIZE_POLICY);
+        given(fileRepository.findByIdForUpdate(any())).willReturn(java.util.Optional.of(file));
     }
 
     // 이 메서드는 스프링 테스트 기본값에 따라 끝에 롤백된다. register 는 그 트랜잭션에 참여하므로

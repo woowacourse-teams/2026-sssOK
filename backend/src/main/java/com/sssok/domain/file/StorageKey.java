@@ -31,6 +31,14 @@ public record StorageKey(String value) {
         return derive("previews/", extension);
     }
 
+    // 시도마다 다른 오브젝트를 써서 임대가 만료된 워커의 늦은 업로드가 새 결과를 덮지 않게 한다.
+    public StorageKey attempt(UUID token) {
+        int dot = value.lastIndexOf('.');
+        return new StorageKey(dot > value.lastIndexOf('/')
+            ? value.substring(0, dot) + "-" + token + value.substring(dot)
+            : value + "-" + token);
+    }
+
     private StorageKey derive(String prefix, String extension) {
         int lastSlash = value.lastIndexOf('/');
         String fileName = value.substring(lastSlash + 1);
