@@ -444,7 +444,7 @@ function printSummary() {
     console.log(`
 다음 단계 — 아래 줄을 그대로 복사해 실행한다
   export FIXTURES=${relative}
-  k6 run -e PROFILE=smoke k6/scenarios/media-list.js
+  k6 run -e PROFILE=smoke k6/scenarios/media-list.js${fixtures.condition.entrantsPerRoom > 0 ? '\n  ./bin/k6 run -e PROFILE=smoke k6/scenarios/room-entry.js' : ''}
   node seed/cleanup.mjs --dry-run`);
   }
 }
