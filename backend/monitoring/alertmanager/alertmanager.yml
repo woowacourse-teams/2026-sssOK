@@ -7,8 +7,15 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
+  routes:
+    # 개발·운영 앱 알림은 중앙 Alertmanager가 발송한다. 디스크·로그 알림은 기존 경로를 유지한다.
+    - receiver: migrated-app
+      matchers:
+        - 'environment=~"^(dev|prod)$"'
+        - 'alertname=~"^(BackendDown|BackendHigh5xxErrorRate)$"'
 
 receivers:
+  - name: migrated-app
   - name: discord
     discord_configs:
       - webhook_url_file: /run/secrets/discord_webhook_url
