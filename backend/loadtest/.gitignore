@@ -6,3 +6,5 @@ results/*
 # 실제 사진은 개인 사진일 수 있어 저장소에 두지 않는다.
 images/*
 !images/.gitkeep
+# xk6-sse 를 넣어 빌드한 k6 (scripts/build-k6.sh). OS 마다 다르므로 각자 빌드한다.
+bin/
