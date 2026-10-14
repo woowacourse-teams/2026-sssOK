@@ -20,8 +20,17 @@ export function trackApis(apis, phases) {
   return thresholds;
 }
 
+// SSE 처럼 API 요청이 아닌 지표를 결과에 남긴다. 태그를 붙인 이름은 threshold 가 있어야 요약에 나온다.
+export function trackMetrics(names) {
+  const thresholds = {};
+  for (const [name, type] of Object.entries(names)) {
+    thresholds[name] = [ALWAYS[type]];
+  }
+  return thresholds;
+}
+
 // 실행 메타데이터와 API 별 요청 수·p95·실패율·실제 요청률을 하나의 JSON 으로 묶는다.
-export function writeSummary(data, { scenario, apis, phases, config, resultsDir }) {
+export function writeSummary(data, { scenario, apis, phases, config, resultsDir, extras = [] }) {
   const setup = data.setup_data ?? {};
   const runId = env('RUN_ID', setup.runId ?? 'unknown');
   const base = `${resultsDir}/${runId}-${scenario}`;
@@ -40,7 +49,11 @@ export function writeSummary(data, { scenario, apis, phases, config, resultsDir 
     config,
     phases: {},
     thresholds: failedThresholds(data),
+    extras: {},
   };
+  for (const name of extras) {
+    report.extras[name] = roundValues(metric(data, name));
+  }
 
   for (const phase of phases) {
     const apisReport = {};
@@ -104,6 +117,13 @@ function failedThresholds(data) {
   return { passed: failed.length === 0, failed };
 }
 
+function roundValues(values) {
+  if (!values) {
+    return null;
+  }
+  return Object.fromEntries(Object.entries(values).map(([key, value]) => [key, round(value, 4)]));
+}
+
 function round(value, digits = 2) {
   if (value === undefined || value === null || Number.isNaN(value)) {
     return null;
@@ -122,8 +142,11 @@ function renderText(report, path) {
   for (const [phase, p] of Object.entries(report.phases)) {
     lines.push(`-- ${phase}: iterations ${p.iterations}, dropped ${p.droppedIterations}`);
     for (const [api, a] of Object.entries(p.apis)) {
-      lines.push(`   ${api.padEnd(18)} 요청 ${String(a.requests).padStart(6)}  ${String(a.phaseRate).padStart(7)} req/s  p95 ${String(a.p95Ms).padStart(8)}ms  HTTP 실패 ${pct(a.httpFailRate)}  업무 실패 ${pct(a.businessFailRate)}`);
+      lines.push(`   ${api.padEnd(20)} 요청 ${String(a.requests).padStart(6)}  ${String(a.phaseRate).padStart(7)} req/s  p95 ${String(a.p95Ms).padStart(8)}ms  HTTP 실패 ${pct(a.httpFailRate)}  업무 실패 ${pct(a.businessFailRate)}`);
     }
+  }
+  for (const [name, values] of Object.entries(report.extras)) {
+    lines.push(`   ${name.padEnd(30)} ${values ? Object.entries(values).map(([k, v]) => `${k}=${v}`).join(' ') : '없음'}`);
   }
   lines.push(report.thresholds.passed ? '판정 기준 통과' : `판정 기준 미달: ${report.thresholds.failed.join(', ')}`);
   lines.push(`결과 파일: ${path}`, '');
