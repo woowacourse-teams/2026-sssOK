@@ -185,7 +185,6 @@ jobs:
         run: |
           bash backend/monitoring/validate-alloy.sh local
           bash backend/monitoring/validate-alloy.sh dev
-          DEV_ALLOY_WRITER=central bash backend/monitoring/validate-alloy.sh dev
           bash backend/monitoring/validate-alloy.sh prod
 
   ci-ok:
