@@ -1,77 +1,64 @@
-"""서버의 발송 선택과 .env를 배포 후보에 반영한다. 비밀값을 로그·설정에 출력하지 않는다."""
+"""개발 알림 선택과 Compose secret 준비. 실제 웹훅 값은 설정·로그에 넣지 않는다."""
+import argparse
 import json
 import os
-import tempfile
-import uuid
 from pathlib import Path
 import re
-import stat
 import subprocess
-import sys
+import tempfile
 
+ROOT = Path(__file__).resolve().parent
 OVERRIDE = 'compose.notifications.yml'
 SELECTION = 'discord-selection.json'
-SECRET = 'secrets/central_discord_webhook'
-
-
 ENV_KEY = 'CENTRAL_DISCORD_WEBHOOK_URL'
+SECRET_PATH = '/run/secrets/central_discord_webhook'
+WEBHOOK_PATTERN = r'https://discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+'
+
+BUNDLES = {
+    'app': ('MetricsEndpointDown', 'BackendDown', 'BackendHigh5xxErrorRate', 'BackendHighLatency'),
+    'host': ('MetricsEndpointDown', 'NodeMetricsDown', 'HostHighCPU', 'HostMemoryLow', 'HostDiskSpaceLow', 'HostDiskSpaceCritical', 'HostDiskWillFillIn24h'),
+    'logs': ('MetricsEndpointDown', 'LogPipelineDown', 'LogShippingFailing', 'LogEntriesDropped'),
+}
+TITLE = '[{{ .Status | toUpper }}] {{ .CommonLabels.environment }} / {{ .CommonLabels.alertname }}'
+MESSAGE = '''환경: {{ .CommonLabels.environment }} · 서버: {{ .CommonLabels.server }}
+심각도: {{ .CommonLabels.severity }}
+{{ if .CommonLabels.host }}로그 전송 목적지: {{ .CommonLabels.host }}
+{{ end }}발생 {{ len .Alerts.Firing }}건 · 복구 {{ len .Alerts.Resolved }}건
+{{ range $i, $alert := .Alerts }}{{ if lt $i 3 }}
+[{{ .Status | toUpper }}] {{ .Labels.instance }}{{ if .Labels.reason }} · 사유: {{ .Labels.reason }}{{ end }}
+{{ printf "%.300s" .Annotations.summary }}
+{{ printf "%.500s" .Annotations.description }}
+{{ end }}{{ end }}
+{{ if gt (len .Alerts) 3 }}상세는 최대 3건만 표시합니다. 전체 상태는 대시보드에서 확인하세요.
+{{ end }}[호스트](https://monitor.ssssok.com/central/d/sssok-host-overview?var-environment=dev) · [앱](https://monitor.ssssok.com/central/d/sssok-central-backend?var-environment=dev) · [로그 전송](https://monitor.ssssok.com/central/d/sssok-log-transfer?var-environment=dev)'''
 
 
-def generate_secret(target, image):
-    """Compose의 dotenv 해석을 사용한다. 기존 실행/복구용 파일은 덮어쓰지 않는다."""
-    env_file = target / '.env'
-    if env_file.is_symlink() or not env_file.is_file():
-        raise RuntimeError('중앙 .env 일반 파일이 필요합니다')
-    try:
-        with tempfile.TemporaryDirectory(prefix='sssok-webhook-env-') as tmp:
-            probe = Path(tmp) / 'compose.json'
-            probe.write_text(json.dumps({'services': {'probe': {'image': 'unused',
-                'environment': {ENV_KEY: '${' + ENV_KEY + ':-}'}}}}))
-            # 셸 변수보다 서버 .env를 원본으로 사용한다. 결과/오류는 로그에 출력하지 않는다.
-            env = dict(os.environ)
-            env.pop(ENV_KEY, None)
-            result = subprocess.run(['docker', 'compose', '--env-file', str(env_file),
-                '-f', str(probe), 'config', '--format', 'json'], env=env,
-                capture_output=True, text=True, timeout=30)
-            if result.returncode:
-                raise ValueError()
-            value = json.loads(result.stdout)['services']['probe']['environment'][ENV_KEY]
-        if not isinstance(value, str) or not re.fullmatch(
-                r'https://discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+', value):
-            raise ValueError()
-    except (OSError, ValueError, KeyError, subprocess.SubprocessError):
-        raise RuntimeError('중앙 .env의 CENTRAL_DISCORD_WEBHOOK_URL 형식을 확인하세요') from None
-
-    directory = target / 'secrets'
-    if directory.is_symlink():
-        raise RuntimeError('비밀 파일 디렉터리는 심볼릭 링크일 수 없습니다')
-    directory.mkdir(mode=0o700, exist_ok=True)
-    path = directory / ('central_discord_webhook-' + uuid.uuid4().hex)
-    try:
-        # 실제 이미지의 기본 사용자 확인. 호스트 sudo와 고정 UID 가정이 필요 없다.
-        identity = subprocess.run(['docker', 'run', '--rm', '--network', 'none',
-            '--entrypoint', '/bin/sh', image, '-ec', 'id -u; id -g'],
-            capture_output=True, text=True, timeout=30)
-        ids = identity.stdout.split()
-        if identity.returncode or len(ids) != 2 or not all(x.isdigit() for x in ids):
-            raise ValueError()
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-        with os.fdopen(fd, 'w') as stream:
-            stream.write(value + '\n')
-        result = subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--user', '0',
-            '--mount', f'type=bind,src={path},dst=/secret', '--entrypoint', '/bin/sh', image,
-            '-ec', f'chown {ids[0]}:{ids[1]} /secret && chmod 400 /secret && '
-            f'test "$(stat -c %u:%g:%a /secret)" = "{ids[0]}:{ids[1]}:400"'],
-            capture_output=True, text=True, timeout=30)
-        if result.returncode:
-            raise ValueError()
-    except (OSError, ValueError, subprocess.SubprocessError):
-        path.unlink(missing_ok=True)
-        raise RuntimeError('Discord 비밀 파일 자동 생성·권한 설정 실패') from None
-    return path
+def candidate(bundles):
+    unknown = set(bundles) - BUNDLES.keys()
+    if unknown:
+        raise ValueError(f'알 수 없는 이전 묶음: {sorted(unknown)}')
+    base = (ROOT / 'alertmanager.yml').read_text()
+    if not bundles:
+        return base
+    # 기존 grouping/inhibition을 그대로 사용한다. 기준 파일 구조가 바뀌면 조용히 누락하지 않는다.
+    anchor = 'receivers:\n  - name: bootstrap\n'
+    if base.count(anchor) != 1:
+        raise ValueError('기준 Alertmanager 수신 설정이 변경됐습니다. 생성기를 확인하세요.')
+    names = sorted({name for bundle in bundles for name in BUNDLES[bundle]})
+    routing = ('  routes:\n    - receiver: discord-dev\n      matchers:\n'
+               '        - \'environment="dev"\'\n        - \'server="dev"\'\n'
+               f'        - \'alertname=~"{"|".join(names)}"\'\n')
+    receiver = ('  - name: discord-dev\n    discord_configs:\n'
+                '      - webhook_url_file: /run/secrets/central_discord_webhook\n'
+                '        send_resolved: true\n'
+                f'        title: {json.dumps(TITLE, ensure_ascii=False)}\n'
+                f'        message: {json.dumps(MESSAGE, ensure_ascii=False)}\n')
+    return base.replace(anchor, routing + anchor + receiver).replace(
+        '# 알림 판정·중복 억제만 검증한다. 외부 발송 설정과 비밀값은 연결하지 않는다.',
+        '# 생성된 설정: 선택한 개발 알림만 Discord 대상으로 지정.')
 
 
-def prepare(source, target, staged, image=None):
+def prepare(source, target, staged):
     policy = target / SELECTION
     if policy.is_symlink():
         raise RuntimeError('Discord 선택 파일은 심볼릭 링크일 수 없습니다')
@@ -81,54 +68,64 @@ def prepare(source, target, staged, image=None):
         raise RuntimeError('Discord 선택 파일을 읽을 수 없습니다') from None
     if (not isinstance(selection, dict) or set(selection) != {'dev'}
             or not isinstance(selection['dev'], list)
-            or any(not isinstance(item, str) or item not in ('app', 'host', 'logs')
-                   for item in selection['dev'])):
+            or any(not isinstance(item, str) or item not in BUNDLES for item in selection['dev'])):
         raise RuntimeError('Discord 선택 형식은 {"dev": ["app", "host", "logs"]}의 부분집합입니다')
-    args = [sys.executable, '-B', str(source / 'prepare-discord.py')]
-    for bundle in sorted(set(selection['dev'])):
-        args += ['--enable-dev', bundle]
-    config = subprocess.run(args, check=True, capture_output=True, text=True, timeout=30).stdout
-    (staged / 'alertmanager.yml').write_text(config)
+    (staged / 'alertmanager.yml').write_text(candidate(selection['dev']))
     override = {'services': {}}
-    secret = None
     if selection['dev']:
-        if image is not None:
-            secret = generate_secret(target, image() if callable(image) else image)
-        else:
-            # 기존 파일 기반 호출과 복구 검증 호환용. 중앙 CD는 항상 image를 전달한다.
-            secret = target / SECRET
-            if (secret.parent.is_symlink() or secret.is_symlink() or not secret.is_file()
-                    or stat.S_IMODE(secret.stat().st_mode) & 0o027):
-                raise RuntimeError('Discord 비밀 파일이 없거나 권한이 넓습니다. 일반 파일·권한 640 이하가 필요합니다')
-            # 오류에 URL을 포함하지 않는다. 읽을 때도 크기를 제한한다.
-            try:
-                with secret.open() as stream:
-                    value = stream.read(4097).strip()
-                valid = re.fullmatch(r'https://discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+', value)
-            except (OSError, UnicodeError):
-                valid = False
-            if not valid:
-                raise RuntimeError('Discord 비밀 파일의 웹훅 URL 형식을 확인하세요')
-        override['services']['alertmanager'] = {'volumes': [{
-            'type': 'bind', 'source': str(secret),
-            'target': '/run/secrets/central_discord_webhook', 'read_only': True,
-            'bind': {'create_host_path': False}}]}
+        override = json.loads((source / 'compose.discord.yml').read_text())
     (staged / OVERRIDE).write_text(json.dumps(override))
     for name in ('alertmanager.yml', OVERRIDE):
         (staged / name).chmod(0o644)
-    return secret
+    return bool(selection['dev'])
 
 
-def validate(staged, image, secret):
-    args = ['docker', 'run', '--rm', '--network', 'none', '--mount',
-            f'type=bind,src={staged / "alertmanager.yml"},dst=/test/alertmanager.yml,readonly']
-    if secret:
-        args += ['--mount', f'type=bind,src={secret},dst=/run/secrets/central_discord_webhook,readonly']
-    command = 'exec /bin/amtool check-config /test/alertmanager.yml'
-    if secret:
-        command = 'test -r /run/secrets/central_discord_webhook && test -s /run/secrets/central_discord_webhook && ' + command
-    result = subprocess.run(args + ['--entrypoint', '/bin/sh', image, '-ec', command],
+def environment(webhook=None):
+    env = dict(os.environ)
+    env.pop(ENV_KEY, None)  # 평소에는 서버 .env 우선. 자동 복구만 이전 값을 사용한다.
+    if webhook is not None:
+        env[ENV_KEY] = webhook
+    return env
+
+
+def previous_webhook(container):
+    result = subprocess.run(['docker', 'exec', container, 'cat', SECRET_PATH],
                             capture_output=True, text=True, timeout=30)
-    if result.returncode:
-        # amtool의 원문 오류에는 설정 값이 포함될 수 있으므로 CI에 내보내지 않는다.
-        raise RuntimeError('Alertmanager 후보 검사 실패: 설정 문법과 컨테이너의 비밀 파일 읽기 권한을 확인하세요')
+    value = result.stdout.strip()
+    if result.returncode or not re.fullmatch(WEBHOOK_PATTERN, value):
+        raise RuntimeError('자동 복구용 기존 Discord 웹훅 읽기 실패')
+    return value
+
+
+def validate(staged, image, enabled, target):
+    """실제 Compose secret을 격리 컨테이너에 주입해 읽기·형식·설정을 검사한다."""
+    override = json.loads((staged / OVERRIDE).read_text())
+    service = {'image': image, 'network_mode': 'none', 'volumes': [{
+        'type': 'bind', 'source': str(staged / 'alertmanager.yml'),
+        'target': '/test/alertmanager.yml', 'read_only': True}]}
+    service.update(override['services'].get('alertmanager', {}))
+    config = {'services': {'check': service}, 'secrets': override.get('secrets', {})}
+    command = 'exec /bin/amtool check-config /test/alertmanager.yml'
+    if enabled:
+        # 값은 명령 인수/출력에 포함하지 않는다. 한 줄 URL만 허용한다.
+        command = (f'value=$(cat {SECRET_PATH}); test -n "$value"; '
+                   'test "$(printf %s "$value" | wc -l)" -eq 0; '
+                   f'printf %s "$value" | grep -Eq "^{WEBHOOK_PATTERN}$"; ' + command)
+    with tempfile.TemporaryDirectory(prefix='sssok-discord-check-') as tmp:
+        path = Path(tmp) / 'compose.json'
+        path.write_text(json.dumps(config))
+        args = ['docker', 'compose', '-p', Path(tmp).name, '--env-file', str(target / '.env'),
+                '-f', str(path)]
+        try:
+            result = subprocess.run(args + ['run', '--rm', '--no-deps', '--entrypoint', '/bin/sh',
+                'check', '-ec', command], env=environment(), capture_output=True, text=True, timeout=60)
+            if result.returncode:
+                raise RuntimeError('Discord 후보 검사 실패: .env 웹훅·Compose secret·Alertmanager 설정 확인')
+        finally:
+            subprocess.run(args + ['down'], env=environment(), capture_output=True, timeout=30)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--enable-dev', action='append', choices=sorted(BUNDLES), default=[])
+    print(candidate(parser.parse_args().enable_dev), end='')

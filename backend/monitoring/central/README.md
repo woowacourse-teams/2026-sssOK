@@ -418,7 +418,7 @@ node_exporter 기동은 로컬에서 확인하지 못했다. EC2에서 `bash che
 
 ### Discord 연결 준비 — 아직 발송·배포하지 않음
 
-`prepare-discord.py`는 현재 설정의 그룹화·중복 억제 규칙을 유지하면서 **검토용 후보**를 생성한다.
+`notifications.py`는 현재 설정의 그룹화·중복 억제 규칙을 유지하면서 **검토용 후보**를 생성한다.
 CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다. 기본 Compose와 저장소의 `alertmanager.yml`은 계속 무발송 상태이며, 코드 병합만으로 발송이 켜지지 않는다.
 
 | 선택 | 포함하는 개발 알림 | 확인할 화면 |
@@ -431,49 +431,43 @@ CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선�
 
 ```bash
 # 옵션이 없으면 기존 무발송 설정을 그대로 출력한다.
-python3 prepare-discord.py
+python3 notifications.py
 # 앱 알림만 개발 환경에서 이전하는 후보를 출력한다.
-python3 prepare-discord.py --enable-dev app
+python3 notifications.py --enable-dev app
 # 여러 묶음은 옵션을 반복한다.
-python3 prepare-discord.py --enable-dev app --enable-dev logs
+python3 notifications.py --enable-dev app --enable-dev logs
 ```
 
 - **라우팅**은 누가 받을지를 결정한다. `environment=dev`, `server=dev`, 선택한 알림 이름을 모두 만족해야 `discord-dev`로 간다. 나머지와 운영·중앙 알림은 기존 무발송 수신자로 간다.
 - **메시지 템플릿**은 무엇을 보여줄지를 결정한다. 발생/복구 상태, 환경·서버·심각도, 로그 전송 목적지(`host`), 유실 사유와 중앙 Grafana 링크를 넣는다. 최대 3개 알림의 요약·설명을 길이 제한하여 표시한다. 누락한 상세는 대시보드에서 확인한다.
 - **복구 알림**은 `send_resolved: true`로 설정한다. 실제 Discord 수신·전송 성공을 확인한 것은 아니며, 이번 검증은 라우팅과 메시지 렌더링까지다.
-- **비밀값**은 설정에 URL을 적지 않고 `/run/secrets/central_discord_webhook` 파일 경로로 참조한다. 생성기는 비밀값을 읽거나 생성하지 않는다. 선택한 묶음이 있을 때만 CD가 읽기 전용 마운트를 생성한다. 서버 `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL`을 CD가 읽어 배포별 비밀 파일을 자동 생성하고 실제 이미지 사용자 소유·권한 400으로 설정한다. URL을 Git·명령 인수·CI 로그에 넣지 않는다.
+- **비밀값**은 `/run/secrets/central_discord_webhook` 파일로 읽는다. `compose.discord.yml`의 환경변수 기반 secret이 서버 `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL`을 전달한다. Python은 비밀 파일 생성·chown·버전별 보관을 하지 않는다. 현재 고정한 Alertmanager 이미지의 사용자 65534에 맞춰 Compose에 uid/gid 65534, mode 0400을 선언하고 실제 이미지로 읽기 검증한다. 이미지 사용자 변경 시 선언도 함께 검증해야 한다. URL을 Git·명령 인수·CI 로그에 넣지 않는다.
 
 다음 단계는 **서버에서 개발 앱 알림을 실제 전환**하는 것이다. 배포가 관리하는 `alertmanager.yml`을 수동 덮어쓰지 않는다. 중앙 규칙의 무발송 상태를 먼저 점검한 뒤, 개발 앱 알림의 기존 발송을 끄고 서버 선택 파일에 `{"dev": ["app"]}`을 지정하여 중앙 CD를 실행한다. 별도 Alertmanager 사이에는 중복 억제가 공유되지 않으므로 이전 묶음별 발송 담당을 하나로 유지하고 전환 시각·짧은 공백을 기록한다. 되돌릴 때는 중앙 발송을 먼저 끄고 기존 발송을 켠다.
 
-기존 중앙 검증 안의 `test-discord.py`가 실제 배포 이미지의 `amtool`로 설정 문법, 묶음별 환경 격리, 발생/복구 메시지를 검사한다. Docker 네트워크를 차단하며 실제 웹훅이나 Discord는 호출하지 않는다. 별도 CI job은 추가하지 않는다.
+기존 중앙 검증 안의 `test-notifications.py`가 실제 배포 이미지의 `amtool`로 설정 문법, 묶음별 환경 격리, 발생/복구 메시지를 검사한다. Docker 네트워크를 차단하며 실제 웹훅이나 Discord는 호출하지 않는다. 별도 CI job은 추가하지 않는다.
 
 
-### CD에서 발송 선택·비밀 파일을 보존하는 방식
+### CD에서 발송 선택과 웹훅을 다루는 방식
 
 실행 대상은 **중앙 서버 `10.0.20.46`의 전용 CD 러너**다. 앱 서버는 변경하지 않는다.
-목적은 설정 재배포 때 Discord 발송 범위가 초기화되지 않게 하고, 배포 실패 시 이전 실행 설정으로 복구하는 것이다.
 
-| 파일 (`/home/ubuntu/monitoring` 기준) | 관리 주체 | 재배포·실패 복원 동작 |
+| 파일 (`/home/ubuntu/monitoring` 기준) | 관리 주체 | 역할 |
 | --- | --- | --- |
-| `discord-selection.json` | 서버 담당자 | 덮어쓰거나 백업하지 않음. 예: `{"dev": ["app"]}` |
-| `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL` | 서버 담당자 | 최초 등록·회전 시 수정. CD가 덮어쓰거나 백업·출력하지 않음 |
-| `secrets/central_discord_webhook-*` | 중앙 CD | 배포별 자동 생성, 실제 이미지 사용자 소유·권한 400. 이전 복구 경로를 위해 보존 |
-| `alertmanager.yml` | CD | 매 배포마다 선택을 반영해 생성. 실패 시 이전 파일 복원 |
-| `compose.notifications.yml` | CD | 활성화 때만 비밀 파일의 읽기 전용 마운트 포함. 실패 시 이전 파일 복원, 최초 배포 실패라면 삭제 |
+| `discord-selection.json` | 서버 담당자 | 발송 묶음 선택. 예: `{"dev": ["app"]}`. CD가 덮어쓰지 않음 |
+| `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL` | 서버 담당자 | 웹훅 원본. CD가 덮어쓰거나 백업·출력하지 않음 |
+| `compose.discord.yml` | 저장소 | 환경변수 기반 secret과 컨테이너 내 권한 선언 |
+| `alertmanager.yml`, `compose.notifications.yml` | CD | 선택에 따라 생성한 설정. 실패 시 이전 설정 복원 |
 
-CD는 다음 순서로 처리한다.
+1. 배포 잠금을 획득하고 선택을 검사한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다.
+2. 후보 설정을 생성한다. 선택한 묶음이 있을 때만 Compose secret 선언을 포함한다.
+3. 실제 이미지·네트워크 차단 컨테이너에서 `.env` 값 전달, URL 형식, 파일 읽기, Alertmanager 문법을 검사한다. 누락·오류는 기존 서비스 중단 전에 실패한다. Docker Compose의 dotenv 해석을 사용하고 셸의 동명 변수는 제거한다.
+4. 기존 실행 설정이 환경변수 secret을 사용하면 컨테이너에서 이전 값을 읽어 배포 프로세스 메모리에만 보관한다. 읽을 수 없으면 중단한다.
+5. 기존 설정·Grafana 데이터를 백업하고 배포한다. 실패 시 이전 설정을 복원하며, Compose에 이전 웹훅 값을 자식 프로세스 환경으로 전달한다. 성공·실패 후 보관한 참조를 해제한다.
 
-1. 배포 잠금을 획득하고 서버 선택 파일을 읽는다. 파일이 없으면 발송하지 않는다. 형식 오류·지원하지 않는 묶음·운영 환경 지정은 배포 실패로 처리한다.
-2. 임시 폴더에 후보를 생성한다. 활성화 시 서버 `.env`를 Compose의 dotenv 문법으로 읽어 URL 형식을 검사한다. 셸의 동명 변수는 사용하지 않는다. 고유 이름의 비밀 파일을 생성하고 네트워크가 차단된 Docker 보조 컨테이너로 소유권·권한을 설정한다. URL은 `https://discord.com/api/webhooks/...` 형식만 허용한다.
-3. 실제 배포 이미지의 기본 사용자로 비밀 파일을 읽을 수 있는지와 Alertmanager 문법을 검사한다. 네트워크를 차단하므로 이 검사는 Discord를 호출하지 않는다. 실패하면 Grafana 중단·기존 설정 복사 전에 종료한다.
-4. 기존 설정과 Grafana 데이터를 백업한 뒤 후보를 적용하고 기존 배포 점검을 실행한다.
-5. 실패하면 **이전의 실제 발송 설정과 마운트**를 복원한다. 서버 선택 파일은 담당자가 지정한 다음 배포 의도로 남으므로, 실패 직후에는 선택 파일과 실행 상태가 다를 수 있다. 재시도 전에 둘을 확인한다.
+**복구 범위:** 같은 배포 실행 안의 자동 복구는 직전 웹훅을 사용한다. 과거 웹훅 파일을 서버에 누적하지 않으므로, 프로세스 강제 종료 후 수동 복원 또는 과거 백업 복원에는 현재 `.env` 값이 사용된다. 이전 발송 대상이 필요하면 담당자가 `.env`를 복원해야 한다. `.env`의 새 값과 서버 선택은 자동 복구 후에도 다음 배포 의도로 남는다. 이미 폐기한 Discord 웹훅은 복구할 수 없다.
 
-성공 기준은 같은 선택으로 재배포해도 발송 범위가 유지되고, 실패 후에는 이전 실행 설정이 돌아오며, 비밀값이 배포 산출물·백업·로그에 들어가지 않는 것이다. 이를 로컬 실패 주입 검사와 격리 컨테이너 검사로 확인한다. 실제 서버의 파일 소유권과 Discord 수신은 전환 단계에서 별도로 확인해야 한다.
-
-주의: 알림 연결 후 수동 Compose 조작이 필요하면 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 세 번째 파일을 생략하면 비밀 파일 마운트가 빠질 수 있다. 이 기능 이전 버전의 CD로 배포하는 것도 지원하지 않는다. 발송을 끄려면 선택을 `{"dev": []}`로 변경하고 이 기능을 포함한 CD로 배포한다. 배포 중에는 선택 파일·비밀 파일을 변경하거나 웹훅을 회전하지 않는다.
-
-현재 변경은 로컬 구현·검증 단계다. 실제 서버 적용과 Discord 발송 수신은 별도 확인이 필요하다.
+알림 연결 후 수동 Compose 조작에는 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 발송 해제는 선택을 `{"dev": []}`로 변경한 뒤 중앙 CD로 배포한다. 배포 중에는 `.env`와 선택을 바꾸지 않는다. 실제 서버 적용·Discord 수신은 별도 확인한다.
 
 
 ### 자원·응답 지연 초기 기준
@@ -512,22 +506,18 @@ Grafana 단일 값 regex 보간을 재현하는 검사이며 브라우저 E2E는
 
 ### 서버 .env로 Discord 웹훅 관리
 
-중앙 서버 `/home/ubuntu/monitoring/.env`에 `CENTRAL_DISCORD_WEBHOOK_URL`을 등록한다.
-원본 `.env`는 서버 담당자만 관리하고 저장소·CI 산출물·설정 백업에 포함하지 않는다.
-URL을 명령 인수나 로그에 출력하지 않는다. 기존 Grafana 변수 등은 유지한다.
+`/home/ubuntu/monitoring/.env`에 `CENTRAL_DISCORD_WEBHOOK_URL`을 등록한다.
+기존 Grafana 변수 등은 유지한다. 등록만으로 발송하지 않으며 `discord-selection.json`으로
+개발 묶음을 선택한 배포에서만 Compose secret이 전달된다.
 
-URL 등록만으로는 발송하지 않는다. `discord-selection.json`이 없거나 개발 선택이 비어
-있으면 CD는 웹훅을 읽거나 비밀 파일을 생성하지 않는다. 개발 발송을 선택한 경우에만
-자동 생성·권한 설정·실제 Alertmanager 사용자 읽기·설정 문법 검사를 수행한다.
-잘못되거나 누락된 URL은 기존 서비스 중단 전에 배포를 실패시킨다.
+`compose.discord.yml`은 JSON으로 표기한 유효한 Compose YAML이다. secret 원본은
+환경변수 이름만 선언하며 실제 값은 넣지 않는다. Python이 소유권을 바꾸는 Docker 보조
+컨테이너와 `secrets/central_discord_webhook-*` 파일 생성은 제거했다.
+Compose 환경변수 secret·권한 동작은 Docker Compose 2.32.4에서 격리 검증했다.
+실서버 버전의 지원 여부도 배포 사전 검사에서 확인하므로 수동 파일 생성은 필요 없다.
 
-매 배포마다 새 파일을 생성하므로 URL 회전 중 실패해도 이전 Compose override를 복원하면
-이전 파일을 다시 사용한다. 파일 내용은 백업하지 않고 경로만 설정 백업에 남긴다.
-이전 파일은 자동 삭제하지 않는다. 현재 실행 컨테이너 및 보존 중인 백업이 참조하는 파일은
-삭제하면 복구가 불가능하다. 실패한 사전 검사에서 생성된 파일도 남을 수 있으므로,
-보존 백업을 정리할 때 참조되지 않는 파일을 함께 정리한다. `.env`에 등록한 새 URL은
-복구 시 되돌리지 않으며 다음 배포의 의도로 유지한다. 폐기된 웹훅 자체를 되살리지는 못한다.
+기존 파일 기반 설정·백업이 남아 있다면 그 파일은 자동 삭제하지 않는다.
+현재 실행 설정과 보존 백업이 더 이상 참조하지 않는 것을 확인한 뒤 별도로 정리한다.
 
-이 기능을 적용한 CD부터 수동 비밀 파일 생성은 필요 없다. 기존 파일 기반 배포가 활성화된
-서버는 `.env`에 URL을 먼저 등록해야 한다. 기존 고정 경로 파일도 이전 백업이 참조하는
-동안 보존한다. 발송 묶음 전환과 Discord 실제 수신 확인은 별도 단계다.
+알림 설정 생성은 `notifications.py`로 합쳤고, 라우팅·메시지·Compose secret 검사는
+`test-notifications.py`에서 함께 실행한다. `prepare-discord.py`, `test-discord.py`는 제거했다.

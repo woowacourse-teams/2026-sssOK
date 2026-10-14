@@ -185,7 +185,7 @@ class DeploymentTest(unittest.TestCase):
                     override.unlink()
                 policy = self.target / notifications.SELECTION
                 policy.write_text('{"dev": ["app"]}')
-                secret = self.target / notifications.SECRET
+                secret = self.target / 'secrets/central_discord_webhook'
                 secret.parent.mkdir(exist_ok=True)
                 secret.write_text('secret-remains-on-server')
                 staged = self.source / 'staged'
@@ -243,6 +243,17 @@ class DeploymentTest(unittest.TestCase):
         calls = {call.args[-1]: call.args for call in compose.call_args_list}
         for service in ('loki', 'nginx'):
             self.assertIn('--force-recreate', calls[service])
+
+    def test_restore_uses_previous_webhook_only_in_child_environment(self):
+        d = self.deployment
+        d.rollback_webhook = 'previous-private-value'
+        with patch('deploy.run') as run:
+            d.compose('config', '--quiet')
+            self.assertNotIn(notifications.ENV_KEY, run.call_args.kwargs['env'])
+            d.restoring = True
+            d.compose('up', '-d', 'alertmanager')
+            self.assertEqual(run.call_args.kwargs['env'][notifications.ENV_KEY], 'previous-private-value')
+            self.assertNotIn('previous-private-value', str(run.call_args.args))
 
     def test_image_change_rejected_before_snapshot(self):
         old = {'services': {name: {'image': name + ':1', 'volumes': []} for name in SERVICES}}

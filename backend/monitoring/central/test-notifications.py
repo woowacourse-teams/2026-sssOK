@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""서버 선택 보존·잘못된 입력 차단·실제 이미지의 비밀 파일 접근을 격리 검증한다."""
+"""선택·Compose secret·교체/복구·라우팅을 실제 이미지로 검사한다. 외부 발송 없음."""
+from contextlib import ExitStack
 import json
 import os
-import subprocess
-import sys
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -17,168 +17,148 @@ ROOT = Path(__file__).resolve().parent
 
 class NotificationTest(unittest.TestCase):
     def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.target = Path(tmp.name) / 'target'
-        self.staged = Path(tmp.name) / 'staged'
-        self.target.mkdir()
+        temp = tempfile.TemporaryDirectory(prefix='sssok-notification-test-')
+        self.addCleanup(temp.cleanup)
+        self.target = Path(temp.name)
+        self.staged = self.target / 'staged'
         self.staged.mkdir()
         self.policy = self.target / notifications.SELECTION
-        self.secret = self.target / notifications.SECRET
+        self.env = self.target / '.env'
+        self.env.write_text('')
+        self.image = compose_config()['services']['alertmanager']['image']
 
-    def enable(self):
-        self.policy.write_text('{"dev": ["app"]}')
-        self.secret.parent.mkdir(exist_ok=True)
-        self.secret.write_text('https://discord.com/api/webhooks/123/test-only')
-        self.secret.chmod(0o640)
+    def prepare(self):
+        return notifications.prepare(ROOT, self.target, self.staged)
 
-    def test_default_and_repeated_deployment_and_disable(self):
-        self.assertIsNone(notifications.prepare(ROOT, self.target, self.staged))
+    def test_disabled_and_selection_validation(self):
+        self.assertFalse(self.prepare())
+        notifications.validate(self.staged, self.image, False, self.target)
         self.assertEqual((self.staged / 'alertmanager.yml').read_text(), (ROOT / 'alertmanager.yml').read_text())
-        self.enable()
-        for _ in range(2):
-            self.assertEqual(notifications.prepare(ROOT, self.target, self.staged), self.secret)
-            self.assertIn('discord-dev', (self.staged / 'alertmanager.yml').read_text())
-            mount = json.loads((self.staged / notifications.OVERRIDE).read_text())['services']['alertmanager']['volumes'][0]
-            self.assertEqual(mount['source'], str(self.secret))
-            self.assertTrue(mount['read_only'])
-            self.assertNotIn('test-only', (self.staged / 'alertmanager.yml').read_text())
-        self.policy.write_text('{"dev": []}')
-        self.assertIsNone(notifications.prepare(ROOT, self.target, self.staged))
-        self.assertEqual(json.loads((self.staged / notifications.OVERRIDE).read_text()), {'services': {}})
-        self.assertTrue(self.secret.exists())
-
-    def test_dotenv_generation_rotation_and_rollback_mount(self):
-        image = compose_config()['services']['alertmanager']['image']
-        env_file = self.target / '.env'
-        first = 'https://discord.com/api/webhooks/123/first-test-only'
-        second = 'https://discord.com/api/webhooks/123/second-test-only'
-        env_file.write_text(f"GRAFANA_ADMIN_PASSWORD=unrelated\n{notifications.ENV_KEY}='{first}'\n")
-        original_env = env_file.read_bytes()
-        # URL을 등록하는 것만으로는 활성화/파일 생성이 일어나지 않는다.
-        self.assertIsNone(notifications.prepare(ROOT, self.target, self.staged, image=image))
-        self.assertFalse(self.secret.parent.exists())
-        self.policy.write_text('{"dev": ["app"]}')
-        with patch.dict(os.environ, {notifications.ENV_KEY: 'shell-must-not-win'}):
-            old_secret = notifications.prepare(ROOT, self.target, self.staged, image=image)
-        old_mount = (self.staged / notifications.OVERRIDE).read_bytes()
-        notifications.validate(self.staged, image, old_secret)
-        self.assertEqual(env_file.read_bytes(), original_env)
-        # Docker Desktop은 호스트 파일의 소유권/모드를 가상화한다. Linux에서 실권한 확인.
-        if sys.platform == 'linux':
-            self.assertEqual(old_secret.stat().st_mode & 0o777, 0o400)
-        env_file.write_text(f'{notifications.ENV_KEY}="{second}"\n')
-        new_secret = notifications.prepare(ROOT, self.target, self.staged, image=image)
-        self.assertNotEqual(old_secret, new_secret)
-        notifications.validate(self.staged, image, new_secret)
-        # 복구는 이전 override 경로를 복원한다. 두 파일의 값은 독립적으로 유지된다.
-        (self.staged / notifications.OVERRIDE).write_bytes(old_mount)
-        restored = Path(json.loads(old_mount)['services']['alertmanager']['volumes'][0]['source'])
-        for path, value in ((restored, first), (new_secret, second)):
-            content = subprocess.run(['docker', 'run', '--rm', '--network', 'none',
-                '--mount', f'type=bind,src={path},dst=/secret,readonly',
-                '--entrypoint', '/bin/cat', image, '/secret'],
-                capture_output=True, text=True, check=True).stdout.strip()
-            self.assertEqual(content, value)
-        for path in self.staged.iterdir():
-            self.assertNotIn(first, path.read_text())
-            self.assertNotIn(second, path.read_text())
-        self.policy.write_text('{"dev": []}')
-        self.assertIsNone(notifications.prepare(ROOT, self.target, self.staged, image=image))
-        self.assertTrue(old_secret.exists())
-
-    def test_dotenv_invalid_missing_and_links_fail_without_value(self):
-        image = compose_config()['services']['alertmanager']['image']
-        self.policy.write_text('{"dev": ["app"]}')
-        env_file = self.target / '.env'
-        for value in ('', 'do-not-expose-this', 'https://example.com/secret'):
-            env_file.write_text(f'{notifications.ENV_KEY}={value}\n')
-            with self.assertRaises(RuntimeError) as error:
-                notifications.prepare(ROOT, self.target, self.staged, image=image)
-            if value:
-                self.assertNotIn(value, str(error.exception))
-            self.assertFalse(self.secret.parent.exists())
-        env_file.unlink()
-        with self.assertRaises(RuntimeError):
-            notifications.prepare(ROOT, self.target, self.staged, image=image)
-        env_file.symlink_to(self.policy)
-        with self.assertRaises(RuntimeError):
-            notifications.prepare(ROOT, self.target, self.staged, image=image)
-        env_file.unlink()
-        env_file.write_text(f'{notifications.ENV_KEY}=https://discord.com/api/webhooks/123/test-only\n')
-        self.secret.parent.symlink_to(self.staged, target_is_directory=True)
-        with self.assertRaises(RuntimeError):
-            notifications.prepare(ROOT, self.target, self.staged, image=image)
-
-    def test_permission_failure_removes_candidate_without_exposing_url(self):
-        image = compose_config()['services']['alertmanager']['image']
-        self.policy.write_text('{"dev": ["app"]}')
-        value = 'https://discord.com/api/webhooks/123/permission-test-secret'
-        (self.target / '.env').write_text(f'{notifications.ENV_KEY}={value}\n')
-        real_run = subprocess.run
-
-        def fail_permission(args, **kwargs):
-            if '--user' in args and '0' in args:
-                return subprocess.CompletedProcess(args, 1, '', 'failure')
-            return real_run(args, **kwargs)
-
-        with patch('notifications.subprocess.run', side_effect=fail_permission):
-            with self.assertRaisesRegex(RuntimeError, '권한 설정 실패') as error:
-                notifications.prepare(ROOT, self.target, self.staged, image=image)
-        self.assertNotIn(value, str(error.exception))
-        self.assertEqual(list(self.secret.parent.iterdir()), [])
-        self.assertFalse((self.staged / notifications.OVERRIDE).exists())
-
-    def test_invalid_selection_fails_closed(self):
         for text in ('broken', '{}', '[]', '{"prod": ["app"]}', '{"dev": "app"}',
                      '{"dev": [null]}', '{"dev": ["unknown"]}'):
-            with self.subTest(text=text):
-                self.policy.write_text(text)
-                with self.assertRaises(RuntimeError):
-                    notifications.prepare(ROOT, self.target, self.staged)
+            self.policy.write_text(text)
+            with self.assertRaises(RuntimeError):
+                self.prepare()
+        self.policy.write_text('{"dev": ["app"]}')
+        for _ in range(2):
+            self.assertTrue(self.prepare())
+        self.policy.write_text('{"dev": []}')
+        self.assertFalse(self.prepare())
+        self.assertEqual(json.loads((self.staged / notifications.OVERRIDE).read_text()), {'services': {}})
+        self.assertFalse((self.target / 'secrets').exists())
 
-    def test_missing_broad_permissions_and_invalid_secret(self):
-        self.enable()
-        for kind in ('missing', 'public', 'invalid', 'symlink'):
-            with self.subTest(kind=kind):
-                self.secret.unlink(missing_ok=True)
-                self.enable()
-                if kind == 'missing':
-                    self.secret.unlink()
-                elif kind == 'public':
-                    self.secret.chmod(0o644)
-                elif kind == 'invalid':
-                    self.secret.write_text('do-not-print-this-value')
-                else:
-                    self.secret.unlink()
-                    self.secret.symlink_to(self.policy)
-                with self.assertRaises(RuntimeError) as error:
-                    notifications.prepare(ROOT, self.target, self.staged)
-                self.assertNotIn('do-not-print-this-value', str(error.exception))
+    def test_invalid_or_missing_value_fails_without_exposure(self):
+        self.policy.write_text('{"dev": ["app"]}')
+        self.prepare()
+        for value in ('', 'do-not-expose', 'https://example.com/secret'):
+            self.env.write_text(f'{notifications.ENV_KEY}={value}\n')
+            with self.assertRaises(RuntimeError) as error:
+                notifications.validate(self.staged, self.image, True, self.target)
+            if value:
+                self.assertNotIn(value, str(error.exception))
 
-    def test_real_image_config_and_secret_readability_without_network(self):
-        image = compose_config()['services']['alertmanager']['image']
-        notifications.prepare(ROOT, self.target, self.staged)
-        notifications.validate(self.staged, image, None)
-        self.enable()
-        notifications.prepare(ROOT, self.target, self.staged)
-        config = subprocess.run(['docker', 'compose', '--project-directory', str(self.target),
-                                 '--env-file', os.devnull, '-f', str(ROOT / 'compose.yml'),
-                                 '-f', str(ROOT / 'compose.web.yml'), '-f', str(self.staged / notifications.OVERRIDE),
-                                 'config', '--format', 'json'],
-                                env=dict(os.environ, GRAFANA_ADMIN_PASSWORD='test-only'),
-                                check=True, capture_output=True, text=True)
-        mounts = json.loads(config.stdout)['services']['alertmanager']['volumes']
-        self.assertEqual(len([m for m in mounts if m['target'] == '/run/secrets/central_discord_webhook']), 1)
-        base = next(m for m in mounts if m['target'] == '/etc/alertmanager/alertmanager.yml')
-        self.assertEqual(base['source'], str(self.target / 'alertmanager.yml'))
-        # Docker Desktop의 파일 소유권 매핑과 무관하게 내용만 읽는 격리 검사.
-        # 서버에서 prepare는 공개 읽기 권한을 거부하고 실제 컨테이너 사용자로 다시 검사한다.
-        self.secret.chmod(0o644)
-        notifications.validate(self.staged, image, self.secret)
-        self.secret.unlink()
-        with self.assertRaisesRegex(RuntimeError, '후보 검사 실패'):
-            notifications.validate(self.staged, image, self.secret)
+    def test_compose_secret_permissions_rotation_and_restore(self):
+        first = 'https://discord.com/api/webhooks/123/first-test-only'
+        second = 'https://discord.com/api/webhooks/123/second-test-only'
+        self.env.write_text(f"{notifications.ENV_KEY}='{first}'\n")
+        original = self.env.read_bytes()
+        self.assertFalse(self.prepare())  # 값 등록만으로 발송하지 않는다.
+        self.policy.write_text('{"dev": ["app"]}')
+        self.prepare()
+        with patch.dict(os.environ, {notifications.ENV_KEY: 'shell-must-not-win'}):
+            notifications.validate(self.staged, self.image, True, self.target)
+        self.assertEqual(self.env.read_bytes(), original)
+        config = json.loads((self.staged / notifications.OVERRIDE).read_text())
+        config['services']['alertmanager'].update({'image': self.image, 'network_mode': 'none',
+            'entrypoint': ['/bin/sh', '-ec', 'sleep 120']})
+        path = self.target / 'probe.json'
+        path.write_text(json.dumps(config))
+        args = ['docker', 'compose', '-p', self.target.name, '--env-file', str(self.env), '-f', str(path)]
+        self.addCleanup(subprocess.run, args + ['down'], capture_output=True, env=notifications.environment())
+
+        def compose(*command, webhook=None):
+            return subprocess.run(args + list(command), env=notifications.environment(webhook),
+                                  capture_output=True, text=True, check=True).stdout.strip()
+
+        compose('up', '-d')
+        cid = compose('ps', '-q', 'alertmanager')
+        old = notifications.previous_webhook(cid)
+        self.assertEqual(old, first)
+        mode = compose('exec', '-T', 'alertmanager', 'stat', '-c', '%u:%g:%a', notifications.SECRET_PATH)
+        self.assertEqual(mode, '65534:65534:400')
+        self.env.write_text(f'{notifications.ENV_KEY}="{second}"\n')
+        compose('up', '-d', '--force-recreate')
+        self.assertEqual(notifications.previous_webhook(compose('ps', '-q', 'alertmanager')), second)
+        compose('up', '-d', '--force-recreate', webhook=old)
+        cid = compose('ps', '-q', 'alertmanager', webhook=old)
+        self.assertEqual(notifications.previous_webhook(cid), first)
+        inspected = subprocess.run(['docker', 'inspect', cid], capture_output=True, text=True, check=True).stdout
+        self.assertNotIn(first, inspected)
+        self.assertNotIn(second, inspected)
+        for file in self.staged.iterdir():
+            self.assertNotIn(first, file.read_text())
+        self.assertFalse((self.target / 'secrets').exists())
+
+    def test_routes_and_templates(self):
+        check_routes_and_templates()
+
+
+def check_routes_and_templates():
+    assert notifications.candidate([]) == (ROOT / 'alertmanager.yml').read_text()
+    try:
+        notifications.candidate(['prod'])
+        raise AssertionError('허용되지 않은 묶음을 수락함')
+    except ValueError:
+        pass
+    image = compose_config()['services']['alertmanager']['image']
+    with tempfile.TemporaryDirectory(prefix='sssok-discord-') as tmp, ExitStack() as cleanup:
+        root = Path(tmp)
+        root.chmod(0o755)
+        (root / 'empty.tmpl').write_text('')
+
+        # 같은 격리 컨테이너를 재사용해 라우팅 조합마다 이미지를 다시 띄우지 않는다.
+        cid = subprocess.run(['docker', 'run', '--rm', '-d', '--network', 'none',
+                              '--mount', f'type=bind,src={root},dst=/test,readonly',
+                              '--entrypoint', '/bin/sh', image, '-c', 'sleep 300'],
+                             check=True, capture_output=True, text=True, timeout=30).stdout.strip()
+        cleanup.callback(subprocess.run, ['docker', 'rm', '-f', cid],
+                         check=True, capture_output=True, timeout=30)
+
+        def amtool(*args):
+            return subprocess.run(['docker', 'exec', cid, '/bin/amtool', *args],
+                                  check=True, capture_output=True, text=True, timeout=30).stdout
+
+        for bundle in notifications.BUNDLES:
+            config = notifications.candidate([bundle])
+            assert 'send_resolved: true' in config and 'webhook_url:' not in config
+            (root / 'candidate.yml').write_text(config)
+            amtool('check-config', '/test/candidate.yml')
+            for environment, server in [('dev', 'dev'), ('prod', 'prod'), ('monitoring', 'monitoring'), ('dev', '')]:
+                for name in sorted(set(sum(notifications.BUNDLES.values(), ())) | {'CentralComponentDown', 'UnknownAlert'}):
+                    expected = 'discord-dev' if environment == server == 'dev' and name in notifications.BUNDLES[bundle] else 'bootstrap'
+                    amtool('config', 'routes', 'test', '--config.file=/test/candidate.yml',
+                           '--verify.receivers=' + expected, 'environment=' + environment,
+                           'server=' + server, 'alertname=' + name)
+
+        for status in ('firing', 'resolved'):
+            labels = dict(environment='dev', server='dev', alertname='LogEntriesDropped',
+                          severity='warning', host='10.0.20.46:13100')
+            alert = dict(status=status, labels=dict(labels, instance='dev:19100', reason='rate_limited'),
+                         annotations=dict(summary='로그 유실', description='가' * 2000),
+                         startsAt='2026-10-14T00:00:00Z', endsAt='2026-10-14T01:00:00Z')
+            (root / 'data.json').write_text(json.dumps(dict(status=status, commonLabels=labels,
+                                                            alerts=[alert] * 10)))
+            def render(template):
+                return amtool('template', 'render', '--template.glob=/test/empty.tmpl',
+                              '--template.data=/test/data.json', '--template.text=' + template)
+            title, message = render(notifications.TITLE), render(notifications.MESSAGE)
+            assert status.upper() in title and len(title.strip()) <= 256
+            assert len(message.strip()) <= 4096
+            for expected in ('10.0.20.46:13100', 'rate_limited', '서버: dev', '최대 3건',
+                             '/central/d/sssok-log-transfer?var-environment=dev',
+                             '발생 10건 · 복구 0건' if status == 'firing' else '발생 0건 · 복구 10건'):
+                assert expected in message, expected
+    print('Discord 후보: 기본 무발송·개발 묶음별 라우팅·발생/복구 메시지 검증 통과 (네트워크 차단)')
 
 
 if __name__ == '__main__':
