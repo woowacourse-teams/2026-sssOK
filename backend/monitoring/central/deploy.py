@@ -72,7 +72,9 @@ class Deployment:
         self.staged = Path(self.staging.name)
         for name in FILES:
             shutil.copyfile(self.source / name, self.staged / name)
-        secret = notifications.prepare(self.source, self.target, self.staged)
+        secret = notifications.prepare(self.source, self.target, self.staged, image=lambda: json.loads(
+            self.compose('config', '--format', 'json', source=self.staged, capture=True).stdout
+        )['services']['alertmanager']['image'])
         old = json.loads(self.compose('config', '--format', 'json', capture=True).stdout)
         new = json.loads(self.compose('config', '--format', 'json', source=self.staged, capture=True).stdout)
         notifications.validate(self.staged, new['services']['alertmanager']['image'], secret)
