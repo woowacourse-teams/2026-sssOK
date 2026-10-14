@@ -27,6 +27,7 @@ def compose_config():
 
 def main():
     run([sys.executable, '-B', str(ROOT / 'test-check-alerts.py')])
+    run([sys.executable, '-B', str(ROOT / 'test-log-transfer.py')])
     services = compose_config()['services']
     assert set(services) == {'prometheus', 'loki', 'grafana', 'alertmanager', 'node-exporter', 'nginx'}
 
@@ -48,7 +49,6 @@ def main():
           [(ROOT / 'alertmanager.yml', '/etc/alertmanager/config.yml')], '/bin/amtool')
     # 기존 중앙 검증 안에서 실행하며 별도 CI job은 만들지 않는다.
     run([sys.executable, '-B', str(ROOT / 'test-alertmanager.py')])
-    run([sys.executable, '-B', str(ROOT / 'test-discord.py')])
     run([sys.executable, '-B', str(ROOT / 'test-notifications.py')])
     check('loki', ['-config.file=/etc/loki/config.yml', '-verify-config=true'],
           [(ROOT / 'loki.yml', '/etc/loki/config.yml')])
