@@ -8,7 +8,6 @@
 //   PROFILE=load   본 측정. 예열(warmup) 뒤 본 측정(main) 구간을 따로 집계한다.
 //   MODE=vus       사용자 수 고정 (기본). 사용자마다 THINK_TIME 만큼 쉬며 목록을 다시 연다.
 //   MODE=rate      요청률 고정. 목록 크기 비교처럼 데이터만 바꾸고 입력량을 같게 둘 때 쓴다.
-import http from 'k6/http';
 import exec from 'k6/execution';
 import { sleep } from 'k6';
 
@@ -16,6 +15,7 @@ import {
   buildUsers, durationEnv, env, intEnv, loadFixtures, resolveBaseUrl, resolveResultsDir, userForVu,
 } from '../lib/config.js';
 import { createClient } from '../lib/http.js';
+import { checkTarget, jitter, runInfo, stopConditions, warmupMain } from '../lib/run.js';
 import { trackApis, writeSummary } from '../lib/summary.js';
 
 const SCENARIO = 'media-list';
@@ -48,7 +48,7 @@ export const options = {
   scenarios: buildScenarios(),
   thresholds: {
     ...trackApis(APIS, PHASES),
-    ...stopConditions(),
+    ...stopConditions(PROFILE, PROFILE === 'smoke' ? 'smoke' : 'main'),
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   // 응답 본문은 검증에 필요하다. discardResponseBodies 를 켜지 않는다.
@@ -78,55 +78,19 @@ function buildScenarios() {
       smoke: { executor: 'per-vu-iterations', vus: CONFIG.vus, iterations: CONFIG.iterations, maxDuration: '2m', tags: { phase: 'smoke' } },
     };
   }
-  const phase = (name, startTime, duration) => {
-    const common = { startTime, tags: { phase: name }, gracefulStop: '10s' };
-    if (MODE === 'rate') {
-      return { ...common, executor: 'constant-arrival-rate', rate: CONFIG.rate, timeUnit: '1s', duration, preAllocatedVUs: CONFIG.vus, maxVUs: CONFIG.vus };
-    }
-    return { ...common, executor: 'constant-vus', vus: CONFIG.vus, duration };
-  };
-  return {
-    warmup: phase('warmup', '0s', CONFIG.phaseDurations.warmup),
-    main: phase('main', CONFIG.phaseDurations.warmup, CONFIG.phaseDurations.main),
-  };
+  const executor = MODE === 'rate'
+    ? { executor: 'constant-arrival-rate', rate: CONFIG.rate, timeUnit: '1s', preAllocatedVUs: CONFIG.vus, maxVUs: CONFIG.vus }
+    : { executor: 'constant-vus', vus: CONFIG.vus };
+  return warmupMain(executor, CONFIG.phaseDurations);
 }
 
-// 사전 점검은 하나라도 실패하면 실패다. 본 측정은 실패율 5% 초과가 1분 이어지면 멈춘다(#517 중단 기준).
-// 공유 RDS CPU·운영 경보는 k6 가 보지 못하므로 사람이 Grafana 를 보고 중단한다.
-function stopConditions() {
-  if (PROFILE === 'smoke') {
-    return { 'business_ok{phase:smoke}': ['rate==1'] };
-  }
-  return {
-    'http_req_failed{phase:main}': [{ threshold: 'rate<0.05', abortOnFail: true, delayAbortEval: '1m' }],
-    'business_ok{phase:main}': [{ threshold: 'rate>0.95', abortOnFail: true, delayAbortEval: '1m' }],
-  };
-}
-
-// 측정 전에 대상과 데이터가 fixtures 와 맞는지 확인한다. 어긋나면 부하를 걸지 않고 끝낸다.
 export function setup() {
-  const versionRes = http.get(`${BASE_URL}/version`, { tags: { api: 'setup' } });
-  if (versionRes.status !== 200) {
-    exec.test.abort(`대상 서버 응답 없음: GET /version → ${versionRes.status}`);
-  }
   const client = createClient(BASE_URL);
-  for (const room of fixtures.rooms) {
-    const expected = USERS.find((user) => user.roomId === room.roomId).expectedPhotos;
-    const { ok, data, reason } = client.get('setup', `/rooms/${room.roomId}/media?size=1`, { token: room.host.accessToken });
-    if (!ok || data.totalCount !== expected) {
-      exec.test.abort(`roomId=${room.roomId} 사진 수가 fixtures(${expected})와 다릅니다: ${reason ?? data.totalCount}`);
-    }
-  }
+  const appVersion = checkTarget({ baseUrl: BASE_URL, client, fixtures });
   if (CONFIG.vus > USERS.length) {
     console.warn(`VUS(${CONFIG.vus})가 fixtures 계정 수(${USERS.length})보다 많아 한 계정을 여러 가상 사용자가 함께 쓴다`);
   }
-  return {
-    runId: env('RUN_ID', new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z'),
-    startedAtUtc: new Date().toISOString(),
-    baseUrl: BASE_URL,
-    appVersion: JSON.parse(versionRes.body),
-    dataCondition: { fixtures: fixturesPath, seedRunId: fixtures.runId, ...fixtures.condition, accounts: USERS.length },
-  };
+  return runInfo({ baseUrl: BASE_URL, appVersion, fixturesPath, fixtures, accounts: USERS.length });
 }
 
 const client = createClient(BASE_URL);
@@ -139,7 +103,7 @@ export default function () {
     scrollPages(user);
   }
   if (CONFIG.thinkTimeSec > 0) {
-    sleep(CONFIG.thinkTimeSec * (0.5 + Math.random()));
+    sleep(jitter(CONFIG.thinkTimeSec));
   }
 }
 
@@ -166,7 +130,7 @@ function scrollPages(user) {
     }
     cursor = data.nextCursor;
     if (CONFIG.thinkTimeSec > 0) {
-      sleep(CONFIG.thinkTimeSec * (0.5 + Math.random()));
+      sleep(jitter(CONFIG.thinkTimeSec));
     }
   }
 }
