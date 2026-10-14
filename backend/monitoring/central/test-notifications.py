@@ -34,11 +34,14 @@ class NotificationTest(unittest.TestCase):
         self.assertFalse(self.prepare())
         notifications.validate(self.staged, self.image, False, self.target)
         self.assertEqual((self.staged / 'alertmanager.yml').read_text(), (ROOT / 'alertmanager.yml').read_text())
-        for text in ('broken', '{}', '[]', '{"prod": ["app"]}', '{"dev": "app"}',
-                     '{"dev": [null]}', '{"dev": ["unknown"]}'):
+        for text in ('broken', '{}', '[]', '{"staging": ["app"]}', '{"dev": "app"}',
+                     '{"dev": [null]}', '{"dev": ["unknown"]}', '{"dev": ["platform"]}', '{"monitoring": ["app"]}'):
             self.policy.write_text(text)
             with self.assertRaises(RuntimeError):
                 self.prepare()
+        for policy in ({'prod': ['app']}, {'dev': ['app'], 'prod': ['host']}, {'dev': [], 'prod': ['logs']}):
+            self.policy.write_text(json.dumps(policy))
+            self.assertTrue(self.prepare())
         self.policy.write_text('{"dev": ["app"]}')
         for _ in range(2):
             self.assertTrue(self.prepare())
@@ -125,25 +128,33 @@ def check_routes_and_templates():
                          check=True, capture_output=True, timeout=30)
 
         def amtool(*args):
-            return subprocess.run(['docker', 'exec', cid, '/bin/amtool', *args],
-                                  check=True, capture_output=True, text=True, timeout=30).stdout
+            result = subprocess.run(['docker', 'exec', cid, '/bin/amtool', *args],
+                                    capture_output=True, text=True, timeout=30)
+            assert result.returncode == 0, result.stdout + result.stderr
+            return result.stdout
 
-        for bundle in notifications.BUNDLES:
-            config = notifications.candidate([bundle])
+        names = sorted(set(sum(notifications.BUNDLES.values(), ())) | {'CentralComponentDown', 'UnknownAlert'})
+        selections = ([{'dev': [b], 'prod': []} for b in ('app', 'host', 'logs')]
+                      + [{'dev': [], 'prod': [b]} for b in ('app', 'host', 'logs')]
+                      + [{'dev': ['app'], 'prod': ['host']}, {'dev': ['app', 'host', 'logs'], 'prod': ['app', 'host', 'logs'], 'monitoring': ['platform', 'host']}])
+        for index, selection in enumerate(selections):
+            config = notifications.candidate(selection['dev'], selection['prod'], selection.get('monitoring', []))
             assert 'send_resolved: true' in config and 'webhook_url:' not in config
-            (root / 'candidate.yml').write_text(config)
-            amtool('check-config', '/test/candidate.yml')
-            for environment, server in [('dev', 'dev'), ('prod', 'prod'), ('monitoring', 'monitoring'), ('dev', '')]:
-                for name in sorted(set(sum(notifications.BUNDLES.values(), ())) | {'CentralComponentDown', 'UnknownAlert'}):
-                    expected = 'discord-dev' if environment == server == 'dev' and name in notifications.BUNDLES[bundle] else 'bootstrap'
-                    amtool('config', 'routes', 'test', '--config.file=/test/candidate.yml',
+            config_path = f'/test/candidate-{index}.yml'
+            (root / f'candidate-{index}.yml').write_text(config)
+            amtool('check-config', config_path)
+            for environment, server in [('dev', 'dev'), ('prod', 'prod'), ('monitoring', 'monitoring'), ('dev', ''), ('prod', ''), ('dev', 'prod'), ('prod', 'dev')]:
+                for name in names:
+                    enabled = {n for b in selection.get(environment, []) for n in notifications.BUNDLES[b]}
+                    expected = f'discord-{environment}' if environment == server and name in enabled else 'bootstrap'
+                    amtool('config', 'routes', 'test', '--config.file=' + config_path,
                            '--verify.receivers=' + expected, 'environment=' + environment,
                            'server=' + server, 'alertname=' + name)
 
-        for status in ('firing', 'resolved'):
-            labels = dict(environment='dev', server='dev', alertname='LogEntriesDropped',
+        for status, env in [('firing', 'dev'), ('resolved', 'dev'), ('firing', 'prod'), ('resolved', 'prod')]:
+            labels = dict(environment=env, server=env, alertname='LogEntriesDropped',
                           severity='warning', host='10.0.20.46:13100')
-            alert = dict(status=status, labels=dict(labels, instance='dev:19100', reason='rate_limited'),
+            alert = dict(status=status, labels=dict(labels, instance=f'{env}:19100', reason='rate_limited'),
                          annotations=dict(summary='로그 유실', description='가' * 2000),
                          startsAt='2026-10-14T00:00:00Z', endsAt='2026-10-14T01:00:00Z')
             (root / 'data.json').write_text(json.dumps(dict(status=status, commonLabels=labels,
@@ -154,11 +165,11 @@ def check_routes_and_templates():
             title, message = render(notifications.TITLE), render(notifications.MESSAGE)
             assert status.upper() in title and len(title.strip()) <= 256
             assert len(message.strip()) <= 4096
-            for expected in ('10.0.20.46:13100', 'rate_limited', '서버: dev', '최대 3건',
-                             '/central/d/sssok-log-transfer?var-environment=dev',
+            for expected in ('10.0.20.46:13100', 'rate_limited', f'서버: {env}', '최대 3건',
+                             f'/central/d/sssok-log-transfer?var-environment={env}',
                              '발생 10건 · 복구 0건' if status == 'firing' else '발생 0건 · 복구 10건'):
                 assert expected in message, expected
-    print('Discord 후보: 기본 무발송·개발 묶음별 라우팅·발생/복구 메시지 검증 통과 (네트워크 차단)')
+    print('Discord 후보: 기본 무발송·개발/운영 묶음별 라우팅·발생/복구 메시지 검증 통과 (네트워크 차단)')
 
 
 if __name__ == '__main__':
