@@ -31,3 +31,12 @@ inhibit_rules:
       - 'alertname="HostDiskWillFillIn24h"'
       - 'severity="warning"'
     equal: [environment, server, instance, device, mountpoint]
+  # 대표 알림은 선택한 모든 개발 발송 묶음에 포함한다. 무발송 알림이 발송 알림을 숨기지 않게 한다.
+  - source_matchers:
+      - 'alertname="MetricsEndpointDown"'
+      - 'environment=~"dev|prod"'
+      - 'server!=""'
+      - 'instance!=""'
+    target_matchers:
+      - 'alertname=~"BackendDown|LogPipelineDown|NodeMetricsDown"'
+    equal: [environment, server, instance]

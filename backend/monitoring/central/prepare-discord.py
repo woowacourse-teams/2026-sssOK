@@ -6,9 +6,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 BUNDLES = {
-    'app': ('BackendDown', 'BackendHigh5xxErrorRate', 'BackendHighLatency'),
-    'host': ('HostHighCPU', 'HostMemoryLow', 'HostDiskSpaceLow', 'HostDiskSpaceCritical', 'HostDiskWillFillIn24h'),
-    'logs': ('LogPipelineDown', 'LogShippingFailing', 'LogEntriesDropped'),
+    'app': ('MetricsEndpointDown', 'BackendDown', 'BackendHigh5xxErrorRate', 'BackendHighLatency'),
+    'host': ('MetricsEndpointDown', 'NodeMetricsDown', 'HostHighCPU', 'HostMemoryLow', 'HostDiskSpaceLow', 'HostDiskSpaceCritical', 'HostDiskWillFillIn24h'),
+    'logs': ('MetricsEndpointDown', 'LogPipelineDown', 'LogShippingFailing', 'LogEntriesDropped'),
 }
 TITLE = '[{{ .Status | toUpper }}] {{ .CommonLabels.environment }} / {{ .CommonLabels.alertname }}'
 MESSAGE = '''환경: {{ .CommonLabels.environment }} · 서버: {{ .CommonLabels.server }}

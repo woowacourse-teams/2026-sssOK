@@ -83,7 +83,33 @@ def main():
                 break
             time.sleep(.2)
         assert 'same-low' in {a['labels']['testcase'] for a in active}
-        print('Alertmanager: 14개 가상 알림의 대상별 억제·격리·복구 확인 (외부 발송 없음)')
+        # 공통 장애는 같은 대상만 억제한다. 대표 알림 복구 후 개별 장애가 남으면 다시 알린다.
+        add('endpoint', 'MetricsEndpointDown', 'critical', environment='dev', server='endpoint', instance='endpoint:19100')
+        for case, name in [('endpoint-app', 'BackendDown'), ('endpoint-alloy', 'LogPipelineDown'), ('endpoint-node', 'NodeMetricsDown')]:
+            add(case, name, environment='dev', server='endpoint', instance='endpoint:19100')
+        add('endpoint-other-env', 'BackendDown', environment='prod', server='endpoint', instance='endpoint:19100')
+        add('endpoint-other-server', 'BackendDown', environment='dev', server='other', instance='endpoint:19100')
+        add('endpoint-other-instance', 'BackendDown', environment='dev', server='endpoint', instance='other:19100')
+        expected_endpoint = {'endpoint-app', 'endpoint-alloy', 'endpoint-node'}
+        for attempt in range(30):
+            inhibited = json.loads(amtool('-o', 'json', 'alert', 'query', '--inhibited'))
+            actual_endpoint = {a['labels']['testcase'] for a in inhibited if a['labels']['testcase'].startswith('endpoint')}
+            if actual_endpoint == expected_endpoint:
+                break
+            time.sleep(.2)
+        assert actual_endpoint == expected_endpoint, actual_endpoint
+        source = next(a for a in alerts if a['testcase'] == 'endpoint')
+        now = datetime.now(timezone.utc)
+        amtool('alert', 'add', '--start=' + (now - timedelta(minutes=2)).isoformat(),
+               '--end=' + (now - timedelta(seconds=1)).isoformat(),
+               *[f'{k}={v}' for k, v in source.items()])
+        for attempt in range(30):
+            active = json.loads(amtool('-o', 'json', 'alert', 'query', '--active'))
+            if expected_endpoint <= {a['labels']['testcase'] for a in active}:
+                break
+            time.sleep(.2)
+        assert expected_endpoint <= {a['labels']['testcase'] for a in active}
+        print('Alertmanager: 21개 가상 알림의 대상별 억제·격리·복구 확인 (외부 발송 없음)')
     finally:
         run(['docker', 'rm', '-f', cid])
 

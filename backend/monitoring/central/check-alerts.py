@@ -6,6 +6,7 @@ import urllib.parse
 import urllib.request
 
 EXPECTED = {
+    'NodeMetricsDown', 'MetricsEndpointDown',
     'CentralComponentDown', 'HostMemoryLow', 'HostHighCPU', 'BackendHighLatency', 'BackendDown', 'BackendHigh5xxErrorRate',
     'HostDiskSpaceLow', 'HostDiskSpaceCritical', 'HostDiskWillFillIn24h',
     'LogPipelineDown', 'LogShippingFailing', 'LogEntriesDropped', 'LokiRejectingLogs',

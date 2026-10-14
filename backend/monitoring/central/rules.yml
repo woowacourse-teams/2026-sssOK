@@ -9,6 +9,33 @@ groups:
           severity: warning
         annotations:
           summary: 중앙 {{ $labels.job }} 메트릭 수집 실패
+  - name: sssok-metrics-availability
+    rules:
+      - alert: NodeMetricsDown
+        expr: up{job="node",environment=~"dev|prod"} == 0
+        for: 2m
+        keep_firing_for: 5m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 호스트 지표 수집 실패
+          description: '{{ $labels.environment }} / {{ $labels.server }} 호스트 지표를 2분 이상 수집하지 못했습니다. node-exporter와 수집 경로를 확인하세요.'
+      - alert: MetricsEndpointDown
+        expr: |
+          (up{job="node",environment=~"dev|prod"} == 0)
+          and on (environment, server, instance)
+          (up{job="sssok-backend",environment=~"dev|prod"} == 0)
+          and on (environment, server, instance)
+          (up{job="alloy",environment=~"dev|prod"} == 0)
+        for: 2m
+        keep_firing_for: 5m
+        labels:
+          severity: critical
+          service: sssok-monitoring
+        annotations:
+          summary: 서버의 공통 지표 수집 실패
+          description: '{{ $labels.environment }} / {{ $labels.server }}의 호스트·앱·Alloy 지표가 모두 2분 이상 수집되지 않습니다. 서버·Nginx·네트워크를 확인하세요. 앱 중단이나 원인을 확정하는 알림은 아닙니다.'
   - name: sssok-backend-availability
     rules:
       - alert: BackendDown

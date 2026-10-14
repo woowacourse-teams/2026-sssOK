@@ -46,7 +46,7 @@ def main():
             (root / 'candidate.yml').write_text(config)
             amtool('check-config', '/test/candidate.yml')
             for environment, server in [('dev', 'dev'), ('prod', 'prod'), ('monitoring', 'monitoring'), ('dev', '')]:
-                for name in [*sum(prepare.BUNDLES.values(), ()), 'CentralComponentDown', 'UnknownAlert']:
+                for name in sorted(set(sum(prepare.BUNDLES.values(), ())) | {'CentralComponentDown', 'UnknownAlert'}):
                     expected = 'discord-dev' if environment == server == 'dev' and name in prepare.BUNDLES[bundle] else 'bootstrap'
                     amtool('config', 'routes', 'test', '--config.file=/test/candidate.yml',
                            '--verify.receivers=' + expected, 'environment=' + environment,
