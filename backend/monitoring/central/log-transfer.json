@@ -134,7 +134,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host) (increase(loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"}[5m]))",
+          "expr": "sum by (environment, host) (increase(loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
           "legendFormat": "{{environment}} → {{host}}",
           "range": true
         }
@@ -183,7 +183,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host) (rate(loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"}[5m]))",
+          "expr": "sum by (environment, host) (rate(loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
           "legendFormat": "{{environment}} → {{host}}",
           "range": true
         }
@@ -232,7 +232,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host) (increase(loki_write_batch_retries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"}[5m]))",
+          "expr": "sum by (environment, host) (increase(loki_write_batch_retries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
           "legendFormat": "{{environment}} → {{host}}",
           "range": true
         }
@@ -281,7 +281,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host) (increase(loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"}[5m]))",
+          "expr": "sum by (environment, host) (increase(loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
           "legendFormat": "{{environment}} → {{host}}",
           "range": true
         }
@@ -330,7 +330,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host, status_code) (increase(loki_write_request_duration_seconds_count{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"}[5m]))",
+          "expr": "sum by (environment, host, status_code) (increase(loki_write_request_duration_seconds_count{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
           "legendFormat": "{{environment}} → {{host}} · HTTP {{status_code}}",
           "range": true
         }
@@ -379,7 +379,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host, reason) (increase(loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"}[5m]))",
+          "expr": "sum by (environment, host, reason) (increase(loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
           "legendFormat": "{{environment}} → {{host}} · {{reason}}",
           "range": true
         }
@@ -428,7 +428,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host) (loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"})",
+          "expr": "sum by (environment, host) (loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`})",
           "legendFormat": "{{environment}} → {{host}}",
           "range": true
         }
@@ -477,7 +477,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (environment, host) (loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~\"${destination:regex}\"})",
+          "expr": "sum by (environment, host) (loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`})",
           "legendFormat": "{{environment}} → {{host}}",
           "range": true
         }
