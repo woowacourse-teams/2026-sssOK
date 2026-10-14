@@ -11,11 +11,16 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
+
+import notifications
 
 FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
          'alertmanager.yml', 'loki.yml', 'datasources.yml', 'dashboards.yml', 'nginx.conf',
          'host-overview.json', 'backend-overview.json', 'logs.json', 'media-transfer.json',
-         'log-transfer.json', 'check.sh', 'verify-dashboards.py')
+         'log-transfer.json', 'check.sh', 'check-alerts.py', 'verify-dashboards.py',
+         'prepare-discord.py', 'notifications.py')
+MANAGED_FILES = FILES + (notifications.OVERRIDE,)
 SERVICES = ('prometheus', 'alertmanager', 'loki', 'grafana', 'node-exporter', 'nginx')
 
 
@@ -29,12 +34,16 @@ class Deployment:
         self.backup = None
         self.old_config = None
         self.lock = None
+        self.staged = source
+        self.staging = None
 
     def compose(self, *args, source=None, capture=False):
         source = source or self.target
+        override = source / notifications.OVERRIDE
+        extra = ['-f', str(override)] if override.is_file() else []
         return run(['docker', 'compose', '--project-name', 'sssok-monitoring',
                     '--project-directory', str(self.target), '--env-file', str(self.target / '.env'),
-                    '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.web.yml'), *args],
+                    '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.web.yml'), *extra, *args],
                    capture=capture)
 
     def container(self, service):
@@ -57,8 +66,16 @@ class Deployment:
                 raise RuntimeError(f'후보 파일 누락: {name}')
             if (self.target / name).is_symlink():
                 raise RuntimeError(f'기존 배포 파일의 심볼릭 링크는 지원하지 않습니다: {name}')
+        if (self.target / notifications.OVERRIDE).is_symlink():
+            raise RuntimeError('알림 Compose 파일의 심볼릭 링크는 지원하지 않습니다')
+        self.staging = tempfile.TemporaryDirectory(prefix='sssok-central-candidate-')
+        self.staged = Path(self.staging.name)
+        for name in FILES:
+            shutil.copyfile(self.source / name, self.staged / name)
+        secret = notifications.prepare(self.source, self.target, self.staged)
         old = json.loads(self.compose('config', '--format', 'json', capture=True).stdout)
-        new = json.loads(self.compose('config', '--format', 'json', source=self.source, capture=True).stdout)
+        new = json.loads(self.compose('config', '--format', 'json', source=self.staged, capture=True).stdout)
+        notifications.validate(self.staged, new['services']['alertmanager']['image'], secret)
         self.old_config = old
         if set(old['services']) != set(SERVICES) or set(new['services']) != set(SERVICES):
             raise RuntimeError('기존 중앙 6개 서비스만 배포할 수 있습니다')
@@ -111,7 +128,7 @@ class Deployment:
         stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S.%fZ')
         self.backup = self.target / 'backups' / (stamp + '-' + self.commit[:12])
         self.backup.mkdir(parents=True, mode=0o700)
-        for name in FILES:
+        for name in MANAGED_FILES:
             path = self.target / name
             if path.exists():
                 shutil.copy2(path, self.backup / name)
@@ -163,24 +180,40 @@ class Deployment:
             # 현재 컨테이너의 마운트 파일이 아직 존재할 때 같은 볼륨으로 복원한다.
             # 신규 플러그인·숨김 파일·SQLite 보조 파일까지 백업 당시 상태로 되돌린다.
             self.restore_grafana()
-        for name in FILES:
+        for name in MANAGED_FILES:
             saved = self.backup / name
             if saved.exists():
                 shutil.copy2(saved, self.target / name)
             elif (self.target / name).exists():
                 (self.target / name).unlink()
-        self.apply_services()
+        self.apply_services(force_reload=True)
         # 최초 전환 이전에는 자동 등록이 없을 수 있으므로 이전 check.sh 범위로 확인한다.
         run(['bash', str(self.target / 'check.sh')])
         print('이전 설정·Grafana 데이터 복구 및 기본 점검 완료', flush=True)
 
-    def apply_services(self):
-        # 한꺼번에 재생성하지 않고 설정 읽기가 필요한 저장 서비스부터 순차 적용한다.
+    def apply_services(self, force_reload=False):
+        # Compose는 서비스 정의 변경을 감지하지만 bind 파일 내용 변경은 감지하지 않는다.
+        # Loki·Nginx는 실제 파일이 바뀔 때만 강제 재생성해 로그 전송 경로 중단을 줄인다.
+        # 복원은 적용 도중 어떤 파일을 읽었는지 확정할 수 없으므로 강제 재생성한다.
         for service in ('loki', 'prometheus', 'alertmanager', 'grafana', 'nginx'):
-            self.compose('up', '-d', '--no-deps', '--pull', 'never', '--force-recreate', service)
+            config = {'loki': 'loki.yml', 'nginx': 'nginx.conf'}.get(service)
+            changed = (config is None or force_reload or self.backup is None
+                       or not (self.backup / config).is_file()
+                       or (self.backup / config).read_bytes() != (self.target / config).read_bytes())
+            recreate = ['--force-recreate'] if changed else []
+            self.compose('up', '-d', '--no-deps', '--pull', 'never', *recreate, service)
         self.compose('up', '-d', '--no-deps', '--pull', 'never', 'node-exporter')
 
     def execute(self):
+        try:
+            self._execute()
+        finally:
+            if self.staging:
+                self.staging.cleanup()
+            if self.lock:
+                self.lock.close()
+
+    def _execute(self):
         self.preflight()
         self.backup_files()
         snapshot = False
@@ -188,8 +221,10 @@ class Deployment:
             self.snapshot_grafana()
             snapshot = True
             # bind mount의 inode를 유지하도록 복사한다. 모든 프로세스는 이후 재생성한다.
-            for name in FILES:
-                shutil.copyfile(self.source / name, self.target / name)
+            for name in MANAGED_FILES:
+                if name == notifications.OVERRIDE and not (self.staged / name).is_file():
+                    continue
+                shutil.copyfile(self.staged / name, self.target / name)
                 (self.target / name).chmod(0o644)
             self.compose('config', '--quiet')
             self.apply_services()

@@ -1,3 +1,4 @@
+# 중앙 알림 판정 전용. 발송 담당 전환 전까지 Alertmanager 수신기는 비워 둔다.
 groups:
   - name: central-bootstrap
     rules:
@@ -7,18 +8,181 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "중앙 {{ $labels.job }} 메트릭 수집 실패"
-      - alert: CentralMemoryLow
-        expr: node_memory_MemAvailable_bytes{environment="monitoring"} / node_memory_MemTotal_bytes{environment="monitoring"} < 0.1
+          summary: 중앙 {{ $labels.job }} 메트릭 수집 실패
+  - name: sssok-metrics-availability
+    rules:
+      - alert: NodeMetricsDown
+        expr: up{job="node",environment=~"dev|prod"} == 0
+        for: 2m
+        keep_firing_for: 5m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 호스트 지표 수집 실패
+          description: '{{ $labels.environment }} / {{ $labels.server }} 호스트 지표를 2분 이상 수집하지 못했습니다. node-exporter와 수집 경로를 확인하세요.'
+      - alert: MetricsEndpointDown
+        expr: |
+          (up{job="node",environment=~"dev|prod"} == 0)
+          and on (environment, server, instance)
+          (up{job="sssok-backend",environment=~"dev|prod"} == 0)
+          and on (environment, server, instance)
+          (up{job="alloy",environment=~"dev|prod"} == 0)
+        for: 2m
+        keep_firing_for: 5m
+        labels:
+          severity: critical
+          service: sssok-monitoring
+        annotations:
+          summary: 서버의 공통 지표 수집 실패
+          description: '{{ $labels.environment }} / {{ $labels.server }}의 호스트·앱·Alloy 지표가 모두 2분 이상 수집되지 않습니다. 서버·Nginx·네트워크를 확인하세요. 앱 중단이나 원인을 확정하는 알림은 아닙니다.'
+  - name: sssok-backend-availability
+    rules:
+      - alert: BackendDown
+        expr: up{job="sssok-backend",environment=~"dev|prod"} == 0
+        for: 2m
+        keep_firing_for: 5m
+        labels:
+          severity: critical
+          service: sssok-backend
+        annotations:
+          summary: sssOK 백엔드 메트릭 수집 실패
+          description: '{{ $labels.instance }} 인스턴스의 메트릭을 2분 이상 수집하지 못했습니다.'
+  - name: sssok-backend-http
+    rules:
+      - alert: BackendHigh5xxErrorRate
+        expr: |
+          (
+            sum by (environment, server) (increase(http_server_requests_seconds_count{job="sssok-backend", environment=~"dev|prod", status=~"5..", uri!~"/actuator.*"}[5m]))
+            /
+            sum by (environment, server) (increase(http_server_requests_seconds_count{job="sssok-backend", environment=~"dev|prod", uri!~"/actuator.*"}[5m]))
+          ) > 0.05
+          and
+          sum by (environment, server) (increase(http_server_requests_seconds_count{job="sssok-backend", environment=~"dev|prod", uri!~"/actuator.*"}[5m])) >= 20
+        keep_firing_for: 5m
+        labels:
+          severity: warning
+          service: sssok-backend
+        annotations:
+          summary: sssOK 백엔드 5xx 오류율 증가
+          description: '최근 5분간 요청이 20건 이상이며 5xx 오류율이 5%를 초과했습니다. 현재 오류율: {{ $value | humanizePercentage }}'
+      - alert: BackendHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (environment, server, le) (
+              rate(http_server_requests_seconds_bucket{job="sssok-backend",environment=~"dev|prod",uri!~"/actuator.*|/health|/api/v1/rooms/[^/]+/events"}[5m])
+            )
+          ) > 1
+          and
+          sum by (environment, server) (
+            increase(http_server_requests_seconds_count{job="sssok-backend",environment=~"dev|prod",uri!~"/actuator.*|/health|/api/v1/rooms/[^/]+/events"}[5m])
+          ) >= 100
         for: 5m
         labels:
           severity: warning
+          service: sssok-backend
         annotations:
-          summary: 중앙 서버 사용 가능 메모리 10% 미만
-      - alert: CentralDiskSpaceLow
-        expr: node_filesystem_avail_bytes{environment="monitoring",mountpoint="/"} / node_filesystem_size_bytes{environment="monitoring",mountpoint="/"} < 0.15
+          summary: 백엔드 응답 지연
+          description: '{{ $labels.environment }} / {{ $labels.server }}: 최근 5분 요청 100건 이상이며 P95 응답 시간 1초 초과가 5분 지속됐습니다. 현재 P95: {{ $value | humanizeDuration }}'
+  - name: sssok-host
+    rules:
+      - alert: HostHighCPU
+        expr: |
+          1 - avg by (environment, server, instance) (
+            rate(node_cpu_seconds_total{job="node",environment=~"dev|prod|monitoring",mode="idle"}[5m])
+          ) > 0.85
         for: 10m
         labels:
           severity: warning
+          service: sssok-host
         annotations:
-          summary: 중앙 서버 루트 디스크 여유 15% 미만
+          summary: 서버 CPU 사용률 증가
+          description: '{{ $labels.environment }} / {{ $labels.server }}: 최근 5분 평균 CPU 사용률 85% 초과가 10분 지속됐습니다. 현재 사용률: {{ $value | humanizePercentage }}'
+      - alert: HostMemoryLow
+        expr: |
+          node_memory_MemAvailable_bytes{job="node",environment=~"dev|prod|monitoring"}
+            / node_memory_MemTotal_bytes{job="node",environment=~"dev|prod|monitoring"} < 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 사용 가능 메모리 부족
+          description: '{{ $labels.environment }} / {{ $labels.server }}: 사용 가능 메모리 10% 미만이 5분 지속됐습니다. 현재 여유: {{ $value | humanizePercentage }}. 컨테이너별 메모리 한도는 별도 확인하세요.'
+      - alert: HostDiskSpaceLow
+        expr: |
+          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"} < 0.15
+        for: 10m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 디스크 여유 부족
+          description: 루트 디스크 여유가 {{ $value | humanizePercentage }} 남았습니다. `docker system df -v` 로 Loki(loki-data)·이미지·로그
+            사용량을 확인하세요.
+      - alert: HostDiskSpaceCritical
+        expr: |
+          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"} < 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: sssok-host
+        annotations:
+          summary: 서버 디스크 고갈 임박
+          description: 루트 디스크 여유가 {{ $value | humanizePercentage }} 뿐입니다. 곧 배포와 로그 쓰기가 실패합니다.
+      - alert: HostDiskWillFillIn24h
+        expr: |
+          predict_linear(node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}[6h], 24 * 3600) < 0
+          and
+          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"} < 0.4
+        for: 30m
+        labels:
+          severity: warning
+          service: sssok-host
+        annotations:
+          summary: 서버 디스크가 하루 안에 찰 것으로 예상
+          description: 최근 6시간 추세라면 24시간 안에 루트 디스크가 가득 찹니다.
+  - name: sssok-logging
+    rules:
+      - alert: LogPipelineDown
+        expr: up{job="alloy",environment=~"dev|prod"} == 0
+        for: 5m
+        keep_firing_for: 5m
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: Alloy 지표 수집 중단
+          description: '{{ $labels.environment }} / {{ $labels.server }} Alloy 지표를 5분 이상 수집하지 못했습니다. 실제 로그 전송 중단 여부는 별도 확인하세요.'
+      - alert: LogShippingFailing
+        expr: |
+          sum by (environment, server, host) (rate(loki_write_request_duration_seconds_count{job="alloy",environment=~"dev|prod",status_code!~"2.."}[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: Loki 로그 전송 실패 지속
+          description: '{{ $labels.environment }} / {{ $labels.server }} → {{ $labels.host }} 로그 전송 실패가 10분 이상 관측됩니다.'
+      - alert: LogEntriesDropped
+        expr: |
+          sum by (environment, server, host, reason) (increase(loki_write_dropped_entries_total{job="alloy",environment=~"dev|prod"}[10m])) > 0
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: 로그 유실 발생
+          description: '{{ $labels.environment }} / {{ $labels.server }} → {{ $labels.host }}: 최근 10분간 {{ $labels.reason }}
+            사유로 {{ $value | humanize }}줄을 폐기했습니다. 다른 목적지의 저장 여부는 별도 확인하세요.'
+      - alert: LokiRejectingLogs
+        expr: |
+          sum by (environment, server, reason) (increase(loki_discarded_samples_total{job="loki",environment="monitoring"}[10m])) > 0
+        labels:
+          severity: warning
+          service: sssok-logging
+        annotations:
+          summary: Loki 가 로그를 거절함
+          description: 중앙 Loki가 최근 10분간 {{ $labels.reason }} 사유로 {{ $value | humanize }}줄을 거절했습니다. 이 지표만으로 발신 환경을 구분할 수 없습니다.

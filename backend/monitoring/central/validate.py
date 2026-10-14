@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import sys
 import tempfile
 
 ROOT = Path(__file__).resolve().parent
@@ -25,6 +26,7 @@ def compose_config():
 
 
 def main():
+    run([sys.executable, '-B', str(ROOT / 'test-check-alerts.py')])
     services = compose_config()['services']
     assert set(services) == {'prometheus', 'loki', 'grafana', 'alertmanager', 'node-exporter', 'nginx'}
 
@@ -44,6 +46,10 @@ def main():
           ['--workdir', '/etc/prometheus'])
     check('alertmanager', ['check-config', '/etc/alertmanager/config.yml'],
           [(ROOT / 'alertmanager.yml', '/etc/alertmanager/config.yml')], '/bin/amtool')
+    # 기존 중앙 검증 안에서 실행하며 별도 CI job은 만들지 않는다.
+    run([sys.executable, '-B', str(ROOT / 'test-alertmanager.py')])
+    run([sys.executable, '-B', str(ROOT / 'test-discord.py')])
+    run([sys.executable, '-B', str(ROOT / 'test-notifications.py')])
     check('loki', ['-config.file=/etc/loki/config.yml', '-verify-config=true'],
           [(ROOT / 'loki.yml', '/etc/loki/config.yml')])
     # nginx -t는 정적 upstream 이름을 해석한다. 가짜 주소로 문법만 검사하며 접속하지 않는다.

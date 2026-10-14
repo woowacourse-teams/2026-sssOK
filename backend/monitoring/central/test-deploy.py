@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 from deploy import Deployment, FILES, SERVICES
+import notifications
 
 
 class DeploymentTest(unittest.TestCase):
@@ -173,16 +174,87 @@ class DeploymentTest(unittest.TestCase):
         self.assertEqual((self.target / 'deployed-commit.txt').read_text(), 'previous')
         self.assertEqual((self.target / 'loki.yml').read_text(), 'old:loki.yml')
 
+    def test_notification_runtime_restored_but_selection_and_secret_preserved(self):
+        for previously_enabled in (False, True):
+            with self.subTest(previously_enabled=previously_enabled):
+                d = self.deployment
+                override = self.target / notifications.OVERRIDE
+                if previously_enabled:
+                    override.write_text('old-notification-mount')
+                elif override.exists():
+                    override.unlink()
+                policy = self.target / notifications.SELECTION
+                policy.write_text('{"dev": ["app"]}')
+                secret = self.target / notifications.SECRET
+                secret.parent.mkdir(exist_ok=True)
+                secret.write_text('secret-remains-on-server')
+                staged = self.source / 'staged'
+                staged.mkdir(exist_ok=True)
+                for name in FILES:
+                    (staged / name).write_text('new:' + name)
+                (staged / notifications.OVERRIDE).write_text('new-notification-mount')
+                d.staged = staged
+                before = (self.target / 'alertmanager.yml').read_text()
+                with patch.object(d, 'preflight'), patch.object(d, 'snapshot_grafana'), \
+                     patch.object(d, 'compose'), patch.object(d, 'restore_grafana'), \
+                     patch.object(d, 'apply_services', side_effect=[RuntimeError('apply failed'), None]), \
+                     patch('deploy.run'):
+                    with self.assertRaisesRegex(RuntimeError, 'apply failed'):
+                        d.execute()
+                self.assertEqual((self.target / 'alertmanager.yml').read_text(), before)
+                self.assertEqual(override.exists(), previously_enabled)
+                if previously_enabled:
+                    self.assertEqual(override.read_text(), 'old-notification-mount')
+                self.assertEqual(policy.read_text(), '{"dev": ["app"]}')
+                self.assertEqual(secret.read_text(), 'secret-remains-on-server')
+                self.assertFalse((d.backup / notifications.SELECTION).exists())
+                self.assertFalse((d.backup / 'secrets').exists())
+
+    def test_bad_notification_selection_stops_before_backup_or_server_changes(self):
+        d = self.deployment
+        (self.target / notifications.SELECTION).write_text('{"prod": ["app"]}')
+        with patch.object(d, 'snapshot_grafana') as snapshot, \
+             patch.object(d, 'compose') as compose, patch.object(d, 'apply_services') as apply:
+            with self.assertRaisesRegex(RuntimeError, '선택 형식'):
+                d.execute()
+        snapshot.assert_not_called()
+        compose.assert_not_called()
+        apply.assert_not_called()
+        self.assertFalse((self.target / 'backups').exists())
+        self.assertEqual((self.target / 'alertmanager.yml').read_text(), 'old:alertmanager.yml')
+
+    def test_unchanged_logging_path_is_not_forced_and_restore_is_forced(self):
+        d = self.deployment
+        d.backup_files()
+        with patch.object(d, 'compose') as compose:
+            d.apply_services()
+        calls = {call.args[-1]: call.args for call in compose.call_args_list}
+        for service in ('loki', 'nginx'):
+            self.assertNotIn('--force-recreate', calls[service])
+        self.assertIn('--force-recreate', calls['prometheus'])
+        (self.target / 'loki.yml').write_text('updated-config')
+        with patch.object(d, 'compose') as compose:
+            d.apply_services()
+        calls = {call.args[-1]: call.args for call in compose.call_args_list}
+        self.assertIn('--force-recreate', calls['loki'])
+        self.assertNotIn('--force-recreate', calls['nginx'])
+        with patch.object(d, 'compose') as compose:
+            d.apply_services(force_reload=True)
+        calls = {call.args[-1]: call.args for call in compose.call_args_list}
+        for service in ('loki', 'nginx'):
+            self.assertIn('--force-recreate', calls[service])
+
     def test_image_change_rejected_before_snapshot(self):
         old = {'services': {name: {'image': name + ':1', 'volumes': []} for name in SERVICES}}
         new = json.loads(json.dumps(old))
         new['services']['prometheus']['image'] = 'prometheus:2'
         from subprocess import CompletedProcess
-        with patch.object(self.deployment, 'compose', side_effect=[
+        with patch('notifications.prepare'), patch('notifications.validate'), patch.object(self.deployment, 'compose', side_effect=[
                 CompletedProcess([], 0, json.dumps(old)), CompletedProcess([], 0, json.dumps(new))]):
             with self.assertRaisesRegex(RuntimeError, '이미지 버전 변경'):
                 self.deployment.preflight()
         self.deployment.lock.close()
+        self.deployment.staging.cleanup()
 
 
 if __name__ == '__main__':
