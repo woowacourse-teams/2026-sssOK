@@ -35,21 +35,21 @@ export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
   return (
     <Form onSubmit={handleSubmit}>
       <Input
+        label="방 제목"
+        name="name"
+        value={formValues.name}
+        maxLength={12}
+        placeholder="예) 제주 여행"
+        onValueChange={updateField("name")}
+      />
+
+      <Input
         label="내 이름"
         name="nickname"
         value={formValues.nickname}
         maxLength={12}
         placeholder="예) 민수"
         onValueChange={updateField("nickname")}
-      />
-
-      <Input
-        label="방 이름"
-        name="name"
-        value={formValues.name}
-        maxLength={12}
-        placeholder="예) 제주 여행"
-        onValueChange={updateField("name")}
       />
 
       <Stack gap={16}>
@@ -61,18 +61,7 @@ export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
             { label: "누구나", value: "everyone" },
             { label: "방장만", value: "host" },
           ]}
-          onValueChange={updateField("uploadPolicy")}
-        />
-
-        <RadioGroup
-          label="방 만료 시간"
-          name="expiryHours"
-          value={formValues.expiryHours}
-          options={[
-            { label: "1일", value: "24" },
-            { label: "3일", value: "72" },
-          ]}
-          onValueChange={updateField("expiryHours")}
+          onValueChange={(value) => updateField("uploadPolicy")(value as "everyone" | "host")}
         />
       </Stack>
 

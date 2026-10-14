@@ -23,14 +23,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 
 // Repository + Service 통합 테스트 (H2). 관리자 토큰 파싱은 표현 계층의 일이라 여기서는
 // 이미 확인된 adminId 를 넘겨 권한 판정부터 본다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class FeedbackQueryServiceTest {
 
     private static final Long ROOM_ID = 900L;

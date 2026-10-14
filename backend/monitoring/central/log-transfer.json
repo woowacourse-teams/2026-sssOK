@@ -1,0 +1,577 @@
+{
+  "uid": "sssok-log-transfer",
+  "title": "sssOK Central Log Transfer",
+  "description": "환경·목적지별 로그 전송과 중앙 수집 상태. host는 목적지다. 데이터 없음은 0이 아니며 누적 건수 일치는 무손실 보장이 아니다.",
+  "tags": [
+    "sssok",
+    "logs",
+    "monitoring"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "60s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Alloy 수집 상태 · 1=성공",
+      "description": "중앙에서 Alloy 지표를 읽는 상태이며 로그 전송 성공과 다르다. 목적지 필터는 적용하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"alloy\",environment=~\"${environment:regex}\"}",
+          "legendFormat": "{{environment}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "중앙 구성 요소 수집 상태 · 1=성공",
+      "description": "중앙의 등록된 수집 대상 상태. 발신 환경·목적지 필터와 무관하다. 중앙 전체 중단은 외부 감시가 필요하다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{environment=\"monitoring\"}",
+          "legendFormat": "{{job}} · {{instance}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "전송 로그 · 최근 5분",
+      "description": "목적지별 전송 로그 건수. 0은 해당 구간에 전송 증가가 없다는 뜻이다. 최근 5분 증가량은 외삽으로 소수가 될 수 있다. 수집 중단·지표 미노출은 0으로 보정하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host) (increase(loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
+          "legendFormat": "{{environment}} → {{host}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "전송 속도 · 초당 로그",
+      "description": "최근 5분 평균 로그 전송 속도. 양쪽 합산은 이중 전송을 중복 계산하므로 선을 따로 본다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host) (rate(loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
+          "legendFormat": "{{environment}} → {{host}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "재시도 · 최근 5분",
+      "description": "배치 재시도 횟수이며 로그 건수가 아니다. 최근 5분 증가량은 외삽으로 소수가 될 수 있다. 수집 중단·지표 미노출은 0으로 보정하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host) (increase(loki_write_batch_retries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
+          "legendFormat": "{{environment}} → {{host}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "폐기 로그 · 최근 5분",
+      "description": "모든 폐기 사유를 합친 로그 건수. 0보다 크면 사유별 패널을 확인한다. 최근 5분 증가량은 외삽으로 소수가 될 수 있다. 수집 중단·지표 미노출은 0으로 보정하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host) (increase(loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
+          "legendFormat": "{{environment}} → {{host}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "전송 요청 응답 코드 · 최근 5분",
+      "description": "204는 성공. 비2xx 또는 전송 오류 코드가 나타나면 실패 원인을 조사한다. 실패 시계열이 없을 수 있어 전체 응답 코드를 함께 표시한다. 요청 수와 로그 건수는 다르다. 최근 5분 증가량은 외삽으로 소수가 될 수 있다. 수집 중단·지표 미노출은 0으로 보정하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host, status_code) (increase(loki_write_request_duration_seconds_count{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
+          "legendFormat": "{{environment}} → {{host}} · HTTP {{status_code}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "폐기 사유 · 최근 5분",
+      "description": "폐기 사유별 로그 증가량. 최근 5분 증가량은 외삽으로 소수가 될 수 있다. 수집 중단·지표 미노출은 0으로 보정하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host, reason) (increase(loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`}[5m]))",
+          "legendFormat": "{{environment}} → {{host}} · {{reason}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "전송 로그 · 누적 카운터",
+      "description": "재시작 시 초기화될 수 있다. 양쪽 값의 일치는 해당 시점의 참고값이며 전체 무손실을 보장하지 않는다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host) (loki_write_sent_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`})",
+          "legendFormat": "{{environment}} → {{host}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "폐기 로그 · 누적 카운터",
+      "description": "재시작 시 초기화될 수 있다. 과거 폐기는 최근 5분 패널에 나타나지 않을 수 있다.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (environment, host) (loki_write_dropped_entries_total{job=\"alloy\",environment=~\"${environment:regex}\",host=~`${destination:regex}`})",
+          "legendFormat": "{{environment}} → {{host}}",
+          "range": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ],
+  "editable": true,
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "발신 환경",
+        "type": "custom",
+        "query": "dev,prod",
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": "$__all",
+            "selected": true
+          },
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": false
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ]
+      },
+      {
+        "name": "destination",
+        "label": "목적지",
+        "type": "custom",
+        "query": "10.0.20.46:13100,loki:3100",
+        "multi": false,
+        "includeAll": true,
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": "$__all",
+            "selected": true
+          },
+          {
+            "text": "10.0.20.46:13100",
+            "value": "10.0.20.46:13100",
+            "selected": false
+          },
+          {
+            "text": "loki:3100",
+            "value": "loki:3100",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  }
+}

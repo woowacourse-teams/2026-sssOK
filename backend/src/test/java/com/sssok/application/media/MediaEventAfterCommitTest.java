@@ -22,15 +22,13 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 // 등록 트랜잭션이 롤백되면 SSE 도 나가면 안 된다.
 // 커밋 전에 보내면 클라이언트는 서버에 없는 사진을 목록에 그린다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class MediaEventAfterCommitTest {
 
     @Autowired
@@ -62,7 +60,7 @@ class MediaEventAfterCommitTest {
     @BeforeEach
     void setUp() {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         roomId = room.getId();
         file = StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
             new FileSize(1024L), Instant.now(), SIZE_POLICY);

@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      # Prometheus의 수집 주기와 맞춰 그래프가 불필요하게 더 촘촘해지지 않게 한다.
+      timeInterval: 15s

@@ -18,9 +18,9 @@ import com.sssok.application.room.GetRoomService;
 import com.sssok.application.room.JoinRoomService;
 import com.sssok.application.room.RoomDetail;
 import com.sssok.application.room.UpdateRoomService;
+import com.sssok.common.logging.RequestLoggingFilter;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
@@ -104,10 +104,20 @@ class WebConfigCorsTest {
             .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
     }
 
+    @Test
+    void 요청_ID_헤더는_교차_오리진_응답에서도_읽을_수_있게_노출된다() throws Exception {
+        given(getRoomService.getByCode(eq(new RoomCode(CODE)), isNull())).willReturn(roomDetail());
+
+        mockMvc.perform(get("/api/v1/rooms/{code}", CODE)
+                .header("Origin", ALLOWED_ORIGIN))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Expose-Headers", RequestLoggingFilter.REQUEST_ID_HEADER));
+    }
+
     private RoomDetail roomDetail() {
         Room room = Room.reconstruct(
             10L, null, new RoomCode(CODE), new RoomName("우테코 회식"), RoomStatus.initial(),
-            new RoomExpiration(Instant.parse("2026-08-14T00:00:00Z")), UploadPolicy.ANYONE, 1L,
+            UploadPolicy.ANYONE, 1L,
             Instant.parse("2026-08-13T00:00:00Z"), null);
         return new RoomDetail(room, "가현", false, 0, List.of());
     }

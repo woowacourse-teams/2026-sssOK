@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 // 조회만 code 로 받고, 나머지는 roomId 로 받는다.
-@Tag(name = "방", description = "링크 하나로 여는 단발성 공유방의 생성·조회·수정·삭제·입장")
+@Tag(name = "방", description = "링크 하나로 여는 공유방의 생성·조회·수정·삭제·입장")
 @RestController
 @RequestMapping("/rooms")
 @RequiredArgsConstructor
@@ -44,7 +44,8 @@ public class RoomController {
         summary = "방 생성",
         description = "새 공유방을 만든다. 만든 사람이 방장(host)이 되고, 방의 모든 권한(수정/삭제)을 가지며 "
             + "별도로 입장 API를 호출하지 않아도 곧바로 참여자로 등록된다(joined=true). 방 코드(code)는 이 API가 "
-            + "자동 생성해서 응답에 함께 내려준다. uploadPolicy/expiryHours는 생략하면 각각 everyone/24시간이 적용된다. "
+            + "자동 생성해서 응답에 함께 내려준다. uploadPolicy는 생략하면 everyone이 적용된다. "
+            + "방에는 만료 기한이 없어 방장이 삭제하기 전까지 계속 이용할 수 있다(expiryDays는 받지 않으며 보내도 무시된다). "
             + "사용법: 응답의 code로 공유 링크(예: https://sssok.app/rooms/{code})를 만들어 공유하면, "
             + "받은 사람은 GET /rooms/{code}로 방 정보를 확인할 수 있다."
     )
@@ -54,7 +55,7 @@ public class RoomController {
         @RequestBody CreateRoomRequest request
     ) {
         RoomDetail detail = createRoomService.create(
-            memberId, request.name(), request.uploadPolicy(), request.expiryHours());
+            memberId, request.name(), request.uploadPolicy());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.of(RoomResponse.from(detail)));
     }
@@ -76,8 +77,9 @@ public class RoomController {
 
     @Operation(
         summary = "방 설정 변경",
-        description = "방 이름/업로드 권한/만료 시간 중 원하는 항목만 부분 수정한다(PATCH). 보내지 않은 필드는 "
-            + "그대로 유지되고, 아무 필드도 안 보내면 400(EMPTY_PATCH)이 난다. 방장이 아니면 403이 난다. "
+        description = "방 이름/업로드 권한 중 원하는 항목만 부분 수정한다(PATCH). 보내지 않은 필드는 "
+            + "그대로 유지되고, 아무 필드도 안 보내면 400(EMPTY_PATCH)이 난다. 만료 기간(expiryDays)은 더 이상 바꿀 수 없어 "
+            + "이것만 보내도 400(EMPTY_PATCH)이다. 방장이 아니면 403, 만료·삭제된 방이면 410이 난다. "
             + "사용법: 바꾸고 싶은 필드만 body에 담아 보낸다. 예를 들어 이름만 바꾸려면 "
             + "{ \"name\": \"새 이름\" } 만 보내면 된다."
     )
@@ -93,8 +95,8 @@ public class RoomController {
 
     @Operation(
         summary = "방 삭제",
-        description = "방을 soft delete한다. 삭제 즉시 새로운 입장/업로드는 막히지만, 일정 보존 기간(purgeAt) "
-            + "동안은 데이터가 남아있다가 배치로 영구 삭제된다. 방장이 아니면 403, 이미 삭제된 방을 "
+        description = "방을 soft delete한다. 삭제 즉시 새로운 입장/업로드는 막히지만, 방과 업로드된 파일은 "
+            + "영구 삭제되지 않고 계속 보관된다. 방장이 아니면 403, 이미 삭제된 방을 "
             + "다시 삭제하면 410이 난다."
     )
     @DeleteMapping("/{roomId}")
@@ -111,7 +113,7 @@ public class RoomController {
         description = "이 계정을 방의 참여자로 등록한다. 같은 사람이 여러 번 호출해도 참여 기록은 늘어나지 "
             + "않는다 — 처음 입장이면 201, 이미 입장한 상태에서 다시 호출하면 200을 반환한다(응답 바디는 동일). "
             + "사용법: 방 구독(SSE)이나 업로드 전에 이 API로 먼저 입장 처리를 해둬야 한다 "
-            + "(미입장 상태로 구독을 시도하면 403이 난다)."
+            + "(미입장 상태로 구독을 시도하면 403이 난다). 만료·삭제된 방이면 410이 난다."
     )
     @PostMapping("/{roomId}/members")
     public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(

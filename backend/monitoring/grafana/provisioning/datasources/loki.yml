@@ -1,0 +1,13 @@
+apiVersion: 1
+
+datasources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      # Explore 에서 한 번에 불러오는 줄 수. 기본값(1000)이면 requestId 하나를 찾는 데는 넉넉하고,
+      # 넓은 범위를 잘못 조회했을 때 브라우저와 Loki 에 걸리는 부담은 작다.
+      maxLines: 1000

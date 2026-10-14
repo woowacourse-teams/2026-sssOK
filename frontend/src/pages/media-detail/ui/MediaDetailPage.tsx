@@ -149,7 +149,7 @@ const MediaDetailContent = ({
         </SelectionButton>
       </Header>
       <Stage>
-        <Image src={media.originalUrl} alt={media.fileName} draggable={false} />
+        <Image src={media.displayUrl} alt={media.fileName} draggable={false} />
       </Stage>
       <Footer>
         <Metadata>

@@ -1,0 +1,20 @@
+{
+  "services": {
+    "alertmanager": {
+      "secrets": [
+        {
+          "source": "central_discord_webhook",
+          "target": "central_discord_webhook",
+          "uid": "65534",
+          "gid": "65534",
+          "mode": 256
+        }
+      ]
+    }
+  },
+  "secrets": {
+    "central_discord_webhook": {
+      "environment": "CENTRAL_DISCORD_WEBHOOK_URL"
+    }
+  }
+}

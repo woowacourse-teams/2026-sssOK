@@ -10,24 +10,21 @@ import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 
 // SSE 구독 전 방 존재/만료/멤버십 검증이 실제 Repository 빈을 통해 도는지 확인하는 통합 테스트.
 // H2 설정은 application-test.yml(test 프로파일)에 모아뒀다 (docs/backend/TEST_CONVENTION.md 참고).
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class SubscribeRoomEventsServiceTest {
 
     private static final RandomGenerator RANDOM = new SecureRandom();
@@ -55,8 +52,7 @@ class SubscribeRoomEventsServiceTest {
             null,
             RoomCode.generate(RANDOM),
             new RoomName("만료방"),
-            RoomStatus.initial(),
-            new RoomExpiration(Instant.now().minus(1, ChronoUnit.HOURS)),
+            ExpiredRoomStatus.INSTANCE,
             UploadPolicy.ANYONE,
             MEMBER_ID,
             Instant.now().minus(2, ChronoUnit.DAYS),

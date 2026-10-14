@@ -9,6 +9,4 @@ public interface FolderJpaRepository extends JpaRepository<FolderJpaEntity, Long
     Optional<FolderJpaEntity> findByRoomIdAndName(Long roomId, String name);
 
     List<FolderJpaEntity> findAllByRoomIdOrderByCreatedAtAsc(Long roomId);
-
-    void deleteByRoomId(Long roomId);
 }

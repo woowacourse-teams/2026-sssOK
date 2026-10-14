@@ -19,7 +19,7 @@ class ExceptionHierarchyTest {
             List<String> notInherited = sources
                 .filter(path -> path.getFileName().toString().endsWith("Exception.java"))
                 .filter(path -> !path.getFileName().toString().equals("SssOkException.java"))
-                .filter(path -> !contains(path, "extends SssOkException"))
+                .filter(path -> !inheritsSssOkException(path))
                 .map(path -> path.getFileName().toString())
                 .toList();
 
@@ -27,11 +27,14 @@ class ExceptionHierarchyTest {
         }
     }
 
-    private boolean contains(Path path, String text) {
+    private boolean inheritsSssOkException(Path path) {
+        String className = "com.sssok." + SOURCE_ROOT.relativize(path).toString()
+            .replace(java.io.File.separatorChar, '.').replaceAll("\\.java$", "");
         try {
-            return Files.readString(path).contains(text);
-        } catch (IOException e) {
-            throw new IllegalStateException(path + " 을 읽을 수 없습니다", e);
+            Class<?> exceptionType = Class.forName(className, false, getClass().getClassLoader());
+            return SssOkException.class.isAssignableFrom(exceptionType);
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(className + " 을 읽을 수 없습니다", e);
         }
     }
 }

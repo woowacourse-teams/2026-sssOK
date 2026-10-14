@@ -178,7 +178,7 @@ export const downloadHandlers = [
 
     // 실제 서명 URL 은 Content-Disposition 을 쿼리로 싣는다. 목은 그 모양만 흉내낸다.
     const disposition = `attachment; filename="${media.fileName}"; filename*=UTF-8''${encodeURIComponent(media.fileName)}`;
-    const location = `${media.originalUrl}${media.originalUrl.includes("?") ? "&" : "?"}response-content-disposition=${encodeURIComponent(disposition)}`;
+    const location = `${media.displayUrl}${media.displayUrl.includes("?") ? "&" : "?"}response-content-disposition=${encodeURIComponent(disposition)}`;
 
     return new HttpResponse(null, { status: 302, headers: { Location: location } });
   }),
@@ -239,8 +239,8 @@ export const downloadHandlers = [
       return {
         mediaId: media.mediaId,
         fileName: media.fileName,
-        // 실서버는 스토리지 서명 URL 이다. 목은 목록이 쓰는 원본 URL 로 그 자리를 대신한다.
-        downloadUrl: `${media.originalUrl}${media.originalUrl.includes("?") ? "&" : "?"}response-content-disposition=${encodeURIComponent(disposition)}`,
+        // 실서버는 스토리지 서명 URL 이다. 목은 목록이 쓰는 displayUrl 로 그 자리를 대신한다.
+        downloadUrl: `${media.displayUrl}${media.displayUrl.includes("?") ? "&" : "?"}response-content-disposition=${encodeURIComponent(disposition)}`,
         expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
       };
     });
@@ -326,7 +326,7 @@ export const downloadHandlers = [
     // 응답을 막지 않는다. 실제 서버도 이벤트만 던지고 202 를 먼저 돌려준다.
     void runCompression(
       job,
-      targets.map((media, index) => ({ name: names[index], url: media.originalUrl })),
+      targets.map((media, index) => ({ name: names[index], url: media.displayUrl })),
     );
 
     return HttpResponse.json(
@@ -386,7 +386,7 @@ export const downloadHandlers = [
   }),
 
   /**
-   * 영상 원본 자리 (`originalUrlOf` 가 가리키는 `cdn.example.com`).
+   * 영상 원본 자리 (`displayUrlOf` 가 가리키는 `cdn.example.com`).
    *
    * **가로채지 않으면 영상 받기가 항상 실패한다.** 존재하지 않는 호스트라 요청이
    * 통째로 막히고, 프론트에는 `status: 0` 으로만 보여서 "네트워크를 확인하세요" 가 뜬다.

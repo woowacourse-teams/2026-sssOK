@@ -17,3 +17,24 @@ export const PageState = styled.main`
 
   ${typography.body}
 `;
+
+export const FolderEmptyState = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: ${spacing[8]};
+  text-align: center;
+`;
+
+export const FolderEmptyTitle = styled.p`
+  color: ${colors.textStrong};
+
+  ${typography.label5}
+`;
+
+export const FolderEmptyDescription = styled.p`
+  color: ${colors.textSecondary};
+  white-space: pre-line;
+
+  ${typography.caption1}
+`;

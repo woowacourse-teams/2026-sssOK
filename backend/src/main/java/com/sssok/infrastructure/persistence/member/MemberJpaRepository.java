@@ -1,14 +1,12 @@
 package com.sssok.infrastructure.persistence.member;
 
-import java.util.Collection;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
+import org.springframework.data.jpa.repository.Lock;
 
 public interface MemberJpaRepository extends JpaRepository<MemberJpaEntity, Long> {
 
-    @Modifying
-    @Query("DELETE FROM MemberJpaEntity m WHERE m.id IN :memberIds")
-    void deleteAllByIdIn(@Param("memberIds") Collection<Long> memberIds);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<MemberJpaEntity> findWithLockById(Long id);
 }

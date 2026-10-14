@@ -9,4 +9,11 @@ interface GetPhotosParams {
 // 방의 미디어를 페이지 없이 전부 받는다.
 
 export const getPhotos = ({ roomId, token }: GetPhotosParams) =>
-  apiClient<MediaList>(`/rooms/${roomId}/media/all`, { token });
+  apiClient<MediaList>(`/rooms/${roomId}/media/all`, {
+    token,
+    errorTracking: {
+      level: "error",
+      operation: "gallery.get_photos",
+      route: "/rooms/:roomId/media/all",
+    },
+  });

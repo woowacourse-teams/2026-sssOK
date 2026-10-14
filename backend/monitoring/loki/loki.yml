@@ -1,0 +1,80 @@
+# 단일 바이너리·단일 인스턴스 Loki. 한 EC2 에서 앱과 같이 돌고, 로그는 컨테이너 볼륨(/loki)에 둔다.
+# 볼륨이 남아 있는 한 Loki·앱 컨테이너를 재생성해도 저장된 로그는 그대로다.
+#
+# 달러 기호로 감싼 값은 기동 인자 -config.expand-env=true 로 compose 환경변수에서 채운다
+# (주석 안에서도 치환되므로 주석에 그 문법을 쓰지 않는다).
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2026-09-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        # 보존 기간 삭제가 인덱스 기간 단위로 일어나므로 24h 로 둔다.
+        period: 24h
+
+limits_config:
+  # 환경마다 다르다 (compose 의 LOKI_RETENTION_PERIOD). 지난 로그는 compactor 가 지운다.
+  retention_period: ${LOKI_RETENTION_PERIOD:-168h}
+  # Alloy 가 오래 멈췄다가 밀린 로그를 한꺼번에 보내도 보존 기간 안의 것은 받는다.
+  reject_old_samples: true
+  reject_old_samples_max_age: ${LOKI_RETENTION_PERIOD:-168h}
+  # 라벨은 Alloy 가 네 개(service·environment·container·level)로 제한해서 보낸다. 실수로 요청 단위 값이
+  # 라벨이 되면 스트림 수가 폭증하므로, 여기서도 한 번 더 막는다.
+  max_label_names_per_series: 8
+  # 수집량 상한. Loki 는 용량 기준 보존이 없어서, 로그를 무한히 찍는 버그가 나면 보존 기간이 오기 전에
+  # 디스크가 찰 수 있다. 상한을 넘은 로그는 거절되고 LokiRejectingLogs 알림이 뜬다.
+  #
+  # 평소 수집량은 요청 하나에 앱·Nginx 합쳐 약 1KB 라 이 상한(초당 1MB ≈ 초당 1,000 요청)에 한참 못
+  # 미친다. 저장은 압축돼 받은 양의 1/10 안팎이다 (로컬 측정 87MB → 6MB). 요청 하루 10만 건이면
+  # 하루 약 10MB, prod 30일 보존으로 약 300MB 다. 기본값(초당 4MB)이면 폭주 시 하루 수십 GB 가 쌓인다.
+  ingestion_rate_mb: 1
+  ingestion_burst_size_mb: 4
+  per_stream_rate_limit: 1MB
+  per_stream_rate_limit_burst: 4MB
+  max_global_streams_per_user: 1000
+  # Loki 는 service 라벨을 보고 service_name 라벨을 스스로 하나 더 만든다. 값이 같은 라벨이 두 개가
+  # 되어 헷갈리기만 하므로 끈다.
+  discover_service_name: []
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        # 앱과 같은 인스턴스에서 도는 만큼 기본값(100MB)보다 작게 잡는다.
+        max_size_mb: 32
+
+pattern_ingester:
+  enabled: false
+
+analytics:
+  reporting_enabled: false

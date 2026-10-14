@@ -10,31 +10,33 @@ import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.member.Member;
+import com.sssok.domain.member.Nickname;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // 일부러 @Transactional을 안 쓴다 — CreateDownloadJobService가 QUEUED로 잡을 만드는 트랜잭션이
 // 실제로 커밋돼야 @TransactionalEventListener(AFTER_COMMIT)가 발화하고, 그래야 별도 스레드(media-worker)에서
 // 도는 DownloadJobEventListener/DownloadCompressionWorker까지 실제로 확인할 수 있다.
 // 테스트가 끝나면 데이터를 직접 지운다(자동 롤백이 없으므로).
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class DownloadJobAsyncTriggerTest {
 
     private static final Long ROOM_ID = 1L;
-    private static final Long REQUESTER_ID = 100L;
+
+    private Long requesterId;
 
     @Autowired
     CreateDownloadJobService createDownloadJobService;
@@ -44,6 +46,9 @@ class DownloadJobAsyncTriggerTest {
 
     @Autowired
     FileRepository fileRepository;
+
+    @Autowired
+    MemberRepository memberRepository;
 
     @Autowired
     JdbcTemplate jdbcTemplate;
@@ -56,10 +61,15 @@ class DownloadJobAsyncTriggerTest {
         jdbcTemplate.update("delete from download_job_media");
         jdbcTemplate.update("delete from download_job");
         jdbcTemplate.update("delete from stored_file");
+        if (requesterId != null) {
+            jdbcTemplate.update("delete from member where id = ?", requesterId);
+        }
     }
 
-    private Long media(Long roomId, byte[] content) {
-        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(content.length), Instant.now(), SIZE_POLICY);
+    private Long media(Long roomId, Long uploaderId, byte[] content) {
+        StoredFile file = StoredFile.reserve(
+            roomId, uploaderId, "test.jpg", "image/jpeg",
+            new FileSize(content.length), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
         given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))
@@ -69,13 +79,15 @@ class DownloadJobAsyncTriggerTest {
 
     @Test
     void 잡을_생성하면_트랜잭션_커밋_후_비동기로_압축까지_끝나_READY가_된다() throws InterruptedException {
-        Long media = media(ROOM_ID, "hello".getBytes());
+        requesterId = memberRepository.save(
+            Member.register(new Nickname("다운로더"), Instant.now())).getId();
+        Long media = media(ROOM_ID, requesterId, "hello".getBytes());
         given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
             .willReturn(discardingStream());
 
         CreateDownloadJobResult result =
             createDownloadJobService.create(
-                ROOM_ID, REQUESTER_ID, List.of(media), null, null);
+                ROOM_ID, requesterId, List.of(media), null, null);
 
         DownloadJob job = awaitStatus(result.jobId(), DownloadJobStatus.READY);
         assertThat(job.getStatus()).isEqualTo(DownloadJobStatus.READY);

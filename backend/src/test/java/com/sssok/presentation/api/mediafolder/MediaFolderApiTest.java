@@ -8,12 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -21,8 +20,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 방/폴더/미디어를 준비하고 실제 PostgreSQL 위에서 담기·꺼내기를 관통 확인한다.
-@SpringBootTest(properties = "spring.jpa.hibernate.ddl-auto=validate")
-@AutoConfigureMockMvc
+@PostgresApiTest
 class MediaFolderApiTest extends PostgresContainerSupport {
 
     // 테스트끼리 롤백 없이 같은 컨테이너를 공유하므로, 미디어 id/storage_key가 겹치지 않게 매번 새로 발급한다.

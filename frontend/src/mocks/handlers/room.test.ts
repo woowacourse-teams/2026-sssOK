@@ -101,7 +101,7 @@ describe("GET /rooms/{code} 목 핸들러", () => {
       await fetch(`${API_BASE_URL}/rooms`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: TOKEN },
-        body: JSON.stringify({ name: "제주 여행", uploadPolicy: "everyone", expiryHours: 24 }),
+        body: JSON.stringify({ name: "제주 여행", uploadPolicy: "everyone" }),
       })
     ).json();
 
@@ -309,14 +309,12 @@ describe("GET /rooms/{roomId}/media 목 핸들러", () => {
 
 describe("PATCH /rooms/{roomId} 목 핸들러", () => {
   it("전달한 필드만 수정한다", async () => {
-    const requestedAt = Date.now();
     const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
       method: "PATCH",
       headers: { Authorization: TOKEN, "Content-Type": "application/json" },
       body: JSON.stringify({
         name: "제주 3박 4일",
         uploadPolicy: "host",
-        expiryHours: 24,
       }),
     });
     const body = await response.json();
@@ -330,23 +328,6 @@ describe("PATCH /rooms/{roomId} 목 핸들러", () => {
         uploadPolicy: "host",
       }),
     );
-    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeGreaterThanOrEqual(24 * 3_600_000);
-    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeLessThan(24 * 3_600_000 + 1_000);
-  });
-
-  it("3일로 변경하면 요청 시각으로부터 72시간 뒤로 만료를 연장한다", async () => {
-    const requestedAt = Date.now();
-    const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
-      method: "PATCH",
-      headers: { Authorization: TOKEN, "Content-Type": "application/json" },
-      body: JSON.stringify({ expiryHours: 72 }),
-    });
-    const body = await response.json();
-
-    expect(body.data.name).toBe("제주 여행");
-    expect(body.data.uploadPolicy).toBe("everyone");
-    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeGreaterThanOrEqual(72 * 3_600_000);
-    expect(Date.parse(body.data.expiresAt) - requestedAt).toBeLessThan(72 * 3_600_000 + 1_000);
   });
 
   it("수정할 필드가 없으면 400을 내려준다", async () => {

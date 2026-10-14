@@ -5,13 +5,16 @@ import { colors, radius, shadow, spacing, typography } from "@/shared/styles/tok
 export interface DropdownMenuProps {
   onClose: () => void;
   children: ReactNode;
+  align?: "start" | "end";
 }
 
-export const DropdownMenu = ({ onClose, children }: DropdownMenuProps) => {
+export const DropdownMenu = ({ onClose, children, align = "end" }: DropdownMenuProps) => {
   return (
     <>
       <Overlay data-testid="dropdown-menu-overlay" onClick={onClose} />
-      <Card data-testid="dropdown-menu">{children}</Card>
+      <Card data-testid="dropdown-menu" $align={align}>
+        {children}
+      </Card>
     </>
   );
 };
@@ -49,10 +52,11 @@ const Overlay = styled.div`
   z-index: 1000;
 `;
 
-const Card = styled.div`
+const Card = styled.div<{ $align: "start" | "end" }>`
   position: absolute;
   top: calc(100% + ${spacing[8]});
-  right: 0;
+  right: ${({ $align }) => ($align === "end" ? 0 : "auto")};
+  left: ${({ $align }) => ($align === "start" ? 0 : "auto")};
   z-index: 1001;
   display: inline-flex;
   flex-direction: column;

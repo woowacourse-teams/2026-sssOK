@@ -6,6 +6,7 @@ import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -16,10 +17,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 // 입장 멱등성이 동시 요청에서도 지켜지는지 확인한다.
-@SpringBootTest
+@PostgresIntegrationTest
 class JoinRoomConcurrencyTest extends PostgresContainerSupport {
 
     private static final int THREADS = 8;
@@ -40,7 +40,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
     void 같은_사람이_동시에_여러_번_입장해도_신규_참여는_한_번뿐이다() throws Exception {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
         Long guestId = anonymousAuthService.authenticate("민수").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
 
         List<JoinRoomResult> results = 동시에_입장(room.getId(), guestId);
 
@@ -53,7 +53,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
     void 동시_입장에서도_참여_시각과_방장_정보가_모두_같은_값으로_내려간다() throws Exception {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
         Long guestId = anonymousAuthService.authenticate("민수").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
 
         List<JoinRoomResult> results = 동시에_입장(room.getId(), guestId);
 

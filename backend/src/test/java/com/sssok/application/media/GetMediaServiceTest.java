@@ -27,15 +27,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 방 존재·만료·입장 여부는 RoomMembershipInterceptor 가
 // 컨트롤러 앞에서 거른다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class GetMediaServiceTest {
 
     private static final Long OTHER_ROOM_ID = 711L;
@@ -67,7 +65,7 @@ class GetMediaServiceTest {
     void setUp() {
         hostId = memberRepository.save(Member.register(new Nickname("방장"), Instant.now())).getId();
         uploaderId = memberRepository.save(Member.register(new Nickname("가현"), Instant.now())).getId();
-        roomId = createRoomService.create(hostId, "우테코 회식", null, null).room().getId();
+        roomId = createRoomService.create(hostId, "우테코 회식", null).room().getId();
         given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }

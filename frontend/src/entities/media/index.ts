@@ -11,6 +11,7 @@ export type {
   MediaList,
   MediaStatus,
   PhotoFilter,
+  PhotoSort,
 } from "./model/types";
 export { MediaCard } from "./ui/MediaCard";
 export { MediaImage } from "./ui/MediaImage";

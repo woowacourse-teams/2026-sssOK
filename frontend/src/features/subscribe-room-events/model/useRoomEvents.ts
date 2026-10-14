@@ -1,9 +1,10 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import type { MediaItem } from "@/entities/media";
+import { photosQueryKey, type Media, type MediaItem, type MediaList } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
-import type { MediaFoldersUpdatedEvent } from "./roomEventTypes";
+import { captureException } from "@/shared/lib";
+import type { MediaFoldersUpdatedEvent, MediaLikesUpdatedEvent } from "./roomEventTypes";
 import { updateMediaReadyCache } from "./updateMediaReadyCache";
 import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
@@ -11,6 +12,7 @@ interface UseRoomEventsParams {
   roomId: number;
   userId: number;
   token: string;
+  onMediaCreated?: (media: Media) => void;
   onMediaDeleted?: (mediaIds: number[]) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
@@ -23,16 +25,22 @@ export const useRoomEvents = ({
   roomId,
   userId,
   token,
+  onMediaCreated,
   onMediaDeleted,
   onFoldersChanged,
   onFolderDeleted,
   onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
+  const onMediaCreatedRef = useRef(onMediaCreated);
   const onMediaDeletedRef = useRef(onMediaDeleted);
   const onFoldersChangedRef = useRef(onFoldersChanged);
   const onFolderDeletedRef = useRef(onFolderDeleted);
   const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
+
+  useEffect(() => {
+    onMediaCreatedRef.current = onMediaCreated;
+  }, [onMediaCreated]);
 
   useEffect(() => {
     onMediaDeletedRef.current = onMediaDeleted;
@@ -55,6 +63,25 @@ export const useRoomEvents = ({
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
+    let hasReportedConnectionError = false;
+
+    const handleConnectionError = () => {
+      if (hasReportedConnectionError) return;
+
+      hasReportedConnectionError = true;
+      captureException(new Error("실시간 구독 연결에 실패했습니다."), {
+        level: "warning",
+        operation: "room_events.subscribe",
+        method: "GET",
+        route: "/rooms/:roomId/events",
+        code: "EVENT_SOURCE_ERROR",
+      });
+    };
+
+    const handleMediaCreated = (event: MessageEvent<string>) => {
+      const media = JSON.parse(event.data) as Media;
+      onMediaCreatedRef.current?.(media);
+    };
 
     const handleMediaReady = (event: MessageEvent<string>) => {
       const media = JSON.parse(event.data) as MediaItem;
@@ -89,6 +116,24 @@ export const useRoomEvents = ({
       onMediaFoldersUpdatedRef.current?.(payload);
     };
 
+    const handleMediaLikesUpdated = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as MediaLikesUpdatedEvent;
+
+      queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) =>
+        current
+          ? {
+              ...current,
+              items: current.items.map((media) =>
+                media.mediaId === payload.mediaId
+                  ? { ...media, likeCount: payload.likeCount }
+                  : media,
+              ),
+            }
+          : current,
+      );
+    };
+
+    eventSource.addEventListener("media.created", handleMediaCreated);
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
     FOLDER_CHANGE_EVENTS.forEach((type) =>
@@ -96,8 +141,11 @@ export const useRoomEvents = ({
     );
     eventSource.addEventListener("folder.deleted", handleFolderDeleted);
     eventSource.addEventListener("media.folders.updated", handleMediaFoldersUpdated);
+    eventSource.addEventListener("media.likes.updated", handleMediaLikesUpdated);
+    eventSource.addEventListener("error", handleConnectionError);
 
     return () => {
+      eventSource.removeEventListener("media.created", handleMediaCreated);
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
       FOLDER_CHANGE_EVENTS.forEach((type) =>
@@ -105,6 +153,8 @@ export const useRoomEvents = ({
       );
       eventSource.removeEventListener("folder.deleted", handleFolderDeleted);
       eventSource.removeEventListener("media.folders.updated", handleMediaFoldersUpdated);
+      eventSource.removeEventListener("media.likes.updated", handleMediaLikesUpdated);
+      eventSource.removeEventListener("error", handleConnectionError);
       eventSource.close();
     };
   }, [queryClient, roomId, userId, token]);

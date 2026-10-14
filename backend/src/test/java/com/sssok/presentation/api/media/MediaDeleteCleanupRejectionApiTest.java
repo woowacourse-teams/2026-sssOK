@@ -20,6 +20,7 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.AcceptanceTest;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -39,6 +40,7 @@ import org.springframework.web.context.WebApplicationContext;
 //
 // 그때도 삭제 자체는 이미 커밋됐으므로 응답은 성공이어야 하고, 지우지 못한 키는 회수 배치가
 // 집을 수 있도록 대기열에 남아야 한다. 워커 1개 / 큐 0 으로 풀을 막아 그 상황을 강제한다.
+@AcceptanceTest
 @SpringBootTest(properties = {
     "storage.cleanup.auto-purge=true",
     "spring.task.execution.pool.core-size=1",
@@ -80,7 +82,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
         mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         AuthResult host = anonymousAuthService.authenticate("방장");
         uploader = anonymousAuthService.authenticate("가현");
-        Room room = createRoomService.create(host.userId(), "우테코 회식", null, null).room();
+        Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
         joinRoomService.join(roomId, uploader.userId());
     }

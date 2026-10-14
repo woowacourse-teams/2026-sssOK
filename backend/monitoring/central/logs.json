@@ -1,0 +1,280 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "중앙 Loki의 개발·운영 앱/Nginx 로그. 기존 Loki의 과거 데이터는 포함하지 않는다. 기본 최근 1시간, 자동 갱신 없음, 패널당 최대 100줄.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "환경·서비스·수준으로 검색한다. All은 수준 라벨이 없는 로그도 포함한다. JSON을 펼쳐 표시하며 최대 100줄이므로 전체 건수가 아니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 11
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"${environment}\",service=~\"${service:regex}\",level=~\"${level:regex}\"}",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 100,
+          "direction": "backward"
+        }
+      ],
+      "title": "최근 로그 · 선택한 서비스 / 수준",
+      "type": "logs",
+      "maxDataPoints": 100
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "환경·서비스만 적용하고 수준 선택과 무관하게 WARN/ERROR를 찾는다. 결과 없음은 해당 기간에 일치하는 로그가 없다는 뜻이며 수집 정상의 증거는 아니다.",
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 24,
+        "h": 11
+      },
+      "id": 2,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"${environment}\",service=~\"${service:regex}\",level=~\"WARN|ERROR\"}",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 100,
+          "direction": "backward"
+        }
+      ],
+      "title": "WARN / ERROR · 선택한 서비스",
+      "type": "logs",
+      "maxDataPoints": 100
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "응답 X-Request-ID를 입력한다. 서비스·수준 선택을 무시하고 앱과 Nginx를 함께 조회한다. 최근 최대 100줄을 시간 오름차순으로 표시한다. /health는 앱 접근 로그가 생략되어 Nginx만 나올 수 있다.",
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 11
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"${environment}\",service=~\"sssok-backend|sssok-nginx\"} |= ${requestId:doublequote} | json requestId=\"requestId\" | __error__=\"\" | requestId != \"\" | requestId = ${requestId:doublequote}",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 100,
+          "direction": "backward"
+        }
+      ],
+      "title": "Request ID 추적 · 앱 + Nginx",
+      "type": "logs",
+      "maxDataPoints": 100
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [
+    "sssOK",
+    "backend",
+    "logs"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "custom",
+        "query": "dev,prod",
+        "current": {
+          "text": "dev",
+          "value": "dev"
+        },
+        "options": [
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": true
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false
+      },
+      {
+        "name": "service",
+        "label": "서비스",
+        "type": "custom",
+        "query": "sssok-backend,sssok-nginx",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": "$__all",
+            "selected": true
+          },
+          {
+            "text": "sssok-backend",
+            "value": "sssok-backend",
+            "selected": false
+          },
+          {
+            "text": "sssok-nginx",
+            "value": "sssok-nginx",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": true,
+        "hide": 0,
+        "skipUrlSync": false,
+        "allValue": "sssok-backend|sssok-nginx"
+      },
+      {
+        "name": "level",
+        "label": "로그 수준",
+        "type": "custom",
+        "query": "TRACE,DEBUG,INFO,WARN,ERROR",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "options": [
+          {
+            "text": "All",
+            "value": "$__all",
+            "selected": true
+          },
+          {
+            "text": "TRACE",
+            "value": "TRACE",
+            "selected": false
+          },
+          {
+            "text": "DEBUG",
+            "value": "DEBUG",
+            "selected": false
+          },
+          {
+            "text": "INFO",
+            "value": "INFO",
+            "selected": false
+          },
+          {
+            "text": "WARN",
+            "value": "WARN",
+            "selected": false
+          },
+          {
+            "text": "ERROR",
+            "value": "ERROR",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": true,
+        "hide": 0,
+        "skipUrlSync": false,
+        "allValue": ".*"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "응답 헤더 X-Request-ID를 입력한다. 빈 값이면 추적 결과는 없다. 환경만 공통 적용되며 서비스·수준 선택은 추적 패널에 적용되지 않는다.",
+        "label": "Request ID (추적 패널 전용)",
+        "name": "requestId",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sssOK Central Logs",
+  "uid": "sssok-central-logs",
+  "version": 1,
+  "weekStart": ""
+}

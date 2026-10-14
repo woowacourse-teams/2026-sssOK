@@ -1,0 +1,17 @@
+// 중앙 단독 전송. component ID와 Alloy 수집 위치 볼륨은 유지한다.
+// 재시도 소진 시 로그가 유실될 수 있으므로 중앙 전송·폐기 알림을 함께 관측한다.
+loki.write "loki" {
+  endpoint {
+    name               = "central"
+    url                = sys.env("CENTRAL_LOKI_URL")
+    remote_timeout     = "5s"
+    min_backoff_period = "500ms"
+    max_backoff_period = "2s"
+    max_backoff_retries = 3
+  }
+
+  // 한 Alloy 는 한 환경만 수집하므로 환경은 여기서 한 번에 붙인다. 값은 compose 가 넘긴다.
+  external_labels = {
+    environment = sys.env("SSSOK_ENVIRONMENT"),
+  }
+}

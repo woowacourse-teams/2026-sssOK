@@ -27,10 +27,6 @@ public interface FolderMediaRepository {
     // 폴더 지정 없이, 이 미디어들이 속한 모든 폴더 관계를 끊는다(전부 루트로). 끊긴 조합 수를 반환한다.
     long detachFromAllFolders(List<Long> mediaIds);
 
-    // 방을 통째로 정리(purge)할 때, 그 방에 속한 폴더들이 맺고 있던 관계를 한번에 끊는다.
-    // 폴더 자체를 지우기 전에 먼저 불러야 고아 행이 남지 않는다.
-    long detachAllByRoomId(Long roomId);
-
     // 폴더에 담긴 미디어 중 주어진 상태인 것만 센다. 매핑 행을 전부 세면 아직 올라오지 않은
     // 미디어까지 포함돼 목록에 보이는 개수와 어긋난다.
     long countByFolderIdAndStatusIn(Long folderId, Collection<UploadStatus> statuses);

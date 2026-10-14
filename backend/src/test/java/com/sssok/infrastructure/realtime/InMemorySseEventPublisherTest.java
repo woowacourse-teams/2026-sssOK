@@ -11,13 +11,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 
 // publish()가 실제 Repository 빈을 통해 room_events에 기록하는지 확인하는 통합 테스트.
 // 실시간 전달(SseEmitter.send)은 실제 HTTP 연결이 있어야 검증 가능해 API 인수 테스트가 담당한다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class InMemorySseEventPublisherTest {
 
     @Autowired

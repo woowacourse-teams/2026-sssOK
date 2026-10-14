@@ -21,14 +21,12 @@ import java.util.concurrent.Future;
 import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 
 // LinkLoginService가 실제 Repository 빈을 통해 코드를 조회·소비하고 토큰을 발급하는지 확인하는 통합 테스트.
 // 기본 CRUD만 검증하므로 H2로 빠르게 돈다.
 // H2 설정은 application-test.yml(test 프로파일)에 모아뒀다 (docs/backend/TEST_CONVENTION.md 참고).
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class LinkLoginServiceTest {
 
     @Autowired

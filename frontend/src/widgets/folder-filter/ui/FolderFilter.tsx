@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { HiPlus } from "react-icons/hi2";
+import { LuFolderPlus } from "react-icons/lu";
 
 import type { RoomFolder } from "@/entities/room";
-import { IconButton } from "@/shared/ui/icon-button";
 import {
-  AddFolderButtonItem,
+  AddFolderButton,
   Count,
+  FolderFilterBar,
   FolderButton,
   FolderList,
   FolderScrollArea,
@@ -45,36 +45,37 @@ export const FolderFilter = ({
   }, [folders.length]);
 
   return (
-    <FolderScrollArea>
-      <FolderList ref={folderListRef}>
-        <FolderButton
-          type="button"
-          $active={selectedFolderId === null}
-          onClick={() => onSelectFolder(null)}
-        >
-          전체 <Count $active={selectedFolderId === null}>{totalCount}</Count>
-        </FolderButton>
+    <FolderFilterBar>
+      <FolderScrollArea>
+        <FolderList ref={folderListRef}>
+          <FolderButton
+            type="button"
+            $active={selectedFolderId === null}
+            onClick={() => onSelectFolder(null)}
+          >
+            전체 <Count $active={selectedFolderId === null}>{totalCount}</Count>
+          </FolderButton>
 
-        {folders.map((folder) => {
-          const isSelected = selectedFolderId === folder.id;
+          {folders.map((folder) => {
+            const isSelected = selectedFolderId === folder.id;
 
-          return (
-            <FolderButton
-              key={folder.id}
-              type="button"
-              $active={isSelected}
-              onClick={() => onSelectFolder(folder.id)}
-            >
-              {folder.name} <Count $active={isSelected}>{folder.photoCount}</Count>
-            </FolderButton>
-          );
-        })}
-        <AddFolderButtonItem>
-          <IconButton type="button" size="sm" aria-label="폴더 추가" onClick={onAddFolder}>
-            <HiPlus />
-          </IconButton>
-        </AddFolderButtonItem>
-      </FolderList>
-    </FolderScrollArea>
+            return (
+              <FolderButton
+                key={folder.id}
+                type="button"
+                $active={isSelected}
+                onClick={() => onSelectFolder(folder.id)}
+              >
+                {folder.name} <Count $active={isSelected}>{folder.photoCount}</Count>
+              </FolderButton>
+            );
+          })}
+        </FolderList>
+      </FolderScrollArea>
+      <AddFolderButton type="button" onClick={onAddFolder}>
+        <LuFolderPlus aria-hidden="true" />
+        폴더 추가
+      </AddFolderButton>
+    </FolderFilterBar>
   );
 };

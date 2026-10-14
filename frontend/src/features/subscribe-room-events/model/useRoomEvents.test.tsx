@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 
+import { photosQueryKey, type Media, type MediaList } from "@/entities/media";
 import { useRoomEvents } from "./useRoomEvents";
 
 class FakeEventSource {
@@ -30,6 +31,7 @@ class FakeEventSource {
 }
 
 const renderRoomEvents = (callbacks: {
+  onMediaCreated?: (media: Media) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
 }) => {
@@ -43,7 +45,7 @@ const renderRoomEvents = (callbacks: {
     { wrapper: Wrapper },
   );
   const source = FakeEventSource.instances[FakeEventSource.instances.length - 1];
-  return { ...view, source };
+  return { ...view, source, queryClient };
 };
 
 beforeEach(() => {
@@ -52,6 +54,35 @@ beforeEach(() => {
     value: FakeEventSource,
     configurable: true,
     writable: true,
+  });
+});
+
+const processingMedia: Media = {
+  mediaId: 10,
+  type: "IMAGE",
+  fileName: "photo.jpg",
+  mimeType: "image/jpeg",
+  size: 100,
+  thumbnailUrl: null,
+  displayUrl: "https://example.com/display.jpg",
+  width: null,
+  height: null,
+  duration: null,
+  folderIds: [],
+  uploaderId: 2,
+  uploaderName: "다른 사용자",
+  status: "PROCESSING",
+  uploadedAt: "2026-09-29T00:00:00Z",
+};
+
+describe("useRoomEvents 미디어 생성 이벤트", () => {
+  it("media.created를 받으면 처리 중 미디어를 넘긴다", () => {
+    const onMediaCreated = jest.fn();
+    const { source } = renderRoomEvents({ onMediaCreated });
+
+    act(() => source.emit("media.created", processingMedia));
+
+    expect(onMediaCreated).toHaveBeenCalledWith(processingMedia);
   });
 });
 
@@ -89,5 +120,32 @@ describe("useRoomEvents 폴더 이벤트", () => {
     source.emit("folder.created", { roomId: 1, folderId: 7, name: "1일차" });
 
     expect(onFoldersChanged).not.toHaveBeenCalled();
+  });
+});
+
+describe("useRoomEvents 좋아요 이벤트", () => {
+  it("media.likes.updated를 받으면 목록 캐시의 좋아요 수만 갱신한다", () => {
+    const { source, queryClient } = renderRoomEvents({});
+    queryClient.setQueryData<MediaList>(photosQueryKey(1, 10234), {
+      items: [
+        {
+          ...processingMedia,
+          status: "READY",
+          thumbnailUrl: "thumb",
+          displayUrl: "display",
+          width: 1,
+          height: 1,
+          likeCount: 1,
+          likedByMe: true,
+        },
+      ],
+    });
+
+    act(() => source.emit("media.likes.updated", { roomId: 1, mediaId: 10, likeCount: 4 }));
+
+    expect(queryClient.getQueryData<MediaList>(photosQueryKey(1, 10234))?.items[0]).toMatchObject({
+      likeCount: 4,
+      likedByMe: true,
+    });
   });
 });

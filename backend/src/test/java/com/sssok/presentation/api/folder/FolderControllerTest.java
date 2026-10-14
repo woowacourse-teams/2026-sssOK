@@ -29,10 +29,10 @@ import com.sssok.domain.folder.exception.FolderNameTooLongException;
 import com.sssok.domain.folder.exception.InvalidFolderNameException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
+import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,7 +91,6 @@ class FolderControllerTest {
             RoomCode.generate(new java.security.SecureRandom()),
             new RoomName("우테코 회식"),
             RoomStatus.initial(),
-            new RoomExpiration(Instant.now().plusSeconds(3600)),
             UploadPolicy.ANYONE,
             1L,
             Instant.now(),
@@ -136,8 +135,7 @@ class FolderControllerTest {
     void 만료된_방이면_410과_ROOM_EXPIRED를_반환한다() throws Exception {
         Room expired = Room.reconstruct(
             ROOM_ID, null, RoomCode.generate(new java.security.SecureRandom()), new RoomName("만료방"),
-            RoomStatus.initial(), new RoomExpiration(Instant.now().minusSeconds(3600)),
-            UploadPolicy.ANYONE, 1L, Instant.now(), null
+            ExpiredRoomStatus.INSTANCE, UploadPolicy.ANYONE, 1L, Instant.now(), null
         );
         given(roomRepository.findById(ROOM_ID)).willReturn(java.util.Optional.of(expired));
 

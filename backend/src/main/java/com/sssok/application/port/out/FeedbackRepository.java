@@ -11,8 +11,6 @@ public interface FeedbackRepository {
 
     Optional<Feedback> findById(Long id);
 
-    Optional<Feedback> findLatestByMemberIdSince(Long memberId, Instant since);
-
     // 최신순 첫 페이지.
     List<Feedback> findLatest(int limit);
 

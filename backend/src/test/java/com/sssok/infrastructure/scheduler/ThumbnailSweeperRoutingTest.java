@@ -23,6 +23,11 @@ import org.springframework.core.task.TaskRejectedException;
 // 줄줄이 제한 시간을 먹으면, 스케줄 스레드에서 직접 처리할 경우 다른 스케줄 작업까지 밀린다.
 class ThumbnailSweeperRoutingTest {
 
+    private final io.micrometer.core.instrument.simple.SimpleMeterRegistry registry =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    private final com.sssok.common.monitoring.MediaProcessingMetrics metrics =
+        new com.sssok.common.monitoring.MediaProcessingMetrics(registry);
+
     private final FileRepository fileRepository = mock(FileRepository.class);
     private final GenerateThumbnailService generateThumbnailService =
         mock(GenerateThumbnailService.class);
@@ -31,7 +36,7 @@ class ThumbnailSweeperRoutingTest {
     private final ThumbnailSweeper sweeper = new ThumbnailSweeper(
         fileRepository, generateThumbnailService,
         new ThumbnailProperties(null, null, null),
-        imageTaskExecutor, videoTaskExecutor);
+        imageTaskExecutor, videoTaskExecutor, metrics);
 
     @Test
     void 밀린_영상은_영상_전용_워커에_넘긴다() {
@@ -73,6 +78,20 @@ class ThumbnailSweeperRoutingTest {
         assertThatCode(sweeper::sweep).doesNotThrowAnyException();
 
         then(imageTaskExecutor).should().execute(any(Runnable.class));
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.submissions")
+            .tags("kind", "video", "source", "sweeper", "result", "rejected").counter().count())
+            .isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.submissions")
+            .tags("kind", "image", "source", "sweeper", "result", "accepted").counter().count())
+            .isEqualTo(1);
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.sweep.found").gauge().value())
+            .isEqualTo(2);
+        givenStuck();
+        sweeper.sweep();
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.sweep.found").gauge().value())
+            .isZero();
+        org.assertj.core.api.Assertions.assertThat(registry.get("sssok.media.sweep.last.success").gauge().value())
+            .isPositive();
     }
 
     private void givenStuck(StuckMedia... stuck) {

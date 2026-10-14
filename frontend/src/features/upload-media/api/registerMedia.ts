@@ -15,5 +15,10 @@ export const registerMedia = (roomId: number, request: RegisterMediaRequest, tok
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
+    errorTracking: {
+      level: "error",
+      operation: "upload.register_media",
+      route: "/rooms/:roomId/media",
+    },
   });
 };

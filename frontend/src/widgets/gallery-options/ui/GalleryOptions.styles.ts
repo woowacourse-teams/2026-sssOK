@@ -23,25 +23,38 @@ export const Options = styled.section`
   }
 `;
 
-export const OptionButton = styled.button<{ $active?: boolean }>`
-  min-width: 32px;
+export const Controls = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${spacing[16]};
+`;
+
+export const DropdownContainer = styled.div`
   position: relative;
+  display: inline-flex;
+`;
+
+export const DropdownButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: ${spacing[8]};
   height: 45px;
-  padding: 0;
-  color: ${({ $active }) => ($active ? colors.textAccent : colors.textSecondary)};
+  padding: 0 ${spacing[4]};
+  color: ${colors.textSecondary};
 
-  ${({ $active }) => ($active ? typography.caption2 : typography.caption3)}
+  ${typography.caption2}
 
-  &::after {
-    content: ${({ $active }) => ($active ? '""' : "none")};
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 2px;
-    border-radius: 2px;
-    background-color: ${colors.primary};
+  svg {
+    width: 16px;
+    height: 16px;
   }
+`;
+
+export const MenuCheck = styled.span<{ $visible: boolean }>`
+  display: grid;
+  place-items: center;
+  visibility: ${({ $visible }) => ($visible ? "visible" : "hidden")};
+  color: ${colors.primary};
 `;
 
 export const SelectAllButton = styled.button<{ $active: boolean }>`
@@ -49,6 +62,7 @@ export const SelectAllButton = styled.button<{ $active: boolean }>`
   align-items: center;
   gap: ${spacing[8]};
   height: 45px;
+  margin-left: auto;
   padding: 0;
   color: ${({ $active }) => ($active ? colors.textAccent : colors.textSecondary)};
 

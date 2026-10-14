@@ -5,6 +5,16 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [ main, develop, deploy ]
+  # 병합된 코드로 develop 범위의 캐시를 갱신해 다음 PR에서 복원한다.
+  push:
+    branches: [ develop ]
+    paths:
+      - 'backend/**'
+      - '.github/backend-version-intents/**'
+      - '.github/scripts/*backend-version*.sh'
+      - '.github/workflows/backend-ci.yml'
+      - '.github/workflows/deploy-dev.yml'
+      - '.github/workflows/deploy-prod.yml'
 
 permissions:
   contents: read
@@ -15,22 +25,36 @@ jobs:
     name: 변경 경로 확인
     runs-on: ubuntu-latest
     outputs:
-      # backend/** 가 안 바뀐 PR은 build를 건너뛴다. paths 필터를 워크플로우 트리거가 아니라
-      # 여기서 거는 이유: 트리거에 걸면 워크플로우 자체가 안 돌아서, "빌드 및 테스트"를 브랜치
-      # 보호 규칙의 필수 체크로 걸었을 때 그 PR은 체크가 영영 안 생겨 머지가 막혀버린다.
-      # workflow_dispatch(수동 재실행)는 경로와 무관하게 항상 backend=true로 취급한다.
-      backend: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.backend == 'true' }}
+      # PR은 변경 파일, develop push는 직전 push 이후 변경을 기준으로 검사한다.
+      # 수동 실행 및 이 워크플로 변경은 두 검사 모두 실행한다.
+      app: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.app == 'true' || steps.filter.outputs.ci == 'true' }}
+      monitoring: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.monitoring == 'true' || steps.filter.outputs.ci == 'true' }}
     steps:
+      - name: push 변경 비교용 체크아웃
+        if: github.event_name == 'push'
+        uses: actions/checkout@v4
       - name: 경로 필터
         id: filter
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'workflow_dispatch'
         uses: dorny/paths-filter@v3
         with:
+          base: ${{ github.ref }}
+          # 제외 패턴도 모두 만족해야 한다. 기본 some은 제외 패턴을 OR로 처리한다.
+          predicate-quantifier: every
           filters: |
-            backend:
+            app:
               - 'backend/**'
-              - '.github/backend-version-intents/**'
-              - '.github/scripts/*backend-version*.sh'
+              - '!backend/monitoring/**'
+              - '!backend/docker-compose*.yml'
+              - '!backend/nginx.conf'
+              - '!backend/.env*'
+              - '!backend/docs/**'
+              - '!**/*.md'
+            monitoring:
+              - '{backend/monitoring/**,backend/docker-compose*.yml,backend/nginx.conf,backend/.env*.example,.github/workflows/deploy-dev.yml,.github/workflows/deploy-prod.yml}'
+              - '!backend/monitoring/central/**'
+              - '!**/*.md'
+            ci:
               - '.github/workflows/backend-ci.yml'
 
   version-check:
@@ -46,11 +70,14 @@ jobs:
           fetch-depth: 0
 
       - name: 백엔드 버전 도우미 테스트
-        run: bash .github/scripts/test-backend-version.sh
+        run: |
+          bash .github/scripts/test-backend-version.sh
+          python3 .github/scripts/test-backend-version-pr.py
 
       - name: 작업·릴리스 버전 규칙 검증
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_REF: ${{ github.head_ref }}
         run: bash .github/scripts/check-backend-version-pr.sh "$BASE_SHA"
 
   migration-check:
@@ -69,9 +96,9 @@ jobs:
         run: bash .github/scripts/check-flyway-migrations.sh "$BASE_SHA"
 
   build:
-    name: 빌드 및 테스트
+    name: ${{ github.event_name == 'push' && '공통 컴파일 캐시 갱신' || '빌드 및 테스트' }}
     needs: changes
-    if: needs.changes.outputs.backend == 'true'
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
 
     defaults:
@@ -90,6 +117,9 @@ jobs:
 
       - name: Gradle 설정
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # 작업 브랜치에서도 캐시를 저장해 다음 CI 실행에서 재사용한다.
+          cache-read-only: false
 
       - name: gradlew 실행 권한 부여
         run: chmod +x gradlew
@@ -97,16 +127,22 @@ jobs:
       # 영상 썸네일 추출기 테스트가 실물 ffmpeg 로 돈다. 없으면 그 테스트들이 조용히
       # 건너뛰어져, 깨진 채로 머지돼도 CI 가 초록으로 통과한다.
       # 운영 이미지에도 같은 패키지가 깔린다(backend/Dockerfile).
-      - name: ffmpeg 설치
+      - name: ffmpeg 확인 및 설치
+        if: github.event_name != 'push'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq ffmpeg
+          fi
           # 설치가 조용히 실패하면 여기서 잡는다 — 테스트 스킵으로 흘러가지 않게 한다.
           ffmpeg -version | head -1
           ffprobe -version | head -1
 
+      # 필수 CI는 한 Test JVM에서 Spring Context 캐시를 재사용한다. 성능·외부 연동 테스트는
+      # test 태스크에서 제외하며, 문제를 좁혀야 할 때 범주별 태스크를 선택 실행한다.
       - name: 빌드 및 테스트
-        run: ./gradlew build
+        if: github.event_name != 'push'
+        run: ./gradlew build --continue --build-cache
         env:
           # CI 테스트 전용 키. 운영 시크릿과 무관하며 실제 배포에는 쓰이지 않는다.
           JWT_SECRET: 5SWYqRqL3JIuYo1c/ecWhbU6RTRd2nWPQfeaDjGJSd0=
@@ -114,29 +150,60 @@ jobs:
           # WebMvcTest(별도 @ActiveProfiles("test") 없이 도는 슬라이스)의 CORS 테스트가 통과하게 한다.
           CORS_ALLOWED_ORIGINS: http://localhost:3000
 
+      - name: 공통 컴파일 캐시 갱신
+        if: github.event_name == 'push'
+        run: ./gradlew classes testClasses --build-cache
+
       - name: 테스트 리포트 업로드
-        if: always()
+        if: always() && github.event_name != 'push'
         uses: actions/upload-artifact@v4
         with:
           name: test-report
           path: backend/build/reports/tests/test
           retention-days: 7
 
+  monitoring-check:
+    name: 개발·운영 관측 설정 검증
+    needs: changes
+    if: needs.changes.outputs.monitoring == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+      - name: Compose 수집 설정 및 Nginx 문법 검증
+        run: bash backend/monitoring/validate-dev-node.sh
+      - name: 개발 Nginx 설정 변경 감지 검증
+        run: python3 -B backend/monitoring/test-dev-nginx.py
+      - name: 운영 배포 후 검사 스크립트 문법 검증
+        run: bash -n backend/monitoring/check-prod-node.sh
+      - name: 배포 전 사설 IP 검사 검증
+        run: python3 -B backend/monitoring/test-private-ip.py
+
+      - name: 운영 관측 검사 실패 시 복구 순서 검증
+        run: python3 -B backend/monitoring/test-prod-deploy.py
+      - name: 로컬·개발·운영 Alloy 설정 검증
+        run: |
+          bash backend/monitoring/validate-alloy.sh local
+          bash backend/monitoring/validate-alloy.sh dev
+          bash backend/monitoring/validate-alloy.sh prod
+
   ci-ok:
     name: 백엔드 CI 결과
-    needs: [ changes, version-check, migration-check, build ]
+    needs: [ changes, version-check, migration-check, build, monitoring-check ]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      # build가 스킵됐으면(backend 미변경) 통과로 본다. 브랜치 보호 규칙의 필수 체크는
+      # build가 스킵됐으면(앱 미변경) 통과로 본다. 브랜치 보호 규칙의 필수 체크는
       # 이 job("백엔드 CI 결과")을 지정한다 — build 자체를 지정하면 스킵된 PR에서 체크가
       # 안 생겨 머지가 막힌다.
       - name: 결과 판정
         run: |
-          if [ "${{ needs.build.result }}" = "failure" ] || \
+          if [ "${{ needs.changes.result }}" != "success" ] || \
+             { [ "${{ needs.build.result }}" != "success" ] && [ "${{ needs.build.result }}" != "skipped" ]; } || \
+             { [ "${{ needs.monitoring-check.result }}" != "success" ] && [ "${{ needs.monitoring-check.result }}" != "skipped" ]; } || \
              { [ "${{ needs.version-check.result }}" != "success" ] && [ "${{ needs.version-check.result }}" != "skipped" ]; } || \
              { [ "${{ needs.migration-check.result }}" != "success" ] && [ "${{ needs.migration-check.result }}" != "skipped" ]; }; then
             echo "::error::백엔드 CI 검증 실패"
             exit 1
           fi
-          echo "통과 (backend 변경 여부: ${{ needs.changes.outputs.backend }}, 버전 검증: ${{ needs.version-check.result }}, 마이그레이션 검증: ${{ needs.migration-check.result }}, build 결과: ${{ needs.build.result }})"
+          echo "통과 (앱 변경: ${{ needs.changes.outputs.app }}, 관측 설정 변경: ${{ needs.changes.outputs.monitoring }}, 버전 검증: ${{ needs.version-check.result }}, 마이그레이션 검증: ${{ needs.migration-check.result }}, 테스트 결과: ${{ needs.build.result }})"

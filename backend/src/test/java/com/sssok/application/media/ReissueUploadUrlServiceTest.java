@@ -27,13 +27,11 @@ import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2).
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class ReissueUploadUrlServiceTest {
 
     private static final long SIZE = 1024L;
@@ -64,7 +62,7 @@ class ReissueUploadUrlServiceTest {
     @BeforeEach
     void setUp() {
         hostId = anonymousAuthService.authenticate("가현").userId();
-        Room room = createRoomService.create(hostId, "우테코 회식", null, null).room();
+        Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         roomId = room.getId();
         given(roomPermissionPort.canUpload(any(), any())).willReturn(true);
         given(fileStoragePort.presignPut(any(), anyString(), any(Duration.class))).willReturn("new-url");
@@ -162,7 +160,7 @@ class ReissueUploadUrlServiceTest {
     @Test
     void 다른_방의_미디어면_예외() {
         StoredFile file = reserved(hostId);
-        Long otherRoomId = createRoomService.create(hostId, "다른 회식", null, null).room().getId();
+        Long otherRoomId = createRoomService.create(hostId, "다른 회식", null).room().getId();
 
         assertThatThrownBy(() ->
             reissueUploadUrlService.reissue(otherRoomId, file.getId(), hostId, null))

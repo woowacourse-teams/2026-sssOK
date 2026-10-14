@@ -9,6 +9,7 @@ import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.presentation.api.media.AllMediaListResponse;
 import com.sssok.presentation.api.media.MediaListResponse;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PerformanceTest;
 import jakarta.persistence.EntityManagerFactory;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -23,6 +24,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+@PerformanceTest
 @SpringBootTest(properties = "spring.jpa.show-sql=false")
 @EnabledIfEnvironmentVariable(named = "RUN_MEDIA_LIST_MODE_BENCHMARK", matches = "true")
 class MediaListModePerformanceTest extends PostgresContainerSupport {

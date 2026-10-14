@@ -1,0 +1,1888 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "서비스 개요",
+      "type": "link",
+      "url": "/d/sssok-backend-overview",
+      "keepTime": true
+    },
+    {
+      "title": "오류 로그",
+      "type": "link",
+      "url": "/d/sssok-logs",
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "업로드 · URL 발급과 완료 등록",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum (increase(sssok_upload_files_total{job=\"sssok-backend\",stage=\"issue\",result=\"accepted\"}[$window]))",
+          "legendFormat": "URL 발급 · 접수",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (increase(sssok_upload_files_total{job=\"sssok-backend\",stage=\"issue\",result=\"rejected\"}[$window]))",
+          "legendFormat": "URL 발급 · 거절",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "sum (increase(sssok_upload_files_total{job=\"sssok-backend\",stage=\"register\",result=\"accepted\"}[$window]))",
+          "legendFormat": "완료 등록 · 접수",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "sum (increase(sssok_upload_files_total{job=\"sssok-backend\",stage=\"register\",result=\"rejected\"}[$window]))",
+          "legendFormat": "완료 등록 · 거절",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "업로드 파일 응답 항목 수",
+      "type": "timeseries",
+      "description": "집계 구간의 파일 항목 수. HTTP 2xx 내부의 부분 거절도 포함. 재요청은 중복 집계되므로 고유 파일 수나 R2 전송 성공률이 아닙니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri,status) (increase(http_server_requests_seconds_count{job=\"sssok-backend\",method=\"POST\",uri=~\"(/api/v1)?/rooms/[^/]+/media(/upload-urls|/[^/]+/upload-url)?\"}[$window]))",
+          "legendFormat": "{{uri}} · {{status}}",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "업로드 API 응답 건수",
+      "type": "timeseries",
+      "description": "POST URL 발급·재발급·완료 등록의 요청 건수. 파일 수와 다릅니다. 4xx는 권한·입력·제한 오류를 포함합니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,uri) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",method=\"POST\",uri=~\"(/api/v1)?/rooms/[^/]+/media(/upload-urls|/[^/]+/upload-url)?\"}[$window])))",
+          "legendFormat": "{{uri}}",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "업로드 API p95 응답 시간",
+      "type": "timeseries",
+      "description": "최근 집계 구간의 서버 API 시간이며 브라우저→R2 전송 시간은 제외합니다. 관측이 없으면 빈 값입니다."
+    },
+    {
+      "id": 5,
+      "type": "row",
+      "title": "미디어 처리 · 사진과 영상",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result!=\"skipped\",kind=\"image\"}[$window]))",
+          "legendFormat": "사진",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result!=\"skipped\",kind=\"video\"}[$window]))",
+          "legendFormat": "영상",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "사진·영상 처리량",
+      "type": "timeseries",
+      "description": "집계 구간 동안 종료된 처리 시도 수. 재시도를 포함하며 건너뜀은 제외합니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "percent",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result=\"success\",kind=\"image\"}[$window])) / sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result!=\"skipped\",kind=\"image\"}[$window]))",
+          "legendFormat": "사진",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "100 * sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result=\"success\",kind=\"video\"}[$window])) / sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",result!=\"skipped\",kind=\"video\"}[$window]))",
+          "legendFormat": "영상",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "사진·영상 정상 생성 비율",
+      "type": "timeseries",
+      "description": "정상 생성 / 종료된 처리 시도(건너뜀 제외). 썸네일 없는 완료는 정상 생성에서 제외. 처리 0건은 성공률로 표시하지 않습니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 10,
+        "w": 8,
+        "h": 8
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",result=\"success\"}[$window]))",
+          "legendFormat": "사진 · 정상 생성",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",result=\"retryable\"}[$window]))",
+          "legendFormat": "사진 · 재시도 대상",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",result=\"permanent_failure\"}[$window]))",
+          "legendFormat": "사진 · 영구 실패",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",result=\"completed_without_thumbnail\"}[$window]))",
+          "legendFormat": "사진 · 썸네일 없는 완료",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",result=\"skipped\"}[$window]))",
+          "legendFormat": "사진 · 건너뜀",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "F",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"video\",result=\"success\"}[$window]))",
+          "legendFormat": "영상 · 정상 생성",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "G",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"video\",result=\"retryable\"}[$window]))",
+          "legendFormat": "영상 · 재시도 대상",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "H",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"video\",result=\"permanent_failure\"}[$window]))",
+          "legendFormat": "영상 · 영구 실패",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "I",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"video\",result=\"completed_without_thumbnail\"}[$window]))",
+          "legendFormat": "영상 · 썸네일 없는 완료",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "J",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"video\",result=\"skipped\"}[$window]))",
+          "legendFormat": "영상 · 건너뜀",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "처리 결과별 건수",
+      "type": "timeseries",
+      "description": "사진과 영상의 결과는 범례로 구분합니다. 영구 실패·썸네일 없는 완료·재시도 대상·건너뜀을 포함한 처리 시도 수."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(sssok_media_processing_seconds_bucket{job=\"sssok-backend\",kind=\"image\",result=\"success\"}[$window])))",
+          "legendFormat": "사진 p95",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(sssok_media_processing_seconds_bucket{job=\"sssok-backend\",kind=\"video\",result=\"success\"}[$window])))",
+          "legendFormat": "영상 p95",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "sum (rate(sssok_media_processing_seconds_sum{job=\"sssok-backend\",kind=\"image\",result=\"success\"}[$window])) / sum (rate(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"image\",result=\"success\"}[$window]))",
+          "legendFormat": "사진 평균",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "sum (rate(sssok_media_processing_seconds_sum{job=\"sssok-backend\",kind=\"video\",result=\"success\"}[$window])) / sum (rate(sssok_media_processing_seconds_count{job=\"sssok-backend\",kind=\"video\",result=\"success\"}[$window]))",
+          "legendFormat": "영상 평균",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "사진·영상 평균 / p95 처리 시간",
+      "type": "timeseries",
+      "description": "작업 실행부터 결과 결정까지. 큐·재시도 대기는 제외. 결과별 빠른 실패 영향을 줄이기 위해 정상 생성만 표시. histogram 상한 120초 초과 시 p95 정확도가 제한됩니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"image\",source=\"initial\",result=\"accepted\"}[$window]))",
+          "legendFormat": "사진 · 최초 처리 · 접수",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"image\",source=\"initial\",result=\"rejected\"}[$window]))",
+          "legendFormat": "사진 · 최초 처리 · 거절",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"image\",source=\"sweeper\",result=\"accepted\"}[$window]))",
+          "legendFormat": "사진 · 회수 처리 · 접수",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"image\",source=\"sweeper\",result=\"rejected\"}[$window]))",
+          "legendFormat": "사진 · 회수 처리 · 거절",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"video\",source=\"initial\",result=\"accepted\"}[$window]))",
+          "legendFormat": "영상 · 최초 처리 · 접수",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "F",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"video\",source=\"initial\",result=\"rejected\"}[$window]))",
+          "legendFormat": "영상 · 최초 처리 · 거절",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "G",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"video\",source=\"sweeper\",result=\"accepted\"}[$window]))",
+          "legendFormat": "영상 · 회수 처리 · 접수",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "H",
+          "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",kind=\"video\",source=\"sweeper\",result=\"rejected\"}[$window]))",
+          "legendFormat": "영상 · 회수 처리 · 거절",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "최초·회수 작업 접수 / 거절",
+      "type": "timeseries",
+      "description": "실행기에 제출한 횟수. 접수는 처리 완료를 의미하지 않습니다. 사진=공용 실행기, 영상=영상 실행기."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",source=\"sweeper\",result=\"success\"}[$window]))",
+          "legendFormat": "정상 생성",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",source=\"sweeper\",result=\"retryable\"}[$window]))",
+          "legendFormat": "재시도 대상",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",source=\"sweeper\",result=\"permanent_failure\"}[$window]))",
+          "legendFormat": "영구 실패",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "D",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",source=\"sweeper\",result=\"completed_without_thumbnail\"}[$window]))",
+          "legendFormat": "썸네일 없는 완료",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "E",
+          "expr": "sum (increase(sssok_media_processing_seconds_count{job=\"sssok-backend\",source=\"sweeper\",result=\"skipped\"}[$window]))",
+          "legendFormat": "건너뜀",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "회수 처리 결과",
+      "type": "timeseries",
+      "description": "회수 경로로 실제 실행된 작업의 결과. 재제출 건수가 아닌 처리 결과이며 고유 파일의 최종 복구율은 아닙니다."
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "회수 배치 · 수집 상태",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sssok_media_sweep_found{job=\"sssok-backend\"}",
+          "legendFormat": "발견 항목",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "최근 회수 배치 발견 수",
+      "type": "timeseries",
+      "description": "마지막 배치가 선택한 장기 PROCESSING 항목 수(현재 상한 50). 전체 적체 수가 아닙니다. 배치 시각과 함께 확인하세요."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - (sssok_media_sweep_last_success_seconds{job=\"sssok-backend\"} > 0)",
+          "legendFormat": "경과 시간",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "마지막 정상 회수 배치 이후",
+      "type": "timeseries",
+      "description": "배치가 조회·제출 루프를 완료한 뒤 경과 시간. 0건 조회도 정상 실행입니다. 실행 전에는 데이터 없음. 기본 실행 간격은 5분입니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"sssok-backend\"}",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "백엔드 메트릭 수집 상태",
+      "type": "timeseries",
+      "description": "1=수집 성공, 0=수집 실패. 외부 사용자 접근 성공 여부가 아닙니다."
+    },
+    {
+      "id": 16,
+      "type": "row",
+      "title": "다운로드 · API와 ZIP 준비",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 8,
+        "h": 8
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (uri,method,status) (increase(http_server_requests_seconds_count{job=\"sssok-backend\",uri=~\"(/api/v1)?/rooms/[^/]+/downloads.*\"}[$window]))",
+          "legendFormat": "{{method}} {{uri}} · {{status}}",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "다운로드 API 응답 건수",
+      "type": "timeseries",
+      "description": "단건·일괄 URL 발급, ZIP 생성·상태 조회 요청입니다. 상태 조회 폴링도 포함됩니다. 기기 저장 완료 수가 아닙니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 36,
+        "w": 8,
+        "h": 8
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum (increase(sssok_download_processing_seconds_count{job=\"sssok-backend\",result=\"success\"}[$window]))",
+          "legendFormat": "ZIP 준비 완료",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (increase(sssok_download_processing_seconds_count{job=\"sssok-backend\",result=\"failure\"}[$window]))",
+          "legendFormat": "ZIP 준비 실패",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "ZIP 준비 성공 / 실패",
+      "type": "timeseries",
+      "description": "압축 워커의 종료 결과. 성공은 ZIP 스토리지 업로드와 READY 반영 완료입니다. 사용자 다운로드 완료가 아닙니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 36,
+        "w": 8,
+        "h": 8
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sssok_download_active{job=\"sssok-backend\"}",
+          "legendFormat": "실행 중",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "ZIP 실행 중 작업 수",
+      "type": "timeseries",
+      "description": "현재 프로세스에서 실행 중인 압축 작업입니다. DB에 남은 QUEUED/RUNNING 전체 수는 아닙니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 8,
+        "h": 8
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(sssok_download_processing_seconds_bucket{job=\"sssok-backend\",result=\"success\"}[$window])))",
+          "legendFormat": "p95",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum (rate(sssok_download_processing_seconds_sum{job=\"sssok-backend\",result=\"success\"}[$window])) / sum (rate(sssok_download_processing_seconds_count{job=\"sssok-backend\",result=\"success\"}[$window]))",
+          "legendFormat": "평균",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "ZIP 준비 평균 / p95 시간",
+      "type": "timeseries",
+      "description": "성공한 워커 실행 시간(원본 읽기·압축·스토리지 업로드·READY 반영). 큐 대기는 제외. histogram 상한은 30분입니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 44,
+        "w": 8,
+        "h": 8
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(sssok_download_waiting_seconds_bucket{job=\"sssok-backend\"}[$window])))",
+          "legendFormat": "p95",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "ZIP 시작 전 대기 p95",
+      "type": "timeseries",
+      "description": "실제로 시작한 작업만 표본입니다. 잡 생성부터 RUNNING 반영까지. 아직 시작하지 못한 작업은 실행기 큐와 API 생성 건수를 함께 확인하세요."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 44,
+        "w": 8,
+        "h": 8
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,uri) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",uri=~\"(/api/v1)?/rooms/[^/]+/downloads.*\"}[$window])))",
+          "legendFormat": "{{uri}}",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "다운로드 API p95 응답 시간",
+      "type": "timeseries",
+      "description": "서버 API 응답 시간. 서명 URL을 통한 R2 바이트 전송은 포함하지 않습니다."
+    },
+    {
+      "id": 23,
+      "type": "row",
+      "title": "실행기 포화 · 사진 / ZIP 공용과 영상 전용",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "x": 0,
+        "y": 52,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 8,
+        "h": 8
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "executor_queued_tasks{job=\"sssok-backend\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "legendFormat": "{{name}} 대기",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "실행기 대기 작업",
+      "type": "timeseries",
+      "description": "공용 풀은 사진·ZIP·정리 작업 등이 공유합니다. DB PROCESSING 개수와 다릅니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 53,
+        "w": 8,
+        "h": 8
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "executor_active_threads{job=\"sssok-backend\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "legendFormat": "{{name}} 활성",
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "executor_pool_max_threads{job=\"sssok-backend\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "legendFormat": "{{name}} 최대",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "실행기 활성 스레드 / 최대",
+      "type": "timeseries",
+      "description": "큐와 함께 확인합니다. 큐가 가득 찬 뒤 최대 스레드까지 늘어나는 구조입니다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "links": [
+            {
+              "title": "같은 시간대 로그",
+              "url": "/d/sssok-logs?${__url_time_range}"
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 53,
+        "w": 8,
+        "h": 8
+      },
+      "id": 26,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "legendFormat": "{{name}} 남은 슬롯",
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "title": "실행기 남은 큐 용량",
+      "type": "timeseries",
+      "description": "0에 가까워지면서 활성 스레드가 최대에 닿으면 제출 거부 가능성이 커집니다."
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": [
+    "sssOK",
+    "backend"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "window",
+        "label": "집계 구간",
+        "type": "custom",
+        "query": "5m,15m,1h",
+        "current": {
+          "text": "15m",
+          "value": "15m"
+        },
+        "options": [
+          {
+            "text": "5m",
+            "value": "5m",
+            "selected": false
+          },
+          {
+            "text": "15m",
+            "value": "15m",
+            "selected": true
+          },
+          {
+            "text": "1h",
+            "value": "1h",
+            "selected": false
+          }
+        ]
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sssOK Upload & Download",
+  "uid": "sssok-media-transfer",
+  "version": 1,
+  "weekStart": "",
+  "description": "업로드 응답 항목 → 파생본 처리 → ZIP 준비 상태. R2 직접 전송·기기 저장 완료는 포함하지 않습니다."
+}

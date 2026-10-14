@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,6 +24,7 @@ import com.sssok.application.room.exception.RoomNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -135,6 +137,28 @@ class RoomEventControllerTest {
                 .header("Authorization", "Bearer valid-token"))
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    // 브라우저 EventSource 는 Accept: text/event-stream 만 보낸다. 오류 본문(JSON)을 쓰지 못해 500 이 나가면 안 된다.
+    @Test
+    void EventSource_요청이어도_만료된_방이면_JSON_오류와_함께_410() throws Exception {
+        given(tokenProvider.parse(anyString())).willReturn(1L);
+        willThrow(new RoomExpiredException()).given(subscribeRoomEventsService).validate(anyLong(), anyLong());
+
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .header("Authorization", "Bearer valid-token")
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isGone())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    @Test
+    void EventSource_요청이어도_토큰이_없으면_401() throws Exception {
+        mockMvc.perform(get("/api/v1/rooms/1024/events")
+                .accept(MediaType.TEXT_EVENT_STREAM))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
     }
 
     @Test

@@ -12,6 +12,11 @@ import { Stack } from "@/shared/ui/stack";
 import { addMediaToFolder } from "../api/addMediaToFolder";
 import { removeMediaFromFolder } from "../api/removeMediaFromFolder";
 
+export interface MediaFolderChange {
+  action: "add" | "remove";
+  folderId: number;
+}
+
 interface MoveMediaFolderBottomSheetProps {
   roomId: number;
   mediaIds: number[];
@@ -20,7 +25,7 @@ interface MoveMediaFolderBottomSheetProps {
   token: string;
   onCreateFolder: () => Promise<RoomFolder | null>;
   onClose: () => void;
-  onSuccess: (folderId: number | null) => void | Promise<void>;
+  onSuccess: (change: MediaFolderChange) => void | Promise<void>;
 }
 
 export const MoveMediaFolderBottomSheet = ({
@@ -38,11 +43,11 @@ export const MoveMediaFolderBottomSheet = ({
   const mutation = useMutation({
     mutationFn: (targetFolderId: number) =>
       addMediaToFolder({ roomId, mediaIds, folderId: targetFolderId, token }),
-    onSuccess: (_, targetFolderId) => onSuccess(targetFolderId),
+    onSuccess: (_, targetFolderId) => onSuccess({ action: "add", folderId: targetFolderId }),
   });
   const removeMutation = useMutation({
     mutationFn: (folderId: number) => removeMediaFromFolder({ roomId, mediaIds, folderId, token }),
-    onSuccess: (_, folderId) => onSuccess(folderId),
+    onSuccess: (_, folderId) => onSuccess({ action: "remove", folderId }),
   });
   const createAndMoveMutation = useMutation({
     mutationFn: async () => {
@@ -53,7 +58,9 @@ export const MoveMediaFolderBottomSheet = ({
       return folder.id;
     },
     onSuccess: (createdFolderId) => {
-      if (createdFolderId !== null) void onSuccess(createdFolderId);
+      if (createdFolderId !== null) {
+        void onSuccess({ action: "add", folderId: createdFolderId });
+      }
     },
   });
   const isPending =

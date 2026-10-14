@@ -6,4 +6,9 @@ export const loginWithLinkCode = (linkCode: string) =>
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ linkCode }),
+    errorTracking: {
+      level: "fatal",
+      operation: "room_entry.login_with_link_code",
+      route: "/auth/link",
+    },
   });

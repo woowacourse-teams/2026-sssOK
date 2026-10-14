@@ -1,7 +1,7 @@
 # dev 서버용 compose. CI가 develop 브랜치에 backend/** 변경이 병합되면 이 파일을 dev 서버로
 # 전송한 뒤
 #   docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml up -d
-# 형태로 실행한다.
+# 형태로 실행한다. 저장·조회·알림은 중앙 서버에서 운영한다.
 #
 # .env       : dev 서버에서 최초 1회 수동 생성 (DB 접속 정보, JWT, R2 자격증명, CORS 오리진)
 # image.env  : 배포마다 CI가 덮어씀 (BACKEND_IMAGE=ghcr.io/...:<커밋SHA> — 운영과 달리 태그가 아니라
@@ -16,7 +16,13 @@ services:
     container_name: sssok-app-dev
     restart: unless-stopped
     ports:
+      # 전환 검증 동안 기존 직접 접근과 복귀 경로를 유지한다.
       - "8080:8080"
+      # 전환 후 제거할 호스트 Nginx 복귀용 포트. Docker Nginx는 app:8081로 접근한다.
+      - "127.0.0.1:8081:8081"
+    expose:
+      # 중앙 수집 요청을 전달하는 Docker Nginx의 내부 수집 포트.
+      - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
       # 배포마다 CI가 image.env 에 써 넣는다. 값이 없어도(구버전 image.env, 수동 기동) 뜨도록 기본값을 둔다.
@@ -27,12 +33,18 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
+      IMAGE_SEARCH_ENABLED: ${IMAGE_SEARCH_ENABLED:-false}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MEDIA_SEARCH_CREATED_SINCE: ${MEDIA_SEARCH_CREATED_SINCE:-}
+      MEDIA_SEARCH_QUERY_MIN_SIMILARITY: ${MEDIA_SEARCH_QUERY_MIN_SIMILARITY:-}
       R2_ENDPOINT: ${R2_ENDPOINT}
       R2_ACCESS_KEY: ${R2_ACCESS_KEY}
       R2_SECRET_KEY: ${R2_SECRET_KEY}
       R2_BUCKET: ${R2_BUCKET}
       R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      # 비어 있으면 의견 알림만 꺼진다.
+      DISCORD_FEEDBACK_WEBHOOK_URL: ${DISCORD_FEEDBACK_WEBHOOK_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s
@@ -44,8 +56,145 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    labels:
+      # Alloy 가 이 라벨이 붙은 컨테이너만 수집하고, 값을 Loki 의 service 라벨로 쓴다.
+      com.sssok.log.service: sssok-backend
+    networks:
+      - sssok
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sssok-nginx-dev
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      SSSOK_ENVIRONMENT: dev
+      CENTRAL_PRIVATE_IP: 10.0.20.46
+      NGINX_ENVSUBST_FILTER: '^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$$'
+    ports:
+      - "80:80"
+      - "${MONITORING_PRIVATE_IP:-10.0.0.69}:19100:19100"
+    volumes:
+      - ./monitoring/nginx/container/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      com.sssok.log.service: sssok-nginx
+      com.sssok.nginx.config-sha: ${NGINX_CONFIG_SHA:-manual}
+    networks:
+      - sssok
+
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: sssok-alloy-dev
+    restart: unless-stopped
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --disable-reporting
+      - /etc/alloy/config
+    environment:
+      # Loki 스트림의 environment 라벨이 된다.
+      SSSOK_ENVIRONMENT: dev
+      # Docker API 를 프록시로만 부른다 (아래 docker-socket-proxy 참고).
+      SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
+      GOMEMLIMIT: 200MiB
+    mem_limit: 256m
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config/config.alloy:ro
+      - ./monitoring/alloy/write.central.alloy:/etc/alloy/config/write.alloy:ro
+      # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
+      - alloy-data:/var/lib/alloy/data
+      # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.
+      # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/README.md 의 dev 호스트 Nginx 설정 참고).
+      - /var/log/nginx:/var/log/nginx-host:ro
+    depends_on:
+      - docker-socket-proxy
+    expose:
+      # 파이프라인 상태를 보는 Alloy UI 와 /metrics. 호스트에는 publish 하지 않는다.
+      - "12345"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - sssok
+      - docker-api
+
+  # Alloy 에 docker.sock 을 직접 주지 않으려고 둔다. 소켓은 :ro 로 마운트해도 API 권한은 그대로라,
+  # 소켓을 가진 컨테이너는 다른 컨테이너를 만들고 exec 할 수 있다 — 사실상 호스트 root 권한이다.
+  # 이 프록시는 GET /containers/*·/networks/* (목록·조회·로그)와 버전·ping 만 통과시키고 나머지는 403 으로 막는다.
+  # Alloy 가 뚫려도 할 수 있는 일은 컨테이너 조회와 로그 읽기로 줄어든다.
+  # 남는 노출: 컨테이너 조회(inspect) 응답에는 환경변수가 들어 있어 .env 의 비밀값을 읽을 수 있다.
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: sssok-docker-socket-proxy-dev
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      # 컨테이너 탐색(discovery.docker)이 네트워크 정보도 조회한다. 이것도 GET 만 열린다.
+      NETWORKS: 1
+      # 기본값도 0 이지만, 쓰기 요청을 막는 게 이 컨테이너의 존재 이유라 명시한다.
+      POST: 0
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      # Alloy 만 붙는 내부 네트워크. 앱·Nginx·Grafana 는 이 프록시에 닿지 않고, 외부로도 나가지 않는다.
+      - docker-api
+
+  # 중앙 요청은 Docker Nginx의 IP 제한을 거쳐 수집한다.
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: sssok-node-exporter-dev
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --collector.disable-defaults
+      - --collector.cpu
+      - --collector.meminfo
+      - --collector.vmstat
+      - --collector.loadavg
+      - --collector.filesystem
+      # 컨테이너 내부·가상 파일시스템은 빼고 실제 디스크만 본다.
+      - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($$|/)
+      - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$$
+    volumes:
+      - /:/host:ro,rslave
+    mem_limit: 64m
+    ports:
+      - "127.0.0.1:9100:9100"
+    expose:
+      - "9100"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
       - sssok
 
 networks:
   sssok:
+  docker-api:
+    internal: true
+
+volumes:
+  alloy-data:

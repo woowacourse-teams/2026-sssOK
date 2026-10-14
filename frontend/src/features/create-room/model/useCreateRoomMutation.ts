@@ -17,7 +17,6 @@ export const useCreateRoomMutation = () =>
         {
           name: values.name,
           uploadPolicy: values.uploadPolicy,
-          expiryHours: values.expiryHours === "72" ? 72 : 24,
         },
         session.accessToken,
       );
@@ -29,7 +28,6 @@ export const useCreateRoomMutation = () =>
     onSuccess: (room, values) => {
       track("Room Created", {
         room_code: room.code,
-        expiry_hours: values.expiryHours === "72" ? 72 : 24,
         upload_policy: values.uploadPolicy,
       });
     },

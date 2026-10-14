@@ -31,7 +31,7 @@ public class GetMediaListService {
     @Transactional(readOnly = true)
     public List<MediaDetail> list(Long roomId, Long folderId, Long requesterId,
                                   MediaUploaderFilter uploader) {
-        return assembler.assembleForList(find(roomId, folderId, requesterId, uploader));
+        return assembler.assembleForList(find(roomId, folderId, requesterId, uploader), requesterId);
     }
 
     @Transactional(readOnly = true)
@@ -56,7 +56,7 @@ public class GetMediaListService {
             : null;
         long totalCount = count(roomId, folderId, requesterId, uploader);
 
-        return new MediaPage(assembler.assembleForList(files), nextCursor, hasNext, totalCount);
+        return new MediaPage(assembler.assembleForList(files, requesterId), nextCursor, hasNext, totalCount);
     }
 
     private List<StoredFile> findPage(Long roomId, Long folderId, Long requesterId,

@@ -21,6 +21,7 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
+import com.sssok.support.PostgresIntegrationTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Instant;
 import java.util.List;
@@ -28,13 +29,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 // 워커가 도는 사이 사용자가 같은 미디어를 지우거나 폴더에 담는 경합을 확인한다.
-@SpringBootTest
+@PostgresIntegrationTest
 class MediaFinisherTest extends PostgresContainerSupport {
 
     private static final Long ROOM_ID = 255L;

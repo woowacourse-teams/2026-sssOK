@@ -28,7 +28,7 @@ public class GetMediaService {
             .filter(found -> found.getStatus().isVisible())
             .orElseThrow(MediaNotFoundException::new);
 
-        MediaDetail media = assembler.assembleForDetail(List.of(file)).getFirst();
+        MediaDetail media = assembler.assembleForDetail(List.of(file), requesterId).getFirst();
         return MediaFullDetail.of(file, media, canDelete(file, roomId, requesterId));
     }
 

@@ -5,19 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>쏙</title>
     <meta name="description" content="사진·영상을 원본 그대로, 링크 하나로 쏙 넣어봐요!" />
+    <!-- 앱 화면은 모두 이 파일을 받는다. 검색 노출은 루트의 랜딩(landing.html)만 맡고,
+         방은 사적인 공간이라 앱 화면은 검색 결과에 올리지 않는다 -->
+    <meta name="robots" content="noindex" />
 
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
 
-    <!-- 링크 미리보기. 크롤러는 JS 를 실행하지 않으니 여기 정적으로 둔다 -->
+    <!-- 링크 미리보기. 크롤러는 JS 를 실행하지 않으니 여기 정적으로 둔다.
+         값은 webpack.config.js 의 og 옵션에서 HTML 파일마다 다르게 채운다 -->
+    <% const og = htmlWebpackPlugin.options.og; %>
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="쏙" />
-    <meta property="og:title" content="쏙 - 아직도 카톡으로 사진 보내세요?" />
-    <meta property="og:description" content="사진·영상을 원본 그대로, 링크 하나로 쏙 넣어봐요!" />
-    <meta property="og:url" content="https://www.ssssok.com/" />
-    <meta property="og:image" content="https://www.ssssok.com/og-image.png" />
+    <meta property="og:title" content="<%= og.title %>" />
+    <meta property="og:description" content="<%= og.description %>" />
+    <% if (og.url) { %>
+    <meta property="og:url" content="<%= og.url %>" />
+    <% } %>
+    <meta property="og:image" content="<%= og.image %>" />
     <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="629" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="<%= og.imageAlt %>" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
 

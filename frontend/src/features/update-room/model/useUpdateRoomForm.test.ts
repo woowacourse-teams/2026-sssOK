@@ -25,7 +25,6 @@ describe("useUpdateRoomForm", () => {
     expect(result.current.formValues).toEqual({
       name: "제주 여행",
       uploadPolicy: "everyone",
-      expiryHours: "",
     });
     expect(result.current.hasChanges).toBe(false);
   });
@@ -41,7 +40,6 @@ describe("useUpdateRoomForm", () => {
     expect(result.current.formValues).toEqual({
       name: "제주 3박 4일",
       uploadPolicy: "host",
-      expiryHours: "",
     });
     expect(result.current.request).toEqual({
       name: "제주 3박 4일",

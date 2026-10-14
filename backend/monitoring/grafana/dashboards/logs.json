@@ -1,0 +1,335 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "장애 대응용 로그 검색. 질의 설명은 monitoring/README.md, 대응 순서는 docs/troubleshooting/LOGGING_RUNBOOK.md 참고.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": false,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "sssOK Backend Overview",
+      "tooltip": "",
+      "type": "link",
+      "url": "/d/sssok-backend-overview/sssok-backend-overview"
+    }
+  ],
+  "panels": [
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "앱 예외와 Nginx 5xx·에러 로그. 5xx 응답 비율 패널과 Discord 알림의 로그 링크가 이 패널로 온다.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\", level=\"ERROR\"}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 ERROR",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "위 requestId 칸에 응답 헤더 X-Request-ID 값을 넣는다. 비워 두면 아무것도 나오지 않는다. 시간 순으로 Nginx 줄과 앱 줄이 함께 나온다. 앱 줄 없이 ID 가 32자 hex 면 앱까지 가지 못한 요청이다.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\"} |= \"$requestId\" | json requestId | requestId != \"\" | requestId = \"$requestId\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Request ID 추적",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "앱이 5xx 로 응답한 요청의 접근 로그 (요청당 한 줄, durationMs 가 있는 줄). requestId 를 복사해 Request ID 추적 패널에 넣으면 같은 요청의 예외까지 이어진다.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\", service=\"sssok-backend\"} | json | __error__=\"\" | status >= 500 | durationMs != \"\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP 500 응답 (앱)",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "위 version 칸에 backendVersion(예: 3.1.1) 또는 gitSha 앞부분을 넣는다. 비워 두면 모든 버전의 ERROR 가 나오고, 줄마다 backendVersion·gitSha 필드가 붙어 있다.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 4,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\", service=\"sssok-backend\", level=\"ERROR\"} | json | __error__=\"\" | backendVersion=\"$version\" or gitSha=~\"$version.*\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "배포 버전별 오류",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "Nginx 접근 로그 중 4xx(level WARN)·5xx(level ERROR). upstreamStatus 가 비어 있거나 502·504 면 앱이 응답하지 못한 요청이다.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 5,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\", service=\"sssok-nginx\", level=~\"WARN|ERROR\"} | json | __error__=\"\" | status >= 400",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Nginx 4xx·5xx 응답",
+      "type": "logs"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "exception 필드가 있는 앱 로그. 스택트레이스는 stackTrace 필드에 있고 민감값은 마스킹돼 있다.",
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "id": 6,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\", service=\"sssok-backend\"} | json | __error__=\"\" | exception != \"\"",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "애플리케이션 예외",
+      "type": "logs"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 41,
+  "tags": [
+    "sssOK",
+    "backend",
+    "logs"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "loki",
+          "uid": "loki"
+        },
+        "definition": "label_values(environment)",
+        "description": "Grafana 하나가 한 환경의 Loki 만 보므로 값은 보통 하나다.",
+        "includeAll": false,
+        "label": "environment",
+        "multi": false,
+        "name": "environment",
+        "options": [],
+        "query": {
+          "label": "environment",
+          "refId": "LokiVariableQueryEditor-VariableQuery",
+          "stream": "",
+          "type": 1
+        },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "응답 헤더 X-Request-ID 값",
+        "label": "requestId",
+        "name": "requestId",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "description": "backendVersion(예: 3.1.1) 또는 gitSha 앞부분",
+        "label": "version",
+        "name": "version",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "sssOK Logs",
+  "uid": "sssok-logs",
+  "version": 1,
+  "weekStart": ""
+}

@@ -6,6 +6,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface RoomEventJpaRepository extends JpaRepository<RoomEventJpaEntity, Long> {
 
     List<RoomEventJpaEntity> findByRoomIdAndIdGreaterThanOrderById(Long roomId, Long id);
-
-    void deleteAllByRoomId(Long roomId);
 }

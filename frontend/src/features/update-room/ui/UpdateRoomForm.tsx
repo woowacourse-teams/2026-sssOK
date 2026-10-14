@@ -37,12 +37,12 @@ export const UpdateRoomForm = ({ room, accessToken, onSuccess }: UpdateRoomFormP
     <Form onSubmit={handleSubmit}>
       <Stack gap={16}>
         <Input
-          label="방 이름"
+          label="방 제목"
           name="name"
           value={formValues.name}
           maxLength={12}
           placeholder="예) 제주 여행"
-          errorMessage={!isValid ? "방 이름을 입력해주세요." : undefined}
+          errorMessage={!isValid ? "방 제목을 입력해주세요." : undefined}
           onValueChange={updateField("name")}
         />
 
@@ -55,17 +55,6 @@ export const UpdateRoomForm = ({ room, accessToken, onSuccess }: UpdateRoomFormP
             { label: "방장만", value: "host" },
           ]}
           onValueChange={updateField("uploadPolicy")}
-        />
-
-        <RadioGroup
-          label="방 만료 시간 다시 설정"
-          name="expiryHours"
-          value={formValues.expiryHours}
-          options={[
-            { label: "1일", value: "24" },
-            { label: "3일", value: "72" },
-          ]}
-          onValueChange={updateField("expiryHours")}
         />
       </Stack>
 

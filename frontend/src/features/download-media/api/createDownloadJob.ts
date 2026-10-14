@@ -19,4 +19,9 @@ export const createDownloadJob = ({ roomId, token, mediaIds }: CreateDownloadJob
     token,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(selectedMediaBody(mediaIds)),
+    errorTracking: {
+      level: "error",
+      operation: "download.create_zip",
+      route: "/rooms/:roomId/downloads/zip",
+    },
   });

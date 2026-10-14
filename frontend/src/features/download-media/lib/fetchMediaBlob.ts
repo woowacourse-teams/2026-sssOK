@@ -23,6 +23,7 @@ export interface FetchMediaBlobParams {
   size: number;
   signal?: AbortSignal;
   onProgress?: ProgressListener;
+  operation: "download.fetch_media" | "download.fetch_zip";
 }
 
 /** 중단은 실패와 따로 둔다 — 취소를 실패로 세면 "3장 실패" 같은 거짓 보고가 나간다. */
@@ -37,6 +38,7 @@ export const fetchMediaBlob = async ({
   size,
   signal,
   onProgress,
+  operation,
 }: FetchMediaBlobParams): Promise<FetchMediaBlobResult> => {
   if (signal?.aborted) {
     return { type: "aborted" };
@@ -55,6 +57,14 @@ export const fetchMediaBlob = async ({
     });
 
     if (!response.ok) {
+      captureException(new Error("스토리지 파일 다운로드에 실패했습니다."), {
+        level: "error",
+        operation,
+        method: "GET",
+        route: "storage_presigned_url",
+        status: response.status,
+        code: "DOWNLOAD_FAILED",
+      });
       return { type: "failure", status: response.status };
     }
 
@@ -97,6 +107,15 @@ export const fetchMediaBlob = async ({
     }
 
     // CORS 차단·회선 끊김은 상태 코드 자체가 없다. 0 으로 내려 "받지 못했다"로만 남긴다.
+    captureException(error, {
+      level: "error",
+      operation,
+      method: "GET",
+      route: "storage_presigned_url",
+      status: 0,
+      code: "DOWNLOAD_FAILED",
+    });
     return { type: "failure", status: 0 };
   }
 };
+import { captureException } from "@/shared/lib";

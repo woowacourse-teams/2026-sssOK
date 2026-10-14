@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>쏙 · 사진 공유, 쏙으로 더 가볍게</title>
+    <meta
+      name="description"
+      content="모으고, 고르고, 쏙 나누세요. 여행이나 모임이 끝난 뒤, 링크 하나만 보내면 끝. 설치 없이 바로 들어와 사진을 올리고 원하는 사진만 받아가요."
+    />
+    <meta name="theme-color" content="#FFF6E9" />
+    <!-- 이 파일은 / 와 /landing.html 두 주소로 열린다. 검색 결과에는 / 만 잡히게 한다 -->
+    <link rel="canonical" href="https://www.ssssok.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="쏙" />
+    <meta property="og:title" content="사진 공유, 쏙으로 더 가볍게" />
+    <meta property="og:description" content="링크 하나로 모으고, 고르고, 쏙 나누세요" />
+    <!-- 미리보기 수집기(카카오톡·슬랙 등)는 상대 경로를 못 푸는 경우가 많아 절대 주소로 쓴다 -->
+    <meta property="og:url" content="https://www.ssssok.com/" />
+    <meta property="og:image" content="https://www.ssssok.com/og/default.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="링크 하나로 사진 모으고 쏙! — 사진을 든 쏙이" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- 탭 아이콘은 앱과 같은 파일을 써서, 랜딩에서 앱으로 넘어가도 바뀌지 않게 한다 -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
+    <!-- 홈 화면 아이콘은 크게 보이니 글자가 들어간 로고를 쓴다. 1MB 원본 대신 180px 로 줄인 파일 -->
+    <link rel="apple-touch-icon" href="/landing/assets/logo-180.png" />
+    <!-- 히어로 폰 세 장을 HTML 파싱과 동시에 받기 시작한다. 가운데(onboarding)가 가장 먼저 -->
+    <link rel="preload" as="image" href="/landing/assets/onboarding.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="/landing/assets/four.png" />
+    <link rel="preload" as="image" href="/landing/assets/five.png" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <link rel="stylesheet" href="/landing/styles.css" />
+  </head>
+  <body>
+    <nav id="nav">
+      <div class="wrap">
+        <a href="#" class="logo">쏙 <img src="/landing/assets/characte8.png" alt="" /></a>
+        <a
+          class="btn nav-cta"
+          id="navCta"
+          href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=nav"
+          >지금 바로 사진 모으기</a
+        >
+      </div>
+    </nav>
+
+    <!-- HERO -->
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div>
+          <h1>
+            <span class="w">사진</span> <span class="w">공유,</span><br /><span class="w"
+              ><em>쏙</em>으로</span
+            ><br /><span class="w">더</span> <span class="w">가볍게!</span>
+          </h1>
+          <p class="tagline rv rv-hero">링크로 모으고, 쏙 골라 받아요</p>
+
+          <div class="cta-row rv rv-hero">
+            <a
+              class="btn btn-lg"
+              id="heroCta"
+              href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=hero"
+              >지금 바로 사진 모으기</a
+            >
+          </div>
+        </div>
+        <div class="art" id="art">
+          <div class="phones rv rv-hero">
+            <div class="ph ph-left">
+              <img
+                src="/landing/assets/four.png"
+                alt="공유방에서 사진을 훑어보고 필요한 것만 골라 담는 화면"
+              />
+            </div>
+            <div class="ph ph-right">
+              <img
+                src="/landing/assets/five.png"
+                alt="QR 또는 참여 코드로 공유방에 들어가는 화면"
+              />
+            </div>
+            <div class="ph ph-main">
+              <img
+                src="/landing/assets/onboarding.png"
+                fetchpriority="high"
+                alt="쏙 첫 화면 — 링크로 모으고 쏙 골라 받기, 링크 만들기 버튼"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- PROBLEM -->
+    <section>
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>혹시, 이런 적 있지 않으셨나요?</h2>
+          <p>단체 사진 공유는 보내는 쪽도, 받는 쪽도 불편해요.</p>
+        </div>
+        <div class="cards3">
+          <div class="card rv">
+            <div class="ch">
+              <img src="/landing/assets/character4.png" alt="아무것도 남지 않은 빈 구멍" />
+            </div>
+            <h3>잠깐 나갔다 왔더니<br />업로드하던 사진이 날아갔어요</h3>
+            <p>처음부터 다시 올리다 보면, <br />결국 공유를 포기하게 돼요.</p>
+          </div>
+          <div class="card rv">
+            <div class="ch">
+              <img src="/landing/assets/character3.png" alt="사진을 잔뜩 들고 있는 쏙이" />
+            </div>
+            <h3>그 사진, DM이었나 카톡이었나…</h3>
+            <p>단톡·스레드·DM에 흩어져서, <br />나중엔 어디 있는지 몰라요.</p>
+          </div>
+          <div class="card rv">
+            <div class="ch">
+              <img src="/landing/assets/character1.png" alt="사진 한 장을 들고 있는 쏙이" />
+            </div>
+            <h3>내 사진 한 장 찾으려고 전부 내려받아요</h3>
+            <p>미리보기로는 확인이 오래 걸려서, <br />결국 통째로 받게 돼요.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- COMPARE -->
+    <section id="why">
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>그래서 쏙이 만들었어요</h2>
+          <p>로그인 여부도, 계정도, 전화번호도 묻지 않아요</p>
+        </div>
+        <!-- 한 줄에 "불편 → 해결" 을 짝지어 보여준다. 쏙 쪽 문구는 히어로 "쏙" 과 같은 노란 형광펜 -->
+        <div class="vs-table rv">
+          <img
+            class="badge-char rv-pop"
+            src="/landing/assets/character5.png"
+            alt="따봉을 든 쏙이"
+          />
+          <div class="vs-head">
+            <span>지금까지는..</span>
+            <span></span>
+            <span class="now-label">쏙으로는!</span>
+          </div>
+          <div class="vs-row rv">
+            <span class="was">메신저·DM에 흩어지고</span>
+            <span class="arrow" aria-hidden="true">→</span>
+            <span class="now"><mark>한 링크에 다 모여요</mark></span>
+          </div>
+          <div class="vs-row rv">
+            <span class="was">앱 설치하고 계정 만들고</span>
+            <span class="arrow" aria-hidden="true">→</span>
+            <span class="now"><mark>링크만 열면 끝</mark></span>
+          </div>
+          <div class="vs-row rv">
+            <span class="was">미리보기 없이 전부 다운로드</span>
+            <span class="arrow" aria-hidden="true">→</span>
+            <span class="now"><mark>훑어보고 필요한 것만</mark></span>
+          </div>
+          <div class="vs-row rv">
+            <span class="was">번호·프로필까지 공개</span>
+            <span class="arrow" aria-hidden="true">→</span>
+            <span class="now"><mark>이메일도 번호도 안 물어봐요</mark></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEPS -->
+    <section>
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>10초면 충분해요</h2>
+          <p>준비물은 링크 하나!</p>
+        </div>
+        <div class="steps">
+          <div class="step rv">
+            <div class="step-body">
+              <div class="num">1</div>
+              <h3>공유방 만들기</h3>
+              <p>방 제목 정하고, 며칠 열어둘지만 고르면 끝!</p>
+              <p>가입도 필요없어요.</p>
+            </div>
+            <div class="ch">
+              <img
+                src="/landing/assets/create.png"
+                alt="방 제목·이름·업로드 권한·만료 기간을 정하는 방 만들기 화면"
+              />
+            </div>
+          </div>
+          <div class="step rv">
+            <div class="step-body">
+              <div class="num">2</div>
+              <h3>링크나 QR로 초대하기</h3>
+              <p>헤어진 뒤엔 링크로,</p>
+              <p>모여 있을 땐 QR로</p>
+            </div>
+            <div class="ch">
+              <img
+                src="/landing/assets/invite.png"
+                alt="링크 공유·QR 코드 공유·다른 기기에서 이어하기 메뉴"
+              />
+            </div>
+          </div>
+          <div class="step rv">
+            <div class="step-body">
+              <div class="num">3</div>
+              <h3>골라 가기</h3>
+              <p>올리는 즉시 다 같이 보고,</p>
+              <p>필요한 것만 골라 받아요.</p>
+            </div>
+            <div class="ch">
+              <img
+                src="/landing/assets/pick.png"
+                alt="공유방에서 사진 4장을 골라 다운로드하는 화면"
+              />
+            </div>
+          </div>
+        </div>
+        <!-- 폰 폭에서만 보이는 진행 점 (main.js 가 .on 을 옮긴다) -->
+        <div class="step-dots" aria-hidden="true">
+          <span class="on"></span><span></span><span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES — 기능을 글로 설명하지 않고 미니 화면으로 "보여준다".
+         각 .demo 는 화면에 들어오면 main.js 가 반복 재생한다 (모션 줄이기 설정이면 최종 상태로 고정) -->
+    <section>
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>사진이 많아도, 고르는 건 쉽게</h2>
+          <p>찾고, 추리고, 나눠 담기까지 한 곳에서!</p>
+        </div>
+        <!-- 폰 폭에서만 보이는 탭. 데모를 하나씩 바꿔 보여준다 (main.js) -->
+        <div class="demo-tabs" role="tablist">
+          <button type="button" role="tab" class="on" data-demo="demoSearch">
+            <span aria-hidden="true">🔍</span> 검색
+          </button>
+          <button type="button" role="tab" data-demo="demoLike">
+            <span aria-hidden="true">♥</span> 좋아요
+          </button>
+          <button type="button" role="tab" data-demo="demoFolder">
+            <span aria-hidden="true">📁</span> 폴더
+          </button>
+        </div>
+        <div class="demos">
+          <article class="demo rv" id="demoSearch">
+            <div class="d-screen">
+              <div class="d-search">
+                <span aria-hidden="true">🔍</span>
+                <span class="d-q" data-q="같이 먹은 음식 사진"></span>
+              </div>
+              <div class="d-grid">
+                <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" class="hit" />
+                <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" />
+                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" class="hit" />
+                <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" />
+                <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" class="hit" />
+                <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" />
+                <img src="/landing/assets/photo-7.jpg" alt="" loading="lazy" />
+                <img src="/landing/assets/photo-8.jpg" alt="" loading="lazy" class="hit" />
+                <img src="/landing/assets/photo-9.jpg" alt="" loading="lazy" />
+              </div>
+            </div>
+            <h3>단어로 찾는 사진 검색</h3>
+            <p>“같이 먹은 음식 사진”처럼 검색하면 찾아줘요.</p>
+          </article>
+          <article class="demo rv" id="demoLike">
+            <div class="d-screen">
+              <div class="d-bar"><b>주말 나들이 ☀️</b><span>사진 9장</span></div>
+              <div class="d-grid d-grid-like">
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="5"
+                    >5</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="1"
+                    >1</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="2"
+                    >2</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="3"
+                    >3</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="0"
+                    >0</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="1"
+                    >1</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-7.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="2"
+                    >2</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-8.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="0"
+                    >0</span
+                  >
+                </div>
+                <div class="d-cell">
+                  <img src="/landing/assets/photo-9.jpg" alt="" loading="lazy" /><span
+                    class="d-heart"
+                    data-n="1"
+                    >1</span
+                  >
+                </div>
+              </div>
+            </div>
+            <h3>좋아요로 마음 표시하기</h3>
+            <p>다들 좋아한 사진이 한눈에 보여요.</p>
+          </article>
+          <article class="demo rv" id="demoFolder">
+            <div class="d-screen">
+              <div class="d-chips">
+                <span class="on" data-f="all">전체 9</span>
+                <span data-f="d1">1일차 4</span>
+                <span data-f="d2">2일차 5</span>
+              </div>
+              <div class="d-grid">
+                <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" data-f="d1" />
+                <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" data-f="d1" />
+                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" data-f="d1" />
+                <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" data-f="d1" />
+                <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" data-f="d2" />
+                <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" data-f="d2" />
+                <img src="/landing/assets/photo-7.jpg" alt="" loading="lazy" data-f="d2" />
+                <img src="/landing/assets/photo-8.jpg" alt="" loading="lazy" data-f="d2" />
+                <img src="/landing/assets/photo-9.jpg" alt="" loading="lazy" data-f="d2" />
+              </div>
+            </div>
+            <h3>폴더로 나눠 담기</h3>
+            <p>필요한 묶음만 열어 보고 받아가요.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- USECASES -->
+    <section>
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>이럴 때 특히 좋아요</h2>
+        </div>
+        <div class="uses">
+          <div class="use rv">
+            <span class="emo rv-pop">🚌</span>
+            <h3>현지 투어</h3>
+            <p>가이드가 QR이나 링크 하나로 오늘 사진 전달</p>
+          </div>
+          <div class="use rv">
+            <span class="emo rv-pop">🎤</span>
+            <h3>학회·컨퍼런스</h3>
+            <p>처음 만난 사이라도 번호 없이</p>
+          </div>
+          <div class="use rv">
+            <span class="emo rv-pop">🎫</span>
+            <h3>콘서트 동행</h3>
+            <p>오늘 처음 본 동행과도 사진 나누기</p>
+          </div>
+          <div class="use rv">
+            <span class="emo rv-pop">👥</span>
+            <h3>친구들끼리</h3>
+            <p>단톡방에 각자 올리던 사진, 링크 하나에</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL CTA -->
+    <section>
+      <div class="wrap">
+        <div class="final rv">
+          <h2>다음 모임엔,<br />쏙 링크 하나만 보내보세요!</h2>
+          <a
+            class="btn btn-lg"
+            href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=final"
+            >지금 바로 사진 모으러 가기</a
+          >
+          <img class="peek" src="/landing/assets/characte8.png" alt="아래에서 빼꼼 올라온 쏙이" />
+        </div>
+      </div>
+    </section>
+
+    <script src="/landing/analytics.js"></script>
+    <script src="/landing/main.js"></script>
+  </body>
+</html>

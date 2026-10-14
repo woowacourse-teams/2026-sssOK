@@ -3,7 +3,6 @@ package com.sssok.presentation.api.feedback;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,13 +10,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.room.PurgeRoomService;
-import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaEntity;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
+import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
-import java.time.Duration;
-import java.time.Instant;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,14 +26,13 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 방 생성/입장부터 의견 등록까지 실제 PostgreSQL 위에서 관통 확인한다.
+@AcceptanceTest
 @SpringBootTest(properties = {
-    "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s"
+    "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
 class FeedbackApiTest extends PostgresContainerSupport {
 
-    private static final Duration RETENTION = Duration.ofDays(7);
 
     private static final String CHROME_UA =
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -54,9 +49,6 @@ class FeedbackApiTest extends PostgresContainerSupport {
     FeedbackJpaRepository feedbackJpaRepository;
 
     @Autowired
-    PurgeRoomService purgeRoomService;
-
-    @Autowired
     RoomRepository roomRepository;
 
     @Autowired
@@ -71,6 +63,17 @@ class FeedbackApiTest extends PostgresContainerSupport {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.feedbackId").value(Matchers.notNullValue()))
             .andExpect(jsonPath("$.data.createdAt").value(Matchers.notNullValue()));
+    }
+
+    // 이 컨텍스트에는 디스코드 웹훅 URL 이 없다 (테스트 기본값). 알림을 건너뛰어도 등록은 그대로 돼야 한다.
+    @Test
+    void 디스코드_웹훅_URL이_없어도_의견은_201로_등록되고_저장된다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+
+        long feedbackId = 의견_남기기(token, roomId, "알림이 꺼져 있어도 남아야 해요", CHROME_UA);
+
+        assertThat(feedbackJpaRepository.findById(feedbackId)).isPresent();
     }
 
     @Test
@@ -216,22 +219,20 @@ class FeedbackApiTest extends PostgresContainerSupport {
     }
     
     @Test
-    void 방을_purge_해도_의견과_맥락_값이_남는다() throws Exception {
+    void 방을_삭제해도_의견과_맥락_값이_남는다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
-        long feedbackId = 의견_남기기(token, roomId, "방이 사라져도 이 의견은 남아야 해요", CHROME_UA);
+        long feedbackId = 의견_남기기(token, roomId, "방이 삭제돼도 이 의견은 남아야 해요", CHROME_UA);
         Long memberId = feedbackJpaRepository.findById(feedbackId).orElseThrow().getMemberId();
 
         방_삭제(token, roomId).andExpect(status().isOk());
-        보존_기간이_지난_삭제로_되돌리기(roomId);
 
-        purgeRoomService.purgeAll(Instant.now());
-
-        assertThat(roomRepository.findById(roomId)).isEmpty();
-        assertThat(memberRepository.findById(memberId)).isEmpty();
+        // 영구 삭제가 없어 방과 회원 행도 그대로 남는다.
+        assertThat(roomRepository.findById(roomId)).isPresent();
+        assertThat(memberRepository.findById(memberId)).isPresent();
 
         FeedbackJpaEntity survived = feedbackJpaRepository.findById(feedbackId).orElseThrow();
-        assertThat(survived.getContent()).isEqualTo("방이 사라져도 이 의견은 남아야 해요");
+        assertThat(survived.getContent()).isEqualTo("방이 삭제돼도 이 의견은 남아야 해요");
         assertThat(survived.getRoomId()).isEqualTo(roomId);
         assertThat(survived.getRoomName()).isEqualTo("우테코 회식");
         assertThat(survived.getMemberId()).isEqualTo(memberId);
@@ -299,22 +300,6 @@ class FeedbackApiTest extends PostgresContainerSupport {
             .header("Authorization", "Bearer " + token));
     }
 
-    private void 보존_기간이_지난_삭제로_되돌리기(long roomId) {
-        Room stored = roomRepository.findById(roomId).orElseThrow();
-        roomRepository.save(Room.reconstruct(
-            stored.getId(),
-            stored.getVersion(),
-            stored.getCode(),
-            stored.getName(),
-            stored.getStatus(),
-            stored.getExpiration(),
-            stored.getUploadPolicy(),
-            stored.getHostId(),
-            stored.getCreatedAt(),
-            Instant.now().minus(RETENTION).minus(Duration.ofDays(1))
-        ));
-    }
-
     private String 값(MvcResult result, String field) throws Exception {
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.get("data").get(field).asText();
@@ -327,82 +312,5 @@ class FeedbackApiTest extends PostgresContainerSupport {
             .andReturn();
         JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
         return body.get("data").get("accessToken").asText();
-    }
-
-    @SpringBootTest(properties = {
-        "spring.jpa.hibernate.ddl-auto=validate",
-        "feedback.rate-limit-window=1m"
-    })
-    @AutoConfigureMockMvc
-    static class 연속_등록_제한 extends PostgresContainerSupport {
-
-        @Autowired
-        MockMvc mockMvc;
-
-        @Autowired
-        ObjectMapper objectMapper;
-
-        @Test
-        void 짧은_시간에_연속으로_등록하면_429와_Retry_After를_받는다() throws Exception {
-            String token = 익명_인증("가현");
-            long roomId = 방_만들고_입장(token);
-
-            의견_등록(token, roomId, "첫 번째 의견").andExpect(status().isCreated());
-
-            의견_등록(token, roomId, "두 번째 의견")
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("FEEDBACK_RATE_LIMITED"))
-                .andExpect(header().exists(HttpHeaders.RETRY_AFTER));
-        }
-
-        @Test
-        void 다른_회원은_서로의_제한에_걸리지_않는다() throws Exception {
-            String first = 익명_인증("가현");
-            String second = 익명_인증("민수");
-            long roomId = 방_만들고_입장(first);
-            방_입장(second, roomId);
-
-            의견_등록(first, roomId, "가현의 의견").andExpect(status().isCreated());
-
-            의견_등록(second, roomId, "민수의 의견").andExpect(status().isCreated());
-        }
-
-        private ResultActions 의견_등록(String token, long roomId, String content) throws Exception {
-            return mockMvc.perform(post("/api/v1/rooms/{roomId}/feedbacks", roomId)
-                .header("Authorization", "Bearer " + token)
-                .header(HttpHeaders.USER_AGENT, CHROME_UA)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"content\":\"" + content + "\"}"));
-        }
-
-        private long 방_만들고_입장(String token) throws Exception {
-            MvcResult created = mockMvc.perform(post("/api/v1/rooms")
-                    .header("Authorization", "Bearer " + token)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"name\":\"우테코 회식\"}"))
-                .andReturn();
-            long roomId = Long.parseLong(값(created, "roomId"));
-            방_입장(token, roomId);
-            return roomId;
-        }
-
-        private void 방_입장(String token, long roomId) throws Exception {
-            mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-                .header("Authorization", "Bearer " + token));
-        }
-
-        private String 값(MvcResult result, String field) throws Exception {
-            JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-            return body.get("data").get(field).asText();
-        }
-
-        private String 익명_인증(String nickname) throws Exception {
-            MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content("{\"nickname\":\"" + nickname + "\"}"))
-                .andReturn();
-            JsonNode body = objectMapper.readTree(result.getResponse().getContentAsString());
-            return body.get("data").get("accessToken").asText();
-        }
     }
 }

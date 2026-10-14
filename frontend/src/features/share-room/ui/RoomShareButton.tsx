@@ -8,6 +8,7 @@ import { IconButton } from "@/shared/ui/icon-button";
 import { Toast, type ToastProps } from "@/shared/ui/toast";
 import { issueLinkCode } from "../api/issueLinkCode";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
+import { RoomQrModal } from "./RoomQrModal";
 
 const copyPendingText = async (text: Promise<string>) => {
   if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard.write === "function") {
@@ -24,6 +25,7 @@ interface RoomShareButtonProps {
 
 export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isCreatingDeviceLink, setIsCreatingDeviceLink] = useState(false);
   const [notice, setNotice] = useState<Pick<ToastProps, "message" | "tone"> | null>(null);
@@ -77,7 +79,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     setNotice(null);
     try {
       // 쿼리나 해시에 담긴 일시적인 상태는 공유하지 않는다.
-      const url = new URL(ROUTES.gallery(roomCode), window.location.origin).href;
+      const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin).href;
       await navigator.clipboard.writeText(url);
       track("Invite Link Copied", { is_success: true });
       setNotice({ message: "공유 링크를 복사했어요.", tone: "success" });
@@ -106,7 +108,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     setNotice(null);
     try {
       const deviceLink = issueLinkCode(accessToken).then(({ linkCode }) => {
-        const url = new URL(ROUTES.roomEntry(roomCode), window.location.origin);
+        const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin);
         url.searchParams.set("linkCode", linkCode);
         return url.href;
       });
@@ -123,6 +125,11 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
     } finally {
       setIsCreatingDeviceLink(false);
     }
+  };
+
+  const openQrModal = () => {
+    setIsOpen(false);
+    setIsQrModalOpen(true);
   };
 
   return (
@@ -177,11 +184,11 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
                 <Description>앨범에 바로 참여하는 링크</Description>
               </span>
             </MenuItem>
-            <MenuItem type="button" role="menuitem" disabled title="준비 중인 기능이에요">
+            <MenuItem type="button" role="menuitem" onClick={openQrModal}>
               <HiQrCode aria-hidden="true" />
               <span>
-                QR 및 코드 공유
-                <Description>QR 코드 및 코드로 참여 · 준비 중</Description>
+                QR 코드 공유
+                <Description>QR 코드를 스캔해 바로 참여해요</Description>
               </span>
             </MenuItem>
             <MenuItem
@@ -199,6 +206,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
           </Menu>
         )}
       </Anchor>
+      {isQrModalOpen && <RoomQrModal roomCode={roomCode} onClose={() => setIsQrModalOpen(false)} />}
       {notice && <Toast {...notice} onClose={() => setNotice(null)} />}
     </>
   );

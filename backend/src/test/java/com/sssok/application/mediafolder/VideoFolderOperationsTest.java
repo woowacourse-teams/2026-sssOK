@@ -4,10 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 //
 // 담기가 PostgreSQL 전용 네이티브 쿼리(ON CONFLICT)를 쓰므로 H2 가 아닌 실제 PostgreSQL 로 돌린다.
 // 나머지 영상 흐름(상세·다운로드·삭제)은 VideoMediaOperationsTest 가 맡는다.
-@SpringBootTest
+@PostgresIntegrationTest
 @Transactional
 class VideoFolderOperationsTest extends PostgresContainerSupport {
 

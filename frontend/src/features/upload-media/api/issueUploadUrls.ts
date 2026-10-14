@@ -15,5 +15,10 @@ export const issueUploadUrls = (roomId: number, request: IssueUploadUrlsRequest,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
+    errorTracking: {
+      level: "error",
+      operation: "upload.issue_urls",
+      route: "/rooms/:roomId/media/upload-urls",
+    },
   });
 };

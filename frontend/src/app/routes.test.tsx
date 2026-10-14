@@ -40,10 +40,19 @@ const renderAt = (path: string) => {
 describe("라우트", () => {
   beforeEach(() => localStorage.clear());
 
-  it("/ 는 홈 화면을 보여준다", () => {
+  it("/home 은 홈 화면을 보여준다", () => {
     renderAt(ROUTES.home);
 
-    expect(screen.getByRole("heading", { name: /사진 모으고 바로 쏙 나누기/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+  });
+
+  // 운영에서 / 는 CloudFront 가 랜딩(landing.html)을 바로 주므로 앱까지 오지 않는다.
+  // 그 설정 전이나 로컬 개발 서버처럼 앱이 / 를 받으면 홈으로 보낸다.
+  it("/ 로 들어오면 홈으로 보낸다", () => {
+    const router = renderAt("/");
+
+    expect(router.state.location.pathname).toBe(ROUTES.home);
+    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 
   // 방 조회 결과에 따른 화면 분기는 RoomEntryPage.test.tsx 가 검증한다.
@@ -80,11 +89,13 @@ describe("라우트", () => {
     expect(await screen.findByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "전체 필터 열기" }));
     await user.click(screen.getByRole("button", { name: "내 사진" }));
 
     expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();
 
+    await user.click(screen.getByRole("button", { name: "내 사진 필터 열기" }));
     await user.click(screen.getByRole("button", { name: "다른 사람 사진" }));
 
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
@@ -117,7 +128,7 @@ describe("라우트", () => {
     await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
     await user.click(screen.getByRole("button", { name: "방 설정" }));
 
-    const nameInput = await screen.findByRole("textbox", { name: "방 이름" });
+    const nameInput = await screen.findByRole("textbox", { name: "방 제목" });
     await user.clear(nameInput);
     await user.type(nameInput, "제주 3박 4일");
     await user.click(screen.getByRole("radio", { name: "방장만" }));
@@ -125,23 +136,6 @@ describe("라우트", () => {
 
     expect(await screen.findByRole("heading", { name: "제주 3박 4일" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
-  });
-
-  it("만료 시간만 변경한 뒤 설정 화면에 다시 진입할 수 있다", async () => {
-    const user = userEvent.setup();
-    renderAtGallery();
-
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
-    await user.click(screen.getByRole("button", { name: "방 설정" }));
-    await user.click(await screen.findByRole("radio", { name: "3일" }));
-    await user.click(screen.getByRole("button", { name: "변경 사항 저장" }));
-
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
-    await user.click(screen.getByRole("button", { name: "방 설정" }));
-
-    expect(await screen.findByRole("textbox", { name: "방 이름" })).toHaveValue("제주 여행");
   });
 
   it("갤러리 메뉴에서 방을 삭제하면 세션을 지우고 홈으로 이동한다", async () => {
@@ -158,9 +152,7 @@ describe("라우트", () => {
 
     await user.click(screen.getByRole("button", { name: "삭제하기" }));
 
-    expect(
-      await screen.findByRole("heading", { name: /사진 모으고 바로 쏙 나누기/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.home);
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
@@ -280,7 +272,7 @@ describe("라우트", () => {
     const router = renderAt(ROUTES.createRoom);
 
     await user.type(screen.getByRole("textbox", { name: "내 이름" }), "민수");
-    await user.type(screen.getByRole("textbox", { name: "방 이름" }), "제주 여행");
+    await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
     expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
@@ -350,7 +342,7 @@ describe("라우트", () => {
     const router = renderAt("/이런-주소는-없다");
 
     expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(screen.getByRole("heading", { name: /사진 모으고 바로 쏙 나누기/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 });
 

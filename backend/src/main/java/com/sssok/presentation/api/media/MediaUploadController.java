@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.media;
 
+import com.sssok.common.monitoring.UploadMetrics;
 import com.sssok.application.media.CompleteUploadResult;
 import com.sssok.application.media.CompleteUploadService;
 import com.sssok.application.media.IssueUploadUrlsResult;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class MediaUploadController {
 
+    private final UploadMetrics metrics;
     private final IssueUploadUrlsService issueUploadUrlsService;
     private final CompleteUploadService completeUploadService;
     private final ReissueUploadUrlService reissueUploadUrlService;
@@ -55,6 +57,7 @@ public class MediaUploadController {
 
         IssueUploadUrlsResult result =
             issueUploadUrlsService.issue(roomId, memberId, files, request.folderIds());
+        metrics.issued(result.issued().size(), result.rejected().size());
         return ApiResponse.of(IssueUploadUrlsResponse.from(result));
     }
 
@@ -75,6 +78,7 @@ public class MediaUploadController {
     ) {
         CompleteUploadResult result =
             completeUploadService.complete(roomId, memberId, request.mediaIds());
+        metrics.registered(result.registered().size(), result.failed().size());
         return ApiResponse.of(CompleteUploadResponse.from(result));
     }
 
@@ -82,7 +86,7 @@ public class MediaUploadController {
         summary = "업로드 URL 재발급",
         description = "서명 URL이 만료됐거나 전송이 실패했을 때 같은 미디어 ID로 새 URL을 받는다. "
             + "업로더 본인만 가능하며 방장도 남의 예약은 재발급하지 못한다. "
-            + "재발급 시점에 방 만료와 업로드 권한을 다시 검사한다. "
+            + "재발급 시점에 방 상태(만료·삭제)와 업로드 권한을 다시 검사한다. "
             + "이미 올라간 파일을 덮어쓰지 못하도록 RESERVED·FAILED 상태에서만 허용하고, "
             + "PROCESSING·READY면 409가 난다. 재시도 횟수가 한도를 넘으면 429가 나며 "
             + "이때는 처음부터 다시 올려야 한다. 바디는 파일 크기가 바뀐 경우에만 보낸다."

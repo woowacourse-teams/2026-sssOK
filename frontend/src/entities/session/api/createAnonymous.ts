@@ -8,5 +8,10 @@ export const createAnonymous = (request: CreateAnonymousRequest) => {
       "Content-Type": "application/json",
     },
     body: JSON.stringify(request),
+    errorTracking: {
+      level: "fatal",
+      operation: "room_entry.create_anonymous_session",
+      route: "/auth/anonymous",
+    },
   });
 };

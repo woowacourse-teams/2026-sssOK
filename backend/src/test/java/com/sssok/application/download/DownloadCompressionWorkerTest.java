@@ -32,15 +32,13 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 스토리지는 목으로 둔다 — 워커를 직접(동기) 호출한다.
 // 비동기 배선 자체는 DownloadJobAsyncTriggerTest 에서 별도로 검증한다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 @Transactional
 class DownloadCompressionWorkerTest {
 
@@ -52,6 +50,13 @@ class DownloadCompressionWorkerTest {
 
     @Autowired
     DownloadJobRepository downloadJobRepository;
+
+    @Autowired
+    io.micrometer.core.instrument.MeterRegistry registry;
+
+    private long count(String result) {
+        return registry.get("sssok.download.processing").tag("result", result).timer().count();
+    }
 
     @Autowired
     FileRepository fileRepository;
@@ -81,6 +86,7 @@ class DownloadCompressionWorkerTest {
 
     @Test
     void 성공하면_모든_파일을_zip으로_묶어_올리고_READY로_전이한다() throws IOException {
+        long before = count("success");
         byte[] contentA = "hello-a".getBytes(StandardCharsets.UTF_8);
         byte[] contentB = "hello-b".getBytes(StandardCharsets.UTF_8);
         Long mediaA = media("a.jpg", contentA);
@@ -99,6 +105,8 @@ class DownloadCompressionWorkerTest {
         assertThat(updated.getZipStorageKey()).isNotNull();
         assertThat(zipEntries(captured.toByteArray())).containsEntry("a.jpg", "hello-a")
             .containsEntry("b.jpg", "hello-b");
+        assertThat(count("success") - before).isEqualTo(1);
+        assertThat(registry.get("sssok.download.active").gauge().value()).isZero();
     }
 
     @Test
@@ -171,7 +179,35 @@ class DownloadCompressionWorkerTest {
     }
 
     @Test
+    void 압축에_실패하면_jobId와_스택트레이스를_ERROR로_남긴다() {
+        // 잡 행에는 사유 한 줄만 남아, 로그가 없으면 원인을 가릴 방법이 없다.
+        Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
+        DownloadJob job = job(List.of(media), 5L);
+        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+            .willThrow(new IllegalStateException("스토리지 연결 실패"));
+
+        ch.qos.logback.classic.Logger workerLogger = (ch.qos.logback.classic.Logger)
+            org.slf4j.LoggerFactory.getLogger(DownloadCompressionWorker.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
+            new ch.qos.logback.core.read.ListAppender<>();
+        appender.start();
+        workerLogger.addAppender(appender);
+
+        downloadCompressionWorker.compress(job.getId());
+
+        workerLogger.detachAppender(appender);
+        assertThat(appender.list)
+            .singleElement()
+            .satisfies(event -> {
+                assertThat(event.getLevel()).isEqualTo(ch.qos.logback.classic.Level.ERROR);
+                assertThat(event.getFormattedMessage()).contains(String.valueOf(job.getId()));
+                assertThat(event.getThrowableProxy()).isNotNull();
+            });
+    }
+
+    @Test
     void 스토리지_연결_자체가_실패해도_FAILED로_전이한다() {
+        long before = count("failure");
         Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
         DownloadJob job = job(List.of(media), 5L);
 
@@ -182,12 +218,17 @@ class DownloadCompressionWorkerTest {
 
         DownloadJob updated = downloadJobRepository.findById(job.getId()).orElseThrow();
         assertThat(updated.getStatus()).isEqualTo(DownloadJobStatus.FAILED);
+        assertThat(count("failure") - before).isEqualTo(1);
+        assertThat(registry.get("sssok.download.active").gauge().value()).isZero();
     }
 
     @Test
     void 없는_잡을_압축하려_하면_예외() {
+        long before = count("failure");
         assertThatThrownBy(() -> downloadCompressionWorker.compress(999L))
             .isInstanceOf(IllegalStateException.class);
+        assertThat(count("failure") - before).isEqualTo(1);
+        assertThat(registry.get("sssok.download.active").gauge().value()).isZero();
     }
 
     private AbortableOutputStream capturing(ByteArrayOutputStream captured) {

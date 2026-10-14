@@ -17,7 +17,7 @@ export interface GalleryMedia {
   mimeType: string;
   size: number;
   thumbnailUrl: string;
-  originalUrl: string;
+  displayUrl: string;
   width: number;
   height: number;
   duration: number | null;
@@ -26,6 +26,8 @@ export interface GalleryMedia {
   uploaderName: string;
   status: "READY";
   uploadedAt: string;
+  likeCount: number;
+  likedByMe: boolean;
 }
 
 /**
@@ -35,7 +37,7 @@ export interface GalleryMedia {
 export const thumbnailUrlOf = (mediaId: number) =>
   `https://picsum.photos/seed/sssok-${mediaId}/600/700`;
 
-export const originalUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
+export const displayUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
   type === "VIDEO"
     ? `https://cdn.example.com/rooms/1024/${mediaId}.mp4`
     : `https://picsum.photos/seed/sssok-${mediaId}/1200/1400`;
@@ -43,6 +45,32 @@ export const originalUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
 /** 방 번호 → 이번 세션에 등록된 미디어. 최신이 앞이다. */
 const registeredByRoom = new Map<number, GalleryMedia[]>();
 const deletedIdsByRoom = new Map<number, Set<number>>();
+const likedMembersByMedia = new Map<string, Set<number>>();
+
+const mediaLikeKey = (roomId: number, mediaId: number) => `${roomId}:${mediaId}`;
+
+export const mediaWithLikeState = (roomId: number, media: GalleryMedia, memberId: number) => {
+  const likedMembers = likedMembersByMedia.get(mediaLikeKey(roomId, media.mediaId));
+
+  return {
+    ...media,
+    likeCount: media.likeCount + (likedMembers?.size ?? 0),
+    likedByMe: likedMembers?.has(memberId) ?? false,
+  };
+};
+
+export const addMediaLike = (roomId: number, mediaId: number, memberId: number) => {
+  const key = mediaLikeKey(roomId, mediaId);
+  const likedMembers = likedMembersByMedia.get(key) ?? new Set<number>();
+  likedMembers.add(memberId);
+  likedMembersByMedia.set(key, likedMembers);
+};
+
+export const removeMediaLike = (roomId: number, mediaId: number, memberId: number) => {
+  likedMembersByMedia.get(mediaLikeKey(roomId, mediaId))?.delete(memberId);
+};
+
+export const resetMediaLikes = () => likedMembersByMedia.clear();
 
 export const isDeletedMedia = (roomId: number, mediaId: number) =>
   deletedIdsByRoom.get(roomId)?.has(mediaId) ?? false;
@@ -80,10 +108,10 @@ const revokeIfObjectUrl = (url: string) => {
 /** 테스트끼리 등록 기록이 이어지지 않도록 되돌린다. */
 export const resetRegisteredMedia = () => {
   for (const mediaList of registeredByRoom.values()) {
-    mediaList.forEach(({ thumbnailUrl, originalUrl }) => {
+    mediaList.forEach(({ thumbnailUrl, displayUrl }) => {
       revokeIfObjectUrl(thumbnailUrl);
       // 사진은 썸네일과 원본이 같은 주소다. 두 번 풀어도 문제되지 않는다.
-      revokeIfObjectUrl(originalUrl);
+      revokeIfObjectUrl(displayUrl);
     });
   }
 

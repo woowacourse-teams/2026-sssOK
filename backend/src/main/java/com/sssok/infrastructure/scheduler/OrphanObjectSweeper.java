@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 // 삭제 직후의 정리는 비동기로 도는데, 그 사이 서버가 재시작되거나 R2 가 잠시 응답하지 않으면
 // 작업이 사라진다. 그러면 그 오브젝트는 주인 없이 영영 요금을 먹는다. 이 배치가 유일한 회수 경로다.
 //
-// 단일 인스턴스 전제로 분산 락이 없다 — PurgeBatch, ThumbnailSweeper 와 같다.
+// 단일 인스턴스 전제로 분산 락이 없다 — ThumbnailSweeper 와 같다.
 @Slf4j
 @Component
 @RequiredArgsConstructor

@@ -27,19 +27,16 @@ public class MemberRepositoryAdapter implements MemberRepository {
     }
 
     @Override
+    public boolean lockById(Long id) {
+        return jpaRepository.findWithLockById(id).isPresent();
+    }
+
+    @Override
     public List<Member> findAllByIdIn(Collection<Long> memberIds) {
         if (memberIds.isEmpty()) {
             return List.of();
         }
         return jpaRepository.findAllById(memberIds).stream().map(this::toDomain).toList();
-    }
-
-    @Override
-    public void deleteAllByIdIn(Collection<Long> memberIds) {
-        if (memberIds.isEmpty()) {
-            return;
-        }
-        jpaRepository.deleteAllByIdIn(memberIds);
     }
 
     private MemberJpaEntity toEntity(Member member) {

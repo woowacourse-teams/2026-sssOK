@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 
-import { Button } from "@/shared/ui/button";
 import { ROUTES } from "@/shared/config";
+import { CreateRoomButton } from "./CreateRoomNavButton.styles";
 
 export const CreateRoomNavButton = () => {
   const navigate = useNavigate();
@@ -11,8 +11,8 @@ export const CreateRoomNavButton = () => {
   };
 
   return (
-    <Button size="lg" onClick={handleClick}>
-      방 만들기
-    </Button>
+    <CreateRoomButton size="lg" onClick={handleClick}>
+      링크 만들기
+    </CreateRoomButton>
   );
 };

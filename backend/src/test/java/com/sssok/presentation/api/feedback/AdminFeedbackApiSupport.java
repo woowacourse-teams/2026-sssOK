@@ -2,6 +2,7 @@ package com.sssok.presentation.api.feedback;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -9,14 +10,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.room.PurgeRoomService;
-import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.persistence.admin.AdminJpaEntity;
 import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
 import com.sssok.support.PostgresContainerSupport;
-import java.time.Duration;
-import java.time.Instant;
+import com.sssok.support.AcceptanceTest;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,14 +29,13 @@ import org.springframework.test.web.servlet.ResultActions;
 
 // 관리자 의견 조회 인수 테스트가 함께 쓰는 준비 과정. 방을 만들고 입장해 의견을 남기고,
 // 관리자 토큰을 얻는 절차가 테스트마다 반복되는데 검증과 섞이면 읽기 어려워진다.
+@AcceptanceTest
 @SpringBootTest(properties = {
-    "spring.jpa.hibernate.ddl-auto=validate",
-    "feedback.rate-limit-window=0s"
+    "spring.jpa.hibernate.ddl-auto=validate"
 })
 @AutoConfigureMockMvc
 abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
 
-    protected static final Duration RETENTION = Duration.ofDays(7);
 
     // V19 마이그레이션이 심는 초기 슈퍼관리자.
     protected static final String SUPER_ADMIN_LOGIN_ID = "superadmin";
@@ -62,9 +59,6 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
 
     @Autowired
     protected FeedbackJpaRepository feedbackJpaRepository;
-
-    @Autowired
-    protected PurgeRoomService purgeRoomService;
 
     @Autowired
     protected RoomRepository roomRepository;
@@ -93,6 +87,13 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     protected ResultActions 단건_조회(String token, long feedbackId) throws Exception {
         return mockMvc.perform(get("/api/v1/admin/feedbacks/{feedbackId}", feedbackId)
             .header("Authorization", "Bearer " + token));
+    }
+
+    protected ResultActions 상태_변경(String token, long feedbackId, String status) throws Exception {
+        return mockMvc.perform(patch("/api/v1/admin/feedbacks/{feedbackId}/status", feedbackId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(status == null ? "{}" : "{\"status\":\"" + status + "\"}"));
     }
 
     protected long 의견_남기기(String token, long roomId, String content) throws Exception {
@@ -135,22 +136,6 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     protected ResultActions 방_삭제(String token, long roomId) throws Exception {
         return mockMvc.perform(delete("/api/v1/rooms/{roomId}", roomId)
             .header("Authorization", "Bearer " + token));
-    }
-
-    protected void 보존_기간이_지난_삭제로_되돌리기(long roomId) {
-        Room stored = roomRepository.findById(roomId).orElseThrow();
-        roomRepository.save(Room.reconstruct(
-            stored.getId(),
-            stored.getVersion(),
-            stored.getCode(),
-            stored.getName(),
-            stored.getStatus(),
-            stored.getExpiration(),
-            stored.getUploadPolicy(),
-            stored.getHostId(),
-            stored.getCreatedAt(),
-            Instant.now().minus(RETENTION).minus(Duration.ofDays(1))
-        ));
     }
 
     // 초기 슈퍼관리자의 비밀번호는 테스트가 모르므로 테스트용으로 바꿔 두고 로그인한다.

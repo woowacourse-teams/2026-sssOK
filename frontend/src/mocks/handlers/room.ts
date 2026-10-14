@@ -3,9 +3,11 @@ import { http, HttpResponse } from "msw";
 import { API_BASE_URL } from "@/shared/config";
 import {
   isDeletedMedia,
-  originalUrlOf,
+  displayUrlOf,
+  mediaWithLikeState,
   registeredMediaOf,
   resetDeletedMedia,
+  resetMediaLikes,
   thumbnailUrlOf,
   type GalleryMedia,
 } from "../db";
@@ -237,7 +239,7 @@ const createMedia = ({
   mimeType: type === "VIDEO" ? "video/mp4" : "image/jpeg",
   size: type === "VIDEO" ? 182452224 : 2912048,
   thumbnailUrl: thumbnailUrlOf(mediaId),
-  originalUrl: originalUrlOf(mediaId, type),
+  displayUrl: displayUrlOf(mediaId, type),
   width: type === "VIDEO" ? 1920 : 3024,
   height: type === "VIDEO" ? 1080 : 4032,
   duration,
@@ -246,6 +248,8 @@ const createMedia = ({
   uploaderName,
   status: "READY",
   uploadedAt: `2026-08-18T${String(18 + Math.floor((mediaId - 5000) / 6)).padStart(2, "0")}:00:00+09:00`,
+  likeCount: mediaId % 9,
+  likedByMe: false,
 });
 
 /**
@@ -404,6 +408,7 @@ export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 export const resetRoomHandlers = () => {
   resetJoinedRooms();
   resetDeletedMedia();
+  resetMediaLikes();
   activeRoomOverrides = {};
   roomExpiresAt = createRoomExpiresAt();
   ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
@@ -577,7 +582,7 @@ export const roomHandlers = [
 
     return HttpResponse.json({
       data: {
-        items: page,
+        items: page.map((media) => mediaWithLikeState(roomId, media, memberId)),
         nextCursor: hasNext && last ? `${scope}|${last.mediaId}` : null,
         hasNext,
         totalCount: matched.length,
@@ -587,6 +592,7 @@ export const roomHandlers = [
 
   /**
    * 페이지 없이 방의 미디어를 최신순으로 전부 내려준다.
+   * query 가 있으면 검색 결과를 유사도 높은 순으로 내려준다.
    */
   http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, ({ request, params }) => {
     const token = request.headers.get("Authorization");
@@ -596,12 +602,41 @@ export const roomHandlers = [
     }
 
     const roomId = Number(params.roomId);
+    const memberId = Number(token.replace("Bearer mock-token-", ""));
 
     if (roomId !== MOCK_ROOM_ID) {
       return roomNotFound();
     }
 
-    const rawFolderId = new URL(request.url).searchParams.get("folderId");
+    const searchParams = new URL(request.url).searchParams;
+    const rawQuery = searchParams.get("query");
+
+    if (rawQuery !== null) {
+      const query = rawQuery.trim().replace(/\s+/g, " ");
+
+      if (query.length === 0 || query.length > 200) {
+        return HttpResponse.json(
+          { code: "INVALID_SEARCH_QUERY", message: "검색어는 공백 정리 후 1~200자여야 합니다" },
+          { status: 400 },
+        );
+      }
+      if (query === "검색 장애") {
+        return HttpResponse.json(
+          { code: "IMAGE_SEARCH_UNAVAILABLE", message: "이미지 검색을 사용할 수 없습니다." },
+          { status: 503 },
+        );
+      }
+
+      return HttpResponse.json({
+        data: {
+          items: mediaOfRoom(roomId)
+            .filter((media) => media.type === "IMAGE" && (media.mediaId + query.length) % 3 === 0)
+            .map((media) => mediaWithLikeState(roomId, media, memberId)),
+        },
+      });
+    }
+
+    const rawFolderId = searchParams.get("folderId");
     const folderId = rawFolderId === null ? null : Number(rawFolderId);
 
     if (folderId !== null && !Number.isInteger(folderId)) return invalidParameter("folderId");
@@ -614,9 +649,9 @@ export const roomHandlers = [
 
     return HttpResponse.json({
       data: {
-        items: mediaOfRoom(roomId).filter(
-          (media) => folderId === null || media.folderIds.includes(folderId),
-        ),
+        items: mediaOfRoom(roomId)
+          .filter((media) => folderId === null || media.folderIds.includes(folderId))
+          .map((media) => mediaWithLikeState(roomId, media, memberId)),
       },
     });
   }),
@@ -755,10 +790,9 @@ export const roomHandlers = [
       return HttpResponse.json({ message: "인증이 필요합니다." }, { status: 401 });
     }
 
-    const { name, uploadPolicy, expiryHours } = (await request.json()) as {
+    const { name, uploadPolicy } = (await request.json()) as {
       name: string;
       uploadPolicy: "everyone" | "host";
-      expiryHours: 24 | 72;
     };
 
     const now = Date.now();
@@ -772,7 +806,7 @@ export const roomHandlers = [
           hostId: MOCK_HOST_ID,
           hostName: "민수",
           createdAt: new Date(now).toISOString(),
-          expiresAt: new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
+          expiresAt: new Date(now + 24 * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,
@@ -795,7 +829,6 @@ export const roomHandlers = [
     const updates = (await request.json().catch(() => ({}))) as {
       name?: string;
       uploadPolicy?: "everyone" | "host";
-      expiryHours?: number;
     };
 
     if (Object.keys(updates).length === 0) {
@@ -809,9 +842,6 @@ export const roomHandlers = [
       ...activeRoomOverrides,
       ...(updates.name !== undefined && { name: updates.name }),
       ...(updates.uploadPolicy !== undefined && { uploadPolicy: updates.uploadPolicy }),
-      ...(updates.expiryHours !== undefined && {
-        expiresAt: new Date(Date.now() + updates.expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
-      }),
     };
 
     return HttpResponse.json({ data: room(MOCK_ROOM_CODES.active, "ACTIVE", true) });

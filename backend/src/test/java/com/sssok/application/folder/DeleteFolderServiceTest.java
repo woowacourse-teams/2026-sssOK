@@ -16,16 +16,14 @@ import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
 // 먼저 걸러주므로 여기서는 폴더 삭제와 folder_media 관계 해제만 검증한다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 @Transactional
 @RecordApplicationEvents
 class DeleteFolderServiceTest {

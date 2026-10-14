@@ -30,7 +30,6 @@ import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
 import com.sssok.domain.file.exception.UploadRetryExceededException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
@@ -56,6 +55,9 @@ class MediaUploadControllerTest {
     private static final Long MEMBER_ID = 2L;
     private static final Long MEDIA_ID = 5012L;
     private static final String BEARER = "Bearer valid-token";
+
+    @MockitoBean
+    com.sssok.common.monitoring.UploadMetrics metrics;
 
     @Autowired
     MockMvc mockMvc;
@@ -92,7 +94,7 @@ class MediaUploadControllerTest {
     private Room activeRoom() {
         return Room.reconstruct(ROOM_ID, null, RoomCode.generate(new SecureRandom()),
             new RoomName("우테코 회식"), RoomStatus.initial(),
-            new RoomExpiration(Instant.now().plusSeconds(3600)), UploadPolicy.ANYONE,
+            UploadPolicy.ANYONE,
             1L, Instant.now(), null);
     }
 
@@ -133,6 +135,7 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.data.issued[0].headers['Content-Type']").value("image/jpeg"))
             .andExpect(jsonPath("$.data.issued[0].expiresIn").value(600))
             .andExpect(jsonPath("$.data.rejected[0].code").value("UNSUPPORTED_MEDIA_TYPE"));
+        org.mockito.Mockito.verify(metrics).issued(1, 1);
     }
 
     @Test
@@ -211,7 +214,7 @@ class MediaUploadControllerTest {
     void 완료_등록하면_201과_registered_failed_를_반환한다() throws Exception {
         MediaDetail detail = new MediaDetail(MEDIA_ID, "IMAGE", "a.jpg", "image/jpeg", 1024L,
             null, null, null, null, null, null, null,
-            List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now());
+            List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now(), 0, false);
         CompleteUploadResult result = new CompleteUploadResult(List.of(detail),
             List.of(FailedMedia.of(5013L, UploadRejectionReason.UPLOAD_NOT_COMPLETED)));
         given(completeUploadService.complete(anyLong(), anyLong(), anyList())).willReturn(result);
@@ -220,8 +223,11 @@ class MediaUploadControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.registered[0].mediaId").value(MEDIA_ID))
             .andExpect(jsonPath("$.data.registered[0].status").value("PROCESSING"))
+            .andExpect(jsonPath("$.data.registered[0].likeCount").value(0))
+            .andExpect(jsonPath("$.data.registered[0].likedByMe").value(false))
             .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(31))
             .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
+        org.mockito.Mockito.verify(metrics).registered(1, 1);
     }
 
     @Test

@@ -3,13 +3,9 @@ package com.sssok.infrastructure.persistence.room;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomExpiration;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import com.sssok.domain.room.UploadPolicy;
-import java.time.Instant;
-import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -36,26 +32,6 @@ public class RoomRepositoryAdapter implements RoomRepository {
         return jpaRepository.findById(id).map(this::toDomain);
     }
 
-    @Override
-    public List<Room> findAllPurgeTargets(Instant threshold) {
-        return jpaRepository.findAllPurgeTargets(threshold).stream()
-            .map(this::toDomain)
-            .toList();
-    }
-
-    @Override
-    public List<Long> findHostIdsIn(Collection<Long> memberIds) {
-        if (memberIds.isEmpty()) {
-            return List.of();
-        }
-        return jpaRepository.findHostIdsIn(memberIds);
-    }
-
-    @Override
-    public void delete(Room room) {
-        jpaRepository.deleteById(room.getId());
-    }
-
     // 읽어온 version 을 그대로 실어 보내야 "내가 읽은 뒤 바뀌었는지"를 DB가 판정할 수 있다.
     private RoomJpaEntity toEntity(Room room) {
         return new RoomJpaEntity(
@@ -64,7 +40,6 @@ public class RoomRepositoryAdapter implements RoomRepository {
             room.getCode().value(),
             room.getName().value(),
             room.getStatus().name(),
-            room.getExpiration().expiresAt(),
             room.getUploadPolicy().name(),
             room.getHostId(),
             room.getCreatedAt(),
@@ -79,7 +54,6 @@ public class RoomRepositoryAdapter implements RoomRepository {
             new RoomCode(entity.getCode()),
             new RoomName(entity.getName()),
             RoomStatus.from(entity.getStatus()),
-            new RoomExpiration(entity.getExpiresAt()),
             UploadPolicy.valueOf(entity.getUploadPolicy()),
             entity.getHostId(),
             entity.getCreatedAt(),

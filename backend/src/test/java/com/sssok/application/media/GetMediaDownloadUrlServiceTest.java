@@ -22,13 +22,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
+import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
-@SpringBootTest
-@ActiveProfiles("test")
+@H2IntegrationTest
 class GetMediaDownloadUrlServiceTest {
 
     private static final Long ROOM_ID = 1L;

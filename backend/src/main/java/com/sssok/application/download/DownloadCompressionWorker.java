@@ -1,5 +1,7 @@
 package com.sssok.application.download;
 
+import com.sssok.common.monitoring.DownloadProcessingMetrics;
+import io.micrometer.core.instrument.Timer;
 import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
@@ -14,11 +16,13 @@ import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 // 실제 비동기 진입점은 이 워커를 호출하는 DownloadJobEventListener 쪽 @Async
 // 압축은 방 크기에 따라 오래 걸리는 I/O라 트랜잭션(따라서 DB 커넥션)을 그 시간만큼 붙들면 안 된다.
 // 상태 전이는 DownloadJobTransitions (별도 빈)에 위임해 그때그때 짧게 커밋한다.
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class DownloadCompressionWorker {
@@ -30,8 +34,21 @@ public class DownloadCompressionWorker {
     private final FileRepository fileRepository;
     private final FileStoragePort fileStoragePort;
 
+    private final DownloadProcessingMetrics metrics;
+
     public void compress(Long jobId) {
+        Timer.Sample sample = metrics.start();
+        boolean success = false;
+        try {
+            success = compressAttempt(jobId);
+        } finally {
+            metrics.completed(sample, success);
+        }
+    }
+
+    private boolean compressAttempt(Long jobId) {
         DownloadJob job = downloadJobTransitions.markRunning(jobId);
+        metrics.startedAt(job.getCreatedAt());
         StorageKey zipStorageKey = new StorageKey("rooms/%d/downloads/%d.zip".formatted(job.getRoomId(), jobId));
 
         // openUploadStream(스토리지 연결) 자체도 실패할 수 있어 try 안에 둔다
@@ -42,11 +59,17 @@ public class DownloadCompressionWorker {
             out = fileStoragePort.openUploadStream(zipStorageKey, ZIP_CONTENT_TYPE);
             writeZip(out, targets, jobId);
             downloadJobTransitions.markReady(jobId, zipStorageKey);
+            return true;
         } catch (Exception e) {
             if (out != null) {
                 out.abort();
             }
+            // 잡 행에는 사유 한 줄만 남는다. 그것만으로는 스토리지 장애인지 원본이 사라진 건지
+            // 가릴 수 없어, 원인을 따라갈 수 있게 스택트레이스까지 로그로 남긴다.
+            // 사용자에게는 실패로 끝난 요청이므로 ERROR 다.
+            log.error("zip 압축에 실패했습니다. jobId={}", jobId, e);
             downloadJobTransitions.markFailed(jobId, failureReasonOf(e));
+            return false;
         }
     }
 

@@ -31,8 +31,8 @@ const renderForm = (props: ComponentProps<typeof CreateRoomForm> = {}) => {
 const fillRequiredFields = async () => {
   const user = userEvent.setup();
 
+  await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");
   await user.type(screen.getByRole("textbox", { name: "내 이름" }), "민수");
-  await user.type(screen.getByRole("textbox", { name: "방 이름" }), "제주 여행");
 
   return user;
 };
@@ -51,7 +51,6 @@ describe("CreateRoomForm", () => {
 
     const user = await fillRequiredFields();
     await user.click(screen.getByRole("radio", { name: "방장만" }));
-    await user.click(screen.getByRole("radio", { name: "3일" }));
     await user.click(submitButton);
 
     await waitFor(() => {
@@ -106,6 +105,14 @@ describe("CreateRoomForm", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("닉네임을 입력해주세요");
   });
 
+  it("방 제목 입력이 내 이름 입력보다 먼저 나온다", () => {
+    renderForm();
+
+    const [firstInput, secondInput] = screen.getAllByRole("textbox");
+    expect(firstInput).toHaveAccessibleName("방 제목");
+    expect(secondInput).toHaveAccessibleName("내 이름");
+  });
+
   describe("방 만들기 퍼널 이벤트", () => {
     it("폼이 뜨면 방 만들기 시작을 남긴다", () => {
       renderForm();
@@ -113,7 +120,7 @@ describe("CreateRoomForm", () => {
       expect(track).toHaveBeenCalledWith("Room Create Started", {});
     });
 
-    it("방을 만들면 방 코드·만료 시간·업로드 권한을 남긴다", async () => {
+    it("방을 만들면 방 코드와 업로드 권한을 남긴다", async () => {
       const handleSuccess = jest.fn();
       renderForm({ onSuccess: handleSuccess });
       const user = await fillRequiredFields();
@@ -124,7 +131,6 @@ describe("CreateRoomForm", () => {
       const [room] = handleSuccess.mock.calls[0];
       expect(track).toHaveBeenCalledWith("Room Created", {
         room_code: room.code,
-        expiry_hours: 24,
         upload_policy: "everyone",
       });
     });

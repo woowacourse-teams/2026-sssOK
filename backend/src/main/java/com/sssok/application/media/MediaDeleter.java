@@ -2,6 +2,7 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.application.port.out.MediaLikeRepository;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.application.storage.OrphanObjectCollector;
 import com.sssok.domain.file.MediaType;
@@ -30,6 +31,7 @@ public class MediaDeleter {
 
     private final FileRepository fileRepository;
     private final FolderMediaRepository folderMediaRepository;
+    private final MediaLikeRepository mediaLikeRepository;
     private final OrphanObjectCollector orphanObjectCollector;
     private final ApplicationEventPublisher eventPublisher;
     private final DerivativeImageProperties imageProperties;
@@ -42,6 +44,7 @@ public class MediaDeleter {
         orphanObjectCollector.enqueue(orphaned);
         List<Long> mediaIds = files.stream().map(StoredFile::getId).toList();
         folderMediaRepository.detachFromAllFolders(mediaIds);
+        mediaLikeRepository.deleteAllByMediaIds(mediaIds);
         fileRepository.deleteAllByIdIn(mediaIds);
 
         eventPublisher.publishEvent(new MediaDeletedEvent(roomId, mediaIds));

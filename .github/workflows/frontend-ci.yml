@@ -75,6 +75,9 @@ jobs:
         run: pnpm test --ci
 
       - name: 타입 검사 및 프로덕션 빌드
+        env:
+          # CI 산출물은 배포하지 않는다. 설정 누락 검증을 통과할 비라우팅 주소만 주입한다.
+          API_BASE_URL: https://example.invalid/api/v1
         run: pnpm build
 
   ci-ok:
