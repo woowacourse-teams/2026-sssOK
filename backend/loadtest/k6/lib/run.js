@@ -5,11 +5,13 @@ import exec from 'k6/execution';
 import { abortEvalDelay, env, expectedPhotos } from './config.js';
 
 // 본 측정은 예열(warmup) 뒤 본 측정(main) 구간을 따로 집계한다. executor 설정만 시나리오가 정한다.
-export function warmupMain(executor, { warmup, main }) {
-  const phase = (name, startTime, duration) => ({ ...executor, startTime, duration, tags: { phase: name }, gracefulStop: '10s' });
+// 예열은 기본으로 끝나는 즉시 멈춘다. 진행 중인 반복을 기다리면 본 측정 사용자와 겹쳐 전환 순간 요청이 몰린다.
+// 반복을 중간에 끊으면 안 되는 시나리오(업로드)만 warmupGracefulStop 으로 기다린다.
+export function warmupMain(executor, { warmup, main }, { warmupGracefulStop = '0s' } = {}) {
+  const phase = (name, startTime, duration, gracefulStop) => ({ ...executor, startTime, duration, tags: { phase: name }, gracefulStop });
   return {
-    warmup: phase('warmup', '0s', warmup),
-    main: phase('main', warmup, main),
+    warmup: phase('warmup', '0s', warmup, warmupGracefulStop),
+    main: phase('main', warmup, main, '10s'),
   };
 }
 

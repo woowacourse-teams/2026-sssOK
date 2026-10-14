@@ -137,10 +137,11 @@ function buildUploadScenarios() {
   }
   // 장/초를 10장 묶음 수로 바꾼다: 초당 N장 = 10초에 묶음 N개.
   // 한 업로더는 한 번에 한 묶음만 올린다(사용자별 PUT 동시 3개). 업로더가 모자라면 dropped iterations 로 남는다.
+  // 예약만 남고 완료되지 않은 업로드가 생기지 않도록 예열 마지막 묶음은 끝까지 올린다. 요청률 고정이라 이 동안 새 반복은 늘지 않는다.
   const phases = warmupMain({
     executor: 'constant-arrival-rate', rate: CONFIG.photosPerSec, timeUnit: `${BATCH_SIZE}s`,
     preAllocatedVUs: UPLOADERS.length, maxVUs: UPLOADERS.length, exec: 'upload',
-  }, CONFIG.phaseDurations);
+  }, CONFIG.phaseDurations, { warmupGracefulStop: '10s' });
   phases.warmup.startTime = start;
   phases.main.startTime = `${UPLOAD_START_SEC + toSeconds(CONFIG.phaseDurations.warmup)}s`;
   return phases;
