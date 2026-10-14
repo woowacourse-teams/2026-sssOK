@@ -19,7 +19,7 @@ FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
          'alertmanager.yml', 'loki.yml', 'datasources.yml', 'dashboards.yml', 'nginx.conf',
          'host-overview.json', 'backend-overview.json', 'logs.json', 'media-transfer.json',
          'log-transfer.json', 'check.sh', 'check-alerts.py', 'verify-dashboards.py',
-         'prepare-discord.py', 'notifications.py')
+         'compose.discord.yml', 'notifications.py')
 MANAGED_FILES = FILES + (notifications.OVERRIDE,)
 SERVICES = ('prometheus', 'alertmanager', 'loki', 'grafana', 'node-exporter', 'nginx')
 
@@ -36,6 +36,8 @@ class Deployment:
         self.lock = None
         self.staged = source
         self.staging = None
+        self.rollback_webhook = None
+        self.restoring = False
 
     def compose(self, *args, source=None, capture=False):
         source = source or self.target
@@ -44,7 +46,8 @@ class Deployment:
         return run(['docker', 'compose', '--project-name', 'sssok-monitoring',
                     '--project-directory', str(self.target), '--env-file', str(self.target / '.env'),
                     '-f', str(source / 'compose.yml'), '-f', str(source / 'compose.web.yml'), *extra, *args],
-                   capture=capture)
+                   capture=capture, env=notifications.environment(
+                       self.rollback_webhook if self.restoring else None))
 
     def container(self, service):
         ids = self.compose('ps', '-a', '-q', service, capture=True).stdout.split()
@@ -72,10 +75,10 @@ class Deployment:
         self.staged = Path(self.staging.name)
         for name in FILES:
             shutil.copyfile(self.source / name, self.staged / name)
-        secret = notifications.prepare(self.source, self.target, self.staged)
+        enabled = notifications.prepare(self.source, self.target, self.staged)
         old = json.loads(self.compose('config', '--format', 'json', capture=True).stdout)
         new = json.loads(self.compose('config', '--format', 'json', source=self.staged, capture=True).stdout)
-        notifications.validate(self.staged, new['services']['alertmanager']['image'], secret)
+        notifications.validate(self.staged, new['services']['alertmanager']['image'], enabled, self.target)
         self.old_config = old
         if set(old['services']) != set(SERVICES) or set(new['services']) != set(SERVICES):
             raise RuntimeError('기존 중앙 6개 서비스만 배포할 수 있습니다')
@@ -98,6 +101,8 @@ class Deployment:
             image_id = run(['docker', 'image', 'inspect', '--format', '{{.Id}}', after['image']], capture=True).stdout.strip()
             if image_id != inspected['Image']:
                 raise RuntimeError(f'{name}: 로컬 이미지 태그와 실행 이미지 ID가 다릅니다')
+        if old.get('secrets', {}).get('central_discord_webhook', {}).get('environment') == notifications.ENV_KEY:
+            self.rollback_webhook = notifications.previous_webhook(self.container('alertmanager'))
         self.grafana_id = self.container('grafana')
         self.grafana_volume = self.data_volume(self.grafana_id)
         self.grafana_image = old['services']['grafana']['image']
@@ -175,6 +180,7 @@ class Deployment:
                     'cp -a "$stage/." /var/lib/grafana/', container=container)
 
     def restore(self, snapshot):
+        self.restoring = True
         self.compose('stop', 'grafana')
         if snapshot:
             # 현재 컨테이너의 마운트 파일이 아직 존재할 때 같은 볼륨으로 복원한다.
@@ -208,6 +214,7 @@ class Deployment:
         try:
             self._execute()
         finally:
+            self.rollback_webhook = None
             if self.staging:
                 self.staging.cleanup()
             if self.lock:
