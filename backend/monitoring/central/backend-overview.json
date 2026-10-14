@@ -854,6 +854,270 @@
       "title": "DB 연결 획득 · 평균 대기 시간",
       "type": "timeseries",
       "description": "연결 풀에서 연결을 얻는 데 걸린 시간이다. SQL 실행 시간이 아니다. pending 증가와 함께 보면 풀 포화를 판단하는 데 도움이 된다. 획득 기록이 없으면 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "reqps",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (uri,method) (rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval]))",
+          "legendFormat": "{{method}} {{uri}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "API별 처리량 · 요청/초",
+      "type": "timeseries",
+      "description": "서버에서 완료된 HTTP 요청의 처리량이다. k6 목표 요청량과 비교해 지연·입력 부족을 구분한다. 상태 검사와 SSE는 제외한다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(5, histogram_quantile(0.99, sum by (le,uri,method) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval]))))",
+          "legendFormat": "{{method}} {{uri}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "API별 p99 응답 시간 · 각 시점 상위 5개",
+      "type": "timeseries",
+      "description": "가장 느린 1% 경계를 API별로 본다. 히스토그램 기반 추정치이며 요청 수가 적으면 흔들린다. 전체 시험 구간의 k6 p99와 집계 범위가 다르다. SSE·비동기 작업 완료 시간은 포함하지 않는다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "reqps",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 48
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (uri,method) (rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\",status=\"429\"}[$__rate_interval]))",
+          "legendFormat": "{{method}} {{uri}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP 429 · API별 요청 제한 응답",
+      "type": "timeseries",
+      "description": "429는 서버 5xx와 분리해 본다. 발생한 시계열이 없으면 데이터 없음으로 표시한다. 앱 HTTP 계측 기준이므로 Nginx 등 앞단의 거절은 k6 결과와 로그로 확인한다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "percent",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 48
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * sum by (instance) (rate(jvm_gc_pause_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval]))",
+          "legendFormat": "{{instance}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "GC 정지 시간 비율 · 인스턴스별",
+      "type": "timeseries",
+      "description": "최근 구간에서 GC 정지 시간이 차지한 비율이다. CPU 사용률이 아니다. Heap 사용량과 응답 지연을 함께 보며 GC가 병목인지 판단한다."
     }
   ],
   "refresh": "30s",
