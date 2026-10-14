@@ -125,7 +125,9 @@ GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ubunt
 1. 워크플로가 기본 브랜치에 있어야 GitHub에서 수동 실행할 수 있다.
    [GitHub 수동 실행 문서](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
    실행 브랜치는 develop 또는 main이며, 입력 `commit`은 develop에 포함된 전체 40자리 SHA다.
-2. GitHub-hosted 러너가 해당 SHA를 checkout하고 설정·대시보드·복구 시험을 통과시킨다.
+2. GitHub-hosted 러너가 해당 SHA를 checkout하고 **동일 SHA의 develop push 중앙 CI 성공 기록**을 확인한다.
+   PR의 가상 병합 SHA나 다른 커밋의 성공 기록은 사용하지 않는다. 성공 기록이 없거나 API 조회가 실패하면 배포를 중단한다.
+   해당 push CI를 완료하거나 재실행한 뒤 CD를 다시 실행한다. 설정·대시보드·복구 시험은 CI에서 실행하고 CD에서 반복하지 않는다.
    허용 목록의 파일만 같은 실행의 artifact로 전달한다. `.env`는 포함하지 않는다.
 3. 중앙 전용 러너가 `/home/ubuntu/monitoring`의 기존 6개 서비스·이미지 ID·메모리 한도·
    데이터 볼륨을 대조한다. 이미지 업그레이드나 볼륨 변경은 이 배포에서 거절한다.
@@ -546,57 +548,26 @@ Compose 환경변수 secret·권한 동작은 Docker Compose 2.32.4에서 격리
 알림 선택에 운영을 추가하기 전까지 개발만 발송하는 현재 서버 설정은 유지한다.
 
 
-### 개발 기존 모니터링 중지까지의 전환
+### 개발 중앙 전환 완료 후 배포
 
-병합만으로 기존 4개 서비스를 중지하지 않는다. 개발 CD는 서버의
-`/home/ubuntu/app/monitoring-mode`를 읽고, 파일이 없으면 `legacy`로 동작한다.
-`dev-monitoring-mode.sh`에서 모드에 맞는 Compose 프로필과 Alloy writer를 선택한다.
+개발의 저장·조회·알림은 중앙 서버에서 운영한다. 개발 Compose에는 앱·Nginx·Alloy·
+node-exporter·소켓 프록시만 남기고 Alloy는 `write.central.alloy`로 중앙에만 전송한다.
+`monitoring-mode`, `DEV_ALLOY_WRITER`, legacy 프로필과 전환 스크립트는 더 이상 사용하지 않는다.
+기존 서버에 모드 파일이 남아 있어도 배포에 영향을 주지 않는다.
 
-| 모드 | 기동 서비스 | Alloy 전송 |
-| --- | --- | --- |
-| legacy (기본) | 앱·수집기 및 기존 Prometheus/Alertmanager/Grafana/Loki | 로컬 + 중앙 |
-| central | 앱·Nginx·Alloy·node-exporter·소켓 프록시 | 중앙만 |
+개발 CD는 앱 헬스체크, Nginx·지표 접근 제한, Alloy 설정 검증과 reload,
+중앙 Loki 시험 로그 수신(HTTP 204)을 확인한다. 기존 Grafana 비밀번호와 모니터링용
+Discord 웹훅을 요구하거나 기존 저장 서비스를 시작·중지하지 않는다.
+앱 의견 알림용 `DISCORD_FEEDBACK_WEBHOOK_URL`은 별개로 유지한다.
 
-**전환 전 조건:** 개발 app/host/logs 및 중앙 platform/host 알림을 활성화하고 발생·복구 수신,
-개발 최신 로그·호스트/앱/Alloy 수집을 확인한다. `LokiRejectingLogs`는 개발 라벨이 아니라
-중앙 Loki의 `monitoring` 라벨로 평가하므로 `monitoring/platform`도 필요하다.
-중앙 자체 알림은 중앙 서버 전체 장애를 외부에서 감시하는 기능은 아니다.
-운영은 별도 수신 검증 전까지 기존 발송을 유지한다.
+중앙 전환 시 이미 중지하고 재시작 정책을 해제한 기존 4개 컨테이너와 데이터 볼륨은
+이번 정리에서 삭제하지 않는다. Compose 정의 삭제는 기존 데이터 삭제 명령이 아니다.
+`down -v`, 볼륨 정리, `--remove-orphans`를 배포에 추가하지 않는다.
+Alloy의 수집 위치 볼륨은 계속 같은 것을 사용한다.
 
-중앙 선택 예시(기존 웹훅 재사용, 환경별 메시지 구분):
-```json
-{"dev":["app","host","logs"],"prod":["app"],"monitoring":["platform","host"]}
-```
-기존 개발 host/logs는 전환 중만 임시 음소거해 중복을 막는다. 중앙 수신 확인 후 개발에서:
-```bash
-cd /home/ubuntu/app || exit 1
-printf '%s\n' central > monitoring-mode
-```
-그다음 개발 CD를 실행한다. 새 Alloy 설정 검증/reload, 앱·Nginx·지표 경로 검증과 중앙 Loki 시험 로그 HTTP 204 확인이 통과한 뒤
-기존 4개 컨테이너의 재시작 정책을 끄고 중지한다. 컨테이너·데이터 볼륨·기존 설정 파일은 삭제하지 않는다.
-후속 CD는 legacy 프로필을 켜지 않으므로 기존 서비스를 다시 기동하지 않는다.
-실제 중앙 수집·로그·Discord 수신은 배포 후 중앙에서 재확인한다.
+운영 Compose와 공통 기존 모니터링 설정은 운영에서 아직 사용하므로 유지한다.
+개발 legacy 복귀 기능은 제거했으며 앱 이미지의 직전 버전 롤백은 그대로 유지한다.
 
-수동 Compose 조작도 반드시 모드를 적용한다:
-```bash
-source monitoring/dev-monitoring-mode.sh "$PWD"
-docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml ps -a
-```
-원복은 `monitoring-mode`를 `legacy`로 바꾼 뒤 개발 CD를 실행한다. 기존 볼륨을 다시 사용하고
-Compose의 `restart: unless-stopped`도 복구한다. 중앙 수집 위치는 보존되지만 중앙 단독 전송 기간의
-로그가 로컬 Loki로 소급 전송되지는 않는다. 앱 알림 무발송 설정은 별도이므로, 중앙 app 선택을 끄려면
-기존 앱 발송 설정도 복원해야 한다. 모니터링 모드 변경과 앱 이미지 롤백은 별개다.
-
-개발 제거 검증 후 같은 사양으로 부하 시험한다. 운영 저장 서비스 제거·인스턴스 축소·기존 데이터 삭제는
-이번 PR의 자동 동작에 포함하지 않는다.
-
-
-개발 임시 앱 음소거를 24시간 더 유지해야 할 때는 개발 서버에서 같은 범위의 새 Silence를 등록한다.
-기존 Silence와 겹쳐도 대상이 늘어나지 않는다. 새 ID와 만료 시각을 확인하고, 배포가 완료되면
-기존 앱 알림의 무발송 라우팅을 확인한다. 이 명령은 디스크·로그 알림을 음소거하지 않는다.
-```bash
-docker exec sssok-alertmanager-dev amtool --alertmanager.url=http://localhost:9093 silence add \
-  'alertname=~"^(BackendDown|BackendHigh5xxErrorRate)$"' \
-  --duration=24h --author=monitoring-migration --comment='중앙 앱 알림 이전 배포 대기'
-docker exec sssok-alertmanager-dev amtool --alertmanager.url=http://localhost:9093 silence query
-```
+개발 배포 후 중앙에서 6개 수집 대상, 최신 개발 로그, 알림 평가를 다시 확인한다.
+그다음 기존 사양에서 부하 시험 기준치를 측정한다. 부하 시험용 대시보드 보강,
+운영 전환과 인스턴스 축소는 별도 단계로 진행한다.
