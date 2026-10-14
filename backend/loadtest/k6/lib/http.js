@@ -53,6 +53,9 @@ export function createClient(baseUrl, { timeout = '10s' } = {}) {
   return {
     get: (name, path, options) => request('GET', name, path, options),
     post: (name, path, options) => request('POST', name, path, options),
+    put: (name, path, options) => request('PUT', name, path, options),
+    patch: (name, path, options) => request('PATCH', name, path, options),
+    del: (name, path, options) => request('DELETE', name, path, options),
   };
 }
 
