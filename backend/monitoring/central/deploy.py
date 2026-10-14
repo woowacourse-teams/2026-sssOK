@@ -186,15 +186,22 @@ class Deployment:
                 shutil.copy2(saved, self.target / name)
             elif (self.target / name).exists():
                 (self.target / name).unlink()
-        self.apply_services()
+        self.apply_services(force_reload=True)
         # 최초 전환 이전에는 자동 등록이 없을 수 있으므로 이전 check.sh 범위로 확인한다.
         run(['bash', str(self.target / 'check.sh')])
         print('이전 설정·Grafana 데이터 복구 및 기본 점검 완료', flush=True)
 
-    def apply_services(self):
-        # 한꺼번에 재생성하지 않고 설정 읽기가 필요한 저장 서비스부터 순차 적용한다.
+    def apply_services(self, force_reload=False):
+        # Compose는 서비스 정의 변경을 감지하지만 bind 파일 내용 변경은 감지하지 않는다.
+        # Loki·Nginx는 실제 파일이 바뀔 때만 강제 재생성해 로그 전송 경로 중단을 줄인다.
+        # 복원은 적용 도중 어떤 파일을 읽었는지 확정할 수 없으므로 강제 재생성한다.
         for service in ('loki', 'prometheus', 'alertmanager', 'grafana', 'nginx'):
-            self.compose('up', '-d', '--no-deps', '--pull', 'never', '--force-recreate', service)
+            config = {'loki': 'loki.yml', 'nginx': 'nginx.conf'}.get(service)
+            changed = (config is None or force_reload or self.backup is None
+                       or not (self.backup / config).is_file()
+                       or (self.backup / config).read_bytes() != (self.target / config).read_bytes())
+            recreate = ['--force-recreate'] if changed else []
+            self.compose('up', '-d', '--no-deps', '--pull', 'never', *recreate, service)
         self.compose('up', '-d', '--no-deps', '--pull', 'never', 'node-exporter')
 
     def execute(self):

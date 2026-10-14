@@ -223,6 +223,27 @@ class DeploymentTest(unittest.TestCase):
         self.assertFalse((self.target / 'backups').exists())
         self.assertEqual((self.target / 'alertmanager.yml').read_text(), 'old:alertmanager.yml')
 
+    def test_unchanged_logging_path_is_not_forced_and_restore_is_forced(self):
+        d = self.deployment
+        d.backup_files()
+        with patch.object(d, 'compose') as compose:
+            d.apply_services()
+        calls = {call.args[-1]: call.args for call in compose.call_args_list}
+        for service in ('loki', 'nginx'):
+            self.assertNotIn('--force-recreate', calls[service])
+        self.assertIn('--force-recreate', calls['prometheus'])
+        (self.target / 'loki.yml').write_text('updated-config')
+        with patch.object(d, 'compose') as compose:
+            d.apply_services()
+        calls = {call.args[-1]: call.args for call in compose.call_args_list}
+        self.assertIn('--force-recreate', calls['loki'])
+        self.assertNotIn('--force-recreate', calls['nginx'])
+        with patch.object(d, 'compose') as compose:
+            d.apply_services(force_reload=True)
+        calls = {call.args[-1]: call.args for call in compose.call_args_list}
+        for service in ('loki', 'nginx'):
+            self.assertIn('--force-recreate', calls[service])
+
     def test_image_change_rejected_before_snapshot(self):
         old = {'services': {name: {'image': name + ':1', 'volumes': []} for name in SERVICES}}
         new = json.loads(json.dumps(old))
