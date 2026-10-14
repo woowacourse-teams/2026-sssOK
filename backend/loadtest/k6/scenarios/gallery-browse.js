@@ -7,11 +7,14 @@
 //       LIKE_RATIO 확률로 PUT /likes → 잠시 뒤 DELETE /likes
 //     THINK_TIME 쉼
 //
-//   좋아요는 눌렀다가 다시 취소한다. 실행이 끝나도 좋아요 수가 시드 때와 같아 같은 조건으로 반복 측정할 수 있다.
+//   좋아요는 눌렀다가 다시 취소한다. 취소가 실패하면 한 번 더 취소해 실행 뒤 좋아요가 쌓이지 않게 한다.
+//   다만 서버 오류가 이어지거나 실행이 중간에 멈추면(Ctrl+C·자동 중단) 좋아요가 남을 수 있다. 검증은 좋아요 수에 기대지 않으므로
+//   같은 fixtures 로 다시 돌려도 되지만, 좋아요 수까지 같은 조건이어야 하는 비교라면 시드를 새로 한다.
 //   한 계정을 여러 가상 사용자가 함께 쓰면(VUS > 계정 수) 같은 사진 좋아요가 겹칠 수 있어, 응답의 liked 만 검증하고 좋아요 수는 검증하지 않는다.
 //
 //   PROFILE=smoke  5명이 두 번씩 돈다. 하나라도 실패하면 실패로 끝난다.
 //   PROFILE=load   VUS 명(기본: fixtures 계정 전부)으로 예열 뒤 본 측정. 30·90·150·300명은 방 1·3·5·10개 시드로 맞춘다.
+import http from 'k6/http';
 import exec from 'k6/execution';
 import { sleep } from 'k6';
 
@@ -130,7 +133,13 @@ function toggleLike(user, mediaId) {
   const like = client.put('media_like', path, { token: user.token, validate: validate(true) });
   if (!like.ok) return;
   pause(0.5);
-  client.del('media_unlike', path, { token: user.token, validate: validate(false) });
+  const unlike = client.del('media_unlike', path, { token: user.token, validate: validate(false) });
+  if (!unlike.ok) {
+    // 좋아요가 남지 않게 한 번 더 취소한다. 이 재시도는 결과 집계에 넣지 않는다.
+    http.del(`${BASE_URL}/api/v1${path}`, null, {
+      headers: { Authorization: `Bearer ${user.token}` }, tags: { api: 'unlike_cleanup' }, responseCallback: http.expectedStatuses(200),
+    });
+  }
 }
 
 function pause(scale = 1) {
