@@ -19,7 +19,7 @@ spring:
       request-timeout: -1
 
   task:
-    # 업로드 후 리사이즈/압축을 처리하는 @Async 워커
+    # ZIP 압축·스토리지 정리·알림용 공용 워커
     execution:
       thread-name-prefix: media-worker-
       pool:
@@ -114,10 +114,19 @@ media:
       # 0.85(SSIM 0.981)를 쓴다. 한 장 평균 186KB — 원본을 그대로 내리던 때(589KB)의 3분의 1
       quality: 0.85
   thumbnail:
-    # 이 시간이 지나도 PROCESSING이면 재시작·실패로 작업이 사라진 것으로 보고 다시 태운다
-    stuck-after: 10m
-    sweep-batch-size: 50
-    sweep-cron: "0 */5 * * * *"
+    queue:
+      dispatch-interval: 1s
+      recovery-interval: 10s
+      image-workers: 4
+      video-workers: 2
+      lease: 2m
+      max-runtime: 10m
+      max-attempts: 5
+      retry-base: 5s
+      retry-max: 5m
+      recovery-batch-size: 50
+      # 기존 워커가 모두 멈춘 배포에서만 켠다. 누락분 보충 완료 후 다시 끈다.
+      backfill-enabled: false
     # 화면에 쓰는 썸네일·프리뷰·원본 서명 URL의 유효기간. 목록 기반 뷰어가 오래 열려 있어도
     # 사진·GIF·동영상의 displayUrl이 같은 시점까지 유지되도록 다운로드용(5분)과 분리한다.
     display-url-ttl: 30m
@@ -130,11 +139,6 @@ media:
     thumbnail-max-width: 400
     # ffmpeg에 넘길 원본 서명 URL의 유효기간. timeout보다 넉넉해야 추출 도중에 만료되지 않는다
     source-url-ttl: 10m
-    worker:
-      # ffmpeg 작업이 사진 썸네일·ZIP 압축의 공용 풀을 점유하지 않도록 별도 풀을 쓴다
-      core-size: 2
-      max-size: 2
-      queue-capacity: 50
 
 notification:
   discord:
