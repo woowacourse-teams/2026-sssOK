@@ -117,7 +117,7 @@ media:
     queue:
       dispatch-interval: 1s
       recovery-interval: 10s
-      image-workers: 2
+      image-workers: 4
       video-workers: 2
       lease: 2m
       max-runtime: 10m

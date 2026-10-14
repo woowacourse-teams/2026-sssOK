@@ -8,7 +8,7 @@ public record ThumbnailQueueProperties(int imageWorkers, int videoWorkers, int m
                                        Duration lease, Duration maxRuntime,
                                        Duration retryBase, Duration retryMax, int recoveryBatchSize) {
     public ThumbnailQueueProperties {
-        imageWorkers = imageWorkers == 0 ? 2 : imageWorkers;
+        imageWorkers = imageWorkers == 0 ? 4 : imageWorkers;
         videoWorkers = videoWorkers == 0 ? 2 : videoWorkers;
         maxAttempts = maxAttempts == 0 ? 5 : maxAttempts;
         lease = lease == null ? Duration.ofMinutes(2) : lease;
