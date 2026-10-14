@@ -1,5 +1,100 @@
 # 중앙 모니터링 기동 검증 (#468, 1단계)
 
+## 최신 서버 적용 상태 (2026-10-13)
+
+[중앙 CD 첫 실행](https://github.com/woowacourse-teams/2026-sssOK/actions/runs/38416851150)이 성공했다.
+적용 커밋은 `c9756cc61980af43ea84ba350f1d6636d27a5fb9`이며, 설정·Grafana 데이터 백업,
+중앙 자체 수집 5개 대상, 호스트 지표, Loki 시험 로그 저장·조회, 대시보드 5개 자동 등록을 확인했다.
+백업 경로는 `/home/ubuntu/monitoring/backups/20261013T145150.855227Z-c9756cc61980`이다.
+기동 직후 준비 상태 조회의 503은 재시도 후 정상화됐다. 실패 복구는 이번 실배포에서 실행되지 않았다.
+
+아래 추가 알림 규칙 15개는 후속 작업이며 이 첫 배포에 포함되지 않았다. 중앙 서버는 기존
+기본 알림 규칙과 외부 발송 없는 receiver를 사용한다. 배포 후 개발·운영의 node/backend/alloy
+6개 대상 수집, 실제 로그 전송과 모든 패널 값은 별도로 확인해야 한다.
+과거 절의 수동 Import·서버 적용 전 설명보다 이 상태 기록을 우선한다.
+
+## 중앙 알림 이전 준비 (#468, 발송 전)
+
+중앙 규칙은 앱·로그·호스트 알림과 중앙 자체 상태를 포함한 15개다. 기존 개발·운영
+규칙·발송 설정은 변경하지 않는다. 중앙 receiver `bootstrap`에는 전송 설정이 없으므로
+서버의 Discord 선택 파일이 없으면 이번 구성을 배포해도 외부 알림은 보내지 않는다. 실제 Discord 연결과 기존 발송 중지는 후속 작업이다.
+
+| 규칙 | 계산 단위·판정 |
+| --- | --- |
+| BackendDown | dev/prod 수집 대상별 up=0, 2분 (복구 후 5분 유지) |
+| BackendHigh5xxErrorRate | 환경·서버별 최근 5분 요청 20건 이상, 5xx 비율 5% 초과 (복구 후 5분 유지) |
+| HostDiskSpaceLow / Critical | dev/prod/monitoring 루트 파일시스템별 여유 15% 미만 10분 / 5% 미만 5분 |
+| HostDiskWillFillIn24h | 같은 파일시스템의 6시간 추세로 24시간 내 고갈 예상, 여유 40% 미만 30분 |
+| LogPipelineDown | dev/prod Alloy 수집 실패 5분 (복구 후 5분 유지) |
+| LogShippingFailing | 환경·서버·목적지별 5분 실패 요청의 초당 발생량(rate)이 양수인 상태 10분 |
+| LogEntriesDropped | 환경·서버·목적지·사유별 10분 폐기 증가량 > 0 |
+| LokiRejectingLogs | 중앙 Loki·사유별 10분 거절 증가량 > 0 |
+| NodeMetricsDown | dev/prod 호스트 지표 수집 실패 2분, 해소 후 5분 유지 |
+| MetricsEndpointDown | 같은 환경·서버·instance의 node/backend/alloy 모두 수집 실패 2분, 해소 후 5분 유지 |
+| CentralComponentDown | 중앙 구성 요소 수집 실패 2분 |
+| HostHighCPU | dev/prod/monitoring 서버별 전체 코어 5분 평균 사용률 85% 초과가 10분 지속 |
+| HostMemoryLow | dev/prod/monitoring 서버별 MemAvailable / MemTotal 10% 미만 5분 |
+| BackendHighLatency | dev/prod 환경·서버별 5분 P95 > 1초, 같은 구간 요청 100건 이상이 5분 지속 |
+
+오류율의 분자·분모·최소 요청 수 모두 같은 환경·서버로 묶는다. 기존 Actuator 제외 조건과
+임계값을 유지한다. Alloy `host`는 발신 서버가 아니라 목적지다. 중앙 Loki의 거절 지표는
+발신 환경을 제공하지 않으므로 monitoring으로 알리며 dev/prod로 추측하지 않는다.
+전송 목적지 하나의 폐기가 다른 목적지에서도 유실됐음을 뜻하지 않는다.
+`up=0`은 실제 서비스 중단 확정이 아닌 수집 실패다. 수집 대상 설정 자체가 빠진 경우의
+누락 검사는 별도 과제이며, 시계열이 없다는 이유로 정상 0을 만들어내지 않는다.
+
+중복 처리는 다음과 같다.
+
+- 중앙 디스크 전용 규칙은 공통 호스트 규칙으로 대체한다.
+- 중앙 Loki 중단은 CentralComponentDown이 담당하며 LogPipelineDown은 Alloy만 검사한다.
+- 디스크 critical은 같은 대상의 low를, low/critical은 같은 대상의 예측 알림을 억제한다.
+- 대상 비교에는 environment·server·instance·device·mountpoint를 사용한다. 필수 대상
+  라벨이 비어 있는 알림을 억제 근거로 사용하지 않는다.
+- 전송 실패와 실제 폐기는 둘 다 유지한다. 같은 환경·서버·instance의 호스트·앱·Alloy 수집이 모두 실패할 때만 대표 알림이 세 개별 수집 실패 알림을 억제한다. 원인은 단정하지 않는다.
+- 알림 그룹은 environment·server·alertname·severity·host, 대기/변경/반복은 30초/5분/4시간이다.
+  실제 복구 알림 발송(send_resolved)은 추후 Discord receiver를 연결할 때 설정한다.
+
+기존 서버와 중앙 사이의 중복 발송은 inhibit 규칙으로 해결되지 않는다. 먼저 중앙에서 발송 없이
+판정 결과를 비교하고, 검증된 개발 알림 묶음부터 기존 발송 중지 → 중앙 발송 활성화 순으로
+담당을 이전한다. 전환 시각과 짧은 공백을 기록한다. 복귀 시 중앙 발송을 끄고 기존 발송을
+다시 켠다. 운영은 개발 검증 후 진행한다. 중앙이 관측하지 못하는 기존 Loki 자체 알림은 유지한다.
+
+기존 `validate.py`에서 promtool 가상 지표 시험과 실제 격리 Alertmanager 시험을 수행한다.
+`test-alertmanager.py`는 외부 통신 없는 임시 컨테이너에 21개 가상 알림을 넣어 같은 대상의
+억제·다른 환경/서버/디스크의 비억제·critical 복구 후 warning 재활성화를 확인한다.
+규칙 시험은 개발 오류와 운영 트래픽 분리, 서버별 최소 요청 수, 발생 대기·복구,
+전송 목적지·폐기 사유 유지, 중앙 귀속, 디스크 임계값·예측을 확인한다.
+이 검증은 실제 장애 발생이나 Discord 메시지 수신 검증을 대신하지 않는다.
+
+공식 기준: [Prometheus 규칙 시험](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/),
+[Alertmanager 그룹·억제 설정](https://prometheus.io/docs/alerting/latest/configuration/).
+
+## 발송 없는 적용 후 점검
+
+알림 규칙 PR을 develop에 병합한 뒤 해당 커밋으로 중앙 CD를 실행한다. 첫 배포 커밋
+`c9756cc6`에는 새 규칙과 이 점검 도구가 없으므로 후속 배포 전에는 실행할 수 없다.
+중앙 호스트에서 평가 주기(15초)가 지난 뒤 실행한다.
+
+```bash
+cd /home/ubuntu/monitoring || exit 1
+python3 check-alerts.py
+```
+
+이 도구는 loopback Prometheus API를 GET으로 조회한다. 설정 변경·재시작·시험 알림 발송을
+하지 않는다. 15개 규칙의 이름·중복·평가 상태와 dev/prod 6개 수집 대상의 up=1을 검사한다.
+실제 장애로 pending/firing인 규칙은 대상 라벨과 함께 표시하며, 그 사실만으로 점검을 실패시키지
+않는다. 적용 누락·평가 오류·수집 실패는 종료 코드 1로 보고한다. 자동 CD 성공 판정에는
+연결하지 않아 앱 수집 장애를 이유로 중앙 설정을 자동 롤백하지 않는다.
+
+추가로 확인할 사항:
+
+1. 출력의 firing/pending 대상을 기존 Prometheus 판정과 비교한다. 임계값·집계 단위·평가 시간을
+   함께 확인하며, 알림이 없다는 사실만으로 정상 동작을 확정하지 않는다.
+2. 기존 Alertmanager의 발송은 유지하고 중앙 receiver는 bootstrap으로 비워 둔다.
+   이 도구는 Alertmanager의 실제 receiver·억제 상태나 Discord 수신 여부를 검사하지 않는다.
+3. 실제 로그 전송과 대시보드 값은 별도 확인한다. 새 규칙이 안정적으로 평가되는 것을 확인한
+   후 개발 알림 묶음부터 발송 담당을 전환한다. 서버 장애를 일부러 유발하는 시험은 별도 진행한다.
+
 ## 중앙 전용 CI (2026-10-13)
 
 `.github/workflows/monitoring-central-ci.yml`은 중앙 폴더·해당 워크플로 변경 PR,
@@ -19,7 +114,7 @@ develop 병합 또는 수동 실행 때 GitHub-hosted `ubuntu-latest`에서 검�
 - 경로 필터가 있는 별도 워크플로이므로 무관한 PR에는 실행되지 않는다. 저장소 필수 체크
   설정은 이번에 변경하지 않았다. 설정 검증 성공은 중앙 서버 배포 성공을 뜻하지 않는다.
 
-## 중앙 수동 CD (2026-10-13, 서버 적용 전)
+## 중앙 수동 CD (첫 실행 완료)
 
 사용자 확인: 중앙 `sssok-monitoring` 러너(ubuntu, Linux ARM64, `monitoring` 라벨)는
 서비스로 실행 중이며 GitHub Idle, Docker 접근, 배포 폴더 쓰기, 기존 `.env` 읽기를 확인했다.
@@ -38,7 +133,8 @@ GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ubunt
 4. `backups/<UTC 시각>-<SHA 앞 12자리>/`에 이전 설정을 저장하고 Grafana를 정지한 상태에서
    데이터 전체를 tar로 보관한다. Grafana DB에는 자격증명 관련 정보가 있으므로 백업 폴더는
    700, 데이터 tar는 600 권한이다. 기존 `.env`는 복사하거나 덮어쓰지 않는다.
-5. 설정을 배치하고 Loki·Prometheus·Alertmanager·Grafana·Nginx를 순차 재생성한다.
+5. 설정을 배치하고 Loki·Prometheus·Alertmanager·Grafana·Nginx를 순차 적용한다.
+   Loki·Nginx는 파일 내용 또는 서비스 정의 변경 시 재생성하고 나머지는 강제 재생성한다.
    node_exporter는 Compose 변경이 있을 때만 재생성한다. 이미지 pull이나 볼륨 삭제는 하지 않는다.
 6. 서비스 준비 상태·중앙 자체 수집 5개·호스트 지표·Loki 시험 로그 저장/조회·Nginx 경로·
    대시보드 자동 등록 5개를 확인한 뒤 `deployed-commit.txt`에 SHA를 기록한다.
@@ -53,7 +149,7 @@ Grafana 데이터 볼륨인지 확인한다. 링크·특수 파일·하위 마�
 검증: `test-deploy.py`는 성공 기록, 배포/헬스체크 실패 복구, 백업 실패, 이미지 변경 거절과
 신규 파일 제거·권한 복원·잘못된 백업/볼륨 거절·추출 실패 시 데이터 보존을 확인한다. `test-dashboards.py`는 실제 격리 Grafana에서 같은 백업/복원
 메서드를 사용해 수동 대시보드 → 자동 등록 → 재생성 → 이전 DB 복원을 확인한다.
-로컬 검증은 통과했으며 실제 GitHub 실행과 중앙 서버 배포는 아직 하지 않았다.
+로컬 복구 검증과 중앙 CD 첫 실행은 통과했다. 실제 서버에서 장애를 유발하는 복구 시험은 아직 하지 않았다.
 
 배포 중 중앙 수집·조회와 Grafana 화면이 잠시 중단될 수 있다. Alloy의 제한된 재시도로 인해
 중앙 로그 일부가 누락될 수 있어 배포 후 개발·운영 전송 지표도 확인한다. 기존 환경의 Loki와
@@ -67,7 +163,7 @@ Prometheus·Loki 데이터 볼륨의 시점 복원은 이 스크립트 범위가
 ## 대시보드 자동 등록 (2026-10-13)
 
 로컬 저장소의 `compose.yml`에 provider와 아래 다섯 JSON의 읽기 전용 마운트를 연결했다.
-서버 적용 전까지 기존 수동 Import 상태는 그대로다. Grafana는 `sssOK` 폴더에 같은 UID의
+첫 중앙 CD에서 5개 자동 등록을 확인했다. Grafana는 `sssOK` 폴더에 같은 UID의
 대시보드를 등록·갱신한다. 기존 데이터소스 UID `prometheus`·`loki`와 `grafana-data` 볼륨은 유지한다.
 
 | 파일 | UID |
@@ -88,7 +184,7 @@ Prometheus·Loki 데이터 볼륨의 시점 복원은 이 스크립트 범위가
   누락 시 빈 디렉터리를 만드는 대신 기동을 실패시킨다.
 - 중앙에는 `compose.yml`, `compose.web.yml`, `dashboards.yml`과 다섯 JSON을 함께 배치한다.
   대시보드만 수동 적용한다면 두 Compose를 함께 지정하고 `up -d --no-deps grafana`로
-  Grafana만 재생성할 수 있다. 위 중앙 CD는 전체 설정을 배포하므로 다른 중앙 서비스도 재생성한다.
+  Grafana만 재생성할 수 있다. 위 중앙 CD는 전체 설정을 배포하며 Loki·Nginx는 변경이 있을 때 재생성한다.
 - 재생성 후 다섯 UID·폴더·데이터소스 연결과 실제 패널 값을 확인한다. 자동 등록 성공과
   로그·지표 쿼리의 실데이터 성공은 별개다. 중앙 micro와 서비스별 메모리 한도는 변경하지 않는다.
 
@@ -319,3 +415,109 @@ node_exporter 기동은 로컬에서 확인하지 못했다. EC2에서 `bash che
 - [컨테이너에서 호스트 수집](https://github.com/prometheus/node_exporter#docker)
 - [Prometheus 보존 정책](https://prometheus.io/docs/prometheus/latest/storage/)
 - [Grafana Docker 설정](https://grafana.com/docs/grafana/latest/setup-grafana/configure-docker/)
+
+### Discord 연결 준비 — 아직 발송·배포하지 않음
+
+`notifications.py`는 현재 설정의 그룹화·중복 억제 규칙을 유지하면서 **검토용 후보**를 생성한다.
+CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다. 기본 Compose와 저장소의 `alertmanager.yml`은 계속 무발송 상태이며, 코드 병합만으로 발송이 켜지지 않는다.
+
+| 선택 | 포함하는 개발 알림 | 확인할 화면 |
+| --- | --- | --- |
+| `app` | 앱 중단, 5xx 비율, P95 응답 지연 | 중앙 앱 대시보드 |
+| `host` | CPU 과부하, 메모리 부족, 디스크 부족·위험·24시간 내 고갈 예상 | 중앙 호스트 대시보드 |
+| `logs` | Alloy 중단, 전송 실패, 로그 유실 | 중앙 로그 전송 대시보드 |
+
+저장소의 `backend/monitoring/central`에서 후보만 확인한다. 서버에서 적용하는 명령이 아니다.
+
+```bash
+# 옵션이 없으면 기존 무발송 설정을 그대로 출력한다.
+python3 notifications.py
+# 앱 알림만 개발 환경에서 이전하는 후보를 출력한다.
+python3 notifications.py --enable-dev app
+# 여러 묶음은 옵션을 반복한다.
+python3 notifications.py --enable-dev app --enable-dev logs
+```
+
+- **라우팅**은 누가 받을지를 결정한다. `environment=dev`, `server=dev`, 선택한 알림 이름을 모두 만족해야 `discord-dev`로 간다. 나머지와 운영·중앙 알림은 기존 무발송 수신자로 간다.
+- **메시지 템플릿**은 무엇을 보여줄지를 결정한다. 발생/복구 상태, 환경·서버·심각도, 로그 전송 목적지(`host`), 유실 사유와 중앙 Grafana 링크를 넣는다. 최대 3개 알림의 요약·설명을 길이 제한하여 표시한다. 누락한 상세는 대시보드에서 확인한다.
+- **복구 알림**은 `send_resolved: true`로 설정한다. 실제 Discord 수신·전송 성공을 확인한 것은 아니며, 이번 검증은 라우팅과 메시지 렌더링까지다.
+- **비밀값**은 `/run/secrets/central_discord_webhook` 파일로 읽는다. `compose.discord.yml`의 환경변수 기반 secret이 서버 `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL`을 전달한다. Python은 비밀 파일 생성·chown·버전별 보관을 하지 않는다. 현재 고정한 Alertmanager 이미지의 사용자 65534에 맞춰 Compose에 uid/gid 65534, mode 0400을 선언하고 실제 이미지로 읽기 검증한다. 이미지 사용자 변경 시 선언도 함께 검증해야 한다. URL을 Git·명령 인수·CI 로그에 넣지 않는다.
+
+다음 단계는 **서버에서 개발 앱 알림을 실제 전환**하는 것이다. 배포가 관리하는 `alertmanager.yml`을 수동 덮어쓰지 않는다. 중앙 규칙의 무발송 상태를 먼저 점검한 뒤, 개발 앱 알림의 기존 발송을 끄고 서버 선택 파일에 `{"dev": ["app"]}`을 지정하여 중앙 CD를 실행한다. 별도 Alertmanager 사이에는 중복 억제가 공유되지 않으므로 이전 묶음별 발송 담당을 하나로 유지하고 전환 시각·짧은 공백을 기록한다. 되돌릴 때는 중앙 발송을 먼저 끄고 기존 발송을 켠다.
+
+기존 중앙 검증 안의 `test-notifications.py`가 실제 배포 이미지의 `amtool`로 설정 문법, 묶음별 환경 격리, 발생/복구 메시지를 검사한다. Docker 네트워크를 차단하며 실제 웹훅이나 Discord는 호출하지 않는다. 별도 CI job은 추가하지 않는다.
+
+
+### CD에서 발송 선택과 웹훅을 다루는 방식
+
+실행 대상은 **중앙 서버 `10.0.20.46`의 전용 CD 러너**다. 앱 서버는 변경하지 않는다.
+
+| 파일 (`/home/ubuntu/monitoring` 기준) | 관리 주체 | 역할 |
+| --- | --- | --- |
+| `discord-selection.json` | 서버 담당자 | 발송 묶음 선택. 예: `{"dev": ["app"]}`. CD가 덮어쓰지 않음 |
+| `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL` | 서버 담당자 | 웹훅 원본. CD가 덮어쓰거나 백업·출력하지 않음 |
+| `compose.discord.yml` | 저장소 | 환경변수 기반 secret과 컨테이너 내 권한 선언 |
+| `alertmanager.yml`, `compose.notifications.yml` | CD | 선택에 따라 생성한 설정. 실패 시 이전 설정 복원 |
+
+1. 배포 잠금을 획득하고 선택을 검사한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다.
+2. 후보 설정을 생성한다. 선택한 묶음이 있을 때만 Compose secret 선언을 포함한다.
+3. 실제 이미지·네트워크 차단 컨테이너에서 `.env` 값 전달, URL 형식, 파일 읽기, Alertmanager 문법을 검사한다. 누락·오류는 기존 서비스 중단 전에 실패한다. Docker Compose의 dotenv 해석을 사용하고 셸의 동명 변수는 제거한다.
+4. 기존 실행 설정이 환경변수 secret을 사용하면 컨테이너에서 이전 값을 읽어 배포 프로세스 메모리에만 보관한다. 읽을 수 없으면 중단한다.
+5. 기존 설정·Grafana 데이터를 백업하고 배포한다. 실패 시 이전 설정을 복원하며, Compose에 이전 웹훅 값을 자식 프로세스 환경으로 전달한다. 성공·실패 후 보관한 참조를 해제한다.
+
+**복구 범위:** 같은 배포 실행 안의 자동 복구는 직전 웹훅을 사용한다. 과거 웹훅 파일을 서버에 누적하지 않으므로, 프로세스 강제 종료 후 수동 복원 또는 과거 백업 복원에는 현재 `.env` 값이 사용된다. 이전 발송 대상이 필요하면 담당자가 `.env`를 복원해야 한다. `.env`의 새 값과 서버 선택은 자동 복구 후에도 다음 배포 의도로 남는다. 이미 폐기한 Discord 웹훅은 복구할 수 없다.
+
+알림 연결 후 수동 Compose 조작에는 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 발송 해제는 선택을 `{"dev": []}`로 변경한 뒤 중앙 CD로 배포한다. 배포 중에는 `.env`와 선택을 바꾸지 않는다. 실제 서버 적용·Discord 수신은 별도 확인한다.
+
+
+### 자원·응답 지연 초기 기준
+
+CPU 85%·10분, 가용 메모리 10%·5분, P95 1초·5분은 초기 경고 기준이다. 부하 시험과 정상 트래픽 관측 후 조정한다. CPU는 idle을 제외한 전체 코어 평균이므로 I/O 대기 등도 포함하며 원인은 호스트 대시보드에서 확인한다. 기존 CentralMemoryLow는 HostMemoryLow로 통합하여 중앙 메모리 알림을 중복 생성하지 않는다.
+
+응답 지연은 환경·서버별 HTTP 히스토그램으로 추정하며 Actuator·health·SSE를 지연과 최소 요청 수 양쪽에서 제외한다. 5분 요청 100건 미만이면 발생하지 않으므로 개발의 저트래픽 지연과 호출량이 적은 특정 API의 지연은 놓칠 수 있다. 시계열 부재를 정상 0으로 치환하지 않는다. 새 규칙은 조건 해소 시 발생 상태를 추가 유지하지 않으며, 기존 발송 그룹 대기·변경 주기는 그대로 적용한다.
+
+CPU·메모리는 Discord host 묶음, 응답 지연은 app 묶음에 포함한다. 이미 해당 묶음을 활성화한 서버라면 다음 배포부터 새 규칙도 발송 대상이다. CPU와 응답 지연은 서로 억제하지 않는다. 실제 서버 적용·발송은 아직 수행하지 않았다.
+
+
+### 리뷰 반영: 공통 수집 경로 장애와 배포 중 로그 폐기
+
+Nginx 19100 포트를 공유하는 node/backend/alloy가 모두 실패하면 MetricsEndpointDown으로 알린다. node-exporter만 실패한 경우는 NodeMetricsDown으로 구분하며 앱·Alloy 알림을 숨기지 않는다. 대표 알림은 app/host/logs 어느 묶음을 선택해도 발송 대상으로 포함하여, 발송되지 않는 대표 알림이 선택된 개별 알림을 숨기는 상황을 방지한다. 대표 알림은 개별 수집 실패와 같은 5분 복구 유지 시간을 두어 공통 장애 복구 직후 잔류 개별 알림이 튀어나오는 것을 줄인다. 이후 개별 장애가 남아 있으면 다시 개별 알림으로 전달한다. 지표 세 가지 실패로 실제 서버 중단 원인을 확정하지 않으며, 수집 대상 자체가 삭제된 경우의 감지는 별도다.
+
+중앙 CD는 백업 당시와 Loki/Nginx 설정 파일 내용이 같으면 강제 재생성을 생략한다. 서비스 정의 변경은 Compose의 변경 감지에 맡기며, bind 파일 내용이 바뀌면 강제 재생성한다. 실패 복원은 중간에 읽은 설정이 불확실하므로 기존처럼 강제 재생성한다. 이 조치는 변경 없는 배포의 로그 경로 중단을 줄이며 무중단이나 무유실을 보장하지 않는다.
+
+LogEntriesDropped의 10분 증가량 > 0은 유지한다. 실제 폐기는 배포 중이라도 확인해야 하므로 자동 silence나 최소 폐기 건수 상향을 도입하지 않는다. 짧은 for는 단발 폐기 기록도 10분 창 안에 남아 있어 단순 지연에 그칠 수 있다. Loki/Nginx 설정 변경 또는 실패 복원 시에는 계획된 중단 가능성을 배포 전에 공유하고, 배포 후 중앙 목적지의 폐기 증가량·전송 재개·최신 로그를 확인한다. 과거 로컬 Loki 사본이 남아 있는지와 중앙 유실은 별도로 판단한다. 로그 단일 전송 전환 전에 실제 배포에서 폐기 여부를 측정하고 필요하면 버퍼·재시도 및 유지보수 알림 정책을 추가 설계한다.
+
+### 로그 전송 대시보드 목적지 필터 검증
+
+`log-transfer.json`의 목적지 선택은 `` host=~`${destination:regex}` `` 형태의
+PromQL raw 문자열(백틱)을 사용한다. Grafana의 `:regex`가 IP의 점을 `\.`으로
+이스케이프하므로, 이를 큰따옴표 문자열에 그대로 넣으면 PromQL 파싱 오류가 난다.
+raw 문자열은 이스케이프를 정규식에 그대로 전달하여 IP를 정확하게 선택한다.
+`All`의 사용자 지정 정규식 `.*`도 그대로 동작한다.
+
+`python3 -B test-log-transfer.py`는 실제 대시보드에서 선택값과 8개 조회식을 읽어
+환경 3개 × 목적지 3개의 72개 조회식을 배포 이미지의 promtool로 검사한다.
+누적 전송 패널은 합성 지표로 9개 조합을 평가하여 환경·목적지 격리와 IP의 점이
+와일드카드로 바뀌지 않는지도 확인한다. `validate.py`에서 함께 실행하므로 새 CI job은 없다.
+Grafana 단일 값 regex 보간을 재현하는 검사이며 브라우저 E2E는 아니다.
+배포 후에는 개발·운영 각각에서 All, 중앙 IP, 기존 Loki를 선택하여
+8개 패널의 파싱 오류가 사라지고 선택한 목적지만 표시되는지 확인한다.
+
+
+### 서버 .env로 Discord 웹훅 관리
+
+`/home/ubuntu/monitoring/.env`에 `CENTRAL_DISCORD_WEBHOOK_URL`을 등록한다.
+기존 Grafana 변수 등은 유지한다. 등록만으로 발송하지 않으며 `discord-selection.json`으로
+개발 묶음을 선택한 배포에서만 Compose secret이 전달된다.
+
+`compose.discord.yml`은 JSON으로 표기한 유효한 Compose YAML이다. secret 원본은
+환경변수 이름만 선언하며 실제 값은 넣지 않는다. Python이 소유권을 바꾸는 Docker 보조
+컨테이너와 `secrets/central_discord_webhook-*` 파일 생성은 제거했다.
+Compose 환경변수 secret·권한 동작은 Docker Compose 2.32.4에서 격리 검증했다.
+실서버 버전의 지원 여부도 배포 사전 검사에서 확인하므로 수동 파일 생성은 필요 없다.
+
+기존 파일 기반 설정·백업이 남아 있다면 그 파일은 자동 삭제하지 않는다.
+현재 실행 설정과 보존 백업이 더 이상 참조하지 않는 것을 확인한 뒤 별도로 정리한다.
+
+알림 설정 생성은 `notifications.py`로 합쳤고, 라우팅·메시지·Compose secret 검사는
+`test-notifications.py`에서 함께 실행한다. `prepare-discord.py`, `test-discord.py`는 제거했다.

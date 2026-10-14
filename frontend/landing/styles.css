@@ -1,0 +1,1372 @@
+:root {
+  --primary: #f26d2c;
+  --primary-dark: #d8551a;
+  --accent: #ffd166;
+  --ink: #2e221c;
+  --sub: #7a6b5e;
+  --bg: #fff6e9;
+  --surface: #ffffff;
+  --line: #efe2d4;
+  --r: 20px;
+  --r-lg: 28px;
+  --max: 1120px;
+  /* 등장 애니메이션 공통 이징. --pop 은 살짝 튕기는 쪽 */
+  --e: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --pop: cubic-bezier(0.2, 1.35, 0.4, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family:
+    "Pretendard Variable",
+    Pretendard,
+    -apple-system,
+    sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  /* 한글이 어절 중간에서 끊기지 않게 ("불편해 / 요." 방지).
+     keep-all 로 넘칠 수 있는 긴 문자열은 break-word 로 받아준다 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* 좁은 화면에서 마지막 줄에 한 글자만 떨어지는 것을 막는다 */
+p {
+  text-wrap: pretty;
+}
+
+.wrap {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+section {
+  padding: 110px 0;
+  position: relative;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  letter-spacing: -0.03em;
+  font-weight: 800;
+}
+
+.sec-head {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.sec-head h2 {
+  font-size: clamp(28px, 4vw, 42px);
+  margin-bottom: 14px;
+}
+
+.sec-head p {
+  color: var(--sub);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+/* ── reveal ──
+   transition 대신 animation 을 쓴다. .card/.feat/.use 처럼 자기 transition
+   (hover 용 transform, box-shadow) 을 따로 갖는 요소에 .rv 를 얹으면, 같은
+   transition 프로퍼티를 나중에 선언한 규칙이 통째로 덮어써서 opacity 전환이
+   증발하는 버그가 있었다. animation 은 transition 과 별개 프로퍼티라 충돌하지
+   않는다 */
+@keyframes rv-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rv-fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes rv-pop-in {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.rv {
+  opacity: 0;
+  transform: translateY(28px);
+}
+
+.rv.in {
+  animation: rv-in 0.7s var(--e) forwards;
+}
+
+/* opacity 만 쓰는 버전. transform 을 이미 다른 용도(회전·패럴랙스)로 쓰는
+   요소는 이걸 써야 등장 애니메이션이 그 transform 을 덮어쓰지 않는다 */
+.rv-fade {
+  opacity: 0;
+}
+
+.rv-fade.in {
+  animation: rv-fade-in 0.7s var(--e) forwards;
+}
+
+/* 아이콘·캐릭터처럼 톡 튀어나오는 느낌이 어울리는 요소용 */
+.rv-pop {
+  opacity: 0;
+}
+
+.rv-pop.in {
+  animation: rv-pop-in 0.55s var(--pop) forwards;
+}
+
+/* ── nav ── */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  padding: 12px 0;
+  background: rgba(255, 246, 233, 0.84);
+  backdrop-filter: blur(14px);
+}
+
+/* 헤더와 본문을 가르는 선. 바가 fixed 라 hr 을 바닥에 붙여 둔다 */
+nav hr {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  border: 0;
+  background: var(--line);
+}
+
+nav .wrap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* 히어로의 "사진 공유하러 가기"가 화면에 있는 동안엔 같은 버튼이 두 개라 숨긴다.
+   main.js 가 히어로 버튼이 네비 뒤로 사라지면 .on 을 붙인다.
+   visibility 로 감춰야 숨은 동안 탭 포커스도 안 잡힌다 */
+.nav-cta {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.25s,
+    transform 0.25s,
+    visibility 0s 0.25s;
+}
+
+.nav-cta.on {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.25s,
+    transform 0.25s,
+    visibility 0s;
+}
+
+.logo {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  /* line-height 1 이라야 줄상자 여백 없이 이미지와 글자 중심이 맞는다 */
+  line-height: 1;
+  gap: 8px;
+  font-weight: 800;
+  font-size: 21px;
+  letter-spacing: -0.04em;
+}
+
+.logo img {
+  width: 42px;
+}
+
+.btn {
+  display: inline-block;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 700;
+  background: var(--primary);
+  color: #fff;
+  padding: 12px 22px;
+  border-radius: 100px;
+  font-size: 15px;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
+  box-shadow: 0 4px 14px rgba(242, 109, 44, 0.3);
+}
+
+.btn:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(242, 109, 44, 0.4);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* ── hero ── */
+.hero {
+  padding: 140px 0 90px;
+  overflow: hidden;
+}
+
+.hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 48px;
+  align-items: center;
+}
+
+.hero h1 {
+  font-size: clamp(38px, 5.6vw, 62px);
+  margin-bottom: 22px;
+}
+
+.hero h1 .w {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(26px);
+}
+
+.hero h1 em {
+  font-style: normal;
+  color: var(--primary);
+  position: relative;
+}
+
+.hero h1 em::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  height: 12px;
+  background: var(--accent);
+  border-radius: 6px;
+  z-index: -1;
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: hl 0.6s 0.9s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+@keyframes hl {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.hero .tagline {
+  font-size: clamp(21px, 2.6vw, 28px);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 16px;
+}
+
+/* h1 단어 스태거(main.js, ~0.62s 에 끝)가 다 끝난 뒤 이어받는다 */
+.hero .tagline.rv.in {
+  animation-delay: 0.5s;
+}
+
+.hero .cta-row.rv.in {
+  animation-delay: 0.62s;
+}
+
+/* cta — 랜딩의 모든 버튼은 실서비스(ssssok.com) 첫 화면으로 보낸다 */
+.cta-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.btn-lg {
+  padding: 16px 32px;
+  font-size: 17px;
+}
+
+/* hero art — 제품 화면 3장 겹치기 */
+.art {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.phones {
+  position: relative;
+  width: min(100%, 480px);
+  /* 아래 .ph 반지름을 폭에 비례시키기 위한 컨테이너 */
+  container-type: inline-size;
+}
+
+/* 흰 베젤 프레임. PNG 모서리가 투명이라 프레임 흰색이 그대로 비쳐 보인다.
+   반지름 = PNG 자체 코너(폭의 7.7%) + padding 이라 화면 크기별로 값이 다름 */
+.ph {
+  position: absolute;
+  top: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: 7px;
+  /* PNG 코너는 폭의 7.7%. 옆 화면은 45cqw 이므로 7.7% → 3.47cqw + padding.
+     앞 줄은 컨테이너 쿼리 미지원 브라우저용 폴백 */
+  border-radius: 24px;
+  border-radius: calc(3.47cqw + 7px);
+  box-shadow: 0 14px 30px rgba(46, 34, 28, 0.14);
+}
+
+.ph img {
+  display: block;
+  width: 100%;
+}
+
+.ph-main {
+  position: relative;
+  width: 52%;
+  margin: 0 auto;
+  z-index: 3;
+  /* 가운데는 52cqw 라 7.7% → 4cqw */
+  border-radius: 27px;
+  border-radius: calc(4cqw + 7px);
+  box-shadow: 0 24px 50px rgba(46, 34, 28, 0.18);
+}
+
+/* --px/--py 는 main.js 의 마우스 패럴랙스가 넣는 값 */
+.ph-left {
+  left: 0;
+  top: 9%;
+  width: 45%;
+  z-index: 1;
+  transform: rotate(-5deg) translate(var(--px, 0px), var(--py, 0px));
+}
+
+.ph-right {
+  right: 0;
+  top: 6%;
+  width: 45%;
+  z-index: 2;
+  transform: rotate(4deg) translate(var(--px, 0px), var(--py, 0px));
+}
+
+/* 폰 3장은 .phones 통째로 h1 과 함께 올라온다. 하나씩 애니메이션하면
+   .ph-left/.ph-right 의 transform(회전·패럴랙스)을 덮어쓰니 부모에 건다.
+   딜레이 없이 짧게 — 늦게 뜨면 "이미지가 느리다"고 느껴진다 */
+.phones.rv.in {
+  animation-duration: 0.62s;
+}
+
+.art-char {
+  position: absolute;
+  right: 3%;
+  bottom: -5%;
+  width: 19%;
+  z-index: 4;
+}
+
+/* 사진 3장과 같은 타이밍에 같이 뜬다 */
+.art-char.rv-pop.in {
+  animation-delay: 0.1s;
+}
+
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ── problem ── */
+.cards3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 32px 24px;
+  text-align: center;
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1),
+    box-shadow 0.3s;
+}
+
+.card:hover {
+  transform: translateY(-8px) rotate(-1deg);
+  box-shadow: 0 20px 44px rgba(46, 34, 28, 0.1);
+}
+
+.card .ch {
+  height: 100px;
+  display: grid;
+  place-items: end center;
+  margin-bottom: 18px;
+}
+
+.card .ch img {
+  max-height: 100px;
+  width: auto;
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+
+/* 납작한 구멍 그림은 높이 제한에 안 걸려 혼자 넓어 보인다 */
+.cards3 .card:first-child .ch img {
+  max-width: 200px;
+}
+
+/* 영역 높이는 그대로 두고 그림만 위로 키운다 — 세 카드 제목 줄이 어긋나지 않게 */
+.cards3 .card:nth-child(2) .ch img {
+  max-height: 114px;
+  margin-top: -14px;
+}
+
+.card:hover .ch img {
+  transform: translateY(-6px) scale(1.06);
+}
+
+.card h3 {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+.card p {
+  margin-top: 10px;
+  color: var(--sub);
+  font-size: 15.5px;
+}
+
+/* ── compare — "지금까지 → 쏙으로" 를 한 줄씩 맞댄 표 ── */
+.vs-table {
+  position: relative;
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 18px 40px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 50px rgba(46, 34, 28, 0.07);
+}
+
+.vs-table .badge-char {
+  position: absolute;
+  top: -66px;
+  right: 28px;
+  width: 104px;
+}
+
+.vs-head,
+.vs-row {
+  display: grid;
+  /* 양쪽을 같은 1fr 로 둬야 화살표가 카드 정중앙에 온다 */
+  grid-template-columns: 1fr 44px 1fr;
+  align-items: center;
+  gap: 56px;
+}
+
+.vs-head {
+  padding: 14px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sub);
+}
+
+.vs-head .now-label {
+  justify-self: start;
+  padding: 4px 14px;
+  border-radius: 100px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.vs-row {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+
+/* 왼쪽 문구는 오른쪽 정렬 — 두 문구가 화살표를 사이에 두고 대칭으로 붙는다 */
+.vs-head > :first-child,
+.vs-row .was {
+  text-align: right;
+}
+
+.vs-row .was {
+  font-size: 16px;
+  font-weight: 600;
+  color: #a89a8d;
+  text-decoration: line-through;
+  text-decoration-color: rgba(168, 154, 141, 0.6);
+}
+
+.vs-row .arrow {
+  justify-self: center;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.vs-row .now {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* 형광펜 — 줄이 화면에 들어오면(.in) 왼쪽에서 오른쪽으로 그어진다 */
+.vs-row mark {
+  color: inherit;
+  background: linear-gradient(transparent 58%, var(--accent) 58%) no-repeat 0 0 / 0% 100%;
+  transition: background-size 0.6s var(--e) 0.35s;
+}
+
+.vs-row.in mark {
+  background-size: 100% 100%;
+}
+
+/* ── steps ── */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.step {
+  text-align: center;
+  padding: 0 12px;
+}
+
+.step .ch {
+  display: grid;
+  place-items: center;
+  /* 이미지가 텍스트 뒤에 오므로 여백은 위쪽에 준다 */
+  margin-top: 24px;
+  padding: 16px 0;
+}
+
+/* STEP 목업(create·invite·pick, 390×705)은 모서리가 투명(반지름 30px = 폭 7.7%, 높이 4.26%)이다.
+   같은 반지름으로 흰 베젤(6px)과 바깥 선을 둘러 폰처럼 보이게 하고, 연한 주황빛 그림자로 띄운다 */
+.step .ch img {
+  width: min(100%, 230px);
+  height: auto;
+  border-radius: 7.7% / 4.26%;
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 0 0 6px #fff,
+    0 0 0 7px var(--line),
+    0 22px 44px rgba(242, 109, 44, 0.12),
+    0 6px 14px rgba(46, 34, 28, 0.05);
+}
+
+.step .num {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgba(242, 109, 44, 0.32);
+}
+
+.step h3 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.step p {
+  color: var(--sub);
+  font-size: 15.5px;
+}
+
+/* ── features — 미니 화면 데모 3개 ──
+   실제 앱 갤러리를 축약한 모양. 움직임(타이핑·하트·폴더 전환)은 main.js 가 클래스로 건다 */
+.demos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.demo {
+  text-align: center;
+}
+
+.demo h3 {
+  font-size: 19px;
+  margin: 20px 0 6px;
+}
+
+.demo p {
+  font-size: 15px;
+  color: var(--sub);
+}
+
+.d-screen {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  box-shadow: 0 16px 40px rgba(46, 34, 28, 0.07);
+}
+
+.d-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+/* 폴더 데모에서 사진 수가 바뀌어도 상자 높이가 출렁이지 않게 3×3 자리를 고정한다 */
+.d-grid {
+  aspect-ratio: 1;
+  align-content: start;
+}
+
+.d-grid img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  transition:
+    opacity 0.25s,
+    transform 0.25s,
+    box-shadow 0.25s;
+}
+
+/* 좋아요 데모 머리줄. 다른 두 데모의 검색창·칩 줄과 높이를 맞춘다 */
+.d-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 42px;
+  padding: 0 4px;
+  margin-bottom: 10px;
+  font-size: 14.5px;
+}
+
+.d-bar span {
+  font-size: 13px;
+  color: var(--sub);
+}
+
+/* STEP 진행 점 — 폰 폭에서만 쓴다 */
+.step-dots {
+  display: none;
+}
+
+/* 데모 탭 — 폰 폭에서만 쓴다 */
+.demo-tabs {
+  display: none;
+}
+
+/* 검색 — 입력창에 글자가 쳐지고, 맞는 사진만 남는다 */
+.d-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 14px;
+  margin-bottom: 10px;
+  border: 2px solid var(--line);
+  border-radius: 100px;
+  font-size: 14.5px;
+  font-weight: 600;
+  transition: border-color 0.3s;
+}
+
+.d-q::after {
+  content: "";
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  vertical-align: -0.15em;
+  background: var(--primary);
+  animation: caret 1s steps(1) infinite;
+}
+
+@keyframes caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+#demoSearch.typing .d-search {
+  border-color: var(--primary);
+}
+
+#demoSearch.found .d-grid img:not(.hit) {
+  opacity: 0.18;
+  transform: scale(0.92);
+}
+
+#demoSearch.found .d-grid img.hit {
+  box-shadow: 0 0 0 3px var(--primary);
+}
+
+/* 좋아요 — 하트 숫자가 하나씩 오른다 */
+.d-cell {
+  position: relative;
+}
+
+.d-heart {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 1px 7px 1px 5px;
+  border-radius: 100px;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 11.5px;
+  font-weight: 800;
+  color: var(--sub);
+}
+
+.d-heart::before {
+  content: "♡ ";
+}
+
+.d-heart.liked {
+  color: #e8434f;
+}
+
+.d-heart.liked::before {
+  content: "♥ ";
+}
+
+.d-heart.bump {
+  animation: bump 0.3s var(--pop);
+}
+
+@keyframes bump {
+  40% {
+    transform: scale(1.35);
+  }
+}
+
+/* 폴더 — 칩을 바꾸면 그 폴더 사진만 보인다 */
+.d-chips {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.d-chips span {
+  padding: 9px 13px;
+  border-radius: 100px;
+  background: var(--bg);
+  color: var(--sub);
+  font-size: 13px;
+  font-weight: 700;
+  transition:
+    background 0.3s,
+    color 0.3s;
+}
+
+.d-chips span.on {
+  background: var(--primary);
+  color: #fff;
+}
+
+#demoFolder .d-grid img.off {
+  display: none;
+}
+
+/* 기본기 — 예전 기능 카드 4장을 한 줄로 줄였다 */
+.perks {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 48px;
+}
+
+.perks li {
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  background: var(--surface);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--accent);
+  color: #7a5a00;
+  padding: 3px 9px;
+  border-radius: 100px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ── usecases ── */
+.uses {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+
+.use {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 34px 22px 30px;
+  text-align: center;
+  transition:
+    transform 0.3s,
+    box-shadow 0.3s;
+}
+
+.use:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 16px 34px rgba(46, 34, 28, 0.09);
+}
+
+.use .emo {
+  font-size: 42px;
+  display: block;
+  margin-bottom: 16px;
+  line-height: 1;
+  transition: transform 0.3s;
+}
+
+.use:hover .emo {
+  transform: scale(1.12) rotate(-6deg);
+}
+
+.use h3 {
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+
+.use p {
+  font-size: 14px;
+  color: var(--sub);
+}
+
+/* ── final cta ── */
+.final {
+  background: #fffdf7;
+  border: 1px solid var(--line);
+  border-radius: 36px;
+  padding: 70px 40px 120px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(46, 34, 28, 0.06);
+}
+
+.final h2 {
+  font-size: clamp(28px, 4vw, 40px);
+  margin-bottom: 32px;
+}
+
+.peek {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 210px;
+}
+
+@keyframes peek {
+  0%,
+  100% {
+    transform: translateX(-50%) translateY(26px);
+  }
+
+  50% {
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  section {
+    padding: 80px 0;
+  }
+
+  .hero {
+    padding: 110px 0 60px;
+  }
+
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .art {
+    order: -1;
+  }
+
+  .phones {
+    width: min(100%, 330px);
+  }
+
+  .cards3,
+  .steps {
+    grid-template-columns: 1fr;
+  }
+
+  .cards3 {
+    gap: 14px;
+  }
+
+  /* 위로 튀어나온 쏙이가 부제목에 겹치지 않게 표를 내린다 */
+  .vs-table {
+    margin-top: 64px;
+    padding: 10px 20px 6px;
+  }
+
+  .vs-table .badge-char {
+    top: -28px;
+    right: 18px;
+    width: 44px;
+  }
+
+  .vs-head,
+  .vs-row {
+    grid-template-columns: 1fr 28px 1fr;
+    gap: 20px;
+  }
+
+  .vs-row {
+    padding: 16px 0;
+  }
+
+  .vs-row .was {
+    font-size: 14px;
+  }
+
+  .vs-row .arrow {
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+  }
+
+  .vs-row .now {
+    font-size: 16px;
+  }
+
+  /* 1열 세로형 — 쏙이는 위 가운데, 글은 아래 왼쪽 정렬 */
+  .cards3 .card {
+    padding: 22px 22px 24px;
+    text-align: left;
+  }
+
+  .cards3 .card .ch {
+    height: 82px;
+    margin-bottom: 14px;
+  }
+
+  /* 납작한 구멍 그림(character4)은 높이보다 폭이 먼저 차서 혼자 커 보인다 */
+  .cards3 .card .ch img {
+    max-height: 82px;
+    max-width: 56%;
+  }
+
+  .cards3 .card:first-child .ch img {
+    max-width: 48%;
+  }
+
+  .cards3 .card:nth-child(2) .ch {
+    height: 94px;
+  }
+
+  .cards3 .card:nth-child(2) .ch img {
+    max-height: 94px;
+    margin-top: 0;
+  }
+
+  .cards3 .card h3 {
+    font-size: 19px;
+    font-weight: 800;
+  }
+
+  .cards3 .card p {
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  /* 데스크톱용 강제 줄바꿈 — 폭이 달라지면 오히려 어색하게 끊긴다 */
+  .cards3 .card p br {
+    display: none;
+  }
+
+  /* .card .ch 는 고정 높이(120px)를 유지한다 — 캐릭터 PNG마다 세로 비율이
+     달라서(character4.png 는 유독 납작함) height:auto 로 풀면 카드마다
+     이미지 영역 높이가 달라져 카드 크기가 들쭉날쭉해 보였다 */
+  .step .ch {
+    height: auto;
+  }
+
+  .uses {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .demos {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+    margin: 0 auto;
+    gap: 48px;
+  }
+
+  .final {
+    padding: 56px 24px 100px;
+    border-radius: 28px;
+  }
+
+  .peek {
+    width: 170px;
+  }
+}
+
+@media (max-width: 520px) {
+  section {
+    padding: 64px 0;
+  }
+
+  .sec-head {
+    margin-bottom: 36px;
+  }
+
+  /* 비교표 — 폰 폭에선 세 칸이 좁다. 화살표 칸을 없애 두 칸으로 넓히고,
+     칸마다 배경색(회색 / 흰색)을 달리해 "지금까지 vs 쏙" 대조를 색으로 보여준다.
+     화살표는 두 칸 경계선 위에 띄운다. 경계 위치는 --split 하나로 맞춘다 (쏙 쪽을 넓게) */
+  .vs-table {
+    --split: 46%;
+    margin-top: 36px;
+    padding: 0;
+    overflow: visible;
+    background: linear-gradient(90deg, #f6f1eb var(--split), var(--surface) var(--split));
+  }
+
+  .vs-head,
+  .vs-row {
+    position: relative;
+    grid-template-columns: var(--split) 1fr;
+    gap: 0;
+  }
+
+  .vs-head {
+    padding: 18px 0 14px;
+  }
+
+  /* 경계선을 축으로 거울 대칭 — 왼쪽은 오른쪽 정렬, 오른쪽은 왼쪽 정렬, 경계선에서 같은 거리(22px) */
+  .vs-head > :first-child {
+    justify-self: end;
+    padding-right: 22px;
+  }
+
+  .vs-head .now-label {
+    justify-self: start;
+    margin-left: 22px;
+  }
+
+  .vs-head > :nth-child(2) {
+    display: none;
+  }
+
+  .vs-row {
+    padding: 0;
+  }
+
+  .vs-row .was {
+    padding: 16px 22px 16px 14px;
+    text-align: right;
+    font-size: 13.5px;
+  }
+
+  .vs-row .now {
+    padding: 16px 14px 16px 22px;
+    text-align: left;
+    font-size: 15.5px;
+  }
+
+  .vs-row .arrow {
+    position: absolute;
+    left: var(--split);
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 26px;
+    height: 26px;
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+  }
+
+  /* 캐릭터 — 폰 폭에선 글보다 눈에 띄지 않게 한 단계씩 줄인다 */
+  .art-char {
+    width: 15%;
+  }
+
+  .cards3 .card .ch {
+    height: 72px;
+  }
+
+  .cards3 .card .ch img {
+    max-height: 72px;
+  }
+
+  .cards3 .card:nth-child(2) .ch {
+    height: 82px;
+  }
+
+  .cards3 .card:nth-child(2) .ch img {
+    max-height: 82px;
+  }
+
+  .final {
+    padding-bottom: 84px;
+  }
+
+  .peek {
+    width: 124px;
+  }
+
+  /* 네비 버튼 — 폰 폭에선 로고보다 커 보여서 한 단계 줄인다 */
+  nav .btn {
+    padding: 9px 16px;
+    font-size: 14px;
+  }
+
+  /* 히어로 — 목업을 줄여 버튼까지 첫 화면에 들어오게 한다 */
+  .hero {
+    padding: 100px 0 48px;
+  }
+
+  .phones {
+    width: min(100%, 280px);
+  }
+
+  .hero h1 {
+    margin-bottom: 14px;
+  }
+
+  .cta-row {
+    margin-top: 22px;
+  }
+
+  .cta-row .btn-lg {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* STEP — 세로로 쌓으면 목업이 너무 길고, 옆에 작게 두면 화면이 안 읽힌다.
+     기능 데모처럼 옆으로 넘겨 보는 카드로 두고 목업을 읽을 수 있는 크기로 키운다 */
+  .steps {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    margin: 0 -24px;
+    padding: 4px 24px 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+  }
+
+  .steps::-webkit-scrollbar {
+    display: none;
+  }
+
+  .step-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .step-dots span {
+    width: 7px;
+    height: 7px;
+    border-radius: 100px;
+    background: var(--line);
+    transition:
+      width 0.3s,
+      background 0.3s;
+  }
+
+  .step-dots span.on {
+    width: 20px;
+    background: var(--primary);
+  }
+
+  .step {
+    /* 80% — 오른쪽에 다음 카드 끝이 보여서 넘길 수 있다는 게 드러난다 */
+    flex: 0 0 80%;
+    scroll-snap-align: center;
+    padding: 8px 0 16px;
+  }
+
+  .step .num {
+    width: 30px;
+    height: 30px;
+    margin-bottom: 10px;
+    font-size: 14px;
+  }
+
+  .step h3 {
+    font-size: 18px;
+    margin-bottom: 6px;
+  }
+
+  .step p {
+    font-size: 14px;
+  }
+
+  .step .ch {
+    margin-top: 18px;
+  }
+
+  .step .ch img {
+    width: 200px;
+  }
+
+  /* 기능 데모 — STEP 이 이미 옆으로 넘기는 카드라, 여기는 탭으로 하나씩 바꿔 보여준다 */
+  /* 세그먼트 컨트롤 — 회색 트랙 하나에 칸이 붙어 있고, 고른 칸만 흰색으로 떠오른다 */
+  .demo-tabs {
+    display: flex;
+    width: fit-content;
+    margin: 0 auto 18px;
+    padding: 4px;
+    gap: 2px;
+    border-radius: 100px;
+    background: #f1e7da;
+  }
+
+  .demo-tabs button {
+    padding: 10px 16px;
+    border: 0;
+    border-radius: 100px;
+    background: transparent;
+    color: var(--sub);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+      background 0.2s,
+      color 0.2s,
+      box-shadow 0.2s;
+  }
+
+  .demo-tabs button span {
+    margin-right: 3px;
+    font-size: 12px;
+  }
+
+  .demo-tabs button.on {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 2px 8px rgba(46, 34, 28, 0.12);
+  }
+
+  .demos {
+    display: block;
+    max-width: 340px;
+  }
+
+  .demo:not(.on) {
+    display: none;
+  }
+
+  .demo h3 {
+    font-size: 17px;
+    margin-top: 16px;
+  }
+
+  .demo p {
+    font-size: 14px;
+  }
+
+  /* 사용 장면 — 이모지 왼쪽·글 오른쪽 가로형으로 줄인다 */
+  .uses {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .use {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    column-gap: 14px;
+    align-items: center;
+    padding: 16px 18px;
+    text-align: left;
+  }
+
+  .use .emo {
+    grid-row: 1 / span 2;
+    margin: 0;
+    font-size: 34px;
+    text-align: center;
+  }
+
+  .use h3 {
+    font-size: 16px;
+    margin-bottom: 2px;
+  }
+
+  .use p {
+    font-size: 13.5px;
+  }
+
+  .final h2 {
+    font-size: 26px;
+  }
+
+  /* 칩이 한 줄에 하나씩 쌓이지 않고 두 개씩 놓이게 */
+  .perks li {
+    padding: 8px 13px;
+    font-size: 13.5px;
+  }
+}
