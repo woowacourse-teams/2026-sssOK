@@ -3,6 +3,8 @@ package com.sssok.application.media;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
@@ -17,12 +19,15 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 // Repository + Service 통합 테스트 (H2). 방 존재·만료·입장 여부는 RoomMembershipInterceptor 가
 // 컨트롤러 앞에서 거르므로 여기서는 다루지 않는다.
@@ -47,6 +52,9 @@ class GetMediaListServiceTest {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
+    @MockitoSpyBean
+    MediaUrlResolver mediaUrlResolver;
+
     private Long uploaderId;
 
     // 이 테스트는 롤백되지 않으므로 방 전용 id 를 쓰고 직접 비운다.
@@ -65,6 +73,23 @@ class GetMediaListServiceTest {
         List<MediaDetail> media = getMediaListService.list(ROOM_ID, null);
 
         assertThat(media).extracting(MediaDetail::mediaId).containsExactly(file.getId());
+    }
+
+    // URL 서명을 트랜잭션 안에서 하면 사진 수만큼 DB 커넥션을 오래 쥐어, 동시 요청이 몰릴 때 커넥션이 바닥난다(#538).
+    @Test
+    void 전체_목록의_URL_서명은_트랜잭션_밖에서_한다() {
+        save(ROOM_ID, UploadStatus.READY, Instant.now());
+        save(ROOM_ID, UploadStatus.READY, Instant.now());
+        List<Boolean> inTransaction = new ArrayList<>();
+        doAnswer(invocation -> {
+            inTransaction.add(TransactionSynchronizationManager.isActualTransactionActive());
+            return invocation.callRealMethod();
+        }).when(mediaUrlResolver).resolve(any());
+
+        List<MediaDetail> media = getMediaListService.list(ROOM_ID, null, uploaderId, MediaUploaderFilter.ALL);
+
+        assertThat(media).hasSize(2);
+        assertThat(inTransaction).hasSize(2).containsOnly(false);
     }
 
     @Test
