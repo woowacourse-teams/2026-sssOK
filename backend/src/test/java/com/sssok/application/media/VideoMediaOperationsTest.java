@@ -191,17 +191,24 @@ class VideoMediaOperationsTest {
             .findStale(Instant.now().plusSeconds(60), 1000).stream()
             .map(OrphanObject::storageKey)
             .toList();
-        assertThat(pendingKeys).contains(original, original.thumbnail("jpg"));
+        assertThat(pendingKeys).contains(original, video.getThumbnailKey());
     }
 
     // 워커를 실제로 돌려 READY 까지 보낸다 — 썸네일 키가 붙은 상태가 이 테스트의 출발점이다.
+    @Autowired
+    com.sssok.infrastructure.persistence.thumbnail.ThumbnailJobRepository jobs;
+
     private StoredFile readyVideo() {
         StoredFile file = StoredFile.reserve(
             roomId, uploaderId, "회식영상.mp4", "video/mp4", new FileSize(2048), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         StoredFile saved = fileRepository.save(file);
 
-        generateThumbnailService.generate(saved.getId(), Kind.of(saved.getMediaType().isVideo()), Source.INITIAL);
+        var job = new com.sssok.infrastructure.persistence.thumbnail.ThumbnailJob(saved.getId(), Kind.VIDEO, Instant.now());
+        job.claim(Instant.now(), Instant.now().plusSeconds(120));
+        jobs.saveAndFlush(job);
+        generateThumbnailService.generate(new com.sssok.application.media.thumbnail.ThumbnailClaim(
+            saved.getId(), Kind.VIDEO, job.getClaimToken(), 1, Instant.now()), Source.INITIAL);
 
         StoredFile after = fileRepository.findById(saved.getId()).orElseThrow();
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
