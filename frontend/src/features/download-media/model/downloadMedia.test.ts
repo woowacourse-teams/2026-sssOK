@@ -299,7 +299,6 @@ describe("downloadMedia — 사진첩에 저장", () => {
     share: (data: { files: File[] }) => Promise<void> = async ({ files }) =>
       void shared.push(...files),
   ) => {
-
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
         const { mediaIds } = (await request.json()) as { mediaIds: number[] };
