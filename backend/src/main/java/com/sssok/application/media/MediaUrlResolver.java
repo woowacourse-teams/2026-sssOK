@@ -1,9 +1,7 @@
 package com.sssok.application.media;
 
-import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.ThumbnailProperties;
-import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -13,17 +11,16 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class MediaUrlResolver {
 
-    private final FileStoragePort fileStoragePort;
+    private final MediaReadUrlProvider urlProvider;
     private final ThumbnailProperties thumbnailProperties;
 
     public MediaUrls resolve(StoredFile file) {
-        Instant now = Instant.now();
         MediaUrlSource.ResolvedUrl thumbnail = MediaUrlSource.thumbnail(
             file.getThumbnailKey(), thumbnailProperties.displayUrlTtl())
-            .resolve(fileStoragePort, now);
+            .resolve(urlProvider);
         MediaUrlSource.ResolvedUrl display = MediaUrlSource.display(
             file, thumbnailProperties.displayUrlTtl())
-            .resolve(fileStoragePort, now);
+            .resolve(urlProvider);
 
         return new MediaUrls(
             thumbnail.url(), thumbnail.expiresAt(),

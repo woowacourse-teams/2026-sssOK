@@ -10,8 +10,12 @@ import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import com.sssok.infrastructure.config.MediaUrlCacheProperties;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
 class MediaUrlSourceTest {
@@ -21,6 +25,10 @@ class MediaUrlSourceTest {
     private static final String SIGNED_URL = "https://storage.example.com/signed";
 
     private final FileStoragePort storage = mock(FileStoragePort.class);
+    private final MediaReadUrlProvider provider = new MediaReadUrlProvider(storage,
+        new MediaUrlCacheProperties(true, 100L, Duration.ofMinutes(2)),
+        new SimpleMeterRegistry(),
+        Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
     void 프리뷰는_화면_표시용_TTL로_서명한다() {
@@ -31,7 +39,7 @@ class MediaUrlSourceTest {
             .willReturn(SIGNED_URL);
 
         MediaUrlSource.ResolvedUrl resolved = MediaUrlSource.display(file, DISPLAY_TTL)
-            .resolve(storage, NOW);
+            .resolve(provider);
 
         assertThat(resolved.url()).isEqualTo(SIGNED_URL);
         assertThat(resolved.expiresAt()).isEqualTo(NOW.plus(DISPLAY_TTL));
@@ -50,7 +58,7 @@ class MediaUrlSourceTest {
             .willReturn(SIGNED_URL);
 
         MediaUrlSource.ResolvedUrl resolved = MediaUrlSource.display(file, DISPLAY_TTL)
-            .resolve(storage, NOW);
+            .resolve(provider);
 
         assertThat(resolved.url()).isEqualTo(SIGNED_URL);
         assertThat(resolved.expiresAt()).isEqualTo(NOW.plus(DISPLAY_TTL));
