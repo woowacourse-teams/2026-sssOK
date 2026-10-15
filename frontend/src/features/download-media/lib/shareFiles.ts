@@ -28,9 +28,21 @@ export const canShareFiles = () => {
   }
 };
 
-export type ShareFilesResult = { type: "shared" } | { type: "dismissed" } | { type: "unsupported" };
+export type ShareFilesResult =
+  | { type: "shared" }
+  | { type: "dismissed" }
+  | { type: "unsupported" }
+  /** 사용자 제스처가 만료돼 시트를 열지 못했다. 탭 한 번을 더 받으면 열린다. */
+  | { type: "blocked" };
 
 const isAbortError = (error: unknown) => error instanceof Error && error.name === "AbortError";
+
+/**
+ * 사파리는 제스처가 만료된 뒤의 `share` 를 `NotAllowedError` 로 거절한다.
+ * 여러 장을 받느라 몇 초가 걸리면 전체 선택에서 거의 항상 여기에 닿는다.
+ */
+const isNotAllowedError = (error: unknown) =>
+  error instanceof Error && error.name === "NotAllowedError";
 
 /**
  * **사용자 제스처 안에서 불러야 한다.** 받아오는 걸 먼저 기다린 다음 부르면,
@@ -56,6 +68,10 @@ export const shareFiles = async (files: File[]): Promise<ShareFilesResult> => {
   } catch (error) {
     if (isAbortError(error)) {
       return { type: "dismissed" };
+    }
+
+    if (isNotAllowedError(error)) {
+      return { type: "blocked" };
     }
 
     throw error;
