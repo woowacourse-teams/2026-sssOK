@@ -76,6 +76,10 @@ upload:
   max-retry-count: 5
 
 media:
+  url-cache:
+    enabled: ${MEDIA_URL_CACHE_ENABLED:true}
+    maximum-size: ${MEDIA_URL_CACHE_MAXIMUM_SIZE:10000}
+    refresh-ahead: ${MEDIA_URL_CACHE_REFRESH_AHEAD:2m}
   search:
     enabled: ${IMAGE_SEARCH_ENABLED:false}
     created-since: ${MEDIA_SEARCH_CREATED_SINCE:}
