@@ -55,6 +55,10 @@ class ThumbnailJobsPostgresTest extends PostgresContainerSupport {
 
     @BeforeEach
     void setup() {
+        org.mockito.Mockito.when(storage.presignGet(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn("https://storage.example.com/read");
         ((com.zaxxer.hikari.HikariDataSource) dataSource).setMaximumPoolSize(6);
         repository.deleteAll();
         now.set(Instant.parse("2030-01-01T00:00:00Z"));

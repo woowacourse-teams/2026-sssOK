@@ -1,6 +1,5 @@
 package com.sssok.application.media;
 
-import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.file.DerivativeContentType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
@@ -10,7 +9,7 @@ import java.util.Optional;
 
 sealed interface MediaUrlSource {
 
-    ResolvedUrl resolve(FileStoragePort storage, Instant now);
+    ResolvedUrl resolve(MediaReadUrlProvider provider);
 
     static MediaUrlSource thumbnail(StorageKey key, Duration ttl) {
         return Optional.ofNullable(key)
@@ -27,10 +26,8 @@ sealed interface MediaUrlSource {
     record Derivative(StorageKey key, Duration ttl) implements MediaUrlSource {
 
         @Override
-        public ResolvedUrl resolve(FileStoragePort storage, Instant now) {
-            String url = storage.presignGet(
-                key, "inline", DerivativeContentType.of(key), ttl);
-            return new ResolvedUrl(url, now.plus(ttl));
+        public ResolvedUrl resolve(MediaReadUrlProvider provider) {
+            return provider.resolve(key, "inline", DerivativeContentType.of(key), ttl);
         }
     }
 
@@ -43,10 +40,9 @@ sealed interface MediaUrlSource {
         }
 
         @Override
-        public ResolvedUrl resolve(FileStoragePort storage, Instant now) {
-            String url = storage.presignGet(file.getStorageKey(), "inline",
+        public ResolvedUrl resolve(MediaReadUrlProvider provider) {
+            return provider.resolve(file.getStorageKey(), "inline",
                 file.getMediaType().contentType(), ttl);
-            return new ResolvedUrl(url, now.plus(ttl));
         }
     }
 
@@ -54,7 +50,7 @@ sealed interface MediaUrlSource {
         INSTANCE;
 
         @Override
-        public ResolvedUrl resolve(FileStoragePort storage, Instant now) {
+        public ResolvedUrl resolve(MediaReadUrlProvider provider) {
             return ResolvedUrl.NONE;
         }
     }

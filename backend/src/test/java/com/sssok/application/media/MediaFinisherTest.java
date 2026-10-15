@@ -21,13 +21,16 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
-import com.sssok.support.PostgresIntegrationTest;
 import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -78,6 +81,14 @@ class MediaFinisherTest extends PostgresContainerSupport {
             folderMediaRepository.detachFromAllFolders(mediaIds);
             fileRepository.deleteAllByIdIn(mediaIds);
         });
+    }
+
+    @BeforeEach
+    void setUpReadUrls() {
+        Mockito.when(fileStoragePort.presignGet(
+            ArgumentMatchers.any(), ArgumentMatchers.anyString(),
+            ArgumentMatchers.anyString(), ArgumentMatchers.any()))
+            .thenReturn("https://storage.example.com/read");
     }
 
     @Test

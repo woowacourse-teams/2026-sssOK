@@ -52,6 +52,10 @@ class MediaLikeApiTest extends PostgresContainerSupport {
 
     @BeforeEach
     void setUp() {
+        org.mockito.Mockito.when(fileStoragePort.presignGet(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+            .thenReturn("https://storage.example.com/read");
         mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
     }
 
