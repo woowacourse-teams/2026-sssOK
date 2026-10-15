@@ -2,13 +2,14 @@
   "name": "sssok-loadtest",
   "private": true,
   "type": "module",
-  "description": "k6 부하 시험과 시드·정리 도구. 외부 의존성 없이 Node 20+ 와 k6 만 쓴다.",
+  "description": "k6 부하 시험과 시드·정리 도구. 외부 의존성 없이 Node 20+ 와 k6 만 쓴다. SSE 시나리오는 xk6-sse 를 넣은 bin/k6 를 쓴다.",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "seed": "node seed/seed.mjs",
     "cleanup": "node seed/cleanup.mjs",
+    "build:k6": "sh scripts/build-k6.sh",
     "test": "node --test test/*.test.mjs"
   }
 }

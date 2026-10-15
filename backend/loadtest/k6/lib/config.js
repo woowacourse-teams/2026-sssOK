@@ -1,7 +1,8 @@
 // 실행 설정과 fixtures 를 읽고 검증한다. init 단계에서 실패시켜 잘못된 설정으로 요청이 나가지 않게 한다.
 // fixtures 형식은 seed/lib/fixtures.mjs 가 정한다.
 
-const SUPPORTED_SCHEMA = 1;
+// v1 은 신규 입장용 계정(entrants)이 없는 형식이다. 읽을 수는 있고 entrants 만 비어 있다.
+const SUPPORTED_SCHEMAS = new Set([1, 2]);
 
 export function env(name, fallback) {
   const value = __ENV[name];
@@ -23,6 +24,18 @@ export function durationEnv(name, fallback) {
     throw new Error(`${name} 은 30s·3m 같은 형식이어야 합니다 (입력: ${value})`);
   }
   return value;
+}
+
+export function toSeconds(duration) {
+  const match = /^(\d+)(ms|s|m|h)$/.exec(duration);
+  if (!match) throw new Error(`30s·3m 같은 형식이어야 합니다 (입력: ${duration})`);
+  return Number(match[1]) * { ms: 0.001, s: 1, m: 60, h: 3600 }[match[2]];
+}
+
+// k6 의 delayAbortEval 은 판정 구간이 아니라 시험 전체 시작부터 센다.
+// 예열 뒤에 시작하는 본 측정도 시작 후 grace 만큼은 판정하지 않도록 구간 시작 시각을 더한다.
+export function abortEvalDelay(phaseStartTime = '0s', grace = '1m') {
+  return `${toSeconds(phaseStartTime) + toSeconds(grace)}s`;
 }
 
 // k6 의 open() 은 상대 경로를 스크립트 위치 기준으로 푼다. 사용자가 실행한 위치 기준으로 맞춘다.
@@ -52,7 +65,7 @@ export function loadFixtures() {
     throw new Error('FIXTURES 가 필요합니다. 예: -e FIXTURES=fixtures/<runId>.json');
   }
   const fixtures = JSON.parse(open(fromCwd(path)));
-  if (fixtures.schemaVersion !== SUPPORTED_SCHEMA) {
+  if (!SUPPORTED_SCHEMAS.has(fixtures.schemaVersion)) {
     throw new Error(`fixtures schemaVersion ${fixtures.schemaVersion} 은 지원하지 않습니다`);
   }
   if (fixtures.status !== 'COMPLETED') {
@@ -60,7 +73,8 @@ export function loadFixtures() {
   }
   const now = Date.now();
   for (const room of fixtures.rooms) {
-    for (const user of [room.host, ...room.participants]) {
+    room.entrants ??= [];
+    for (const user of [room.host, ...room.participants, ...room.entrants]) {
       if (Date.parse(user.expiresAt) <= now) {
         throw new Error(`userId=${user.userId} 토큰이 만료되었습니다. 시드를 다시 준비한다`);
       }
@@ -77,16 +91,42 @@ export function resolveBaseUrl(fixtures) {
   return baseUrl;
 }
 
-// 가상 사용자마다 계정 하나를 고정한다. 방이 여러 개면 방을 돌아가며 배정한다.
+// 목록에 보여야 하는 사진 수. 시드 검증을 통과한 fixtures 라 PROCESSING 은 없어야 하지만 seed 와 같은 기준으로 센다.
+export function expectedPhotos(room) {
+  return room.photos.filter((p) => p.status === 'READY' || p.status === 'PROCESSING').length;
+}
+
+// 상세·좋아요·폴더 담기에 쓸 사진. 썸네일까지 준비된 것만 쓴다.
+export function readyPhotoIds(room) {
+  return room.photos.filter((p) => p.status === 'READY').map((p) => p.mediaId);
+}
+
+// 가상 사용자마다 계정 하나를 고정한다. 방 순서대로 이어 붙이고, 가상 사용자 번호로 돌려 쓴다.
+// 방이 여러 개면 VUS 를 방 수 × 방당 인원으로 맞춰야 모든 방에 같은 인원이 붙는다.
 export function buildUsers(fixtures) {
   const users = [];
   for (const room of fixtures.rooms) {
-    const expected = room.photos.filter((p) => p.status === 'READY' || p.status === 'PROCESSING').length;
+    const photoIds = readyPhotoIds(room);
     for (const user of [room.host, ...room.participants]) {
-      users.push({ userId: user.userId, token: user.accessToken, roomId: room.roomId, code: room.code, expectedPhotos: expected });
+      users.push({ userId: user.userId, token: user.accessToken, roomId: room.roomId, code: room.code, expectedPhotos: expectedPhotos(room), photoIds });
     }
   }
   return users;
+}
+
+// 신규 입장 시험용 미입장 계정. 방을 돌아가며 섞어서 입장 시간대마다 방별 부하가 고르게 한다.
+// fixtures 의 joined 는 시드 시점 값이라, 실제로 아직 입장 전인지는 시나리오 setup 에서 서버에 다시 묻는다.
+export function buildEntrants(fixtures) {
+  const perRoom = fixtures.rooms.map((room) => room.entrants
+    .filter((entrant) => !entrant.joined)
+    .map((entrant) => ({ userId: entrant.userId, token: entrant.accessToken, roomId: room.roomId, code: room.code, expectedPhotos: expectedPhotos(room) })));
+  const entrants = [];
+  for (let i = 0; perRoom.some((list) => i < list.length); i++) {
+    for (const list of perRoom) {
+      if (i < list.length) entrants.push(list[i]);
+    }
+  }
+  return entrants;
 }
 
 export function userForVu(users, vu) {

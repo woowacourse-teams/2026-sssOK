@@ -2,6 +2,8 @@
 
 > 처음 보는 사람이 이 문서만 읽고 **시드 준비 → 5명 사전 점검 → 30명 목록 측정 → 결과 확인 → 정리** 를 끝낼 수 있게 썼다.
 > 전체 계획(90·150·300명, 검색·업로드·다운로드)은 #517, 이 도구를 만든 작업은 #520 이다.
+> 방 생성·입장·열람·폴더 시나리오와 여러 방 시드는 #533 에서 추가했다 — [3-1. 주요 API 시나리오](#3-1-주요-api-시나리오-방-생성입장열람폴더).
+> 검색·업로드·다운로드·ZIP 은 [3-2. 기능별 부하 시나리오](#3-2-기능별-부하-시나리오-검색업로드다운로드zip).
 
 ## 0. 한눈에 보기
 
@@ -23,7 +25,7 @@ fixtures 파일에 기록         응답 시간·실패율을 results 에 저장
 | --- | --- | --- |
 | 준비 | 대상 서버·시간·AI 비용 한도 결정, 팀 공지 | 계정·방·사진 생성, 만든 즉시 fixtures 기록, 서버를 다시 조회해 개수 검증 |
 | 사전 점검 | 결과가 정상인지 확인 | 5명으로 목록 흐름 실행, 업무 실패가 1건이라도 있으면 실패 종료 |
-| 본 측정 | 시작, Grafana 관찰, 위험하면 Ctrl+C | 예열과 본 측정을 나눠 실행, API 실패율 5% 초과가 1분 이어지면 자동 중단 |
+| 본 측정 | 시작, Grafana 관찰, 위험하면 Ctrl+C | 예열과 본 측정을 나눠 실행, 본 측정 시작 1분 뒤부터 API 실패율이 5% 를 넘으면 자동 중단 |
 | 결과 확인 | 병목 해석 | API별 요청 수·p95·실패율·실제 요청률을 JSON 으로 저장 |
 | 정리 | 남은 범위(계정) 처리 결정 | fixtures 에 기록된 사진·방만 API 로 삭제 |
 
@@ -48,6 +50,7 @@ fixtures 파일에 기록         응답 시간·실패율을 results 에 저장
 | --- | --- | --- |
 | Node.js 20 이상 | `node -v` | https://nodejs.org (외부 패키지 없음, `npm install` 불필요) |
 | k6 | `k6 version` | macOS `brew install k6` / 그 외 https://grafana.com/docs/k6/latest/set-up/install-k6/ |
+| Docker | `docker version` | 입장 시나리오(SSE)용 `bin/k6` 를 빌드할 때만 필요하다 |
 
 모든 명령은 `backend/loadtest` 에서 실행한다.
 
@@ -55,11 +58,23 @@ fixtures 파일에 기록         응답 시간·실패율을 results 에 저장
 cd backend/loadtest
 ```
 
-도구 자체가 멀쩡한지 먼저 본다. `pass 8` 이 나오면 된다.
+도구 자체가 멀쩡한지 먼저 본다. `pass 14` 가 나오면 된다.
 
 ```bash
 npm test
 ```
+
+**입장·업로드 시나리오(`room-entry.js`·`media-upload.js`)를 돌릴 사람만** SSE 확장이 든 k6 를 한 번 빌드한다.
+k6 기본 기능으로는 SSE 연결을 유지할 수 없고, SSE 확장(xk6-sse)은 k6 의 자동 확장 받기 대상이 아니라서
+`import sse from 'k6/x/sse'` 를 그냥 `k6` 로 돌리면 `unknown dependency : k6/x/sse` 로 멈춘다.
+
+```bash
+npm run build:k6
+```
+
+Docker 의 `grafana/xk6` 이미지로 `bin/k6` 를 만든다(Go 설치 불필요, 첫 빌드 1~2분). `Extensions: ... k6/x/sse` 가 보이면 된다.
+`bin/` 은 Git 에서 제외된다. 부하 발생용 EC2(리눅스)에 올릴 때는 `GOOS=linux GOARCH=amd64 npm run build:k6` 로 만든다.
+`bin/k6` 는 일반 k6 기능을 모두 갖고 있어서 다른 시나리오도 그대로 돌릴 수 있다.
 
 ## 3. 단계별 실행
 
@@ -108,6 +123,7 @@ node seed/seed.mjs --base-url http://localhost:8080
 | `--rooms` | 1 | 방 수. 방마다 `--members` 명씩 만든다 (90명 시험 = 3) |
 | `--members` | 30 | 방당 계정 수 (방장 포함) |
 | `--photos` | 300 | 방당 사진 수. 정식 열람 측정은 1500 |
+| `--entrants` | 0 | 방당 신규 입장 시험용 계정 수. 계정만 만들고 방에는 넣지 않는다. `--resume` 과 함께 쓰면 이미 입장한 계정을 빼고 이 수만큼 채운다 |
 | `--images-dir` | - | 실제 사진 폴더. 생략하면 1280x960 PNG 를 장마다 다르게 만든다 |
 | `--concurrency` | 3 | 동시에 올리는 10장 묶음 수 |
 | `--ready-timeout` | 600 | 썸네일 준비를 기다리는 초 |
@@ -226,8 +242,345 @@ node seed/cleanup.mjs
 
 - **fixtures 에 적힌 사진·방만 지운다.** 그 방에 다른 사람이 올린 사진이 있어도 건드리지 않고, 방장이 fixtures 와 다르면 그 방은 건너뛴다.
 - **사진을 먼저 지우고 방을 지운다.** 방만 지우면 스토리지 원본이 남기 때문이다. 사진 삭제가 원본·썸네일·프리뷰 정리를 예약한다.
-- **익명 계정은 지울 API 가 없어 DB 에 남는다.** 지운 계정 ID 목록은 fixtures 의 `cleanup.leftovers.accountUserIds` 에 있다.
+- **익명 계정은 지울 API 가 없어 DB 에 남는다.** 신규 입장용 계정을 포함한 계정 ID 목록은 fixtures 의 `cleanup.leftovers.accountUserIds` 에 있다.
 - 정리한 fixtures 는 `CLEANED` 가 되어 다시 쓸 수 없다. 다시 돌리면 "이미 정리됨"만 출력한다.
+
+## 3-1. 주요 API 시나리오 (방 생성·입장·열람·폴더)
+
+> 30명 목록 측정(위 ①~⑤)을 끝낸 뒤 진행한다. **하나의 dev 에 서로 다른 부하 시험을 동시에 돌리지 않는다.**
+> 결과 확인·정리·Grafana 는 위와 같다. 결과 파일 이름은 `<RUN_ID>-<시나리오>.json` 이다.
+
+### 규모 맞추기 — 방당 30명
+
+30·90·150·300명은 **방 수로** 맞춘다. 방마다 30명(방장 포함)이 들어가 있고, 가상 사용자는 fixtures 계정에 하나씩 붙는다.
+
+| 규모 | 시드 | 열람 `VUS` |
+| --- | --- | --- |
+| 30명 | `--rooms 1` | 30 |
+| 90명 | `--rooms 3` | 90 |
+| 150명 | `--rooms 5` | 150 |
+| 300명 | `--rooms 10` | 300 |
+
+신규 입장도 같이 볼 거면 `--entrants 30` 을 붙인다. 방마다 아직 들어가지 않은 계정 30개가 따로 생긴다 (300명 조건이면 300개).
+
+```bash
+node seed/seed.mjs --base-url http://localhost:8080 --rooms 3 --photos 1500 --entrants 30
+```
+
+시드 시간은 사진 수에 비례한다. 방 10개 × 1,500장은 15,000장이므로 dev 에서는 실행 시간과 썸네일 처리량을 먼저 확인한다.
+
+### 방 생성 — `room-create.js`
+
+방장이 방을 새로 만들고, 공유 코드로 확인하고, 빈 갤러리를 여는 흐름이다. 만든 방은 그 자리에서 지운다.
+
+```
+반복 하나 = 방 하나 (방장은 시드 계정을 돌려 쓴다)
+  POST   /rooms                 생성 — 201, 방장이 나, ACTIVE, 방장이 참여자로 등록, 사진 0
+  GET    /rooms/{code}          공유 코드로 조회 — 만든 방과 같은지
+  GET    /media/all             빈 갤러리 — 0장
+  DELETE /rooms/{roomId}        삭제
+  GET    /rooms/{code}          삭제 확인 — status DELETED
+```
+
+```bash
+k6 run -e PROFILE=smoke k6/scenarios/room-create.js
+```
+
+```bash
+k6 run -e PROFILE=load -e RATE=1 -e WARMUP=1m -e DURATION=3m -e RUN_ID=create-1rps-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/room-create.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `RATE` | 1 | 초당 만들 방 수. 사용자 수가 아니라 요청률을 고정한다 |
+| `VUS` | RATE × 5 (최소 5) | 요청률을 맞추려고 쓸 수 있는 가상 사용자 상한. 모자라면 `dropped iterations` 에 남는다 |
+| `WARMUP` / `DURATION` | 1m / 3m | 예열·본 측정 시간 |
+
+- **방 삭제는 soft delete 다.** 지워도 방 행은 DB 에 `DELETED` 로 남는다. 초당 1개로 4분이면 240행이다.
+  방 이름이 `lt<시드 4자리>c...` 라 DB 에서 골라낼 수 있다 (예: `select status, count(*) from room where name like 'ltb8d3c%' group by status`).
+- 새 계정을 만들지 않고 시드 계정을 방장으로 돌려 쓴다. 계정이 쌓이지 않는다.
+- 중간에 실패한 방은 한 번 더 지운다(`room_cleanup`, 결과 집계 제외). 그래도 남으면 콘솔에 `지우지 못한 방 roomId=...` 를 남기고 `rooms_left` 로 센다. **`rooms_left` 가 0 이 아니면 그 roomId 를 방장 토큰으로 직접 지운다.**
+
+### 입장 — `room-entry.js` (SSE, `bin/k6` 필요)
+
+처음 초대 링크를 연 사람이 들어와 갤러리를 보고 실시간 연결을 유지하는 흐름이다.
+
+```
+신규 입장자 1명 (= 미입장 계정 1개, 한 번만)
+  GET  /rooms/{code}             초대 링크로 방 확인 — 아직 미입장이어야 한다
+  POST /rooms/{roomId}/members   입장 — 201(새로 입장)만 성공. 200(이미 입장)은 신규 입장으로 세지 않는다
+  GET  /media/all                최초 갤러리 목록 — 사진 수·썸네일 검증
+  GET  /rooms/{roomId}/events    SSE 구독 — 마지막 입장 뒤 OBSERVE 동안 끊기지 않아야 성공
+```
+
+```bash
+./bin/k6 run -e PROFILE=smoke k6/scenarios/room-entry.js
+```
+
+```bash
+./bin/k6 run -e PROFILE=load -e RUN_ID=entry-90-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/room-entry.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `ENTRANTS` | smoke 5 · load fixtures 의 미입장 계정 전부 | 들어올 인원. 방을 번갈아 섞어서 들어온다 |
+| `ENTRY_WINDOW` | smoke 10s · load 60s | 이 시간 동안 고르게 나눠 입장시킨다 |
+| `OBSERVE` | smoke 30s · load 5m | 입장 구간이 끝난 뒤 연결을 유지하며 관찰하는 시간 |
+
+**정상 출력** — API 3개와 `sse_ok` 가 모두 성공
+
+```
+-- entry: iterations 5, dropped 0
+   room_lookup          요청      5      0.5 req/s  p95    38.64ms  HTTP 실패 0.00%  업무 실패 0.00%
+   room_join            요청      5      0.5 req/s  p95    24.99ms  HTTP 실패 0.00%  업무 실패 0.00%
+   media_all_initial    요청      5      0.5 req/s  p95    38.97ms  HTTP 실패 0.00%  업무 실패 0.00%
+   sse_ok{phase:entry}            rate=1 passes=5 fails=0
+   sse_open_ms{phase:entry}       ... max=1993 ...
+   sse_events{phase:entry}        count=10 rate=0.1875
+판정 기준 통과
+```
+
+**SSE 결과 읽는 법**
+
+| 지표 | 뜻 |
+| --- | --- |
+| `sse_ok` | 연결이 열리고 관찰 끝까지 유지된 비율. 403·연결 실패·중간 끊김·첫 데이터 지연은 모두 실패다 |
+| `sse_open_ms` | 구독 요청부터 **첫 데이터**까지 걸린 시간. 서버가 첫 이벤트나 heartbeat(15초 주기)를 보낼 때까지 응답을 내보내지 않아서 **최대 약 15초**가 정상이다. 연결 수립 시간으로 읽지 않는다. 20초를 넘으면 실패로 센다 |
+| `sse_events` | 받은 이벤트 수(heartbeat 제외). 먼저 들어온 사람은 뒤에 들어온 사람의 `room.member.joined` 를 받는다 |
+
+SSE 연결 시간은 요청이 아니라 연결 유지 시간이라 API p95 에 넣지 않는다. 관찰 종료 뒤 첫 heartbeat 에서 닫으므로 실행은 `ENTRY_WINDOW + OBSERVE` 보다 최대 15초 더 걸린다.
+
+**한 번 쓴 계정은 다시 쓸 수 없다.** 입장한 계정은 서버에 입장 상태로 남는다. 같은 fixtures 로 다시 돌리면 setup 이 이를 감지해 요청 전에 멈춘다.
+다시 돌리기 전에 미입장 계정을 채운다 (방마다 99개까지).
+
+```bash
+node seed/seed.mjs --base-url http://localhost:8080 --resume $FIXTURES --entrants 30
+```
+
+### 열람 — `gallery-browse.js`
+
+이미 방에 있는 사람들이 갤러리를 열고, 사진을 눌러 보고, 가끔 좋아요를 누르는 흐름이다. #517 의 "열람 30 → 90 → 150 → 300명"은 이 시나리오로 잰다.
+
+```
+가상 사용자 1명 (= fixtures 계정 1개) 반복
+  GET /media/all                      갤러리 열기
+  DETAILS 번:
+    GET /media/{id}                   사진 상세 — 썸네일이 준비된 사진 중 무작위
+    LIKE_RATIO 확률로 PUT /likes → DELETE /likes
+  THINK_TIME 쉼
+```
+
+```bash
+k6 run -e PROFILE=smoke k6/scenarios/gallery-browse.js
+```
+
+```bash
+k6 run -e PROFILE=load -e VUS=90 -e WARMUP=2m -e DURATION=5m -e RUN_ID=browse-90-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/gallery-browse.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `VUS` | smoke 5 · load fixtures 계정 전부 | 동시 사용자 수. 위 규모 표대로 방 수 × 30 으로 맞춘다 |
+| `WARMUP` / `DURATION` | 2m / 5m | #517 기준: 30명 3~5분, 90·150명 5분, 300명 10~15분 |
+| `DETAILS` | 3 | 한 번 둘러볼 때 여는 상세 수 |
+| `LIKE_RATIO` | 0.3 | 상세에서 좋아요를 누를 확률. smoke 에서는 경로 확인을 위해 항상 누른다 |
+| `THINK_TIME` | 2 | 쉬는 시간(초, 0.5~1.5배 무작위). 상세 사이는 이 값의 절반 |
+
+- 좋아요는 눌렀다가 바로 취소한다. 취소가 실패하면 한 번 더 취소한다(`unlike_cleanup`, 결과 집계 제외).
+  보통은 끝나도 좋아요 수가 시드 때와 같지만, **서버 오류가 이어지거나 중간에 멈추면 좋아요가 남을 수 있다.**
+  검증은 좋아요 수에 기대지 않으므로 같은 fixtures 로 다시 돌려도 되지만, 좋아요 수까지 같아야 하는 개선 전후 비교라면 시드를 새로 한다.
+- 같은 `/media/all` 이라도 이 시나리오에서는 `media_all` 로, 입장 시나리오에서는 `media_all_initial` 로 따로 집계된다.
+
+### 폴더 — `folder-ops.js`
+
+방마다 대표 사용자(기본 방장 1명)가 폴더를 만들고 사진을 정리하는 흐름이다.
+
+```
+방별 대표 사용자 반복
+  POST   /folders               폴더 생성
+  PATCH  /folders/{id}          이름 변경
+  PUT    /media/folders         사진 FOLDER_PHOTOS 장 담기 — 담긴 수·폴더 사진 수 검증
+  GET    /media/all?folderId=   폴더 열기 — 담은 사진만 정확히 보여야 한다
+  DELETE /media/folders         꺼내기
+  DELETE /folders/{id}          폴더 삭제
+  THINK_TIME 쉼
+```
+
+```bash
+k6 run -e PROFILE=smoke k6/scenarios/folder-ops.js
+```
+
+```bash
+k6 run -e PROFILE=load -e WARMUP=1m -e DURATION=5m -e RUN_ID=folder-3rooms-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/folder-ops.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `USERS_PER_ROOM` | 1 | 방마다 폴더를 정리할 인원. 방장부터 차례로 쓴다 |
+| `FOLDER_PHOTOS` | 10 | 한 번에 담고 꺼낼 사진 수 |
+| `WARMUP` / `DURATION` | 1m / 5m | 예열·본 측정 시간 |
+| `THINK_TIME` | 3 | 한 바퀴 뒤 쉬는 시간(초) |
+
+- 만든 폴더는 그 바퀴 안에서 지운다. 중간에 실패하면 한 번 더 지운다(`folder_cleanup`, 결과 집계 제외). 그래도 남은 폴더는 정리 도구가 방을 지울 때 함께 사라진다.
+- 폴더 생성·이름 변경·담기는 그 방 구독자 모두에게 SSE 이벤트로 퍼진다.
+
+## 3-2. 기능별 부하 시나리오 (검색·업로드·다운로드·ZIP)
+
+> 3-1 과 마찬가지로 **한 번에 하나씩** 돌린다. 사용자 수가 아니라 **입력률**(검색/초·장/초·요청/초·동시 작업 수)을 고정하고,
+> 결과의 `phaseRate`(실제 도달한 값)와 `droppedIterations`(목표만큼 못 보낸 횟수)를 같이 본다.
+
+| 시나리오 | 고정하는 값 | #517 단계 | 외부 AI 비용 |
+| --- | --- | --- | --- |
+| `media-search.js` | `RATE` 검색/초 | 1 → 3 → 5 (10 선택) | **검색마다 임베딩 1회** |
+| `media-upload.js` | `PHOTOS_PER_SEC` 장/초 | 2 → 6 → 12 → 18 | 검색 분석이 켜져 있으면 **올린 장마다** |
+| `media-download.js` | `RATE` 요청/초 | 1 → 3 → 5 → 10 | 없음 |
+| `media-zip.js` | `ZIP_CONCURRENCY` 동시 작업 수 | 1 → 3 → 5 | 없음 |
+
+### 검색 — `media-search.js`
+
+```
+반복 하나 = 검색 한 번
+  GET /media/all?query=...   200, 결과가 모두 그 방의 시드 사진, repeat 은 1장 이상
+```
+
+**먼저 분석이 끝난 사진이 있어야 한다.** 검색은 분석(설명 생성·임베딩)이 끝난 사진만 찾는다.
+
+1. 대상 서버의 검색이 켜져 있어야 한다(`IMAGE_SEARCH_ENABLED=true`, 임계값, OpenAI 키). 꺼져 있으면 setup 이 503 을 보고 멈춘다.
+2. 시드에 `--allow-ai-cost` 를 붙여 올린다. 사진마다 외부 AI 호출이 생기므로 **사진 수를 작게** 잡는다 (예: `--photos 10`).
+   생성 PNG 는 무늬뿐이라 설명이 의미 없다. 검색 결과의 관련성까지 볼 때는 `--images-dir` 로 실제 사진을 쓴다.
+3. 분석 완료는 API 로 볼 수 없다. DB 에서 확인한다 (`roomId` 는 시드 출력의 값).
+
+```sql
+select d.status, count(*) from media_search_document d join stored_file f on f.id = d.media_id where f.room_id = <roomId> group by d.status;
+```
+
+`READY` 가 올린 장 수와 같아지면 준비가 끝난 것이다. `FAILED` 가 있으면 `last_error` 를 본다.
+
+```bash
+k6 run -e PROFILE=smoke k6/scenarios/media-search.js
+```
+
+```bash
+k6 run -e PROFILE=load -e RATE=1 -e QUERY_MODE=repeat -e WARMUP=1m -e DURATION=3m -e RUN_ID=search-1-repeat-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/media-search.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `RATE` | 1 | 검색/초 |
+| `QUERY_MODE` | repeat | `repeat` 같은 검색어만(`search_repeat`) / `diverse` 검색어 20개를 돌려 씀(`search_diverse`). 두 결과를 나란히 보면 임베딩 재사용 효과가 보인다 |
+| `SEARCH_QUERY` | 웃고 있는 사람들 | repeat 검색어. setup 이 이 검색어로 방마다 결과가 나오는지 먼저 본다 |
+| `WARMUP` / `DURATION` | 1m / 3m | 예열·본 측정 시간 |
+
+**비용** — 시작할 때 `예상 검색 수 N회` 를 찍는다. N 은 그대로 외부 임베딩 호출 수다 (setup 확인은 방 수만큼 별도).
+초당 5회로 4분이면 1,200회다. 하루 검색 2,000회 한도([6. dev 에서 실행할 때](#6-dev-에서-실행할-때))를 넘기지 않게 단계마다 합산한다.
+
+### 업로드 — `media-upload.js` (SSE, `bin/k6` 필요)
+
+```
+업로드 (반복 하나 = 10장 묶음 하나)
+  POST /media/upload-urls   10장 발급 — 거절 0장
+  PUT  <서명 URL>            스토리지 직접 업로드 (storage_put), 사용자별 동시 3개
+  POST /media               완료 등록 — PUT 성공한 장이 모두 등록 (부분 실패는 실패)
+
+관찰 (가상 사용자 1명, 방장)
+  SSE  media.created → media.ready 를 mediaId 로 짝지어 썸네일 준비 시간을 잰다
+```
+
+- **실행마다 업로드 전용 방을 새로 만들고, 끝나면 그 방의 사진과 방을 지운다.** k6 는 fixtures 에 쓸 수 없어 올린 사진을 기록할 수 없기 때문이다.
+  시작할 때 `업로드 전용 방 roomId=...`, 끝날 때 `정리: 사진 N/N장 삭제, 방 삭제` 가 찍힌다. 정리에 실패하면 남은 roomId 가 찍힌다.
+- 업로더는 fixtures 의 참여자 계정이다. setup 에서 전용 방에 입장시킨다.
+- 검색 분석이 켜진 서버는 올린 장마다 외부 AI 호출이 생긴다. `-e ALLOW_AI_COST=1` 이 없으면 시작하지 않는다.
+
+먼저 올릴 이미지 묶음을 만든다 (k6 는 폴더를 훑지 못해 `manifest.json` 으로 목록을 넘긴다).
+
+```bash
+node seed/upload-images.mjs
+```
+
+실제 사진을 쓰려면 `--images-dir images` 를 붙인다. 가상 사용자마다 이 묶음을 메모리에 올리므로 큰 사진이면 `--count` 를 줄인다.
+
+```bash
+./bin/k6 run -e PROFILE=smoke k6/scenarios/media-upload.js
+```
+
+```bash
+./bin/k6 run -e PROFILE=load -e PHOTOS_PER_SEC=2 -e WARMUP=1m -e DURATION=3m -e RUN_ID=upload-2-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/media-upload.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `PHOTOS_PER_SEC` | 2 | 장/초. 10장 묶음 단위라 10초에 묶음 `PHOTOS_PER_SEC` 개를 올린다 |
+| `UPLOADERS` | smoke 3 · load 10 | 업로더 수. 한 업로더는 한 번에 한 묶음만 올린다. 모자라면 `dropped iterations` 가 생긴다 — 18장/초에서 생기면 늘린다 |
+| `READY_TIMEOUT` | 60s | 완료 등록 뒤 이 안에 `media.ready` 가 와야 성공. 업로드가 끝난 뒤에도 이만큼 더 관찰한다 |
+| `UPLOAD_IMAGES` | images/upload-set | 이미지 묶음 폴더 |
+
+**ready 결과 읽는 법**
+
+| 지표 | 뜻 |
+| --- | --- |
+| `media_registered` | 완료 등록에 성공한 장 수 (업로더가 센다) |
+| `media_created_seen` | 관찰자가 받은 `media.created` 수. `media_registered` 보다 적으면 SSE 로 등록 알림을 못 받은 장이 있다 |
+| `media_ready_ms` | `media.created` 부터 `media.ready` 까지. 썸네일 준비 시간이다 (검색 분석 완료와는 별개 — 분석은 위 DB 조회로 본다) |
+| `media_ready_ok` | `READY_TIMEOUT` 안에 ready 가 온 비율 |
+| `media_ready_late` / `media_ready_missing` | 늦게 온 장 / 관찰이 끝날 때까지 안 온 장. **0 이 아니면 썸네일 작업이 밀리거나 빠진 것이다** (#532) |
+| `storage_put` | R2 로 가는 PUT. 우리 서버 API 가 아니라서 API 지연과 따로 본다 |
+
+### 다운로드 — `media-download.js`
+
+```
+DOWNLOAD_MODE=single   GET  /downloads/media/{id}  302 + Location → 원본 GET (storage_get) — 크기가 시드 때와 같아야 한다
+DOWNLOAD_MODE=batch    POST /downloads/batch       BATCH_SIZE 장 URL 발급 → BATCH_FETCH 만큼 원본 GET
+```
+
+```bash
+k6 run -e PROFILE=smoke -e DOWNLOAD_MODE=single k6/scenarios/media-download.js
+```
+
+```bash
+k6 run -e PROFILE=smoke -e DOWNLOAD_MODE=batch k6/scenarios/media-download.js
+```
+
+```bash
+k6 run -e PROFILE=load -e DOWNLOAD_MODE=single -e RATE=1 -e WARMUP=1m -e DURATION=3m -e RUN_ID=download-single-1-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/media-download.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `DOWNLOAD_MODE` | single | `single` 단건 / `batch` 다건 URL 발급 |
+| `RATE` | 1 | 요청/초. 다건은 발급 요청 수 기준이다 |
+| `BATCH_SIZE` | 10 | 다건 한 번에 고를 사진 수 (최대 1000) |
+| `BATCH_FETCH` | smoke all · load one | 발급받은 URL 중 실제로 받을 수. `all` 전부 / `one` 하나 / `none` 안 받음. 다건 10장 × 10요청/초를 다 받으면 노트북 회선이 먼저 막힌다 |
+
+### ZIP — `media-zip.js`
+
+```
+가상 사용자 1명 = 압축 작업 1개씩 반복
+  POST /downloads/zip          202 접수 (zip_create = 접수 시간)
+  GET  /downloads/zip/{jobId}  POLL_INTERVAL 마다 — READY 까지 (zip_complete_ms = 압축 완료 시간)
+  GET  <downloadUrl>           zip 내려받기 — PK 로 시작해야 한다 (storage_get)
+```
+
+```bash
+k6 run -e PROFILE=smoke k6/scenarios/media-zip.js
+```
+
+```bash
+k6 run -e PROFILE=load -e ZIP_CONCURRENCY=3 -e DURATION=5m -e RUN_ID=zip-3-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/media-zip.js
+```
+
+| 변수 | 기본 | 설명 |
+| --- | --- | --- |
+| `ZIP_CONCURRENCY` | 1 | 동시에 진행할 압축 작업 수. 가상 사용자마다 계정을 따로 쓴다 |
+| `ZIP_PHOTOS` | 30 | 작업 하나에 담을 사진 수 |
+| `ZIP_TIMEOUT` | 5m | 접수 뒤 이 안에 READY 가 되어야 성공 |
+| `POLL_INTERVAL` | 2s | 상태 조회 간격 |
+| `ZIP_FETCH` | 1 | `0` 이면 완성된 zip 을 받지 않는다 |
+| `DURATION` | 5m | 작업을 계속 내는 시간. 끝날 때 진행 중인 작업은 `ZIP_TIMEOUT` 까지 기다린다 |
+
+- `zip_complete_ms` 는 상태 조회로 READY 를 처음 본 시각까지라 **`POLL_INTERVAL` 단위로만 잡힌다.** 기본 2초면 2초보다 빨리 끝나도 약 2초로 나온다. 작은 zip 을 비교할 때는 `POLL_INTERVAL=500ms` 처럼 줄인다 (그만큼 상태 조회 요청이 늘어난다).
+- `zip_rejected`(429)·`zip_failed`(FAILED·만료·내려받기 실패)·`zip_timeout` 은 모두 실패다.
+- 서버는 계정마다 동시 3개까지 받는다. 가상 사용자마다 계정이 달라 이 상한으로는 429 가 나지 않는다. **429 가 나면 서버 전체 처리 여력 문제다.**
+- 만든 zip 은 서버가 READY 후 1시간이 지나면 지운다. 작업 수 × 사진 수만큼 스토리지를 잠시 쓴다.
 
 ## 4. 시나리오는 어디에 무엇이 있나
 
@@ -236,18 +589,31 @@ loadtest/
 ├── seed/
 │   ├── seed.mjs             ① 시드 — 위 "안에서 일어나는 일" 순서 그대로
 │   ├── cleanup.mjs          ⑤ 정리
+│   ├── upload-images.mjs    3-2 업로드 시나리오용 이미지 묶음 준비
 │   └── lib/
 │       ├── api.mjs          시드용 API 호출 (재시도 포함)
 │       ├── fixtures.mjs     fixtures 형식·저장 (권한 600, 원자적 저장)
 │       ├── images.mjs       PNG 생성, 실제 사진 형식·해상도 검사
 │       └── cli.mjs          옵션 파싱, 로컬 아닌 서버 차단
 ├── k6/
-│   ├── scenarios/
-│   │   └── media-list.js    ②③ 갤러리 목록 시나리오 ← 사용자가 "무엇을 하는지"
+│   ├── scenarios/                       ← 사용자가 "무엇을 하는지"
+│   │   ├── media-list.js    ②③ 갤러리 목록 (목록만, 데이터 크기 비교)
+│   │   ├── room-create.js   3-1 방 생성·조회·삭제
+│   │   ├── room-entry.js    3-1 신규 입장 + SSE 유지 (bin/k6)
+│   │   ├── gallery-browse.js 3-1 열람: 목록·상세·좋아요
+│   │   ├── folder-ops.js    3-1 폴더 생성·이름 변경·담기·꺼내기
+│   │   ├── media-search.js  3-2 검색 (외부 AI 비용)
+│   │   ├── media-upload.js  3-2 업로드 + media.ready 측정 (bin/k6)
+│   │   ├── media-download.js 3-2 단건·다건 다운로드 URL 발급 + 원본 받기
+│   │   └── media-zip.js     3-2 ZIP 접수·완료 시간
 │   └── lib/
 │       ├── config.js        fixtures·환경 변수 검증 (잘못되면 요청 전에 멈춤)
 │       ├── http.js          인증 헤더, 응답 파싱, 업무 성공 판정 (모든 시나리오 공통)
+│       ├── run.js           예열·본 측정 구간, 중단 기준, 시작 전 대상·사진 수 확인
+│       ├── sse.js           방 이벤트 구독·유지 판정 (xk6-sse)
 │       └── summary.js       결과 JSON·콘솔 요약 생성
+├── scripts/build-k6.sh      xk6-sse 를 넣은 bin/k6 빌드 (npm run build:k6)
+├── bin/                     빌드한 k6 — Git 제외
 ├── test/                    도구 단위 테스트 (npm test)
 ├── fixtures/                시드 결과 — Git 제외
 ├── results/                 측정 결과 — Git 제외
@@ -278,10 +644,16 @@ loadtest/
 - `BASE_URL` 이 fixtures 의 서버와 같다
 - 서버의 현재 사진 수가 fixtures 와 같다 (그 방에 누가 사진을 올리거나 지웠으면 측정 조건이 달라진다)
 
-**자동 중단** — 본 측정 구간에서 HTTP 실패율 5% 초과 또는 업무 성공률 95% 미만이 1분 이어지면 k6 가 스스로 멈춘다.
+**자동 중단** — 본 측정 구간의 누적 HTTP 실패율이 5% 를 넘거나 업무 성공률이 95% 아래로 내려가면 k6 가 즉시 멈춘다.
+표본이 적은 초반에 한두 건으로 멈추지 않도록 본 측정 시작 후 1분은 판정하지 않는다.
+k6 의 `delayAbortEval` 은 시험 전체 시작부터 세므로, `stopConditions` 가 본 측정 시작 시각을 더해 넘긴다.
+
+**구간 전환** — 예열은 끝나는 즉시 멈추고(업로드만 진행 중인 묶음을 마저 올린다), 사용자 수 고정 시나리오는
+구간마다 첫 요청을 생각 시간 범위 안에서 흩는다. 구간이 바뀌는 순간 요청이 한꺼번에 몰려 측정이 흔들리지 않게 하기 위해서다.
 DB·서버 메모리·운영 영향은 k6 가 볼 수 없으므로 사람이 Grafana 를 보고 멈춘다.
 
-다른 시나리오(검색·업로드·다운로드)를 추가할 때는 `k6/scenarios/` 에 파일을 만들고 `lib/` 의 세 모듈을 그대로 쓴다.
+다른 시나리오(검색·업로드·다운로드)를 추가할 때는 `k6/scenarios/` 에 파일을 만들고 `lib/` 모듈을 그대로 쓴다.
+SSE 를 쓰는 시나리오는 `lib/sse.js` 를 쓰고, 일반 API 요청과 **다른 가상 사용자**에서 연결을 연다. `sse.open` 은 연결이 끝날 때까지 그 가상 사용자를 붙잡는다.
 
 ## 5. Grafana 에서 확인하기
 
@@ -374,17 +746,18 @@ node seed/seed.mjs --base-url https://dev-api.ssssok.com --yes
 
 ```jsonc
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,               // v1 파일도 읽는다 (entrants 없이 v2 로 올린다)
   "runId": "20261014T0733Z-6420",
   "baseUrl": "http://localhost:8080",
   "status": "COMPLETED",            // IN_PROGRESS · COMPLETED · FAILED · CLEANED
-  "condition": { "rooms": 1, "membersPerRoom": 30, "photosPerRoom": 300, "image": { } },
+  "condition": { "rooms": 1, "membersPerRoom": 30, "photosPerRoom": 300, "entrantsPerRoom": 30, "image": { } },
   "searchProbe": { "status": 503, "searchEnabled": false },
   "verification": { "passed": true, "problems": [], "rooms": [ ] },
   "rooms": [{
     "roomId": 5, "code": "XJG83HDB", "name": "lt6420-r1",
     "host":         { "userId": 31, "nickname": "lt6420r1u0", "accessToken": "…", "expiresAt": "…", "joined": true },
     "participants": [ { "userId": 32, "…": "…" } ],
+    "entrants":     [ { "userId": 61, "nickname": "lt6420r1e1", "…": "…", "joined": false } ],   // 신규 입장 시험용, 방에 넣지 않음
     "photos": [ { "mediaId": 31, "fileName": "…", "uploaderUserId": 31, "mimeType": "image/png",
                   "size": 330026, "width": 1280, "height": 960, "status": "READY" } ]
   }],
@@ -413,6 +786,11 @@ git check-ignore -v fixtures/*.json results/*.json
 | `이미지 검색이 켜져 있어 ...` | 대상 서버의 AI 분석이 켜져 있다. 끄고 `--resume`, 또는 비용을 감수하고 `--allow-ai-cost --resume` |
 | 시드가 `썸네일 준비 대기` 에서 오래 멈춤 | 서버의 썸네일 작업이 밀렸다. `--ready-timeout` 을 늘리거나 서버 로그 확인 후 `--resume` |
 | `스토리지 PUT 403` | 업로드 주소 만료(10분) 또는 헤더 불일치. `--concurrency 1` 로 낮춰 `--resume` |
+| `unknown dependency : k6/x/sse` | 입장 시나리오를 그냥 `k6` 로 돌렸다. `npm run build:k6` 후 `./bin/k6 run ...` |
+| 입장 시나리오가 `이미 입장한 계정 ...개가 섞여 있습니다` 로 멈춤 | 이전 실행에서 쓴 계정이다. `node seed/seed.mjs --base-url <URL> --resume $FIXTURES --entrants 30` 으로 채운다 |
+| `신규 입장용 미입장 계정이 없습니다` | 시드에 `--entrants` 를 주지 않았다. 위 명령으로 채운다 |
+| `sse_ok` 실패 `관찰 종료 전 끊김` | 관찰 중 연결이 끊겼다. 서버 재시작·배포·Nginx 타임아웃 여부를 확인한다 |
+| `sse_ok` 실패 `첫 데이터 ...ms` | 20초 안에 heartbeat 도 오지 않았다. 서버 스케줄러(heartbeat)가 밀리고 있는지 본다 |
 | k6 가 `fixtures 상태가 FAILED` 로 시작 안 함 | 시드 검증 실패. fixtures 의 `verification.problems` 를 보고 `--resume` |
 | k6 setup 에서 `사진 수가 fixtures 와 다릅니다` | 그 방에 다른 업로드·삭제가 섞였다. 시드를 새로 한다 |
 | `businessFailRate` 만 높음 | 응답 코드는 정상인데 내용이 틀렸다. 콘솔의 `[media_all] ... 실패:` 로그로 원인 확인 |
@@ -431,8 +809,21 @@ docker run -d --name loadtest-minio -p 127.0.0.1:59000:9000 -e MINIO_ROOT_USER=<
 docker exec loadtest-minio sh -c 'mc alias set l http://localhost:9000 <키> <비밀값> && mc mb l/sssok-loadtest'
 ```
 
-`backend` 디렉터리에서 서버를 띄운다. 디스코드 알림이 실제로 나가지 않도록 웹훅을 비운다.
+DB 는 pgvector 가 든 Postgres 여야 한다(마이그레이션 V28 이 `vector` 확장을 켠다). 개발용 DB 를 더럽히지 않도록 시험용 컨테이너를 따로 띄운다.
 
 ```bash
-R2_ENDPOINT=http://127.0.0.1:59000 R2_ACCESS_KEY=<키> R2_SECRET_KEY=<비밀값> R2_BUCKET=sssok-loadtest R2_PUBLIC_BASE_URL=http://127.0.0.1:59000/sssok-loadtest DISCORD_FEEDBACK_WEBHOOK_URL= ./gradlew bootRun
+docker run -d --name loadtest-postgres -p 127.0.0.1:55432:5432 -e POSTGRES_USER=sssok -e POSTGRES_PASSWORD=sssok -e POSTGRES_DB=sssok pgvector/pgvector:0.8.6-pg16-bookworm
+```
+
+`backend` 디렉터리에서 서버를 띄운다. 디스코드 알림이 실제로 나가지 않도록 웹훅을 비우고, 검색 분석(외부 AI)을 끈다.
+`backend/.env` 에 실제 R2·웹훅 값이 있어도 환경 변수가 우선한다.
+
+```bash
+DB_URL=jdbc:postgresql://localhost:55432/sssok CORS_ALLOWED_ORIGINS=http://localhost:5173 IMAGE_SEARCH_ENABLED=false R2_ENDPOINT=http://127.0.0.1:59000 R2_ACCESS_KEY=<키> R2_SECRET_KEY=<비밀값> R2_BUCKET=sssok-loadtest R2_PUBLIC_BASE_URL=http://127.0.0.1:59000/sssok-loadtest DISCORD_FEEDBACK_WEBHOOK_URL= ./gradlew bootRun
+```
+
+다 쓴 뒤에는 컨테이너를 지운다.
+
+```bash
+docker rm -f loadtest-minio loadtest-postgres
 ```

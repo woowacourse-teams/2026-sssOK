@@ -43,7 +43,7 @@ for (const room of fixtures.rooms) {
   report.rooms.push(await cleanRoom(room));
 }
 
-const accounts = fixtures.rooms.flatMap((room) => usersOf(room).map((user) => user.userId));
+const accounts = fixtures.rooms.flatMap((room) => [...usersOf(room), ...(room.entrants ?? [])].map((user) => user.userId));
 const reserved = fixtures.rooms.flatMap((room) =>
   room.photos.filter((photo) => photo.mediaId && photo.status === 'RESERVED').map((photo) => photo.mediaId));
 report.leftovers = {
