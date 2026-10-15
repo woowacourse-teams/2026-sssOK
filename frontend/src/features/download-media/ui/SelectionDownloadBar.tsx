@@ -201,17 +201,22 @@ export const SelectionDownloadBar = ({
                 </PlainButton>
               </>
             ) : pendingShare !== null ? (
-              <>
-                <Count>{pendingShare.length}장 준비됨</Count>
+              // 고르기 바와 같은 자리에 놓는다 — 장수는 왼쪽, 버튼은 가운데, 닫기는 오른쪽.
+              <SelectionLayout>
+                <SelectionSummary>
+                  <Count>{pendingShare.length}장 준비됨</Count>
+                </SelectionSummary>
                 {/* 여기서만은 핸들러가 곧바로 시트를 연다. 사이에 await 가 끼면 사파리가 막는다. */}
                 <DownloadButton type="button" onClick={() => void share()}>
                   <LuImageDown />
                   사진첩에 저장
                 </DownloadButton>
-                <PlainButton type="button" aria-label="받아둔 사진 버리기" onClick={dismissShare}>
-                  <LuX />
-                </PlainButton>
-              </>
+                <ActionGroup>
+                  <PlainButton type="button" aria-label="받아둔 사진 버리기" onClick={dismissShare}>
+                    <LuX />
+                  </PlainButton>
+                </ActionGroup>
+              </SelectionLayout>
             ) : (
               <SelectionLayout>
                 <SelectionSummary>

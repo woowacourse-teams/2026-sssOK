@@ -288,9 +288,17 @@ describe("downloadMedia — zip", () => {
  * 시트는 열리므로 프론트에서는 성공으로 보이고, 사용자만 저장이 안 된다.
  */
 describe("downloadMedia — 사진첩에 저장", () => {
-  const sharedFilesOf = async (contentType: string) => {
-    const shared: File[] = [];
+  let shared: File[] = [];
 
+  beforeEach(() => {
+    shared = [];
+  });
+
+  const sharedFilesOf = async (
+    contentType: string,
+    share: (data: { files: File[] }) => Promise<void> = async ({ files }) =>
+      void shared.push(...files),
+  ) => {
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
         const { mediaIds } = (await request.json()) as { mediaIds: number[] };
@@ -314,10 +322,7 @@ describe("downloadMedia — 사진첩에 저장", () => {
     );
 
     Object.defineProperty(navigator, "canShare", { value: () => true, configurable: true });
-    Object.defineProperty(navigator, "share", {
-      value: async ({ files }: { files: File[] }) => void shared.push(...files),
-      configurable: true,
-    });
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
 
     const outcome = await downloadMedia({
       roomId: MOCK_ROOM_ID,
@@ -346,6 +351,18 @@ describe("downloadMedia — 사진첩에 저장", () => {
     const { shared } = await sharedFilesOf("application/octet-stream");
 
     expect(shared[0].type).toBe("image/jpeg");
+  });
+
+  /**
+   * 아이폰 사파리에서 전체 선택(수십 장)으로 받으면, 받는 동안 탭 제스처가 만료돼
+   * `share` 가 NotAllowedError 로 거절된다. 실패로 끝내지 않고 탭 한 번을 더 받는다.
+   */
+  it("제스처가 만료돼 시트가 거절되면 받아둔 파일로 다시 누를 수 있게 넘긴다", async () => {
+    const { outcome } = await sharedFilesOf("image/jpeg", () =>
+      Promise.reject(Object.assign(new Error("not allowed"), { name: "NotAllowedError" })),
+    );
+
+    expect(outcome).toMatchObject({ type: "readyToShare", failed: [] });
   });
 });
 
