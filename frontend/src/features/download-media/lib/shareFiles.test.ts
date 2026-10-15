@@ -96,6 +96,21 @@ describe("shareFiles", () => {
     expect(await shareFiles([fileOf()])).toEqual({ type: "dismissed" });
   });
 
+  /**
+   * 사파리에서 수십 장을 받느라 제스처가 만료되면 NotAllowedError 로 거절된다.
+   * 던지면 "받지 못했어요" 로 끝나 버리므로, 탭 한 번을 더 받는 흐름으로 넘긴다.
+   */
+  it("제스처가 만료돼 거절되면 blocked 다", async () => {
+    withNavigator({
+      canShare: () => true,
+      share: jest
+        .fn()
+        .mockRejectedValue(Object.assign(new Error("not allowed"), { name: "NotAllowedError" })),
+    });
+
+    expect(await shareFiles([fileOf()])).toEqual({ type: "blocked" });
+  });
+
   it("닫은 것이 아닌 진짜 오류는 그대로 던진다", async () => {
     withNavigator({
       canShare: () => true,

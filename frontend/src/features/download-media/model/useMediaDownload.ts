@@ -114,7 +114,8 @@ export const useMediaDownload = ({
     try {
       const shared = await shareFiles(pendingShare);
 
-      if (shared.type !== "unsupported") {
+      // 못 연 경우는 받아둔 것을 남겨, 사용자가 같은 버튼을 다시 누를 수 있게 한다.
+      if (shared.type !== "unsupported" && shared.type !== "blocked") {
         setPendingShare(null);
       }
 
