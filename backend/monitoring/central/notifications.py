@@ -31,7 +31,7 @@ MESSAGE = '''환경: {{ .CommonLabels.environment }} · 서버: {{ .CommonLabels
 {{ printf "%.500s" .Annotations.description }}
 {{ end }}{{ end }}
 {{ if gt (len .Alerts) 3 }}상세는 최대 3건만 표시합니다. 전체 상태는 대시보드에서 확인하세요.
-{{ end }}[호스트](https://monitor.ssssok.com/central/d/sssok-host-overview?var-environment={{ .CommonLabels.environment }}) · [앱](https://monitor.ssssok.com/central/d/sssok-central-backend?var-environment={{ .CommonLabels.environment }}) · [로그 전송](https://monitor.ssssok.com/central/d/sssok-log-transfer?var-environment={{ .CommonLabels.environment }})'''
+{{ end }}[호스트](https://monitor.ssssok.com/d/sssok-host-overview?var-environment={{ .CommonLabels.environment }}) · [앱](https://monitor.ssssok.com/d/sssok-central-backend?var-environment={{ .CommonLabels.environment }}) · [로그 전송](https://monitor.ssssok.com/d/sssok-log-transfer?var-environment={{ .CommonLabels.environment }})'''
 
 
 def candidate(bundles, prod_bundles=(), monitoring_bundles=()):

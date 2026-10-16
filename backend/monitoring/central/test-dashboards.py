@@ -27,7 +27,7 @@ cid=None
 def start(provision):
  global cid
  args=['docker','run','-d','--network','none','--memory','256m','-v',f'{volume}:/var/lib/grafana']
- values=dict(service['environment'],GF_SECURITY_ADMIN_PASSWORD='isolated-test-only',GF_SERVER_ROOT_URL='http://localhost:3000/central/')
+ values=dict(service['environment'],GF_SECURITY_ADMIN_PASSWORD='isolated-test-only',GF_SERVER_ROOT_URL='http://localhost:3000/')
  for key,value in values.items():args+=['-e',f'{key}={value}']
  for v in mounts:
   if provision or '/datasources/' in v['target']:args+=['--mount',f"type=bind,src={v['source']},dst={v['target']},readonly"]
@@ -44,7 +44,7 @@ def api(method,path,body=None,check=True):
  if body is not None:args+=['-i']
  args += [cid,'curl','-fsS','--max-time','10','-u','admin:isolated-test-only','-X',method,'-H','Content-Type: application/json']
  if body is not None:args+=['--data-binary','@-']
- args+=['http://localhost:3000/central'+path]
+ args+=['http://localhost:3000'+path]
  r=run(args,input=json.dumps(body) if body is not None else None)
  if check:assert r.returncode==0,(path,r.stdout,r.stderr)
  return r

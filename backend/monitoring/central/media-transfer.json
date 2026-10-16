@@ -10,13 +10,13 @@
     {
       "title": "중앙 앱 상태",
       "type": "link",
-      "url": "/central/d/sssok-central-backend?var-environment=${environment}",
+      "url": "/d/sssok-central-backend?var-environment=${environment}",
       "keepTime": true
     },
     {
       "title": "중앙 로그",
       "type": "link",
-      "url": "/central/d/sssok-central-logs?var-environment=${environment}",
+      "url": "/d/sssok-central-logs?var-environment=${environment}",
       "keepTime": true
     }
   ],
@@ -67,7 +67,7 @@
           "links": [
             {
               "title": "같은 시간대 로그",
-              "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+              "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
             }
           ]
         },
@@ -161,7 +161,7 @@
           "links": [
             {
               "title": "같은 시간대 로그",
-              "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+              "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
             }
           ]
         },
@@ -234,7 +234,7 @@
           "links": [
             {
               "title": "같은 시간대 로그",
-              "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+              "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
             }
           ]
         },
@@ -313,7 +313,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -393,7 +393,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -473,7 +473,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -609,7 +609,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -703,7 +703,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -825,7 +825,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -940,7 +940,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1013,7 +1013,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1086,7 +1086,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1173,7 +1173,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1246,7 +1246,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1326,7 +1326,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1399,7 +1399,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1479,7 +1479,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1552,7 +1552,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1639,7 +1639,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1712,7 +1712,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1792,7 +1792,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1885,7 +1885,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1958,7 +1958,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -2031,7 +2031,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -2104,7 +2104,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },

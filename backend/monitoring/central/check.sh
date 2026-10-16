@@ -6,7 +6,7 @@ for endpoint in \
   http://127.0.0.1:9090/-/ready \
   http://127.0.0.1:9093/-/ready \
   http://127.0.0.1:3100/ready \
-  http://127.0.0.1:3000/central/api/health; do
+  http://127.0.0.1:3000/api/health; do
   curl --fail --silent --show-error --max-time 5 \
     --retry 20 --retry-delay 3 --retry-all-errors "$endpoint" > /dev/null
 done

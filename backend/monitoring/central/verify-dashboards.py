@@ -8,6 +8,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+import urllib.parse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--container', required=True)
@@ -20,10 +21,13 @@ credentials = base64.b64encode((values['GF_SECURITY_ADMIN_USER'] + ':' +
                                values['GF_SECURITY_ADMIN_PASSWORD']).encode()).decode()
 # 비밀값을 URL·명령 인자·로그로 보내지 않고 loopback HTTP 헤더에만 사용한다.
 opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+# 배포 전에는 기존 /central/, 배포 후에는 루트 구성을 조회한다.
+subpath = urllib.parse.urlsplit(values.get('GF_SERVER_ROOT_URL', '')).path.rstrip('/')
+api_base = 'http://127.0.0.1:3000' + subpath + '/api/'
 
 
 def get(path):
-    request = urllib.request.Request('http://127.0.0.1:3000/central/api/' + path,
+    request = urllib.request.Request(api_base + path,
                                      headers={'Authorization': 'Basic ' + credentials})
     with opener.open(request, timeout=5) as response:
         return json.load(response)

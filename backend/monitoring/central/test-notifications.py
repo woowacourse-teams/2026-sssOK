@@ -166,7 +166,7 @@ def check_routes_and_templates():
             assert status.upper() in title and len(title.strip()) <= 256
             assert len(message.strip()) <= 4096
             for expected in ('10.0.20.46:13100', 'rate_limited', f'서버: {env}', '최대 3건',
-                             f'/central/d/sssok-log-transfer?var-environment={env}',
+                             f'/d/sssok-log-transfer?var-environment={env}',
                              '발생 10건 · 복구 0건' if status == 'firing' else '발생 0건 · 복구 10건'):
                 assert expected in message, expected
     print('Discord 후보: 기본 무발송·개발/운영 묶음별 라우팅·발생/복구 메시지 검증 통과 (네트워크 차단)')
