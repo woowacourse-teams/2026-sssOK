@@ -1,9 +1,9 @@
-# ALB 경로 /central/로 중앙 Grafana를 조회할 때 compose.yml과 함께 사용한다.
+# 모니터링 도메인 전체를 중앙 Grafana로 연결한다. compose.yml과 함께 사용한다.
 services:
   grafana:
     environment:
-      GF_SERVER_ROOT_URL: https://monitor.ssssok.com/central/
-      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_SERVER_ROOT_URL: https://monitor.ssssok.com/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "false"
       GF_AUTH_LOGIN_COOKIE_NAME: sssok_central_session
       GF_SECURITY_COOKIE_SECURE: "true"
 

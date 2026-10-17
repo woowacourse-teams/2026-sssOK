@@ -125,36 +125,14 @@ jobs:
       - name: compose 파일 배치
         env:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          test -n "$DISCORD_WEBHOOK_URL" || { echo "DISCORD_WEBHOOK_URL secret is required"; exit 1; }
-          mkdir -p "$DEPLOY_PATH/monitoring/prometheus"
-          mkdir -p "$DEPLOY_PATH/monitoring/prometheus/rules"
-          mkdir -p "$DEPLOY_PATH/monitoring/alertmanager"
-          mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources"
-          mkdir -p "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards"
-          mkdir -p "$DEPLOY_PATH/monitoring/grafana/dashboards"
-          mkdir -p "$DEPLOY_PATH/monitoring/loki"
+          set -eu
           mkdir -p "$DEPLOY_PATH/monitoring/alloy"
-          mkdir -p "$DEPLOY_PATH/secrets"
           cp backend/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
           cp backend/nginx.conf "$DEPLOY_PATH/nginx.conf"
           cp backend/monitoring/check-prod-node.sh "$DEPLOY_PATH/monitoring/check-prod-node.sh"
-          cp backend/monitoring/prometheus/prometheus.yml "$DEPLOY_PATH/monitoring/prometheus/prometheus.yml"
-          cp backend/monitoring/prometheus/rules/backend-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/backend-alerts.yml"
-          cp backend/monitoring/prometheus/rules/logging-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/logging-alerts.yml"
-          cp backend/monitoring/prometheus/rules/host-alerts.yml "$DEPLOY_PATH/monitoring/prometheus/rules/host-alerts.yml"
-          cp backend/monitoring/alertmanager/alertmanager.yml "$DEPLOY_PATH/monitoring/alertmanager/alertmanager.yml"
-          cp backend/monitoring/grafana/provisioning/datasources/prometheus.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources/prometheus.yml"
-          cp backend/monitoring/grafana/provisioning/datasources/loki.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/datasources/loki.yml"
-          cp backend/monitoring/grafana/provisioning/dashboards/dashboards.yml "$DEPLOY_PATH/monitoring/grafana/provisioning/dashboards/dashboards.yml"
-          cp backend/monitoring/grafana/dashboards/backend-overview.json "$DEPLOY_PATH/monitoring/grafana/dashboards/backend-overview.json"
-          cp backend/monitoring/grafana/dashboards/logs.json "$DEPLOY_PATH/monitoring/grafana/dashboards/logs.json"
-          cp backend/monitoring/loki/loki.yml "$DEPLOY_PATH/monitoring/loki/loki.yml"
           cp backend/monitoring/alloy/config.alloy "$DEPLOY_PATH/monitoring/alloy/config.alloy"
-          cp backend/monitoring/alloy/write.dual.alloy "$DEPLOY_PATH/monitoring/alloy/write.dual.alloy"
-          install -m 600 /dev/null "$DEPLOY_PATH/secrets/discord-webhook-url"
-          printf '%s' "$DISCORD_WEBHOOK_URL" > "$DEPLOY_PATH/secrets/discord-webhook-url"
+          cp backend/monitoring/alloy/write.central.alloy "$DEPLOY_PATH/monitoring/alloy/write.central.alloy"
 
       - name: 이미지 교체 및 헬스체크
         env:
@@ -171,29 +149,6 @@ jobs:
 
           COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml"
           IMAGE_REPOSITORY="${NEW_IMAGE%:*}"
-
-          check_monitoring_connections() {
-            for i in $(seq 1 12); do
-              PROMETHEUS_READY=false
-              LOKI_READY=false
-
-              if $COMPOSE exec -T grafana curl -fsS http://prometheus:9090/-/ready > /dev/null 2>&1; then
-                PROMETHEUS_READY=true
-              fi
-              if $COMPOSE exec -T grafana curl -fsS http://loki:3100/ready > /dev/null 2>&1; then
-                LOKI_READY=true
-              fi
-
-              if [ "$PROMETHEUS_READY" = true ] && [ "$LOKI_READY" = true ]; then
-                echo "Grafana 데이터소스 연결 확인 성공 ($i번째 시도)"
-                return 0
-              fi
-
-              echo "Grafana 데이터소스 연결 대기 ($i/12, prometheus=$PROMETHEUS_READY, loki=$LOKI_READY)"
-              sleep 5
-            done
-            return 1
-          }
 
           cleanup_old_images() {
             CURRENT_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env 2>/dev/null | tail -n 1)"
@@ -240,7 +195,7 @@ jobs:
           $COMPOSE up -d app
           $COMPOSE up -d --no-deps nginx
           if ! $COMPOSE up -d; then
-            echo "일부 서비스 기동 실패 - 앱 헬스체크와 모니터링 복구 절차를 계속한다"
+            echo "일부 서비스 기동 실패 - 앱 헬스체크와 로컬 수집기 검사를 계속한다"
           fi
 
           # nginx.conf 는 bind mount라 파일이 바뀌어도 실행 중인 Nginx가 자동으로 다시 읽지 않는다.
@@ -248,11 +203,6 @@ jobs:
           echo "Nginx 설정 검사 및 리로드"
           $COMPOSE exec -T nginx nginx -t
           $COMPOSE exec -T nginx nginx -s reload
-
-          # 모니터링 설정은 위에서 cp 로 덮어쓰기만 해서 컨테이너가 재생성되지 않는다. Prometheus(알림 규칙)와
-          # Alertmanager 는 파일이 바뀌어도 스스로 다시 읽지 않으므로 SIGHUP 으로 다시 읽게 한다.
-          # 리로드 실패가 앱 배포를 막지는 않게 한다.
-          $COMPOSE kill -s SIGHUP prometheus alertmanager || echo "모니터링 설정 리로드 실패 - 수동으로 재시작 필요"
 
           echo "헬스체크 시작"
           # 8080이 아니라 80(nginx)을 확인한다 — ALB가 실제로 타는 경로 그대로 검증한다.
@@ -281,44 +231,33 @@ jobs:
             exit 1
           fi
 
-          echo "Grafana 데이터소스 연결 확인 시작"
-          if ! check_monitoring_connections; then
-            echo "연결 실패 - Prometheus, Loki, Grafana를 한 차례 재생성한다"
-            if ! $COMPOSE up -d --force-recreate prometheus loki grafana; then
-              echo "모니터링 컨테이너 재생성 중 기동 실패 - 연결 재검증을 계속한다"
-            fi
-
-            if ! check_monitoring_connections; then
-              echo "재생성 후에도 Grafana 데이터소스 연결에 실패했다"
-              $COMPOSE logs --tail 100 prometheus loki grafana || true
-              exit 1
-            fi
-          fi
-
-          # 모니터링 복구를 마친 뒤 Host 헤더로 Grafana 라우팅까지 확인한다.
-          echo "호스트 기반 라우팅 확인 시작"
-          GRAFANA_ROUTE_HEALTHY=false
-          for i in $(seq 1 30); do
-            if curl -fsS -H 'Host: monitor.ssssok.com' http://localhost/api/health > /dev/null 2>&1; then
-              echo "호스트 기반 라우팅 확인 성공 ($i번째 시도)"
-              GRAFANA_ROUTE_HEALTHY=true
-              break
-            fi
-            sleep 5
-          done
-          if [ "$GRAFANA_ROUTE_HEALTHY" != true ]; then
-            echo "Grafana 호스트 기반 라우팅 확인 실패"
-            $COMPOSE logs --tail 100 nginx grafana || true
-            exit 1
-          fi
-
-          # 기존 모니터링 복구·라우팅 확인을 마친 뒤 추가 관측 경로를 검사한다.
-          # set -e로 종료되더라도 앞선 복구 절차를 건너뛰지 않는다.
+          # 로컬 수집기를 검사한다. 중앙 연결 실패와 앱 롤백은 분리한다.
           $COMPOSE exec -T alloy /bin/alloy validate /etc/alloy/config
           $COMPOSE exec -T nginx wget -q -T 10 -O - --post-data='' http://alloy:12345/-/reload
 
           # 실패 시 정상 앱을 롤백하지 않고 배포 실패로 보고한다.
           bash monitoring/check-prod-node.sh
+
+      - name: 중앙 Loki 수신 확인 (앱 배포와 별도)
+        # 중앙 장애 때문에 정상 앱의 배포 결과·버전 태그를 되돌리지 않는다.
+        continue-on-error: true
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -eu
+          cd "$DEPLOY_PATH"
+          CENTRAL_URL=$(docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml exec -T alloy printenv CENTRAL_LOKI_URL)
+          payload=$(printf '{"streams":[{"stream":{"environment":"prod","service":"monitoring-deploy"},"values":[["%s","prod central deployment probe"]]}]}' "$(date +%s%N)")
+          if ! status=$(curl --noproxy '*' --silent --show-error --max-time 15 \
+            -H 'Content-Type: application/json' --data "$payload" -o /dev/null -w '%{http_code}' "$CENTRAL_URL"); then
+            echo '::warning::중앙 Loki 연결 실패. 앱 배포는 유지하며 중앙 수신 상태를 별도로 확인하세요.'
+            exit 1
+          fi
+          if [ "$status" != 204 ]; then
+            echo "::warning::중앙 Loki 수신 실패: HTTP $status. 앱 배포는 유지합니다."
+            exit 1
+          fi
+          echo '중앙 Loki 시험 로그 수신 확인 (실제 Alloy 로그 전송·조회는 별도 검증)'
 
   alias:
     name: 이미지 버전 별칭 발행

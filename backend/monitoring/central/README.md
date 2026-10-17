@@ -1,3 +1,64 @@
+## 모니터링 기본 주소 전환 (#468)
+
+중앙 Grafana의 기본 주소는 `https://monitor.ssssok.com/`이다.
+아래 `/central/` 초기 구성 기록은 이전 단계 기록이며 현재 접속 주소로 사용하지 않는다.
+기존 `/central`과 `/central/...` 경로는 더 이상 지원하지 않으며 404를 반환한다.
+이전 북마크·Discord 링크는 새 주소로 교체하고, 기존 화면은 새 기본 주소에서 다시 연다.
+Grafana Live는 새 `/api/live/ws` 경로에서만 제공한다.
+
+전환 순서:
+1. 중앙 CI를 통과한 이 변경 커밋으로 중앙 CD를 실행한다. `/health`는 유지하고 내부 Grafana 조회는 `/api/health`로 바뀐다.
+2. 대상 그룹 `sssok-monitoring-central`의 `10.0.20.46:80`이 Healthy인지 확인한다.
+3. ALB HTTPS:443 우선순위 5 규칙에서 호스트 `monitor.ssssok.com`과 전달 대상은 유지하고 `/central`, `/central/*` 경로 조건만 제거한다.
+4. 로그인, prod 지표·로그, 대시보드 간 링크, Discord 링크와 Grafana Live 연결을 확인한다.
+5. `/central`, `/central/`, `/central/api/live/ws`가 리다이렉트 없이 404를 반환하는지 확인한다.
+
+중앙 배포 완료부터 ALB 변경 전까지 기존 `/central/` 화면은 404를 반환하고 기본 주소는 기존 운영 Grafana로 연결된다.
+짧은 모니터링 화면 전환 구간을 확보하고 두 작업을 연속 진행한다. API 도메인 규칙은 변경하지 않는다.
+Nginx 재생성은 중앙 Loki 수신 포트도 잠시 중단할 수 있으므로 배포 후 Alloy 전송 재개·폐기 지표·최신 로그를 확인한다.
+실패하면 이전 중앙 설정으로 복원하고 ALB 5번의 경로 조건도 복원한다. ALB 변경은 중앙 CD의 자동 복구 범위에 포함되지 않는다.
+기존 운영 Grafana 제거와 서버 사양 조정은 이 주소 전환 검증 이후 진행한다.
+
+## 운영 수집기 전환 및 기존 서비스 중지 (#468)
+
+운영 Compose에는 앱·Nginx·Alloy·node-exporter·소켓 프록시만 남긴다.
+Alloy는 `write.central.alloy`로 중앙에만 전송하며 기존 `alloy-data`와 수집 위치를 유지한다.
+운영 Nginx는 API와 사설 수집 경로만 담당한다. 중앙 도메인 ALB 전환을 먼저 완료해야 한다.
+
+1. 운영 배포 전에 기존 `docker-compose.prod.yml`, `nginx.conf`, `monitoring/`을 권한 제한된 백업에 보관한다.
+   기존 실행 컨테이너의 Compose 프로젝트명·데이터 볼륨 이름과 재시작 정책도 기록한다.
+   `.env`와 웹훅 파일은 기존 위치에 보존하고 출력·Git 커밋하지 않는다.
+2. 중앙 기본 주소와 prod 지표·앱/Nginx 로그·app/host/logs 발생·복구 수신을 확인한다.
+3. 이 PR의 중앙 변경만 먼저 중앙 CD로 배포하고 ALB를 전환한다. 운영 구성은 별도의
+   `develop → main → deploy` 승격 후 운영 CD로 적용한다. 함께 배포되는 앱·DB 변경도 점검한다.
+4. 운영 CD는 앱 헬스체크, Nginx 검사·리로드, Alloy 검사·리로드 및 로컬 지표·접근 제한을 검사한다.
+   중앙 Loki 시험 로그는 별도 `continue-on-error` 단계다. 실패 시 경고를 남기되 정상 앱·태그 발행을 막지 않는다.
+   이 검사는 호스트에서 중앙 수신 가능 여부만 확인하며 실제 Alloy 전송·중앙 조회를 대신하지 않는다.
+5. 중앙에서 prod 수집 대상 3개와 최신 앱/Nginx 로그, 전송 실패·폐기 지표를 다시 확인한다.
+   기존 Loki 사본이 사라지므로 로그 유실 허용 범위·중앙 장애 대응을 확정하기 전에는 전환 완료로 보지 않는다.
+6. 위 검증을 통과한 뒤 운영 서버에서 아래 네 컨테이너만 중지한다. 최초 전환 때 담당자가 실행한다.
+
+```bash
+docker update --restart=no sssok-prometheus sssok-alertmanager sssok-grafana sssok-loki
+docker stop sssok-prometheus sssok-alertmanager sssok-grafana sssok-loki
+docker inspect --format '{{.Name}} running={{.State.Running}} restart={{.HostConfig.RestartPolicy.Name}}' \
+  sssok-prometheus sssok-alertmanager sssok-grafana sssok-loki
+```
+
+Compose 정의 제거는 기존 컨테이너 중지·데이터 삭제를 뜻하지 않는다. 배포는 기존 컨테이너를 자동 삭제하지 않으며
+전환 중에는 기존 Alertmanager와 중앙 알림이 중복될 수 있다. `down -v`, `--remove-orphans`, 볼륨 prune은 사용하지 않는다.
+중지 후 기존 컨테이너·볼륨은 복구용으로 보존하고 재배포·재시작 이후에도 중지 상태인지 확인한다.
+새 배포는 Grafana 비밀번호·모니터링 웹훅을 요구하지 않는다. 앱 의견 알림용 웹훅은 별개로 유지한다.
+
+앱 헬스체크 실패 시 기존 자동 롤백은 이미지와 버전 정보만 복구하며 모니터링 구성은 복원하지 않는다.
+모니터링 전환을 되돌리려면 백업 설정을 원래 경로에 복원하고 같은 Compose 프로젝트명으로 실행한다.
+먼저 중앙 해당 prod 알림 묶음의 발송을 해제·확인한 뒤 기존 발송을 켜서 중복을 피한다.
+중지했던 네 컨테이너의 재시작 정책도 기록한 값으로 복원하고, 이중 로그 전송·수집·알림을 재검증한다.
+앱 이미지 롤백과 모니터링 설정 복구는 구분하며, 이전 워크플로를 무작정 재실행하지 않는다.
+
+중앙 자체 장애의 외부 감시, 장애 후 로그 전송 재개, 대표 부하의 CPU·메모리·Swap을 확인한다.
+사양 변경은 이 코드 배포와 동시에 진행하지 않으며 측정·목표 사양·원복 기준을 정한 후 서버별로 순차 적용한다.
+
 # 중앙 모니터링 기동 검증 (#468, 1단계)
 
 ## 최신 서버 적용 상태 (2026-10-13)

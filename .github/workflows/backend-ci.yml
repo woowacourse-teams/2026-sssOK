@@ -179,7 +179,7 @@ jobs:
       - name: 배포 전 사설 IP 검사 검증
         run: python3 -B backend/monitoring/test-private-ip.py
 
-      - name: 운영 관측 검사 실패 시 복구 순서 검증
+      - name: 운영 중앙 전송 구성 및 관측 장애 처리 검증
         run: python3 -B backend/monitoring/test-prod-deploy.py
       - name: 로컬·개발·운영 Alloy 설정 검증
         run: |
