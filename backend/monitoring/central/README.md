@@ -2,17 +2,18 @@
 
 중앙 Grafana의 기본 주소는 `https://monitor.ssssok.com/`이다.
 아래 `/central/` 초기 구성 기록은 이전 단계 기록이며 현재 접속 주소로 사용하지 않는다.
-기존 `/central`과 `/central/...` 링크는 중앙 Nginx에서 루트 경로로 임시 리다이렉트한다.
-쿼리 문자열은 유지하며 Grafana Live 업그레이드 헤더도 유지한다.
+기존 `/central`과 `/central/...` 경로는 더 이상 지원하지 않으며 404를 반환한다.
+이전 북마크·Discord 링크는 새 주소로 교체하고, 기존 화면은 새 기본 주소에서 다시 연다.
+Grafana Live는 새 `/api/live/ws` 경로에서만 제공한다.
 
 전환 순서:
 1. 중앙 CI를 통과한 이 변경 커밋으로 중앙 CD를 실행한다. `/health`는 유지하고 내부 Grafana 조회는 `/api/health`로 바뀐다.
 2. 대상 그룹 `sssok-monitoring-central`의 `10.0.20.46:80`이 Healthy인지 확인한다.
 3. ALB HTTPS:443 우선순위 5 규칙에서 호스트 `monitor.ssssok.com`과 전달 대상은 유지하고 `/central`, `/central/*` 경로 조건만 제거한다.
 4. 로그인, prod 지표·로그, 대시보드 간 링크, Discord 링크와 Grafana Live 연결을 확인한다.
-5. 이전 `/central/d/...` 링크의 경로·쿼리 보존을 확인한다.
+5. `/central`, `/central/`, `/central/api/live/ws`가 리다이렉트 없이 404를 반환하는지 확인한다.
 
-중앙 배포 완료부터 ALB 변경 전까지 `/central/`에서 루트로 이동하면 기존 운영 Grafana로 연결될 수 있다.
+중앙 배포 완료부터 ALB 변경 전까지 기존 `/central/` 화면은 404를 반환하고 기본 주소는 기존 운영 Grafana로 연결된다.
 짧은 모니터링 화면 전환 구간을 확보하고 두 작업을 연속 진행한다. API 도메인 규칙은 변경하지 않는다.
 Nginx 재생성은 중앙 Loki 수신 포트도 잠시 중단할 수 있으므로 배포 후 Alloy 전송 재개·폐기 지표·최신 로그를 확인한다.
 실패하면 이전 중앙 설정으로 복원하고 ALB 5번의 경로 조건도 복원한다. ALB 변경은 중앙 CD의 자동 복구 범위에 포함되지 않는다.
