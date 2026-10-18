@@ -10,13 +10,13 @@
     {
       "title": "중앙 앱 상태",
       "type": "link",
-      "url": "/central/d/sssok-central-backend?var-environment=${environment}",
+      "url": "/d/sssok-central-backend?var-environment=${environment}",
       "keepTime": true
     },
     {
       "title": "중앙 로그",
       "type": "link",
-      "url": "/central/d/sssok-central-logs?var-environment=${environment}",
+      "url": "/d/sssok-central-logs?var-environment=${environment}",
       "keepTime": true
     }
   ],
@@ -67,7 +67,7 @@
           "links": [
             {
               "title": "같은 시간대 로그",
-              "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+              "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
             }
           ]
         },
@@ -161,7 +161,7 @@
           "links": [
             {
               "title": "같은 시간대 로그",
-              "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+              "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
             }
           ]
         },
@@ -234,7 +234,7 @@
           "links": [
             {
               "title": "같은 시간대 로그",
-              "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+              "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
             }
           ]
         },
@@ -313,7 +313,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -393,7 +393,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -473,7 +473,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -609,7 +609,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -703,7 +703,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -748,14 +748,14 @@
             {
               "refId": "C",
               "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",environment=\"$environment\",kind=\"image\",source=\"sweeper\",result=\"accepted\"}[$window]))",
-              "legendFormat": "사진 · 회수 처리 · 접수",
+              "legendFormat": "사진 · 재시도 처리 · 접수",
               "range": true,
               "editorMode": "code"
             },
             {
               "refId": "D",
               "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",environment=\"$environment\",kind=\"image\",source=\"sweeper\",result=\"rejected\"}[$window]))",
-              "legendFormat": "사진 · 회수 처리 · 거절",
+              "legendFormat": "사진 · 재시도 처리 · 거절",
               "range": true,
               "editorMode": "code"
             },
@@ -776,19 +776,19 @@
             {
               "refId": "G",
               "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",environment=\"$environment\",kind=\"video\",source=\"sweeper\",result=\"accepted\"}[$window]))",
-              "legendFormat": "영상 · 회수 처리 · 접수",
+              "legendFormat": "영상 · 재시도 처리 · 접수",
               "range": true,
               "editorMode": "code"
             },
             {
               "refId": "H",
               "expr": "sum (increase(sssok_media_submissions_total{job=\"sssok-backend\",environment=\"$environment\",kind=\"video\",source=\"sweeper\",result=\"rejected\"}[$window]))",
-              "legendFormat": "영상 · 회수 처리 · 거절",
+              "legendFormat": "영상 · 재시도 처리 · 거절",
               "range": true,
               "editorMode": "code"
             }
           ],
-          "title": "최초·회수 작업 접수 / 거절",
+          "title": "최초·재시도 작업 접수 / 거절",
           "type": "timeseries",
           "description": "실행기에 제출한 횟수. 접수는 처리 완료를 의미하지 않습니다. 사진=공용 실행기, 영상=영상 실행기."
         },
@@ -825,7 +825,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -889,7 +889,7 @@
               "editorMode": "code"
             }
           ],
-          "title": "회수 처리 결과",
+          "title": "재시도 처리 결과",
           "type": "timeseries",
           "description": "회수 경로로 실제 실행된 작업의 결과. 재제출 건수가 아닌 처리 결과이며 고유 파일의 최종 복구율은 아닙니다."
         }
@@ -940,7 +940,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -976,9 +976,9 @@
               "editorMode": "code"
             }
           ],
-          "title": "최근 회수 배치 발견 수",
+          "title": "최근 임대 만료 회수 수",
           "type": "timeseries",
-          "description": "마지막 배치가 선택한 장기 PROCESSING 항목 수(현재 상한 50). 전체 적체 수가 아닙니다. 배치 시각과 함께 확인하세요."
+          "description": "최근 회수 주기가 찾은 임대 만료 작업 수. 기본 최대 50건, 10초 주기입니다."
         },
         {
           "datasource": {
@@ -1013,7 +1013,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1051,7 +1051,7 @@
           ],
           "title": "마지막 정상 회수 배치 이후",
           "type": "timeseries",
-          "description": "배치가 조회·제출 루프를 완료한 뒤 경과 시간. 0건 조회도 정상 실행입니다. 실행 전에는 데이터 없음. 기본 실행 간격은 5분입니다."
+          "description": "임대 회수 주기 완료 후 경과 시간. 기본 10초 간격이며 처리 대기열 디스패치와 별개입니다."
         },
         {
           "datasource": {
@@ -1086,7 +1086,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1173,7 +1173,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1246,7 +1246,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1326,7 +1326,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1399,7 +1399,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1479,7 +1479,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1552,7 +1552,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1603,7 +1603,7 @@
     {
       "id": 23,
       "type": "row",
-      "title": "실행기 포화 · 사진 / ZIP 공용과 영상 전용",
+      "title": "실행기 · 사진 전용 / 영상 전용 / 공용",
       "collapsed": true,
       "panels": [
         {
@@ -1639,7 +1639,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1669,7 +1669,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "executor_queued_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_queued_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 대기",
               "range": true,
               "editorMode": "code"
@@ -1712,7 +1712,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1742,14 +1742,14 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "executor_active_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_active_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 활성",
               "range": true,
               "editorMode": "code"
             },
             {
               "refId": "B",
-              "expr": "executor_pool_max_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_pool_max_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 최대",
               "range": true,
               "editorMode": "code"
@@ -1757,7 +1757,7 @@
           ],
           "title": "실행기 활성 스레드 / 최대",
           "type": "timeseries",
-          "description": "큐와 함께 확인합니다. 큐가 가득 찬 뒤 최대 스레드까지 늘어나는 구조입니다."
+          "description": "사진·영상 풀은 고정 크기이며 메모리 대기열이 없습니다. 대기량은 DB 작업 상태 패널에서 확인합니다."
         },
         {
           "datasource": {
@@ -1792,7 +1792,7 @@
               "links": [
                 {
                   "title": "같은 시간대 로그",
-                  "url": "/central/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
                 }
               ]
             },
@@ -1822,7 +1822,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 남은 슬롯",
               "range": true,
               "editorMode": "code"
@@ -1830,7 +1830,7 @@
           ],
           "title": "실행기 남은 큐 용량",
           "type": "timeseries",
-          "description": "0에 가까워지면서 활성 스레드가 최대에 닿으면 제출 거부 가능성이 커집니다."
+          "description": "공용 풀의 메모리 큐 용량입니다. 썸네일 전용 풀은 큐 용량 0이 정상이며 DB에 대기 작업을 보존합니다."
         }
       ],
       "gridPos": {
@@ -1839,6 +1839,326 @@
         "w": 24,
         "h": 1
       }
+    },
+    {
+      "id": 27,
+      "title": "썸네일 DB 작업 대기열",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              "unit": "short",
+              "min": 0,
+              "noValue": "데이터 없음",
+              "links": [
+                {
+                  "title": "같은 시간대 로그",
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 14,
+            "w": 12,
+            "h": 8
+          },
+          "id": 28,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sssok_thumbnail_jobs{job=\"sssok-backend\",environment=\"$environment\"}",
+              "legendFormat": "{{state}}",
+              "range": true,
+              "editorMode": "code"
+            }
+          ],
+          "title": "DB 작업 상태",
+          "type": "timeseries",
+          "description": "30초 스냅샷. PENDING·RUNNING·RETRY_WAIT·최종 상태를 구분합니다."
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              "unit": "s",
+              "min": 0,
+              "noValue": "데이터 없음",
+              "links": [
+                {
+                  "title": "같은 시간대 로그",
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 14,
+            "w": 12,
+            "h": 8
+          },
+          "id": 29,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sssok_thumbnail_wait_oldest_seconds{job=\"sssok-backend\",environment=\"$environment\"}",
+              "legendFormat": "대기 시간",
+              "range": true,
+              "editorMode": "code"
+            }
+          ],
+          "title": "가장 오래된 실행 가능 대기",
+          "type": "timeseries",
+          "description": "실행 예정 시각을 지난 가장 오래된 대기의 경과 시간. 미래 백오프는 0입니다."
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              "unit": "s",
+              "min": 0,
+              "noValue": "데이터 없음",
+              "links": [
+                {
+                  "title": "같은 시간대 로그",
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 22,
+            "w": 12,
+            "h": 8
+          },
+          "id": 30,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "histogram_quantile(0.95, sum by (le,kind) (rate(sssok_thumbnail_ready_latency_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+              "legendFormat": "{{kind}} p95",
+              "range": true,
+              "editorMode": "code"
+            }
+          ],
+          "title": "등록 → READY 지연 p95",
+          "type": "timeseries",
+          "description": "DB 작업 접수부터 READY까지 대기·재시도를 포함합니다. 성공한 작업만 집계합니다."
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "lineInterpolation": "linear",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                }
+              },
+              "unit": "short",
+              "min": 0,
+              "noValue": "데이터 없음",
+              "links": [
+                {
+                  "title": "같은 시간대 로그",
+                  "url": "/d/sssok-central-logs?var-environment=${environment}&${__url_time_range}"
+                }
+              ]
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 22,
+            "w": 12,
+            "h": 8
+          },
+          "id": 31,
+          "options": {
+            "legend": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "expr": "sssok_thumbnail_retried_total{job=\"sssok-backend\",environment=\"$environment\"}",
+              "legendFormat": "재시도",
+              "range": true,
+              "editorMode": "code"
+            },
+            {
+              "refId": "B",
+              "expr": "sssok_thumbnail_failed_total{job=\"sssok-backend\",environment=\"$environment\"}",
+              "legendFormat": "최종 실패",
+              "range": true,
+              "editorMode": "code"
+            },
+            {
+              "refId": "C",
+              "expr": "sssok_thumbnail_recovered_total{job=\"sssok-backend\",environment=\"$environment\"}",
+              "legendFormat": "임대 회수",
+              "range": true,
+              "editorMode": "code"
+            }
+          ],
+          "title": "재시도 · 최종 실패 · 임대 회수",
+          "type": "timeseries",
+          "description": "인스턴스 기동 이후 누적 횟수입니다."
+        }
+      ]
     }
   ],
   "refresh": "60s",

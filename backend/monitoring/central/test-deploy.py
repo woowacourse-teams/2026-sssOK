@@ -212,7 +212,7 @@ class DeploymentTest(unittest.TestCase):
 
     def test_bad_notification_selection_stops_before_backup_or_server_changes(self):
         d = self.deployment
-        (self.target / notifications.SELECTION).write_text('{"prod": ["app"]}')
+        (self.target / notifications.SELECTION).write_text('{"staging": ["app"]}')
         with patch.object(d, 'snapshot_grafana') as snapshot, \
              patch.object(d, 'compose') as compose, patch.object(d, 'apply_services') as apply:
             with self.assertRaisesRegex(RuntimeError, '선택 형식'):

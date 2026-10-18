@@ -3,11 +3,14 @@ package com.sssok.application.media;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.ProcessedMedia;
@@ -16,13 +19,18 @@ import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
+import com.sssok.support.H2IntegrationTest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 // Repository + Service 통합 테스트 (H2). 방 존재·만료·입장 여부는 RoomMembershipInterceptor 가
 // 컨트롤러 앞에서 거르므로 여기서는 다루지 않는다.
@@ -47,6 +55,12 @@ class GetMediaListServiceTest {
     @Autowired
     JdbcTemplate jdbcTemplate;
 
+    @MockitoSpyBean
+    MediaUrlResolver mediaUrlResolver;
+
+    @MockitoSpyBean
+    FileStoragePort storage;
+
     private Long uploaderId;
 
     // 이 테스트는 롤백되지 않으므로 방 전용 id 를 쓰고 직접 비운다.
@@ -65,6 +79,41 @@ class GetMediaListServiceTest {
         List<MediaDetail> media = getMediaListService.list(ROOM_ID, null);
 
         assertThat(media).extracting(MediaDetail::mediaId).containsExactly(file.getId());
+    }
+
+    @Test
+    void 전체_목록은_URL을_재사용하지만_삭제된_미디어는_반환하지_않는다() {
+        StoredFile file = save(ROOM_ID, UploadStatus.READY, Instant.now());
+        var first = getMediaListService.list(ROOM_ID, null).getFirst();
+        Mockito.clearInvocations(storage);
+
+        var second = getMediaListService.list(ROOM_ID, null).getFirst();
+
+        assertThat(second.displayUrl()).isEqualTo(first.displayUrl());
+        assertThat(second.displayUrlExpiresAt()).isEqualTo(first.displayUrlExpiresAt());
+        Mockito.verify(storage, Mockito.never()).presignGet(
+            any(), ArgumentMatchers.anyString(),
+            ArgumentMatchers.anyString(), any());
+        // 캐시가 남아 있어도 DB 상태가 응답 여부를 결정한다.
+        fileRepository.deleteAllByIdIn(List.of(file.getId()));
+        assertThat(getMediaListService.list(ROOM_ID, null)).isEmpty();
+    }
+
+    // URL 서명을 트랜잭션 안에서 하면 사진 수만큼 DB 커넥션을 오래 쥐어, 동시 요청이 몰릴 때 커넥션이 바닥난다(#538).
+    @Test
+    void 전체_목록의_URL_서명은_트랜잭션_밖에서_한다() {
+        save(ROOM_ID, UploadStatus.READY, Instant.now());
+        save(ROOM_ID, UploadStatus.READY, Instant.now());
+        List<Boolean> inTransaction = new ArrayList<>();
+        doAnswer(invocation -> {
+            inTransaction.add(TransactionSynchronizationManager.isActualTransactionActive());
+            return invocation.callRealMethod();
+        }).when(mediaUrlResolver).resolve(any());
+
+        List<MediaDetail> media = getMediaListService.list(ROOM_ID, null, uploaderId, MediaUploaderFilter.ALL);
+
+        assertThat(media).hasSize(2);
+        assertThat(inTransaction).hasSize(2).containsOnly(false);
     }
 
     @Test

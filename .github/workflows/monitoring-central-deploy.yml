@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: monitoring-central-deploy
@@ -45,11 +46,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: 중앙 설정과 배포 실패 복구 검사
+      - name: 지정 커밋의 중앙 CI 통과 확인
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          DEPLOY_COMMIT: ${{ steps.commit.outputs.sha }}
         run: |
-          python3 backend/monitoring/central/validate.py
-          python3 backend/monitoring/central/test-dashboards.py
-          python3 backend/monitoring/central/test-deploy.py
+          set -euo pipefail
+          CI_RUN=$(gh run list --workflow monitoring-central-ci.yml \
+            --commit "$DEPLOY_COMMIT" --branch develop --event push --status success \
+            --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$CI_RUN" ]; then
+            echo '::error::이 커밋의 develop push 중앙 CI 성공 기록이 없습니다. 해당 CI를 완료하거나 재실행하세요.'
+            exit 1
+          fi
+          echo "중앙 CI 성공 확인: $CI_RUN (commit=$DEPLOY_COMMIT)"
       - name: 허용된 배포 파일만 패키징
         run: |
           python3 - <<'PY'

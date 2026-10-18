@@ -72,6 +72,8 @@ dependencies {
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
 
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
     // AWS SDK S3 (Cloudflare R2)
     implementation 'software.amazon.awssdk:s3:2.25.0'
 

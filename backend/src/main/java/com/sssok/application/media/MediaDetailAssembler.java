@@ -34,28 +34,51 @@ public class MediaDetailAssembler {
         return assemble(files, viewerId, mediaUrlResolver::resolve);
     }
 
-    private List<MediaDetail> assemble(List<StoredFile> files, Long viewerId,
-                                       Function<StoredFile, MediaUrls> urls) {
+    // DB 조회와 URL 서명을 나눠 부를 수 있게 한다. 사진이 많은 목록은 서명이 CPU 를 오래 쓰므로,
+    // 호출하는 쪽이 load 만 트랜잭션 안에서 하고 toDetails 는 커넥션을 돌려준 뒤 부른다.
+    public LoadedMedia load(List<StoredFile> files, Long viewerId) {
         if (files.isEmpty()) {
-            return List.of();
+            return LoadedMedia.EMPTY;
         }
         List<Long> mediaIds = files.stream().map(StoredFile::getId).toList();
-        Map<Long, List<Long>> folderIds = folderMediaRepository.findFolderIdsByMedia(mediaIds);
-        Map<Long, String> uploaderNames = uploaderNames(files);
-        Map<Long, Long> likeCounts = mediaLikeRepository.countByMediaIds(mediaIds);
-        Set<Long> likedByViewer = viewerId == null
-            ? Set.of()
-            : mediaLikeRepository.findLikedMediaIds(viewerId, mediaIds);
+        return new LoadedMedia(
+            files,
+            folderMediaRepository.findFolderIdsByMedia(mediaIds),
+            uploaderNames(files),
+            mediaLikeRepository.countByMediaIds(mediaIds),
+            viewerId == null ? Set.of() : mediaLikeRepository.findLikedMediaIds(viewerId, mediaIds));
+    }
 
-        return files.stream()
+    public List<MediaDetail> toDetails(LoadedMedia loaded) {
+        return toDetails(loaded, mediaUrlResolver::resolve);
+    }
+
+    private List<MediaDetail> assemble(List<StoredFile> files, Long viewerId,
+                                       Function<StoredFile, MediaUrls> urls) {
+        return toDetails(load(files, viewerId), urls);
+    }
+
+    private List<MediaDetail> toDetails(LoadedMedia loaded, Function<StoredFile, MediaUrls> urls) {
+        return loaded.files().stream()
             .map(file -> MediaDetail.of(
                 file,
-                uploaderNames.get(file.getUploaderId()),
-                folderIds.getOrDefault(file.getId(), List.of()),
+                loaded.uploaderNames().get(file.getUploaderId()),
+                loaded.folderIds().getOrDefault(file.getId(), List.of()),
                 urls.apply(file),
-                likeCounts.getOrDefault(file.getId(), 0L),
-                likedByViewer.contains(file.getId())))
+                loaded.likeCounts().getOrDefault(file.getId(), 0L),
+                loaded.likedByViewer().contains(file.getId())))
             .toList();
+    }
+
+    // 응답을 만드는 데 필요한 DB 값을 모아 둔다. 파일 행은 지연 로딩 연관이 없어 트랜잭션 밖에서 읽어도 된다.
+    public record LoadedMedia(
+        List<StoredFile> files,
+        Map<Long, List<Long>> folderIds,
+        Map<Long, String> uploaderNames,
+        Map<Long, Long> likeCounts,
+        Set<Long> likedByViewer
+    ) {
+        private static final LoadedMedia EMPTY = new LoadedMedia(List.of(), Map.of(), Map.of(), Map.of(), Set.of());
     }
 
     // 방을 나간 사람이 올린 사진은 회원 행이 없을 수 있어, 이름이 빠진 채로 내려간다.

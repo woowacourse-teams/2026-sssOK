@@ -1,3 +1,64 @@
+## 모니터링 기본 주소 전환 (#468)
+
+중앙 Grafana의 기본 주소는 `https://monitor.ssssok.com/`이다.
+아래 `/central/` 초기 구성 기록은 이전 단계 기록이며 현재 접속 주소로 사용하지 않는다.
+기존 `/central`과 `/central/...` 경로는 더 이상 지원하지 않으며 404를 반환한다.
+이전 북마크·Discord 링크는 새 주소로 교체하고, 기존 화면은 새 기본 주소에서 다시 연다.
+Grafana Live는 새 `/api/live/ws` 경로에서만 제공한다.
+
+전환 순서:
+1. 중앙 CI를 통과한 이 변경 커밋으로 중앙 CD를 실행한다. `/health`는 유지하고 내부 Grafana 조회는 `/api/health`로 바뀐다.
+2. 대상 그룹 `sssok-monitoring-central`의 `10.0.20.46:80`이 Healthy인지 확인한다.
+3. ALB HTTPS:443 우선순위 5 규칙에서 호스트 `monitor.ssssok.com`과 전달 대상은 유지하고 `/central`, `/central/*` 경로 조건만 제거한다.
+4. 로그인, prod 지표·로그, 대시보드 간 링크, Discord 링크와 Grafana Live 연결을 확인한다.
+5. `/central`, `/central/`, `/central/api/live/ws`가 리다이렉트 없이 404를 반환하는지 확인한다.
+
+중앙 배포 완료부터 ALB 변경 전까지 기존 `/central/` 화면은 404를 반환하고 기본 주소는 기존 운영 Grafana로 연결된다.
+짧은 모니터링 화면 전환 구간을 확보하고 두 작업을 연속 진행한다. API 도메인 규칙은 변경하지 않는다.
+Nginx 재생성은 중앙 Loki 수신 포트도 잠시 중단할 수 있으므로 배포 후 Alloy 전송 재개·폐기 지표·최신 로그를 확인한다.
+실패하면 이전 중앙 설정으로 복원하고 ALB 5번의 경로 조건도 복원한다. ALB 변경은 중앙 CD의 자동 복구 범위에 포함되지 않는다.
+기존 운영 Grafana 제거와 서버 사양 조정은 이 주소 전환 검증 이후 진행한다.
+
+## 운영 수집기 전환 및 기존 서비스 중지 (#468)
+
+운영 Compose에는 앱·Nginx·Alloy·node-exporter·소켓 프록시만 남긴다.
+Alloy는 `write.central.alloy`로 중앙에만 전송하며 기존 `alloy-data`와 수집 위치를 유지한다.
+운영 Nginx는 API와 사설 수집 경로만 담당한다. 중앙 도메인 ALB 전환을 먼저 완료해야 한다.
+
+1. 운영 배포 전에 기존 `docker-compose.prod.yml`, `nginx.conf`, `monitoring/`을 권한 제한된 백업에 보관한다.
+   기존 실행 컨테이너의 Compose 프로젝트명·데이터 볼륨 이름과 재시작 정책도 기록한다.
+   `.env`와 웹훅 파일은 기존 위치에 보존하고 출력·Git 커밋하지 않는다.
+2. 중앙 기본 주소와 prod 지표·앱/Nginx 로그·app/host/logs 발생·복구 수신을 확인한다.
+3. 이 PR의 중앙 변경만 먼저 중앙 CD로 배포하고 ALB를 전환한다. 운영 구성은 별도의
+   `develop → main → deploy` 승격 후 운영 CD로 적용한다. 함께 배포되는 앱·DB 변경도 점검한다.
+4. 운영 CD는 앱 헬스체크, Nginx 검사·리로드, Alloy 검사·리로드 및 로컬 지표·접근 제한을 검사한다.
+   중앙 Loki 시험 로그는 별도 `continue-on-error` 단계다. 실패 시 경고를 남기되 정상 앱·태그 발행을 막지 않는다.
+   이 검사는 호스트에서 중앙 수신 가능 여부만 확인하며 실제 Alloy 전송·중앙 조회를 대신하지 않는다.
+5. 중앙에서 prod 수집 대상 3개와 최신 앱/Nginx 로그, 전송 실패·폐기 지표를 다시 확인한다.
+   기존 Loki 사본이 사라지므로 로그 유실 허용 범위·중앙 장애 대응을 확정하기 전에는 전환 완료로 보지 않는다.
+6. 위 검증을 통과한 뒤 운영 서버에서 아래 네 컨테이너만 중지한다. 최초 전환 때 담당자가 실행한다.
+
+```bash
+docker update --restart=no sssok-prometheus sssok-alertmanager sssok-grafana sssok-loki
+docker stop sssok-prometheus sssok-alertmanager sssok-grafana sssok-loki
+docker inspect --format '{{.Name}} running={{.State.Running}} restart={{.HostConfig.RestartPolicy.Name}}' \
+  sssok-prometheus sssok-alertmanager sssok-grafana sssok-loki
+```
+
+Compose 정의 제거는 기존 컨테이너 중지·데이터 삭제를 뜻하지 않는다. 배포는 기존 컨테이너를 자동 삭제하지 않으며
+전환 중에는 기존 Alertmanager와 중앙 알림이 중복될 수 있다. `down -v`, `--remove-orphans`, 볼륨 prune은 사용하지 않는다.
+중지 후 기존 컨테이너·볼륨은 복구용으로 보존하고 재배포·재시작 이후에도 중지 상태인지 확인한다.
+새 배포는 Grafana 비밀번호·모니터링 웹훅을 요구하지 않는다. 앱 의견 알림용 웹훅은 별개로 유지한다.
+
+앱 헬스체크 실패 시 기존 자동 롤백은 이미지와 버전 정보만 복구하며 모니터링 구성은 복원하지 않는다.
+모니터링 전환을 되돌리려면 백업 설정을 원래 경로에 복원하고 같은 Compose 프로젝트명으로 실행한다.
+먼저 중앙 해당 prod 알림 묶음의 발송을 해제·확인한 뒤 기존 발송을 켜서 중복을 피한다.
+중지했던 네 컨테이너의 재시작 정책도 기록한 값으로 복원하고, 이중 로그 전송·수집·알림을 재검증한다.
+앱 이미지 롤백과 모니터링 설정 복구는 구분하며, 이전 워크플로를 무작정 재실행하지 않는다.
+
+중앙 자체 장애의 외부 감시, 장애 후 로그 전송 재개, 대표 부하의 CPU·메모리·Swap을 확인한다.
+사양 변경은 이 코드 배포와 동시에 진행하지 않으며 측정·목표 사양·원복 기준을 정한 후 서버별로 순차 적용한다.
+
 # 중앙 모니터링 기동 검증 (#468, 1단계)
 
 ## 최신 서버 적용 상태 (2026-10-13)
@@ -125,7 +186,9 @@ GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ubunt
 1. 워크플로가 기본 브랜치에 있어야 GitHub에서 수동 실행할 수 있다.
    [GitHub 수동 실행 문서](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow).
    실행 브랜치는 develop 또는 main이며, 입력 `commit`은 develop에 포함된 전체 40자리 SHA다.
-2. GitHub-hosted 러너가 해당 SHA를 checkout하고 설정·대시보드·복구 시험을 통과시킨다.
+2. GitHub-hosted 러너가 해당 SHA를 checkout하고 **동일 SHA의 develop push 중앙 CI 성공 기록**을 확인한다.
+   PR의 가상 병합 SHA나 다른 커밋의 성공 기록은 사용하지 않는다. 성공 기록이 없거나 API 조회가 실패하면 배포를 중단한다.
+   해당 push CI를 완료하거나 재실행한 뒤 CD를 다시 실행한다. 설정·대시보드·복구 시험은 CI에서 실행하고 CD에서 반복하지 않는다.
    허용 목록의 파일만 같은 실행의 artifact로 전달한다. `.env`는 포함하지 않는다.
 3. 중앙 전용 러너가 `/home/ubuntu/monitoring`의 기존 6개 서비스·이미지 ID·메모리 한도·
    데이터 볼륨을 대조한다. 이미지 업그레이드나 볼륨 변경은 이 배포에서 거절한다.
@@ -419,7 +482,7 @@ node_exporter 기동은 로컬에서 확인하지 못했다. EC2에서 `bash che
 ### Discord 연결 준비 — 아직 발송·배포하지 않음
 
 `notifications.py`는 현재 설정의 그룹화·중복 억제 규칙을 유지하면서 **검토용 후보**를 생성한다.
-CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다. 기본 Compose와 저장소의 `alertmanager.yml`은 계속 무발송 상태이며, 코드 병합만으로 발송이 켜지지 않는다.
+CD는 서버의 `discord-selection.json`을 읽어 후보를 생성한다. 선택 파일이 없거나 모든 환경의 목록이 비어 있으면 무발송이다. 기본 Compose와 저장소의 `alertmanager.yml`은 계속 무발송 상태이며, 코드 병합만으로 발송이 켜지지 않는다.
 
 | 선택 | 포함하는 개발 알림 | 확인할 화면 |
 | --- | --- | --- |
@@ -438,7 +501,7 @@ python3 notifications.py --enable-dev app
 python3 notifications.py --enable-dev app --enable-dev logs
 ```
 
-- **라우팅**은 누가 받을지를 결정한다. `environment=dev`, `server=dev`, 선택한 알림 이름을 모두 만족해야 `discord-dev`로 간다. 나머지와 운영·중앙 알림은 기존 무발송 수신자로 간다.
+- **라우팅**은 누가 받을지를 결정한다. `environment=dev`, `server=dev`, 선택한 알림 이름을 모두 만족해야 `discord-dev`로 간다. 운영도 별도 선택한 묶음에 한해 `environment=prod`, `server=prod`를 모두 만족하면 `discord-prod`로 간다. 선택하지 않은 알림과 중앙 알림은 무발송이다.
 - **메시지 템플릿**은 무엇을 보여줄지를 결정한다. 발생/복구 상태, 환경·서버·심각도, 로그 전송 목적지(`host`), 유실 사유와 중앙 Grafana 링크를 넣는다. 최대 3개 알림의 요약·설명을 길이 제한하여 표시한다. 누락한 상세는 대시보드에서 확인한다.
 - **복구 알림**은 `send_resolved: true`로 설정한다. 실제 Discord 수신·전송 성공을 확인한 것은 아니며, 이번 검증은 라우팅과 메시지 렌더링까지다.
 - **비밀값**은 `/run/secrets/central_discord_webhook` 파일로 읽는다. `compose.discord.yml`의 환경변수 기반 secret이 서버 `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL`을 전달한다. Python은 비밀 파일 생성·chown·버전별 보관을 하지 않는다. 현재 고정한 Alertmanager 이미지의 사용자 65534에 맞춰 Compose에 uid/gid 65534, mode 0400을 선언하고 실제 이미지로 읽기 검증한다. 이미지 사용자 변경 시 선언도 함께 검증해야 한다. URL을 Git·명령 인수·CI 로그에 넣지 않는다.
@@ -459,7 +522,7 @@ python3 notifications.py --enable-dev app --enable-dev logs
 | `compose.discord.yml` | 저장소 | 환경변수 기반 secret과 컨테이너 내 권한 선언 |
 | `alertmanager.yml`, `compose.notifications.yml` | CD | 선택에 따라 생성한 설정. 실패 시 이전 설정 복원 |
 
-1. 배포 잠금을 획득하고 선택을 검사한다. 선택 파일이 없거나 `{"dev": []}`이면 무발송이다.
+1. 배포 잠금을 획득하고 선택을 검사한다. 선택 파일이 없거나 모든 환경의 목록이 비어 있으면 무발송이다.
 2. 후보 설정을 생성한다. 선택한 묶음이 있을 때만 Compose secret 선언을 포함한다.
 3. 실제 이미지·네트워크 차단 컨테이너에서 `.env` 값 전달, URL 형식, 파일 읽기, Alertmanager 문법을 검사한다. 누락·오류는 기존 서비스 중단 전에 실패한다. Docker Compose의 dotenv 해석을 사용하고 셸의 동명 변수는 제거한다.
 4. 기존 실행 설정이 환경변수 secret을 사용하면 컨테이너에서 이전 값을 읽어 배포 프로세스 메모리에만 보관한다. 읽을 수 없으면 중단한다.
@@ -467,7 +530,7 @@ python3 notifications.py --enable-dev app --enable-dev logs
 
 **복구 범위:** 같은 배포 실행 안의 자동 복구는 직전 웹훅을 사용한다. 과거 웹훅 파일을 서버에 누적하지 않으므로, 프로세스 강제 종료 후 수동 복원 또는 과거 백업 복원에는 현재 `.env` 값이 사용된다. 이전 발송 대상이 필요하면 담당자가 `.env`를 복원해야 한다. `.env`의 새 값과 서버 선택은 자동 복구 후에도 다음 배포 의도로 남는다. 이미 폐기한 Discord 웹훅은 복구할 수 없다.
 
-알림 연결 후 수동 Compose 조작에는 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 발송 해제는 선택을 `{"dev": []}`로 변경한 뒤 중앙 CD로 배포한다. 배포 중에는 `.env`와 선택을 바꾸지 않는다. 실제 서버 적용·Discord 수신은 별도 확인한다.
+알림 연결 후 수동 Compose 조작에는 `compose.yml`, `compose.web.yml`, **`compose.notifications.yml` 세 파일**을 함께 지정한다. 발송 해제는 해당 환경의 목록을 비우고 중앙 CD로 배포한다. 다른 환경의 선택은 유지한다. 배포 중에는 `.env`와 선택을 바꾸지 않는다. 실제 서버 적용·Discord 수신은 별도 확인한다.
 
 
 ### 자원·응답 지연 초기 기준
@@ -521,3 +584,76 @@ Compose 환경변수 secret·권한 동작은 Docker Compose 2.32.4에서 격리
 
 알림 설정 생성은 `notifications.py`로 합쳤고, 라우팅·메시지·Compose secret 검사는
 `test-notifications.py`에서 함께 실행한다. `prepare-discord.py`, `test-discord.py`는 제거했다.
+
+
+### 개발·운영 앱 알림 이전
+
+선택 파일은 환경별로 독립적이다. 기존 `{"dev": ["app"]}`도 그대로 지원하며,
+운영을 추가할 때만 `{"dev": ["app"], "prod": ["app"]}`로 바꾼다.
+키가 없는 환경이나 빈 목록은 무발송이다. 두 환경은 같은 서버 `.env` 웹훅을 사용하고,
+수신자·메시지 환경·대시보드 링크는 dev/prod를 구분한다.
+후보 확인에는 `--enable-dev app --enable-prod app`을 사용한다.
+
+전환 순서:
+1. 운영의 기존 알림 목록·중앙 수집 상태를 확인한다.
+2. 기존 운영 앱 알림 2개만 임시 음소거하고 중앙 선택에 prod/app을 추가한다.
+3. 운영 선택을 지원하는 커밋으로 중앙 CD를 실행하고 운영 발생·복구 메시지를 확인한다.
+4. 개발 app은 중앙 발생·복구 수신을 확인했으므로 병합 후 개발 자동 CD에서 기존 앱 발송을 해제한다.
+   **운영은 중앙 발생·복구 수신 확인 전 main → deploy 승격을 하지 않는다.** 운영 CD는 승격 후 기존 앱 발송을 해제한다.
+   기존 설정은 `environment=dev|prod`의 `BackendDown`, `BackendHigh5xxErrorRate`만
+   무발송 수신자 `migrated-app`으로 보낸다. 디스크·로그 알림은 기존 발송을 유지한다.
+5. 임시 음소거 만료 전에 영구 설정 적용을 확인한다. 배포가 늦으면 음소거를 연장한다.
+
+중앙 운영 수신을 확인하기 전에 기존 운영 발송 해제 설정을 적용하지 않는다.
+롤백은 중앙 해당 환경의 app 선택을 해제하고 CD 적용을 확인한 뒤 기존 발송을 복원한다.
+알림 선택에 운영을 추가하기 전까지 개발만 발송하는 현재 서버 설정은 유지한다.
+
+
+### 개발 중앙 전환 완료 후 배포
+
+개발의 저장·조회·알림은 중앙 서버에서 운영한다. 개발 Compose에는 앱·Nginx·Alloy·
+node-exporter·소켓 프록시만 남기고 Alloy는 `write.central.alloy`로 중앙에만 전송한다.
+`monitoring-mode`, `DEV_ALLOY_WRITER`, legacy 프로필과 전환 스크립트는 더 이상 사용하지 않는다.
+기존 서버에 모드 파일이 남아 있어도 배포에 영향을 주지 않는다.
+
+개발 CD는 앱 헬스체크, Nginx·지표 접근 제한, Alloy 설정 검증과 reload,
+중앙 Loki 시험 로그 수신(HTTP 204)을 확인한다. 기존 Grafana 비밀번호와 모니터링용
+Discord 웹훅을 요구하거나 기존 저장 서비스를 시작·중지하지 않는다.
+앱 의견 알림용 `DISCORD_FEEDBACK_WEBHOOK_URL`은 별개로 유지한다.
+
+중앙 전환 시 이미 중지하고 재시작 정책을 해제한 기존 4개 컨테이너와 데이터 볼륨은
+이번 정리에서 삭제하지 않는다. Compose 정의 삭제는 기존 데이터 삭제 명령이 아니다.
+`down -v`, 볼륨 정리, `--remove-orphans`를 배포에 추가하지 않는다.
+Alloy의 수집 위치 볼륨은 계속 같은 것을 사용한다.
+
+운영 Compose와 공통 기존 모니터링 설정은 운영에서 아직 사용하므로 유지한다.
+개발 legacy 복귀 기능은 제거했으며 앱 이미지의 직전 버전 롤백은 그대로 유지한다.
+
+개발 배포 후 중앙에서 6개 수집 대상, 최신 개발 로그, 알림 평가를 다시 확인한다.
+그다음 기존 사양에서 부하 시험 기준치를 측정한다. 부하 시험용 대시보드 보강,
+운영 전환과 인스턴스 축소는 별도 단계로 진행한다.
+
+### 부하 시험에서 볼 화면과 순서
+
+개발 서버는 중앙 전환 후 같은 사양으로 먼저 측정한다. 부하 발생기는 개발 서버 밖에서 실행한다.
+개발과 운영이 RDS 인스턴스를 공유하므로 운영 알림과 RDS 지표도 함께 관찰한다.
+
+| 확인할 질문 | 화면 / 지표 |
+| --- | --- |
+| 목표 부하가 실제로 들어갔는가? | k6 실제 요청량·dropped iterations와 백엔드 API별 요청/초 비교 |
+| 어느 API부터 느려지는가? | 백엔드 API별 p95·p99, HTTP 4xx/5xx 및 429 응답량 |
+| 앱 내부 병목인가? | Heap, GC 정지 시간 비율, Hikari active/max·pending·획득 대기 시간 |
+| 인스턴스가 부족한가? | 호스트 CPU·메모리·swap·iowait·steal, 중앙 서버 자원도 함께 확인 |
+| 비동기 작업이 밀리는가? | 미디어 전송 화면의 처리 시간·큐·활성 스레드·ZIP 대기 |
+| 관측 자체가 정상인가? | 로그 전송 화면의 수집 상태·재시도·폐기, 최신 로그 |
+| 공유 DB에 영향이 있는가? | AWS RDS 화면의 CPU·연결 수·지연·메모리와 운영 응답 지연 |
+
+Grafana 응답 시간은 서버 HTTP 처리 기준이다. k6의 네트워크 포함 응답 시간,
+업로드 등록부터 SSE 완료까지의 시간, ZIP 완료 대기는 별도로 측정한다.
+패널의 p99는 최근 구간 히스토그램 추정치이므로 k6 전체 실행 p99와 동일하지 않다.
+429와 데이터 없음은 서로 다르며, 앞단 Nginx의 거절은 앱 지표에 없을 수 있다.
+
+5명 사전 확인 → 30명 예비 시험 → 단계별 증설 순서로 수행한다. 시험 시작·종료 시각,
+앱/스크립트 버전, 데이터 규모, 실제 부하를 함께 기록하고 대시보드 시간 범위를 맞춘다.
+운영 알림·앱 재시작/OOM 발생 시 중단하며 세부 부하와 중단 기준은 #517 계획을 따른다.
+이번 변경은 패널 보강이며 실제 부하 시험이나 인스턴스 사양 변경은 실행하지 않는다.

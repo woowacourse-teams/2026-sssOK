@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class MediaRegistrar {
 
     private final FileRepository fileRepository;
+    private final com.sssok.application.media.thumbnail.ThumbnailJobs thumbnailJobs;
     private final FolderMediaRepository folderMediaRepository;
     private final MediaUrlResolver mediaUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
@@ -32,9 +33,11 @@ public class MediaRegistrar {
         Map<Long, List<Long>> folderIds = folderMediaRepository.findFolderIdsByMedia(mediaIds);
 
         List<MediaDetail> registered = new ArrayList<>();
-        for (StoredFile file : verified) {
+        for (StoredFile verifiedFile : verified) {
+            StoredFile file = fileRepository.findByIdForUpdate(verifiedFile.getId()).orElseThrow();
             file.startProcessing();
             StoredFile saved = fileRepository.save(file);
+            thumbnailJobs.enqueue(saved);
             registered.add(MediaDetail.of(saved, uploaderName,
                 folderIds.getOrDefault(saved.getId(), List.of()), mediaUrlResolver.resolve(saved), 0, false));
         }

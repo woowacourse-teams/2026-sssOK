@@ -1,7 +1,7 @@
 /** @type {import("jest").Config} */
 module.exports = {
   testEnvironment: "jest-fixed-jsdom",
-  roots: ["<rootDir>/src"],
+  roots: ["<rootDir>/src", "<rootDir>/cloudfront"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "mjs"],
   testMatch: ["**/?(*.)+(spec|test).[jt]s?(x)"],
   transform: {

@@ -69,6 +69,8 @@ class CompleteUploadServiceTest {
         Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         roomId = room.getId();
         given(roomPermissionPort.canUpload(any(), any())).willReturn(true);
+        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+            .willReturn("https://storage.example.com/read");
         given(fileStoragePort.presignPut(any(), anyString(), any(Duration.class))).willReturn("url");
     }
 

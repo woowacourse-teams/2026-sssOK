@@ -33,7 +33,7 @@ assert '--storage.path=/var/lib/alloy/data' in alloy['command'], '수집 위치 
 expected_volume = 'alloy-local-data' if environment == 'local' else 'alloy-data'
 assert any(v['type'] == 'volume' and v['source'] == expected_volume
            and v['target'] == '/var/lib/alloy/data' for v in alloy['volumes']), '수집 위치 볼륨 변경'
-selected = 'local' if environment == 'local' else 'dual'
+selected = 'local' if environment == 'local' else 'central'
 expected = {
     '/etc/alloy/config/config.alloy': Path('backend/monitoring/alloy/config.alloy').resolve(),
     '/etc/alloy/config/write.alloy': Path(f'backend/monitoring/alloy/write.{selected}.alloy').resolve(),
