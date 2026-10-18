@@ -1,7 +1,7 @@
 # dev 서버용 compose. CI가 develop 브랜치에 backend/** 변경이 병합되면 이 파일을 dev 서버로
 # 전송한 뒤
 #   docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml up -d
-# 형태로 실행한다.
+# 형태로 실행한다. 저장·조회·알림은 중앙 서버에서 운영한다.
 #
 # .env       : dev 서버에서 최초 1회 수동 생성 (DB 접속 정보, JWT, R2 자격증명, CORS 오리진)
 # image.env  : 배포마다 CI가 덮어씀 (BACKEND_IMAGE=ghcr.io/...:<커밋SHA> — 운영과 달리 태그가 아니라
@@ -21,10 +21,16 @@ services:
       # 전환 후 제거할 호스트 Nginx 복귀용 포트. Docker Nginx는 app:8081로 접근한다.
       - "127.0.0.1:8081:8081"
     expose:
-      # 기존 개발 Prometheus의 Docker 내부 수집도 유지한다.
+      # 중앙 수집 요청을 전달하는 Docker Nginx의 내부 수집 포트.
       - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      MEDIA_URL_CACHE_ENABLED: ${MEDIA_URL_CACHE_ENABLED:-true}
+      MEDIA_URL_CACHE_MAXIMUM_SIZE: ${MEDIA_URL_CACHE_MAXIMUM_SIZE:-10000}
+      MEDIA_URL_CACHE_REFRESH_AHEAD: ${MEDIA_URL_CACHE_REFRESH_AHEAD:-2m}
+      MEDIA_THUMBNAIL_QUEUE_IMAGE_WORKERS: ${MEDIA_THUMBNAIL_QUEUE_IMAGE_WORKERS:-4}
+      MEDIA_THUMBNAIL_QUEUE_VIDEO_WORKERS: ${MEDIA_THUMBNAIL_QUEUE_VIDEO_WORKERS:-2}
+      MEDIA_THUMBNAIL_QUEUE_BACKFILL_ENABLED: ${MEDIA_THUMBNAIL_QUEUE_BACKFILL_ENABLED:-false}
       # 배포마다 CI가 image.env 에 써 넣는다. 값이 없어도(구버전 image.env, 수동 기동) 뜨도록 기본값을 둔다.
       APP_RELEASE_VERSION: ${APP_RELEASE_VERSION:-unknown}
       APP_BACKEND_VERSION: ${APP_BACKEND_VERSION:-unknown}
@@ -90,88 +96,6 @@ services:
     networks:
       - sssok
 
-  prometheus:
-    image: prom/prometheus:v3.14.0
-    container_name: sssok-prometheus-dev
-    restart: unless-stopped
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=15d
-    environment:
-      # 알림의 environment 라벨이 된다 (prometheus.yml 의 external_labels).
-      SSSOK_ENVIRONMENT: dev
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./monitoring/prometheus/rules:/etc/prometheus/rules:ro
-      - prometheus-data:/prometheus
-    depends_on:
-      app:
-        condition: service_healthy
-      alertmanager:
-        condition: service_started
-    expose:
-      - "9090"
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready > /dev/null 2>&1 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-    networks:
-      - sssok
-
-  alertmanager:
-    image: prom/alertmanager:v0.34.1
-    container_name: sssok-alertmanager-dev
-    restart: unless-stopped
-    command:
-      - --config.file=/etc/alertmanager/alertmanager.yml
-      - --storage.path=/alertmanager
-      - --data.retention=120h
-    volumes:
-      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - alertmanager-data:/alertmanager
-    secrets:
-      - discord_webhook_url
-    expose:
-      - "9093"
-    networks:
-      - sssok
-
-  loki:
-    image: grafana/loki:3.7.8
-    container_name: sssok-loki-dev
-    restart: unless-stopped
-    command:
-      - -config.file=/etc/loki/loki.yml
-      - -config.expand-env=true
-    environment:
-      # 팀 합의(dev 7일). 배포 직후 확인용이라 운영(30일)보다 짧게 둔다.
-      LOKI_RETENTION_PERIOD: 168h
-      # 앱과 같은 인스턴스에서 돈다. 한도(mem_limit)에 닿아 OOM 으로 죽기 전에 GC 가 먼저 돌게 한다.
-      GOMEMLIMIT: 400MiB
-    mem_limit: 512m
-    volumes:
-      - ./monitoring/loki/loki.yml:/etc/loki/loki.yml:ro
-      # 저장된 로그. 이 볼륨이 남아 있으면 Loki·앱 컨테이너를 재생성해도 로그가 그대로다.
-      - loki-data:/loki
-    expose:
-      - "3100"
-    healthcheck:
-      test: ["CMD", "/usr/bin/loki", "-health"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - sssok
-
   alloy:
     image: grafana/alloy:v1.20.1
     container_name: sssok-alloy-dev
@@ -192,14 +116,13 @@ services:
     mem_limit: 256m
     volumes:
       - ./monitoring/alloy/config.alloy:/etc/alloy/config/config.alloy:ro
-      - ./monitoring/alloy/write.dual.alloy:/etc/alloy/config/write.alloy:ro
+      - ./monitoring/alloy/write.central.alloy:/etc/alloy/config/write.alloy:ro
       # 컨테이너별로 어디까지 읽었는지 저장한다. Alloy 를 재생성해도 이어서 읽는다.
       - alloy-data:/var/lib/alloy/data
       # dev 의 Nginx 는 컨테이너가 아니라 호스트에 직접 설치돼 있어 로그가 파일로 남는다.
       # 읽기만 한다. 회전은 호스트 logrotate 가 그대로 맡는다 (monitoring/README.md 의 dev 호스트 Nginx 설정 참고).
       - /var/log/nginx:/var/log/nginx-host:ro
     depends_on:
-      - loki
       - docker-socket-proxy
     expose:
       # 파이프라인 상태를 보는 Alloy UI 와 /metrics. 호스트에는 publish 하지 않는다.
@@ -240,8 +163,7 @@ services:
       # Alloy 만 붙는 내부 네트워크. 앱·Nginx·Grafana 는 이 프록시에 닿지 않고, 외부로도 나가지 않는다.
       - docker-api
 
-  # 기존 개발 Prometheus와 중앙 Prometheus가 함께 관측한다.
-  # 중앙 요청은 호스트 Nginx의 IP 제한을 거쳐 loopback 포트로 전달된다.
+  # 중앙 요청은 Docker Nginx의 IP 제한을 거쳐 수집한다.
   node-exporter:
     image: prom/node-exporter:v1.12.1
     container_name: sssok-node-exporter-dev
@@ -275,42 +197,10 @@ services:
     networks:
       - sssok
 
-  grafana:
-    image: grafana/grafana:13.2.2
-    container_name: sssok-grafana-dev
-    restart: unless-stopped
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD must be set}
-      GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_USERS_ALLOW_SIGN_UP: "false"
-    ports:
-      # 인터넷에 직접 공개하지 않고 SSH 터널을 통해서만 접속한다.
-      - "127.0.0.1:3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    depends_on:
-      prometheus:
-        condition: service_healthy
-      loki:
-        condition: service_healthy
-    networks:
-      - sssok
-
 networks:
   sssok:
   docker-api:
     internal: true
 
 volumes:
-  prometheus-data:
-  alertmanager-data:
-  grafana-data:
-  loki-data:
   alloy-data:
-
-secrets:
-  discord_webhook_url:
-    file: ${DISCORD_WEBHOOK_FILE:-./secrets/discord-webhook-url}

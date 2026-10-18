@@ -18,14 +18,16 @@
     <meta property="og:description" content="링크 하나로 모으고, 고르고, 쏙 나누세요" />
     <!-- 미리보기 수집기(카카오톡·슬랙 등)는 상대 경로를 못 푸는 경우가 많아 절대 주소로 쓴다 -->
     <meta property="og:url" content="https://www.ssssok.com/" />
-    <meta property="og:image" content="https://www.ssssok.com/landing/assets/og.png" />
+    <meta property="og:image" content="https://www.ssssok.com/og/default.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="링크 하나로 사진 모으고 쏙! — 사진을 든 쏙이" />
     <meta name="twitter:card" content="summary_large_image" />
 
-    <!-- 탭 아이콘은 1MB 원본(logo.png) 대신 180px 로 줄인 파일 — 첫 로딩 대역폭을 히어로 이미지에 양보 -->
-    <link rel="icon" href="/landing/assets/logo-180.png" />
+    <!-- 탭 아이콘은 앱과 같은 파일을 써서, 랜딩에서 앱으로 넘어가도 바뀌지 않게 한다 -->
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
+    <!-- 홈 화면 아이콘은 크게 보이니 글자가 들어간 로고를 쓴다. 1MB 원본 대신 180px 로 줄인 파일 -->
     <link rel="apple-touch-icon" href="/landing/assets/logo-180.png" />
     <!-- 히어로 폰 세 장을 HTML 파싱과 동시에 받기 시작한다. 가운데(onboarding)가 가장 먼저 -->
     <link rel="preload" as="image" href="/landing/assets/onboarding.png" fetchpriority="high" />

@@ -1,4 +1,4 @@
-"""개발 알림 선택과 Compose secret 준비. 실제 웹훅 값은 설정·로그에 넣지 않는다."""
+"""개발·운영 알림 선택과 Compose secret 준비. 실제 웹훅 값은 설정·로그에 넣지 않는다."""
 import argparse
 import json
 import os
@@ -15,6 +15,7 @@ SECRET_PATH = '/run/secrets/central_discord_webhook'
 WEBHOOK_PATTERN = r'https://discord\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]+'
 
 BUNDLES = {
+    'platform': ('CentralComponentDown', 'LokiRejectingLogs'),
     'app': ('MetricsEndpointDown', 'BackendDown', 'BackendHigh5xxErrorRate', 'BackendHighLatency'),
     'host': ('MetricsEndpointDown', 'NodeMetricsDown', 'HostHighCPU', 'HostMemoryLow', 'HostDiskSpaceLow', 'HostDiskSpaceCritical', 'HostDiskWillFillIn24h'),
     'logs': ('MetricsEndpointDown', 'LogPipelineDown', 'LogShippingFailing', 'LogEntriesDropped'),
@@ -30,32 +31,40 @@ MESSAGE = '''환경: {{ .CommonLabels.environment }} · 서버: {{ .CommonLabels
 {{ printf "%.500s" .Annotations.description }}
 {{ end }}{{ end }}
 {{ if gt (len .Alerts) 3 }}상세는 최대 3건만 표시합니다. 전체 상태는 대시보드에서 확인하세요.
-{{ end }}[호스트](https://monitor.ssssok.com/central/d/sssok-host-overview?var-environment=dev) · [앱](https://monitor.ssssok.com/central/d/sssok-central-backend?var-environment=dev) · [로그 전송](https://monitor.ssssok.com/central/d/sssok-log-transfer?var-environment=dev)'''
+{{ end }}[호스트](https://monitor.ssssok.com/d/sssok-host-overview?var-environment={{ .CommonLabels.environment }}) · [앱](https://monitor.ssssok.com/d/sssok-central-backend?var-environment={{ .CommonLabels.environment }}) · [로그 전송](https://monitor.ssssok.com/d/sssok-log-transfer?var-environment={{ .CommonLabels.environment }})'''
 
 
-def candidate(bundles):
-    unknown = set(bundles) - BUNDLES.keys()
-    if unknown:
-        raise ValueError(f'알 수 없는 이전 묶음: {sorted(unknown)}')
+def candidate(bundles, prod_bundles=(), monitoring_bundles=()):
+    selection = {'dev': bundles, 'prod': prod_bundles, 'monitoring': monitoring_bundles}
+    for env, selected in selection.items():
+        allowed = {'platform', 'host'} if env == 'monitoring' else {'app', 'host', 'logs'}
+        unknown = set(selected) - allowed
+        if unknown:
+            raise ValueError(f'알 수 없는 이전 묶음: {sorted(unknown)}')
     base = (ROOT / 'alertmanager.yml').read_text()
-    if not bundles:
+    if not any(selection.values()):
         return base
-    # 기존 grouping/inhibition을 그대로 사용한다. 기준 파일 구조가 바뀌면 조용히 누락하지 않는다.
     anchor = 'receivers:\n  - name: bootstrap\n'
     if base.count(anchor) != 1:
         raise ValueError('기준 Alertmanager 수신 설정이 변경됐습니다. 생성기를 확인하세요.')
-    names = sorted({name for bundle in bundles for name in BUNDLES[bundle]})
-    routing = ('  routes:\n    - receiver: discord-dev\n      matchers:\n'
-               '        - \'environment="dev"\'\n        - \'server="dev"\'\n'
-               f'        - \'alertname=~"{"|".join(names)}"\'\n')
-    receiver = ('  - name: discord-dev\n    discord_configs:\n'
-                '      - webhook_url_file: /run/secrets/central_discord_webhook\n'
-                '        send_resolved: true\n'
-                f'        title: {json.dumps(TITLE, ensure_ascii=False)}\n'
-                f'        message: {json.dumps(MESSAGE, ensure_ascii=False)}\n')
-    return base.replace(anchor, routing + anchor + receiver).replace(
+    routing = '  routes:\n'
+    receivers = ''
+    for env, selected in selection.items():
+        if not selected:
+            continue
+        names = sorted({name for bundle in selected for name in BUNDLES[bundle]})
+        routing += (f'    - receiver: discord-{env}\n      matchers:\n'
+                    f'        - \'environment="{env}"\'\n'
+                    f'        - \'server="{env}"\'\n'
+                    f'        - \'alertname=~"{"|".join(names)}"\'\n')
+        receivers += (f'  - name: discord-{env}\n    discord_configs:\n'
+                      '      - webhook_url_file: /run/secrets/central_discord_webhook\n'
+                      '        send_resolved: true\n'
+                      f'        title: {json.dumps(TITLE, ensure_ascii=False)}\n'
+                      f'        message: {json.dumps(MESSAGE, ensure_ascii=False)}\n')
+    return base.replace(anchor, routing + anchor + receivers).replace(
         '# 알림 판정·중복 억제만 검증한다. 외부 발송 설정과 비밀값은 연결하지 않는다.',
-        '# 생성된 설정: 선택한 개발 알림만 Discord 대상으로 지정.')
+        '# 생성된 설정: 환경별로 선택한 알림만 Discord 대상으로 지정.')
 
 
 def prepare(source, target, staged):
@@ -66,18 +75,23 @@ def prepare(source, target, staged):
         selection = json.loads(policy.read_text()) if policy.exists() else {'dev': []}
     except (ValueError, OSError):
         raise RuntimeError('Discord 선택 파일을 읽을 수 없습니다') from None
-    if (not isinstance(selection, dict) or set(selection) != {'dev'}
-            or not isinstance(selection['dev'], list)
-            or any(not isinstance(item, str) or item not in BUNDLES for item in selection['dev'])):
-        raise RuntimeError('Discord 선택 형식은 {"dev": ["app", "host", "logs"]}의 부분집합입니다')
-    (staged / 'alertmanager.yml').write_text(candidate(selection['dev']))
+    if (not isinstance(selection, dict) or not selection or set(selection) - {'dev', 'prod', 'monitoring'}
+            or any(not isinstance(items, list)
+                   or any(not isinstance(item, str) or item not in BUNDLES for item in items)
+                   for items in selection.values())):
+        raise RuntimeError('Discord 선택 형식은 dev/prod의 app·host·logs, monitoring의 platform·host 목록이어야 합니다')
+    try:
+        config = candidate(selection.get('dev', []), selection.get('prod', []), selection.get('monitoring', []))
+    except ValueError as error:
+        raise RuntimeError('Discord 선택 형식 오류: ' + str(error)) from None
+    (staged / 'alertmanager.yml').write_text(config)
     override = {'services': {}}
-    if selection['dev']:
+    if any(selection.values()):
         override = json.loads((source / 'compose.discord.yml').read_text())
     (staged / OVERRIDE).write_text(json.dumps(override))
     for name in ('alertmanager.yml', OVERRIDE):
         (staged / name).chmod(0o644)
-    return bool(selection['dev'])
+    return any(selection.values())
 
 
 def environment(webhook=None):
@@ -127,5 +141,8 @@ def validate(staged, image, enabled, target):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--enable-dev', action='append', choices=sorted(BUNDLES), default=[])
-    print(candidate(parser.parse_args().enable_dev), end='')
+    parser.add_argument('--enable-dev', action='append', choices=['app', 'host', 'logs'], default=[])
+    parser.add_argument('--enable-prod', action='append', choices=['app', 'host', 'logs'], default=[])
+    parser.add_argument('--enable-monitoring', action='append', choices=['platform', 'host'], default=[])
+    args = parser.parse_args()
+    print(candidate(args.enable_dev, args.enable_prod, args.enable_monitoring), end='')

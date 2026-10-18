@@ -10,15 +10,15 @@ class VideoWorkerConfigTest {
 
     @Test
     void 영상_썸네일용_독립_스레드_풀을_만든다() {
-        VideoWorkerProperties properties = new VideoWorkerProperties(2, 3, 50);
+        ThumbnailQueueProperties properties = new ThumbnailQueueProperties(2, 2, 5, null, null, null, null, 50);
 
         Executor configured = new VideoWorkerConfig().videoThumbnailTaskExecutor(properties);
 
         ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) configured;
         assertThat(executor.getCorePoolSize()).isEqualTo(2);
-        assertThat(executor.getMaxPoolSize()).isEqualTo(3);
+        assertThat(executor.getMaxPoolSize()).isEqualTo(2);
         assertThat(executor.getThreadNamePrefix()).isEqualTo("video-thumbnail-");
-        assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(50);
+        assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isZero();
         executor.shutdown();
     }
 
