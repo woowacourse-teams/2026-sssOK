@@ -1,5 +1,6 @@
 import { type AnalyticsDownloadSource, type AnalyticsRoomContext, track } from "@/shared/lib";
 import type { DownloadMode, DownloadOutcome } from "./types";
+import type { ShareBatchResult } from "./useMediaDownload";
 
 interface DownloadRun {
   mode: DownloadMode;
@@ -69,3 +70,19 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
       return;
   }
 };
+
+/**
+ * 묶음 하나를 공유 시트로 넘긴 결과를 남긴다.
+ */
+export const trackShareBatch = (batch: ShareBatchResult, room: AnalyticsRoomContext | null) =>
+  track(
+    "Photo Share Batch Settled",
+    {
+      batch_index: batch.batchIndex,
+      batch_count: batch.batchCount,
+      photo_count: batch.photoCount,
+      total_bytes: batch.totalBytes,
+      result: batch.result,
+    },
+    room,
+  );
