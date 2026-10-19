@@ -76,10 +76,18 @@ const STATUS_TEXT: Record<DownloadPhase, string> = {
 };
 
 /**
- * 사진첩 저장을 마쳤다는 토스트가 떠 있는 시간.
+ * 저장을 마쳤다는 토스트가 떠 있는 시간.
  * 결과를 알리기만 하고 할 일은 없는 알림이라, 닫기 버튼 없이 이 시간 뒤에 스스로 사라진다.
  */
-const SHARE_DONE_TOAST_MS = 2000;
+const DONE_TOAST_MS = 2000;
+
+/** 방식마다 끝난 자리가 다르다. 사진첩인지, 낱장 파일인지, 압축 파일 하나인지 말해준다. */
+const doneMessageOf = (mode: DownloadMode, count: number) =>
+  ({
+    share: `${count}장을 사진첩에 저장했어요.`,
+    individual: `${count}장을 저장했어요.`,
+    zip: `${count}장을 zip 파일로 저장했어요.`,
+  })[mode];
 
 /**
  * 받아둔 것을 넘기는 바의 왼쪽 글자와 버튼 글자.
@@ -145,18 +153,18 @@ export const SelectionDownloadBar = ({
       room: trackedRunRef.current.room,
     });
   const [isDiscardOpen, setDiscardOpen] = useState(false);
-  /** 사진첩 저장을 모두 마친 장수. 차 있는 동안 완료 토스트를 띄운다. */
-  const [sharedDoneCount, setSharedDoneCount] = useState<number | null>(null);
+  /** 저장을 모두 마친 판. 차 있는 동안 완료 토스트를 띄운다. */
+  const [doneToast, setDoneToast] = useState<{ mode: DownloadMode; count: number } | null>(null);
 
   useEffect(() => {
-    if (sharedDoneCount === null) {
+    if (doneToast === null) {
       return;
     }
 
-    const timer = window.setTimeout(() => setSharedDoneCount(null), SHARE_DONE_TOAST_MS);
+    const timer = window.setTimeout(() => setDoneToast(null), DONE_TOAST_MS);
 
     return () => window.clearTimeout(timer);
-  }, [sharedDoneCount]);
+  }, [doneToast]);
 
   const { progress, pendingShare, isSharing, start, share, dismissShare, cancel } =
     useMediaDownload({
@@ -166,19 +174,12 @@ export const SelectionDownloadBar = ({
         settleFailure(outcome, lastRun.targets, lastRun.mode);
         trackRun(outcome);
 
-        // 묶음 사이에는 바가 남은 장수를 말한다. 토스트는 다 끝났을 때 한 번만 띄운다.
-        // 못 받은 것이 섞였으면 실패 모달이 그 판을 설명하므로 겹쳐 띄우지 않는다.
-        if (
-          trackedRunRef.current.mode === "share" &&
-          outcome.type === "saved" &&
-          outcome.failed.length === 0
-        ) {
-          setSharedDoneCount(outcome.savedCount);
-        }
-
-        // 저장까지 끝났으면 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
+        // 저장까지 끝났으면 알리고 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
         // 그대로 둔다 — 다시 시도할 대상을 사용자가 다시 고르게 만들면 안 된다.
+        // 못 받은 것이 섞인 판은 실패 모달이 설명하므로 토스트를 겹쳐 띄우지 않는다.
+        // 사진첩 묶음 사이에는 바가 남은 장수를 말하고, 토스트는 다 끝났을 때 한 번만 뜬다.
         if (outcome.type === "saved" && outcome.failed.length === 0) {
+          setDoneToast({ mode: trackedRunRef.current.mode, count: outcome.savedCount });
           onClearSelection();
         }
 
@@ -349,11 +350,11 @@ export const SelectionDownloadBar = ({
         />
       )}
 
-      {sharedDoneCount !== null && (
+      {doneToast !== null && (
         <Toast
-          message={`${sharedDoneCount}장을 사진첩에 저장했어요.`}
+          message={doneMessageOf(doneToast.mode, doneToast.count)}
           showClose={false}
-          onClose={() => setSharedDoneCount(null)}
+          onClose={() => setDoneToast(null)}
         />
       )}
     </>

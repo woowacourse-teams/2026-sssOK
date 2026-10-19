@@ -69,6 +69,49 @@ const serveSingle = (status = 200) =>
     ),
   );
 
+/** 압축 잡을 만들자마자 다 묶인 것으로 답한다. 고른 장수가 그대로 zip 에 들어간다. */
+const serveZip = () => {
+  let mediaCount = 0;
+
+  server.use(
+    http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, async ({ request }) => {
+      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+      mediaCount = mediaIds.length;
+
+      return HttpResponse.json(
+        {
+          data: {
+            jobId: "job-1",
+            status: "QUEUED",
+            mediaCount,
+            totalSize: 100,
+            fileName: "ShareDrop_7K93QX2S.zip",
+          },
+        },
+        { status: 202 },
+      );
+    }),
+
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, () =>
+      HttpResponse.json({
+        data: {
+          jobId: "job-1",
+          status: "READY",
+          progress: 100,
+          mediaCount,
+          fileName: "ShareDrop_7K93QX2S.zip",
+          downloadUrl: `${API_BASE_URL}/zip/job-1.zip`,
+          expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          failureReason: null,
+        },
+      }),
+    ),
+
+    http.get(`${API_BASE_URL}/zip/:fileName`, () => new HttpResponse(new Blob(["zip"]))),
+  );
+};
+
 const renderBar = (targets: DownloadTarget[], isAllSelected = false) => {
   const onClearSelection = jest.fn();
 
@@ -94,6 +137,13 @@ const sheet = () => within(screen.getByTestId("bottom-sheet-overlay"));
 const downloadIndividually = async () => {
   await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
   await userEvent.click(sheet().getByRole("radio", { name: /개별로 저장/ }));
+  await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
+};
+
+/** 시트를 열고 zip 을 골라 받기 한 판을 굴린다. */
+const downloadAsZip = async () => {
+  await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+  await userEvent.click(sheet().getByRole("radio", { name: /zip 일괄 다운로드/ }));
   await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
 };
 
@@ -202,6 +252,38 @@ describe("SelectionDownloadBar", () => {
     await downloadIndividually();
 
     await waitFor(() => expect(onClearSelection).toHaveBeenCalled());
+  });
+
+  it("개별로 다 받으면 저장했다고 알린다", async () => {
+    serveSingle();
+
+    renderBar([targetOf(5000), targetOf(5001)]);
+
+    await downloadIndividually();
+
+    expect(await screen.findByText("2장을 저장했어요.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+  });
+
+  it("zip 으로 다 받으면 압축 파일로 저장했다고 알린다", async () => {
+    serveZip();
+
+    renderBar([targetOf(5000), targetOf(5001)]);
+
+    await downloadAsZip();
+
+    expect(await screen.findByText("2장을 zip 파일로 저장했어요.")).toBeInTheDocument();
+  });
+
+  it("못 받은 것이 섞이면 저장했다는 알림을 띄우지 않는다", async () => {
+    serveSingle(409);
+
+    renderBar([targetOf(5000)]);
+
+    await downloadIndividually();
+
+    expect(await screen.findByText("아직 처리 중이에요")).toBeInTheDocument();
+    expect(screen.queryByText(/저장했어요/)).not.toBeInTheDocument();
   });
 
   /**
