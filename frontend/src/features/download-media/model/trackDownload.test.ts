@@ -1,5 +1,5 @@
 import { track } from "@/shared/lib/analytics";
-import { trackDownload } from "./trackDownload";
+import { trackDownload, trackDownloadStarted } from "./trackDownload";
 import type { FailedDownload } from "./types";
 
 jest.mock("@/shared/lib/analytics", () => ({ track: jest.fn() }));
@@ -22,6 +22,7 @@ describe("trackDownload", () => {
         selectedCount: 5,
         roomPhotoCount: 20,
         isSelectAll: false,
+        durationMs: 1234.4,
         room: ROOM,
       },
     );
@@ -35,6 +36,7 @@ describe("trackDownload", () => {
         failed_count: 0,
         total_count: 20,
         is_select_all: false,
+        duration_ms: 1234,
       },
       ROOM,
     );
@@ -49,6 +51,7 @@ describe("trackDownload", () => {
         selectedCount: 20,
         roomPhotoCount: 20,
         isSelectAll: true,
+        durationMs: 1234.4,
         room: ROOM,
       },
     );
@@ -62,6 +65,7 @@ describe("trackDownload", () => {
         failed_count: 1,
         total_count: 20,
         is_select_all: true,
+        duration_ms: 1234,
       },
       ROOM,
     );
@@ -76,6 +80,7 @@ describe("trackDownload", () => {
         selectedCount: 2,
         roomPhotoCount: 20,
         isSelectAll: false,
+        durationMs: 1234.4,
         room: ROOM,
       },
     );
@@ -87,6 +92,7 @@ describe("trackDownload", () => {
         source: "gallery",
         reason: "all_failed",
         failed_count: 2,
+        duration_ms: 1234,
       },
       ROOM,
     );
@@ -101,6 +107,7 @@ describe("trackDownload", () => {
         selectedCount: 7,
         roomPhotoCount: 20,
         isSelectAll: false,
+        durationMs: 1234.4,
         room: ROOM,
       },
     );
@@ -112,6 +119,7 @@ describe("trackDownload", () => {
         source: "gallery",
         reason: "압축에 실패했어요",
         failed_count: 7,
+        duration_ms: 1234,
       },
       ROOM,
     );
@@ -128,9 +136,26 @@ describe("trackDownload", () => {
       selectedCount: 3,
       roomPhotoCount: 20,
       isSelectAll: false,
+      durationMs: 1234.4,
       room: ROOM,
     });
 
     expect(track).not.toHaveBeenCalled();
+  });
+
+  it("받기를 시작하면 방식·장수·용량을 남긴다", () => {
+    trackDownloadStarted(
+      [
+        { mediaId: 1, fileName: "IMG_1.jpg", size: 1000, mimeType: "image/jpeg" },
+        { mediaId: 2, fileName: "IMG_2.jpg", size: 2500, mimeType: "image/jpeg" },
+      ],
+      { mode: "share", source: "gallery", room: ROOM },
+    );
+
+    expect(track).toHaveBeenCalledWith(
+      "Photo Download Started",
+      { mode: "share", source: "gallery", photo_count: 2, total_bytes: 3500 },
+      ROOM,
+    );
   });
 });

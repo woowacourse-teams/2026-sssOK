@@ -19,6 +19,17 @@ export interface AnalyticsEvents {
   "Photo Uploaded": { photo_count: number; failed_count: number; duration_ms: number };
   /** 한 장도 못 올린 판. 일부라도 올라갔으면 `Photo Uploaded` 의 `failed_count` 로 남는다. */
   "Photo Upload Failed": { reason: string; failed_count: number };
+  /**
+   * 다운로드를 시작했을 때. 성공(`Photo Downloaded`)·실패(`Photo Download Failed`) 수와 비교해
+   * 완료율과 중간에 그만둔 비율을 계산한다.
+   */
+  "Photo Download Started": {
+    mode: "individual" | "zip" | "share";
+    source: AnalyticsDownloadSource;
+    photo_count: number;
+    /** 목록이 알려준 크기의 합 */
+    total_bytes: number;
+  };
   "Photo Downloaded": {
     mode: "individual" | "zip" | "share";
     /** 갤러리에서 골라 받았는지, 사진 한 장을 크게 본 화면에서 받았는지 */
@@ -28,12 +39,15 @@ export interface AnalyticsEvents {
     /** 방 전체 장수. 고른 장수와 비교해 골라 받기(H5)를 본다. */
     total_count: number;
     is_select_all: boolean;
+    /** 받기를 시작해서 다 받기까지 걸린 시간 (`trackDownload` 참고) */
+    duration_ms: number;
   };
   "Photo Download Failed": {
     mode: "individual" | "zip" | "share";
     source: AnalyticsDownloadSource;
     reason: string;
     failed_count: number;
+    duration_ms: number;
   };
   /**
    * 받아둔 묶음 하나를 공유 시트로 넘긴 결과. 한 번에 넘기는 장수 기준을 조정하는 근거다.
