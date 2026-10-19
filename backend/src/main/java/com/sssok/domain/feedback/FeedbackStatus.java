@@ -3,11 +3,13 @@ package com.sssok.domain.feedback;
 import com.sssok.domain.feedback.exception.InvalidFeedbackStatusException;
 import java.util.Arrays;
 
-// 의견이 서비스에 반영됐는지. 관리자가 직접 바꾸며, 반영했다가 되돌리는 것도 허용한다.
+// 의견 처리 상태. 관리자가 직접 바꾸며, 순서와 상관없이 어느 상태로든 옮길 수 있다.
 public enum FeedbackStatus {
 
     UNREFLECTED,
-    REFLECTED;
+    IN_PROGRESS,
+    REFLECTED,
+    ON_HOLD;
 
     public static FeedbackStatus from(String name) {
         return Arrays.stream(values())
