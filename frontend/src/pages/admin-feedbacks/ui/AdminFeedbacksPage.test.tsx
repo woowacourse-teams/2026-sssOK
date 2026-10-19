@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
@@ -64,15 +64,18 @@ describe("AdminFeedbacksPage", () => {
 
   afterEach(() => server.events.removeAllListeners());
 
-  it("의견을 최신순으로 나열한다", async () => {
+  it("처리중 → 미반영 → 반영 → 보류 순으로 두고, 같은 상태 안에서는 최신순으로 나열한다", async () => {
     renderPage();
     await waitForFirstPage();
 
     const items = screen.getAllByRole("listitem");
 
     expect(items).toHaveLength(20);
-    expect(items[0]).toHaveTextContent("사진 30장 올리는데 5분 넘게 걸렸어요");
-    expect(items[1]).toHaveTextContent("다운로드 눌렀는데 zip이 안 열려요");
+    expect(items[0]).toHaveTextContent("다운로드 눌렀는데 zip이 안 열려요");
+    expect(items[1]).toHaveTextContent("폴더를 만들었는데");
+    expect(items[2]).toHaveTextContent("사진 30장 올리는데 5분 넘게 걸렸어요");
+    expect(items[17]).toHaveTextContent("링크 공유할 때 카톡에서");
+    expect(items[19]).toHaveTextContent("닉네임을 잘못 적었는데");
   });
 
   it("방·멤버·기기·브라우저·작성 시각을 한 줄로 보여준다", async () => {
@@ -357,6 +360,224 @@ describe("AdminFeedbacksPage", () => {
       await user.click(within(dialog).getByRole("button", { name: "다시 시도" }));
 
       expect(await within(dialog).findByText("128 · 제주도 여행")).toBeInTheDocument();
+    });
+  });
+
+  describe("담당자·처리 상태 (#562)", () => {
+    const ZIP = "다운로드 눌렀는데 zip이 안 열려요";
+
+    const rowOf = (content: string) => {
+      const row = screen
+        .getAllByRole("listitem")
+        .find((item) => item.textContent?.includes(content));
+
+      if (!row) throw new Error(`${content} 행이 없다`);
+
+      return row;
+    };
+
+    const statusButton = (content: string) =>
+      within(rowOf(content)).getByRole("button", { name: /^처리 상태 바꾸기/ });
+
+    const assigneeButton = (content: string) =>
+      within(rowOf(content)).getByRole("button", { name: /^담당자 바꾸기/ });
+
+    const capturePatches = () => {
+      const patches: { url: string; body: unknown }[] = [];
+
+      server.events.on("request:start", async ({ request }) => {
+        if (request.method !== "PATCH") return;
+
+        patches.push({ url: request.url, body: await request.clone().json() });
+      });
+
+      return patches;
+    };
+
+    const tab = (name: string) =>
+      screen.getByRole("button", { name: new RegExp(`^${name} \\d+건$`) });
+
+    it("각 의견에 담당자와 처리 상태를 보여준다", async () => {
+      renderPage();
+      await waitForFirstPage();
+
+      expect(assigneeButton("사진 30장 올리는데")).toHaveAccessibleName(
+        "담당자 바꾸기, 지금 담당 없음",
+      );
+      expect(statusButton("사진 30장 올리는데")).toHaveAccessibleName(
+        "처리 상태 바꾸기, 지금 미반영",
+      );
+      expect(assigneeButton(ZIP)).toHaveAccessibleName("담당자 바꾸기, 지금 해니");
+      expect(statusButton(ZIP)).toHaveAccessibleName("처리 상태 바꾸기, 지금 처리중");
+    });
+
+    it("상태 탭에 불러온 의견 기준 개수를 보여주고, 누르면 그 상태만 남긴다", async () => {
+      const user = userEvent.setup();
+
+      renderPage();
+      await waitForFirstPage();
+
+      // 첫 페이지 20건: 처리중 2 · 반영 2 · 보류 1 · 나머지 미반영 15
+      expect(tab("전체")).toHaveAccessibleName("전체 20건");
+      expect(tab("미반영")).toHaveAccessibleName("미반영 15건");
+      expect(tab("처리중")).toHaveAccessibleName("처리중 2건");
+
+      await user.click(tab("처리중"));
+
+      const items = screen.getAllByRole("listitem");
+
+      expect(items).toHaveLength(2);
+      expect(items[0]).toHaveTextContent(ZIP);
+      expect(tab("처리중")).toHaveAttribute("aria-pressed", "true");
+    });
+
+    it("담당자로 거르면 탭 개수도 그 담당자 기준으로 바뀐다", async () => {
+      const user = userEvent.setup();
+
+      renderPage();
+      await waitForFirstPage();
+
+      const filter = screen.getByRole("group", { name: "담당" });
+
+      await user.click(within(filter).getByRole("button", { name: "해니" }));
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(2);
+      expect(tab("전체")).toHaveAccessibleName("전체 2건");
+      expect(tab("반영")).toHaveAccessibleName("반영 1건");
+
+      await user.click(within(filter).getByRole("button", { name: "없음" }));
+
+      expect(screen.getAllByRole("listitem")).toHaveLength(14);
+    });
+
+    it("상태를 고르면 바로 저장하고, 바뀐 상태와 알림을 보여준다", async () => {
+      const user = userEvent.setup();
+      const patches = capturePatches();
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(statusButton(ZIP));
+      await user.click(screen.getByRole("menuitemradio", { name: "반영" }));
+
+      expect(await screen.findByText("의견 #25 상태를 반영으로 바꿨어요.")).toBeInTheDocument();
+      expect(statusButton(ZIP)).toHaveAccessibleName("처리 상태 바꾸기, 지금 반영");
+      expect(patches).toEqual([
+        { url: `${API_BASE_URL}/admin/feedbacks/25/status`, body: { status: "REFLECTED" } },
+      ]);
+    });
+
+    it("지금과 같은 상태를 고르면 요청하지 않는다", async () => {
+      const user = userEvent.setup();
+      const patches = capturePatches();
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(statusButton(ZIP));
+
+      expect(screen.getByRole("menuitemradio", { name: "처리중" })).toHaveAttribute(
+        "aria-checked",
+        "true",
+      );
+
+      await user.click(screen.getByRole("menuitemradio", { name: "처리중" }));
+
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(patches).toEqual([]);
+    });
+
+    it("상태를 바꾸지 못하면 이전 상태로 되돌리고 알린다", async () => {
+      const user = userEvent.setup();
+
+      server.use(
+        http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/status`, () =>
+          HttpResponse.json(
+            { code: "INTERNAL_SERVER_ERROR", message: "서버 오류" },
+            { status: 500 },
+          ),
+        ),
+      );
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(statusButton(ZIP));
+      await user.click(screen.getByRole("menuitemradio", { name: "보류" }));
+
+      expect(
+        await screen.findByText("상태를 바꾸지 못했어요. 다시 시도해 주세요."),
+      ).toBeInTheDocument();
+      expect(statusButton(ZIP)).toHaveAccessibleName("처리 상태 바꾸기, 지금 처리중");
+    });
+
+    it("담당자를 고르면 저장하고, 담당 없음을 고르면 비운다", async () => {
+      const user = userEvent.setup();
+      const patches = capturePatches();
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(assigneeButton("사진 30장 올리는데"));
+      await user.click(screen.getByRole("menuitemradio", { name: "해니" }));
+
+      expect(await screen.findByText("의견 #26 담당자를 해니님으로 정했어요.")).toBeInTheDocument();
+      expect(assigneeButton("사진 30장 올리는데")).toHaveAccessibleName("담당자 바꾸기, 지금 해니");
+
+      await user.click(assigneeButton(ZIP));
+      await user.click(screen.getByRole("menuitemradio", { name: "담당 없음" }));
+
+      expect(await screen.findByText("의견 #25 담당자를 비웠어요.")).toBeInTheDocument();
+      expect(patches).toEqual([
+        { url: `${API_BASE_URL}/admin/feedbacks/26/assignee`, body: { assignee: "HAENI" } },
+        { url: `${API_BASE_URL}/admin/feedbacks/25/assignee`, body: { assignee: null } },
+      ]);
+    });
+
+    it("바꾼 담당자·상태는 다시 불러와도 남는다", async () => {
+      const user = userEvent.setup();
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(statusButton(ZIP));
+      await user.click(screen.getByRole("menuitemradio", { name: "보류" }));
+      await screen.findByText("의견 #25 상태를 보류로 바꿨어요.");
+
+      cleanup();
+      renderPage();
+      await waitForFirstPage();
+
+      expect(statusButton(ZIP)).toHaveAccessibleName("처리 상태 바꾸기, 지금 보류");
+    });
+
+    it("상세 모달 제목 옆에 담당자와 처리 상태를 보여준다", async () => {
+      const user = userEvent.setup();
+
+      renderPage();
+      await waitForFirstPage();
+      await user.click(screen.getByRole("button", { name: new RegExp(ZIP) }));
+
+      const dialog = await screen.findByRole("dialog");
+
+      expect(await within(dialog).findByText("해니")).toBeInTheDocument();
+      expect(within(dialog).getByText("처리중")).toBeInTheDocument();
+    });
+
+    it("바꾸는 중에 401 이 나면 로그인 화면으로 되돌린다", async () => {
+      const user = userEvent.setup();
+
+      server.use(
+        http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/assignee`, () =>
+          HttpResponse.json(
+            { code: "UNAUTHORIZED", message: "인증이 필요합니다" },
+            { status: 401 },
+          ),
+        ),
+      );
+
+      const router = renderPage();
+      await waitForFirstPage();
+      await user.click(assigneeButton(ZIP));
+      await user.click(screen.getByRole("menuitemradio", { name: "윤돌" }));
+
+      await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.adminLogin));
+      expect(getAdminSession()).toBeNull();
     });
   });
 });
