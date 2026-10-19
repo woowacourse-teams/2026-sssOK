@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 
-import { getAnalyticsRoom } from "@/shared/lib";
+import { getAnalyticsRoom, track } from "@/shared/lib";
 
 import type { RejectedFile } from "../api/types";
 import type { UploadProgressState } from "./uploadProgress";
@@ -82,6 +82,12 @@ export const useMediaUpload = ({
     const startedAt = performance.now();
     // 끝나기 전에 갤러리를 떠나도 이 판이 어느 방 것인지 남도록 시작할 때 잡아 둔다
     const analyticsRoom = getAnalyticsRoom();
+
+    track(
+      "Photo Upload Started",
+      { photo_count: files.length, total_bytes: files.reduce((sum, file) => sum + file.size, 0) },
+      analyticsRoom,
+    );
 
     try {
       result = await uploadFiles({
