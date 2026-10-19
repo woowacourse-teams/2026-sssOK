@@ -1,16 +1,20 @@
+import type { ReactNode } from "react";
+
 import { Badge } from "@/shared/ui/badge";
 import { describeUserAgent } from "../lib/describeUserAgent";
+import { isFeedbackSettled } from "../lib/feedbackTriage";
 import { formatFeedbackTime } from "../lib/formatFeedbackTime";
 import type { AdminFeedback } from "../model/types";
-import { Content, Item, Meta, MetaText, SelectButton } from "./FeedbackItem.styles";
+import { Aside, Body, Content, Item, Meta, MetaText, SelectButton } from "./FeedbackItem.styles";
 
 interface FeedbackItemProps {
   feedback: AdminFeedback;
   /** 넘기면 항목 전체가 버튼이 된다. 누르면 이 의견을 연다. */
   onSelect?: (feedbackId: number) => void;
+  aside?: ReactNode;
 }
 
-export const FeedbackItem = ({ feedback, onSelect }: FeedbackItemProps) => {
+export const FeedbackItem = ({ feedback, onSelect, aside }: FeedbackItemProps) => {
   const { device, browser } = describeUserAgent(feedback.userAgent);
 
   /*
@@ -29,7 +33,7 @@ export const FeedbackItem = ({ feedback, onSelect }: FeedbackItemProps) => {
 
   const body = (
     <>
-      <Content>{feedback.content}</Content>
+      <Content $settled={isFeedbackSettled(feedback)}>{feedback.content}</Content>
       <Meta>
         <MetaText>{meta.join(" · ")}</MetaText>
         {feedback.frontendVersion !== null && (
@@ -43,14 +47,15 @@ export const FeedbackItem = ({ feedback, onSelect }: FeedbackItemProps) => {
 
   // li 는 목록의 한 칸으로 남기고 버튼은 그 안에 둔다 — li 에 onClick 을 달면 키보드로 열 수 없다.
   return (
-    <Item selectable={onSelect !== undefined}>
+    <Item $selectable={onSelect !== undefined}>
       {onSelect ? (
         <SelectButton type="button" onClick={() => onSelect(feedback.feedbackId)}>
           {body}
         </SelectButton>
       ) : (
-        body
+        <Body>{body}</Body>
       )}
+      {aside && <Aside>{aside}</Aside>}
     </Item>
   );
 };
