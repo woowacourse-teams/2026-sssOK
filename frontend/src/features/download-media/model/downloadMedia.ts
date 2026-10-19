@@ -2,7 +2,7 @@ import { captureException, runWithLimit, waitUnlessAborted } from "@/shared/lib"
 import { createBatchDownload } from "../api/createBatchDownload";
 import type { BatchDownloadFile } from "../api/types";
 import { createDownloadJob } from "../api/createDownloadJob";
-import { DOWNLOAD_CONCURRENCY, INDIVIDUAL_SAVE_GAP_MS } from "../config";
+import { DOWNLOAD_CONCURRENCY, INDIVIDUAL_SAVE_GAP_MS, SHARE_BATCH_SIZE } from "../config";
 import {
   downloadMessageOfError,
   downloadMessageOfStatus,
@@ -249,9 +249,15 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
   }
 
   if (mode === "share") {
+    const files = fetched.map(toFile);
+
+    // 한 번에 넘기기엔 많다. 시트를 열지 않고 화면으로 넘겨, 묶음마다 탭을 받는다.
+    if (files.length > SHARE_BATCH_SIZE) {
+      return { type: "readyToShare", files, failed };
+    }
+
     onPhase?.("sharing");
 
-    const files = fetched.map(toFile);
     const shared = await shareFiles(files);
 
     if (shared.type === "shared") {

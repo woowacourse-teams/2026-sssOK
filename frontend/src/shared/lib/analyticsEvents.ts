@@ -35,6 +35,17 @@ export interface AnalyticsEvents {
     reason: string;
     failed_count: number;
   };
+  /**
+   * 받아둔 묶음 하나를 공유 시트로 넘긴 결과. 한 번에 넘기는 장수 기준을 조정하는 근거다.
+   * 묶음 기준을 넘은 판과, 사파리가 막아 한 번 더 눌러 연 판에서 남는다.
+   */
+  "Photo Share Batch Settled": {
+    batch_index: number;
+    batch_count: number;
+    photo_count: number;
+    total_bytes: number;
+    result: "shared" | "dismissed" | "blocked" | "unsupported";
+  };
   "Photo Like Changed": {
     action: "like" | "unlike";
     source: "gallery" | "viewer";

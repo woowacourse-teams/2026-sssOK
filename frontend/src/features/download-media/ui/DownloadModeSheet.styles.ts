@@ -107,12 +107,16 @@ export const Check = styled.span`
   }
 `;
 
+/**
+ * 여러 번 나눠 저장한다는 안내. 놓치면 두 번째 시트가 떴을 때 당황하므로,
+ * 회색 설명글이 아니라 눈에 띄는 색으로 쓴다.
+ */
 export const Notice = styled.p`
   margin-top: ${spacing[12]};
   font-size: ${typography.caption3.fontSize};
   font-weight: ${typography.caption3.fontWeight};
   line-height: ${typography.caption3.lineHeight};
-  color: ${colors.textSecondary};
+  color: ${colors.danger};
 `;
 
 export const Submit = styled.button`
