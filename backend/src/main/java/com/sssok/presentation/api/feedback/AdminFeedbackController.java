@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.feedback;
 
+import com.sssok.application.feedback.FeedbackAssigneeService;
 import com.sssok.application.feedback.FeedbackPage;
 import com.sssok.application.feedback.FeedbackQueryService;
 import com.sssok.application.feedback.FeedbackStatusService;
@@ -18,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// 의견 조회·반영 상태 변경은 관리자만 할 수 있어 전부 /admin 아래에 둔다.
-@Tag(name = "관리자 의견", description = "관리자가 사용자 의견을 읽고 반영 상태를 관리한다. 일반 관리자와 슈퍼관리자 모두 할 수 있다.")
+// 의견 조회·처리 상태·담당자 변경은 관리자만 할 수 있어 전부 /admin 아래에 둔다.
+@Tag(name = "관리자 의견", description = "관리자가 사용자 의견을 읽고 처리 상태와 담당자를 관리한다. 일반 관리자와 슈퍼관리자 모두 할 수 있다.")
 @RestController
 @RequestMapping("/admin/feedbacks")
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class AdminFeedbackController {
 
     private final FeedbackQueryService feedbackQueryService;
     private final FeedbackStatusService feedbackStatusService;
+    private final FeedbackAssigneeService feedbackAssigneeService;
 
     @Operation(
         summary = "의견 목록 조회",
@@ -103,6 +105,27 @@ public class AdminFeedbackController {
         @RequestBody UpdateFeedbackStatusRequest request
     ) {
         Feedback feedback = feedbackStatusService.changeStatus(adminId, feedbackId, request.status());
+        return ApiResponse.of(FeedbackResponse.from(feedback));
+    }
+
+    @Operation(
+        summary = "의견 담당자 변경",
+        description = """
+            의견의 담당자를 정한다. assignee 에 MAICHAN(마이찬)·HAENI(해니)·YUNDOL(윤돌)·HYUNMIBAP(현미밥) \
+            중 하나를 보낸다. assignee 를 null 로 보내거나 빼면 담당자를 비운다. \
+            이미 같은 담당자로 바꾸는 요청도 그대로 성공한다.
+
+            그 외의 값(빈 문자열·소문자 포함)을 보내면 400, 없는 의견 식별자면 404가 난다. \
+            응답은 바뀐 의견의 단건 조회 결과와 같다.\
+            """
+    )
+    @PatchMapping("/{feedbackId}/assignee")
+    public ApiResponse<FeedbackResponse> changeAssignee(
+        @Parameter(hidden = true) @AuthAdmin Long adminId,
+        @Parameter(description = "담당자를 바꿀 의견의 ID") @PathVariable Long feedbackId,
+        @RequestBody UpdateFeedbackAssigneeRequest request
+    ) {
+        Feedback feedback = feedbackAssigneeService.changeAssignee(adminId, feedbackId, request.assignee());
         return ApiResponse.of(FeedbackResponse.from(feedback));
     }
 }
