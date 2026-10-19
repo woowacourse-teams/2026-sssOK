@@ -3,6 +3,7 @@ package com.sssok.infrastructure.persistence.feedback;
 import com.sssok.application.port.out.FeedbackRepository;
 import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.Feedback;
+import com.sssok.domain.feedback.FeedbackAssignee;
 import com.sssok.domain.feedback.FeedbackContent;
 import com.sssok.domain.feedback.FeedbackStatus;
 import com.sssok.domain.feedback.UserAgent;
@@ -54,6 +55,7 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
             feedback.getUserAgent().value(),
             feedback.getFrontendVersion().value(),
             feedback.getStatus().name(),
+            feedback.getAssignee() == null ? null : feedback.getAssignee().name(),
             feedback.getCreatedAt()
         );
     }
@@ -69,6 +71,7 @@ public class FeedbackRepositoryAdapter implements FeedbackRepository {
             UserAgent.from(entity.getUserAgent()),
             FrontendVersion.from(entity.getFrontendVersion()),
             FeedbackStatus.valueOf(entity.getStatus()),
+            entity.getAssignee() == null ? null : FeedbackAssignee.valueOf(entity.getAssignee()),
             entity.getCreatedAt()
         );
     }

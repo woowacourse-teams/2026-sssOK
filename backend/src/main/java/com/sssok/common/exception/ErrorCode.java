@@ -33,6 +33,7 @@ public enum ErrorCode {
     INVALID_ADMIN_NAME(400, "이름은 1자 이상 20자 이하여야 합니다"),
     INVALID_ADMIN_ROLE(400, "올바르지 않은 역할입니다: %s"),
     INVALID_FEEDBACK_STATUS(400, "올바르지 않은 처리 상태입니다: %s"),
+    INVALID_FEEDBACK_ASSIGNEE(400, "올바르지 않은 담당자입니다: %s"),
 
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),
