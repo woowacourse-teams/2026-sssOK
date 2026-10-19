@@ -258,7 +258,7 @@ class AdminFeedbackPaginationApiTest extends AdminFeedbackApiSupport {
     private long 의견_직접_저장(String content, Instant createdAt) {
         return feedbackJpaRepository.save(new FeedbackJpaEntity(
             null, content, 1L, "우테코 회식", 1L, "가현", CHROME_UA, FRONTEND_VERSION, "UNREFLECTED",
-            createdAt)).getId();
+            null, createdAt)).getId();
     }
 
     private long 커서(MvcResult result) throws Exception {

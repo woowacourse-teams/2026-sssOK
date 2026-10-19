@@ -5,7 +5,8 @@ import type { FailedUpload, UploadResult } from "./types";
 
 jest.mock("@/shared/lib/analytics", () => ({ track: jest.fn() }));
 
-const media = (mediaId: number) => ({ mediaId }) as Media;
+const media = (mediaId: number, fileName = `${mediaId}.jpg`, mimeType = "image/jpeg") =>
+  ({ mediaId, fileName, mimeType }) as Media;
 const failed = (mediaId: number): FailedUpload =>
   ({ mediaId, fileName: `IMG_${mediaId}.jpg`, code: "UPLOAD_FAILED", message: "" }) as FailedUpload;
 const rejected = (fileName: string) => ({ fileName }) as RejectedFile;
@@ -30,7 +31,39 @@ describe("trackUpload", () => {
 
     expect(track).toHaveBeenCalledWith(
       "Photo Uploaded",
-      { photo_count: 3, failed_count: 1, duration_ms: 1235 },
+      {
+        photo_count: 3,
+        failed_count: 1,
+        duration_ms: 1235,
+        uploaded_format_counts: { jpeg: 2, webp: 0, avif: 0, unknown: 1 },
+      },
+      ROOM,
+    );
+  });
+
+  it("성공 파일만 포맷별로 세고 확장자가 없으면 MIME 타입을 사용한다", () => {
+    trackUpload(
+      resultOf({
+        registered: [
+          media(1, "photo.WEBP", ""),
+          media(2, "photo.webp", "image/webp"),
+          media(3, "clipboard", "image/avif"),
+          media(4, "photo", ""),
+        ],
+        failed: [failed(5)],
+      }),
+      100,
+      ROOM,
+    );
+
+    expect(track).toHaveBeenCalledWith(
+      "Photo Uploaded",
+      {
+        photo_count: 4,
+        failed_count: 1,
+        duration_ms: 100,
+        uploaded_format_counts: { webp: 2, avif: 1, unknown: 1 },
+      },
       ROOM,
     );
   });

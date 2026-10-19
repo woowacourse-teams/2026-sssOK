@@ -1,6 +1,7 @@
 import styled from "@emotion/styled";
 
 import { colors, spacing, typography } from "@/shared/styles/tokens";
+import { NARROW } from "./responsive";
 
 export const Page = styled.main`
   display: flex;
@@ -43,4 +44,27 @@ export const LoadingMore = styled.p`
   text-align: center;
 
   ${typography.caption3}
+`;
+
+export const Filters = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: ${spacing[12]} ${spacing[24]};
+  padding: ${spacing[20]} ${spacing[16]} ${spacing[12]};
+
+  ${NARROW} {
+    flex-direction: column;
+    gap: 10px;
+    padding-inline: 0;
+  }
+`;
+
+export const FilterLabel = styled.span`
+  margin-right: ${spacing[4]};
+  color: ${colors.textSecondary};
+
+  ${typography.caption2}
+
+  font-weight: 500;
 `;

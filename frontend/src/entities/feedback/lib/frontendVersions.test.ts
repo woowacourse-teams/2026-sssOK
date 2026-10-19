@@ -10,6 +10,8 @@ const feedbackWith = (frontendVersion: string | null): AdminFeedback => ({
   nickname: "사람",
   userAgent: null,
   frontendVersion,
+  status: "UNREFLECTED",
+  assignee: null,
   createdAt: "2026-09-16T08:41:00Z",
 });
 
