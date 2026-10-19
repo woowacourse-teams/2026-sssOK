@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 관리자 의견 반영 상태 변경.
+// 관리자 의견 처리 상태 변경.
 @Service
 @RequiredArgsConstructor
 public class FeedbackStatusService {

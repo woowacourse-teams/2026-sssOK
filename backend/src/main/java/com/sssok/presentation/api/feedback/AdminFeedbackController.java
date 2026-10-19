@@ -43,8 +43,8 @@ public class AdminFeedbackController {
             userAgent·frontendVersion 은 null 이 정상 값이다. 헤더 없이 들어온 의견(curl·봇·구버전 \
             클라이언트)이 있어서, 값이 없다고 조회가 실패하거나 항목이 빠지지 않는다.
 
-            status 는 반영 상태다. 새로 들어온 의견은 UNREFLECTED(미반영)이고, 관리자가 반영 상태 변경 \
-            API 로 REFLECTED(반영)로 바꾼다.
+            status 는 처리 상태다. 새로 들어온 의견은 UNREFLECTED(미반영)이고, 관리자가 처리 상태 변경 \
+            API 로 IN_PROGRESS(처리중)·REFLECTED(반영)·ON_HOLD(보류)로 바꾼다.
 
             익명 사용자 토큰으로 호출하면 관리자 토큰이 아니라 토큰 단계에서 401로 걸린다.\
             """
@@ -81,10 +81,11 @@ public class AdminFeedbackController {
     }
 
     @Operation(
-        summary = "의견 반영 상태 변경",
+        summary = "의견 처리 상태 변경",
         description = """
-            의견의 반영 상태를 바꾼다. status 에 REFLECTED(반영) 또는 UNREFLECTED(미반영)를 보낸다. \
-            반영했던 의견을 미반영으로 되돌릴 수도 있고, 이미 같은 상태로 바꾸는 요청도 그대로 성공한다.
+            의견의 처리 상태를 바꾼다. status 에 UNREFLECTED(미반영)·IN_PROGRESS(처리중)·REFLECTED(반영)·\
+            ON_HOLD(보류) 중 하나를 보낸다. 순서와 상관없이 어느 상태로든 바꿀 수 있고, \
+            이미 같은 상태로 바꾸는 요청도 그대로 성공한다.
 
             그 외의 값이나 빈 값을 보내면 400, 없는 의견 식별자면 404가 난다. \
             응답은 바뀐 의견의 단건 조회 결과와 같다.\

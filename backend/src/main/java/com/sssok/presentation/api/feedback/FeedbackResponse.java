@@ -14,7 +14,8 @@ public record FeedbackResponse(
     @Schema(description = "작성한 회원의 닉네임 (작성 시점 값)") String nickname,
     @Schema(description = "User-Agent 원본. 헤더 없이 들어온 의견은 null") String userAgent,
     @Schema(description = "프론트 버전 태그. 예: fe-v0.1.0. 헤더 없으면 null") String frontendVersion,
-    @Schema(description = "반영 상태. UNREFLECTED(미반영) 또는 REFLECTED(반영)") String status,
+    @Schema(description = "처리 상태. UNREFLECTED(미반영)·IN_PROGRESS(처리중)·REFLECTED(반영)·ON_HOLD(보류)")
+    String status,
     @Schema(description = "작성 시각") Instant createdAt
 ) {
 
