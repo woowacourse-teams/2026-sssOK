@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-// API 인수 테스트 — 관리자가 의견의 반영 상태를 바꾸고 조회로 다시 확인한다.
+// API 인수 테스트 — 관리자가 의견의 처리 상태를 바꾸고 조회로 다시 확인한다.
 class AdminFeedbackStatusApiTest extends AdminFeedbackApiSupport {
 
     @Autowired
@@ -83,6 +83,28 @@ class AdminFeedbackStatusApiTest extends AdminFeedbackApiSupport {
         단건_조회(adminToken, feedbackId)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.status").value("UNREFLECTED"));
+    }
+
+    @Test
+    void 처리중과_보류로_바꾸면_다시_조회해도_그대로_보인다() throws Exception {
+        String memberToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(memberToken);
+        long feedbackId = 의견_남기기(memberToken, roomId, "다운로드가 끊겨요");
+        String adminToken = 슈퍼관리자_토큰();
+
+        상태_변경(adminToken, feedbackId, "IN_PROGRESS")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
+        단건_조회(adminToken, feedbackId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("IN_PROGRESS"));
+
+        상태_변경(adminToken, feedbackId, "ON_HOLD")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("ON_HOLD"));
+        목록_조회(adminToken, null, 20)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.feedbacks[0].status").value("ON_HOLD"));
     }
 
     @Test

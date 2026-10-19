@@ -16,6 +16,7 @@ public class Feedback {
     private final UserAgent userAgent;
     private final FrontendVersion frontendVersion;
     private FeedbackStatus status;
+    private FeedbackAssignee assignee;
     private final Instant createdAt;
 
     private Feedback(
@@ -28,6 +29,7 @@ public class Feedback {
         UserAgent userAgent,
         FrontendVersion frontendVersion,
         FeedbackStatus status,
+        FeedbackAssignee assignee,
         Instant createdAt
     ) {
         this.id = id;
@@ -39,6 +41,7 @@ public class Feedback {
         this.userAgent = userAgent;
         this.frontendVersion = frontendVersion;
         this.status = status;
+        this.assignee = assignee;
         this.createdAt = createdAt;
     }
 
@@ -54,7 +57,7 @@ public class Feedback {
     ) {
         return new Feedback(
             null, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion,
-            FeedbackStatus.UNREFLECTED, now);
+            FeedbackStatus.UNREFLECTED, null, now);
     }
 
     public static Feedback reconstruct(
@@ -67,13 +70,19 @@ public class Feedback {
         UserAgent userAgent,
         FrontendVersion frontendVersion,
         FeedbackStatus status,
+        FeedbackAssignee assignee,
         Instant createdAt
     ) {
         return new Feedback(
-            id, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, status, createdAt);
+            id, content, roomId, roomName, memberId, nickname, userAgent, frontendVersion, status, assignee,
+            createdAt);
     }
 
     public void changeStatus(FeedbackStatus newStatus) {
         this.status = newStatus;
+    }
+
+    public void changeAssignee(FeedbackAssignee newAssignee) {
+        this.assignee = newAssignee;
     }
 }

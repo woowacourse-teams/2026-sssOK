@@ -108,7 +108,7 @@ class AdminFeedbackApiTest extends AdminFeedbackApiSupport {
 
         단건_조회(adminToken, feedbackId)
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.data.*", Matchers.hasSize(10)))
+            .andExpect(jsonPath("$.data.*", Matchers.hasSize(11)))
             .andExpect(jsonPath("$.data.feedbackId").exists())
             .andExpect(jsonPath("$.data.content").exists())
             .andExpect(jsonPath("$.data.roomId").exists())
@@ -118,12 +118,14 @@ class AdminFeedbackApiTest extends AdminFeedbackApiSupport {
             .andExpect(jsonPath("$.data.userAgent").exists())
             .andExpect(jsonPath("$.data.frontendVersion").exists())
             .andExpect(jsonPath("$.data.status").exists())
+            // 새 의견은 assignee 가 null 이라 exists() 대신 키 존재만 본다.
+            .andExpect(jsonPath("$.data", Matchers.hasKey("assignee")))
             .andExpect(jsonPath("$.data.createdAt").exists());
 
         목록_조회(adminToken, null, 20)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.*", Matchers.hasSize(3)))
-            .andExpect(jsonPath("$.data.feedbacks[0].*", Matchers.hasSize(10)));
+            .andExpect(jsonPath("$.data.feedbacks[0].*", Matchers.hasSize(11)));
     }
 
     @Test
