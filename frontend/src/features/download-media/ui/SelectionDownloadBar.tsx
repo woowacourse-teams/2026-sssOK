@@ -15,7 +15,7 @@ import { IconButton } from "@/shared/ui/icon-button";
 import { Toast } from "@/shared/ui/toast";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
-import { trackDownload, trackShareBatch } from "../model/trackDownload";
+import { trackDownload, trackDownloadStarted, trackShareBatch } from "../model/trackDownload";
 import { type PendingShareSnapshot, useMediaDownload } from "../model/useMediaDownload";
 import type { DownloadPhase } from "../model/downloadProgress";
 import type { DownloadMode, DownloadOutcome, DownloadTarget } from "../model/types";
@@ -142,16 +142,35 @@ export const SelectionDownloadBar = ({
     mode: DownloadMode;
     isSelectAll: boolean;
     room: AnalyticsRoomContext | null;
-  }>({ targets: [], mode: "individual", isSelectAll: false, room: null });
-  const trackRun = (outcome: DownloadOutcome) =>
+    startedAt: number;
+    /** 사진첩으로 넘길 것을 다 받기까지 걸린 시간. 그 뒤 탭을 기다린 시간은 받는 속도가 아니다. */
+    receivedMs: number | null;
+  }>({
+    targets: [],
+    mode: "individual",
+    isSelectAll: false,
+    room: null,
+    startedAt: 0,
+    receivedMs: null,
+  });
+  const trackRun = (outcome: DownloadOutcome) => {
+    const run = trackedRunRef.current;
+    const elapsedMs = performance.now() - run.startedAt;
+
+    if (outcome.type === "readyToShare") {
+      run.receivedMs = elapsedMs;
+    }
+
     trackDownload(outcome, {
-      mode: trackedRunRef.current.mode,
+      mode: run.mode,
       source: "gallery",
-      selectedCount: trackedRunRef.current.targets.length,
+      selectedCount: run.targets.length,
       roomPhotoCount,
-      isSelectAll: trackedRunRef.current.isSelectAll,
-      room: trackedRunRef.current.room,
+      isSelectAll: run.isSelectAll,
+      durationMs: run.receivedMs ?? elapsedMs,
+      room: run.room,
     });
+  };
   const [isDiscardOpen, setDiscardOpen] = useState(false);
   /** 저장을 모두 마친 판. 차 있는 동안 완료 토스트를 띄운다. */
   const [doneToast, setDoneToast] = useState<{ mode: DownloadMode; count: number } | null>(null);
@@ -204,7 +223,10 @@ export const SelectionDownloadBar = ({
       // 실패한 것만 다시 받는 판은 전체 선택으로 고른 판이 아니다
       isSelectAll: isAllSelected && only === targets,
       room: getAnalyticsRoom(),
+      startedAt: performance.now(),
+      receivedMs: null,
     };
+    trackDownloadStarted(only, { mode, source: "gallery", room: trackedRunRef.current.room });
     void start(only, mode);
   };
 

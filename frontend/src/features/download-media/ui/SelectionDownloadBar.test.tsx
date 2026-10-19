@@ -348,9 +348,23 @@ describe("SelectionDownloadBar", () => {
             failed_count: 0,
             total_count: 10,
             is_select_all: true,
+            duration_ms: expect.any(Number),
           },
           ROOM_CONTEXT,
         ),
+      );
+    });
+
+    it("받기를 시작하면 끝나기 전에 시작한 판을 남긴다", async () => {
+      serveSingle();
+      renderBar([targetOf(5000), targetOf(5001)]);
+
+      await downloadIndividually();
+
+      expect(track).toHaveBeenCalledWith(
+        "Photo Download Started",
+        expect.objectContaining({ mode: "individual", source: "gallery", photo_count: 2 }),
+        ROOM_CONTEXT,
       );
     });
 
