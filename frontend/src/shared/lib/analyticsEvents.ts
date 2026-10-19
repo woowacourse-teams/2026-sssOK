@@ -16,9 +16,20 @@ export interface AnalyticsEvents {
   "Room Joined": { room_code: string; entry_src: AnalyticsEntrySource };
   "Room Join Failed": { room_code: string; reason: string };
 
-  "Photo Uploaded": { photo_count: number; failed_count: number; duration_ms: number };
-  /** 한 장도 못 올린 판. 일부라도 올라갔으면 `Photo Uploaded` 의 `failed_count` 로 남는다. */
-  "Photo Upload Failed": { reason: string; failed_count: number };
+  /** 프론트 파일 검증을 통과한 파일의 업로드 처리를 시작했을 때. 재시도도 포함한다. */
+  "Photo Upload Started": { photo_count: number; total_bytes: number };
+  "Photo Uploaded": {
+    photo_count: number;
+    failed_count: number;
+    duration_ms: number;
+    /** 성공 파일의 포맷별 수. jpg는 jpeg로 합치고, 상세 정보가 없으면 unknown으로 센다. */
+    uploaded_format_counts: Record<string, number>;
+  };
+  /**
+   * 프론트 검증 거절은 사유별로 즉시 기록한다 (`stage: selection`).
+   * 전송 결과는 한 장도 못 올린 판만 기록하고, 일부 성공 시 `Photo Uploaded.failed_count` 로 남긴다.
+   */
+  "Photo Upload Failed": { reason: string; failed_count: number; stage?: "selection" };
   /** 아무것도 안 고른 상태에서 처음 한 장을 골랐을 때. 선택 후 다운로드 전환율을 계산하는 데 쓴다. */
   "Photo Selection Started": Record<string, never>;
   /**
@@ -78,6 +89,8 @@ export interface AnalyticsEvents {
   "Folder Create Started": { source: "menu" | "filter_plus" };
   "Folder Created": { source: "menu" | "filter_plus" };
 
+  /** 방 전체가 빈 갤러리를 표시했을 때, 갤러리 방문당 한 번. 업로드 완료 전환율의 분모다. */
+  "Empty Gallery Viewed": Record<string, never>;
   "Gallery Filter Changed": { filter: "all" | "mine" | "others" | "liked" };
   "Gallery Sort Changed": { sort: "upload" | "popular" };
 

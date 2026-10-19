@@ -126,7 +126,7 @@ describe("배포 빌드일 때", () => {
     analytics.setAnalyticsRoom(null);
     analytics.track(
       "Photo Uploaded",
-      { photo_count: 1, failed_count: 0, duration_ms: 10 },
+      { photo_count: 1, failed_count: 0, duration_ms: 10, uploaded_format_counts: { jpeg: 1 } },
       startedRoom,
     );
 
@@ -136,6 +136,7 @@ describe("배포 빌드일 때", () => {
       photo_count: 1,
       failed_count: 0,
       duration_ms: 10,
+      uploaded_format_counts: { jpeg: 1 },
     });
   });
 
