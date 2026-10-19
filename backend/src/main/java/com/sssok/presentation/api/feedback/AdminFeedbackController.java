@@ -46,6 +46,11 @@ public class AdminFeedbackController {
             status 는 처리 상태다. 새로 들어온 의견은 UNREFLECTED(미반영)이고, 관리자가 처리 상태 변경 \
             API 로 IN_PROGRESS(처리중)·REFLECTED(반영)·ON_HOLD(보류)로 바꾼다.
 
+            assignee 는 담당자다. MAICHAN(마이찬)·HAENI(해니)·YUNDOL(윤돌)·HYUNMIBAP(현미밥) 중 하나이고, \
+            아직 정하지 않았으면 null 이다.
+
+            상태·담당자로 거르거나 정렬하는 파라미터는 없다. 항상 최신순으로 내려준다.
+
             익명 사용자 토큰으로 호출하면 관리자 토큰이 아니라 토큰 단계에서 401로 걸린다.\
             """
     )

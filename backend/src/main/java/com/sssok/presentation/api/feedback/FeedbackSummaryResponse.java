@@ -16,6 +16,8 @@ public record FeedbackSummaryResponse(
     @Schema(description = "프론트 버전 태그. 예: fe-v0.1.0. 헤더 없으면 null") String frontendVersion,
     @Schema(description = "처리 상태. UNREFLECTED(미반영)·IN_PROGRESS(처리중)·REFLECTED(반영)·ON_HOLD(보류)")
     String status,
+    @Schema(description = "담당자. MAICHAN(마이찬)·HAENI(해니)·YUNDOL(윤돌)·HYUNMIBAP(현미밥). 없으면 null")
+    String assignee,
     @Schema(description = "작성 시각") Instant createdAt
 ) {
 
@@ -30,6 +32,7 @@ public record FeedbackSummaryResponse(
             feedback.getUserAgent().value(),
             feedback.getFrontendVersion().value(),
             feedback.getStatus().name(),
+            feedback.getAssignee() == null ? null : feedback.getAssignee().name(),
             feedback.getCreatedAt()
         );
     }
