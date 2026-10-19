@@ -15,6 +15,8 @@ jest.mock("../config", () => ({
   ...jest.requireActual("../config"),
   INDIVIDUAL_SAVE_GAP_MS: 0,
   POLL_INTERVAL_MS: 0,
+  // 묶음 기준을 넘는 판을 몇 장만으로 만든다.
+  SHARE_BATCH_SIZE: 2,
 }));
 
 const TOKEN = "mock-token-10234";
@@ -298,6 +300,7 @@ describe("downloadMedia — 사진첩에 저장", () => {
     contentType: string,
     share: (data: { files: File[] }) => Promise<void> = async ({ files }) =>
       void shared.push(...files),
+    targets: DownloadTarget[] = [targetOf(5000)],
   ) => {
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
@@ -326,7 +329,7 @@ describe("downloadMedia — 사진첩에 저장", () => {
 
     const outcome = await downloadMedia({
       roomId: MOCK_ROOM_ID,
-      targets: [targetOf(5000)],
+      targets,
       mode: "share",
       token: TOKEN,
     });
@@ -363,6 +366,30 @@ describe("downloadMedia — 사진첩에 저장", () => {
     );
 
     expect(outcome).toMatchObject({ type: "readyToShare", failed: [] });
+  });
+
+  /** 한꺼번에 넘기면 시트를 여는 순간 기기가 멈춘다. 묶음은 화면이 탭마다 넘긴다. */
+  it("묶음 기준을 넘으면 시트를 열지 않고 받아둔 파일을 모두 화면으로 넘긴다", async () => {
+    const share = jest.fn(async () => undefined);
+    const { outcome } = await sharedFilesOf("image/jpeg", share, [
+      targetOf(5000),
+      targetOf(5001),
+      targetOf(5002),
+    ]);
+
+    expect(share).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ type: "readyToShare", failed: [] });
+    expect(outcome.type === "readyToShare" && outcome.files).toHaveLength(3);
+  });
+
+  it("묶음 기준 이하면 지금처럼 한 번에 넘긴다", async () => {
+    const { outcome, shared } = await sharedFilesOf("image/jpeg", undefined, [
+      targetOf(5000),
+      targetOf(5001),
+    ]);
+
+    expect(outcome).toEqual({ type: "saved", savedCount: 2, failed: [] });
+    expect(shared).toHaveLength(2);
   });
 });
 

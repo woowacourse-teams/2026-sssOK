@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 
-import type { AdminFeedback } from "@/entities/feedback";
+import type { AdminFeedback, FeedbackAssignee, FeedbackStatus } from "@/entities/feedback";
 import { API_BASE_URL } from "@/shared/config";
 
 /** 서버 기본값과 맞춘다 (의견 목록 조회 명세). */
@@ -314,12 +314,35 @@ const SEEDS: Seed[] = [
   },
 ];
 
+const STATUSES: FeedbackStatus[] = ["UNREFLECTED", "IN_PROGRESS", "REFLECTED", "ON_HOLD"];
+const ASSIGNEES: FeedbackAssignee[] = ["MAICHAN", "HAENI", "YUNDOL", "HYUNMIBAP"];
+
+/** 앞의 여덟 건은 디자인에 그려진 그대로다. 나머지는 미반영·담당 없음이다. */
+const TRIAGE: Pick<AdminFeedback, "status" | "assignee">[] = [
+  { status: "UNREFLECTED", assignee: null },
+  { status: "IN_PROGRESS", assignee: "HAENI" },
+  { status: "IN_PROGRESS", assignee: "YUNDOL" },
+  { status: "UNREFLECTED", assignee: "HYUNMIBAP" },
+  { status: "REFLECTED", assignee: "MAICHAN" },
+  { status: "REFLECTED", assignee: "HAENI" },
+  { status: "ON_HOLD", assignee: "YUNDOL" },
+  { status: "UNREFLECTED", assignee: null },
+];
+
 /** 최신순으로 적은 씨앗에 번호를 붙인다 — 위가 큰 번호여야 `feedbackId` 내림차순이 된다. */
-const FEEDBACKS: AdminFeedback[] = SEEDS.map((seed, index) => ({
-  feedbackId: SEEDS.length - index,
-  ...seed,
-  createdAt: new Date(seed.createdAt).toISOString(),
-}));
+const createFeedbacks = (): AdminFeedback[] =>
+  SEEDS.map((seed, index) => ({
+    feedbackId: SEEDS.length - index,
+    ...seed,
+    ...(TRIAGE[index] ?? { status: "UNREFLECTED", assignee: null }),
+    createdAt: new Date(seed.createdAt).toISOString(),
+  }));
+
+let FEEDBACKS = createFeedbacks();
+
+export const resetFeedbacks = () => {
+  FEEDBACKS = createFeedbacks();
+};
 
 const toPreview = (feedback: AdminFeedback): AdminFeedback =>
   feedback.content.length > PREVIEW_LENGTH
@@ -332,6 +355,12 @@ const unauthorized = () =>
 /** 관리자 토큰이 아니면 권한 판정 전에 토큰 단계에서 걸린다. */
 const isAdminRequest = (request: Request) =>
   request.headers.get("Authorization")?.startsWith("Bearer ") ?? false;
+
+const notFound = () =>
+  HttpResponse.json(
+    { code: "FEEDBACK_NOT_FOUND", message: "존재하지 않는 의견입니다" },
+    { status: 404 },
+  );
 
 const invalidParameter = (name: string) =>
   HttpResponse.json(
@@ -396,13 +425,60 @@ export const feedbackHandlers = [
 
     const feedback = FEEDBACKS.find((candidate) => candidate.feedbackId === feedbackId);
 
-    if (!feedback) {
-      return HttpResponse.json(
-        { code: "FEEDBACK_NOT_FOUND", message: "존재하지 않는 의견입니다" },
-        { status: 404 },
-      );
-    }
+    if (!feedback) return notFound();
 
     return HttpResponse.json({ data: feedback });
   }),
+
+  http.patch(`${API_BASE_URL}/admin/feedbacks/:feedbackId/status`, async ({ request, params }) => {
+    if (!isAdminRequest(request)) return unauthorized();
+
+    const feedback = FEEDBACKS.find(
+      (candidate) => candidate.feedbackId === readNumber(String(params.feedbackId)),
+    );
+
+    if (!feedback) return notFound();
+
+    const body = (await request.json().catch(() => null)) as { status?: unknown } | null;
+    const status = STATUSES.find((value) => value === body?.status);
+
+    if (!status) {
+      return HttpResponse.json(
+        { code: "INVALID_FEEDBACK_STATUS", message: "올바르지 않은 처리 상태입니다" },
+        { status: 400 },
+      );
+    }
+
+    feedback.status = status;
+
+    return HttpResponse.json({ data: feedback });
+  }),
+
+  http.patch(
+    `${API_BASE_URL}/admin/feedbacks/:feedbackId/assignee`,
+    async ({ request, params }) => {
+      if (!isAdminRequest(request)) return unauthorized();
+
+      const feedback = FEEDBACKS.find(
+        (candidate) => candidate.feedbackId === readNumber(String(params.feedbackId)),
+      );
+
+      if (!feedback) return notFound();
+
+      const body = (await request.json().catch(() => null)) as { assignee?: unknown } | null;
+      const raw = body?.assignee ?? null;
+      const assignee = raw === null ? null : ASSIGNEES.find((value) => value === raw);
+
+      if (assignee === undefined) {
+        return HttpResponse.json(
+          { code: "INVALID_FEEDBACK_ASSIGNEE", message: "올바르지 않은 담당자입니다" },
+          { status: 400 },
+        );
+      }
+
+      feedback.assignee = assignee;
+
+      return HttpResponse.json({ data: feedback });
+    },
+  ),
 ];

@@ -23,6 +23,13 @@ export const colors = {
 
   /** 못 올리는 파일을 알릴 때 쓰는 경고색. danger 만큼 세지 않다 — 사용자 잘못이 아니라 한도 안내다. */
   warning: "#C0563A",
+  warningSubtle: "#F7EAE6",
+
+  info: "#2F6DB0",
+  infoSubtle: "#E6EEF8",
+
+  success: "#2F7D4F",
+  successSubtle: "#E5F1E9",
 
   disabled: "#C9C9C9",
   danger: "#F13337",

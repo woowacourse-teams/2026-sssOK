@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Toast } from "@/shared/ui/toast";
 import { uploadErrorNoticeOf } from "../lib/uploadErrorNotice";
 import type { MediaSelection, RejectedSelection } from "../model/selectMediaFiles";
+import { trackUploadSelectionRejected } from "../model/trackUpload";
 import { useMediaUpload } from "../model/useMediaUpload";
 import { useUploadFailure } from "../model/useUploadFailure";
 import type { PendingMedia } from "../model/types";
@@ -140,6 +141,9 @@ export const MediaUploader = ({
    * 멀쩡한 27장이 모달을 닫을 때까지 멈춰 선다.
    */
   const handleSelect = (next: MediaSelection) => {
+    if (!canUpload) return;
+
+    trackUploadSelectionRejected(next.rejected);
     setRejected(next.rejected);
     start(next.accepted);
   };

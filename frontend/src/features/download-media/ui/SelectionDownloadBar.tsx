@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   LuCheck,
   LuDownload,
@@ -12,12 +12,14 @@ import {
 import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
+import { Toast } from "@/shared/ui/toast";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
-import { trackDownload } from "../model/trackDownload";
-import { useMediaDownload } from "../model/useMediaDownload";
+import { trackDownload, trackDownloadStarted, trackShareBatch } from "../model/trackDownload";
+import { type PendingShareSnapshot, useMediaDownload } from "../model/useMediaDownload";
 import type { DownloadPhase } from "../model/downloadProgress";
 import type { DownloadMode, DownloadOutcome, DownloadTarget } from "../model/types";
+import { DiscardShareModal } from "./DiscardShareModal";
 import { DownloadFailureModal } from "./DownloadFailureModal";
 import { DownloadModeSheet } from "./DownloadModeSheet";
 import {
@@ -30,6 +32,7 @@ import {
   SelectionCheck,
   SelectionLayout,
   SelectionSummary,
+  ShareButton,
   Status,
   StatusText,
 } from "./SelectionDownloadBar.styles";
@@ -69,8 +72,39 @@ const STATUS_TEXT: Record<DownloadPhase, string> = {
   fetching: "다운로드 중",
   zipping: "압축 중",
   receiving: "zip 받는 중",
-  sharing: "사진첩으로 보내는 중",
+  sharing: "사진첩에 저장하는 중",
 };
+
+/**
+ * 저장을 마쳤다는 토스트가 떠 있는 시간.
+ * 결과를 알리기만 하고 할 일은 없는 알림이라, 닫기 버튼 없이 이 시간 뒤에 스스로 사라진다.
+ */
+const DONE_TOAST_MS = 2000;
+
+/** 방식마다 끝난 자리가 다르다. 사진첩인지, 낱장 파일인지, 압축 파일 하나인지 말해준다. */
+const doneMessageOf = (mode: DownloadMode, count: number) =>
+  ({
+    share: `${count}장을 사진첩에 저장했어요.`,
+    individual: `${count}장을 저장했어요.`,
+    zip: `${count}장을 zip 파일로 저장했어요.`,
+  })[mode];
+
+/**
+ * 받아둔 것을 넘기는 바의 왼쪽 글자와 버튼 글자.
+ *
+ * 한 묶음이라도 넘긴 뒤에는 "왜 또 눌러야 하는지" 가 보여야 한다 — 저장한 장수와 남은 장수를
+ * 함께 말하고, 버튼도 같은 동작의 반복이 아니라 이어지는 다음 단계로 읽히게 쓴다.
+ */
+const shareBarTextOf = ({ nextCount, savedCount, remainingCount }: PendingShareSnapshot) =>
+  savedCount === 0
+    ? {
+        summary: `${remainingCount}장 준비됨`,
+        action: "사진첩에 저장",
+      }
+    : {
+        summary: `${savedCount}장 저장 / ${remainingCount}장 남음`,
+        action: `다음 ${nextCount}장 저장`,
+      };
 
 export const SelectionDownloadBar = ({
   targets,
@@ -108,38 +142,76 @@ export const SelectionDownloadBar = ({
     mode: DownloadMode;
     isSelectAll: boolean;
     room: AnalyticsRoomContext | null;
-  }>({ targets: [], mode: "individual", isSelectAll: false, room: null });
-  const trackRun = (outcome: DownloadOutcome) =>
-    trackDownload(outcome, {
-      mode: trackedRunRef.current.mode,
-      source: "gallery",
-      selectedCount: trackedRunRef.current.targets.length,
-      roomPhotoCount,
-      isSelectAll: trackedRunRef.current.isSelectAll,
-      room: trackedRunRef.current.room,
-    });
-  const { progress, pendingShare, start, share, dismissShare, cancel } = useMediaDownload({
-    roomId,
-    token,
-    onSettled: (outcome) => {
-      settleFailure(outcome, lastRun.targets, lastRun.mode);
-      trackRun(outcome);
-
-      // 저장까지 끝났으면 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
-      // 그대로 둔다 — 다시 시도할 대상을 사용자가 다시 고르게 만들면 안 된다.
-      if (outcome.type === "saved" && outcome.failed.length === 0) {
-        onClearSelection();
-      }
-
-      onSettled?.(outcome);
-    },
-    // 결말을 만들지도 못하고 튄 예외. 여기서 잡지 않으면 실패가 조용히 사라진다.
-    onError: (error) => {
-      const reason = downloadMessageOfError(error);
-      trackRun({ type: "failed", reason, isRetryable: false });
-      failWith(reason, lastRun.targets, lastRun.mode);
-    },
+    startedAt: number;
+    /** 사진첩으로 넘길 것을 다 받기까지 걸린 시간. 그 뒤 탭을 기다린 시간은 받는 속도가 아니다. */
+    receivedMs: number | null;
+  }>({
+    targets: [],
+    mode: "individual",
+    isSelectAll: false,
+    room: null,
+    startedAt: 0,
+    receivedMs: null,
   });
+  const trackRun = (outcome: DownloadOutcome) => {
+    const run = trackedRunRef.current;
+    const elapsedMs = performance.now() - run.startedAt;
+
+    if (outcome.type === "readyToShare") {
+      run.receivedMs = elapsedMs;
+    }
+
+    trackDownload(outcome, {
+      mode: run.mode,
+      source: "gallery",
+      selectedCount: run.targets.length,
+      roomPhotoCount,
+      isSelectAll: run.isSelectAll,
+      durationMs: run.receivedMs ?? elapsedMs,
+      room: run.room,
+    });
+  };
+  const [isDiscardOpen, setDiscardOpen] = useState(false);
+  /** 저장을 모두 마친 판. 차 있는 동안 완료 토스트를 띄운다. */
+  const [doneToast, setDoneToast] = useState<{ mode: DownloadMode; count: number } | null>(null);
+
+  useEffect(() => {
+    if (doneToast === null) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setDoneToast(null), DONE_TOAST_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [doneToast]);
+
+  const { progress, pendingShare, isSharing, start, share, dismissShare, cancel } =
+    useMediaDownload({
+      roomId,
+      token,
+      onSettled: (outcome) => {
+        settleFailure(outcome, lastRun.targets, lastRun.mode);
+        trackRun(outcome);
+
+        // 저장까지 끝났으면 알리고 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
+        // 그대로 둔다 — 다시 시도할 대상을 사용자가 다시 고르게 만들면 안 된다.
+        // 못 받은 것이 섞인 판은 실패 모달이 설명하므로 토스트를 겹쳐 띄우지 않는다.
+        // 사진첩 묶음 사이에는 바가 남은 장수를 말하고, 토스트는 다 끝났을 때 한 번만 뜬다.
+        if (outcome.type === "saved" && outcome.failed.length === 0) {
+          setDoneToast({ mode: trackedRunRef.current.mode, count: outcome.savedCount });
+          onClearSelection();
+        }
+
+        onSettled?.(outcome);
+      },
+      // 결말을 만들지도 못하고 튄 예외. 여기서 잡지 않으면 실패가 조용히 사라진다.
+      onError: (error) => {
+        const reason = downloadMessageOfError(error);
+        trackRun({ type: "failed", reason, isRetryable: false });
+        failWith(reason, lastRun.targets, lastRun.mode);
+      },
+      onShareBatch: (batch) => trackShareBatch(batch, trackedRunRef.current.room),
+    });
 
   const startWith = (mode: DownloadMode, only: DownloadTarget[] = targets) => {
     setSheetOpen(false);
@@ -151,7 +223,10 @@ export const SelectionDownloadBar = ({
       // 실패한 것만 다시 받는 판은 전체 선택으로 고른 판이 아니다
       isSelectAll: isAllSelected && only === targets,
       room: getAnalyticsRoom(),
+      startedAt: performance.now(),
+      receivedMs: null,
     };
+    trackDownloadStarted(only, { mode, source: "gallery", room: trackedRunRef.current.room });
     void start(only, mode);
   };
 
@@ -204,15 +279,24 @@ export const SelectionDownloadBar = ({
               // 고르기 바와 같은 자리에 놓는다 — 장수는 왼쪽, 버튼은 가운데, 닫기는 오른쪽.
               <SelectionLayout>
                 <SelectionSummary>
-                  <Count>{pendingShare.length}장 준비됨</Count>
+                  <Count>{shareBarTextOf(pendingShare).summary}</Count>
                 </SelectionSummary>
-                {/* 여기서만은 핸들러가 곧바로 시트를 연다. 사이에 await 가 끼면 사파리가 막는다. */}
-                <DownloadButton type="button" onClick={() => void share()}>
-                  <LuImageDown />
-                  사진첩에 저장
-                </DownloadButton>
+                {/*
+                  여기서만은 핸들러가 곧바로 시트를 연다. 사이에 await 가 끼면 사파리가 막는다.
+                  누른 뒤 `share()` 가 끝날 때까지는 잠근다. 시트가 뜨기 전 몇 초가 비어 보이고,
+                  그 사이 다시 누르면 사파리가 앞선 공유가 안 끝났다며 거절한다.
+                */}
+                <ShareButton type="button" disabled={isSharing} onClick={() => void share()}>
+                  {isSharing ? <LuLoaderCircle className="spin" /> : <LuImageDown />}
+                  {isSharing ? "사진첩에 저장하는 중..." : shareBarTextOf(pendingShare).action}
+                </ShareButton>
                 <ActionGroup>
-                  <PlainButton type="button" aria-label="받아둔 사진 버리기" onClick={dismissShare}>
+                  <PlainButton
+                    type="button"
+                    aria-label="받아둔 사진 버리기"
+                    disabled={isSharing}
+                    onClick={() => setDiscardOpen(true)}
+                  >
                     <LuX />
                   </PlainButton>
                 </ActionGroup>
@@ -273,6 +357,26 @@ export const SelectionDownloadBar = ({
           isRetryable={failure.targets.length > 0}
           onRetry={() => startWith(failure.mode, failure.targets)}
           onClose={closeFailure}
+        />
+      )}
+
+      {isDiscardOpen && pendingShare !== null && (
+        <DiscardShareModal
+          remainingCount={pendingShare.remainingCount}
+          savedCount={pendingShare.savedCount}
+          onDiscard={() => {
+            setDiscardOpen(false);
+            dismissShare();
+          }}
+          onClose={() => setDiscardOpen(false)}
+        />
+      )}
+
+      {doneToast !== null && (
+        <Toast
+          message={doneMessageOf(doneToast.mode, doneToast.count)}
+          showClose={false}
+          onClose={() => setDoneToast(null)}
         />
       )}
     </>

@@ -3,13 +3,28 @@ import { useNavigate } from "react-router-dom";
 
 import { readValidAdminSession, removeAdminSession } from "@/entities/admin-session";
 import { FeedbackItem, useAdminFeedbacksQuery } from "@/entities/feedback";
+import { FeedbackAssigneeMenu } from "@/features/change-feedback-assignee";
+import { FeedbackStatusMenu } from "@/features/change-feedback-status";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useInfiniteScroll } from "@/shared/hooks";
 import { Button } from "@/shared/ui/button";
+import { Toast } from "@/shared/ui/toast";
+import { useTriageFilter } from "../model/useTriageFilter";
+import { useTriageToast } from "../model/useTriageToast";
 import { useVersionFilter } from "../model/useVersionFilter";
+import { AssigneeFilter } from "./AssigneeFilter";
 import { FeedbackDetailModal } from "./FeedbackDetailModal";
-import { List, LoadingMore, Notice, Page, Sentinel, Title } from "./AdminFeedbacksPage.styles";
+import {
+  Filters,
+  List,
+  LoadingMore,
+  Notice,
+  Page,
+  Sentinel,
+  Title,
+} from "./AdminFeedbacksPage.styles";
+import { StatusTabs } from "./StatusTabs";
 import { VersionFilter } from "./VersionFilter";
 
 export const AdminFeedbacksPage = () => {
@@ -21,8 +36,14 @@ export const AdminFeedbacksPage = () => {
     useAdminFeedbacksQuery(session?.accessToken ?? "");
 
   const feedbacks = useMemo(() => data?.pages.flatMap((page) => page.feedbacks) ?? [], [data]);
-  const { versions, selectedVersion, visibleFeedbacks, toggleVersion } =
-    useVersionFilter(feedbacks);
+  const {
+    versions,
+    selectedVersion,
+    visibleFeedbacks: byVersion,
+    toggleVersion,
+  } = useVersionFilter(feedbacks);
+  const { statusTab, setStatusTab, assigneeFilter, setAssigneeFilter, counts, visibleFeedbacks } =
+    useTriageFilter(byVersion);
 
   const [openedFeedbackId, setOpenedFeedbackId] = useState<number | null>(null);
   const closeDetail = useCallback(() => setOpenedFeedbackId(null), []);
@@ -58,15 +79,22 @@ export const AdminFeedbacksPage = () => {
     if (isUnauthorized) leaveToLogin();
   }, [isUnauthorized, leaveToLogin]);
 
+  const { toast, showChanged, showFailed, closeToast } = useTriageToast(leaveToLogin);
+
   return (
     <Page>
       <Title>의견</Title>
 
-      <VersionFilter
-        versions={versions}
-        selectedVersion={selectedVersion}
-        onToggle={toggleVersion}
-      />
+      <StatusTabs selected={statusTab} counts={counts} onSelect={setStatusTab} />
+
+      <Filters>
+        <VersionFilter
+          versions={versions}
+          selectedVersion={selectedVersion}
+          onToggle={toggleVersion}
+        />
+        <AssigneeFilter selected={assigneeFilter} onSelect={setAssigneeFilter} />
+      </Filters>
 
       {isPending && <Notice>의견을 불러오고 있어요.</Notice>}
 
@@ -86,12 +114,34 @@ export const AdminFeedbacksPage = () => {
         <Notice>아직 들어온 의견이 없어요.</Notice>
       )}
 
+      {feedbacks.length > 0 && visibleFeedbacks.length === 0 && (
+        <Notice>조건에 맞는 의견이 없어요.</Notice>
+      )}
+
       <List>
         {visibleFeedbacks.map((feedback) => (
           <FeedbackItem
             key={feedback.feedbackId}
             feedback={feedback}
             onSelect={setOpenedFeedbackId}
+            aside={
+              session && (
+                <>
+                  <FeedbackAssigneeMenu
+                    token={session.accessToken}
+                    feedback={feedback}
+                    onChanged={showChanged}
+                    onFailed={showFailed("담당자")}
+                  />
+                  <FeedbackStatusMenu
+                    token={session.accessToken}
+                    feedback={feedback}
+                    onChanged={showChanged}
+                    onFailed={showFailed("상태")}
+                  />
+                </>
+              )
+            }
           />
         ))}
       </List>
@@ -109,6 +159,10 @@ export const AdminFeedbacksPage = () => {
           onClose={closeDetail}
           onUnauthorized={leaveToLogin}
         />
+      )}
+
+      {toast && (
+        <Toast tone={toast.tone} message={toast.message} showClose={false} onClose={closeToast} />
       )}
     </Page>
   );

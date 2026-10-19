@@ -96,6 +96,13 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
             .content(status == null ? "{}" : "{\"status\":\"" + status + "\"}"));
     }
 
+    protected ResultActions 담당자_변경(String token, long feedbackId, String assignee) throws Exception {
+        return mockMvc.perform(patch("/api/v1/admin/feedbacks/{feedbackId}/assignee", feedbackId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(assignee == null ? "{\"assignee\":null}" : "{\"assignee\":\"" + assignee + "\"}"));
+    }
+
     protected long 의견_남기기(String token, long roomId, String content) throws Exception {
         return 의견_남기기(token, roomId, content, CHROME_UA, FRONTEND_VERSION);
     }
