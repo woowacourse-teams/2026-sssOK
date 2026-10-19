@@ -12,3 +12,4 @@ export type {
 } from "./analyticsEvents";
 export { runWithLimit } from "./runWithLimit";
 export { waitUnlessAborted } from "./waitUnlessAborted";
+export { withDirectionParticle } from "./koreanParticle";
