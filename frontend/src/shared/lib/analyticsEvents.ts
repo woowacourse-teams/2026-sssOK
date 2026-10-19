@@ -43,6 +43,8 @@ export interface AnalyticsEvents {
     is_select_all: boolean;
     /** 받기를 시작해서 다 받기까지 걸린 시간 (`trackDownload` 참고) */
     duration_ms: number;
+    /** 드래그로 골랐는지. 드래그 선택이 생기면 보낸다. */
+    used_drag?: boolean;
   };
   "Photo Download Failed": {
     mode: "individual" | "zip" | "share";
@@ -99,8 +101,9 @@ export type AnalyticsEntrySource = "link" | "code";
 /**
  * 다운로드를 누른 자리. 지금은 갤러리 선택 바뿐이고,
  * 사진 한 장 보기 화면의 다운로드 버튼은 준비 중이라 `viewer` 는 아직 오지 않는다.
+ * `long_press` 는 사진을 꾹 눌러 저장한 경우로, 그 기능이 생기면 보낸다.
  */
-export type AnalyticsDownloadSource = "gallery" | "viewer";
+export type AnalyticsDownloadSource = "gallery" | "viewer" | "long_press";
 
 /** 방 안에서 일어난 이벤트에 공통으로 붙는 속성 */
 export interface AnalyticsRoomContext {
