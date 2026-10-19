@@ -1,5 +1,5 @@
 import { type AnalyticsDownloadSource, type AnalyticsRoomContext, track } from "@/shared/lib";
-import type { DownloadMode, DownloadOutcome } from "./types";
+import type { DownloadMode, DownloadOutcome, DownloadTarget } from "./types";
 import type { ShareBatchResult } from "./useMediaDownload";
 
 interface DownloadRun {
@@ -15,9 +15,34 @@ interface DownloadRun {
    * 전체 선택은 불러온 사진까지만 고르기 때문이다.
    */
   isSelectAll: boolean;
+  /**
+   * 받기를 시작해서 다 받기까지 걸린 시간. 사진첩으로 넘기는 판은 받아둔 뒤 사용자가
+   * 묶음마다 탭하는 시간이 끼므로, 그 시간은 빼고 다 받은 시점까지만 잰다.
+   */
+  durationMs: number;
   /** 받기를 시작한 방. 끝나기 전에 갤러리를 떠나도 그 방으로 남긴다. */
   room: AnalyticsRoomContext | null;
 }
+
+/** 받기 한 판을 시작했을 때. 끝난 판과 견줘 완료율과 도중에 그만둔 비율을 본다. */
+export const trackDownloadStarted = (
+  targets: DownloadTarget[],
+  {
+    mode,
+    source,
+    room,
+  }: { mode: DownloadMode; source: AnalyticsDownloadSource; room: AnalyticsRoomContext | null },
+) =>
+  track(
+    "Photo Download Started",
+    {
+      mode,
+      source,
+      photo_count: targets.length,
+      total_bytes: targets.reduce((sum, target) => sum + target.size, 0),
+    },
+    room,
+  );
 
 /**
  * 받기 한 판의 결말을 이벤트로 남긴다.
@@ -27,6 +52,8 @@ interface DownloadRun {
  * 취소·닫기는 받은 것도 실패한 것도 아니라 남기지 않는다.
  */
 export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
+  const durationMs = Math.round(run.durationMs);
+
   switch (outcome.type) {
     case "saved":
       track(
@@ -38,6 +65,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
           failed_count: outcome.failed.length,
           total_count: run.roomPhotoCount,
           is_select_all: run.isSelectAll,
+          duration_ms: durationMs,
         },
         run.room,
       );
@@ -50,6 +78,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
           source: run.source,
           reason: "all_failed",
           failed_count: outcome.failed.length,
+          duration_ms: durationMs,
         },
         run.room,
       );
@@ -62,6 +91,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
           source: run.source,
           reason: outcome.reason,
           failed_count: run.selectedCount,
+          duration_ms: durationMs,
         },
         run.room,
       );
