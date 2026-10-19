@@ -3,8 +3,10 @@ import { HiCheck } from "react-icons/hi2";
 import { LuDownload, LuFileArchive, LuImageDown } from "react-icons/lu";
 
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { SHARE_BATCH_SIZE } from "../config";
 import { prefersShareSheet } from "../lib/prefersShareSheet";
 import { zipArchiveName } from "../lib/zipArchiveName";
+import { shareBatchCountOf } from "../model/shareBatches";
 import type { DownloadMode } from "../model/types";
 import {
   Check,
@@ -50,6 +52,7 @@ export const DownloadModeSheet = ({
   // zip 이 기본이다. 여러 장을 받을 때 실제로 끝까지 동작하는 쪽이라서다.
   const [mode, setMode] = useState<DownloadMode>("zip");
   const name = useId();
+  const shareBatchCount = shareBatchCountOf(count);
 
   /**
    * 첫 항목은 **기기에 따라 다른 것이 앉는다.**
@@ -111,16 +114,14 @@ export const DownloadModeSheet = ({
       </Options>
 
       {/*
-        공유 시트에서 사진첩에 넣는 것은 **아이콘 줄이 아니라 아래 액션 목록의 "이미지 저장"** 이다.
-        아이콘 줄의 사진 관련 앱은 그 앱으로 보내는 것이라, 눌러도 카메라롤에는 남지 않는다.
-        버튼에 "사진첩에 저장" 이라고만 써 두면 시트에서 한 번 더 골라야 하는 줄 모르고
-        눈에 먼저 띄는 아이콘을 누르게 된다 — 그래서 어디를 눌러야 하는지 미리 말해준다.
+        많이 고르면 묶음으로 나눠 넘긴다. 두 번째 시트가 떴을 때 당황하지 않게,
+        몇 번 눌러야 하는지 누르기 **전에** 말해준다.
       */}
-      <Notice>
-        {mode === "share"
-          ? "공유 시트가 열리면 [이미지 저장]을 눌러야 사진첩에 들어가요"
-          : "업로드 당시 원본 파일명을 그대로 유지해요"}
-      </Notice>
+      {mode === "share" && shareBatchCount > 1 && (
+        <Notice>
+          사진이 많아서 최대 {SHARE_BATCH_SIZE}장씩 {shareBatchCount}번 나눠 저장해요
+        </Notice>
+      )}
 
       <Submit type="button" onClick={() => onSubmit(mode)}>
         다운로드

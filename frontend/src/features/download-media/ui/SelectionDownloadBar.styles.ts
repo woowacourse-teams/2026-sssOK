@@ -146,10 +146,26 @@ export const DownloadButton = styled.button`
     background: ${colors.primaryPressed};
   }
 
+  /* 공유 시트가 뜨기를 기다리는 동안. 눌린 채 멈춘 것이 아니라 일하는 중으로 보여야 한다. */
+  &:disabled {
+    background: ${colors.primaryPressed};
+    cursor: default;
+  }
+
   svg {
     flex: none;
     width: 18px;
     height: 18px;
+  }
+
+  .spin {
+    animation: spin 0.7s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .spin {
+      animation: none;
+    }
   }
 
   @media (max-width: 360px) {
@@ -157,6 +173,17 @@ export const DownloadButton = styled.button`
     width: 124px;
     padding-inline: ${spacing[8]};
     font-size: 12px;
+  }
+`;
+
+/** 받아둔 것을 넘기는 버튼. 글자가 상태마다 길이가 달라 폭을 글자에 맞춘다. */
+export const ShareButton = styled(DownloadButton)`
+  width: auto;
+  min-width: 132px;
+
+  @media (max-width: 360px) {
+    width: auto;
+    min-width: 0;
   }
 `;
 
@@ -177,6 +204,12 @@ export const PlainButton = styled.button`
 
   &:hover {
     background: ${colors.interactiveHover};
+  }
+
+  &:disabled {
+    background: none;
+    color: ${colors.textSecondary};
+    cursor: default;
   }
 
   svg {

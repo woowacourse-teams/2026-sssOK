@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -8,6 +8,7 @@ import { API_BASE_URL } from "@/shared/config";
 import { setAnalyticsRoom, track } from "@/shared/lib/analytics";
 import { SelectionDownloadBar } from "./SelectionDownloadBar";
 import { prefersShareSheet } from "../lib/prefersShareSheet";
+import { shareFiles, type ShareFilesResult } from "../lib/shareFiles";
 import type { DownloadTarget } from "../model/types";
 
 jest.mock("../lib/saveBlob", () => ({ saveBlob: jest.fn() }));
@@ -16,14 +17,19 @@ jest.mock("@/shared/lib/analytics", () => ({
   track: jest.fn(),
 }));
 jest.mock("../lib/prefersShareSheet", () => ({ prefersShareSheet: jest.fn(() => false) }));
+// jsdom 에는 공유 시트가 없다. 몇 장을 넘겼는지와, 시트가 어떻게 닫혔는지만 흉내 낸다.
+jest.mock("../lib/shareFiles", () => ({ shareFiles: jest.fn() }));
 jest.mock("../config", () => ({
   ...jest.requireActual("../config"),
   INDIVIDUAL_SAVE_GAP_MS: 0,
   POLL_INTERVAL_MS: 0,
+  // 묶음 기준을 넘는 판을 몇 장만으로 만든다.
+  SHARE_BATCH_SIZE: 2,
 }));
 
 const TOKEN = "mock-token-10234";
 const prefersShareSheetMock = prefersShareSheet as jest.MockedFunction<typeof prefersShareSheet>;
+const shareFilesMock = shareFiles as jest.MockedFunction<typeof shareFiles>;
 
 const targetOf = (mediaId: number): DownloadTarget => ({
   mediaId,
@@ -63,6 +69,49 @@ const serveSingle = (status = 200) =>
     ),
   );
 
+/** 압축 잡을 만들자마자 다 묶인 것으로 답한다. 고른 장수가 그대로 zip 에 들어간다. */
+const serveZip = () => {
+  let mediaCount = 0;
+
+  server.use(
+    http.post(`${API_BASE_URL}/rooms/:roomId/downloads/zip`, async ({ request }) => {
+      const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+      mediaCount = mediaIds.length;
+
+      return HttpResponse.json(
+        {
+          data: {
+            jobId: "job-1",
+            status: "QUEUED",
+            mediaCount,
+            totalSize: 100,
+            fileName: "ShareDrop_7K93QX2S.zip",
+          },
+        },
+        { status: 202 },
+      );
+    }),
+
+    http.get(`${API_BASE_URL}/rooms/:roomId/downloads/zip/:jobId`, () =>
+      HttpResponse.json({
+        data: {
+          jobId: "job-1",
+          status: "READY",
+          progress: 100,
+          mediaCount,
+          fileName: "ShareDrop_7K93QX2S.zip",
+          downloadUrl: `${API_BASE_URL}/zip/job-1.zip`,
+          expiresAt: new Date(Date.now() + 300_000).toISOString(),
+          failureReason: null,
+        },
+      }),
+    ),
+
+    http.get(`${API_BASE_URL}/zip/:fileName`, () => new HttpResponse(new Blob(["zip"]))),
+  );
+};
+
 const renderBar = (targets: DownloadTarget[], isAllSelected = false) => {
   const onClearSelection = jest.fn();
 
@@ -89,6 +138,34 @@ const downloadIndividually = async () => {
   await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
   await userEvent.click(sheet().getByRole("radio", { name: /개별로 저장/ }));
   await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
+};
+
+/** 시트를 열고 zip 을 골라 받기 한 판을 굴린다. */
+const downloadAsZip = async () => {
+  await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+  await userEvent.click(sheet().getByRole("radio", { name: /zip 일괄 다운로드/ }));
+  await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
+};
+
+/** 시트를 열고 사진첩 저장을 골라 받기 한 판을 굴린다. */
+const downloadToPhotos = async () => {
+  await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+  await userEvent.click(sheet().getByRole("radio", { name: /사진첩에 저장/ }));
+  await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
+};
+
+/** 공유 시트가 떠 있는 상태를 붙잡아 두고, 원하는 때에 닫히게 한다. */
+const holdShareSheet = () => {
+  let close: (result: ShareFilesResult) => void = () => {};
+
+  shareFilesMock.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        close = resolve;
+      }),
+  );
+
+  return (result: ShareFilesResult) => close(result);
 };
 
 beforeEach(enterRoom);
@@ -175,6 +252,38 @@ describe("SelectionDownloadBar", () => {
     await downloadIndividually();
 
     await waitFor(() => expect(onClearSelection).toHaveBeenCalled());
+  });
+
+  it("개별로 다 받으면 저장했다고 알린다", async () => {
+    serveSingle();
+
+    renderBar([targetOf(5000), targetOf(5001)]);
+
+    await downloadIndividually();
+
+    expect(await screen.findByText("2장을 저장했어요.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+  });
+
+  it("zip 으로 다 받으면 압축 파일로 저장했다고 알린다", async () => {
+    serveZip();
+
+    renderBar([targetOf(5000), targetOf(5001)]);
+
+    await downloadAsZip();
+
+    expect(await screen.findByText("2장을 zip 파일로 저장했어요.")).toBeInTheDocument();
+  });
+
+  it("못 받은 것이 섞이면 저장했다는 알림을 띄우지 않는다", async () => {
+    serveSingle(409);
+
+    renderBar([targetOf(5000)]);
+
+    await downloadIndividually();
+
+    expect(await screen.findByText("아직 처리 중이에요")).toBeInTheDocument();
+    expect(screen.queryByText(/저장했어요/)).not.toBeInTheDocument();
   });
 
   /**
@@ -284,6 +393,201 @@ describe("SelectionDownloadBar", () => {
       await waitFor(() =>
         expect(track).toHaveBeenCalledWith("Photo Downloaded", expect.anything(), ROOM_CONTEXT),
       );
+    });
+  });
+
+  describe("사진첩에 저장 — 묶음으로 나눠 넘기기", () => {
+    beforeEach(() => {
+      prefersShareSheetMock.mockReturnValue(true);
+      shareFilesMock.mockReset();
+    });
+
+    afterEach(() => prefersShareSheetMock.mockReturnValue(false));
+
+    it("묶음 기준을 넘게 고르면 몇 번 나눠 저장하는지 미리 알린다", async () => {
+      renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+      await userEvent.click(sheet().getByRole("radio", { name: /사진첩에 저장/ }));
+
+      expect(sheet().getByText("사진이 많아서 최대 2장씩 2번 나눠 저장해요")).toBeInTheDocument();
+    });
+
+    it("묶음 기준 이하면 나눠 저장한다고 알리지 않는다", async () => {
+      renderBar([targetOf(5000), targetOf(5001)]);
+
+      await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+      await userEvent.click(sheet().getByRole("radio", { name: /사진첩에 저장/ }));
+
+      expect(sheet().queryByText(/나눠 저장해요/)).not.toBeInTheDocument();
+    });
+
+    it("묶음 기준 이하면 한 번에 넘기고, 끝나면 저장했다고 알린다", async () => {
+      serveSingle();
+      shareFilesMock.mockResolvedValue({ type: "shared" });
+      const { onClearSelection } = renderBar([targetOf(5000), targetOf(5001)]);
+
+      await downloadToPhotos();
+
+      expect(await screen.findByText("2장을 사진첩에 저장했어요.")).toBeInTheDocument();
+      expect(shareFilesMock).toHaveBeenCalledTimes(1);
+      expect(shareFilesMock.mock.calls[0][0]).toHaveLength(2);
+      expect(onClearSelection).toHaveBeenCalled();
+    });
+
+    it("저장했다는 알림은 닫기 버튼 없이 3초 뒤 스스로 사라진다", async () => {
+      serveSingle();
+      shareFilesMock.mockResolvedValue({ type: "shared" });
+      renderBar([targetOf(5000)]);
+
+      await downloadToPhotos();
+
+      expect(await screen.findByText("1장을 사진첩에 저장했어요.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "알림 닫기" })).not.toBeInTheDocument();
+
+      await waitForElementToBeRemoved(() => screen.queryByText("1장을 사진첩에 저장했어요."), {
+        timeout: 4000,
+      });
+    });
+
+    it("탭할 때마다 앞 묶음 하나만 넘기고, 다 넘기면 한 번만 저장했다고 알린다", async () => {
+      serveSingle();
+      const { onClearSelection } = renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await downloadToPhotos();
+
+      expect(await screen.findByText("3장 준비됨")).toBeInTheDocument();
+      // 기준을 넘는 판은 받은 뒤 곧장 시트를 열지 않는다
+      expect(shareFilesMock).not.toHaveBeenCalled();
+
+      const closeFirst = holdShareSheet();
+      await userEvent.click(screen.getByRole("button", { name: "사진첩에 저장" }));
+
+      expect(shareFilesMock.mock.calls[0][0]).toHaveLength(2);
+      // 묶음 사이에는 토스트를 띄우지 않는다
+      closeFirst({ type: "shared" });
+
+      expect(await screen.findByText("2장 저장 / 1장 남음")).toBeInTheDocument();
+      expect(screen.queryByText(/사진첩에 저장했어요/)).not.toBeInTheDocument();
+      expect(onClearSelection).not.toHaveBeenCalled();
+
+      shareFilesMock.mockResolvedValueOnce({ type: "shared" });
+      await userEvent.click(screen.getByRole("button", { name: "다음 1장 저장" }));
+
+      expect(shareFilesMock.mock.calls[1][0]).toHaveLength(1);
+      expect(await screen.findByText("3장을 사진첩에 저장했어요.")).toBeInTheDocument();
+      expect(onClearSelection).toHaveBeenCalledTimes(1);
+      expect(track).toHaveBeenCalledWith(
+        "Photo Downloaded",
+        expect.objectContaining({ mode: "share", photo_count: 3 }),
+        null,
+      );
+    });
+
+    it("시트가 떠 있는 동안 버튼과 닫기를 잠그고, 다시 눌러도 한 번만 넘긴다", async () => {
+      serveSingle();
+      renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await downloadToPhotos();
+      await screen.findByText("3장 준비됨");
+
+      const close = holdShareSheet();
+      await userEvent.click(screen.getByRole("button", { name: "사진첩에 저장" }));
+
+      const busy = screen.getByRole("button", { name: /사진첩에 저장하는 중/ });
+      expect(busy).toBeDisabled();
+      expect(screen.getByRole("button", { name: "받아둔 사진 버리기" })).toBeDisabled();
+
+      await userEvent.click(busy);
+      expect(shareFilesMock).toHaveBeenCalledTimes(1);
+
+      close({ type: "shared" });
+      expect(await screen.findByRole("button", { name: "다음 1장 저장" })).toBeEnabled();
+    });
+
+    it.each<ShareFilesResult["type"]>(["dismissed", "blocked"])(
+      "시트가 %s 로 끝나면 같은 묶음을 그대로 남긴다",
+      async (result) => {
+        serveSingle();
+        renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+        await downloadToPhotos();
+        await screen.findByText("3장 준비됨");
+
+        shareFilesMock.mockResolvedValueOnce({ type: result } as ShareFilesResult);
+        await userEvent.click(screen.getByRole("button", { name: "사진첩에 저장" }));
+
+        expect(await screen.findByRole("button", { name: "사진첩에 저장" })).toBeEnabled();
+        expect(screen.getByText("3장 준비됨")).toBeInTheDocument();
+        expect(screen.queryByText(/사진첩에 저장했어요/)).not.toBeInTheDocument();
+      },
+    );
+
+    it("묶음을 넘길 때마다 장수·용량·결과를 남긴다", async () => {
+      serveSingle();
+      renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await downloadToPhotos();
+      await screen.findByText("3장 준비됨");
+
+      shareFilesMock.mockResolvedValueOnce({ type: "dismissed" });
+      await userEvent.click(screen.getByRole("button", { name: "사진첩에 저장" }));
+
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith(
+          "Photo Share Batch Settled",
+          {
+            batch_index: 1,
+            batch_count: 2,
+            photo_count: 2,
+            // jsdom 의 Blob 은 실제 바이트 수를 그대로 세지 않는다. 묶음 합계가 실리는지만 본다.
+            total_bytes: expect.any(Number),
+            result: "dismissed",
+          },
+          null,
+        ),
+      );
+    });
+
+    it("중간에 그만두면 한 번 묻고, 그때까지 넘긴 장수로 끝낸다", async () => {
+      serveSingle();
+      renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await downloadToPhotos();
+      await screen.findByText("3장 준비됨");
+
+      shareFilesMock.mockResolvedValueOnce({ type: "shared" });
+      await userEvent.click(screen.getByRole("button", { name: "사진첩에 저장" }));
+      await screen.findByText("2장 저장 / 1장 남음");
+
+      await userEvent.click(screen.getByRole("button", { name: "받아둔 사진 버리기" }));
+
+      const dialog = within(screen.getByRole("dialog"));
+      expect(dialog.getByText("남은 1장은 저장하지 않을까요?")).toBeInTheDocument();
+      expect(dialog.getByText("저장한 2장은 사진첩에 그대로 있어요")).toBeInTheDocument();
+
+      await userEvent.click(dialog.getByRole("button", { name: "그만두기" }));
+
+      expect(await screen.findByText("2장을 사진첩에 저장했어요.")).toBeInTheDocument();
+      expect(track).toHaveBeenCalledWith(
+        "Photo Downloaded",
+        expect.objectContaining({ mode: "share", photo_count: 2 }),
+        null,
+      );
+    });
+
+    it("그만두기를 묻는 창에서 계속 저장을 누르면 남은 묶음을 그대로 둔다", async () => {
+      serveSingle();
+      renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await downloadToPhotos();
+      await screen.findByText("3장 준비됨");
+
+      await userEvent.click(screen.getByRole("button", { name: "받아둔 사진 버리기" }));
+      await userEvent.click(screen.getByRole("button", { name: "계속 저장" }));
+
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.getByText("3장 준비됨")).toBeInTheDocument();
     });
   });
 });

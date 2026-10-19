@@ -31,6 +31,9 @@ export interface FailedDownload {
  * 안에서만** 열리는데, 바이트를 받아오느라 `await` 를 한 번이라도 하면 그 제스처가
  * 만료된 것으로 본다. 그래서 받아온 뒤 시트가 거절당하면 실패로 두지 않고,
  * "탭 한 번만 더" 상태로 화면에 넘긴다.
+ *
+ * 한 번에 넘기기엔 많은 판(`SHARE_BATCH_SIZE` 초과)도 시트를 열지 않고 곧장 이 상태로 온다.
+ * 화면이 묶음으로 나눠 탭마다 하나씩 넘긴다.
  */
 export type DownloadOutcome =
   | { type: "saved"; savedCount: number; failed: FailedDownload[] }
