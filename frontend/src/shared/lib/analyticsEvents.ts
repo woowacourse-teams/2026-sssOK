@@ -19,6 +19,8 @@ export interface AnalyticsEvents {
   "Photo Uploaded": { photo_count: number; failed_count: number; duration_ms: number };
   /** 한 장도 못 올린 판. 일부라도 올라갔으면 `Photo Uploaded` 의 `failed_count` 로 남는다. */
   "Photo Upload Failed": { reason: string; failed_count: number };
+  /** 아무것도 안 고른 상태에서 처음 한 장을 골랐을 때. 선택 후 다운로드 전환율을 계산하는 데 쓴다. */
+  "Photo Selection Started": Record<string, never>;
   /**
    * 다운로드를 시작했을 때. 성공(`Photo Downloaded`)·실패(`Photo Download Failed`) 수와 비교해
    * 완료율과 중간에 그만둔 비율을 계산한다.
