@@ -18,6 +18,14 @@ import org.springframework.transaction.annotation.Transactional;
 @PostgresIntegrationTest
 @Transactional
 class VideoFolderOperationsTest extends PostgresContainerSupport {
+    @org.junit.jupiter.api.BeforeEach
+    void prepareRooms() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
 

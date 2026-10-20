@@ -1,0 +1,28 @@
+package com.sssok.renewal.outgoing.config;
+
+import com.sssok.domain.file.UploadSizePolicy;
+import java.time.Duration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
+
+@ConfigurationProperties(prefix = "upload")
+public record UploadProperties(Duration presignedUrlTtl, int maxRetryCount,
+                               DataSize imageMaxSize, DataSize videoMaxSize) {
+
+    public UploadProperties {
+        imageMaxSize = imageMaxSize == null ? DataSize.ofMegabytes(20) : imageMaxSize;
+        videoMaxSize = videoMaxSize == null ? DataSize.ofGigabytes(1) : videoMaxSize;
+        requirePositive(imageMaxSize, "upload.image-max-size");
+        requirePositive(videoMaxSize, "upload.video-max-size");
+    }
+
+    private static void requirePositive(DataSize size, String key) {
+        if (size.toBytes() <= 0) {
+            throw new IllegalArgumentException(key + " 는 0보다 커야 합니다: " + size.toBytes());
+        }
+    }
+
+    public UploadSizePolicy sizePolicy() {
+        return new UploadSizePolicy(imageMaxSize.toBytes(), videoMaxSize.toBytes());
+    }
+}

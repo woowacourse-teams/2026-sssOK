@@ -10,11 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.application.port.out.MediaSearchDocumentRepository;
-import com.sssok.application.port.out.MediaSearchDocumentRepository.AnalysisAttempt;
-import com.sssok.application.port.out.TextEmbeddingPort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.search.ImageAnalysis;
 import java.time.Instant;
@@ -45,9 +45,9 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     @Autowired CreateRoomService rooms;
     @Autowired com.sssok.application.folder.CreateFolderService folders;
     @Autowired MediaSearchDocumentRepository documents;
-    @MockitoBean TextEmbeddingPort embeddings;
-    @MockitoBean ImageDescriptionPort descriptions;
-    @MockitoBean FileStoragePort storage;
+    @MockitoBean OpenAiTextEmbeddingClient embeddings;
+    @MockitoBean OpenAiImageDescriptionClient descriptions;
+    @MockitoBean FileStorage storage;
     @MockitoBean(name = "imageAnalysisTaskExecutor") AsyncTaskExecutor executor;
     private AuthResult member;
     private Long roomId;
@@ -58,7 +58,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
         member = auth.authenticate("검색 사용자");
         roomId = rooms.create(member.userId(), "검색 방", null).room().getId();
         given(embeddings.embed(anyString(), any())).willReturn(
-            new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "test-model"));
+            new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "test-model"));
         given(storage.presignGet(any(), anyString(), anyString(), any())).willReturn("https://signed.test/image");
     }
 
@@ -163,7 +163,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     @Test
     void 잘못된_임베딩은_거리_계산_전에_거절한다() throws Exception {
         given(embeddings.embed(anyString(), any())).willReturn(
-            new TextEmbeddingPort.Embedding(List.of(0.0, 0.0, 0.0), "test-model"));
+            new OpenAiTextEmbeddingClient.Embedding(List.of(0.0, 0.0, 0.0), "test-model"));
         search("사진").andExpect(status().isServiceUnavailable());
     }
 

@@ -1,6 +1,6 @@
 package com.sssok.application.storage;
 
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.StorageKey;
 import java.util.HashSet;
 import java.util.List;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class PurgeOrphanObjectsService {
 
-    private final FileStoragePort fileStoragePort;
+    private final FileStorage fileStorage;
     private final OrphanObjectCollector orphanObjectCollector;
 
     public void purge(List<StorageKey> storageKeys) {
@@ -26,7 +26,7 @@ public class PurgeOrphanObjectsService {
             return;
         }
         try {
-            removeDeleted(storageKeys, fileStoragePort.deleteAll(storageKeys));
+            removeDeleted(storageKeys, fileStorage.deleteAll(storageKeys));
         } catch (RuntimeException e) {
             // 여기서 예외가 올라가 봐야 받을 곳이 없다(@Async 스레드이거나 스케줄 배치다).
             // 대기열 행을 그대로 두면 OrphanObjectSweeper 가 다시 태운다.

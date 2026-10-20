@@ -1,6 +1,6 @@
 package com.sssok.infrastructure.scheduler;
 
-import com.sssok.application.port.out.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.application.storage.OrphanObjectCollector;
 import com.sssok.application.storage.PurgeOrphanObjectsService;
 import com.sssok.domain.file.OrphanObject;

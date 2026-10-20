@@ -1,7 +1,7 @@
 package com.sssok.application.media;
 
 import com.sssok.application.port.out.EventPublisherPort;
-import com.sssok.application.port.out.FileRepository;
+import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -17,7 +17,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class MediaEventListener {
 
     private final EventPublisherPort eventPublisher;
-    private final FileRepository fileRepository;
+    private final UploadFileRepository uploadFileRepository;
     private final MediaDetailAssembler mediaDetailAssembler;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -32,7 +32,7 @@ public class MediaEventListener {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(MediaReadyEvent event) {
-        fileRepository.findById(event.mediaId())
+        uploadFileRepository.findById(event.mediaId())
             .map(file -> mediaDetailAssembler.assembleForList(List.of(file), null).get(0))
             .ifPresent(media -> eventPublisher.publish(event.roomId(), "media.ready", media));
     }

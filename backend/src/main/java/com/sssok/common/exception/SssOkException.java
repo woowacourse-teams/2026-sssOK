@@ -11,6 +11,11 @@ public abstract class SssOkException extends RuntimeException {
         this.errorCode = errorCode;
     }
 
+    protected SssOkException(String message, ErrorCode errorCode) {
+        super(message);
+        this.errorCode = errorCode;
+    }
+
     public ErrorCode errorCode() {
         return errorCode;
     }

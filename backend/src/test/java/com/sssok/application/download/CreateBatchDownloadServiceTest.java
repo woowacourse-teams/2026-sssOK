@@ -11,7 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
@@ -29,6 +29,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
 @H2IntegrationTest
 class CreateBatchDownloadServiceTest {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
     // 업로더 필터를 쓰지 않는 기존 검증들이라 요청자가 누구인지는 결과에 영향이 없다.
@@ -43,11 +46,13 @@ class CreateBatchDownloadServiceTest {
     FileRepository fileRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @BeforeEach
     void setUp() {
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }
 
@@ -92,7 +97,7 @@ class CreateBatchDownloadServiceTest {
         assertThat(files).singleElement()
             .extracting(BatchDownloadFile::fileName)
             .isEqualTo(fileName);
-        verify(fileStoragePort).presignGet(
+        verify(fileStorage).presignGet(
             any(),
             eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
             eq(mimeType),

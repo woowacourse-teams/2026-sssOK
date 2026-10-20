@@ -12,8 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.JoinRoomService;
 import com.sssok.domain.file.FileSize;
@@ -60,7 +60,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
     OrphanObjectRepository orphanObjectRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     MockMvc mockMvc;
     Long roomId;
@@ -78,7 +78,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
 
     @Test
     void 커밋_뒤_원본과_썸네일을_한_번에_지우고_대기열을_비운다() throws Exception {
-        given(fileStoragePort.deleteAll(anyList())).willReturn(List.of());
+        given(fileStorage.deleteAll(anyList())).willReturn(List.of());
         StoredFile file = saveReady();
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, file.getId())
@@ -86,7 +86,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
             .andExpect(status().isOk());
 
         // 파일 수만큼이 아니라 요청 한 번이다. 파생본이 썸네일·프리뷰 두 벌이라 키는 셋이다.
-        verify(fileStoragePort, timeout(5_000)).deleteAll(List.of(
+        verify(fileStorage, timeout(5_000)).deleteAll(List.of(
             file.getStorageKey(),
             file.getStorageKey().thumbnail("webp"),
             file.getStorageKey().preview("webp")));
@@ -98,14 +98,14 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
     @Test
     void 정리가_실패해도_삭제는_완료되고_대기열에_남는다() throws Exception {
         StoredFile file = saveReady();
-        given(fileStoragePort.deleteAll(anyList()))
+        given(fileStorage.deleteAll(anyList()))
             .willReturn(List.of(file.getStorageKey(), file.getStorageKey().thumbnail("webp")));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, file.getId())
                 .header("Authorization", "Bearer " + uploader.accessToken()))
             .andExpect(status().isOk());
 
-        verify(fileStoragePort, timeout(5_000)).deleteAll(anyList());
+        verify(fileStorage, timeout(5_000)).deleteAll(anyList());
         assertThat(fileRepository.findById(file.getId())).isEmpty();
         assertThat(pendingKeys()).contains(file.getStorageKey());
     }

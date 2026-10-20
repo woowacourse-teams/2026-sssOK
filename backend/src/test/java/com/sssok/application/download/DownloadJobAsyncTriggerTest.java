@@ -6,10 +6,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.application.port.out.AbortableOutputStream;
+import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
@@ -33,6 +33,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // 테스트가 끝나면 데이터를 직접 지운다(자동 롤백이 없으므로).
 @H2IntegrationTest
 class DownloadJobAsyncTriggerTest {
+    @org.junit.jupiter.api.BeforeEach
+    void prepareRooms() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
 
@@ -54,7 +62,7 @@ class DownloadJobAsyncTriggerTest {
     JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @AfterEach
     void cleanUp() {
@@ -72,7 +80,7 @@ class DownloadJobAsyncTriggerTest {
             new FileSize(content.length), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
-        given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))
+        given(fileStorage.openDownloadStream(eq(file.getStorageKey())))
             .willReturn(new ByteArrayInputStream(content));
         return fileRepository.save(file).getId();
     }
@@ -82,7 +90,7 @@ class DownloadJobAsyncTriggerTest {
         requesterId = memberRepository.save(
             Member.register(new Nickname("다운로더"), Instant.now())).getId();
         Long media = media(ROOM_ID, requesterId, "hello".getBytes());
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willReturn(discardingStream());
 
         CreateDownloadJobResult result =

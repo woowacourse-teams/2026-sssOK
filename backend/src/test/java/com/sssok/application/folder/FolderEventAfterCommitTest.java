@@ -19,6 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 // room_events 에 남는다는 건 곧 구독자 브로드캐스트와 Last-Event-ID 재전송 대상이 된다는 뜻이다
 @H2IntegrationTest
 class FolderEventAfterCommitTest {
+    @org.junit.jupiter.api.BeforeEach
+    void prepareRooms() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 348000L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 348_000L;
 

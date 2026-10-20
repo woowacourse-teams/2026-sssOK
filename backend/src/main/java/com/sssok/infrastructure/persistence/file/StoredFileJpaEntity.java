@@ -1,12 +1,26 @@
 package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.infrastructure.persistence.BaseEntity;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.GeoPoint;
+import com.sssok.domain.file.MediaType;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import com.sssok.infrastructure.persistence.room.RoomJpaEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import jakarta.persistence.Index;
+import org.hibernate.annotations.Check;
 import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.AccessLevel;
@@ -14,7 +28,16 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "stored_file")
+@Table(name = "stored_file",
+    uniqueConstraints = @UniqueConstraint(name = "stored_file_storage_key_key", columnNames = "storage_key"),
+    indexes = {
+        @Index(name = "idx_stored_file_room_id", columnList = "room_id"),
+        @Index(name = "idx_stored_file_status_reserved_at", columnList = "status, reserved_at")
+    })
+@Check(name = "ck_stored_file_size", constraints = "file_size_bytes > 0")
+@Check(name = "ck_stored_file_retry", constraints = "retry_count >= 0")
+@Check(name = "ck_stored_file_status", constraints = "status in ('RESERVED', 'PROCESSING', 'READY', 'FAILED')")
+@Check(name = "ck_stored_file_type", constraints = "media_type in ('JPEG', 'PNG', 'GIF', 'MP4', 'WEBM', 'MOV')")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StoredFileJpaEntity extends BaseEntity {
@@ -26,6 +49,7 @@ public class StoredFileJpaEntity extends BaseEntity {
     @Column(name = "room_id", nullable = false)
     private Long roomId;
 
+    // 회원 삭제 후에도 미디어와 업로더 ID를 보존한다. 의도적으로 FK/연관관계를 두지 않는다.
     @Column(name = "uploader_id", nullable = false)
     private Long uploaderId;
 
@@ -41,6 +65,7 @@ public class StoredFileJpaEntity extends BaseEntity {
     @Column(name = "storage_key", nullable = false, length = 255)
     private String storageKey;
 
+    // 레거시 컬럼: 실제 소속은 FolderMediaJpaEntity에서 관리한다. 신규 FK를 만들지 않는다.
     @Column(name = "folder_id")
     private Long folderId;
 
@@ -84,6 +109,12 @@ public class StoredFileJpaEntity extends BaseEntity {
     @Column(name = "longitude", precision = 9, scale = 6)
     private BigDecimal longitude;
 
+    // 쓰기는 기존 ID 필드가 담당한다. 조회용 단방향 관계에 cascade는 사용하지 않는다.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "room_id", nullable = false, insertable = false, updatable = false,
+        foreignKey = @ForeignKey(name = "fk_stored_file_room"))
+    private RoomJpaEntity room;
+
     public StoredFileJpaEntity(Long id, Long roomId, Long uploaderId, String originalFileName,
                                String mediaType, Long fileSizeBytes, String storageKey, Long folderId,
                                String status, Instant createdAt, Instant reservedAt, int retryCount,
@@ -111,5 +142,54 @@ public class StoredFileJpaEntity extends BaseEntity {
         this.takenAt = takenAt;
         this.latitude = latitude;
         this.longitude = longitude;
+    }
+
+    public static StoredFileJpaEntity from(StoredFile file) {
+        return new StoredFileJpaEntity(
+            file.getId(),
+            file.getRoomId(),
+            file.getUploaderId(),
+            file.getOriginalFileName(),
+            file.getMediaType().name(),
+            file.getFileSize().bytes(),
+            file.getStorageKey().value(),
+            file.getFolderId(),
+            file.getStatus().name(),
+            file.getCreatedAt(),
+            file.getReservedAt(),
+            file.getRetryCount(),
+            file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
+            file.getPreviewKey() == null ? null : file.getPreviewKey().value(),
+            file.getWidth(),
+            file.getHeight(),
+            file.getDurationSeconds(),
+            file.getTakenAt(),
+            file.getLocation() == null ? null : file.getLocation().latitude(),
+            file.getLocation() == null ? null : file.getLocation().longitude()
+        );
+    }
+
+    public StoredFile toDomain() {
+        return StoredFile.reconstruct(
+            getId(),
+            getRoomId(),
+            getUploaderId(),
+            getOriginalFileName(),
+            MediaType.valueOf(getMediaType()),
+            new FileSize(getFileSizeBytes()),
+            new StorageKey(getStorageKey()),
+            getFolderId(),
+            UploadStatus.valueOf(getStatus()),
+            getCreatedAt(),
+            getReservedAt(),
+            getRetryCount(),
+            getThumbnailKey() == null ? null : new StorageKey(getThumbnailKey()),
+            getPreviewKey() == null ? null : new StorageKey(getPreviewKey()),
+            getWidth(),
+            getHeight(),
+            getDurationSeconds(),
+            getTakenAt(),
+            GeoPoint.ofNullable(getLatitude(), getLongitude())
+        );
     }
 }

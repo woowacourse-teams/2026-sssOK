@@ -1,6 +1,6 @@
 package com.sssok.application.storage;
 
-import com.sssok.application.port.out.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.domain.file.StorageKey;
 import java.time.Instant;
 import java.util.List;
@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 // 정리 대기열에 대한 쓰기만 짧게 트랜잭션으로 감싼다.
 // 트랜잭션을 열지 않는 PurgeOrphanObjectsService 안에서 직접 호출하면 프록시를 타지 않아
-// @Transactional 이 걸리지 않으므로 별도 빈으로 둔다 (MediaFinisher 와 같은 이유).
+// @Transactional 이 걸리지 않으므로 별도 빈으로 둔다.
 @Component
 @RequiredArgsConstructor
 public class OrphanObjectCollector {
