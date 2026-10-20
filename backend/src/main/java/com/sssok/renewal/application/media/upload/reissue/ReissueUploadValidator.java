@@ -18,7 +18,8 @@ public class ReissueUploadValidator {
     private final UploadProperties uploadProperties;
 
     public StoredFile validate(ReissueUploadUrlCommand command) {
-        StoredFile file = uploadFileRepository.findById(command.mediaId())
+        // 완료 등록과 재발급이 같은 파일의 상태를 덮어쓰지 않도록 재발급 트랜잭션에서 잠근다.
+        StoredFile file = uploadFileRepository.findByIdForUpdate(command.mediaId())
             .filter(found -> found.getRoomId().equals(command.roomId()))
             .orElseThrow(MediaNotFoundException::new);
         if (!file.isUploadedBy(command.requesterId())) {
