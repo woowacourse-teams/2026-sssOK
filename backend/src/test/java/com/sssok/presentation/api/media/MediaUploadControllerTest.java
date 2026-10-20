@@ -8,24 +8,23 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.media.CompleteUploadResult;
-import com.sssok.application.media.CompleteUploadService;
-import com.sssok.application.media.FailedMedia;
-import com.sssok.application.media.IssueUploadUrlsResult;
-import com.sssok.application.media.IssueUploadUrlsService;
+import com.sssok.renewal.application.media.upload.complete.CompleteUploadResult;
+import com.sssok.renewal.application.media.upload.complete.CompleteUploadService;
+import com.sssok.renewal.application.media.upload.complete.FailedMedia;
+import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsResult;
+import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsService;
 import com.sssok.application.media.MediaDetail;
-import com.sssok.application.media.RejectedFile;
-import com.sssok.application.media.ReissueUploadUrlService;
-import com.sssok.application.media.ReissuedUploadUrl;
-import com.sssok.application.media.UploadUrl;
-import com.sssok.application.media.exception.InvalidUploadParamException;
-import com.sssok.application.media.exception.MediaForbiddenException;
-import com.sssok.application.media.exception.UploadNotAllowedException;
+import com.sssok.renewal.application.media.upload.issue.RejectedFile;
+import com.sssok.renewal.application.media.upload.reissue.ReissueUploadUrlService;
+import com.sssok.renewal.application.media.upload.reissue.ReissuedUploadUrl;
+import com.sssok.renewal.application.media.upload.shared.UploadUrl;
+import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
+import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
-import com.sssok.domain.file.UploadRejectionReason;
+import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
 import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
 import com.sssok.domain.file.exception.UploadRetryExceededException;
 import com.sssok.domain.room.Room;
@@ -48,7 +47,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-@WebMvcTest(MediaUploadController.class)
+@WebMvcTest(com.sssok.renewal.incoming.media.MediaUploadController.class)
 class MediaUploadControllerTest {
 
     private static final Long ROOM_ID = 10L;
@@ -57,7 +56,7 @@ class MediaUploadControllerTest {
     private static final String BEARER = "Bearer valid-token";
 
     @MockitoBean
-    com.sssok.common.monitoring.UploadMetrics metrics;
+    com.sssok.renewal.outgoing.monitoring.UploadMetrics metrics;
 
     @Autowired
     MockMvc mockMvc;
@@ -125,8 +124,8 @@ class MediaUploadControllerTest {
         IssueUploadUrlsResult result = new IssueUploadUrlsResult(
             List.of(new UploadUrl(MEDIA_ID, "a.jpg", "https://storage/signed", "PUT",
                 Map.of("Content-Type", "image/jpeg"), 600)),
-            List.of(RejectedFile.of("note.pdf", UploadRejectionReason.UNSUPPORTED_MEDIA_TYPE)));
-        given(issueUploadUrlsService.issue(anyLong(), anyLong(), anyList(), any())).willReturn(result);
+            List.of(new RejectedFile("note.pdf", "UNSUPPORTED_MEDIA_TYPE", UploadRejectionReason.UNSUPPORTED_MEDIA_TYPE.message())));
+        given(issueUploadUrlsService.issue(any())).willReturn(result);
 
         issueUploadUrls("{\"files\":[{\"fileName\":\"a.jpg\",\"mimeType\":\"image/jpeg\",\"size\":1024}]}")
             .andExpect(status().isOk())
@@ -140,8 +139,6 @@ class MediaUploadControllerTest {
 
     @Test
     void 파일이_비어있으면_400과_INVALID_PARAM() throws Exception {
-        given(issueUploadUrlsService.issue(anyLong(), anyLong(), any(), any()))
-            .willThrow(new InvalidUploadParamException("업로드할 파일이 없습니다"));
 
         issueUploadUrls("{\"files\":[]}")
             .andExpect(status().isBadRequest())
@@ -202,7 +199,7 @@ class MediaUploadControllerTest {
 
     @Test
     void 업로드_권한이_없으면_403과_UPLOAD_NOT_ALLOWED() throws Exception {
-        given(issueUploadUrlsService.issue(anyLong(), anyLong(), anyList(), any()))
+        given(issueUploadUrlsService.issue(any()))
             .willThrow(new UploadNotAllowedException());
 
         issueUploadUrls("{\"files\":[{\"fileName\":\"a.jpg\",\"mimeType\":\"image/jpeg\",\"size\":1}]}")
@@ -217,7 +214,7 @@ class MediaUploadControllerTest {
             List.of(31L), MEMBER_ID, "로지", "PROCESSING", Instant.now(), 0, false);
         CompleteUploadResult result = new CompleteUploadResult(List.of(detail),
             List.of(FailedMedia.of(5013L, UploadRejectionReason.UPLOAD_NOT_COMPLETED)));
-        given(completeUploadService.complete(anyLong(), anyLong(), anyList())).willReturn(result);
+        given(completeUploadService.complete(any())).willReturn(result);
 
         completeUpload("{\"mediaIds\":[5012,5013]}")
             .andExpect(status().isCreated())
@@ -232,7 +229,7 @@ class MediaUploadControllerTest {
 
     @Test
     void 남의_예약을_등록하면_403과_MEDIA_FORBIDDEN() throws Exception {
-        given(completeUploadService.complete(anyLong(), anyLong(), anyList()))
+        given(completeUploadService.complete(any()))
             .willThrow(new MediaForbiddenException());
 
         completeUpload("{\"mediaIds\":[5012]}")
@@ -244,7 +241,7 @@ class MediaUploadControllerTest {
     void 재발급하면_200과_재시도_횟수를_반환한다() throws Exception {
         ReissuedUploadUrl url = new ReissuedUploadUrl(MEDIA_ID, "a.jpg", "https://storage/new",
             "PUT", Map.of("Content-Type", "image/jpeg"), 600, 2, 5);
-        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any())).willReturn(url);
+        given(reissueUploadUrlService.reissue(any())).willReturn(url);
 
         reissue("{\"size\":512}")
             .andExpect(status().isOk())
@@ -257,7 +254,7 @@ class MediaUploadControllerTest {
     void 바디_없이_재발급해도_200이다() throws Exception {
         ReissuedUploadUrl url = new ReissuedUploadUrl(MEDIA_ID, "a.jpg", "https://storage/new",
             "PUT", Map.of("Content-Type", "image/jpeg"), 600, 1, 5);
-        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any())).willReturn(url);
+        given(reissueUploadUrlService.reissue(any())).willReturn(url);
 
         // 대부분의 재시도는 파일이 그대로라 바디 없이 온다.
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", ROOM_ID, MEDIA_ID)
@@ -268,7 +265,7 @@ class MediaUploadControllerTest {
 
     @Test
     void 이미_등록된_업로드를_재발급하면_409() throws Exception {
-        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any()))
+        given(reissueUploadUrlService.reissue(any()))
             .willThrow(new UploadAlreadyCompletedException());
 
         reissue("{}")
@@ -278,7 +275,7 @@ class MediaUploadControllerTest {
 
     @Test
     void 재시도_한도를_넘기면_429() throws Exception {
-        given(reissueUploadUrlService.reissue(anyLong(), anyLong(), anyLong(), any()))
+        given(reissueUploadUrlService.reissue(any()))
             .willThrow(new UploadRetryExceededException(5));
 
         reissue("{}")
