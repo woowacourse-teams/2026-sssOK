@@ -7,7 +7,7 @@
 const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "png", "gif"];
 const VIDEO_EXTENSIONS: readonly string[] = ["mp4", "webm", "mov"];
 
-export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 export const MAX_VIDEO_BYTES = 1024 * 1024 * 1024;
 
 /**

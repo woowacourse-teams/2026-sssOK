@@ -164,8 +164,8 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect(body.data.rejected[0].code).toBe("UNSUPPORTED_FILE_TYPE");
   });
 
-  it("사진이 10MB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
-    const body = await (await issueUploadUrls([file("원본.jpg", 10 * 1024 * 1024 + 1)])).json();
+  it("사진이 20MB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
+    const body = await (await issueUploadUrls([file("원본.jpg", 20 * 1024 * 1024 + 1)])).json();
 
     expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
   });
@@ -176,10 +176,10 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
   });
 
-  it("사진 10MB·영상 1GB 까지는 그대로 발급한다", async () => {
+  it("사진 20MB·영상 1GB 까지는 그대로 발급한다", async () => {
     const body = await (
       await issueUploadUrls([
-        file("딱-맞는-사진.jpg", 10 * 1024 * 1024),
+        file("딱-맞는-사진.jpg", 20 * 1024 * 1024),
         file("딱-맞는-영상.mp4", 1024 * 1024 * 1024),
       ])
     ).json();
@@ -600,7 +600,7 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
   it("바뀐 크기가 한도를 넘으면 413 FILE_SIZE_EXCEEDED 다", async () => {
     const issued = await issueOne();
 
-    const response = await reissueUploadUrl(issued.mediaId, { size: 10 * 1024 * 1024 + 1 });
+    const response = await reissueUploadUrl(issued.mediaId, { size: 20 * 1024 * 1024 + 1 });
 
     expect(response.status).toBe(413);
     expect((await response.json()).code).toBe("FILE_SIZE_EXCEEDED");
