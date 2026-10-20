@@ -1,5 +1,10 @@
 package com.sssok.infrastructure.persistence.folder;
 
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import com.sssok.infrastructure.persistence.room.RoomJpaEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -31,6 +36,12 @@ public class FolderJpaEntity extends BaseEntity {
 
     @Column(nullable = false, length = 12)
     private String name;
+
+    // 쓰기는 기존 ID 필드가 담당한다. 조회용 단방향 관계에 cascade는 사용하지 않는다.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "room_id", nullable = false, insertable = false, updatable = false,
+        foreignKey = @ForeignKey(name = "fk_folder_room"))
+    private RoomJpaEntity room;
 
     public FolderJpaEntity(Long id, Long roomId, String name, Instant createdAt) {
         super(createdAt);
