@@ -1,9 +1,7 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.application.port.out.TextEmbeddingPort;
-import com.sssok.application.search.exception.AiCallException.RetryDisposition;
+import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -13,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.infrastructure.config.OpenAiImageSearchProperties;
+import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -30,8 +28,8 @@ class OpenAiImageSearchAdapterTest {
     private HttpServer server;
     private ExecutorService executor;
     private OpenAiImageSearchProperties properties;
-    private OpenAiImageDescriptionAdapter descriptions;
-    private OpenAiTextEmbeddingAdapter embeddings;
+    private OpenAiImageDescriptionClient descriptions;
+    private OpenAiTextEmbeddingClient embeddings;
     private final java.util.concurrent.atomic.AtomicInteger requestCount = new java.util.concurrent.atomic.AtomicInteger();
     private volatile String retryAfter;
     private volatile String response;
@@ -68,8 +66,8 @@ class OpenAiImageSearchAdapterTest {
         properties = new OpenAiImageSearchProperties("test-key", URI.create(
             "http://127.0.0.1:" + server.getAddress().getPort() + "/v1"), null, null, 3, null);
         OpenAiSearchClient client = new OpenAiSearchClient(properties);
-        descriptions = new OpenAiImageDescriptionAdapter(client, properties, mapper);
-        embeddings = new OpenAiTextEmbeddingAdapter(client, properties);
+        descriptions = new OpenAiImageDescriptionClient(client, properties, mapper);
+        embeddings = new OpenAiTextEmbeddingClient(client, properties);
     }
 
     @AfterEach
@@ -82,7 +80,7 @@ class OpenAiImageSearchAdapterTest {
     void 추론과_저장을_끄고_스키마에_맞는_이미지_설명을_받는다() throws Exception {
         response = descriptionResponse("completed", "output_text",
             "{\"description\":\"해변 단체 사진\",\"features\":[\"바다\",\"사람\"]}");
-        ImageDescriptionPort.Description result = descriptions.describe("https://signed.test/image", Duration.ofSeconds(3));
+        OpenAiImageDescriptionClient.Description result = descriptions.describe("https://signed.test/image", Duration.ofSeconds(3));
         assertThat(result.description()).isEqualTo("해변 단체 사진");
         assertThat(result.features()).isEqualTo("바다, 사람");
         assertThat(result.promptVersion()).isEqualTo("image-search-v2");
@@ -99,7 +97,7 @@ class OpenAiImageSearchAdapterTest {
     @Test
     void 임베딩_요청의_모델과_차원을_고정하고_벡터를_반환한다() {
         response = embeddingResponse("[1.0,0.0,0.0]");
-        TextEmbeddingPort.Embedding result = embeddings.embed("해변 사진", Duration.ofSeconds(3));
+        OpenAiTextEmbeddingClient.Embedding result = embeddings.embed("해변 사진", Duration.ofSeconds(3));
         assertThat(path).isEqualTo("/v1/embeddings");
         assertThat(request.path("dimensions").asInt()).isEqualTo(3);
         assertThat(request.path("encoding_format").asText()).isEqualTo("float");

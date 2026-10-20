@@ -3,7 +3,7 @@ package com.sssok.support;
 import org.springframework.beans.factory.annotation.Autowired;
 import jakarta.persistence.EntityManager;
 
-import com.sssok.application.port.out.MediaSearchDocumentRepository.AnalysisAttempt;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.domain.search.ImageAnalysis;
-import com.sssok.infrastructure.persistence.search.MediaSearchDocumentRepositoryAdapter;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
@@ -35,7 +35,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @Autowired
     private EntityManager entityManager;
     @Autowired
-    private MediaSearchDocumentRepositoryAdapter repository;
+    private MediaSearchDocumentRepository repository;
 
     @BeforeEach
     void setup() {
@@ -182,8 +182,8 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         AnalysisAttempt current = repository.claim(460001L, now.plusSeconds(10), 3).orElseThrow();
         assertThat(repository.beginExternalCall(oldAttempt, now)).isFalse();
         assertThat(repository.beginExternalCall(current, now.plusSeconds(10))).isTrue();
-        com.sssok.application.port.out.ImageDescriptionPort.Description description =
-            new com.sssok.application.port.out.ImageDescriptionPort.Description("사진", "바다", "vision", "v1");
+        com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient.Description description =
+            new com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient.Description("사진", "바다", "vision", "v1");
         assertThat(repository.saveDescription(oldAttempt, description, now)).isFalse();
         assertThat(repository.saveDescription(current, description, now.plusSeconds(11))).isTrue();
         assertThat(repository.saveDescription(current, description, now.plusSeconds(12))).isFalse();

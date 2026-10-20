@@ -1,15 +1,15 @@
-package com.sssok.infrastructure.config;
+package com.sssok.renewal.outgoing.config;
 
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.application.port.out.MediaSearchDocumentRepository;
-import com.sssok.application.port.out.TextEmbeddingPort;
-import com.sssok.application.search.AnalyzeImageService;
-import com.sssok.application.search.ImageAnalysisDispatcher;
-import com.sssok.application.search.ImageAnalysisRegistrar;
-import com.sssok.application.search.ImageAnalysisTrigger;
-import com.sssok.infrastructure.scheduler.ImageAnalysisSweeper;
+import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
+import com.sssok.renewal.application.search.AnalyzeImageService;
+import com.sssok.renewal.application.search.ImageAnalysisDispatcher;
+import com.sssok.renewal.application.search.ImageAnalysisRegistrar;
+import com.sssok.renewal.incoming.search.ImageAnalysisTrigger;
+import com.sssok.renewal.incoming.search.ImageAnalysisSweeper;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -42,15 +42,15 @@ public class ImageSearchWorkerConfig {
     }
 
     @Bean
-    public AnalyzeImageService analyzeImageService(MediaSearchDocumentRepository documents, FileRepository files,
-        FileStoragePort storage, ImageDescriptionPort descriptions, TextEmbeddingPort embeddings,
+    public AnalyzeImageService analyzeImageService(MediaSearchDocumentRepository documents, UploadFileRepository files,
+        FileStorage storage, OpenAiImageDescriptionClient descriptions, OpenAiTextEmbeddingClient embeddings,
         ImageSearchProperties properties, @Qualifier("imageAnalysisClock") Clock clock) {
         return new AnalyzeImageService(documents, files, storage, descriptions, embeddings,
             properties, clock);
     }
 
     @Bean
-    public ImageAnalysisRegistrar imageAnalysisRegistrar(MediaSearchDocumentRepository documents, FileRepository files,
+    public ImageAnalysisRegistrar imageAnalysisRegistrar(MediaSearchDocumentRepository documents, UploadFileRepository files,
         ImageSearchProperties properties, @Qualifier("imageAnalysisClock") Clock clock) {
         return new ImageAnalysisRegistrar(documents, files, properties, clock);
     }

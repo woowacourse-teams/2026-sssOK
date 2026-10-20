@@ -10,16 +10,16 @@ import static org.mockito.BDDMockito.given;
 
 import com.sssok.application.media.MediaEventListener;
 import com.sssok.application.media.MediaReadyEvent;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.application.port.out.MediaSearchDocumentRepository;
-import com.sssok.application.port.out.TextEmbeddingPort;
-import com.sssok.application.search.AnalyzeImageService;
-import com.sssok.infrastructure.scheduler.ImageAnalysisSweeper;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
+import com.sssok.renewal.application.search.AnalyzeImageService;
+import com.sssok.renewal.incoming.search.ImageAnalysisSweeper;
 import java.time.Instant;
 import java.time.Clock;
-import com.sssok.application.search.exception.AiCallException;
-import com.sssok.application.search.exception.AiCallException.RetryDisposition;
+import com.sssok.renewal.application.search.exception.AiCallException;
+import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,9 +51,9 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     @Autowired ImageAnalysisSweeper sweeper;
     @Autowired ApplicationEventPublisher events;
     @Autowired PlatformTransactionManager transactionManager;
-    @MockitoBean ImageDescriptionPort descriptions;
-    @MockitoBean TextEmbeddingPort embeddings;
-    @MockitoBean FileStoragePort storage;
+    @MockitoBean OpenAiImageDescriptionClient descriptions;
+    @MockitoBean OpenAiTextEmbeddingClient embeddings;
+    @MockitoBean FileStorage storage;
     @MockitoBean MediaEventListener mediaEvents;
     @MockitoBean(name = "imageAnalysisTaskExecutor") AsyncTaskExecutor executor;
 
@@ -71,9 +71,9 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
             """, MEDIA_ID);
         given(storage.presignGet(any(), anyString(), anyString(), any())).willReturn("https://signed.test/image");
         given(descriptions.describe(anyString(), any())).willReturn(
-            new ImageDescriptionPort.Description("해변 단체 사진", "바다, 사람", "vision-test", "v1"));
+            new OpenAiImageDescriptionClient.Description("해변 단체 사진", "바다, 사람", "vision-test", "v1"));
         given(embeddings.embed(anyString(), any())).willReturn(
-            new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
+            new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
     }
 
     @AfterEach
@@ -162,7 +162,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         given(descriptions.describe(anyString(), any())).willAnswer(call -> {
             jdbc.update("DELETE FROM stored_file WHERE id = ?", MEDIA_ID);
-            return new ImageDescriptionPort.Description("사진", "바다", "vision-test", "v1");
+            return new OpenAiImageDescriptionClient.Description("사진", "바다", "vision-test", "v1");
         });
         analyzer.analyze(MEDIA_ID);
         assertThat(count()).isZero();
@@ -206,7 +206,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         given(embeddings.embed(anyString(), any()))
             .willThrow(new AiCallException("일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY))
-            .willReturn(new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
+            .willReturn(new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("PENDING");
         given(clock.instant()).willReturn(NOW.plusSeconds(60));
@@ -242,7 +242,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     void 영벡터는_재시도하지_않고_응답_오류로_종료한다() {
         documents.register(MEDIA_ID, NOW);
         given(embeddings.embed(anyString(), any())).willReturn(
-            new TextEmbeddingPort.Embedding(List.of(0.0, 0.0), "embedding-test"));
+            new OpenAiTextEmbeddingClient.Embedding(List.of(0.0, 0.0), "embedding-test"));
         analyzer.analyze(MEDIA_ID);
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("FAILED");
@@ -333,12 +333,12 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         given(descriptions.describe(anyString(), any())).willAnswer(call -> {
             assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
                 .isActualTransactionActive()).isFalse();
-            return new ImageDescriptionPort.Description("사진", "바다", "vision", "v1");
+            return new OpenAiImageDescriptionClient.Description("사진", "바다", "vision", "v1");
         });
         given(embeddings.embed(anyString(), any())).willAnswer(call -> {
             assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
                 .isActualTransactionActive()).isFalse();
-            return new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test");
+            return new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test");
         });
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("READY");
@@ -349,7 +349,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         MediaSearchDocumentRepository.AnalysisAttempt attempt = documents.claim(MEDIA_ID, NOW, 3).orElseThrow();
         documents.beginExternalCall(attempt, NOW);
-        documents.saveDescription(attempt, new ImageDescriptionPort.Description("저장된 설명", "특징", "vision", "v1"), NOW);
+        documents.saveDescription(attempt, new OpenAiImageDescriptionClient.Description("저장된 설명", "특징", "vision", "v1"), NOW);
         given(clock.instant()).willReturn(NOW.plusSeconds(600));
         sweeper.sweep();
         analyzer.analyze(MEDIA_ID);

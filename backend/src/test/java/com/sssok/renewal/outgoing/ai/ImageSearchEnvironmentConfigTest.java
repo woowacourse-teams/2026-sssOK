@@ -1,8 +1,8 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sssok.infrastructure.config.ImageSearchProperties;
+import com.sssok.renewal.outgoing.config.ImageSearchProperties;
 import com.sssok.infrastructure.config.ImageSearchQueryProperties;
 import java.io.IOException;
 import java.time.Instant;

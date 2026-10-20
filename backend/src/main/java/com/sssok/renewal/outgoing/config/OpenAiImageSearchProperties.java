@@ -1,4 +1,4 @@
-package com.sssok.infrastructure.config;
+package com.sssok.renewal.outgoing.config;
 
 import java.net.URI;
 import org.springframework.boot.context.properties.ConfigurationProperties;

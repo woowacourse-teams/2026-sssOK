@@ -1,4 +1,4 @@
-package com.sssok.infrastructure.config;
+package com.sssok.renewal.outgoing.config;
 
 import java.time.Duration;
 import java.time.Instant;

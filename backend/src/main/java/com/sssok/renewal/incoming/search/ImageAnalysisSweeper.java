@@ -1,8 +1,8 @@
-package com.sssok.infrastructure.scheduler;
+package com.sssok.renewal.incoming.search;
 
-import com.sssok.application.port.out.MediaSearchDocumentRepository;
-import com.sssok.application.search.ImageAnalysisDispatcher;
-import com.sssok.infrastructure.config.ImageSearchProperties;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.application.search.ImageAnalysisDispatcher;
+import com.sssok.renewal.outgoing.config.ImageSearchProperties;
 import java.time.Clock;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;

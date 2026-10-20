@@ -1,8 +1,8 @@
-package com.sssok.application.search;
+package com.sssok.renewal.application.search;
 
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.MediaSearchDocumentRepository;
-import com.sssok.infrastructure.config.ImageSearchProperties;
+import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.config.ImageSearchProperties;
 import lombok.RequiredArgsConstructor;
 import java.time.Clock;
 import org.springframework.transaction.annotation.Propagation;
@@ -11,7 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ImageAnalysisRegistrar {
     private final MediaSearchDocumentRepository documentRepository;
-    private final FileRepository fileRepository;
+    private final UploadFileRepository fileRepository;
     private final ImageSearchProperties properties;
     private final Clock clock;
 

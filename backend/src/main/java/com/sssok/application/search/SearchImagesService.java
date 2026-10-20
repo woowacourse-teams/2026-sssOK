@@ -1,6 +1,6 @@
 package com.sssok.application.search;
 
-import com.sssok.application.port.out.TextEmbeddingPort;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.MediaUploaderFilter;
@@ -19,13 +19,13 @@ import org.springframework.stereotype.Service;
 public class SearchImagesService {
     private static final int MAX_QUERY_LENGTH = 200;
 
-    private final ObjectProvider<TextEmbeddingPort> embeddingProvider;
+    private final ObjectProvider<OpenAiTextEmbeddingClient> embeddingProvider;
     private final ImageSearchResultAssembler resultAssembler;
     private final ImageSearchQueryProperties properties;
     private final boolean enabled;
     private final FolderRepository folderRepository;
 
-    public SearchImagesService(ObjectProvider<TextEmbeddingPort> embeddingProvider,
+    public SearchImagesService(ObjectProvider<OpenAiTextEmbeddingClient> embeddingProvider,
         ImageSearchResultAssembler resultAssembler, ImageSearchQueryProperties properties, FolderRepository folderRepository,
         @Value("${media.search.enabled:false}") boolean enabled) {
         this.embeddingProvider = embeddingProvider;
@@ -43,7 +43,7 @@ public class SearchImagesService {
             folderRepository.findById(folderId).filter(folder -> folder.belongsTo(roomId))
                 .orElseThrow(() -> new FolderNotFoundException(folderId));
         }
-        TextEmbeddingPort.Embedding embedding = embedQuery(text);
+        OpenAiTextEmbeddingClient.Embedding embedding = embedQuery(text);
         String vector = embedding.values().stream().map(String::valueOf)
             .collect(Collectors.joining(",", "[", "]"));
         return resultAssembler.search(roomId, vector, embedding.model(), embedding.values().size(),
@@ -64,13 +64,13 @@ public class SearchImagesService {
         }
     }
 
-    private TextEmbeddingPort.Embedding embedQuery(String text) {
+    private OpenAiTextEmbeddingClient.Embedding embedQuery(String text) {
         try {
-            TextEmbeddingPort provider = embeddingProvider.getIfAvailable();
+            OpenAiTextEmbeddingClient provider = embeddingProvider.getIfAvailable();
             if (provider == null) {
                 throw new ImageSearchUnavailableException();
             }
-            TextEmbeddingPort.Embedding embedding = provider.embed(text, properties.timeout());
+            OpenAiTextEmbeddingClient.Embedding embedding = provider.embed(text, properties.timeout());
             requireValidEmbedding(embedding);
             return embedding;
         } catch (RuntimeException exception) {
@@ -78,7 +78,7 @@ public class SearchImagesService {
         }
     }
 
-    private void requireValidEmbedding(TextEmbeddingPort.Embedding embedding) {
+    private void requireValidEmbedding(OpenAiTextEmbeddingClient.Embedding embedding) {
         if (embedding == null || embedding.model() == null || embedding.model().isBlank()
             || embedding.values() == null || embedding.values().isEmpty()) {
             throw new ImageSearchUnavailableException();

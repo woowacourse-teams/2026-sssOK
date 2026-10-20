@@ -1,11 +1,9 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.application.port.out.TextEmbeddingPort;
-import com.sssok.infrastructure.config.OpenAiImageSearchConfig;
+import com.sssok.renewal.outgoing.config.OpenAiImageSearchConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
@@ -19,7 +17,7 @@ class OpenAiImageSearchConfigTest {
     void 비활성화하면_API_키_없이_기동하고_외부_호출_빈은_없다() {
         context.withPropertyValues("media.search.enabled=false").run(result -> {
             assertThat(result).hasNotFailed().doesNotHaveBean(OpenAiSearchClient.class)
-                .doesNotHaveBean(ImageDescriptionPort.class).doesNotHaveBean(TextEmbeddingPort.class);
+                .doesNotHaveBean(OpenAiImageDescriptionClient.class).doesNotHaveBean(OpenAiTextEmbeddingClient.class);
         });
     }
 
@@ -36,9 +34,9 @@ class OpenAiImageSearchConfigTest {
         context.withPropertyValues("media.search.enabled=true", "media.search.openai.api-key=test-key")
             .run(result -> {
                 assertThat(result).hasNotFailed().hasSingleBean(OpenAiSearchClient.class)
-                    .hasSingleBean(ImageDescriptionPort.class).hasSingleBean(TextEmbeddingPort.class);
-                assertThat(result.getBean(ImageDescriptionPort.class)).isInstanceOf(OpenAiImageDescriptionAdapter.class);
-                assertThat(result.getBean(TextEmbeddingPort.class)).isInstanceOf(OpenAiTextEmbeddingAdapter.class);
+                    .hasSingleBean(OpenAiImageDescriptionClient.class).hasSingleBean(OpenAiTextEmbeddingClient.class);
+                assertThat(result.getBean(OpenAiImageDescriptionClient.class)).isInstanceOf(OpenAiImageDescriptionClient.class);
+                assertThat(result.getBean(OpenAiTextEmbeddingClient.class)).isInstanceOf(OpenAiTextEmbeddingClient.class);
             });
     }
 }

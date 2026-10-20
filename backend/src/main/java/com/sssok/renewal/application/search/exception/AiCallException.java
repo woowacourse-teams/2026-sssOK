@@ -1,4 +1,4 @@
-package com.sssok.application.search.exception;
+package com.sssok.renewal.application.search.exception;
 
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;

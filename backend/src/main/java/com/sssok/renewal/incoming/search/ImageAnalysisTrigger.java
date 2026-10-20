@@ -1,5 +1,7 @@
-package com.sssok.application.search;
+package com.sssok.renewal.incoming.search;
 
+import com.sssok.renewal.application.search.ImageAnalysisRegistrar;
+import com.sssok.renewal.application.search.ImageAnalysisDispatcher;
 import com.sssok.application.media.MediaReadyEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

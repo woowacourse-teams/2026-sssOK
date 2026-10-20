@@ -1,20 +1,19 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.sssok.application.port.out.TextEmbeddingPort;
-import com.sssok.infrastructure.config.OpenAiImageSearchProperties;
+import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 
+// 외부 호출의 자동 재시도는 하지 않는다. 재시도 여부는 DB 작업 상태와 실패 분류로 결정한다.
 @RequiredArgsConstructor
-public class OpenAiTextEmbeddingAdapter implements TextEmbeddingPort {
+public class OpenAiTextEmbeddingClient {
     private final OpenAiSearchClient client;
     private final OpenAiImageSearchProperties properties;
 
-    @Override
     public Embedding embed(String text, Duration timeout) {
         if (text == null || text.isBlank()) {
             throw new IllegalArgumentException("임베딩할 텍스트가 필요합니다");
@@ -62,5 +61,8 @@ public class OpenAiTextEmbeddingAdapter implements TextEmbeddingPort {
 
     private record EmbeddingRequest(String model, String input, int dimensions,
                                     @JsonProperty("encoding_format") String encodingFormat) {
+    }
+
+    public record Embedding(List<Double> values, String model) {
     }
 }

@@ -1,12 +1,12 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.search.exception.AiCallException.RetryDisposition;
+import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import com.sssok.infrastructure.config.OpenAiImageSearchProperties;
+import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import org.springframework.http.MediaType;

@@ -1,6 +1,6 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
-import com.sssok.application.search.exception.AiCallException;
+import com.sssok.renewal.application.search.exception.AiCallException;
 import java.time.Instant;
 
 public class OpenAiCallException extends AiCallException {

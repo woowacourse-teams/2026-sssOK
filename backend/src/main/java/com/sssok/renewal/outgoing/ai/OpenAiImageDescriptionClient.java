@@ -1,18 +1,18 @@
-package com.sssok.infrastructure.ai;
+package com.sssok.renewal.outgoing.ai;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.infrastructure.config.OpenAiImageSearchProperties;
+import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 
+// 외부 호출의 자동 재시도는 하지 않는다. 재시도 여부는 DB 작업 상태와 실패 분류로 결정한다.
 @RequiredArgsConstructor
-public class OpenAiImageDescriptionAdapter implements ImageDescriptionPort {
+public class OpenAiImageDescriptionClient {
     private static final int MAX_DESCRIPTION_LENGTH = 180;
     private static final int MAX_FEATURE_LENGTH = 40;
     private static final int MAX_FEATURE_COUNT = 8;
@@ -27,7 +27,6 @@ public class OpenAiImageDescriptionAdapter implements ImageDescriptionPort {
     private final OpenAiImageSearchProperties properties;
     private final ObjectMapper objectMapper;
 
-    @Override
     public Description describe(String imageUrl, Duration timeout) {
         ObjectNode request = createRequest(imageUrl);
         JsonNode response = client.post("/responses", request, timeout);
@@ -148,5 +147,8 @@ public class OpenAiImageDescriptionAdapter implements ImageDescriptionPort {
         }
         String text = node.asText();
         return text.codePointCount(0, text.length()) <= maxLength;
+    }
+
+    public record Description(String description, String features, String model, String promptVersion) {
     }
 }
