@@ -32,10 +32,10 @@ describe("mediaKindOf", () => {
 });
 
 describe("maxBytesOf", () => {
-  it("사진은 10MB, 영상은 1GB 까지다", () => {
+  it("사진은 20MB, 영상은 1GB 까지다", () => {
     expect(maxBytesOf("IMAGE")).toBe(MAX_IMAGE_BYTES);
     expect(maxBytesOf("VIDEO")).toBe(MAX_VIDEO_BYTES);
-    expect(MAX_IMAGE_BYTES).toBe(10 * 1024 * 1024);
+    expect(MAX_IMAGE_BYTES).toBe(20 * 1024 * 1024);
     expect(MAX_VIDEO_BYTES).toBe(1024 * 1024 * 1024);
   });
 });
