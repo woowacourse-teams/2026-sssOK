@@ -357,7 +357,7 @@ describe("MediaUploader", () => {
     renderUploader();
     await user.upload(getFileInput(), [fileOf("big.png", MAX_IMAGE_BYTES + 1, "image/png")]);
 
-    expect(screen.getByText(/이미지 10MB · 영상 1GB 까지 올릴 수 있어요/)).toBeInTheDocument();
+    expect(screen.getByText(/이미지 20MB · 영상 1GB 까지 올릴 수 있어요/)).toBeInTheDocument();
   });
 
   it("accept 를 통과한 파일도 확장자로 다시 거른다", async () => {
