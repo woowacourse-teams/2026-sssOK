@@ -1,7 +1,7 @@
 package com.sssok.application.download;
 
 import com.sssok.application.port.out.DownloadJobRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.download.DownloadJob;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -13,11 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class DownloadJobExpirer {
 
     private final DownloadJobRepository downloadJobRepository;
-    private final FileStoragePort fileStoragePort;
+    private final FileStorage fileStorage;
 
     @Transactional
     public void expire(DownloadJob job) {
-        fileStoragePort.delete(job.getZipStorageKey());
+        fileStorage.delete(job.getZipStorageKey());
         job.markExpired();
         downloadJobRepository.save(job);
     }

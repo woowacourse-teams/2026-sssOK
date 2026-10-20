@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.MediaUrlCacheProperties;
@@ -71,7 +71,7 @@ class MediaReadUrlCacheCommitTest {
             return new DataSourceTransactionManager(dataSource);
         }
         @Bean MediaReadUrlProvider provider() {
-            FileStoragePort storage = mock(FileStoragePort.class);
+            FileStorage storage = mock(FileStorage.class);
             when(storage.presignGet(any(), anyString(), anyString(), any()))
                 .thenAnswer(call -> UUID.randomUUID().toString());
             return new MediaReadUrlProvider(storage,

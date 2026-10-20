@@ -10,7 +10,7 @@ import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.ProcessedMedia;
@@ -62,7 +62,7 @@ class GetMediaListServiceTest {
     MediaUrlResolver mediaUrlResolver;
 
     @MockitoSpyBean
-    FileStoragePort storage;
+    FileStorage storage;
 
     private Long uploaderId;
 
@@ -70,6 +70,7 @@ class GetMediaListServiceTest {
     @BeforeEach
     void setUp() {
         com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 700L, 701L);
+
         jdbcTemplate.update("DELETE FROM folder_media");
         jdbcTemplate.update("DELETE FROM stored_file WHERE room_id IN (?, ?)", ROOM_ID, OTHER_ROOM_ID);
         jdbcTemplate.update("DELETE FROM folder WHERE room_id IN (?, ?)", ROOM_ID, OTHER_ROOM_ID);

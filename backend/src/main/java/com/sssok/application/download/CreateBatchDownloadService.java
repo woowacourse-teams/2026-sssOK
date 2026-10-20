@@ -1,6 +1,6 @@
 package com.sssok.application.download;
 
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.application.media.MediaUploaderFilter;
@@ -19,7 +19,7 @@ import org.springframework.stereotype.Service;
 public class CreateBatchDownloadService {
 
     private final DownloadTargetResolver downloadTargetResolver;
-    private final FileStoragePort fileStoragePort;
+    private final FileStorage fileStorage;
     private final DownloadProperties downloadProperties;
 
     public List<BatchDownloadFile> create(Long roomId, Long requesterId, List<Long> mediaIds,
@@ -37,7 +37,7 @@ public class CreateBatchDownloadService {
 
     private BatchDownloadFile toBatchFile(StoredFile file, String fileName, Instant expiresAt) {
         String contentDisposition = DownloadFileNames.contentDispositionOf(fileName);
-        String url = fileStoragePort.presignGet(file.getStorageKey(), contentDisposition,
+        String url = fileStorage.presignGet(file.getStorageKey(), contentDisposition,
             file.getMediaType().contentType(), downloadProperties.presignedGetTtl());
         return new BatchDownloadFile(file.getId(), fileName, url, expiresAt);
     }

@@ -9,7 +9,7 @@ import static org.mockito.BDDMockito.given;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
@@ -58,7 +58,7 @@ class GetMediaServiceTest {
     JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     private Long hostId;
     private Long uploaderId;
@@ -67,10 +67,11 @@ class GetMediaServiceTest {
     @BeforeEach
     void setUp() {
         com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 711L);
+
         hostId = memberRepository.save(Member.register(new Nickname("방장"), Instant.now())).getId();
         uploaderId = memberRepository.save(Member.register(new Nickname("가현"), Instant.now())).getId();
         roomId = createRoomService.create(hostId, "우테코 회식", null).room().getId();
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }
 

@@ -16,8 +16,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.folder.CreateFolderService;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.FileStoragePort.UploadedObject;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
@@ -63,7 +63,7 @@ class MediaQueryApiTest extends PostgresContainerSupport {
     CreateFolderService createFolderService;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     private MockMvc mockMvc;
     private Long roomId;
@@ -72,7 +72,7 @@ class MediaQueryApiTest extends PostgresContainerSupport {
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.when(fileStoragePort.presignGet(
+        org.mockito.Mockito.when(fileStorage.presignGet(
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
             .thenReturn("https://storage.example.com/read");
@@ -82,9 +82,9 @@ class MediaQueryApiTest extends PostgresContainerSupport {
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
         roomCode = room.getCode().value();
-        given(fileStoragePort.presignPut(any(), anyString(), any(Duration.class)))
+        given(fileStorage.presignPut(any(), anyString(), any(Duration.class)))
             .willReturn("https://storage.example.com/signed");
-        given(fileStoragePort.findUploaded(any()))
+        given(fileStorage.findUploaded(any()))
             .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
     }
 

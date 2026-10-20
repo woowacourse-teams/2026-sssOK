@@ -11,7 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
@@ -46,12 +46,13 @@ class CreateBatchDownloadServiceTest {
     FileRepository fileRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @BeforeEach
     void setUp() {
         com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }
 
@@ -96,7 +97,7 @@ class CreateBatchDownloadServiceTest {
         assertThat(files).singleElement()
             .extracting(BatchDownloadFile::fileName)
             .isEqualTo(fileName);
-        verify(fileStoragePort).presignGet(
+        verify(fileStorage).presignGet(
             any(),
             eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
             eq(mimeType),

@@ -10,7 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.ArrayList;
@@ -46,13 +46,13 @@ class MediaLikeApiTest extends PostgresContainerSupport {
     JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.when(fileStoragePort.presignGet(
+        org.mockito.Mockito.when(fileStorage.presignGet(
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
             org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
             .thenReturn("https://storage.example.com/read");

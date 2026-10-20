@@ -5,7 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
@@ -24,7 +24,7 @@ class MediaUrlSourceTest {
     private static final Instant NOW = Instant.parse("2026-09-28T12:00:00Z");
     private static final String SIGNED_URL = "https://storage.example.com/signed";
 
-    private final FileStoragePort storage = mock(FileStoragePort.class);
+    private final FileStorage storage = mock(FileStorage.class);
     private final MediaReadUrlProvider provider = new MediaReadUrlProvider(storage,
         new MediaUrlCacheProperties(true, 100L, Duration.ofMinutes(2)),
         new SimpleMeterRegistry(),

@@ -2,7 +2,7 @@ package com.sssok.application.media;
 
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.DownloadProperties;
@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 public class GetMediaDownloadUrlService {
 
     private final FileRepository fileRepository;
-    private final FileStoragePort fileStoragePort;
+    private final FileStorage fileStorage;
     private final DownloadProperties downloadProperties;
 
     public String getUrl(Long roomId, Long mediaId) {
@@ -29,7 +29,7 @@ public class GetMediaDownloadUrlService {
         }
 
         String contentDisposition = DownloadFileNames.contentDispositionOf(file.getOriginalFileName());
-        return fileStoragePort.presignGet(file.getStorageKey(), contentDisposition,
+        return fileStorage.presignGet(file.getStorageKey(), contentDisposition,
             file.getMediaType().contentType(), downloadProperties.presignedGetTtl());
     }
 }

@@ -10,8 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.JoinRoomService;
 import com.sssok.domain.file.FileSize;
@@ -68,7 +68,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
     OrphanObjectRepository orphanObjectRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     MockMvc mockMvc;
     Long roomId;
@@ -95,7 +95,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
     @Test
     void 정리_작업_제출이_거부돼도_삭제는_성공하고_대기열에_남는다() throws Exception {
         // 하나뿐인 워커 스레드를 붙잡아 둔다.
-        given(fileStoragePort.deleteAll(anyList())).willAnswer(call -> {
+        given(fileStorage.deleteAll(anyList())).willAnswer(call -> {
             occupied.countDown();
             release.await(10, TimeUnit.SECONDS);
             return List.of();

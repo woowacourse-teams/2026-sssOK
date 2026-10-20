@@ -6,7 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.MediaUrlCacheProperties;
@@ -30,7 +30,7 @@ class MediaReadUrlProviderTest {
     private static final Duration TTL = Duration.ofMinutes(30);
     private static final Instant START = Instant.parse("2026-10-15T00:00:00Z");
     private static final StorageKey KEY = new StorageKey("rooms/1/previews/photo.webp");
-    private final FileStoragePort storage = mock(FileStoragePort.class);
+    private final FileStorage storage = mock(FileStorage.class);
     private final Clock clock = mock(Clock.class);
     private final AtomicReference<Instant> now = new AtomicReference<>(START);
     private final SimpleMeterRegistry metrics = new SimpleMeterRegistry();
