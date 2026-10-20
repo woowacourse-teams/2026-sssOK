@@ -1,5 +1,45 @@
 import { type AnalyticsRoomContext, track } from "@/shared/lib";
+import type { RejectedSelection, SelectionRejectionCode } from "./selectMediaFiles";
 import type { UploadResult } from "./types";
+
+const UPLOAD_FORMATS = ["jpeg", "png", "gif", "webp", "avif", "mp4", "webm", "mov"];
+
+/** 서버의 포맷 판별과 같이 확장자를 우선한다. 파일명 자체는 이벤트로 보내지 않는다. */
+const formatOf = (fileName: string, mimeType: string) => {
+  const extension = fileName
+    ?.match(/\.([^.]+)$/)?.[1]
+    .trim()
+    .toLowerCase();
+  const format = extension === "jpg" ? "jpeg" : extension;
+  if (format && UPLOAD_FORMATS.includes(format)) return format;
+
+  const mimeFormat = mimeType?.split(";")[0].trim().toLowerCase();
+  const byMime: Record<string, string> = {
+    "image/jpeg": "jpeg",
+    "image/png": "png",
+    "image/gif": "gif",
+    "image/webp": "webp",
+    "image/avif": "avif",
+    "video/mp4": "mp4",
+    "video/webm": "webm",
+    "video/quicktime": "mov",
+  };
+  return byMime[mimeFormat] ?? "unknown";
+};
+
+/** 전송 전에 걸러진 파일도 실패에 포함한다. 전송 결과에는 이 파일들이 들어가지 않는다. */
+export const trackUploadSelectionRejected = (rejected: RejectedSelection[]) => {
+  const counts = new Map<SelectionRejectionCode, number>();
+  rejected.forEach(({ code }) => counts.set(code, (counts.get(code) ?? 0) + 1));
+
+  counts.forEach((failedCount, reason) => {
+    track("Photo Upload Failed", {
+      reason,
+      failed_count: failedCount,
+      stage: "selection",
+    });
+  });
+};
 
 /**
  * 올리기 한 판의 결말을 이벤트로 남긴다.
@@ -16,12 +56,22 @@ export const trackUpload = (
   const failedCount = result.failed.length + result.rejected.length;
 
   if (uploadedCount > 0) {
+    const formatCounts: Record<string, number> = { webp: 0, avif: 0 };
+    result.registered.forEach(({ fileName, mimeType }) => {
+      const format = formatOf(fileName, mimeType);
+      formatCounts[format] = (formatCounts[format] ?? 0) + 1;
+    });
+    if (result.alreadyRegistered > 0) {
+      formatCounts.unknown = (formatCounts.unknown ?? 0) + result.alreadyRegistered;
+    }
+
     track(
       "Photo Uploaded",
       {
         photo_count: uploadedCount,
         failed_count: failedCount,
         duration_ms: Math.round(durationMs),
+        uploaded_format_counts: formatCounts,
       },
       room,
     );

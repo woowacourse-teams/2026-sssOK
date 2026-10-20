@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -125,6 +125,30 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
     allItems: allGalleryItems,
   });
   const galleryItems = search.items;
+
+  const emptyGalleryViewedRoom = useRef<string | null>(null);
+  const isEmptyGalleryVisible =
+    !isPending &&
+    !isError &&
+    !search.isPending &&
+    !search.isError &&
+    !search.isSearching &&
+    selectedFolderId === null &&
+    selectedOption === "all" &&
+    totalCount === 0 &&
+    galleryItems.length === 0 &&
+    activeMediaId === null;
+
+  useEffect(() => {
+    if (!isEmptyGalleryVisible || emptyGalleryViewedRoom.current === room.code) return;
+
+    emptyGalleryViewedRoom.current = room.code;
+    track(
+      "Empty Gallery Viewed",
+      {},
+      { room_code: room.code, role: userId === room.hostId ? "host" : "guest" },
+    );
+  }, [isEmptyGalleryVisible, room.code, room.hostId, userId]);
 
   useEffect(() => {
     if (completedUploadIds.length === 0) return;

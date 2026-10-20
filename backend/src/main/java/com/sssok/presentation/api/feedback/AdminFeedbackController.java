@@ -1,5 +1,6 @@
 package com.sssok.presentation.api.feedback;
 
+import com.sssok.application.feedback.FeedbackAssigneeService;
 import com.sssok.application.feedback.FeedbackPage;
 import com.sssok.application.feedback.FeedbackQueryService;
 import com.sssok.application.feedback.FeedbackStatusService;
@@ -18,8 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// 의견 조회·반영 상태 변경은 관리자만 할 수 있어 전부 /admin 아래에 둔다.
-@Tag(name = "관리자 의견", description = "관리자가 사용자 의견을 읽고 반영 상태를 관리한다. 일반 관리자와 슈퍼관리자 모두 할 수 있다.")
+// 의견 조회·처리 상태·담당자 변경은 관리자만 할 수 있어 전부 /admin 아래에 둔다.
+@Tag(name = "관리자 의견", description = "관리자가 사용자 의견을 읽고 처리 상태와 담당자를 관리한다. 일반 관리자와 슈퍼관리자 모두 할 수 있다.")
 @RestController
 @RequestMapping("/admin/feedbacks")
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class AdminFeedbackController {
 
     private final FeedbackQueryService feedbackQueryService;
     private final FeedbackStatusService feedbackStatusService;
+    private final FeedbackAssigneeService feedbackAssigneeService;
 
     @Operation(
         summary = "의견 목록 조회",
@@ -43,8 +45,13 @@ public class AdminFeedbackController {
             userAgent·frontendVersion 은 null 이 정상 값이다. 헤더 없이 들어온 의견(curl·봇·구버전 \
             클라이언트)이 있어서, 값이 없다고 조회가 실패하거나 항목이 빠지지 않는다.
 
-            status 는 반영 상태다. 새로 들어온 의견은 UNREFLECTED(미반영)이고, 관리자가 반영 상태 변경 \
-            API 로 REFLECTED(반영)로 바꾼다.
+            status 는 처리 상태다. 새로 들어온 의견은 UNREFLECTED(미반영)이고, 관리자가 처리 상태 변경 \
+            API 로 IN_PROGRESS(처리중)·REFLECTED(반영)·ON_HOLD(보류)로 바꾼다.
+
+            assignee 는 담당자다. MAICHAN(마이찬)·HAENI(해니)·YUNDOL(윤돌)·HYUNMIBAP(현미밥) 중 하나이고, \
+            아직 정하지 않았으면 null 이다.
+
+            상태·담당자로 거르거나 정렬하는 파라미터는 없다. 항상 최신순으로 내려준다.
 
             익명 사용자 토큰으로 호출하면 관리자 토큰이 아니라 토큰 단계에서 401로 걸린다.\
             """
@@ -81,10 +88,11 @@ public class AdminFeedbackController {
     }
 
     @Operation(
-        summary = "의견 반영 상태 변경",
+        summary = "의견 처리 상태 변경",
         description = """
-            의견의 반영 상태를 바꾼다. status 에 REFLECTED(반영) 또는 UNREFLECTED(미반영)를 보낸다. \
-            반영했던 의견을 미반영으로 되돌릴 수도 있고, 이미 같은 상태로 바꾸는 요청도 그대로 성공한다.
+            의견의 처리 상태를 바꾼다. status 에 UNREFLECTED(미반영)·IN_PROGRESS(처리중)·REFLECTED(반영)·\
+            ON_HOLD(보류) 중 하나를 보낸다. 순서와 상관없이 어느 상태로든 바꿀 수 있고, \
+            이미 같은 상태로 바꾸는 요청도 그대로 성공한다.
 
             그 외의 값이나 빈 값을 보내면 400, 없는 의견 식별자면 404가 난다. \
             응답은 바뀐 의견의 단건 조회 결과와 같다.\
@@ -97,6 +105,27 @@ public class AdminFeedbackController {
         @RequestBody UpdateFeedbackStatusRequest request
     ) {
         Feedback feedback = feedbackStatusService.changeStatus(adminId, feedbackId, request.status());
+        return ApiResponse.of(FeedbackResponse.from(feedback));
+    }
+
+    @Operation(
+        summary = "의견 담당자 변경",
+        description = """
+            의견의 담당자를 정한다. assignee 에 MAICHAN(마이찬)·HAENI(해니)·YUNDOL(윤돌)·HYUNMIBAP(현미밥) \
+            중 하나를 보낸다. assignee 를 null 로 보내거나 빼면 담당자를 비운다. \
+            이미 같은 담당자로 바꾸는 요청도 그대로 성공한다.
+
+            그 외의 값(빈 문자열·소문자 포함)을 보내면 400, 없는 의견 식별자면 404가 난다. \
+            응답은 바뀐 의견의 단건 조회 결과와 같다.\
+            """
+    )
+    @PatchMapping("/{feedbackId}/assignee")
+    public ApiResponse<FeedbackResponse> changeAssignee(
+        @Parameter(hidden = true) @AuthAdmin Long adminId,
+        @Parameter(description = "담당자를 바꿀 의견의 ID") @PathVariable Long feedbackId,
+        @RequestBody UpdateFeedbackAssigneeRequest request
+    ) {
+        Feedback feedback = feedbackAssigneeService.changeAssignee(adminId, feedbackId, request.assignee());
         return ApiResponse.of(FeedbackResponse.from(feedback));
     }
 }

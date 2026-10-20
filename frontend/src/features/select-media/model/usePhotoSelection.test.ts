@@ -1,6 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
 
+import { track } from "@/shared/lib/analytics";
 import { usePhotoSelection } from "./usePhotoSelection";
+
+jest.mock("@/shared/lib/analytics", () => ({ track: jest.fn() }));
 
 describe("usePhotoSelection", () => {
   it("사진을 개별 선택하고 다시 해제한다", () => {
@@ -67,5 +70,35 @@ describe("usePhotoSelection", () => {
     act(() => result.current.clearSelection());
 
     expect(result.current.selectedPhotoIds).toEqual([]);
+  });
+
+  it("아무것도 안 고른 상태에서 처음 고를 때만 선택 시작을 남긴다", () => {
+    const { result } = renderHook(() => usePhotoSelection([5011, 5012]));
+
+    act(() => result.current.togglePhoto(5011));
+    act(() => result.current.togglePhoto(5012));
+    act(() => result.current.togglePhoto(5011));
+
+    expect(track).toHaveBeenCalledTimes(1);
+    expect(track).toHaveBeenCalledWith("Photo Selection Started", {});
+  });
+
+  it("전체 선택으로 고르기 시작해도 남기고, 전체 해제는 남기지 않는다", () => {
+    const { result } = renderHook(() => usePhotoSelection([5011, 5012]));
+
+    act(() => result.current.toggleAllPhotos());
+    act(() => result.current.toggleAllPhotos());
+
+    expect(track).toHaveBeenCalledTimes(1);
+  });
+
+  it("모두 해제한 뒤 다시 고르면 새 선택으로 남긴다", () => {
+    const { result } = renderHook(() => usePhotoSelection([5011]));
+
+    act(() => result.current.togglePhoto(5011));
+    act(() => result.current.clearSelection());
+    act(() => result.current.togglePhoto(5011));
+
+    expect(track).toHaveBeenCalledTimes(2);
   });
 });

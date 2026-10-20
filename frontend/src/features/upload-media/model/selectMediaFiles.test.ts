@@ -56,7 +56,7 @@ describe("selectMediaFiles", () => {
         fileName: "big.png",
         size: MAX_IMAGE_BYTES + 1,
         code: "FILE_SIZE_EXCEEDED",
-        message: "이미지 최대 10MB 초과",
+        message: "이미지 최대 20MB 초과",
       },
     ]);
   });

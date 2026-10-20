@@ -15,6 +15,13 @@ export const Content = styled.div`
   gap: ${spacing[20]};
 `;
 
+export const TitleRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: ${spacing[8]};
+`;
+
 export const Title = styled.h2`
   color: ${colors.textStrong};
 

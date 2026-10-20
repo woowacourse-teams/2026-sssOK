@@ -25,7 +25,7 @@ const MIME_TYPES: Record<string, string> = {
   mov: "video/quicktime",
 };
 
-const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 const VIDEO_MAX_BYTES = 1024 * 1024 * 1024;
 
 /** application.yml 의 `upload.presigned-url-ttl: 10m` 과 같은 값이다. */
@@ -322,7 +322,7 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
       fileName,
       code: "FILE_SIZE_EXCEEDED",
       message: mimeType.startsWith("image/")
-        ? "사진은 10MB까지 올릴 수 있어요."
+        ? "사진은 20MB까지 올릴 수 있어요."
         : "영상은 1GB까지 올릴 수 있어요.",
     };
   }

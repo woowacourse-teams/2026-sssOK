@@ -19,9 +19,15 @@ export interface AdminFeedback {
   userAgent: string | null;
   /** 프론트가 `X-App-Version` 으로 실어 보낸 태그. 예: `fe-v0.1.0`. 안 보내면 null 이다. */
   frontendVersion: string | null;
+  status: FeedbackStatus;
+  assignee: FeedbackAssignee | null;
   /** ISO 8601 (UTC). */
   createdAt: string;
 }
+
+export type FeedbackStatus = "UNREFLECTED" | "IN_PROGRESS" | "REFLECTED" | "ON_HOLD";
+
+export type FeedbackAssignee = "MAICHAN" | "HAENI" | "YUNDOL" | "HYUNMIBAP";
 
 /**
  * 관리자 의견 단건 (`GET /admin/feedbacks/{feedbackId}`).

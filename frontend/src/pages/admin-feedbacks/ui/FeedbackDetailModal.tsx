@@ -2,6 +2,8 @@ import { useEffect } from "react";
 
 import {
   type AdminFeedbackDetail,
+  FeedbackAssigneeBadge,
+  FeedbackStatusBadge,
   describeUserAgent,
   formatFeedbackDateTime,
   useAdminFeedbackQuery,
@@ -20,6 +22,7 @@ import {
   Notice,
   RawUserAgent,
   Title,
+  TitleRow,
 } from "./FeedbackDetailModal.styles";
 
 interface FeedbackDetailModalProps {
@@ -51,7 +54,21 @@ export const FeedbackDetailModal = ({
   }, [status, onUnauthorized]);
 
   return (
-    <Modal size="lg" title={<Title>의견 #{feedbackId}</Title>} onClose={onClose}>
+    <Modal
+      size="lg"
+      title={
+        <TitleRow>
+          <Title>의견 #{feedbackId}</Title>
+          {data && (
+            <>
+              <FeedbackAssigneeBadge assignee={data.assignee} />
+              <FeedbackStatusBadge status={data.status} />
+            </>
+          )}
+        </TitleRow>
+      }
+      onClose={onClose}
+    >
       <Content>
         {isPending && <Notice>의견을 불러오고 있어요.</Notice>}
 

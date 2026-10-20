@@ -228,6 +228,7 @@ class DiscordFeedbackNotifierTest {
             UserAgent.from(null),
             FrontendVersion.from(null),
             FeedbackStatus.UNREFLECTED,
+            null,
             CREATED_AT
         );
     }

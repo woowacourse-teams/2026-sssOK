@@ -19,7 +19,7 @@ describe("formatBytes", () => {
   });
 
   it("한도 자체도 칩에 쓰는 그대로 나온다", () => {
-    expect(formatBytes(MAX_IMAGE_BYTES)).toBe("10MB");
+    expect(formatBytes(MAX_IMAGE_BYTES)).toBe("20MB");
     expect(formatBytes(MAX_VIDEO_BYTES)).toBe("1GB");
   });
 
