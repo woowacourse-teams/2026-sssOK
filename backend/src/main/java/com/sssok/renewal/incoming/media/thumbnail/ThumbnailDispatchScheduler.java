@@ -1,6 +1,6 @@
-package com.sssok.infrastructure.scheduler;
+package com.sssok.renewal.incoming.media.thumbnail;
 
-import com.sssok.application.media.thumbnail.ThumbnailDispatcher;
+import com.sssok.renewal.application.media.thumbnail.ThumbnailDispatcher;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "media.thumbnail.auto-generate", havingValue = "true", matchIfMissing = true)
 public class ThumbnailDispatchScheduler {
-    private final ThumbnailDispatcher dispatcher;
+    private final ThumbnailDispatcher thumbnailDispatcher;
 
     @Scheduled(fixedDelayString = "${media.thumbnail.queue.dispatch-interval:1s}")
-    public void dispatch() { dispatcher.dispatch(); }
+    public void dispatchPendingJobs() {
+        thumbnailDispatcher.dispatchPendingJobs();
+    }
 }

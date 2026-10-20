@@ -4,7 +4,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
 
 // HTTP 2xx 응답 안에도 파일별 거절이 포함된다. 응답 항목 수를 세며 고유 파일 수나 R2 PUT 성공률은 아니다.
-@Component("renewalUploadMetrics")
+@Component
 public class UploadMetrics {
 
     private final MeterRegistry registry;

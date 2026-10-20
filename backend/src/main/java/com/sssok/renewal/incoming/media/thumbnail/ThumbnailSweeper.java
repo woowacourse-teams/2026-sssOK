@@ -1,6 +1,8 @@
-package com.sssok.infrastructure.scheduler;
+package com.sssok.renewal.incoming.media.thumbnail;
 
-import com.sssok.application.media.thumbnail.ThumbnailJobs;
+import com.sssok.renewal.application.media.thumbnail.ThumbnailJobCompletionService;
+import java.util.List;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -11,13 +13,13 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @ConditionalOnProperty(name = "media.thumbnail.auto-generate", havingValue = "true", matchIfMissing = true)
 public class ThumbnailSweeper {
-    private final ThumbnailJobs jobs;
-    private final com.sssok.common.monitoring.MediaProcessingMetrics metrics;
+    private final ThumbnailJobCompletionService thumbnailJobCompletionService;
+    private final MediaProcessingMetrics metrics;
 
     @Scheduled(fixedDelayString = "${media.thumbnail.queue.recovery-interval:10s}")
     public void sweep() {
-        var expired = jobs.expired();
-        expired.forEach(jobs::recover);
-        metrics.swept(expired.size());
+        List<Long> expiredMediaIds = thumbnailJobCompletionService.findExpiredMediaIds();
+        expiredMediaIds.forEach(thumbnailJobCompletionService::recoverExpired);
+        metrics.swept(expiredMediaIds.size());
     }
 }

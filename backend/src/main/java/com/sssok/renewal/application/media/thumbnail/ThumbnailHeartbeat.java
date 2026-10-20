@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 // ScheduledExecutorService 자체를 빈으로 노출하면 Boot의 일반 TaskScheduler 자동 설정이
 // 물러날 수 있다. 전용 객체 안에 두어 회수/정리 배치와 heartbeat 스레드를 분리한다.
 @Slf4j
-@Component("renewalThumbnailHeartbeat")
+@Component
 public class ThumbnailHeartbeat {
     private final ThumbnailJobService thumbnailJobService;
     private final long heartbeatIntervalMillis;

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-@Component("renewalThumbnailQueueMetrics")
+@Component
 public class ThumbnailQueueMetrics {
     private final ThumbnailJobRepository repository;
     private final Map<ThumbnailJobStatus, AtomicLong> counts = new LinkedHashMap<>();

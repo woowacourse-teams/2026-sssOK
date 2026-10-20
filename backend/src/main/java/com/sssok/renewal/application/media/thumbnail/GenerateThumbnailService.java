@@ -37,7 +37,7 @@ import org.springframework.stereotype.Service;
 // 변환·스토리지 입출력 동안 DB 트랜잭션을 유지하지 않는다.
 // 상태 변경은 ThumbnailJobCompletionService의 짧은 트랜잭션에서 처리한다.
 @Slf4j
-@Service("renewalGenerateThumbnailService")
+@Service
 @RequiredArgsConstructor
 public class GenerateThumbnailService {
 

@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Component;
 
-@Component("renewalMediaProcessingMetrics")
+@Component
 public class MediaProcessingMetrics {
 
     public enum Source { INITIAL, SWEEPER }

@@ -33,7 +33,7 @@ import javax.imageio.stream.ImageOutputStream;
 import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.stereotype.Component;
 
-@Component("renewalThumbnailatorImageProcessor")
+@Component
 public class ThumbnailatorImageProcessor {
 
     // 소수점 6자리면 약 10cm 단위다. 사진이 찍힌 자리를 가리키기에 충분하고,

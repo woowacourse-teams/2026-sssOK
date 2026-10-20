@@ -8,7 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 // 스토리지 HEAD 확인은 트랜잭션 밖에서 수행한다. DB 쓰기는 별도 빈인 MediaRegistrationService가 담당한다.
-@Service("renewalCompleteUploadService")
+@Service
 @RequiredArgsConstructor
 public class CompleteUploadService {
     private final UploadRoomValidator uploadRoomValidator;

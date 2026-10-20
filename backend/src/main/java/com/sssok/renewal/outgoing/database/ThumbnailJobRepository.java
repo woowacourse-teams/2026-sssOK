@@ -8,7 +8,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
-@Repository("renewalThumbnailJobRepository")
+@Repository
 @RequiredArgsConstructor
 public class ThumbnailJobRepository {
     private final ThumbnailJobJpaRepository jpaRepository;

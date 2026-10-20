@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component;
 // 원본을 내려받지 않는다. 입력이 HTTP 주소면 ffmpeg 가 Range 로 필요한 구간만 읽어,
 // 1GB 영상이어도 실제로 오가는 것은 수 MB 다.
 @Slf4j
-@Component("renewalFfmpegVideoFrameExtractor")
+@Component
 @RequiredArgsConstructor
 public class FfmpegVideoFrameExtractor {
 

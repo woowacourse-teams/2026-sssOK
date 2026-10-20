@@ -14,7 +14,7 @@ import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Component;
 
 @Slf4j
-@Component("renewalThumbnailDispatcher")
+@Component
 public class ThumbnailDispatcher {
     private final ThumbnailJobService thumbnailJobService;
     private final ThumbnailJobCompletionService thumbnailJobCompletionService;
