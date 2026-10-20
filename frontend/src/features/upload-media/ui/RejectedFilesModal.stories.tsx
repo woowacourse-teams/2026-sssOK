@@ -16,7 +16,7 @@ const oversized = (fileName: string, mb: number): RejectedSelection => ({
   fileName,
   size: mb * MB,
   code: "FILE_SIZE_EXCEEDED",
-  message: "이미지 최대 10MB 초과",
+  message: "이미지 최대 20MB 초과",
 });
 
 const meta = {
