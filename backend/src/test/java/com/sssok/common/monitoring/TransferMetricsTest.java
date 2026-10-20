@@ -2,9 +2,11 @@ package com.sssok.common.monitoring;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
-import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
-import com.sssok.common.monitoring.MediaProcessingMetrics.Result;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
+import com.sssok.renewal.outgoing.monitoring.UploadMetrics;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Result;
 import io.micrometer.core.instrument.MockClock;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
@@ -24,8 +26,8 @@ class TransferMetricsTest {
             MediaProcessingMetrics media = new MediaProcessingMetrics(registry);
             var sample = media.start();
             clock.add(Duration.ofSeconds(2));
-            media.completed(sample, Kind.IMAGE, Source.SWEEPER, Result.SUCCESS);
-            media.submitted(Kind.VIDEO, Source.INITIAL, false);
+            media.completed(sample, ThumbnailKind.IMAGE, Source.SWEEPER, Result.SUCCESS);
+            media.submitted(ThumbnailKind.VIDEO, Source.INITIAL, false);
             media.swept(50);
             UploadMetrics upload = new UploadMetrics(registry);
             upload.registered(2, 1);

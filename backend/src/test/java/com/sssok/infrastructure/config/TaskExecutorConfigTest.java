@@ -1,18 +1,21 @@
 package com.sssok.infrastructure.config;
 
+import com.sssok.renewal.outgoing.config.ThumbnailQueueProperties;
+import com.sssok.renewal.outgoing.config.ThumbnailQueueConfig;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.concurrent.Executor;
 import org.junit.jupiter.api.Test;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-class VideoWorkerConfigTest {
+class TaskExecutorConfigTest {
 
     @Test
     void 영상_썸네일용_독립_스레드_풀을_만든다() {
         ThumbnailQueueProperties properties = new ThumbnailQueueProperties(2, 2, 5, null, null, null, null, 50);
 
-        Executor configured = new VideoWorkerConfig().videoThumbnailTaskExecutor(properties);
+        Executor configured = new ThumbnailQueueConfig().videoThumbnailTaskExecutor(properties);
 
         ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) configured;
         assertThat(executor.getCorePoolSize()).isEqualTo(2);
@@ -24,7 +27,7 @@ class VideoWorkerConfigTest {
 
     @Test
     void 기존_공용_스레드_풀도_함께_등록한다() {
-        Executor configured = new VideoWorkerConfig()
+        Executor configured = new ApplicationTaskExecutorConfig()
             .applicationTaskExecutor("media-worker-", 4, 8, 100);
 
         ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) configured;

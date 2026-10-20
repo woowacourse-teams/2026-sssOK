@@ -2,7 +2,7 @@ package com.sssok.common.logging;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.sssok.infrastructure.config.VideoWorkerConfig;
+import com.sssok.infrastructure.config.ApplicationTaskExecutorConfig;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -21,7 +21,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
  * MDC 가 요청 스레드 밖으로 새지 않는지 본다.
  *
  * <p>이 앱은 비동기 실행기에 {@code TaskDecorator} 를 걸지 않기로 했다 (이유는
- * {@link com.sssok.infrastructure.config.VideoWorkerConfig} 주석). 결정만 적어 두면 나중에
+ * {@link com.sssok.infrastructure.config.ApplicationTaskExecutorConfig} 주석). 결정만 적어 두면 나중에
  * "워커 로그에도 requestId 가 있으면 편하겠다" 며 데코레이터 한 줄이 들어와도 아무 테스트도 깨지지
  * 않는다. 그러면 요청 ID 하나로 요청 하나를 집어내는 추적이 조용히 흐려진다.
  *
@@ -120,7 +120,7 @@ class MdcIsolationTest {
     // 프로덕션과 같은 팩터리로 만든다. 직접 조립하면 실제 빈에 TaskDecorator 가 붙는 날에도
     // 이 테스트는 통과해 버린다.
     private ThreadPoolTaskExecutor singleWorkerExecutor() {
-        return (ThreadPoolTaskExecutor) new VideoWorkerConfig()
+        return (ThreadPoolTaskExecutor) new ApplicationTaskExecutorConfig()
             .applicationTaskExecutor("mdc-isolation-worker-", 1, 1, 10);
     }
 
