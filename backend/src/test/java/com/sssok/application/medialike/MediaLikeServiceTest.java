@@ -19,6 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RecordApplicationEvents
 class MediaLikeServiceTest extends PostgresContainerSupport {
+    @org.junit.jupiter.api.BeforeEach
+    void prepareRooms() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final long ROOM_ID = 1L;
     private static final long MEMBER_ID = 100L;

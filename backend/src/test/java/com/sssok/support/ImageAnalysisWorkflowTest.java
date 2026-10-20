@@ -60,6 +60,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     @BeforeEach
     void setup() {
         cleanup();
+        UploadRoomFixtures.ensure(jdbc, 1L);
         given(clock.instant()).willReturn(NOW);
         jdbc.update("""
             INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,

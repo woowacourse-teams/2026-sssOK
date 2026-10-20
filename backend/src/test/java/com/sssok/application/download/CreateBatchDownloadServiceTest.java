@@ -29,6 +29,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
 @H2IntegrationTest
 class CreateBatchDownloadServiceTest {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
     // 업로더 필터를 쓰지 않는 기존 검증들이라 요청자가 누구인지는 결과에 영향이 없다.
@@ -47,6 +50,7 @@ class CreateBatchDownloadServiceTest {
 
     @BeforeEach
     void setUp() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
         given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }

@@ -35,6 +35,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // 컨트롤러 앞에서 거른다.
 @H2IntegrationTest
 class GetMediaServiceTest {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long OTHER_ROOM_ID = 711L;
     private static final String PRESIGNED = "https://storage.example.com/signed";
@@ -63,6 +66,7 @@ class GetMediaServiceTest {
 
     @BeforeEach
     void setUp() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 711L);
         hostId = memberRepository.save(Member.register(new Nickname("방장"), Instant.now())).getId();
         uploaderId = memberRepository.save(Member.register(new Nickname("가현"), Instant.now())).getId();
         roomId = createRoomService.create(hostId, "우테코 회식", null).room().getId();

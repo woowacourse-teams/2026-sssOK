@@ -28,6 +28,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
 @H2IntegrationTest
 class GetMediaDownloadUrlServiceTest {
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
     private static final Long UPLOADER_ID = 100L;
@@ -44,6 +47,7 @@ class GetMediaDownloadUrlServiceTest {
 
     @BeforeEach
     void setUp() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
         given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }

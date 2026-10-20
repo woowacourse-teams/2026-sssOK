@@ -18,6 +18,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 @PostgresIntegrationTest
 class MediaLikeConcurrencyTest extends PostgresContainerSupport {
+    @org.junit.jupiter.api.BeforeEach
+    void prepareRooms() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final int THREADS = 8;
     private static final long ROOM_ID = 1L;

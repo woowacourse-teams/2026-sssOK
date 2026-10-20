@@ -33,6 +33,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // 테스트가 끝나면 데이터를 직접 지운다(자동 롤백이 없으므로).
 @H2IntegrationTest
 class DownloadJobAsyncTriggerTest {
+    @org.junit.jupiter.api.BeforeEach
+    void prepareRooms() {
+        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
 
