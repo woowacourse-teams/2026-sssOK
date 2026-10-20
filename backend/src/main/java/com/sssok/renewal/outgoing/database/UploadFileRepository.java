@@ -1,11 +1,6 @@
 package com.sssok.renewal.outgoing.database;
 
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.GeoPoint;
-import com.sssok.domain.file.MediaType;
-import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaEntity;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import java.util.List;
@@ -19,78 +14,30 @@ public class UploadFileRepository {
     private final StoredFileJpaRepository storedFileJpaRepository;
 
     public Optional<StoredFile> findById(Long fileId) {
-        return storedFileJpaRepository.findById(fileId).map(this::toDomain);
+        return storedFileJpaRepository.findById(fileId).map(StoredFileJpaEntity::toDomain);
     }
 
     public Optional<StoredFile> findByIdForUpdate(Long fileId) {
-        return storedFileJpaRepository.findWithLockById(fileId).map(this::toDomain);
+        return storedFileJpaRepository.findWithLockById(fileId).map(StoredFileJpaEntity::toDomain);
     }
 
     public List<StoredFile> findAllByIdIn(List<Long> fileIds) {
         if (fileIds.isEmpty()) {
             return List.of();
         }
-        return storedFileJpaRepository.findAllById(fileIds).stream().map(this::toDomain).toList();
+        return storedFileJpaRepository.findAllById(fileIds).stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     public StoredFile save(StoredFile file) {
-        StoredFileJpaEntity storedFileEntity = storedFileJpaRepository.save(toEntity(file));
-        return toDomain(storedFileEntity);
+        StoredFileJpaEntity storedFileEntity = storedFileJpaRepository.save(StoredFileJpaEntity.from(file));
+        return storedFileEntity.toDomain();
     }
 
     public List<StoredFile> savePendingUploads(List<StoredFile> pendingUploadFiles) {
         List<StoredFileJpaEntity> pendingUploadEntities = pendingUploadFiles.stream()
-            .map(this::toEntity).toList();
+            .map(StoredFileJpaEntity::from).toList();
         return storedFileJpaRepository.saveAll(pendingUploadEntities).stream()
-            .map(this::toDomain).toList();
+            .map(StoredFileJpaEntity::toDomain).toList();
     }
 
-    private StoredFileJpaEntity toEntity(StoredFile file) {
-        return new StoredFileJpaEntity(
-            file.getId(),
-            file.getRoomId(),
-            file.getUploaderId(),
-            file.getOriginalFileName(),
-            file.getMediaType().name(),
-            file.getFileSize().bytes(),
-            file.getStorageKey().value(),
-            file.getFolderId(),
-            file.getStatus().name(),
-            file.getCreatedAt(),
-            file.getReservedAt(),
-            file.getRetryCount(),
-            file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
-            file.getPreviewKey() == null ? null : file.getPreviewKey().value(),
-            file.getWidth(),
-            file.getHeight(),
-            file.getDurationSeconds(),
-            file.getTakenAt(),
-            file.getLocation() == null ? null : file.getLocation().latitude(),
-            file.getLocation() == null ? null : file.getLocation().longitude()
-        );
-    }
-
-    private StoredFile toDomain(StoredFileJpaEntity entity) {
-        return StoredFile.reconstruct(
-            entity.getId(),
-            entity.getRoomId(),
-            entity.getUploaderId(),
-            entity.getOriginalFileName(),
-            MediaType.valueOf(entity.getMediaType()),
-            new FileSize(entity.getFileSizeBytes()),
-            new StorageKey(entity.getStorageKey()),
-            entity.getFolderId(),
-            UploadStatus.valueOf(entity.getStatus()),
-            entity.getCreatedAt(),
-            entity.getReservedAt(),
-            entity.getRetryCount(),
-            entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
-            entity.getPreviewKey() == null ? null : new StorageKey(entity.getPreviewKey()),
-            entity.getWidth(),
-            entity.getHeight(),
-            entity.getDurationSeconds(),
-            entity.getTakenAt(),
-            GeoPoint.ofNullable(entity.getLatitude(), entity.getLongitude())
-        );
-    }
 }

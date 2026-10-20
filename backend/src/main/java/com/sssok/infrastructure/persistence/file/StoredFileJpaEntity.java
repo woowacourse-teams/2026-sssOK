@@ -1,6 +1,12 @@
 package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.infrastructure.persistence.BaseEntity;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.GeoPoint;
+import com.sssok.domain.file.MediaType;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
 import jakarta.persistence.JoinColumn;
@@ -136,5 +142,54 @@ public class StoredFileJpaEntity extends BaseEntity {
         this.takenAt = takenAt;
         this.latitude = latitude;
         this.longitude = longitude;
+    }
+
+    public static StoredFileJpaEntity from(StoredFile file) {
+        return new StoredFileJpaEntity(
+            file.getId(),
+            file.getRoomId(),
+            file.getUploaderId(),
+            file.getOriginalFileName(),
+            file.getMediaType().name(),
+            file.getFileSize().bytes(),
+            file.getStorageKey().value(),
+            file.getFolderId(),
+            file.getStatus().name(),
+            file.getCreatedAt(),
+            file.getReservedAt(),
+            file.getRetryCount(),
+            file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
+            file.getPreviewKey() == null ? null : file.getPreviewKey().value(),
+            file.getWidth(),
+            file.getHeight(),
+            file.getDurationSeconds(),
+            file.getTakenAt(),
+            file.getLocation() == null ? null : file.getLocation().latitude(),
+            file.getLocation() == null ? null : file.getLocation().longitude()
+        );
+    }
+
+    public StoredFile toDomain() {
+        return StoredFile.reconstruct(
+            getId(),
+            getRoomId(),
+            getUploaderId(),
+            getOriginalFileName(),
+            MediaType.valueOf(getMediaType()),
+            new FileSize(getFileSizeBytes()),
+            new StorageKey(getStorageKey()),
+            getFolderId(),
+            UploadStatus.valueOf(getStatus()),
+            getCreatedAt(),
+            getReservedAt(),
+            getRetryCount(),
+            getThumbnailKey() == null ? null : new StorageKey(getThumbnailKey()),
+            getPreviewKey() == null ? null : new StorageKey(getPreviewKey()),
+            getWidth(),
+            getHeight(),
+            getDurationSeconds(),
+            getTakenAt(),
+            GeoPoint.ofNullable(getLatitude(), getLongitude())
+        );
     }
 }
