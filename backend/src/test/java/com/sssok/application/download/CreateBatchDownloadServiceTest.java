@@ -9,7 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.FileSize;
@@ -99,7 +99,7 @@ class CreateBatchDownloadServiceTest {
             .isEqualTo(fileName);
         verify(fileStorage).presignGet(
             any(),
-            eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
+            eq(com.sssok.renewal.domain.download.DownloadFileNames.contentDispositionOf(fileName)),
             eq(mimeType),
             any(Duration.class));
     }
@@ -128,7 +128,7 @@ class CreateBatchDownloadServiceTest {
     @Test
     void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
         assertThatThrownBy(() -> createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, List.of(999_999L), null, null))
-            .isInstanceOf(MediaNotFoundException.class);
+            .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 
     @Test

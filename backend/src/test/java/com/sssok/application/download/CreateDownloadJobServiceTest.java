@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.download.exception.DownloadRateLimitedException;
-import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.MemberRepository;
@@ -142,7 +142,7 @@ class CreateDownloadJobServiceTest extends PostgresContainerSupport {
 
         assertThatThrownBy(() -> createDownloadJobService.create(
             1L, requesterId, List.of(999_999L), null, null))
-            .isInstanceOf(MediaNotFoundException.class);
+            .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 
     @Test

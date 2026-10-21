@@ -23,8 +23,9 @@ import com.sssok.application.download.exception.DownloadExpiredException;
 import com.sssok.application.download.exception.DownloadForbiddenException;
 import com.sssok.application.download.exception.DownloadNotFoundException;
 import com.sssok.application.download.exception.DownloadRateLimitedException;
-import com.sssok.application.download.exception.InvalidDownloadParamException;
-import com.sssok.application.download.exception.TooManyFilesException;
+import com.sssok.renewal.application.download.exception.InvalidDownloadParamException;
+import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
 import com.sssok.application.media.GetMediaDownloadUrlService;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.media.exception.MediaNotFoundException;
@@ -217,7 +218,7 @@ class DownloadControllerTest {
     void 다건_다운로드에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
-            .willThrow(new InvalidDownloadParamException());
+            .willThrow(InvalidDownloadParamException.invalidTarget());
 
         createBatch("{\"mediaIds\":[1],\"folderId\":2}")
             .andExpect(status().isBadRequest())
@@ -228,7 +229,7 @@ class DownloadControllerTest {
     void 다건_다운로드에서_개수가_상한을_초과하면_400() throws Exception {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
-            .willThrow(new TooManyFilesException(1000));
+            .willThrow(new TooManyDownloadFilesException(1000));
 
         createBatch("{\"mediaIds\":[1]}")
             .andExpect(status().isBadRequest())
@@ -239,7 +240,7 @@ class DownloadControllerTest {
     void 다건_다운로드에서_대상_미디어가_없으면_404() throws Exception {
         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
-            .willThrow(new MediaNotFoundException());
+            .willThrow(new DownloadMediaNotFoundException());
 
         createBatch("{\"mediaIds\":[999]}")
             .andExpect(status().isNotFound())
@@ -283,7 +284,7 @@ class DownloadControllerTest {
     void zip_요청에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
-            .willThrow(new InvalidDownloadParamException());
+            .willThrow(InvalidDownloadParamException.invalidTarget());
 
         createZip("{\"mediaIds\":[1],\"folderId\":2}")
             .andExpect(status().isBadRequest())
@@ -294,7 +295,7 @@ class DownloadControllerTest {
     void zip_요청에서_개수가_상한을_초과하면_400() throws Exception {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
-            .willThrow(new TooManyFilesException(1000));
+            .willThrow(new TooManyDownloadFilesException(1000));
 
         createZip("{\"mediaIds\":[1]}")
             .andExpect(status().isBadRequest())
@@ -305,7 +306,7 @@ class DownloadControllerTest {
     void zip_요청에서_대상_미디어가_없으면_404() throws Exception {
         given(createDownloadJobService.create(anyLong(), anyLong(), any(), nullable(Long.class),
             nullable(MediaUploaderFilter.class)))
-            .willThrow(new MediaNotFoundException());
+            .willThrow(new DownloadMediaNotFoundException());
 
         createZip("{\"mediaIds\":[999]}")
             .andExpect(status().isNotFound())

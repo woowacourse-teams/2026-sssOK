@@ -1,15 +1,14 @@
-package com.sssok.application.download;
+package com.sssok.renewal.application.download.shared;
 
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sssok.application.download.exception.InvalidDownloadParamException;
-import com.sssok.application.download.exception.TooManyFilesException;
 import com.sssok.application.folder.CreateFolderService;
-import com.sssok.application.folder.exception.FolderNotFoundException;
-import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.TooManyMediaException;
+import com.sssok.renewal.application.download.exception.DownloadFolderNotFoundException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
+import com.sssok.renewal.application.download.exception.InvalidDownloadParamException;
+import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
@@ -71,6 +70,13 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
         return fileRepository.save(file).getId();
     }
 
+    // 기존 테스트의 인자 순서를 유지해 변경 전후 비교를 쉽게 한다.
+    private List<StoredFile> resolve(Long roomId, List<Long> mediaIds, Long folderId, Long requesterId,
+                                     MediaUploaderFilter uploader) {
+        return downloadTargetResolver.resolve(
+            new DownloadTargetCommand(roomId, requesterId, mediaIds, folderId, uploader));
+    }
+
     @Nested
     class mediaIds_모드 {
 
@@ -79,7 +85,7 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             Long media1 = media(1L, UploadStatus.READY);
             Long media2 = media(1L, UploadStatus.READY);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(media1, media2), null, null, null);
+            List<StoredFile> resolved = resolve(1L, List.of(media1, media2), null, null, null);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(media1, media2);
         }
@@ -89,7 +95,7 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             Long inRoom = media(1L, UploadStatus.READY);
             Long otherRoom = media(2L, UploadStatus.READY);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(inRoom, otherRoom), null, null, null);
+            List<StoredFile> resolved = resolve(1L, List.of(inRoom, otherRoom), null, null, null);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactly(inRoom);
         }
@@ -99,7 +105,7 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             Long ready = media(1L, UploadStatus.READY);
             Long processing = media(1L, UploadStatus.PROCESSING);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(ready, processing), null, null, null);
+            List<StoredFile> resolved = resolve(1L, List.of(ready, processing), null, null, null);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready, processing);
         }
@@ -110,7 +116,7 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             Long reserved = media(1L, UploadStatus.RESERVED);
             Long failed = media(1L, UploadStatus.FAILED);
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, List.of(ready, reserved, failed), null, null, null);
+            List<StoredFile> resolved = resolve(1L, List.of(ready, reserved, failed), null, null, null);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactly(ready);
         }
@@ -119,22 +125,22 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
         void 요청한_id가_전부_존재하지만_전부_다운로드할_수_없는_상태면_404() {
             Long reserved = media(1L, UploadStatus.RESERVED);
 
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(reserved), null, null, null))
-                .isInstanceOf(MediaNotFoundException.class);
+            assertThatThrownBy(() -> resolve(1L, List.of(reserved), null, null, null))
+                .isInstanceOf(DownloadMediaNotFoundException.class);
         }
 
         @Test
         void 요청한_id가_전부_존재하지_않으면_404() {
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(999_999L), null, null, null))
-                .isInstanceOf(MediaNotFoundException.class);
+            assertThatThrownBy(() -> resolve(1L, List.of(999_999L), null, null, null))
+                .isInstanceOf(DownloadMediaNotFoundException.class);
         }
 
         @Test
         void 요청_ID_개수가_상한을_초과하면_DB_조회_전에_예외() {
             List<Long> tooMany = LongStream.rangeClosed(1, 1001).boxed().toList();
 
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, tooMany, null, null, null))
-                .isInstanceOf(TooManyMediaException.class);
+            assertThatThrownBy(() -> resolve(1L, tooMany, null, null, null))
+                .isInstanceOf(TooManyDownloadFilesException.class);
         }
     }
 
@@ -143,17 +149,17 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
 
         @Test
         void mediaIds와_folderId를_모두_주거나_모두_생략하면_예외() {
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+            assertThatThrownBy(() -> resolve(
                 1L, List.of(1L), 1L, null, MediaUploaderFilter.ALL))
                 .isInstanceOf(InvalidDownloadParamException.class);
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+            assertThatThrownBy(() -> resolve(
                 1L, null, null, null, MediaUploaderFilter.ALL))
                 .isInstanceOf(InvalidDownloadParamException.class);
         }
 
         @Test
         void mediaIds에_uploader를_함께_주면_예외() {
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+            assertThatThrownBy(() -> resolve(
                 1L, List.of(1L), null, 7L, MediaUploaderFilter.ME))
                 .isInstanceOf(InvalidDownloadParamException.class);
         }
@@ -170,25 +176,25 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             Long reserved = media(1L, UploadStatus.RESERVED);
             folderMediaRepository.attachToFolder(folder.getId(), List.of(ready, processing, reserved));
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(1L, null, folder.getId(), null, MediaUploaderFilter.ALL);
+            List<StoredFile> resolved = resolve(1L, null, folder.getId(), null, MediaUploaderFilter.ALL);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactlyInAnyOrder(ready, processing);
         }
 
         @Test
         void 없는_폴더면_예외() {
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+            assertThatThrownBy(() -> resolve(
                 1L, null, -1L, null, MediaUploaderFilter.ALL))
-                .isInstanceOf(FolderNotFoundException.class);
+                .isInstanceOf(DownloadFolderNotFoundException.class);
         }
 
         @Test
         void 다른_방_소속_폴더는_없는_폴더로_취급한다() {
             Folder folder = createFolderService.create(2L, "맛집");
 
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+            assertThatThrownBy(() -> resolve(
                 1L, null, folder.getId(), null, MediaUploaderFilter.ALL))
-                .isInstanceOf(FolderNotFoundException.class);
+                .isInstanceOf(DownloadFolderNotFoundException.class);
         }
 
         @Test
@@ -198,7 +204,7 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
             Long others = media(1L, 8L, UploadStatus.READY);
             folderMediaRepository.attachToFolder(folder.getId(), List.of(mine, others));
 
-            List<StoredFile> resolved = downloadTargetResolver.resolve(
+            List<StoredFile> resolved = resolve(
                 1L, null, folder.getId(), 7L, MediaUploaderFilter.OTHERS);
 
             assertThat(resolved).extracting(StoredFile::getId).containsExactly(others);
@@ -212,9 +218,9 @@ class DownloadTargetResolverTest extends PostgresContainerSupport {
                 .toList();
             folderMediaRepository.attachToFolder(folder.getId(), mediaIds);
 
-            assertThatThrownBy(() -> downloadTargetResolver.resolve(
+            assertThatThrownBy(() -> resolve(
                 1L, null, folder.getId(), null, MediaUploaderFilter.ALL))
-                .isInstanceOf(TooManyFilesException.class);
+                .isInstanceOf(TooManyDownloadFilesException.class);
         }
     }
 

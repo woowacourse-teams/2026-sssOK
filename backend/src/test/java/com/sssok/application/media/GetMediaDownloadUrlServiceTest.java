@@ -110,7 +110,7 @@ class GetMediaDownloadUrlServiceTest {
 
         verify(fileStorage).presignGet(
             eq(file.getStorageKey()),
-            eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
+            eq(com.sssok.renewal.domain.download.DownloadFileNames.contentDispositionOf(fileName)),
             eq(mimeType),
             any(Duration.class));
         assertThat(file.getStorageKey().value()).endsWith("." + extension);

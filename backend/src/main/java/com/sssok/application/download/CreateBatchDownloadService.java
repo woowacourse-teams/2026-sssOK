@@ -1,7 +1,9 @@
 package com.sssok.application.download;
 
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.domain.file.DownloadFileNames;
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import com.sssok.renewal.application.download.shared.DownloadTargetResolver;
+import com.sssok.renewal.application.download.shared.DownloadUrlIssuer;
+import com.sssok.renewal.domain.download.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.renewal.outgoing.config.DownloadProperties;
@@ -19,13 +21,13 @@ import org.springframework.stereotype.Service;
 public class CreateBatchDownloadService {
 
     private final DownloadTargetResolver downloadTargetResolver;
-    private final FileStorage fileStorage;
+    private final DownloadUrlIssuer downloadUrlIssuer;
     private final DownloadProperties downloadProperties;
 
     public List<BatchDownloadFile> create(Long roomId, Long requesterId, List<Long> mediaIds,
                                           Long folderId, MediaUploaderFilter uploader) {
         List<StoredFile> targets = downloadTargetResolver.resolve(
-            roomId, mediaIds, folderId, requesterId, uploader);
+            new DownloadTargetCommand(roomId, requesterId, mediaIds, folderId, uploader));
         List<String> fileNames =
             DownloadFileNames.deduplicate(targets.stream().map(StoredFile::getOriginalFileName).toList());
         Instant expiresAt = Instant.now().plus(downloadProperties.presignedGetTtl());
@@ -36,8 +38,7 @@ public class CreateBatchDownloadService {
     }
 
     private BatchDownloadFile toBatchFile(StoredFile file, String fileName, Instant expiresAt) {
-        String contentDisposition = DownloadFileNames.contentDispositionOf(fileName);
-        String url = fileStorage.presignGet(file.getStorageKey(), contentDisposition,
+        String url = downloadUrlIssuer.issue(file.getStorageKey(), fileName,
             file.getMediaType().contentType(), downloadProperties.presignedGetTtl());
         return new BatchDownloadFile(file.getId(), fileName, url, expiresAt);
     }

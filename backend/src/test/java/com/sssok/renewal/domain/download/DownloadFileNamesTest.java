@@ -1,4 +1,4 @@
-package com.sssok.domain.file;
+package com.sssok.renewal.domain.download;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
