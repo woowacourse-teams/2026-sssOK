@@ -385,7 +385,8 @@ class DownloadApiTest extends PostgresContainerSupport {
 
             batch(body)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"));
+                .andExpect(jsonPath("$.code").value("TOO_MANY_FILES"))
+                .andExpect(jsonPath("$.message").value("한 번에 최대 1000개까지 처리할 수 있습니다"));
         }
 
         @Test
@@ -446,8 +447,25 @@ class DownloadApiTest extends PostgresContainerSupport {
         void 대상_지정이_mediaIds_folderId_중_하나가_아니면_400(String body) throws Exception {
             batch(body)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("INVALID_PARAM"));
+                .andExpect(jsonPath("$.code").value("INVALID_PARAM"))
+                .andExpect(jsonPath("$.message").value("다운로드 조건이 올바르지 않습니다"));
             verify(fileStorage, never()).presignGet(any(), anyString(), anyString(), any());
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"[0]", "[-1]", "[null]", "[1,null]"})
+        void 양수가_아닌_미디어_ID가_섞이면_400(String mediaIds) throws Exception {
+            batch("{\"mediaIds\":%s}".formatted(mediaIds))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_PARAM"))
+                .andExpect(jsonPath("$.message").value("미디어 ID 목록이 올바르지 않습니다"));
+        }
+
+        @Test
+        void 빈_미디어_ID_목록이면_대상이_없어_404() throws Exception {
+            batch("{\"mediaIds\":[]}")
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("MEDIA_NOT_FOUND"));
         }
 
         @Test
