@@ -469,6 +469,15 @@ class DownloadApiTest extends PostgresContainerSupport {
         }
 
         @Test
+        void 본문_없이_요청하면_400() throws Exception {
+            mockMvc.perform(post("/api/v1/rooms/{roomId}/downloads/batch", roomId)
+                    .header("Authorization", hostToken)
+                    .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+            verify(fileStorage, never()).presignGet(any(), anyString(), anyString(), any());
+        }
+
+        @Test
         void 지원하지_않는_업로더_필터는_400() throws Exception {
             Long folderId = createFolderService.create(roomId, "1일차").getId();
 
