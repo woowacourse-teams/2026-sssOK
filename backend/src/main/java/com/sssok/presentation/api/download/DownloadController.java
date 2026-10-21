@@ -2,7 +2,8 @@ package com.sssok.presentation.api.download;
 
 import com.sssok.renewal.application.download.batch.BatchDownloadFile;
 import com.sssok.renewal.application.download.batch.CreateBatchDownloadService;
-import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import com.sssok.renewal.incoming.download.CreateBatchDownloadRequest;
+import com.sssok.renewal.incoming.download.CreateBatchDownloadResponse;
 import com.sssok.renewal.application.download.single.GetMediaDownloadUrlService;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
@@ -73,10 +74,7 @@ public class DownloadController {
         @RequestBody CreateBatchDownloadRequest request
     ) {
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(new DownloadTargetCommand(roomId, memberId,
-                request == null ? null : request.mediaIds(),
-                request == null ? null : request.folderId(),
-                request == null ? null : request.uploader()));
+            createBatchDownloadService.create(request.toCommand(roomId, memberId));
         return ApiResponse.of(CreateBatchDownloadResponse.from(files));
     }
 }

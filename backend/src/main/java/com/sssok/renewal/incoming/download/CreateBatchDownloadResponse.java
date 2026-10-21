@@ -1,4 +1,4 @@
-package com.sssok.presentation.api.download;
+package com.sssok.renewal.incoming.download;
 
 import com.sssok.renewal.application.download.batch.BatchDownloadFile;
 import io.swagger.v3.oas.annotations.media.Schema;
