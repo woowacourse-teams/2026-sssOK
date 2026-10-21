@@ -1,6 +1,6 @@
 package com.sssok.presentation.api.download;
 
-import com.sssok.application.download.BatchDownloadFile;
+import com.sssok.renewal.application.download.batch.BatchDownloadFile;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 

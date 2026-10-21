@@ -4,7 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.verify;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -13,8 +12,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.download.BatchDownloadFile;
-import com.sssok.application.download.CreateBatchDownloadService;
+import com.sssok.renewal.application.download.batch.BatchDownloadFile;
+import com.sssok.renewal.application.download.batch.CreateBatchDownloadService;
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
 import com.sssok.application.download.CreateDownloadJobResult;
 import com.sssok.application.download.CreateDownloadJobService;
 import com.sssok.application.download.GetDownloadJobStatusResult;
@@ -141,26 +141,24 @@ class DownloadControllerTest {
     // #275: 요청의 uploader 가 서비스까지 그대로 전달되는지 본다.
     @Test
     void 다건_다운로드의_업로더_필터를_전달한다() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
-            nullable(MediaUploaderFilter.class))).willReturn(List.of());
+        given(createBatchDownloadService.create(any())).willReturn(List.of());
 
         createBatch("{\"folderId\":31,\"uploader\":\"ME\"}")
             .andExpect(status().isOk());
 
-        verify(createBatchDownloadService).create(eq(ROOM_ID), anyLong(), any(),
-            nullable(Long.class), eq(MediaUploaderFilter.ME));
+        verify(createBatchDownloadService).create(
+            new DownloadTargetCommand(ROOM_ID, MEMBER_ID, null, 31L, MediaUploaderFilter.ME));
     }
 
     @Test
     void 다건_다운로드에_업로더를_생략하면_null로_전달한다() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
-            nullable(MediaUploaderFilter.class))).willReturn(List.of());
+        given(createBatchDownloadService.create(any())).willReturn(List.of());
 
         createBatch("{\"mediaIds\":[5012]}")
             .andExpect(status().isOk());
 
-        verify(createBatchDownloadService).create(eq(ROOM_ID), anyLong(), any(),
-            nullable(Long.class), isNull());
+        verify(createBatchDownloadService).create(
+            new DownloadTargetCommand(ROOM_ID, MEMBER_ID, List.of(5012L), null, null));
     }
 
     @Test
@@ -202,8 +200,7 @@ class DownloadControllerTest {
         List<BatchDownloadFile> files = List.of(
             new BatchDownloadFile(5012L, "IMG_0421.jpg", "https://storage.example.com/5012", expiresAt),
             new BatchDownloadFile(5011L, "IMG_0420.jpg", "https://storage.example.com/5011", expiresAt));
-        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
-            nullable(MediaUploaderFilter.class))).willReturn(files);
+        given(createBatchDownloadService.create(any())).willReturn(files);
 
         createBatch("{\"mediaIds\":[5012,5011]}")
             .andExpect(status().isOk())
@@ -215,8 +212,7 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드에서_mediaIds와_folderId를_함께_보내면_400() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
-            nullable(MediaUploaderFilter.class)))
+        given(createBatchDownloadService.create(any()))
             .willThrow(InvalidDownloadParamException.invalidTarget());
 
         createBatch("{\"mediaIds\":[1],\"folderId\":2}")
@@ -226,8 +222,7 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드에서_개수가_상한을_초과하면_400() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
-            nullable(MediaUploaderFilter.class)))
+        given(createBatchDownloadService.create(any()))
             .willThrow(new TooManyDownloadFilesException(1000));
 
         createBatch("{\"mediaIds\":[1]}")
@@ -237,8 +232,7 @@ class DownloadControllerTest {
 
     @Test
     void 다건_다운로드에서_대상_미디어가_없으면_404() throws Exception {
-        given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
-            nullable(MediaUploaderFilter.class)))
+        given(createBatchDownloadService.create(any()))
             .willThrow(new DownloadMediaNotFoundException());
 
         createBatch("{\"mediaIds\":[999]}")

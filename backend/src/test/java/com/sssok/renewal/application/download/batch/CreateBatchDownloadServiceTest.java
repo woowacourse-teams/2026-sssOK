@@ -1,5 +1,6 @@
-package com.sssok.application.download;
+package com.sssok.renewal.application.download.batch;
 
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -56,6 +57,10 @@ class CreateBatchDownloadServiceTest {
             .willReturn(PRESIGNED);
     }
 
+    private DownloadTargetCommand byMediaIds(List<Long> mediaIds) {
+        return new DownloadTargetCommand(ROOM_ID, REQUESTER_ID, mediaIds, null, null);
+    }
+
     private Long media(String fileName) {
         return media(fileName, "image/jpeg");
     }
@@ -73,7 +78,7 @@ class CreateBatchDownloadServiceTest {
         Long media1 = media("IMG_0421.jpg");
         Long media2 = media("IMG_0420.jpg");
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, List.of(media1, media2), null, null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(media1, media2)));
 
         assertThat(files).hasSize(2);
         assertThat(files).extracting(BatchDownloadFile::downloadUrl).containsOnly(PRESIGNED);
@@ -91,8 +96,7 @@ class CreateBatchDownloadServiceTest {
     ) {
         Long mediaId = media(fileName, mimeType);
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(
-            ROOM_ID, REQUESTER_ID, List.of(mediaId), null, null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(mediaId)));
 
         assertThat(files).singleElement()
             .extracting(BatchDownloadFile::fileName)
@@ -109,7 +113,7 @@ class CreateBatchDownloadServiceTest {
         Long media1 = media("IMG_0421.jpg");
         Long media2 = media("IMG_0421.jpg");
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, List.of(media1, media2), null, null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(media1, media2)));
 
         assertThat(files).extracting(BatchDownloadFile::fileName)
             .containsExactlyInAnyOrder("IMG_0421.jpg", "IMG_0421 (1).jpg");
@@ -120,14 +124,14 @@ class CreateBatchDownloadServiceTest {
         Long media = media("IMG_0421.jpg");
         Instant before = Instant.now();
 
-        List<BatchDownloadFile> files = createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, List.of(media), null, null);
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(media)));
 
         assertThat(files.get(0).expiresAt()).isAfter(before);
     }
 
     @Test
     void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
-        assertThatThrownBy(() -> createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, List.of(999_999L), null, null))
+        assertThatThrownBy(() -> createBatchDownloadService.create(byMediaIds(List.of(999_999L))))
             .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 
@@ -140,7 +144,7 @@ class CreateBatchDownloadServiceTest {
         Long readyId = media("ready.jpg");
 
         List<BatchDownloadFile> files =
-            createBatchDownloadService.create(ROOM_ID, REQUESTER_ID, List.of(processingId, readyId), null, null);
+            createBatchDownloadService.create(byMediaIds(List.of(processingId, readyId)));
 
         assertThat(files).extracting(BatchDownloadFile::mediaId)
             .containsExactlyInAnyOrder(processingId, readyId);
