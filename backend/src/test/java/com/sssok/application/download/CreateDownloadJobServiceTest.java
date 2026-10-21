@@ -16,7 +16,7 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.member.Nickname;
-import com.sssok.infrastructure.config.DownloadProperties;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
 import java.time.Instant;

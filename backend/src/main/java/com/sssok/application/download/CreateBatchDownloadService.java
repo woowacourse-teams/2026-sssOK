@@ -4,7 +4,7 @@ import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.infrastructure.config.DownloadProperties;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.IntStream;

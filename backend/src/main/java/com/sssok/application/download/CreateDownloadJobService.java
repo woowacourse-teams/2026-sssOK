@@ -9,7 +9,7 @@ import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.infrastructure.config.DownloadProperties;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;

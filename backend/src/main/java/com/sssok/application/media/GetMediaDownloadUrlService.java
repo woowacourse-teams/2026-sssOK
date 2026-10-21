@@ -5,7 +5,7 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.DownloadFileNames;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.infrastructure.config.DownloadProperties;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
