@@ -1,4 +1,4 @@
-package com.sssok.presentation.api.download;
+package com.sssok.renewal.incoming.download;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;

@@ -1,9 +1,7 @@
-package com.sssok.presentation.api.download;
+package com.sssok.renewal.incoming.download;
 
 import com.sssok.renewal.application.download.batch.BatchDownloadFile;
 import com.sssok.renewal.application.download.batch.CreateBatchDownloadService;
-import com.sssok.renewal.incoming.download.CreateBatchDownloadRequest;
-import com.sssok.renewal.incoming.download.CreateBatchDownloadResponse;
 import com.sssok.renewal.application.download.single.GetMediaDownloadUrlService;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
@@ -22,14 +20,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-// 미디어 다운로드 관련 엔드포인트를 전부 여기 하나로 모은다 — 단건(리다이렉트) · 다건(서명 URL 목록) ·
-// zip(비동기 압축 잡) 세 가지 방식 모두 이 컨트롤러 밑에서 하위 경로로만 갈린다
-// (/downloads/media, /downloads/batch, /downloads/zip). 예전엔 단건만 MediaDownloadController로
-// 따로 있었는데, 다건이 추가되며 세 방식의 URL 체계를 통일하기 위해 합쳤다.
+// 다운로드는 단건(리다이렉트)·다건(서명 URL 목록)·zip(비동기 압축 잡) 세 방식이 /downloads 아래 하위 경로로 갈린다.
+// 이 컨트롤러는 단건·다건을 맡는다. zip 은 아직 presentation 의 ZipDownloadController 에 있다(#582).
+// renewal 패키지는 /api/v1 자동 접두사(WebConfig) 대상이 아니라 경로에 직접 적는다.
 @Tag(name = "다운로드", description = "미디어를 내려받는 세 가지 방식 — 단건 리다이렉트, 압축 없이 서명 URL만 받는 "
     + "다건, zip으로 압축하는 비동기 작업.")
 @RestController
-@RequestMapping("/rooms/{roomId}/downloads")
+@RequestMapping("/api/v1/rooms/{roomId}/downloads")
 @RequiredArgsConstructor
 public class DownloadController {
 
