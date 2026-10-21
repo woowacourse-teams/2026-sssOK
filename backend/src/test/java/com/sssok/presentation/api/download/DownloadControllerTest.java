@@ -26,9 +26,8 @@ import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.renewal.application.download.exception.InvalidDownloadParamException;
 import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
 import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
-import com.sssok.application.media.GetMediaDownloadUrlService;
+import com.sssok.renewal.application.download.single.GetMediaDownloadUrlService;
 import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
@@ -123,7 +122,7 @@ class DownloadControllerTest {
     @Test
     void 단건_다운로드에서_없는_미디어면_404() throws Exception {
         given(getMediaDownloadUrlService.getUrl(anyLong(), anyLong()))
-            .willThrow(new MediaNotFoundException());
+            .willThrow(new DownloadMediaNotFoundException());
 
         downloadMedia()
             .andExpect(status().isNotFound())

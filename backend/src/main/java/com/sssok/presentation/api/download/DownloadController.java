@@ -6,7 +6,7 @@ import com.sssok.application.download.CreateDownloadJobResult;
 import com.sssok.application.download.CreateDownloadJobService;
 import com.sssok.application.download.GetDownloadJobStatusResult;
 import com.sssok.application.download.GetDownloadJobStatusService;
-import com.sssok.application.media.GetMediaDownloadUrlService;
+import com.sssok.renewal.application.download.single.GetMediaDownloadUrlService;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.presentation.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
