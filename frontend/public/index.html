@@ -12,6 +12,13 @@
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
 
+    <!-- 홈 화면에 추가했을 때의 이름·아이콘. start_url 이 /home 인 이유 — 루트(/)는 CloudFront 가 랜딩으로 보낸다.
+         iOS 는 manifest 아이콘 대신 apple-touch-icon 을 쓴다 -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="쏙" />
+
     <!-- 링크 미리보기. 크롤러는 JS 를 실행하지 않으니 여기 정적으로 둔다.
          값은 webpack.config.js 의 og 옵션에서 HTML 파일마다 다르게 채운다 -->
     <% const og = htmlWebpackPlugin.options.og; %>
