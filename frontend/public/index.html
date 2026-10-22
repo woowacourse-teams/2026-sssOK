@@ -12,6 +12,13 @@
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
 
+    <!-- 홈 화면에 추가했을 때의 이름·아이콘. start_url 이 /home 인 이유 — 루트(/)는 CloudFront 가 랜딩으로 보낸다.
+         iOS 는 manifest 아이콘 대신 apple-touch-icon 을 쓴다 -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#FFFFFF" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="쏙" />
+
     <!-- 화면에 나온 글자가 든 조각만 받는 동적 서브셋이라, 사용자가 입력한 희귀 글자도 받아서 그린다.
          랜딩과 같은 주소라 랜딩을 거쳐 온 사용자는 캐시를 그대로 쓴다 -->
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
