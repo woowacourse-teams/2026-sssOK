@@ -1,0 +1,129 @@
+diff --git a/backend/src/main/java/com/sssok/application/download/DownloadTargetResolver.java b/backend/src/main/java/com/sssok/application/download/DownloadTargetResolver.java
+index da5b6add..0fc0e12e 100644
+--- a/backend/src/main/java/com/sssok/application/download/DownloadTargetResolver.java
++++ b/backend/src/main/java/com/sssok/application/download/DownloadTargetResolver.java
+@@ -10,6 +10,7 @@ import com.sssok.application.port.out.FileRepository;
+ import com.sssok.application.port.out.FolderMediaRepository;
+ import com.sssok.application.port.out.FolderRepository;
+ import com.sssok.domain.file.StoredFile;
++import com.sssok.infrastructure.config.DownloadProperties;
+ import java.util.List;
+ import lombok.RequiredArgsConstructor;
+ import org.springframework.stereotype.Component;
+@@ -22,12 +23,12 @@ import org.springframework.stereotype.Component;
+ @RequiredArgsConstructor
+ class DownloadTargetResolver {
+ 
+-    private static final int MAX_MEDIA_IDS = 1000;
+ 
+     private final FileRepository fileRepository;
+     private final FolderRepository folderRepository;
+     private final FolderMediaRepository folderMediaRepository;
+     private final MediaIdsResolver mediaIdsResolver;
++    private final DownloadProperties downloadProperties;
+ 
+     List<StoredFile> resolve(Long roomId, List<Long> mediaIds, Long folderId,
+                              Long requesterId, MediaUploaderFilter uploader) {
+@@ -37,7 +38,7 @@ class DownloadTargetResolver {
+         }
+         if (mediaIds != null) {
+             List<StoredFile> selected =
+-                mediaIdsResolver.resolve(roomId, mediaIds, MAX_MEDIA_IDS).files();
++                mediaIdsResolver.resolve(roomId, mediaIds, downloadProperties.maxTargets()).files();
+             return requireWithinLimit(requireDownloadable(selected));
+         }
+         return requireWithinLimit(requireDownloadable(filterByUploader(
+@@ -64,8 +65,9 @@ class DownloadTargetResolver {
+     }
+ 
+     private List<StoredFile> requireWithinLimit(List<StoredFile> files) {
+-        if (files.size() > MAX_MEDIA_IDS) {
+-            throw new TooManyFilesException(MAX_MEDIA_IDS);
++        int maxTargets = downloadProperties.maxTargets();
++        if (files.size() > maxTargets) {
++            throw new TooManyFilesException(maxTargets);
+         }
+         return files;
+     }
+diff --git a/backend/src/main/java/com/sssok/infrastructure/config/DownloadProperties.java b/backend/src/main/java/com/sssok/infrastructure/config/DownloadProperties.java
+index c18106b9..2c27f55e 100644
+--- a/backend/src/main/java/com/sssok/infrastructure/config/DownloadProperties.java
++++ b/backend/src/main/java/com/sssok/infrastructure/config/DownloadProperties.java
+@@ -4,5 +4,11 @@ import java.time.Duration;
+ import org.springframework.boot.context.properties.ConfigurationProperties;
+ 
+ @ConfigurationProperties(prefix = "download")
+-public record DownloadProperties(Duration presignedGetTtl, int maxConcurrentJobsPerRequester, Duration retention) {
++public record DownloadProperties(Duration presignedGetTtl, int maxConcurrentJobsPerRequester, Duration retention,
++                                 int maxTargets) {
++    private static final int DEFAULT_MAX_TARGETS = 1000;
++
++    public DownloadProperties {
++        maxTargets = maxTargets == 0 ? DEFAULT_MAX_TARGETS : maxTargets;
++    }
+ }
+diff --git a/backend/src/main/resources/application.yml b/backend/src/main/resources/application.yml
+index 5f70c0ee..09a1a6e0 100644
+--- a/backend/src/main/resources/application.yml
++++ b/backend/src/main/resources/application.yml
+@@ -167,6 +167,8 @@ download:
+   presigned-get-ttl: 5m
+   # 동일 멤버가 동시에 진행(QUEUED/RUNNING) 중일 수 있는 압축 잡의 최대 개수. 넘으면 429.
+   max-concurrent-jobs-per-requester: 3
++  # 다건·zip 한 번에 받을 수 있는 최대 미디어 수. 넘으면 400.
++  max-targets: 1000
+   # zip 압축 잡의 보관 기간. READY(압축 완료) 시점부터 센다. 지나면 410, 배치가 실물을 정리한다.
+   retention: 1h
+   # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
+diff --git a/backend/src/test/java/com/sssok/application/download/DownloadTargetLimitTest.java b/backend/src/test/java/com/sssok/application/download/DownloadTargetLimitTest.java
+new file mode 100644
+index 00000000..9a62aabd
+--- /dev/null
++++ b/backend/src/test/java/com/sssok/application/download/DownloadTargetLimitTest.java
+@@ -0,0 +1,33 @@
++package com.sssok.application.download;
++
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.sssok.application.media.exception.MediaNotFoundException;
++import com.sssok.application.media.exception.TooManyMediaException;
++import com.sssok.support.PostgresContainerSupport;
++import com.sssok.support.PostgresIntegrationTest;
++import java.util.List;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.test.context.TestPropertySource;
++
++@PostgresIntegrationTest
++@TestPropertySource(properties = "download.max-targets=2")
++class DownloadTargetLimitTest extends PostgresContainerSupport {
++
++    @Autowired
++    DownloadTargetResolver downloadTargetResolver;
++
++    @Test
++    void 설정한_상한을_넘으면_예외() {
++        assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(1L, 2L, 3L), null, 1L, null))
++            .isInstanceOf(TooManyMediaException.class)
++            .hasMessageContaining("2개");
++    }
++
++    @Test
++    void 설정한_상한까지는_상한_예외가_아니다() {
++        assertThatThrownBy(() -> downloadTargetResolver.resolve(1L, List.of(999_998L, 999_999L), null, 1L, null))
++            .isInstanceOf(MediaNotFoundException.class);
++    }
++}
+diff --git a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
+index ba65e5e1..48fa238d 100644
+--- a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
++++ b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
+@@ -26,7 +26,7 @@ class SweepDownloadJobsServiceFailureTest {
+     private final DownloadJobRepository downloadJobRepository = mock(DownloadJobRepository.class);
+     private final DownloadJobExpirer downloadJobExpirer = mock(DownloadJobExpirer.class);
+     private final DownloadProperties downloadProperties =
+-        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1));
++        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1), 1000);
+ 
+     private final SweepDownloadJobsService sweepDownloadJobsService =
+         new SweepDownloadJobsService(downloadJobRepository, downloadJobExpirer, downloadProperties);

@@ -1,4 +1,4 @@
-package com.sssok.application.media;
+package com.sssok.renewal.application.download.single;
 
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -9,7 +9,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.file.FileSize;
@@ -110,7 +110,7 @@ class GetMediaDownloadUrlServiceTest {
 
         verify(fileStorage).presignGet(
             eq(file.getStorageKey()),
-            eq(com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName)),
+            eq(com.sssok.renewal.domain.download.DownloadFileNames.contentDispositionOf(fileName)),
             eq(mimeType),
             any(Duration.class));
         assertThat(file.getStorageKey().value()).endsWith("." + extension);
@@ -130,7 +130,7 @@ class GetMediaDownloadUrlServiceTest {
         StoredFile file = save(ROOM_ID, UploadStatus.RESERVED);
 
         assertThatThrownBy(() -> getMediaDownloadUrlService.getUrl(ROOM_ID, file.getId()))
-            .isInstanceOf(MediaNotFoundException.class);
+            .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 
     @Test
@@ -138,13 +138,13 @@ class GetMediaDownloadUrlServiceTest {
         StoredFile file = save(ROOM_ID, UploadStatus.FAILED);
 
         assertThatThrownBy(() -> getMediaDownloadUrlService.getUrl(ROOM_ID, file.getId()))
-            .isInstanceOf(MediaNotFoundException.class);
+            .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 
     @Test
     void 존재하지_않는_미디어면_404() {
         assertThatThrownBy(() -> getMediaDownloadUrlService.getUrl(ROOM_ID, 999L))
-            .isInstanceOf(MediaNotFoundException.class);
+            .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 
     @Test
@@ -152,6 +152,6 @@ class GetMediaDownloadUrlServiceTest {
         StoredFile file = save(2L, UploadStatus.READY);
 
         assertThatThrownBy(() -> getMediaDownloadUrlService.getUrl(ROOM_ID, file.getId()))
-            .isInstanceOf(MediaNotFoundException.class);
+            .isInstanceOf(DownloadMediaNotFoundException.class);
     }
 }

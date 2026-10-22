@@ -1,0 +1,120 @@
+diff --git a/backend/src/main/java/com/sssok/renewal/application/download/shared/DownloadTargetResolver.java b/backend/src/main/java/com/sssok/renewal/application/download/shared/DownloadTargetResolver.java
+index ac03b9d6..2f3b102e 100644
+--- a/backend/src/main/java/com/sssok/renewal/application/download/shared/DownloadTargetResolver.java
++++ b/backend/src/main/java/com/sssok/renewal/application/download/shared/DownloadTargetResolver.java
+@@ -5,6 +5,7 @@ import com.sssok.domain.file.StoredFile;
+ import com.sssok.renewal.application.download.exception.DownloadFolderNotFoundException;
+ import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
+ import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
++import com.sssok.renewal.outgoing.config.DownloadProperties;
+ import com.sssok.renewal.outgoing.database.DownloadFileRepository;
+ import com.sssok.renewal.outgoing.database.DownloadFolderRepository;
+ import java.util.List;
+@@ -20,10 +21,9 @@ import org.springframework.stereotype.Component;
+ @Component
+ @RequiredArgsConstructor
+ public class DownloadTargetResolver {
+-    private static final int MAX_TARGETS = 1000;
+-
+     private final DownloadFileRepository downloadFileRepository;
+     private final DownloadFolderRepository downloadFolderRepository;
++    private final DownloadProperties downloadProperties;
+ 
+     public List<StoredFile> resolve(DownloadTargetCommand command) {
+         command.validate();
+@@ -65,8 +65,9 @@ public class DownloadTargetResolver {
+     }
+ 
+     private <T> List<T> requireWithinLimit(List<T> targets) {
+-        if (targets.size() > MAX_TARGETS) {
+-            throw new TooManyDownloadFilesException(MAX_TARGETS);
++        int maxTargets = downloadProperties.maxTargets();
++        if (targets.size() > maxTargets) {
++            throw new TooManyDownloadFilesException(maxTargets);
+         }
+         return targets;
+     }
+diff --git a/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java b/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java
+index a564768c..6c88653a 100644
+--- a/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java
++++ b/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java
+@@ -4,5 +4,11 @@ import java.time.Duration;
+ import org.springframework.boot.context.properties.ConfigurationProperties;
+ 
+ @ConfigurationProperties(prefix = "download")
+-public record DownloadProperties(Duration presignedGetTtl, int maxConcurrentJobsPerRequester, Duration retention) {
++public record DownloadProperties(Duration presignedGetTtl, int maxConcurrentJobsPerRequester, Duration retention,
++                                 int maxTargets) {
++    private static final int DEFAULT_MAX_TARGETS = 1000;
++
++    public DownloadProperties {
++        maxTargets = maxTargets == 0 ? DEFAULT_MAX_TARGETS : maxTargets;
++    }
+ }
+diff --git a/backend/src/main/resources/application.yml b/backend/src/main/resources/application.yml
+index 5f70c0ee..09a1a6e0 100644
+--- a/backend/src/main/resources/application.yml
++++ b/backend/src/main/resources/application.yml
+@@ -167,6 +167,8 @@ download:
+   presigned-get-ttl: 5m
+   # 동일 멤버가 동시에 진행(QUEUED/RUNNING) 중일 수 있는 압축 잡의 최대 개수. 넘으면 429.
+   max-concurrent-jobs-per-requester: 3
++  # 다건·zip 한 번에 받을 수 있는 최대 미디어 수. 넘으면 400.
++  max-targets: 1000
+   # zip 압축 잡의 보관 기간. READY(압축 완료) 시점부터 센다. 지나면 410, 배치가 실물을 정리한다.
+   retention: 1h
+   # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
+diff --git a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
+index 618b6c3c..d0b9cef0 100644
+--- a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
++++ b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
+@@ -26,7 +26,7 @@ class SweepDownloadJobsServiceFailureTest {
+     private final DownloadJobRepository downloadJobRepository = mock(DownloadJobRepository.class);
+     private final DownloadJobExpirer downloadJobExpirer = mock(DownloadJobExpirer.class);
+     private final DownloadProperties downloadProperties =
+-        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1));
++        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1), 1000);
+ 
+     private final SweepDownloadJobsService sweepDownloadJobsService =
+         new SweepDownloadJobsService(downloadJobRepository, downloadJobExpirer, downloadProperties);
+diff --git a/backend/src/test/java/com/sssok/renewal/application/download/shared/DownloadTargetLimitTest.java b/backend/src/test/java/com/sssok/renewal/application/download/shared/DownloadTargetLimitTest.java
+new file mode 100644
+index 00000000..713c33bb
+--- /dev/null
++++ b/backend/src/test/java/com/sssok/renewal/application/download/shared/DownloadTargetLimitTest.java
+@@ -0,0 +1,35 @@
++package com.sssok.renewal.application.download.shared;
++
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++
++import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
++import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
++import com.sssok.support.PostgresContainerSupport;
++import com.sssok.support.PostgresIntegrationTest;
++import java.util.List;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.test.context.TestPropertySource;
++
++@PostgresIntegrationTest
++@TestPropertySource(properties = "download.max-targets=2")
++class DownloadTargetLimitTest extends PostgresContainerSupport {
++
++    @Autowired
++    DownloadTargetResolver downloadTargetResolver;
++
++    @Test
++    void 설정한_상한을_넘으면_예외() {
++        assertThatThrownBy(() -> downloadTargetResolver.resolve(
++            new DownloadTargetCommand(1L, 1L, List.of(1L, 2L, 3L), null, null)))
++            .isInstanceOf(TooManyDownloadFilesException.class)
++            .hasMessageContaining("2개");
++    }
++
++    @Test
++    void 설정한_상한까지는_상한_예외가_아니다() {
++        assertThatThrownBy(() -> downloadTargetResolver.resolve(
++            new DownloadTargetCommand(1L, 1L, List.of(999_998L, 999_999L), null, null)))
++            .isInstanceOf(DownloadMediaNotFoundException.class);
++    }
++}

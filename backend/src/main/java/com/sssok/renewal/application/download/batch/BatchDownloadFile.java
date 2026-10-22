@@ -1,4 +1,4 @@
-package com.sssok.application.download;
+package com.sssok.renewal.application.download.batch;
 
 import java.time.Instant;
 

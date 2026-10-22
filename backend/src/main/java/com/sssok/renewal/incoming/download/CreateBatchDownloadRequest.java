@@ -1,7 +1,8 @@
-package com.sssok.presentation.api.download;
+package com.sssok.renewal.incoming.download;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import com.sssok.application.media.MediaUploaderFilter;
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 public record CreateBatchDownloadRequest(
@@ -11,4 +12,7 @@ public record CreateBatchDownloadRequest(
     @Schema(description = "폴더 전체 다운로드의 업로더 필터. ALL / ME / OTHERS, 생략 시 ALL")
     MediaUploaderFilter uploader
 ) {
+    public DownloadTargetCommand toCommand(Long roomId, Long requesterId) {
+        return new DownloadTargetCommand(roomId, requesterId, mediaIds, folderId, uploader);
+    }
 }

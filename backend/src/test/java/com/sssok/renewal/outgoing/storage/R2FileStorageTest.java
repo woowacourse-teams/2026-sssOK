@@ -125,7 +125,7 @@ class R2FileStorageTest {
         assertThat(put(putUrl, contentType)).isEqualTo(200);
         uploaded = key;
 
-        String disposition = com.sssok.domain.file.DownloadFileNames.contentDispositionOf(fileName);
+        String disposition = com.sssok.renewal.domain.download.DownloadFileNames.contentDispositionOf(fileName);
         String url = adapter.presignGet(key, disposition, contentType, Duration.ofMinutes(5));
 
         HttpResponse<byte[]> response = get(url, BROWSER_ORIGIN);
