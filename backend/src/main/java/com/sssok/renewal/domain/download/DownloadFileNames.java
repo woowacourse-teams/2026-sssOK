@@ -1,4 +1,4 @@
-package com.sssok.domain.file;
+package com.sssok.renewal.domain.download;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

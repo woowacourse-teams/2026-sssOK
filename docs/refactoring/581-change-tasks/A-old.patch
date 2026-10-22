@@ -1,0 +1,78 @@
+diff --git a/backend/src/main/java/com/sssok/application/download/BatchDownloadFile.java b/backend/src/main/java/com/sssok/application/download/BatchDownloadFile.java
+index 5609b5ce..37f5adc8 100644
+--- a/backend/src/main/java/com/sssok/application/download/BatchDownloadFile.java
++++ b/backend/src/main/java/com/sssok/application/download/BatchDownloadFile.java
+@@ -2,5 +2,6 @@ package com.sssok.application.download;
+ 
+ import java.time.Instant;
+ 
+-public record BatchDownloadFile(Long mediaId, String fileName, String downloadUrl, Instant expiresAt) {
++public record BatchDownloadFile(Long mediaId, String fileName, long sizeBytes, String downloadUrl,
++                                Instant expiresAt) {
+ }
+diff --git a/backend/src/main/java/com/sssok/application/download/CreateBatchDownloadService.java b/backend/src/main/java/com/sssok/application/download/CreateBatchDownloadService.java
+index 5970ad21..67f440b5 100644
+--- a/backend/src/main/java/com/sssok/application/download/CreateBatchDownloadService.java
++++ b/backend/src/main/java/com/sssok/application/download/CreateBatchDownloadService.java
+@@ -39,6 +39,6 @@ public class CreateBatchDownloadService {
+         String contentDisposition = DownloadFileNames.contentDispositionOf(fileName);
+         String url = fileStorage.presignGet(file.getStorageKey(), contentDisposition,
+             file.getMediaType().contentType(), downloadProperties.presignedGetTtl());
+-        return new BatchDownloadFile(file.getId(), fileName, url, expiresAt);
++        return new BatchDownloadFile(file.getId(), fileName, file.getFileSize().bytes(), url, expiresAt);
+     }
+ }
+diff --git a/backend/src/main/java/com/sssok/presentation/api/download/BatchDownloadFileResponse.java b/backend/src/main/java/com/sssok/presentation/api/download/BatchDownloadFileResponse.java
+index 9f36e54e..039b32c0 100644
+--- a/backend/src/main/java/com/sssok/presentation/api/download/BatchDownloadFileResponse.java
++++ b/backend/src/main/java/com/sssok/presentation/api/download/BatchDownloadFileResponse.java
+@@ -7,11 +7,13 @@ import java.time.Instant;
+ public record BatchDownloadFileResponse(
+     @Schema(description = "미디어 ID") Long mediaId,
+     @Schema(description = "다운로드 파일명 (중복 시 자동으로 번호가 붙는다)") String fileName,
++    @Schema(description = "원본 파일 바이트 크기") long sizeBytes,
+     @Schema(description = "스토리지 서명 다운로드 URL") String downloadUrl,
+     @Schema(description = "서명 URL 만료 시각") Instant expiresAt
+ ) {
+ 
+     public static BatchDownloadFileResponse from(BatchDownloadFile file) {
+-        return new BatchDownloadFileResponse(file.mediaId(), file.fileName(), file.downloadUrl(), file.expiresAt());
++        return new BatchDownloadFileResponse(file.mediaId(), file.fileName(), file.sizeBytes(),
++            file.downloadUrl(), file.expiresAt());
+     }
+ }
+diff --git a/backend/src/test/java/com/sssok/presentation/api/download/DownloadControllerTest.java b/backend/src/test/java/com/sssok/presentation/api/download/DownloadControllerTest.java
+index 3897f327..c770ca77 100644
+--- a/backend/src/test/java/com/sssok/presentation/api/download/DownloadControllerTest.java
++++ b/backend/src/test/java/com/sssok/presentation/api/download/DownloadControllerTest.java
+@@ -200,8 +200,8 @@ class DownloadControllerTest {
+     void 다건_다운로드하면_200과_파일별_서명_URL_목록을_반환한다() throws Exception {
+         Instant expiresAt = Instant.parse("2026-08-28T12:00:00Z");
+         List<BatchDownloadFile> files = List.of(
+-            new BatchDownloadFile(5012L, "IMG_0421.jpg", "https://storage.example.com/5012", expiresAt),
+-            new BatchDownloadFile(5011L, "IMG_0420.jpg", "https://storage.example.com/5011", expiresAt));
++            new BatchDownloadFile(5012L, "IMG_0421.jpg", 2048L, "https://storage.example.com/5012", expiresAt),
++            new BatchDownloadFile(5011L, "IMG_0420.jpg", 1024L, "https://storage.example.com/5011", expiresAt));
+         given(createBatchDownloadService.create(anyLong(), anyLong(), any(), nullable(Long.class),
+             nullable(MediaUploaderFilter.class))).willReturn(files);
+ 
+@@ -210,6 +210,7 @@ class DownloadControllerTest {
+             .andExpect(jsonPath("$.data.files.length()").value(2))
+             .andExpect(jsonPath("$.data.files[0].mediaId").value(5012))
+             .andExpect(jsonPath("$.data.files[0].fileName").value("IMG_0421.jpg"))
++            .andExpect(jsonPath("$.data.files[0].sizeBytes").value(2048))
+             .andExpect(jsonPath("$.data.files[0].downloadUrl").value("https://storage.example.com/5012"));
+     }
+ 
+diff --git a/backend/src/test/java/com/sssok/renewal/incoming/download/DownloadApiTest.java b/backend/src/test/java/com/sssok/renewal/incoming/download/DownloadApiTest.java
+index 2ba1e56e..5fdd6029 100644
+--- a/backend/src/test/java/com/sssok/renewal/incoming/download/DownloadApiTest.java
++++ b/backend/src/test/java/com/sssok/renewal/incoming/download/DownloadApiTest.java
+@@ -316,6 +316,7 @@ class DownloadApiTest extends PostgresContainerSupport {
+ 
+             assertThat(mediaIdsOf(files)).containsExactly(second, third, first);
+             assertThat(files.get(0).path("fileName").asText()).isEqualTo("제주 바다.jpg");
++            assertThat(files.findValuesAsText("sizeBytes")).containsOnly("1024");
+             assertThat(files.get(0).path("downloadUrl").asText()).isEqualTo(signedUrl(storageKeyOf(second),
+                 "attachment; filename=\"download.jpg\"; filename*=UTF-8''%EC%A0%9C%EC%A3%BC%20%EB%B0%94%EB%8B%A4.jpg"));
+             assertThat(files.get(1).path("fileName").asText()).isEqualTo("a.jpg");

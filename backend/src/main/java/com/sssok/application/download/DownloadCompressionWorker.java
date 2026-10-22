@@ -7,7 +7,7 @@ import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.download.DownloadJob;
-import com.sssok.domain.file.DownloadFileNames;
+import com.sssok.renewal.domain.download.DownloadFileNames;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import java.io.IOException;
