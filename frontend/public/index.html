@@ -12,6 +12,14 @@
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
 
+    <!-- 화면에 나온 글자가 든 조각만 받는 동적 서브셋이라, 사용자가 입력한 희귀 글자도 받아서 그린다.
+         랜딩과 같은 주소라 랜딩을 거쳐 온 사용자는 캐시를 그대로 쓴다 -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+
     <!-- 링크 미리보기. 크롤러는 JS 를 실행하지 않으니 여기 정적으로 둔다.
          값은 webpack.config.js 의 og 옵션에서 HTML 파일마다 다르게 채운다 -->
     <% const og = htmlWebpackPlugin.options.og; %>

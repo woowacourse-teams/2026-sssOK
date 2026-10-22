@@ -1,5 +1,4 @@
 import { Global, css } from "@emotion/react";
-import "./fonts/fonts.css";
 import { colors } from "./tokens";
 
 export const GlobalStyles = () => (
@@ -33,11 +32,14 @@ export const GlobalStyles = () => (
       /* Global typography */
       body {
         font-family:
-          "Pretendard",
+          "Pretendard Variable",
+          Pretendard,
           -apple-system,
           BlinkMacSystemFont,
           system-ui,
           sans-serif;
+        /* 예전 폰트 파일엔 400 이 없어 굵기를 안 준 글자가 500 으로 그려졌다. 가변 폰트에서도 같게 보이도록 맞춘다 */
+        font-weight: 500;
 
         color: ${colors.textPrimary};
         background-color: ${colors.backgroundDefault};
