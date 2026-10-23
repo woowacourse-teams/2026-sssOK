@@ -1,6 +1,6 @@
 # 업로드는 성공했는데 AI 분석은 왜 4분을 기다렸나?
 
-> 이슈: [#556](https://github.com/woowacourse-teams/2026-sssOK/issues/556) · 작성: 2026-10-23 KST  
+> 이슈: [#556](https://github.com/woowacourse-teams/2026-sssOK/issues/556) · 작성: 2026-10-23 KST
 > 상태: DB 큐 연속 소비 구현 및 로컬 검증. **dev 배포·개선 후 실부하 측정 전**.
 
 ## 1. 결론과 이번 변경의 범위
