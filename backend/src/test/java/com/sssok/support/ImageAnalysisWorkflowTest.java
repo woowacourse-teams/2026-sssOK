@@ -38,7 +38,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @org.junit.jupiter.api.Tag("integration-postgres")
 @SpringBootTest(properties = {
     "media.search.enabled=true", "media.search.provider=test", "media.search.created-since=2090-01-01T00:00:00Z",
-    "media.search.sweep-delay=3600000", "media.thumbnail.auto-generate=false"
+    "media.search.sweep-delay=3600000", "media.search.dispatch-delay=3600000",
+    "media.search.concurrency=1", "media.thumbnail.auto-generate=false"
 })
 class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     // 전역 복구 배치가 공유 DB의 다른 테스트 이미지를 등록하지 않도록 도입 시각을 분리한다.
@@ -57,9 +58,15 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     @MockitoBean MediaEventListener mediaEvents;
     @MockitoBean(name = "imageAnalysisTaskExecutor") AsyncTaskExecutor executor;
 
+    private final java.util.List<Runnable> submitted = new java.util.ArrayList<>();
+
     @BeforeEach
     void setup() {
         cleanup();
+        org.mockito.Mockito.doAnswer(call -> {
+            submitted.add(call.getArgument(0));
+            return null;
+        }).when(executor).execute(any(Runnable.class));
         UploadRoomFixtures.ensure(jdbc, 1L);
         given(clock.instant()).willReturn(NOW);
         jdbc.update("""
@@ -78,7 +85,43 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
 
     @AfterEach
     void cleanup() {
-        jdbc.update("DELETE FROM stored_file WHERE id = ?", MEDIA_ID);
+        jdbc.update("DELETE FROM stored_file WHERE id BETWEEN 460101 AND 460125");
+        submitted.forEach(Runnable::run);
+        submitted.clear();
+    }
+
+    @Test
+    void 실제_DB큐의_25장을_한번_배정으로_끝까지_분석한다() throws Exception {
+        jdbc.update("""
+            INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,
+                media_type, file_size_bytes, storage_key, status, created_at, updated_at, reserved_at)
+            SELECT n, 1, 1, 'photo.jpg', 'JPEG', 100, 'test/' || n, 'READY',
+                TIMESTAMPTZ '2090-01-01 00:00:00Z', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            FROM generate_series(460102, 460125) n
+            """);
+        for (long id = MEDIA_ID; id <= 460125; id++) { documents.register(id, NOW); }
+        var worker = new org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor();
+        worker.setCorePoolSize(2);
+        worker.setMaxPoolSize(2);
+        worker.setQueueCapacity(0);
+        worker.initialize();
+        var properties = new com.sssok.renewal.outgoing.config.ImageSearchProperties(
+            NOW, 2, 20, 20, 3, null, null, null, null);
+        var dispatcher = new com.sssok.renewal.application.search.ImageAnalysisDispatcher(
+            worker, analyzer, documents, properties, clock);
+        try {
+            dispatcher.dispatch();
+            org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM media_search_document
+                    WHERE media_id BETWEEN 460101 AND 460125 AND status = 'READY' AND attempts = 1
+                    """, Integer.class)).isEqualTo(25));
+            verify(descriptions, org.mockito.Mockito.times(25)).describe(anyString(), any());
+            verify(embeddings, org.mockito.Mockito.times(25)).embed(anyString(), any());
+        } finally {
+            worker.shutdown();
+            assertThat(worker.getThreadPoolExecutor().awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test
@@ -172,6 +215,9 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     void 유실된_등록을_복구하고_중단된_작업을_다시_제출한다() {
         sweeper.sweep();
         assertThat(status()).isEqualTo("PENDING");
+        submitted.forEach(Runnable::run);
+        submitted.clear();
+        jdbc.update("UPDATE media_search_document SET status = 'PENDING' WHERE media_id = ?", MEDIA_ID);
         documents.claim(MEDIA_ID, NOW.plusSeconds(1), 3).orElseThrow();
         jdbc.update("UPDATE media_search_document SET started_at = ? WHERE media_id = ?",
             java.sql.Timestamp.from(NOW.minusSeconds(600)), MEDIA_ID);

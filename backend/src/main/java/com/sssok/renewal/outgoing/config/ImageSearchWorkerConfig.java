@@ -10,6 +10,7 @@ import com.sssok.renewal.application.search.ImageAnalysisDispatcher;
 import com.sssok.renewal.application.search.ImageAnalysisRegistrar;
 import com.sssok.renewal.incoming.search.ImageAnalysisTrigger;
 import com.sssok.renewal.incoming.search.ImageAnalysisSweeper;
+import com.sssok.renewal.incoming.search.ImageAnalysisDispatchScheduler;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -37,7 +38,8 @@ public class ImageSearchWorkerConfig {
         executor.setThreadNamePrefix("image-analysis-");
         executor.setCorePoolSize(properties.concurrency());
         executor.setMaxPoolSize(properties.concurrency());
-        executor.setQueueCapacity(properties.queueCapacity());
+        // 대기열은 DB만 사용한다. 슬롯 확보 후 실제 실행한 워커가 선점한다.
+        executor.setQueueCapacity(0);
         return executor;
     }
 
@@ -57,8 +59,16 @@ public class ImageSearchWorkerConfig {
 
     @Bean
     public ImageAnalysisDispatcher imageAnalysisDispatcher(
-        @Qualifier("imageAnalysisTaskExecutor") AsyncTaskExecutor executor, AnalyzeImageService analyzer) {
-        return new ImageAnalysisDispatcher(executor, analyzer);
+        @Qualifier("imageAnalysisTaskExecutor") AsyncTaskExecutor executor, AnalyzeImageService analyzer,
+        MediaSearchDocumentRepository documents, ImageSearchProperties properties,
+        @Qualifier("imageAnalysisClock") Clock clock) {
+        return new ImageAnalysisDispatcher(executor, analyzer, documents, properties, clock);
+    }
+
+    @Bean
+    public ImageAnalysisDispatchScheduler imageAnalysisDispatchScheduler(
+        ImageAnalysisDispatcher dispatcher) {
+        return new ImageAnalysisDispatchScheduler(dispatcher);
     }
 
     @Bean

@@ -21,6 +21,6 @@ public class ImageAnalysisSweeper {
         Instant now = clock.instant();
         documentRepository.registerMissing(properties.createdSince(), now, properties.batchSize());
         documentRepository.recover(now.minus(properties.stuckAfter()), now, properties.maxAttempts());
-        documentRepository.findPending(now, properties.batchSize()).forEach(dispatcher::submit);
+        dispatcher.dispatch();
     }
 }

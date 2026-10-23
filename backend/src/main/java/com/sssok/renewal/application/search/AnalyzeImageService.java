@@ -43,7 +43,10 @@ public class AnalyzeImageService {
         if (claimedAttempt.isEmpty()) {
             return;
         }
-        AnalysisAttempt analysisAttempt = claimedAttempt.get();
+        analyze(claimedAttempt.get());
+    }
+
+    public void analyze(AnalysisAttempt analysisAttempt) {
         Optional<Description> description = findOrGenerateAndSaveDescription(analysisAttempt);
         if (description.isEmpty()) {
             return;

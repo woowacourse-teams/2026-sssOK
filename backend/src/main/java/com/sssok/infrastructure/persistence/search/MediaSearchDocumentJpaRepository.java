@@ -35,6 +35,18 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         """, nativeQuery = true)
     int register(@Param("mediaId") Long mediaId, @Param("now") Instant now);
 
+    @Query(value = """
+        SELECT d.media_id
+        FROM media_search_document d
+        JOIN stored_file f ON f.id = d.media_id
+        WHERE d.status = 'PENDING' AND d.next_attempt_at <= :now
+            AND d.attempts < :maxAttempts AND f.status = 'READY'
+            AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+        ORDER BY d.next_attempt_at, d.media_id
+        LIMIT 1 FOR UPDATE OF d SKIP LOCKED
+        """, nativeQuery = true)
+    java.util.Optional<Long> lockNextPending(@Param("now") Instant now, @Param("maxAttempts") int maxAttempts);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """
         UPDATE media_search_document d

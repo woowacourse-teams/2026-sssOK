@@ -50,6 +50,38 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     }
 
     @Test
+    void DB큐_경쟁_선점은_서로_다른_작업을_가져온다() throws Exception {
+        insert(460002L, "JPEG", "READY");
+        repository.register(460001L, now);
+        repository.register(460002L, now);
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Callable<AnalysisAttempt> claim = () -> {
+                assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
+                return repository.claimNext(now, 3).orElseThrow();
+            };
+            var first = executor.submit(claim);
+            var second = executor.submit(claim);
+            start.countDown();
+            assertThat(List.of(first.get(10, TimeUnit.SECONDS).mediaId(),
+                second.get(10, TimeUnit.SECONDS).mediaId())).containsExactlyInAnyOrder(460001L, 460002L);
+            assertThat(repository.claimNext(now, 3)).isEmpty();
+        }
+    }
+
+    @Test
+    void DB큐는_재시도_시각과_최대_시도수를_지킨다() {
+        insert(460002L, "JPEG", "READY");
+        repository.register(460001L, now);
+        repository.register(460002L, now);
+        jdbc.update("UPDATE media_search_document SET next_attempt_at = ? WHERE media_id = 460001",
+            Timestamp.from(now.plusSeconds(60)));
+        jdbc.update("UPDATE media_search_document SET attempts = 3 WHERE media_id = 460002");
+        assertThat(repository.claimNext(now, 3)).isEmpty();
+        assertThat(repository.claimNext(now.plusSeconds(60), 3).orElseThrow().mediaId()).isEqualTo(460001L);
+    }
+
+    @Test
     void 준비된_이미지만_등록하고_중복_등록은_무시한다() {
         insert(460002L, "MP4", "READY");
         insert(460003L, "JPEG", "PROCESSING");
