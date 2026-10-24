@@ -3,7 +3,7 @@ package com.sssok.infrastructure.config;
 import com.sssok.common.logging.RequestLoggingFilter;
 import com.sssok.presentation.api.common.RoomMembershipInterceptor;
 import com.sssok.presentation.auth.AuthAdminArgumentResolver;
-import com.sssok.presentation.auth.AuthMemberArgumentResolver;
+import com.sssok.renewal.incoming.auth.AuthMemberArgumentResolver;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;

@@ -7,7 +7,7 @@ import com.sssok.application.folder.RenameFolderResult;
 import com.sssok.application.folder.RenameFolderService;
 import com.sssok.domain.folder.Folder;
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

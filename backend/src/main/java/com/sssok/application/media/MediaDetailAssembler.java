@@ -2,9 +2,9 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.MediaLikeRepository;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.member.Member;
+import com.sssok.renewal.domain.member.Member;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;

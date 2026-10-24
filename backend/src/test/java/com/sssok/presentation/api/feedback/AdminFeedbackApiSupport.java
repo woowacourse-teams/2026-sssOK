@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.infrastructure.persistence.admin.AdminJpaEntity;
 import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;

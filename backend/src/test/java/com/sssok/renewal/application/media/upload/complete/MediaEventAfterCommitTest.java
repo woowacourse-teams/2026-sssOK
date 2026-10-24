@@ -8,7 +8,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.RoomPermissionPort;

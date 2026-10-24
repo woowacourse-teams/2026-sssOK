@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomResult;
 import com.sssok.application.room.DeleteRoomService;
@@ -196,7 +196,7 @@ class RoomControllerTest {
     @Test
     void 토큰을_보냈는데_잘못됐으면_조회도_401이다() throws Exception {
         given(tokenProvider.parse("bad-token"))
-            .willThrow(new com.sssok.application.auth.exception.UnauthorizedException("다시 접속해주세요"));
+            .willThrow(new com.sssok.renewal.application.auth.exception.UnauthorizedException("다시 접속해주세요"));
 
         mockMvc.perform(get("/api/v1/rooms/{code}", CODE)
                 .header("Authorization", "Bearer bad-token"))

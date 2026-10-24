@@ -5,7 +5,7 @@ import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sssok.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.domain.file.FileSize;

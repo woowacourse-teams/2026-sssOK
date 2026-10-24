@@ -1,14 +1,14 @@
 package com.sssok.application.feedback;
 
 import com.sssok.application.port.out.FeedbackRepository;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
 import com.sssok.domain.feedback.UserAgent;
-import com.sssok.domain.member.Member;
+import com.sssok.renewal.domain.member.Member;
 import com.sssok.domain.room.Room;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;

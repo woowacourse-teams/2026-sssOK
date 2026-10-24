@@ -1,6 +1,6 @@
 package com.sssok.infrastructure.security;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.infrastructure.config.JwtProperties;
 import io.jsonwebtoken.Claims;

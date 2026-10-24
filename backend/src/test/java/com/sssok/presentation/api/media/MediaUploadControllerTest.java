@@ -23,7 +23,7 @@ import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedExce
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
 import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
 import com.sssok.domain.file.exception.UploadRetryExceededException;

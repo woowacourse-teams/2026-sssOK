@@ -3,7 +3,7 @@ package com.sssok.application.room;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;

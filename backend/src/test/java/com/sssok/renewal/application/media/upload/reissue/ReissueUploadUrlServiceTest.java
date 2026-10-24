@@ -7,7 +7,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequestException;
 import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
 import com.sssok.renewal.application.media.upload.exception.MediaNotFoundException;

@@ -1,6 +1,6 @@
 package com.sssok.application.room;
 
-import com.sssok.domain.member.Member;
+import com.sssok.renewal.domain.member.Member;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;

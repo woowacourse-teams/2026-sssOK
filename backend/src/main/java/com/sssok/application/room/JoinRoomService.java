@@ -1,12 +1,12 @@
 package com.sssok.application.room;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
-import com.sssok.domain.member.Member;
+import com.sssok.renewal.domain.member.Member;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
