@@ -30,6 +30,42 @@ class AuthApiTest extends PostgresContainerSupport {
     ObjectMapper objectMapper;
 
     @Test
+    void 로그아웃하면_현재_토큰만_차단하고_다른_로그인_세션은_유지한다() throws Exception {
+        String first = 익명_인증으로_토큰_발급받기();
+        MvcResult codeResult = mockMvc.perform(post("/api/v1/auth/link-code")
+                .header("Authorization", "Bearer " + first))
+            .andExpect(status().isCreated()).andReturn();
+        String code = objectMapper.readTree(codeResult.getResponse().getContentAsString())
+            .get("data").get("linkCode").asText();
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/link")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"linkCode\":\"" + code + "\"}"))
+            .andExpect(status().isOk()).andReturn();
+        String second = objectMapper.readTree(loginResult.getResponse().getContentAsString())
+            .get("data").get("accessToken").asText();
+
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + first))
+            .andExpect(status().isNoContent());
+        mockMvc.perform(post("/api/v1/auth/link-code").header("Authorization", "Bearer " + first))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer " + first))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/link-code").header("Authorization", "Bearer " + second))
+            .andExpect(status().isCreated());
+    }
+
+    @Test
+    void 로그아웃은_유효한_Bearer_헤더가_필요하다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Basic invalid"))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/logout").header("Authorization", "Bearer invalid"))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/logout").param("token", 익명_인증으로_토큰_발급받기()))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
     void 닉네임으로_익명_인증하면_토큰과_userId를_발급받는다() throws Exception {
         mockMvc.perform(post("/api/v1/auth/anonymous")
                 .contentType(MediaType.APPLICATION_JSON)
