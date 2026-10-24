@@ -18,7 +18,7 @@ public class ImageAnalysisTrigger {
     public void onReady(MediaReadyEvent event) {
         try {
             registrar.register(event.mediaId()); // 별도 트랜잭션 커밋 후 실행기에 제출한다.
-            dispatcher.submit(event.mediaId());
+            dispatcher.dispatch();
         } catch (RuntimeException exception) {
             // 원본 업로드는 이미 완료되었다. 누락된 등록은 배치가 다시 찾는다.
             log.warn("이미지 분석 등록 실패. 복구 배치가 재시도합니다. mediaId={}", event.mediaId());

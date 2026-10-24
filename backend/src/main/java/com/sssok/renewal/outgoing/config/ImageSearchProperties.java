@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record ImageSearchProperties(
     Instant createdSince,
     Integer concurrency,
-    Integer queueCapacity,
+    @Deprecated Integer queueCapacity, // 호환용 설정. 실행기 큐는 항상 0이며 대기는 DB에 보관한다.
     Integer batchSize,
     Integer maxAttempts,
     Duration requestTimeout,

@@ -36,6 +36,12 @@ public class MediaSearchDocumentRepository {
             .map(document -> new AnalysisAttempt(mediaId, document.getAttempts()));
     }
 
+    public Optional<AnalysisAttempt> claimNextPendingAnalysis(Instant now, int maxAttempts) {
+        requirePositive(maxAttempts);
+        return jpaRepository.claimNextPendingAnalysis(now, maxAttempts)
+            .map(result -> new AnalysisAttempt(result.getMediaId(), result.getAttempts()));
+    }
+
     public boolean complete(AnalysisAttempt attempt, ImageAnalysis analysis, Instant now) {
         String vector = analysis.embedding().stream().map(String::valueOf)
             .collect(Collectors.joining(",", "[", "]"));

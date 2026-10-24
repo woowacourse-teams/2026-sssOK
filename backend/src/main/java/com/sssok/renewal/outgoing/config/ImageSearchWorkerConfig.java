@@ -10,6 +10,7 @@ import com.sssok.renewal.application.search.ImageAnalysisDispatcher;
 import com.sssok.renewal.application.search.ImageAnalysisRegistrar;
 import com.sssok.renewal.incoming.search.ImageAnalysisTrigger;
 import com.sssok.renewal.incoming.search.ImageAnalysisSweeper;
+import com.sssok.renewal.incoming.search.ImageAnalysisDispatchScheduler;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -36,8 +37,11 @@ public class ImageSearchWorkerConfig {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("image-analysis-");
         executor.setCorePoolSize(properties.concurrency());
-        executor.setMaxPoolSize(properties.concurrency());
-        executor.setQueueCapacity(properties.queueCapacity());
+        // 슬롯 반환 직후 기존 스레드가 종료 처리 중인 경우를 위해 여유를 둔다.
+        // 실제 분석 동시성은 Dispatcher의 Semaphore가 제한한다.
+        executor.setMaxPoolSize(properties.concurrency() + 1);
+        // 대기열은 DB만 사용한다. 슬롯 확보 후 실제 실행한 워커가 선점한다.
+        executor.setQueueCapacity(0);
         return executor;
     }
 
@@ -57,8 +61,16 @@ public class ImageSearchWorkerConfig {
 
     @Bean
     public ImageAnalysisDispatcher imageAnalysisDispatcher(
-        @Qualifier("imageAnalysisTaskExecutor") AsyncTaskExecutor executor, AnalyzeImageService analyzer) {
-        return new ImageAnalysisDispatcher(executor, analyzer);
+        @Qualifier("imageAnalysisTaskExecutor") AsyncTaskExecutor executor, AnalyzeImageService analyzer,
+        MediaSearchDocumentRepository documents, ImageSearchProperties properties,
+        @Qualifier("imageAnalysisClock") Clock clock) {
+        return new ImageAnalysisDispatcher(executor, analyzer, documents, properties, clock);
+    }
+
+    @Bean
+    public ImageAnalysisDispatchScheduler imageAnalysisDispatchScheduler(
+        ImageAnalysisDispatcher dispatcher) {
+        return new ImageAnalysisDispatchScheduler(dispatcher);
     }
 
     @Bean
