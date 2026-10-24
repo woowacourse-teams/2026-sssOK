@@ -45,21 +45,33 @@ public class ThumbnailatorImageProcessor {
 
     public Optional<DerivedImages> derive(byte[] source, DerivativeSpec thumbnail,
                                           DerivativeSpec preview) {
-        // 원본 디코딩은 한 번만 한다. 여기가 파생본 생성 시간의 대부분이라, 썸네일과 프리뷰를
-        // 따로 만들면 워커 점유 시간이 곱절이 된다.
+        ExifOrientation orientation = readOrientation(source);
         BufferedImage original = decode(source);
-        // 원본을 못 읽은 것만 빈 값이다. 다시 태워도 결과가 같으므로 부르는 쪽이 여기서만
-        // FAILED 로 확정한다.
         if (original == null) {
             return Optional.empty();
         }
-        ExifOrientation orientation = readOrientation(source);
+        var decoded = new DerivativeImageDecoder.DecodedImage(original,
+            orientation.displayWidthOf(original), orientation.displayHeightOf(original));
         try {
+            if (preview != null && preview.maxWidth() >= thumbnail.maxWidth()) {
+                // 압축된 프리뷰를 다시 읽지 않고, 인코딩 전 픽셀을 공유한다.
+                // 방향은 프리뷰 생성 시 한 번만 적용한다.
+                BufferedImage previewImage = resizeAndOrient(original, orientation, preview.maxWidth(), decoded);
+                BufferedImage thumbnailImage = resizeAndOrient(
+                    previewImage, ExifOrientation.NORMAL, thumbnail.maxWidth(), decoded);
+                return Optional.of(new DerivedImages(
+                    decoded.sourceWidth(),
+                    decoded.sourceHeight(),
+                    encodeDerivative(thumbnailImage, thumbnail),
+                    encodeDerivative(previewImage, preview)));
+            }
+            // 프리뷰가 없거나 더 작게 설정되면 썸네일의 해상도를 낮추지 않는다.
             return Optional.of(new DerivedImages(
-                orientation.displayWidthOf(original),
-                orientation.displayHeightOf(original),
-                derive(original, orientation, thumbnail),
-                preview == null ? null : derive(original, orientation, preview)));
+                decoded.sourceWidth(),
+                decoded.sourceHeight(),
+                encodeDerivative(resizeAndOrient(original, orientation, thumbnail.maxWidth(), decoded), thumbnail),
+                preview == null ? null : encodeDerivative(
+                    resizeAndOrient(original, orientation, preview.maxWidth(), decoded), preview)));
         } catch (IOException e) {
             // 디코딩을 넘긴 뒤의 축소·인코딩 실패는 원본이 깨졌다는 근거가 되지 못한다. 네이티브
             // WebP 라이터가 한 번 흔들린 것을 빈 값으로 돌려주면 멀쩡한 사진이 영구 FAILED 가
@@ -126,18 +138,25 @@ public class ThumbnailatorImageProcessor {
 
     // 원본 전체를 먼저 회전하면 디코딩 원본과 같은 크기의 회전 버퍼가 동시에 살아 있어 메모리를
     // 크게 쓴다. 표시 방향의 너비를 기준으로 먼저 줄인 뒤 작은 이미지에만 방향을 적용한다.
-    private DerivedImage derive(BufferedImage original, ExifOrientation orientation,
-                                DerivativeSpec spec) throws IOException {
-        int displayWidth = orientation.displayWidthOf(original);
-        BufferedImage scaled = original;
-        if (spec.maxWidth() < displayWidth) {
-            double scale = (double) spec.maxWidth() / displayWidth;
-            scaled = Thumbnails.of(original)
-                .scale(scale)
-                .asBufferedImage();
+    private BufferedImage resizeAndOrient(BufferedImage source, ExifOrientation orientation,
+                                           int maxWidth, DerivativeImageDecoder.DecodedImage decoded)
+        throws IOException {
+        // 샘플링·프리뷰 축소 과정에서 생긴 반올림을 다시 비율 계산에 쓰지 않는다.
+        // 최종 크기는 항상 원본의 표시 치수로 계산한다.
+        int displayWidth = Math.min(maxWidth, decoded.sourceWidth());
+        int displayHeight = Math.max(1, (int) Math.round(
+            decoded.sourceHeight() * ((double) displayWidth / decoded.sourceWidth())));
+        int width = orientation.displayWidthOf(displayWidth, displayHeight);
+        int height = orientation.displayHeightOf(displayWidth, displayHeight);
+        BufferedImage scaled = source;
+        if (source.getWidth() != width || source.getHeight() != height) {
+            scaled = Thumbnails.of(source).forceSize(width, height).asBufferedImage();
         }
-        BufferedImage oriented = orientation.applyTo(scaled);
-        return new DerivedImage(encode(oriented, spec.format(), spec.quality()), spec.format());
+        return orientation.applyTo(scaled);
+    }
+
+    private DerivedImage encodeDerivative(BufferedImage image, DerivativeSpec spec) throws IOException {
+        return new DerivedImage(encode(image, spec.format(), spec.quality()), spec.format());
     }
 
     // Thumbnailator 의 outputFormat 을 쓰지 않고 직접 인코딩한다. WebP 라이터는 ImageIO 에
