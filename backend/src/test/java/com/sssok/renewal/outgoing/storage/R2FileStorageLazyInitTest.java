@@ -18,12 +18,14 @@ class R2FileStorageLazyInitTest {
 
     @Test
     void 자격증명이_없어도_빈은_만들어진다() {
-        assertThatCode(() -> new R2FileStorage(EMPTY)).doesNotThrowAnyException();
+        assertThatCode(() -> new R2FileStorage(EMPTY, new R2UploadStrategyResolver(
+            java.util.List.of(new SinglePutUploadStrategy(), new MultipartUploadStrategy())))).doesNotThrowAnyException();
     }
 
     @Test
     void 실제로_쓸_때_비로소_자격증명을_요구한다() {
-        R2FileStorage adapter = new R2FileStorage(EMPTY);
+        R2FileStorage adapter = new R2FileStorage(EMPTY, new R2UploadStrategyResolver(
+            java.util.List.of(new SinglePutUploadStrategy(), new MultipartUploadStrategy())));
 
         assertThatThrownBy(() -> adapter.presignPut(
             StorageKey.generate(1L, MediaType.PNG), "image/png", Duration.ofMinutes(10)))

@@ -25,7 +25,8 @@ class R2UploadContractTest {
     @Test
     void 실제_SDK로_네트워크_없이_경로와_TTL과_ContentType을_서명한다() {
         R2FileStorage client = new R2FileStorage(new R2Properties(
-            "https://storage.example.com", "test-access", "test-secret", "uploads", null));
+            "https://storage.example.com", "test-access", "test-secret", "uploads", null), new R2UploadStrategyResolver(
+            java.util.List.of(new SinglePutUploadStrategy(), new MultipartUploadStrategy())));
         try {
             URI url = URI.create(client.presignPut(new StorageKey("rooms/1/file.jpg"),
                 "image/jpeg", Duration.ofSeconds(600)));
@@ -84,7 +85,8 @@ class R2UploadContractTest {
 
     private R2FileStorage storageWith(S3Client sdk) {
         R2FileStorage storage = new R2FileStorage(new R2Properties(
-            "https://storage.example.com", "test-access", "test-secret", "uploads", null));
+            "https://storage.example.com", "test-access", "test-secret", "uploads", null), new R2UploadStrategyResolver(
+            java.util.List.of(new SinglePutUploadStrategy(), new MultipartUploadStrategy())));
         ReflectionTestUtils.setField(storage, "client", sdk);
         return storage;
     }
