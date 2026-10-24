@@ -18,6 +18,7 @@ public class UploadMemberRepository {
     }
 
     private Member toDomain(MemberJpaEntity entity) {
-        return Member.reconstruct(entity.getId(), new Nickname(entity.getNickname()), entity.getCreatedAt());
+        return Member.reconstruct(entity.getId(), new Nickname(entity.getNickname()),
+            entity.getCreatedAt(), entity.getStatus());
     }
 }

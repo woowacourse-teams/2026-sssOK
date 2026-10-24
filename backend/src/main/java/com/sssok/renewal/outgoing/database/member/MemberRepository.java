@@ -38,7 +38,8 @@ public class MemberRepository {
         return new MemberJpaEntity(
             member.getId(),
             member.getDisplayName().value(),
-            member.getCreatedAt()
+            member.getCreatedAt(),
+            member.getStatus()
         );
     }
 
@@ -46,7 +47,8 @@ public class MemberRepository {
         return Member.reconstruct(
             entity.getId(),
             new Nickname(entity.getNickname()),
-            entity.getCreatedAt()
+            entity.getCreatedAt(),
+            entity.getStatus()
         );
     }
 }
