@@ -46,12 +46,13 @@ public class ThumbnailatorImageProcessor {
     public Optional<DerivedImages> derive(byte[] source, DerivativeSpec thumbnail,
                                           DerivativeSpec preview) {
         ExifOrientation orientation = readOrientation(source);
-        BufferedImage original = decode(source);
-        if (original == null) {
+        int requiredWidth = preview == null ? thumbnail.maxWidth()
+            : Math.max(thumbnail.maxWidth(), preview.maxWidth());
+        var decoded = new DerivativeImageDecoder().decode(source, orientation, requiredWidth);
+        if (decoded == null) {
             return Optional.empty();
         }
-        var decoded = new DerivativeImageDecoder.DecodedImage(original,
-            orientation.displayWidthOf(original), orientation.displayHeightOf(original));
+        BufferedImage original = decoded.pixels();
         try {
             if (preview != null && preview.maxWidth() >= thumbnail.maxWidth()) {
                 // 압축된 프리뷰를 다시 읽지 않고, 인코딩 전 픽셀을 공유한다.
@@ -90,16 +91,6 @@ public class ThumbnailatorImageProcessor {
             return ExifOrientation.from(value);
         } catch (ImageProcessingException | IOException | RuntimeException e) {
             return ExifOrientation.NORMAL;
-        }
-    }
-
-    // ImageIO 는 읽을 수 없는 형식이면 예외 대신 null 을 주고, 헤더가 깨져 있으면 IOException 을
-    // 던진다. 둘 다 "이 바이트는 이미지가 아니다" 라는 같은 결론이라 한 자리에서 null 로 모은다.
-    private BufferedImage decode(byte[] source) {
-        try {
-            return ImageIO.read(new ByteArrayInputStream(source));
-        } catch (IOException | IllegalArgumentException e) {
-            return null;
         }
     }
 
