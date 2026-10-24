@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.*;
 
 import com.sssok.renewal.outgoing.config.ImageSearchProperties;
+import com.sssok.renewal.outgoing.config.ImageSearchWorkerConfig;
 import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
 import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
 import java.time.Clock;
@@ -28,7 +29,7 @@ class ImageAnalysisDispatcherTest {
     void 한번_깨우면_20개를_넘는_작업도_동시성_상한_안에서_연속_처리한다() throws Exception {
         var queue = new ConcurrentLinkedQueue<AnalysisAttempt>();
         for (long id = 1; id <= 60; id++) { queue.add(new AnalysisAttempt(id, 1)); }
-        when(documents.claimNext(any(), anyInt())).thenAnswer(call -> Optional.ofNullable(queue.poll()));
+        when(documents.claimNextPendingAnalysis(any(), anyInt())).thenAnswer(call -> Optional.ofNullable(queue.poll()));
         var entered = new CountDownLatch(2);
         var release = new CountDownLatch(1);
         var completed = new CountDownLatch(60);
@@ -46,10 +47,8 @@ class ImageAnalysisDispatcherTest {
             }
             return null;
         }).when(analyzer).analyze(any(AnalysisAttempt.class));
-        var executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(2);
-        executor.setQueueCapacity(0);
+        var executor = (ThreadPoolTaskExecutor) new ImageSearchWorkerConfig()
+            .imageAnalysisTaskExecutor(properties);
         executor.initialize();
         try {
             var dispatcher = new ImageAnalysisDispatcher(executor, analyzer, documents, properties, Clock.systemUTC());
@@ -83,12 +82,12 @@ class ImageAnalysisDispatcherTest {
         var executor = mock(AsyncTaskExecutor.class);
         doAnswer(call -> { ((Runnable) call.getArgument(0)).run(); return null; })
             .when(executor).execute(any(Runnable.class));
-        when(documents.claimNext(any(), anyInt()))
+        when(documents.claimNextPendingAnalysis(any(), anyInt()))
             .thenThrow(new IllegalStateException("database unavailable"))
             .thenReturn(Optional.empty());
         var dispatcher = new ImageAnalysisDispatcher(executor, analyzer, documents, properties, Clock.systemUTC());
         dispatcher.dispatch();
-        when(documents.claimNext(any(), anyInt()))
+        when(documents.claimNextPendingAnalysis(any(), anyInt()))
             .thenReturn(Optional.of(new AnalysisAttempt(1L, 1)), Optional.empty());
         dispatcher.dispatch();
         verify(analyzer).analyze(new AnalysisAttempt(1L, 1));

@@ -48,7 +48,7 @@ public class ImageAnalysisDispatcher {
     private void drain() {
         try {
             while (!Thread.currentThread().isInterrupted()) {
-                var attempt = documents.claimNext(clock.instant(), properties.maxAttempts());
+                var attempt = documents.claimNextPendingAnalysis(clock.instant(), properties.maxAttempts());
                 if (attempt.isEmpty()) { return; }
                 analyzer.analyze(attempt.get());
             }

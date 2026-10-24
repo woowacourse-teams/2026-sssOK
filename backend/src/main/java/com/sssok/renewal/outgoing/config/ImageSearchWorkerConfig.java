@@ -37,7 +37,9 @@ public class ImageSearchWorkerConfig {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setThreadNamePrefix("image-analysis-");
         executor.setCorePoolSize(properties.concurrency());
-        executor.setMaxPoolSize(properties.concurrency());
+        // 슬롯 반환 직후 기존 스레드가 종료 처리 중인 경우를 위해 여유를 둔다.
+        // 실제 분석 동시성은 Dispatcher의 Semaphore가 제한한다.
+        executor.setMaxPoolSize(properties.concurrency() + 1);
         // 대기열은 DB만 사용한다. 슬롯 확보 후 실제 실행한 워커가 선점한다.
         executor.setQueueCapacity(0);
         return executor;

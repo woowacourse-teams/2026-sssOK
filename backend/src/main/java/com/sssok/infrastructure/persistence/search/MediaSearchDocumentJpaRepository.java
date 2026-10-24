@@ -2,6 +2,7 @@ package com.sssok.infrastructure.persistence.search;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -35,17 +36,33 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         """, nativeQuery = true)
     int register(@Param("mediaId") Long mediaId, @Param("now") Instant now);
 
+    // 변경 결과 행을 반환하므로 executeUpdate를 사용하는 @Modifying을 붙이지 않는다.
     @Query(value = """
-        SELECT d.media_id
-        FROM media_search_document d
-        JOIN stored_file f ON f.id = d.media_id
-        WHERE d.status = 'PENDING' AND d.next_attempt_at <= :now
-            AND d.attempts < :maxAttempts AND f.status = 'READY'
-            AND f.media_type IN ('JPEG', 'PNG', 'GIF')
-        ORDER BY d.next_attempt_at, d.media_id
-        LIMIT 1 FOR UPDATE OF d SKIP LOCKED
+        WITH claimed AS (
+            UPDATE media_search_document d
+            SET status = 'PROCESSING', attempts = d.attempts + 1,
+                started_at = :now, updated_at = :now, error_code = NULL
+            WHERE d.media_id = (
+                SELECT candidate.media_id
+                FROM media_search_document candidate
+                JOIN stored_file f ON f.id = candidate.media_id
+                WHERE candidate.status = 'PENDING' AND candidate.next_attempt_at <= :now
+                    AND candidate.attempts < :maxAttempts AND f.status = 'READY'
+                    AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+                ORDER BY candidate.next_attempt_at, candidate.media_id
+                LIMIT 1 FOR UPDATE OF candidate SKIP LOCKED
+            )
+            RETURNING d.media_id, d.attempts
+        )
+        SELECT media_id AS "mediaId", attempts FROM claimed
         """, nativeQuery = true)
-    java.util.Optional<Long> lockNextPending(@Param("now") Instant now, @Param("maxAttempts") int maxAttempts);
+    Optional<AnalysisClaim> claimNextPendingAnalysis(
+        @Param("now") Instant now, @Param("maxAttempts") int maxAttempts);
+
+    interface AnalysisClaim {
+        Long getMediaId();
+        int getAttempts();
+    }
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = """

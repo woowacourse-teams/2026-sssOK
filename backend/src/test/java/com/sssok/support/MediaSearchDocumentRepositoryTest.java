@@ -23,6 +23,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @PostgresIntegrationTest
 class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
@@ -36,6 +38,8 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     private EntityManager entityManager;
     @Autowired
     private MediaSearchDocumentRepository repository;
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @BeforeEach
     void setup() {
@@ -58,14 +62,14 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             Callable<AnalysisAttempt> claim = () -> {
                 assertThat(start.await(5, TimeUnit.SECONDS)).isTrue();
-                return repository.claimNext(now, 3).orElseThrow();
+                return repository.claimNextPendingAnalysis(now, 3).orElseThrow();
             };
             var first = executor.submit(claim);
             var second = executor.submit(claim);
             start.countDown();
             assertThat(List.of(first.get(10, TimeUnit.SECONDS).mediaId(),
                 second.get(10, TimeUnit.SECONDS).mediaId())).containsExactlyInAnyOrder(460001L, 460002L);
-            assertThat(repository.claimNext(now, 3)).isEmpty();
+            assertThat(repository.claimNextPendingAnalysis(now, 3)).isEmpty();
         }
     }
 
@@ -77,8 +81,37 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         jdbc.update("UPDATE media_search_document SET next_attempt_at = ? WHERE media_id = 460001",
             Timestamp.from(now.plusSeconds(60)));
         jdbc.update("UPDATE media_search_document SET attempts = 3 WHERE media_id = 460002");
-        assertThat(repository.claimNext(now, 3)).isEmpty();
-        assertThat(repository.claimNext(now.plusSeconds(60), 3).orElseThrow().mediaId()).isEqualTo(460001L);
+        assertThat(repository.claimNextPendingAnalysis(now, 3)).isEmpty();
+        assertThat(repository.claimNextPendingAnalysis(now.plusSeconds(60), 3).orElseThrow().mediaId()).isEqualTo(460001L);
+    }
+
+    @Test
+    void DB큐_재선점은_증가한_시도번호와_갱신된_상태를_반환한다() {
+        repository.register(460001L, now);
+        AnalysisAttempt first = repository.claimNextPendingAnalysis(now, 3).orElseThrow();
+        assertThat(first).isEqualTo(new AnalysisAttempt(460001L, 1));
+        Instant retryAt = now.plusSeconds(60);
+        assertThat(repository.fail(first, "AI_TIMEOUT", now, retryAt, 3, true)).isTrue();
+        assertThat(repository.claimNextPendingAnalysis(now, 3)).isEmpty();
+        assertThat(repository.claimNextPendingAnalysis(retryAt, 3)).contains(new AnalysisAttempt(460001L, 2));
+        assertThat(jdbc.queryForObject(
+            "SELECT status FROM media_search_document WHERE media_id = 460001", String.class))
+            .isEqualTo("PROCESSING");
+        assertThat(jdbc.queryForObject(
+            "SELECT error_code FROM media_search_document WHERE media_id = 460001", String.class)).isNull();
+        assertThat(jdbc.queryForObject(
+            "SELECT started_at FROM media_search_document WHERE media_id = 460001", Timestamp.class).toInstant())
+            .isEqualTo(retryAt);
+    }
+
+    @Test
+    void DB큐_선점은_호출_트랜잭션이_롤백되면_시도횟수도_복원한다() {
+        repository.register(460001L, now);
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            assertThat(repository.claimNextPendingAnalysis(now, 3)).contains(new AnalysisAttempt(460001L, 1));
+            status.setRollbackOnly();
+        });
+        assertThat(repository.claimNextPendingAnalysis(now, 3)).contains(new AnalysisAttempt(460001L, 1));
     }
 
     @Test

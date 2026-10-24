@@ -36,11 +36,10 @@ public class MediaSearchDocumentRepository {
             .map(document -> new AnalysisAttempt(mediaId, document.getAttempts()));
     }
 
-    public Optional<AnalysisAttempt> claimNext(Instant now, int maxAttempts) {
+    public Optional<AnalysisAttempt> claimNextPendingAnalysis(Instant now, int maxAttempts) {
         requirePositive(maxAttempts);
-        // 조회와 상태 변경을 같은 짧은 트랜잭션에서 수행한다.
-        return jpaRepository.lockNextPending(now, maxAttempts)
-            .flatMap(mediaId -> claim(mediaId, now, maxAttempts));
+        return jpaRepository.claimNextPendingAnalysis(now, maxAttempts)
+            .map(result -> new AnalysisAttempt(result.getMediaId(), result.getAttempts()));
     }
 
     public boolean complete(AnalysisAttempt attempt, ImageAnalysis analysis, Instant now) {
