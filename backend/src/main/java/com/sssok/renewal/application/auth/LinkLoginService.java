@@ -31,6 +31,10 @@ public class LinkLoginService {
 
         LinkCode linkCode = linkCodeRepository.findByCode(code)
             .orElseThrow(LinkCodeNotFoundException::new);
+        // 전체 인증 무효화와 동일하게 회원 → 코드 순서로 잠근다.
+        if (!memberRepository.lockById(linkCode.getMemberId())) {
+            throw new LinkCodeNotFoundException();
+        }
         if (linkCode.isExpired(now)) {
             linkCodeRepository.deleteByCode(code);
             throw new LinkCodeExpiredException();

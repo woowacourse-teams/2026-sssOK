@@ -11,31 +11,35 @@ import io.jsonwebtoken.security.Keys;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
+import java.util.UUID;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
-public class JwtTokenProvider implements TokenProvider {
+public class JwtTokenProvider {
 
     private final JwtProperties jwtProperties;
 
-    @Override
-    public IssuedToken issue(Long memberId, Instant now) {
+    public TokenProvider.IssuedToken issue(Long memberId, Instant now) {
         Instant expiresAt = now.plus(jwtProperties.accessTokenTtl());
         String token = Jwts.builder()
+            .id(UUID.randomUUID().toString())
             .subject(String.valueOf(memberId))
             .claim(TokenSubjectType.CLAIM_NAME, TokenSubjectType.MEMBER.claimValue())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiresAt))
             .signWith(secretKey())
             .compact();
-        return new IssuedToken(token, expiresAt);
+        return new TokenProvider.IssuedToken(token, expiresAt);
     }
 
-    @Override
     public Long parse(String token) {
+        return verify(token).memberId();
+    }
+
+    public VerifiedToken verify(String token) {
         try {
             Claims claims = Jwts.parser()
                 .verifyWith(secretKey())
@@ -43,10 +47,17 @@ public class JwtTokenProvider implements TokenProvider {
                 .parseSignedClaims(token)
                 .getPayload();
             requireMemberSubject(claims);
-            return Long.valueOf(claims.getSubject());
+            if (claims.getExpiration() == null) {
+                throw new UnauthorizedException("다시 접속해주세요");
+            }
+            return new VerifiedToken(Long.valueOf(claims.getSubject()), claims.getId(),
+                claims.getExpiration().toInstant());
         } catch (JwtException | IllegalArgumentException e) {
             throw new UnauthorizedException("다시 접속해주세요");
         }
+    }
+
+    public record VerifiedToken(Long memberId, String sessionId, Instant expiresAt) {
     }
 
     // 회원 토큰만 통과시킨다. 관리자 토큰은 물론이고 모르는 타입도 거부한다.

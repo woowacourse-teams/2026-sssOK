@@ -19,9 +19,13 @@ class IssueLinkCodeServiceTest {
     @Autowired
     LinkCodeJpaRepository linkCodeJpaRepository;
 
+    @Autowired
+    AnonymousAuthService anonymousAuthService;
+
     @Test
     void 코드를_발급하면_6자리_숫자와_만료시각을_받는다() {
-        LinkCodeResult result = issueLinkCodeService.issue(10L);
+        Long memberId = anonymousAuthService.authenticate("로지").userId();
+        LinkCodeResult result = issueLinkCodeService.issue(memberId);
 
         assertThat(result.linkCode()).matches("\\d{6}");
         assertThat(result.expiresAt()).isNotNull();
@@ -29,11 +33,12 @@ class IssueLinkCodeServiceTest {
 
     @Test
     void 같은_회원이_다시_발급하면_이전_코드는_무효화된다() {
-        issueLinkCodeService.issue(10L);
-        issueLinkCodeService.issue(10L);
+        Long memberId = anonymousAuthService.authenticate("로지").userId();
+        issueLinkCodeService.issue(memberId);
+        issueLinkCodeService.issue(memberId);
 
         assertThat(linkCodeJpaRepository.findAll())
-            .filteredOn(entity -> entity.getMemberId().equals(10L))
+            .filteredOn(entity -> entity.getMemberId().equals(memberId))
             .hasSize(1);
     }
 }

@@ -1,6 +1,8 @@
 package com.sssok.renewal.application.auth;
 
 import com.sssok.renewal.outgoing.database.auth.LinkCodeRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.LinkCode;
 import com.sssok.renewal.domain.auth.LinkCodeValue;
 import java.security.SecureRandom;
@@ -16,11 +18,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class IssueLinkCodeService {
 
     private final LinkCodeRepository linkCodeRepository;
+    private final MemberRepository memberRepository;
     private final RandomGenerator randomGenerator = new SecureRandom();
 
     // 이전 코드 삭제 + 새 코드 저장이 하나의 원자적 단위로 묶여야 해서 명시적으로 트랜잭션을 연다.
     @Transactional
     public LinkCodeResult issue(Long memberId) {
+        if (!memberRepository.lockById(memberId)
+            || !memberRepository.findById(memberId).orElseThrow().isActive()) {
+            throw new UnauthorizedException("다시 접속해주세요");
+        }
         Instant now = Instant.now();
         linkCodeRepository.deleteAllByMemberId(memberId);
 
