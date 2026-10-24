@@ -15,7 +15,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor;
@@ -110,21 +109,12 @@ class GenerateThumbnailServiceTest {
         // 영상 경로는 원본을 내려받는 대신 이 주소를 추출기에 넘긴다.
         given(fileStorage.presignGet(any(), anyString(), anyString(), any()))
             .willReturn("https://r2.example.com/원본?sig=아무거나");
-        given(fileStorage.openUploadStream(any(), anyString()))
-            .willAnswer(call -> {
-                ByteArrayOutputStream target = uploaded.computeIfAbsent(
-                    call.getArgument(0), key -> new ByteArrayOutputStream());
-                return new AbortableOutputStream() {
-                    @Override
-                    public void write(int b) {
-                        target.write(b);
-                    }
-
-                    @Override
-                    public void abort() {
-                    }
-                };
-            });
+        org.mockito.Mockito.doAnswer(call -> {
+            ByteArrayOutputStream target = new ByteArrayOutputStream();
+            target.writeBytes(call.getArgument(1));
+            uploaded.put(call.getArgument(0), target);
+            return null;
+        }).when(fileStorage).upload(any(), any(byte[].class), anyString());
     }
 
     @Test
@@ -137,7 +127,7 @@ class GenerateThumbnailServiceTest {
         StoredFile after = reload(file);
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);
         assertThat(after.getThumbnailKey()).isNotNull();
-        verify(fileStorage).openUploadStream(eq(after.getThumbnailKey()), eq("image/webp"));
+        verify(fileStorage).upload(eq(after.getThumbnailKey()), any(byte[].class), eq("image/webp"));
         assertRecorded("image", "initial", "success");
     }
 
@@ -188,7 +178,7 @@ class GenerateThumbnailServiceTest {
 
         generate(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
-        verify(fileStorage, times(2)).openUploadStream(any(), eq("image/webp"));
+        verify(fileStorage, times(2)).upload(any(), any(byte[].class), eq("image/webp"));
         assertThat(formatOf(uploadedThumbnail())).isEqualToIgnoringCase("webp");
         assertThat(formatOf(uploadedPreview())).isEqualToIgnoringCase("webp");
     }
@@ -230,7 +220,7 @@ class GenerateThumbnailServiceTest {
         StoredFile after = reload(file);
         assertThat(after.getThumbnailKey()).isNotNull();
         assertThat(after.getPreviewKey()).isNull();
-        verify(fileStorage, times(1)).openUploadStream(any(), anyString());
+        verify(fileStorage, times(1)).upload(any(), any(byte[].class), anyString());
     }
 
     @Test
@@ -292,7 +282,7 @@ class GenerateThumbnailServiceTest {
 
         generate(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
-        verify(fileStorage).openUploadStream(any(), eq("image/jpeg"));
+        verify(fileStorage).upload(any(), any(byte[].class), eq("image/jpeg"));
     }
 
     // 영상은 최대 1GB 라, 통째로 내려받으면 힙이 터진다. 서명 URL 만 넘겨야 한다.
@@ -330,8 +320,8 @@ class GenerateThumbnailServiceTest {
     void 파생본_업로드가_실패해도_예외를_밖으로_내보내지_않는다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(3000, 2000, "jpg"));
-        given(fileStorage.openUploadStream(any(), anyString()))
-            .willThrow(new RuntimeException("R2 가 잠깐 흔들렸다"));
+        org.mockito.Mockito.doThrow(new RuntimeException("R2 가 잠깐 흔들렸다"))
+            .when(fileStorage).upload(any(), any(byte[].class), anyString());
 
         assertThatNoException()
             .isThrownBy(() -> generate(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), Source.INITIAL));
@@ -349,9 +339,9 @@ class GenerateThumbnailServiceTest {
     void 프리뷰에서_실패하면_썸네일까지_확정하지_않고_다시_태운다() {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(3000, 2000, "jpg"));
-        given(fileStorage.openUploadStream(
-            argThat(key -> key != null && key.value().contains("/previews/")), anyString()))
-            .willThrow(new RuntimeException("프리뷰만 실패"));
+        org.mockito.Mockito.doThrow(new RuntimeException("프리뷰만 실패"))
+            .when(fileStorage).upload(
+                argThat(key -> key != null && key.value().contains("/previews/")), any(byte[].class), anyString());
 
         generate(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
@@ -449,7 +439,7 @@ class GenerateThumbnailServiceTest {
         generate(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), Source.INITIAL);
 
         verify(fileStorage, never()).openDownloadStream(any());
-        verify(fileStorage, never()).openUploadStream(any(), anyString());
+        verify(fileStorage, never()).upload(any(), any(byte[].class), anyString());
         assertRecorded("image", "initial", "skipped");
     }
 
@@ -488,24 +478,19 @@ class GenerateThumbnailServiceTest {
     com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository thumbnailJobs;
 
     @Test
-    void 업로드_전에_파일_경로를_기록하고_쓰기_실패시_스트림을_중단한다() throws IOException {
+    void 업로드_전에_파일_경로를_기록하고_실패시_재시도를_예약한다() throws IOException {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(300, 200, "jpg"));
-        AbortableOutputStream uploadStream = org.mockito.Mockito.mock(AbortableOutputStream.class);
-        org.mockito.Mockito.doThrow(new IOException("upload failed"))
-            .when(uploadStream).write(any(byte[].class));
-        given(fileStorage.openUploadStream(any(), anyString())).willAnswer(invocation -> {
+        org.mockito.Mockito.doAnswer(invocation -> {
             StorageKey uploadKey = invocation.getArgument(0);
-            com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity job =
-                thumbnailJobs.findById(file.getId()).orElseThrow();
+            var job = thumbnailJobs.findById(file.getId()).orElseThrow();
             assertThat(job.getThumbnailKey()).isEqualTo(uploadKey.value());
             assertThat(job.getPreviewKey()).isNotNull();
-            return uploadStream;
-        });
+            throw new RuntimeException("upload failed");
+        }).when(fileStorage).upload(any(), any(byte[].class), anyString());
 
         generate(file.getId(), ThumbnailKind.IMAGE, Source.INITIAL);
 
-        verify(uploadStream).abort();
         assertThat(reload(file).getStatus()).isEqualTo(UploadStatus.PROCESSING);
         assertThat(thumbnailJobs.findById(file.getId()).orElseThrow().getState())
             .isEqualTo("RETRY_WAIT");
