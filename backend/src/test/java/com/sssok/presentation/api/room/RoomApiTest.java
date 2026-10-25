@@ -122,7 +122,6 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("INVALID_ROOM_NAME"));
     }
 
-
     @Test
     void roomId_자리에_방_코드를_넣으면_500이_아니라_400() throws Exception {
         String token = 익명_인증("가현");
@@ -404,7 +403,6 @@ class RoomApiTest extends PostgresContainerSupport {
         assertThat(값(guestJoin, "userId")).isNotEqualTo(값(guestJoin, "hostId"));
     }
 
-
     @Test
     void 없는_방에_입장하면_404() throws Exception {
         입장(익명_인증("민수"), -1L)
@@ -434,6 +432,41 @@ class RoomApiTest extends PostgresContainerSupport {
                 .content("{}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 목록_조회부터_나가기_권한차단_재참여까지_동작한다() throws Exception {
+        String host = 익명_인증("방장");
+        String guest = 익명_인증("참여자");
+        long roomId = 방_만들기(host).roomId();
+        입장(guest, roomId).andExpect(status().isCreated());
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", "Bearer " + guest))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.rooms[0].isHost").value(false))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(2));
+        mockMvc.perform(delete("/api/v1/rooms/{id}/members/me", roomId)
+                .header("Authorization", "Bearer " + host))
+            .andExpect(status().isConflict());
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(delete("/api/v1/rooms/{id}/members/me", roomId)
+                    .header("Authorization", "Bearer " + guest))
+                .andExpect(status().isNoContent());
+        }
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", "Bearer " + guest))
+            .andExpect(jsonPath("$.data.rooms").isEmpty());
+        mockMvc.perform(get("/api/v1/rooms/{id}/events", roomId)
+                .header("Authorization", "Bearer " + guest))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/rooms/{id}/media/upload-urls", roomId)
+                .header("Authorization", "Bearer " + guest)
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/rooms/{id}/media", roomId)
+                .header("Authorization", "Bearer " + guest))
+            .andExpect(status().isForbidden());
+        입장(guest, roomId).andExpect(status().isCreated());
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", "Bearer " + guest))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(2));
     }
 
     private ResultActions 방_생성(String token, String body) throws Exception {

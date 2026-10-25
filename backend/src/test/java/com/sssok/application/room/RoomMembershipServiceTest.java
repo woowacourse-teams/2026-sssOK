@@ -8,6 +8,7 @@ import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomHostCannotLeaveException;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
@@ -271,7 +272,39 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
         assertThat(roomMembershipService.getMyRooms(hostId).getFirst().thumbnailUrl()).contains("old.webp");
     }
 
+    @Test
+    void 나가기와_반복_요청은_미디어를_유지하고_재참여는_새_기록을_만든다() {
+        Room room = createRoom();
+        roomMembershipService.join(room.getId(), guestId);
+        var before = roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId).orElseThrow();
+        saveMedia(room.getId(), guestId, "JPEG", "READY", "retained.webp");
+        roomMembershipService.leave(room.getId(), guestId);
+        roomMembershipService.leave(room.getId(), guestId);
+        assertThat(roomMembershipService.getMyRooms(guestId)).isEmpty();
+        assertThat(roomMembershipService.getMyRooms(hostId).getFirst().memberCount()).isEqualTo(1);
+        assertThat(roomMembershipService.getMyRooms(hostId).getFirst().mediaCount()).isEqualTo(1);
+        assertThatThrownBy(() -> sseEventPublisher.subscribe(room.getId(), guestId, null))
+            .isInstanceOf(RoomMembershipRequiredException.class);
+        assertThat(roomMembershipService.join(room.getId(), guestId).newlyJoined()).isTrue();
+        var after = roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId).orElseThrow();
+        assertThat(after.getId()).isNotEqualTo(before.getId());
+        assertThat(after.getJoinedAt()).isAfter(before.getJoinedAt());
+        assertThat(roomMembershipService.getMyRooms(hostId).getFirst().memberCount()).isEqualTo(2);
+    }
 
+    @Test
+    void 방장은_나갈_수_없지만_삭제된_방의_참여_기록은_정리할_수_있다() {
+        Room room = createRoom();
+        assertThatThrownBy(() -> roomMembershipService.leave(room.getId(), hostId))
+            .isInstanceOf(RoomHostCannotLeaveException.class);
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), hostId)).isPresent();
+        room.delete(hostId, Instant.now());
+        roomRepository.save(room);
+        roomMembershipService.leave(room.getId(), hostId);
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), hostId)).isEmpty();
+        assertThatThrownBy(() -> roomMembershipService.leave(Long.MAX_VALUE, hostId))
+            .isInstanceOf(RoomNotFoundException.class);
+    }
 
     @Test
     void 같은_참여시각도_ID_역순으로_정렬하고_참여하지_않은_회원은_빈_목록이다() {
@@ -287,7 +320,49 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
             .containsExactly(second.getId(), first.getId());
     }
 
+    @Test
+    void 나가기_롤백이면_연결을_유지하고_커밋하면_본인의_연결만_종료한다() throws Exception {
+        Room room = createRoom();
+        roomMembershipService.join(room.getId(), guestId);
+        var guest = sseEventPublisher.subscribe(room.getId(), guestId, null);
+        var host = sseEventPublisher.subscribe(room.getId(), hostId, null);
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx -> {
+            roomMembershipService.leave(room.getId(), guestId);
+            tx.setRollbackOnly();
+        });
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)).isPresent();
+        guest.send("still joined");
+        roomMembershipService.leave(room.getId(), guestId);
+        assertThatThrownBy(() -> guest.send("left")).isInstanceOf(IllegalStateException.class);
+        host.send("still host");
+        sseEventPublisher.completeAll(room.getId());
+    }
 
+    @Test
+    void 입장과_나가기가_동시에_요청되어도_중간_참여기록_소실로_실패하지_않는다() throws Exception {
+        Room room = createRoom();
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            for (int i = 0; i < 10; i++) {
+                var start = new CountDownLatch(1);
+                var join = pool.submit(() -> {
+                    start.await();
+                    return roomMembershipService.join(room.getId(), guestId);
+                });
+                var leave = pool.submit(() -> {
+                    start.await();
+                    roomMembershipService.leave(room.getId(), guestId);
+                    return null;
+                });
+                start.countDown();
+                join.get(10, TimeUnit.SECONDS);
+                leave.get(10, TimeUnit.SECONDS);
+            }
+        }
+        assertThat(entityManager.createQuery(
+            "SELECT count(m) FROM RoomMemberJpaEntity m WHERE m.roomId = :roomId AND m.memberId = :memberId", Long.class)
+            .setParameter("roomId", room.getId()).setParameter("memberId", guestId).getSingleResult())
+            .isBetween(0L, 1L);
+    }
 
     @Test
     void 한_회원의_입장_트랜잭션이_끝나기_전에도_다른_회원은_입장할_수_있다() throws Exception {
@@ -329,6 +404,27 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
         }
     }
 
+    @Test
+    void 같은_회원의_나가기_요청이_겹쳐도_모두_성공한다() throws Exception {
+        Room room = createRoom();
+        roomMembershipService.join(room.getId(), guestId);
+        try (var pool = Executors.newFixedThreadPool(4)) {
+            var start = new CountDownLatch(1);
+            var requests = new ArrayList<Future<?>>();
+            for (int i = 0; i < 4; i++) {
+                requests.add(pool.submit(() -> {
+                    start.await();
+                    roomMembershipService.leave(room.getId(), guestId);
+                    return null;
+                }));
+            }
+            start.countDown();
+            for (var request : requests) {
+                request.get(5, TimeUnit.SECONDS);
+            }
+        }
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)).isEmpty();
+    }
 
     private Long createMember(String nickname) {
         AuthResult result = anonymousAuthService.authenticate(nickname);

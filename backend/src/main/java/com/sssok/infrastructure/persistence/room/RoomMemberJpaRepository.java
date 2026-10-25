@@ -12,6 +12,13 @@ public interface RoomMemberJpaRepository extends JpaRepository<RoomMemberJpaEnti
 
     Optional<RoomMemberJpaEntity> findByRoomIdAndMemberId(Long roomId, Long memberId);
 
+    @Query("SELECT m.id FROM RoomMemberJpaEntity m WHERE m.roomId = :roomId AND m.memberId = :memberId")
+    Optional<Long> findMembershipId(@Param("roomId") Long roomId, @Param("memberId") Long memberId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM RoomMemberJpaEntity m WHERE m.id = :id")
+    int deleteMembershipById(@Param("id") Long id);
+
     // 기존 미디어 조회와 동일하게 JPA 네이티브 쿼리와 projection으로 필요한 값만 읽는다.
     // 집계를 분리해 미디어 × 참여자의 조인 곱으로 개수가 부풀지 않게 한다.
     @Query(value = """

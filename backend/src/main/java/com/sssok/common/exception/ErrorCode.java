@@ -63,6 +63,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
 
     // 409 Conflict
+    ROOM_HOST_CANNOT_LEAVE(409, "방장은 방에서 나갈 수 없습니다"),
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),

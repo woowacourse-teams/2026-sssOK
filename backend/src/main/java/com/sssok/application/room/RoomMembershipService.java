@@ -6,6 +6,7 @@ import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomHostCannotLeaveException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.member.Member;
 import com.sssok.domain.room.Room;
@@ -52,7 +53,15 @@ public class RoomMembershipService {
         return result;
     }
 
-
+    @Transactional
+    public void leave(Long roomId, Long memberId) {
+        Room room = getRoom(roomId);
+        if (!room.isDeleted() && room.isHost(memberId)) {
+            throw new RoomHostCannotLeaveException();
+        }
+        roomMemberRepository.deleteMembership(roomId, memberId)
+            .ifPresent(membershipId -> eventPublisher.publishEvent(new RoomMemberLeftEvent(roomId, membershipId)));
+    }
 
     private Room getRoom(Long roomId) {
         return roomRepository.findById(roomId)

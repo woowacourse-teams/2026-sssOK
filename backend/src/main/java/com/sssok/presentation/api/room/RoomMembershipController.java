@@ -10,12 +10,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "방 참여", description = "내 방 목록·입장")
+@Tag(name = "방 참여", description = "내 방 목록·입장·나가기")
 @RestController
 @RequiredArgsConstructor
 public class RoomMembershipController {
@@ -47,6 +48,17 @@ public class RoomMembershipController {
         HttpStatus status = result.newlyJoined() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status)
             .body(ApiResponse.of(RoomMemberResponse.from(result)));
+    }
+
+    @Operation(summary = "방 나가기", description = "본인의 참여 관계만 삭제한다. 미디어는 유지하며 재참여할 수 있다. "
+        + "반복 요청은 204, 존재하지 않는 방은 404, 삭제되지 않은 방의 방장은 409를 반환한다.")
+    @DeleteMapping("/rooms/{roomId}/members/me")
+    public ResponseEntity<Void> leaveRoom(
+        @Parameter(hidden = true) @AuthMember Long memberId,
+        @Parameter(description = "나갈 방의 ID") @PathVariable Long roomId
+    ) {
+        roomMembershipService.leave(roomId, memberId);
+        return ResponseEntity.noContent().build();
     }
 
 }

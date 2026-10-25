@@ -32,6 +32,7 @@ import com.sssok.application.room.UpdateRoomService;
 import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomHostCannotLeaveException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
@@ -444,6 +445,26 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.rooms[0].thumbnailUrl").value(Matchers.nullValue()));
     }
 
+    @Test
+    void 내_방_목록과_나가기는_인증이_필요하다() throws Exception {
+        mockMvc.perform(get("/api/v1/members/me/rooms")).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/v1/rooms/10/members/me")).andExpect(status().isUnauthorized());
+    }
 
+    @Test
+    void 나가기는_인증된_본인을_전달하고_본문_없이_204를_반환한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/rooms/10/members/me").header("Authorization", BEARER))
+            .andExpect(status().isNoContent())
+            .andExpect(MockMvcResultMatchers.content().string(""));
+        then(roomMembershipService).should().leave(ROOM_ID, MEMBER_ID);
+    }
 
+    @Test
+    void 방장_나가기는_409다() throws Exception {
+        Mockito.doThrow(new RoomHostCannotLeaveException())
+            .when(roomMembershipService).leave(ROOM_ID, MEMBER_ID);
+        mockMvc.perform(delete("/api/v1/rooms/10/members/me").header("Authorization", BEARER))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ROOM_HOST_CANNOT_LEAVE"));
+    }
 }

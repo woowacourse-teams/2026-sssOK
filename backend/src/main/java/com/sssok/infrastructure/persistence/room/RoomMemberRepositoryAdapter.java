@@ -23,7 +23,12 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
             .toList();
     }
 
-
+    @Override
+    public Optional<Long> deleteMembership(Long roomId, Long memberId) {
+        // 조회했던 참여 기록만 지운다. 그 사이 재참여한 새 기록에는 영향을 주지 않는다.
+        return jpaRepository.findMembershipId(roomId, memberId)
+            .filter(id -> jpaRepository.deleteMembershipById(id) > 0);
+    }
 
     @Override
     public RoomMember save(RoomMember roomMember) {
