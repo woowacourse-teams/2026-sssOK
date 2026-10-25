@@ -3,6 +3,10 @@ package com.sssok.infrastructure.realtime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.domain.room.RoomMember;
+import com.sssok.support.H2IntegrationTest;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -11,7 +15,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
 
 // publish()가 실제 Repository 빈을 통해 room_events에 기록하는지 확인하는 통합 테스트.
 // 실시간 전달(SseEmitter.send)은 실제 HTTP 연결이 있어야 검증 가능해 API 인수 테스트가 담당한다.
@@ -20,6 +23,9 @@ class InMemorySseEventPublisherTest {
 
     @Autowired
     InMemorySseEventPublisher sseEventPublisher;
+
+    @Autowired
+    RoomMemberRepository memberships;
 
     @Autowired
     RoomEventJpaRepository roomEventJpaRepository;
@@ -109,6 +115,7 @@ class InMemorySseEventPublisherTest {
     @Test
     void 같은_방에_구독과_발행이_동시에_일어나도_예외_없이_처리된다() throws InterruptedException {
         Long roomId = 16384L;
+        memberships.save(RoomMember.join(roomId, 1L, Instant.now()));
         int subscriberCount = 10;
         int publisherCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(subscriberCount + publisherCount);
@@ -120,7 +127,7 @@ class InMemorySseEventPublisherTest {
             executor.submit(() -> {
                 try {
                     start.await();
-                    sseEventPublisher.subscribe(roomId, 0L);
+                    sseEventPublisher.subscribe(roomId, 1L, 0L);
                 } catch (Throwable t) {
                     errors.add(t);
                 } finally {

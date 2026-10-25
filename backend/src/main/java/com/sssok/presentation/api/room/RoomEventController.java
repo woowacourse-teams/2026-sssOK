@@ -52,6 +52,6 @@ public class RoomEventController {
         @RequestHeader(value = "Last-Event-ID", required = false) Long lastEventId
     ) {
         subscribeRoomEventsService.validate(roomId, memberId);
-        return sseEventPublisher.subscribe(roomId, lastEventId);
+        return sseEventPublisher.subscribe(roomId, memberId, lastEventId);
     }
 }
