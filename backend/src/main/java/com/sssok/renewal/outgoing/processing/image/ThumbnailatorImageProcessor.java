@@ -52,27 +52,28 @@ public class ThumbnailatorImageProcessor {
         if (decoded == null) {
             return Optional.empty();
         }
+        SourceSize sourceSize = new SourceSize(decoded.sourceWidth(), decoded.sourceHeight());
         BufferedImage original = decoded.pixels();
         try {
             if (preview != null && preview.maxWidth() >= thumbnail.maxWidth()) {
                 // 압축된 프리뷰를 다시 읽지 않고, 인코딩 전 픽셀을 공유한다.
                 // 방향은 프리뷰 생성 시 한 번만 적용한다.
-                BufferedImage previewImage = resizeAndOrient(original, orientation, preview.maxWidth(), decoded);
+                BufferedImage previewImage = resizeAndOrient(original, orientation, preview.maxWidth(), sourceSize);
                 BufferedImage thumbnailImage = resizeAndOrient(
-                    previewImage, ExifOrientation.NORMAL, thumbnail.maxWidth(), decoded);
+                    previewImage, ExifOrientation.NORMAL, thumbnail.maxWidth(), sourceSize);
                 return Optional.of(new DerivedImages(
-                    decoded.sourceWidth(),
-                    decoded.sourceHeight(),
+                    sourceSize.width(),
+                    sourceSize.height(),
                     encodeDerivative(thumbnailImage, thumbnail),
                     encodeDerivative(previewImage, preview)));
             }
             // 프리뷰가 없거나 더 작게 설정되면 썸네일의 해상도를 낮추지 않는다.
             return Optional.of(new DerivedImages(
-                decoded.sourceWidth(),
-                decoded.sourceHeight(),
-                encodeDerivative(resizeAndOrient(original, orientation, thumbnail.maxWidth(), decoded), thumbnail),
+                sourceSize.width(),
+                sourceSize.height(),
+                encodeDerivative(resizeAndOrient(original, orientation, thumbnail.maxWidth(), sourceSize), thumbnail),
                 preview == null ? null : encodeDerivative(
-                    resizeAndOrient(original, orientation, preview.maxWidth(), decoded), preview)));
+                    resizeAndOrient(original, orientation, preview.maxWidth(), sourceSize), preview)));
         } catch (IOException e) {
             // 디코딩을 넘긴 뒤의 축소·인코딩 실패는 원본이 깨졌다는 근거가 되지 못한다. 네이티브
             // WebP 라이터가 한 번 흔들린 것을 빈 값으로 돌려주면 멀쩡한 사진이 영구 FAILED 가
@@ -130,13 +131,13 @@ public class ThumbnailatorImageProcessor {
     // 원본 전체를 먼저 회전하면 디코딩 원본과 같은 크기의 회전 버퍼가 동시에 살아 있어 메모리를
     // 크게 쓴다. 표시 방향의 너비를 기준으로 먼저 줄인 뒤 작은 이미지에만 방향을 적용한다.
     private BufferedImage resizeAndOrient(BufferedImage source, ExifOrientation orientation,
-                                           int maxWidth, DerivativeImageDecoder.DecodedImage decoded)
+                                           int maxWidth, SourceSize sourceSize)
         throws IOException {
         // 샘플링·프리뷰 축소 과정에서 생긴 반올림을 다시 비율 계산에 쓰지 않는다.
         // 최종 크기는 항상 원본의 표시 치수로 계산한다.
-        int displayWidth = Math.min(maxWidth, decoded.sourceWidth());
+        int displayWidth = Math.min(maxWidth, sourceSize.width());
         int displayHeight = Math.max(1, (int) Math.round(
-            decoded.sourceHeight() * ((double) displayWidth / decoded.sourceWidth())));
+            sourceSize.height() * ((double) displayWidth / sourceSize.width())));
         int width = orientation.displayWidthOf(displayWidth, displayHeight);
         int height = orientation.displayHeightOf(displayWidth, displayHeight);
         BufferedImage scaled = source;
@@ -144,6 +145,10 @@ public class ThumbnailatorImageProcessor {
             scaled = Thumbnails.of(source).forceSize(width, height).asBufferedImage();
         }
         return orientation.applyTo(scaled);
+    }
+
+    // EXIF 방향을 반영한 원본 표시 치수. 디코딩 픽셀과 별도로 전달한다.
+    private record SourceSize(int width, int height) {
     }
 
     private DerivedImage encodeDerivative(BufferedImage image, DerivativeSpec spec) throws IOException {
