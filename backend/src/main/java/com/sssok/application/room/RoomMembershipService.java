@@ -10,14 +10,13 @@ import com.sssok.domain.member.Member;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-// 방 입장
-// 같은 사람이 다시 호출해도 참여 기록이 늘어나지 않는다
 @Service
 @RequiredArgsConstructor
 public class RoomMembershipService {
@@ -27,34 +26,48 @@ public class RoomMembershipService {
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher eventPublisher;
 
+
+
     @Transactional
     public JoinRoomResult join(Long roomId, Long memberId) {
-        Instant now = Instant.now();
-        Room room = roomRepository.findById(roomId)
-            .orElseThrow(() -> new RoomNotFoundException(roomId));
+        Room room = getRoom(roomId);
         if (!room.canEnter()) {
             throw new RoomExpiredException();
         }
         Member member = memberRepository.findById(memberId)
             .orElseThrow(() -> new UnauthorizedException("다시 접속해주세요"));
 
-        Optional<RoomMember> joined = roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId);
-        if (joined.isPresent()) {
-            return JoinRoomResult.rejoined(room, joined.get(), member);
-        }
-
-        // 실제로 행을 넣은 쪽만 신규 참여다. 재입장은 알림을 다시 보내지 않는다.
-        if (roomMemberRepository.joinIfAbsent(roomId, memberId, now)) {
-            JoinRoomResult result = JoinRoomResult.newlyJoined(room, requireJoined(roomId, memberId), member);
+        JoinRoomResult result = joinOrGetMembership(room, member);
+        if (result.newlyJoined()) {
             eventPublisher.publishEvent(RoomMemberJoinedEvent.from(result));
-            return result;
         }
-        return JoinRoomResult.rejoined(room, requireJoined(roomId, memberId), member);
+        return result;
     }
 
-    private RoomMember requireJoined(Long roomId, Long memberId) {
-        return roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)
-            .orElseThrow(() -> new IllegalStateException(
-                "방금 저장한 참여 기록을 찾을 수 없습니다: roomId=%d, memberId=%d".formatted(roomId, memberId)));
+
+
+    private Room getRoom(Long roomId) {
+        return roomRepository.findById(roomId)
+            .orElseThrow(() -> new RoomNotFoundException(roomId));
+    }
+
+
+
+    private JoinRoomResult joinOrGetMembership(Room room, Member member) {
+        Long roomId = room.getId();
+        Long memberId = member.getId();
+        while (true) {
+            Optional<RoomMember> existingMembership = roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId);
+            if (existingMembership.isPresent()) {
+                return JoinRoomResult.rejoined(room, existingMembership.get(), member);
+            }
+
+            // DB 정밀도에 맞춰 최초 입장과 재입장의 응답 시각을 동일하게 한다.
+            Instant joinedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+            if (roomMemberRepository.joinIfAbsent(roomId, memberId, joinedAt)) {
+                return JoinRoomResult.newlyJoined(room, RoomMember.join(roomId, memberId, joinedAt), member);
+            }
+            // 다른 요청이 먼저 입장한 뒤 나갔을 수 있다. 기록이 반드시 있다고 가정하지 않고 다시 확인한다.
+        }
     }
 }
