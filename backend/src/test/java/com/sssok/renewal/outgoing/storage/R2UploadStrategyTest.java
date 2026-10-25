@@ -16,12 +16,15 @@ import software.amazon.awssdk.services.s3.model.*;
 
 class R2UploadStrategyTest {
     private final R2UploadStrategyResolver strategies = new R2UploadStrategyResolver(
-        java.util.List.of(new SinglePutUploadStrategy(), new MultipartUploadStrategy()));
+        new SinglePutUploadStrategy(), new MultipartUploadStrategy());
     private final S3Client client = mock(S3Client.class);
 
-    @Test
-    void 작은_파생본은_내용과_메타데이터를_PUT으로_보낸다() throws IOException {
-        byte[] content = {1, 2, 3};
+    @ParameterizedTest
+    @ValueSource(ints = {3, 8388607})
+    void 경계_미만의_파생본은_내용과_메타데이터를_PUT으로_보낸다(int size) throws IOException {
+        byte[] content = new byte[size];
+        content[0] = 1;
+        content[size - 1] = 3;
         strategies.resolve(content.length).upload(client, "bucket", "preview.webp", content, "image/webp");
         var request = ArgumentCaptor.forClass(PutObjectRequest.class);
         var body = ArgumentCaptor.forClass(RequestBody.class);
