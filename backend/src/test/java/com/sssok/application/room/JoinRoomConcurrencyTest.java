@@ -25,7 +25,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
     private static final int THREADS = 8;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     CreateRoomService createRoomService;
@@ -74,7 +74,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
             for (int i = 0; i < THREADS; i++) {
                 futures.add(pool.submit((Callable<JoinRoomResult>) () -> {
                     start.await();
-                    return joinRoomService.join(roomId, memberId);
+                    return roomMembershipService.join(roomId, memberId);
                 }));
             }
             start.countDown();

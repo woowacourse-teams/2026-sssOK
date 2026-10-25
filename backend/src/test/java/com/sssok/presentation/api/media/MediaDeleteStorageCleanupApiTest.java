@@ -12,18 +12,18 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
-import com.sssok.support.PostgresContainerSupport;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
+import com.sssok.support.PostgresContainerSupport;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +51,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     FileRepository fileRepository;
@@ -73,7 +73,7 @@ class MediaDeleteStorageCleanupApiTest extends PostgresContainerSupport {
         uploader = anonymousAuthService.authenticate("가현");
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
-        joinRoomService.join(roomId, uploader.userId());
+        roomMembershipService.join(roomId, uploader.userId());
     }
 
     @Test

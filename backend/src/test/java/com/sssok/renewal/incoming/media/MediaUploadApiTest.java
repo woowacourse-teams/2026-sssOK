@@ -13,40 +13,40 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.auth.AnonymousAuthService;
 import com.sssok.application.auth.AuthResult;
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.media.MediaCreatedEvent;
+import com.sssok.application.media.MediaReadyEvent;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
-import com.sssok.domain.file.UploadStatus;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
-import com.sssok.support.PostgresContainerSupport;
+import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
+import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
-import java.util.Optional;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import com.sssok.application.media.MediaCreatedEvent;
-import com.sssok.application.media.MediaReadyEvent;
-import org.springframework.test.context.event.ApplicationEvents;
-import org.springframework.test.context.event.RecordApplicationEvents;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 // API 인수 테스트 (Testcontainers). 폴더 담기가 PostgreSQL 전용 ON CONFLICT 를 써서 H2 로는 못 돈다.
 // 스토리지만 목으로 두고 나머지는 실제 흐름 그대로 태운다.
@@ -77,7 +77,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
     CreateFolderService createFolderService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @MockitoBean
     FileStorage fileStorage;
@@ -220,7 +220,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         Long mediaId = issuedMediaId(issued);
 
         AuthResult guest = anonymousAuthService.authenticate("민수");
-        joinRoomService.join(roomId, guest.userId());
+        roomMembershipService.join(roomId, guest.userId());
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", roomId, mediaId)
                 .header("Authorization", "Bearer " + guest.accessToken()))
@@ -445,7 +445,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         AuthResult host = anonymousAuthService.authenticate("방장");
         Long restrictedRoom = createRoomService.create(host.userId(), "방장만 업로드", "host").room().getId();
         AuthResult guest = anonymousAuthService.authenticate("참여자");
-        joinRoomService.join(restrictedRoom, guest.userId());
+        roomMembershipService.join(restrictedRoom, guest.userId());
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", restrictedRoom)
                 .header("Authorization", "Bearer " + guest.accessToken())

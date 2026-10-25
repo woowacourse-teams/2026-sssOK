@@ -4,8 +4,6 @@ import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomResult;
 import com.sssok.application.room.DeleteRoomService;
 import com.sssok.application.room.GetRoomService;
-import com.sssok.application.room.JoinRoomResult;
-import com.sssok.application.room.JoinRoomService;
 import com.sssok.application.room.RoomDetail;
 import com.sssok.application.room.UpdateRoomCommand;
 import com.sssok.application.room.UpdateRoomService;
@@ -38,7 +36,6 @@ public class RoomController {
     private final GetRoomService getRoomService;
     private final UpdateRoomService updateRoomService;
     private final DeleteRoomService deleteRoomService;
-    private final JoinRoomService joinRoomService;
 
     @Operation(
         summary = "방 생성",
@@ -108,21 +105,4 @@ public class RoomController {
         return ApiResponse.of(DeleteRoomResponse.from(result));
     }
 
-    @Operation(
-        summary = "방 입장",
-        description = "이 계정을 방의 참여자로 등록한다. 같은 사람이 여러 번 호출해도 참여 기록은 늘어나지 "
-            + "않는다 — 처음 입장이면 201, 이미 입장한 상태에서 다시 호출하면 200을 반환한다(응답 바디는 동일). "
-            + "사용법: 방 구독(SSE)이나 업로드 전에 이 API로 먼저 입장 처리를 해둬야 한다 "
-            + "(미입장 상태로 구독을 시도하면 403이 난다). 만료·삭제된 방이면 410이 난다."
-    )
-    @PostMapping("/{roomId}/members")
-    public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(
-        @Parameter(hidden = true) @AuthMember Long memberId,
-        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId
-    ) {
-        JoinRoomResult result = joinRoomService.join(roomId, memberId);
-        HttpStatus status = result.newlyJoined() ? HttpStatus.CREATED : HttpStatus.OK;
-        return ResponseEntity.status(status)
-            .body(ApiResponse.of(RoomMemberResponse.from(result)));
-    }
 }

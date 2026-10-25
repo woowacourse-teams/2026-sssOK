@@ -23,7 +23,7 @@ import com.sssok.application.room.DeleteRoomResult;
 import com.sssok.application.room.DeleteRoomService;
 import com.sssok.application.room.GetRoomService;
 import com.sssok.application.room.JoinRoomResult;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.application.room.RoomDetail;
 import com.sssok.application.room.UpdateRoomCommand;
 import com.sssok.application.room.UpdateRoomService;
@@ -51,7 +51,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 // Controller 슬라이스 테스트
-@WebMvcTest(RoomController.class)
+@WebMvcTest({RoomController.class, RoomMembershipController.class})
 class RoomControllerTest {
 
     private static final String CODE = "A3F9K2M7";
@@ -77,7 +77,7 @@ class RoomControllerTest {
     DeleteRoomService deleteRoomService;
 
     @MockitoBean
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     // AuthMemberArgumentResolver가 의존하는 포트
     @MockitoBean
@@ -349,7 +349,7 @@ class RoomControllerTest {
 
     @Test
     void 처음_입장하면_201과_멤버_정보를_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         performJoin("{}")
@@ -364,7 +364,7 @@ class RoomControllerTest {
 
     @Test
     void 표시_이름은_요청_바디로_받지_않는다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
@@ -372,12 +372,12 @@ class RoomControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.displayName").value("민수"));
 
-        then(joinRoomService).should().join(eq(ROOM_ID), eq(MEMBER_ID));
+        then(roomMembershipService).should().join(eq(ROOM_ID), eq(MEMBER_ID));
     }
 
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_200을_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, false));
 
         performJoin("{}")
@@ -389,7 +389,7 @@ class RoomControllerTest {
 
     @Test
     void 없는_방에_입장하면_404를_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomNotFoundException(ROOM_ID));
+        given(roomMembershipService.join(anyLong(), anyLong())).willThrow(new RoomNotFoundException(ROOM_ID));
 
         performJoin("{}")
             .andExpect(status().isNotFound())
@@ -398,7 +398,7 @@ class RoomControllerTest {
 
     @Test
     void 만료된_방에_입장하면_410을_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomExpiredException());
+        given(roomMembershipService.join(anyLong(), anyLong())).willThrow(new RoomExpiredException());
 
         performJoin("{}")
             .andExpect(status().isGone())

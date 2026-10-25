@@ -20,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 // 같은 사람이 다시 호출해도 참여 기록이 늘어나지 않는다
 @Service
 @RequiredArgsConstructor
-public class JoinRoomService {
+public class RoomMembershipService {
 
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;

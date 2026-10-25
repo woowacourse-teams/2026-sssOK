@@ -8,15 +8,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomService;
 import com.sssok.application.room.GetRoomService;
-import com.sssok.application.room.JoinRoomService;
 import com.sssok.application.room.RoomDetail;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.application.room.UpdateRoomService;
 import com.sssok.common.logging.RequestLoggingFilter;
 import com.sssok.domain.room.Room;
@@ -62,7 +62,7 @@ class WebConfigCorsTest {
     DeleteRoomService deleteRoomService;
 
     @MockitoBean
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @MockitoBean
     TokenProvider tokenProvider;

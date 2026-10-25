@@ -29,10 +29,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 // Repository + Service 통합 테스트
 // 입장이 PostgreSQL 전용 네이티브 쿼리를 쓰므로 H2가 아닌 실제 PostgreSQL로 돌린다.
 @PostgresIntegrationTest
-class JoinRoomServiceTest extends PostgresContainerSupport {
+class RoomMembershipServiceTest extends PostgresContainerSupport {
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     CreateRoomService createRoomService;
@@ -75,7 +75,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 처음_입장하면_신규_참여로_기록된다() {
         Room room = createRoom();
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId);
+        JoinRoomResult result = roomMembershipService.join(room.getId(), guestId);
 
         assertThat(result.newlyJoined()).isTrue();
         assertThat(result.roomId()).isEqualTo(room.getId());
@@ -87,7 +87,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 표시_이름은_요청이_아니라_인증된_회원_정보에서_온다() {
         Room room = createRoom();
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId);
+        JoinRoomResult result = roomMembershipService.join(room.getId(), guestId);
 
         assertThat(result.displayName()).isEqualTo("민수");
     }
@@ -96,8 +96,8 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 응답에_이_방의_방장_ID가_담긴다() {
         Room room = createRoom();
 
-        JoinRoomResult guestResult = joinRoomService.join(room.getId(), guestId);
-        JoinRoomResult hostResult = joinRoomService.join(room.getId(), hostId);
+        JoinRoomResult guestResult = roomMembershipService.join(room.getId(), guestId);
+        JoinRoomResult hostResult = roomMembershipService.join(room.getId(), hostId);
 
         assertThat(guestResult.hostId()).isEqualTo(hostId);
         assertThat(hostResult.hostId()).isEqualTo(hostId);
@@ -107,7 +107,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 신규_참여하면_room_member_joined_이벤트가_발행된다() {
         Room room = createRoom();
 
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
         List<RoomEventJpaEntity> events =
             roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L);
@@ -119,9 +119,9 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 재입장하면_이벤트가_다시_발행되지_않는다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
         List<RoomEventJpaEntity> events =
             roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L);
@@ -131,9 +131,9 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_신규_참여가_아니다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
-        JoinRoomResult result = joinRoomService.join(room.getId(), guestId);
+        JoinRoomResult result = roomMembershipService.join(room.getId(), guestId);
 
         assertThat(result.newlyJoined()).isFalse();
     }
@@ -141,9 +141,9 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 다시_입장해도_처음_참여_시각이_유지된다() {
         Room room = createRoom();
-        JoinRoomResult first = joinRoomService.join(room.getId(), guestId);
+        JoinRoomResult first = roomMembershipService.join(room.getId(), guestId);
 
-        JoinRoomResult second = joinRoomService.join(room.getId(), guestId);
+        JoinRoomResult second = roomMembershipService.join(room.getId(), guestId);
 
         assertThat(second.joinedAt()).isEqualTo(first.joinedAt());
     }
@@ -151,8 +151,8 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 다시_입장해도_참여_기록은_하나뿐이다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId);
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
         assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)).isPresent();
     }
@@ -163,7 +163,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
 
         assertThat(getRoomService.getByCode(room.getCode(), guestId).joined()).isFalse();
 
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
         assertThat(getRoomService.getByCode(room.getCode(), guestId).joined()).isTrue();
     }
@@ -173,7 +173,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         Room room = createRoom();
         boolean beforeGuestJoins = getRoomService.getByCode(room.getCode(), hostId).joined();
 
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
         assertThat(getRoomService.getByCode(room.getCode(), hostId).joined()).isEqualTo(beforeGuestJoins);
     }
@@ -181,7 +181,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     @Test
     void 토큰_없이_조회하면_joined는_거짓이다() {
         Room room = createRoom();
-        joinRoomService.join(room.getId(), guestId);
+        roomMembershipService.join(room.getId(), guestId);
 
         assertThat(getRoomService.getByCode(room.getCode(), null).joined()).isFalse();
     }
@@ -199,7 +199,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
 
     @Test
     void 존재하지_않는_방이면_예외() {
-        assertThatThrownBy(() -> joinRoomService.join(-1L, guestId))
+        assertThatThrownBy(() -> roomMembershipService.join(-1L, guestId))
             .isInstanceOf(RoomNotFoundException.class);
     }
 
@@ -207,7 +207,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     void 만료된_방이면_예외() {
         Room expired = roomRepository.save(expiredRoom());
 
-        assertThatThrownBy(() -> joinRoomService.join(expired.getId(), guestId))
+        assertThatThrownBy(() -> roomMembershipService.join(expired.getId(), guestId))
             .isInstanceOf(RoomExpiredException.class);
     }
 
@@ -217,7 +217,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         room.delete(hostId, Instant.now());
         roomRepository.save(room);
 
-        assertThatThrownBy(() -> joinRoomService.join(room.getId(), guestId))
+        assertThatThrownBy(() -> roomMembershipService.join(room.getId(), guestId))
             .isInstanceOf(RoomExpiredException.class);
     }
 
