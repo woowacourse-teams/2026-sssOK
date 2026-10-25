@@ -87,6 +87,7 @@ C의 RSS 범위는 697.3~817.6MiB, A는 1384.3~1583.9MiB였다.
 
 [9회 원시 결과](evidence/594-upload-memory/measurements.csv),
 [중앙값과 범위](evidence/594-upload-memory/summary.json).
+CSV의 메모리 컬럼(`*_bytes`)은 바이트, 요약 JSON의 메모리 필드(`*_mib`)는 MiB 단위다.
 
 ### 해석의 한계
 

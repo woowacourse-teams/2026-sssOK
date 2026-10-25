@@ -1,16 +1,16 @@
 {
   "baseline": {
-    "allocated_bytes": {
+    "allocated_mib": {
       "median": 2406.200180053711,
       "min": 2406.2000122070312,
       "max": 2406.2003631591797
     },
-    "heap_peak_bytes": {
+    "heap_peak_mib": {
       "median": 1203.1007385253906,
       "min": 1188.5239868164062,
       "max": 1364.391471862793
     },
-    "rss_peak_bytes": {
+    "rss_peak_mib": {
       "median": 1484.578125,
       "min": 1384.265625,
       "max": 1583.90625
@@ -32,17 +32,17 @@
     }
   },
   "preview": {
-    "allocated_bytes": {
+    "allocated_mib": {
       "median": 1859.7596817016602,
       "min": 1859.7591934204102,
       "max": 1859.7597579956055
     },
-    "heap_peak_bytes": {
+    "heap_peak_mib": {
       "median": 758.8645401000977,
       "min": 730.9521331787109,
       "max": 1334.0218505859375
     },
-    "rss_peak_bytes": {
+    "rss_peak_mib": {
       "median": 1266.140625,
       "min": 1125.53125,
       "max": 1512.78125
@@ -64,17 +64,17 @@
     }
   },
   "improved": {
-    "allocated_bytes": {
+    "allocated_mib": {
       "median": 646.8365936279297,
       "min": 646.8355331420898,
       "max": 646.8371276855469
     },
-    "heap_peak_bytes": {
+    "heap_peak_mib": {
       "median": 394.0978088378906,
       "min": 373.0184631347656,
       "max": 394.9995803833008
     },
-    "rss_peak_bytes": {
+    "rss_peak_mib": {
       "median": 721.5,
       "min": 697.34375,
       "max": 817.640625
