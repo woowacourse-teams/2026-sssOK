@@ -1,13 +1,18 @@
 package com.sssok.application.port.out;
 
+import com.sssok.application.room.RoomMembershipSummary;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 // 방 참여자 영속화 출력
 public interface RoomMemberRepository {
 
     RoomMember save(RoomMember roomMember);
+
+    List<RoomMembershipSummary> findRoomsByMemberId(Long memberId);
+
 
     Optional<RoomMember> findByRoomIdAndMemberId(Long roomId, Long memberId);
 

@@ -10,16 +10,26 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "방 참여", description = "방 입장")
+@Tag(name = "방 참여", description = "내 방 목록·입장")
 @RestController
 @RequiredArgsConstructor
 public class RoomMembershipController {
 
     private final RoomMembershipService roomMembershipService;
+
+    @Operation(summary = "내 방 목록", description = "만든 방과 참여 중인 방을 최근 참여순으로 조회한다. "
+        + "삭제된 방은 제외하며 isHost로 방장 여부를 구분한다. 썸네일 생성 중이거나 사진이 없으면 thumbnailUrl은 null이다.")
+    @GetMapping("/members/me/rooms")
+    public ApiResponse<MyRoomsResponse> getMyRooms(
+        @Parameter(hidden = true) @AuthMember Long memberId
+    ) {
+        return ApiResponse.of(new MyRoomsResponse(roomMembershipService.getMyRooms(memberId)));
+    }
 
     @Operation(
         summary = "방 입장",

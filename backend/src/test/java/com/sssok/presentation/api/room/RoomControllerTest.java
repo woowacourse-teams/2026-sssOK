@@ -14,17 +14,19 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomResult;
 import com.sssok.application.room.DeleteRoomService;
 import com.sssok.application.room.GetRoomService;
 import com.sssok.application.room.JoinRoomResult;
-import com.sssok.application.room.RoomMembershipService;
+import com.sssok.application.room.MyRoomSummary;
 import com.sssok.application.room.RoomDetail;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.application.room.UpdateRoomCommand;
 import com.sssok.application.room.UpdateRoomService;
 import com.sssok.application.room.exception.EmptyPatchException;
@@ -40,15 +42,18 @@ import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
 import java.time.Instant;
 import java.util.List;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 
 // Controller 슬라이스 테스트
 @WebMvcTest({RoomController.class, RoomMembershipController.class})
@@ -196,7 +201,7 @@ class RoomControllerTest {
     @Test
     void 토큰을_보냈는데_잘못됐으면_조회도_401이다() throws Exception {
         given(tokenProvider.parse("bad-token"))
-            .willThrow(new com.sssok.application.auth.exception.UnauthorizedException("다시 접속해주세요"));
+            .willThrow(new UnauthorizedException("다시 접속해주세요"));
 
         mockMvc.perform(get("/api/v1/rooms/{code}", CODE)
                 .header("Authorization", "Bearer bad-token"))
@@ -385,8 +390,6 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.displayName").value("민수"));
     }
 
-
-
     @Test
     void 없는_방에_입장하면_404를_반환한다() throws Exception {
         given(roomMembershipService.join(anyLong(), anyLong())).willThrow(new RoomNotFoundException(ROOM_ID));
@@ -427,4 +430,20 @@ class RoomControllerTest {
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
     }
+
+    @Test
+    void 내_방_목록은_역할과_집계와_null_썸네일을_반환한다() throws Exception {
+        given(roomMembershipService.getMyRooms(MEMBER_ID)).willReturn(List.of(
+            new MyRoomSummary(ROOM_ID, CODE, "방", true, 2, 3, null)));
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", BEARER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.rooms[0].roomId").value(ROOM_ID))
+            .andExpect(jsonPath("$.data.rooms[0].isHost").value(true))
+            .andExpect(jsonPath("$.data.rooms[0].mediaCount").value(2))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(3))
+            .andExpect(jsonPath("$.data.rooms[0].thumbnailUrl").value(Matchers.nullValue()));
+    }
+
+
+
 }

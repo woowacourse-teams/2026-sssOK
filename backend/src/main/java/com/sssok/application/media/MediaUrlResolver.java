@@ -1,5 +1,6 @@
 package com.sssok.application.media;
 
+import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.ThumbnailProperties;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,13 @@ public class MediaUrlResolver {
 
     private final MediaReadUrlProvider urlProvider;
     private final ThumbnailProperties thumbnailProperties;
+
+    public String resolveThumbnailUrl(String thumbnailKey) {
+        StorageKey key = thumbnailKey == null ? null : new StorageKey(thumbnailKey);
+        return MediaUrlSource.thumbnail(key, thumbnailProperties.displayUrlTtl())
+            .resolve(urlProvider)
+            .url();
+    }
 
     public MediaUrls resolve(StoredFile file) {
         MediaUrlSource.ResolvedUrl thumbnail = MediaUrlSource.thumbnail(

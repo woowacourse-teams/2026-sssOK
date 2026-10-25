@@ -1,6 +1,7 @@
 package com.sssok.application.room;
 
 import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.application.media.MediaUrlResolver;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
@@ -11,6 +12,7 @@ import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -25,8 +27,14 @@ public class RoomMembershipService {
     private final RoomMemberRepository roomMemberRepository;
     private final MemberRepository memberRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final MediaUrlResolver mediaUrlResolver;
 
-
+    @Transactional(readOnly = true)
+    public List<MyRoomSummary> getMyRooms(Long memberId) {
+        return roomMemberRepository.findRoomsByMemberId(memberId).stream()
+            .map(this::toMyRoomSummary)
+            .toList();
+    }
 
     @Transactional
     public JoinRoomResult join(Long roomId, Long memberId) {
@@ -51,7 +59,18 @@ public class RoomMembershipService {
             .orElseThrow(() -> new RoomNotFoundException(roomId));
     }
 
-
+    private MyRoomSummary toMyRoomSummary(RoomMembershipSummary summary) {
+        String thumbnailUrl = mediaUrlResolver.resolveThumbnailUrl(summary.thumbnailKey());
+        return new MyRoomSummary(
+            summary.roomId(),
+            summary.code(),
+            summary.name(),
+            summary.isHost(),
+            summary.mediaCount(),
+            summary.memberCount(),
+            thumbnailUrl
+        );
+    }
 
     private JoinRoomResult joinOrGetMembership(Room room, Member member) {
         Long roomId = room.getId();

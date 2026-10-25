@@ -1,8 +1,11 @@
 package com.sssok.infrastructure.persistence.room;
 
 import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.room.RoomMembershipSummary;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.infrastructure.persistence.room.RoomMemberJpaRepository.RoomMembershipSummaryProjection;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,6 +15,15 @@ import org.springframework.stereotype.Component;
 public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
 
     private final RoomMemberJpaRepository jpaRepository;
+
+    @Override
+    public List<RoomMembershipSummary> findRoomsByMemberId(Long memberId) {
+        return jpaRepository.findRoomsByMemberId(memberId).stream()
+            .map(this::toMembershipSummary)
+            .toList();
+    }
+
+
 
     @Override
     public RoomMember save(RoomMember roomMember) {
@@ -27,6 +39,18 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
     @Override
     public boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt) {
         return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt) > 0;
+    }
+
+    private RoomMembershipSummary toMembershipSummary(RoomMembershipSummaryProjection projection) {
+        return new RoomMembershipSummary(
+            projection.getRoomId(),
+            projection.getCode(),
+            projection.getName(),
+            projection.getIsHost(),
+            projection.getMediaCount(),
+            projection.getMemberCount(),
+            projection.getThumbnailKey()
+        );
     }
 
     private RoomMemberJpaEntity toEntity(RoomMember roomMember) {

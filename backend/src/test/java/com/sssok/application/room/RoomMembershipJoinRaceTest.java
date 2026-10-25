@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.sssok.application.media.MediaUrlResolver;
 import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
@@ -28,7 +29,7 @@ class RoomMembershipJoinRaceTest {
     private final MemberRepository memberRepository = mock(MemberRepository.class);
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final RoomMembershipService roomMembershipService = new RoomMembershipService(
-        roomRepository, roomMemberRepository, memberRepository, eventPublisher);
+        roomRepository, roomMemberRepository, memberRepository, eventPublisher, mock(MediaUrlResolver.class));
 
     @BeforeEach
     void setUp() {
