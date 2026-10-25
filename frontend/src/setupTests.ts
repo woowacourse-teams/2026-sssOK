@@ -4,6 +4,7 @@ import { resetAdminLoginAttempts } from "./mocks/handlers/admin";
 import { resetNicknames } from "./mocks/handlers/auth";
 import { resetDownloadJobs } from "./mocks/handlers/download";
 import { resetFeedbacks } from "./mocks/handlers/feedback";
+import { resetMyRooms } from "./mocks/handlers/myRooms";
 import { resetRoomHandlers } from "./mocks/handlers/room";
 import { resetUploads } from "./mocks/handlers/upload";
 import {
@@ -51,6 +52,8 @@ afterEach(() => {
   resetAdminLoginAttempts();
   // 앞 테스트에서 바꾼 의견 상태·담당자가 남으면 안 된다
   resetFeedbacks();
+  // 앞 테스트에서 나간 방이 목록에서 빠진 채로 남으면 안 된다
+  resetMyRooms();
   // 앞 테스트가 남긴 관찰자가 남아 있으면 엉뚱한 곳에서 다음 페이지를 부른다
   resetIntersectionObservers();
 });
