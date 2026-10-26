@@ -164,6 +164,9 @@ notification:
     ttl: 1h
     connect-timeout: 2s
     read-timeout: 5s
+  upload-request:
+    # 같은 사람이 같은 방에 업로드 요청을 다시 보낼 수 있을 때까지의 시간. 그 안에 다시 보내면 429.
+    cooldown: 1m
 
 storage:
   cleanup:
