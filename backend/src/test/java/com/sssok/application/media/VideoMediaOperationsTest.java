@@ -113,16 +113,7 @@ class VideoMediaOperationsTest {
 
         given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
-        given(fileStorage.openUploadStream(any(), anyString()))
-            .willReturn(new AbortableOutputStream() {
-                @Override
-                public void write(int b) {
-                }
 
-                @Override
-                public void abort() {
-                }
-            });
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
             .willReturn(ExtractionResult.extracted(new ExtractedFrame(
                 1920, 1080, 12, TAKEN_AT, SEOUL, jpeg())));

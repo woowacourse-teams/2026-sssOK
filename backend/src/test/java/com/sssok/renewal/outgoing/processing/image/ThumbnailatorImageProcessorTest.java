@@ -216,6 +216,72 @@ class ThumbnailatorImageProcessorTest {
             .isInstanceOf(RuntimeException.class);
     }
 
+    @Test
+    void 프리뷰_압축_품질이_썸네일에_영향을_주지_않는다() {
+        byte[] original = plainJpeg(2400, 1600);
+        DerivedImages low = processor.derive(original, THUMBNAIL,
+            new DerivativeSpec(1600, DerivativeFormat.JPEG, 0.01f)).orElseThrow();
+        DerivedImages high = processor.derive(original, THUMBNAIL,
+            new DerivativeSpec(1600, DerivativeFormat.JPEG, 1.0f)).orElseThrow();
+
+        assertThat(low.thumbnail().content()).isEqualTo(high.thumbnail().content());
+        assertThat(low.preview().content()).isNotEqualTo(high.preview().content());
+    }
+
+    @Test
+    void 프리뷰가_더_작게_설정되어도_썸네일_크기를_유지한다() throws IOException {
+        DerivedImages derived = processor.derive(plainJpeg(1200, 800), THUMBNAIL,
+            new DerivativeSpec(200, DerivativeFormat.WEBP, 0.85f)).orElseThrow();
+
+        assertThat(widthOf(derived.thumbnail().content())).isEqualTo(400);
+        assertThat(widthOf(derived.preview().content())).isEqualTo(200);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "1, RED, GREEN, BLUE, YELLOW",
+        "2, GREEN, RED, YELLOW, BLUE",
+        "3, YELLOW, BLUE, GREEN, RED",
+        "4, BLUE, YELLOW, RED, GREEN",
+        "5, RED, BLUE, GREEN, YELLOW",
+        "6, BLUE, RED, YELLOW, GREEN",
+        "7, YELLOW, GREEN, BLUE, RED",
+        "8, GREEN, YELLOW, RED, BLUE"
+    })
+    void 프리뷰에서_줄인_썸네일에_회전과_반전을_중복_적용하지_않는다(
+        int orientation, String topLeft, String topRight, String bottomLeft, String bottomRight)
+        throws IOException {
+        DerivedImages derived = processor.derive(jpegWithOrientation(orientation, 1200, 800),
+            new DerivativeSpec(200, DerivativeFormat.WEBP, 0.8f),
+            new DerivativeSpec(600, DerivativeFormat.WEBP, 0.85f)).orElseThrow();
+
+        for (byte[] content : new byte[][] {derived.thumbnail().content(), derived.preview().content()}) {
+            int width = widthOf(content);
+            int height = heightOf(content);
+            assertColorNear(colorAt(content, 10, 10), color(topLeft));
+            assertColorNear(colorAt(content, width - 11, 10), color(topRight));
+            assertColorNear(colorAt(content, 10, height - 11), color(bottomLeft));
+            assertColorNear(colorAt(content, width - 11, height - 11), color(bottomRight));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 6})
+    void 축소_디코딩과_프리뷰_재사용_후에도_원본_비율의_출력_치수를_유지한다(int orientation)
+        throws IOException {
+        int width = orientation == 1 ? 3201 : 1603;
+        int height = orientation == 1 ? 1603 : 3201;
+        DerivedImages result = processor.derive(jpegWithOrientation(orientation, width, height),
+            THUMBNAIL, PREVIEW).orElseThrow();
+
+        assertThat(result.sourceWidth()).isEqualTo(3201);
+        assertThat(result.sourceHeight()).isEqualTo(1603);
+        assertThat(widthOf(result.preview().content())).isEqualTo(1600);
+        assertThat(heightOf(result.preview().content())).isEqualTo(801);
+        assertThat(widthOf(result.thumbnail().content())).isEqualTo(400);
+        assertThat(heightOf(result.thumbnail().content())).isEqualTo(200);
+    }
+
     private int widthOf(byte[] image) throws IOException {
         return ImageIO.read(new ByteArrayInputStream(image)).getWidth();
     }

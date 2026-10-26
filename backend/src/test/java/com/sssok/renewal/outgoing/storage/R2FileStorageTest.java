@@ -55,7 +55,8 @@ class R2FileStorageTest {
     private R2FileStorage adapter() {
         return new R2FileStorage(new R2Properties(
             CONFIG.get("R2_ENDPOINT"), CONFIG.get("R2_ACCESS_KEY"), CONFIG.get("R2_SECRET_KEY"),
-            CONFIG.get("R2_BUCKET"), CONFIG.get("R2_PUBLIC_BASE_URL")));
+            CONFIG.get("R2_BUCKET"), CONFIG.get("R2_PUBLIC_BASE_URL")), new R2UploadStrategyResolver(
+            new SinglePutUploadStrategy(), new MultipartUploadStrategy()));
     }
 
     @AfterEach

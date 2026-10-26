@@ -14,7 +14,6 @@ import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
 import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity;
 import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
-import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
@@ -278,11 +277,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
         }
         when(storage.openDownloadStream(any())).thenAnswer(call ->
             new ByteArrayInputStream(invalid.contains(call.getArgument(0)) ? new byte[]{1, 2} : valid));
-        when(storage.openUploadStream(any(), any())).thenAnswer(call ->
-            new AbortableOutputStream() {
-                @Override public void write(int b) {}
-                @Override public void abort() {}
-            });
+
         Awaitility.await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
             dispatcher.dispatchPendingJobs();
             assertThat(repository.findAll()).allMatch(j -> "SUCCEEDED".equals(j.getState()) || "FAILED".equals(j.getState()));

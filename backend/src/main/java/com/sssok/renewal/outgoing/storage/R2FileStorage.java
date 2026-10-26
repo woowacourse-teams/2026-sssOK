@@ -45,6 +45,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 public class R2FileStorage implements FileStorage {
 
     private final R2Properties properties;
+    private final R2UploadStrategyResolver uploadStrategies;
 
     private volatile S3Presigner presigner;
     private volatile S3Client client;
@@ -107,6 +108,12 @@ public class R2FileStorage implements FileStorage {
             .key(storageKey.value())
             .build();
         return client().getObject(get, ResponseTransformer.toInputStream());
+    }
+
+    @Override
+    public void upload(StorageKey storageKey, byte[] content, String contentType) {
+        uploadStrategies.resolve(content.length)
+            .upload(client(), properties.bucket(), storageKey.value(), content, contentType);
     }
 
     @Override

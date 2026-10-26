@@ -26,6 +26,9 @@ public interface FileStorage {
     // 스트리밍으로 복사할 수 있도록 한다. 호출한 쪽이 close()로 반드시 닫아야 한다.
     InputStream openDownloadStream(StorageKey storageKey);
 
+    // 완성된 파생본. 작은 결과는 PUT, 큰 결과는 멀티파트로 저장한다.
+    void upload(StorageKey storageKey, byte[] content, String contentType);
+
     // zip처럼 크기를 미리 알 수 없는 결과물을 스트리밍으로 올리는 데 쓴다(멀티파트 업로드 기반).
     // 정상적으로 다 쓰면 close(), 도중에 실패하면 close() 대신 abort()를 호출해야 한다.
     AbortableOutputStream openUploadStream(StorageKey storageKey, String contentType);

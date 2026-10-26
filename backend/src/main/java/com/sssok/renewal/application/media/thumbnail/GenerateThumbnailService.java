@@ -1,7 +1,6 @@
 package com.sssok.renewal.application.media.thumbnail;
 
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
-import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.CaptureInfo;
@@ -194,18 +193,8 @@ public class GenerateThumbnailService {
         }
     }
 
-    // 업로드 실패 시 미완료 멀티파트 조각이 남지 않도록 중단한다.
+    // 전송 방식과 멀티파트 중단은 스토리지 계층에서 책임진다.
     private void upload(StorageKey storageKey, byte[] content, String contentType) {
-        AbortableOutputStream uploadStream = fileStorage.openUploadStream(storageKey, contentType);
-        try {
-            uploadStream.write(content);
-            uploadStream.close();
-        } catch (IOException failure) {
-            uploadStream.abort();
-            throw new UncheckedIOException(failure);
-        } catch (RuntimeException failure) {
-            uploadStream.abort();
-            throw failure;
-        }
+        fileStorage.upload(storageKey, content, contentType);
     }
 }

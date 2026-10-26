@@ -99,11 +99,19 @@ enum ExifOrientation {
     }
 
     int displayWidthOf(BufferedImage source) {
-        return swapsDimensions ? source.getHeight() : source.getWidth();
+        return displayWidthOf(source.getWidth(), source.getHeight());
     }
 
     int displayHeightOf(BufferedImage source) {
-        return swapsDimensions ? source.getWidth() : source.getHeight();
+        return displayHeightOf(source.getWidth(), source.getHeight());
+    }
+
+    int displayWidthOf(int width, int height) {
+        return swapsDimensions ? height : width;
+    }
+
+    int displayHeightOf(int width, int height) {
+        return swapsDimensions ? width : height;
     }
 
     abstract AffineTransform transform(int width, int height);
