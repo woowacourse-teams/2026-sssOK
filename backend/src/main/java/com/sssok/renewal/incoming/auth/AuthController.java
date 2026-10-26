@@ -4,6 +4,7 @@ import com.sssok.common.exception.ErrorCode;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.application.auth.CompleteSocialLoginService;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
@@ -12,6 +13,7 @@ import com.sssok.renewal.application.auth.StartAppleLoginService;
 import com.sssok.renewal.application.auth.StartKakaoLoginService;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
+import com.sssok.renewal.domain.member.SocialProvider;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,6 +46,7 @@ public class AuthController {
     private final SessionTokenProvider sessionTokenProvider;
     private final StartKakaoLoginService startKakaoLoginService;
     private final StartAppleLoginService startAppleLoginService;
+    private final CompleteSocialLoginService completeSocialLoginService;
 
     @Operation(summary = "카카오 로그인 시작", description = "카카오 로그인 URL과 일회용 확인값을 발급한다. "
         + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다. "
@@ -60,6 +63,17 @@ public class AuthController {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
     }
 
+    @Operation(summary = "카카오 가입 또는 로그인", description = "시작 시 발급받은 확인값과 카카오 인가 코드로 인증한다. "
+        + "기존 계정으로 로그인하면 시작 시 연결한 익명 활동을 함께 통합한다.")
+    @PostMapping("/oauth/kakao/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithKakao(@Valid @RequestBody SocialLoginRequest request,
+        HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = completeSocialLoginService.login(SocialProvider.KAKAO,
+            request.code(), request.state(), request.loginVerifier(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
+    }
+
     @Operation(summary = "애플 로그인 시작", description = "애플 웹 로그인 URL과 일회용 확인값을 발급한다. "
         + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다.")
     @PostMapping("/oauth/apple/start")
@@ -72,6 +86,17 @@ public class AuthController {
             ? startAppleLoginService.start(anonymousAccessToken)
             : startAppleLoginService.startMany(anonymousTokens(anonymousAccessToken, request)));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
+    }
+
+    @Operation(summary = "애플 가입 또는 로그인", description = "시작 시 발급받은 확인값과 애플 인가 코드로 인증한다. "
+        + "기존 계정으로 로그인하면 시작 시 연결한 익명 활동을 함께 통합한다. nonce는 서버에 저장한 값을 검증한다.")
+    @PostMapping("/oauth/apple/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithApple(@Valid @RequestBody SocialLoginRequest request,
+        HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = completeSocialLoginService.login(SocialProvider.APPLE,
+            request.code(), request.state(), request.loginVerifier(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
     }
 
     @Operation(summary = "현재 세션 로그아웃", description = "Authorization 헤더의 서비스 토큰을 무효화한다. "

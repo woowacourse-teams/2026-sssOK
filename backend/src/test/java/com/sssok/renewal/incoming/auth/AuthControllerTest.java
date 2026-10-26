@@ -5,6 +5,7 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.application.auth.CompleteSocialLoginService;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
@@ -18,6 +19,7 @@ import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.auth.exception.InvalidLinkCodeException;
+import com.sssok.renewal.domain.member.SocialProvider;
 import com.sssok.renewal.domain.member.exception.InvalidNicknameException;
 import java.time.Instant;
 import java.util.NoSuchElementException;
@@ -51,6 +53,9 @@ class AuthControllerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @MockitoBean
+    CompleteSocialLoginService completeSocialLoginService;
 
     @MockitoBean
     StartAppleLoginService startAppleLoginService;
@@ -116,9 +121,94 @@ class AuthControllerTest {
         verifyNoInteractions(startAppleLoginService);
     }
 
+    @Test
+    void 애플_완료는_애플_제공자를_선택하고_서비스_토큰만_반환한다() throws Exception {
+        given(completeSocialLoginService.login(SocialProvider.APPLE, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE))
+            .willReturn(new AuthResult("service-token", 20L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(appleLoginBody()))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().string("Set-Cookie", Matchers.containsString("sssok_refresh=service-refresh")))
+            .andExpect(jsonPath("$.data.accessToken").value("service-token"))
+            .andExpect(jsonPath("$.data.userId").value(20))
+            .andExpect(jsonPath("$.data.idToken").doesNotExist())
+            .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+        verify(completeSocialLoginService).login(SocialProvider.APPLE, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE);
+    }
+
+    @Test
+    void 애플_완료의_누락된_입력은_400이다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(completeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 409, 503})
+    void 애플_완료_실패의_상태코드를_유지한다(int statusCode) throws Exception {
+        SocialAuthException error = switch (statusCode) {
+            case 401 -> SocialAuthException.invalid();
+            case 409 -> SocialAuthException.conflict();
+            default -> SocialAuthException.unavailable();
+        };
+        given(completeSocialLoginService.login(SocialProvider.APPLE, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE)).willThrow(error);
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(appleLoginBody()))
+            .andExpect(status().is(statusCode));
+    }
+
+    private String appleLoginBody() {
+        return "{\"code\":\"code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}"
+            .formatted("s".repeat(43), "v".repeat(43));
+    }
+
     private SocialLoginStartResult appleStartResult() {
         return new SocialLoginStartResult("https://appleid.apple.com/auth/authorize?state=server-state&nonce=server-nonce",
             "server-state", "private-verifier", Instant.parse("2026-11-01T00:00:00Z"));
+    }
+
+    @Test
+    void 카카오_완료는_서비스_토큰을_캐시없이_반환한다() throws Exception {
+        given(completeSocialLoginService.login(SocialProvider.KAKAO, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE))
+            .willReturn(new AuthResult("service-token", 10L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}"
+                    .formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().string("Set-Cookie", Matchers.containsString("sssok_refresh=service-refresh")))
+            .andExpect(jsonPath("$.data.accessToken").value("service-token"))
+            .andExpect(jsonPath("$.data.userId").value(10))
+            .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"code\":\"code\"}",
+        "{\"code\":\"code\",\"state\":\"bad\",\"loginVerifier\":\"bad\"}"})
+    void 잘못된_완료_요청은_인증_전에_거부한다(String body) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(completeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 409, 503})
+    void 카카오_완료_실패의_상태코드를_유지한다(int statusCode) throws Exception {
+        SocialAuthException error = switch (statusCode) {
+            case 401 -> SocialAuthException.invalid();
+            case 409 -> SocialAuthException.conflict();
+            default -> SocialAuthException.unavailable();
+        };
+        given(completeSocialLoginService.login(SocialProvider.KAKAO, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE)).willThrow(error);
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}"
+                    .formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().is(statusCode));
     }
 
     @Test
