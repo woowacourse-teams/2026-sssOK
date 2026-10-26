@@ -12,12 +12,13 @@ public record AuthResponse(
     @Schema(description = "발급된 계정의 닉네임", example = "민수") String nickname,
     @Schema(description = "accessToken 만료 시각") Instant expiresAt,
     @JsonInclude(JsonInclude.Include.NON_NULL) String refreshToken,
-    Instant refreshExpiresAt
+    Instant refreshExpiresAt,
+    String memberStatus
 ) {
 
     public static AuthResponse from(AuthResult result, RefreshTokenDelivery delivery) {
         return new AuthResponse(result.accessToken(), result.userId(), result.nickname(), result.expiresAt(),
-            delivery == RefreshTokenDelivery.BODY ? result.refreshToken() : null, result.refreshExpiresAt());
+            delivery == RefreshTokenDelivery.BODY ? result.refreshToken() : null, result.refreshExpiresAt(), result.memberStatus());
     }
     @Override
     public String toString() { return "AuthResponse[REDACTED]"; }
