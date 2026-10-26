@@ -1,8 +1,12 @@
 package com.sssok.application.medialike;
 
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
 import com.sssok.support.UploadRoomFixtures;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -22,6 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MediaLikeConcurrencyTest extends PostgresContainerSupport {
     @BeforeEach
     void prepareRooms() {
+        memberId = members.save(Member.register(
+            new Nickname("좋아요회원"), Instant.now())).getId();
         UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
     }
 
@@ -31,8 +37,11 @@ class MediaLikeConcurrencyTest extends PostgresContainerSupport {
 
     private static final int THREADS = 8;
     private static final long ROOM_ID = 1L;
-    private static final long MEMBER_ID = 100L;
+    private long memberId;
     private static final AtomicLong MEDIA_ID_SEQUENCE = new AtomicLong(System.currentTimeMillis());
+
+    @Autowired
+    MemberRepository members;
 
     @Autowired
     LikeMediaService likeMediaService;
@@ -60,7 +69,7 @@ class MediaLikeConcurrencyTest extends PostgresContainerSupport {
             for (int i = 0; i < THREADS; i++) {
                 futures.add(pool.submit((Callable<MediaLikeResult>) () -> {
                     start.await();
-                    return likeMediaService.like(ROOM_ID, mediaId, MEMBER_ID);
+                    return likeMediaService.like(ROOM_ID, mediaId, memberId);
                 }));
             }
             start.countDown();

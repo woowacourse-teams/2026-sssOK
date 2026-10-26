@@ -188,7 +188,7 @@ class IssueUploadUrlsServiceTest {
     @Test
     void 업로드_권한이_없으면_예외() {
         roomId = createRoomService.create(hostId, "방장 전용", "host").room().getId();
-        hostId = -1L;
+        hostId = anonymousAuthService.authenticate("참여자").userId();
 
         assertThatThrownBy(() ->
             issue(roomId, hostId, List.of(image("a.jpg")), null))
@@ -207,7 +207,8 @@ class IssueUploadUrlsServiceTest {
     @Test
     void 권한은_폴더와_파일별_검증보다_먼저_검증한다() {
         Long hostOnlyRoomId = createRoomService.create(hostId, "방장 전용", "host").room().getId();
-        assertThatThrownBy(() -> issue(hostOnlyRoomId, -1L,
+        Long participantId = anonymousAuthService.authenticate("참여자").userId();
+        assertThatThrownBy(() -> issue(hostOnlyRoomId, participantId,
             List.of(new UploadCandidate(" ", "application/pdf", 0L)), List.of(-1L)))
             .isInstanceOf(UploadNotAllowedException.class);
     }
