@@ -1,27 +1,27 @@
 package com.sssok.renewal.outgoing.ai;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
-import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
 import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
 import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 class OpenAiImageSearchAdapterTest {
     private final ObjectMapper mapper = new ObjectMapper();
@@ -30,7 +30,7 @@ class OpenAiImageSearchAdapterTest {
     private OpenAiImageSearchProperties properties;
     private OpenAiImageDescriptionClient descriptions;
     private OpenAiTextEmbeddingClient embeddings;
-    private final java.util.concurrent.atomic.AtomicInteger requestCount = new java.util.concurrent.atomic.AtomicInteger();
+    private final AtomicInteger requestCount = new AtomicInteger();
     private volatile String retryAfter;
     private volatile String response;
     private volatile int responseStatus;

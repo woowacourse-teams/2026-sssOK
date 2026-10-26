@@ -1,7 +1,35 @@
 package com.sssok.renewal.application.media.upload.complete;
 
 import com.sssok.application.media.MediaDetail;
-
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.domain.file.exception.IllegalUploadStatusException;
+import com.sssok.domain.room.Room;
+import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequestException;
+import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
+import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
+import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.support.H2IntegrationTest;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -9,33 +37,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.renewal.application.auth.AnonymousAuthService;
-import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequestException;
-import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
-import com.sssok.application.room.CreateRoomService;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
-import com.sssok.domain.room.Room;
-import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
-import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 스토리지에 무엇이 올라와 있는지는 목으로 정해두고,
 // 그 결과에 따라 등록이 갈리는지를 본다.
 @H2IntegrationTest
-@org.springframework.test.context.TestPropertySource(properties =
+@TestPropertySource(properties =
     "spring.datasource.url=jdbc:h2:mem:complete-upload-contract;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
 class CompleteUploadServiceTest {
 
@@ -62,7 +68,7 @@ class CompleteUploadServiceTest {
     RoomEventJpaRepository roomEventJpaRepository;
 
     @Autowired
-    com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository thumbnailJobRepository;
+    ThumbnailJobJpaRepository thumbnailJobRepository;
 
     private Long hostId;
     private Long roomId;
@@ -192,7 +198,7 @@ class CompleteUploadServiceTest {
     void 스토리지_조회는_트랜잭션_밖에서_수행한다() {
         StoredFile file = reserved(hostId);
         given(fileStorage.findUploaded(any())).willAnswer(call -> {
-            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+            assertThat(TransactionSynchronizationManager
                 .isActualTransactionActive()).isFalse();
             return Optional.of(new UploadedObject(SIZE, MIME));
         });
@@ -219,7 +225,7 @@ class CompleteUploadServiceTest {
         fileRepository.save(second);
         uploadedAs(SIZE, MIME);
         assertThatThrownBy(() -> complete(roomId, hostId, List.of(first.getId(), second.getId())))
-            .isInstanceOf(com.sssok.domain.file.exception.IllegalUploadStatusException.class);
+            .isInstanceOf(IllegalUploadStatusException.class);
         assertNoRegistration(first);
         assertThat(thumbnailJobRepository.findById(second.getId())).isEmpty();
     }
@@ -229,7 +235,7 @@ class CompleteUploadServiceTest {
         StoredFile file = reserved(hostId);
         uploadedAs(SIZE, MIME);
         assertThatThrownBy(() -> complete(roomId, hostId, List.of(file.getId(), file.getId())))
-            .isInstanceOf(com.sssok.domain.file.exception.IllegalUploadStatusException.class);
+            .isInstanceOf(IllegalUploadStatusException.class);
         assertNoRegistration(file);
     }
 
@@ -244,8 +250,8 @@ class CompleteUploadServiceTest {
             List.of(last.getId(), -1L, absent.getId(), first.getId()));
         assertThat(result.registered()).extracting(MediaDetail::mediaId).containsExactly(last.getId(), first.getId());
         assertThat(result.failed()).containsExactly(
-            FailedMedia.of(-1L, com.sssok.renewal.domain.media.upload.UploadRejectionReason.MEDIA_NOT_FOUND),
-            FailedMedia.of(absent.getId(), com.sssok.renewal.domain.media.upload.UploadRejectionReason.UPLOAD_NOT_COMPLETED));
+            FailedMedia.of(-1L, UploadRejectionReason.MEDIA_NOT_FOUND),
+            FailedMedia.of(absent.getId(), UploadRejectionReason.UPLOAD_NOT_COMPLETED));
         assertThat(thumbnailJobRepository.findById(first.getId())).isPresent();
         assertThat(thumbnailJobRepository.findById(last.getId())).isPresent();
         assertThat(thumbnailJobRepository.findById(absent.getId())).isEmpty();
@@ -261,8 +267,8 @@ class CompleteUploadServiceTest {
             .isInstanceOf(InvalidUploadRequestException.class).hasMessage("등록할 미디어가 없습니다");
         StoredFile others = reserved(-1L);
         assertThatThrownBy(() -> complete(roomId, hostId, List.of(others.getId())))
-            .isInstanceOf(com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException.class);
-        org.mockito.Mockito.verify(fileStorage, org.mockito.Mockito.never()).findUploaded(any());
+            .isInstanceOf(UploadNotAllowedException.class);
+        Mockito.verify(fileStorage, Mockito.never()).findUploaded(any());
     }
 
     @Test
@@ -271,7 +277,7 @@ class CompleteUploadServiceTest {
         StoredFile others = reserved(-1L);
         assertThatThrownBy(() -> complete(roomId, hostId, List.of(mine.getId(), others.getId())))
             .isInstanceOf(MediaForbiddenException.class);
-        org.mockito.Mockito.verify(fileStorage, org.mockito.Mockito.never()).findUploaded(any());
+        Mockito.verify(fileStorage, Mockito.never()).findUploaded(any());
         assertNoRegistration(mine, others);
     }
 
@@ -280,7 +286,7 @@ class CompleteUploadServiceTest {
         StoredFile file = reserved(hostId);
         uploadedAs(SIZE - 1, "video/mp4");
         assertThat(complete(roomId, hostId, List.of(file.getId())).failed())
-            .containsExactly(FailedMedia.of(file.getId(), com.sssok.renewal.domain.media.upload.UploadRejectionReason.FILE_TOO_LARGE));
+            .containsExactly(FailedMedia.of(file.getId(), UploadRejectionReason.FILE_TOO_LARGE));
     }
 
     private void assertNoRegistration(StoredFile... files) {

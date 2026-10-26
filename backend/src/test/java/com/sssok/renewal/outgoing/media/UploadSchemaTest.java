@@ -1,18 +1,18 @@
 package com.sssok.renewal.outgoing.media;
 
-import com.sssok.renewal.outgoing.database.UploadFolderRepository;
-import com.sssok.renewal.outgoing.database.UploadFileRepository;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import com.sssok.renewal.application.auth.AnonymousAuthService;
-import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadSizePolicy;
+import com.sssok.domain.folder.Folder;
+import com.sssok.infrastructure.persistence.file.StoredFileJpaEntity;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
+import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.database.UploadFolderRepository;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
 import jakarta.persistence.EntityManager;
@@ -25,10 +25,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 @PostgresIntegrationTest
-@org.springframework.test.context.TestPropertySource(properties =
+@TestPropertySource(properties =
     "jwt.secret=bG9jYWwtY29udHJhY3QtdGVzdC1rZXktbm90LWZvci1wcm9kdWN0aW9uLTU1Nw==")
 @Transactional
 class UploadSchemaTest extends PostgresContainerSupport {
@@ -62,14 +66,14 @@ class UploadSchemaTest extends PostgresContainerSupport {
     @Test
     void 저장한_도메인에_ID가_있고_엔티티의_관계를_탐색할_수_있다() {
         StoredFile pendingUploadFile = saveFile();
-        com.sssok.domain.folder.Folder folder = folders.create(roomId, "연결");
+        Folder folder = folders.create(roomId, "연결");
         addFileToFolders(pendingUploadFile.getId(), List.of(folder.getId()));
         entityManager.flush();
         entityManager.clear();
         assertThat(pendingUploadFile.getId()).isNotNull();
-        com.sssok.infrastructure.persistence.file.StoredFileJpaEntity entity = files.findById(pendingUploadFile.getId()).orElseThrow();
+        StoredFileJpaEntity entity = files.findById(pendingUploadFile.getId()).orElseThrow();
         assertThat(entity.getRoom().getId()).isEqualTo(roomId);
-        com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity link = links.findAll().stream().filter(l -> l.getMediaId().equals(pendingUploadFile.getId())).findFirst().orElseThrow();
+        FolderMediaJpaEntity link = links.findAll().stream().filter(l -> l.getMediaId().equals(pendingUploadFile.getId())).findFirst().orElseThrow();
         assertThat(link.getMedia().getStorageKey()).isEqualTo(pendingUploadFile.getStorageKey().value());
         assertThat(link.getFolder().getRoom().getId()).isEqualTo(roomId);
     }
@@ -78,7 +82,7 @@ class UploadSchemaTest extends PostgresContainerSupport {
     @ValueSource(strings = {"room", "media", "folder"})
     void 참조가_있는_부모를_먼저_삭제할_수_없다(String table) {
         StoredFile file = saveFile();
-        com.sssok.domain.folder.Folder folder = folders.create(roomId, "연결");
+        Folder folder = folders.create(roomId, "연결");
         addFileToFolders(file.getId(), List.of(folder.getId()));
         entityManager.flush();
         String target = table.equals("media") ? "stored_file" : table;
@@ -91,7 +95,7 @@ class UploadSchemaTest extends PostgresContainerSupport {
     @ValueSource(strings = {"room", "folder", "media"})
     void 없는_부모를_참조할_수_없다(String target) {
         StoredFile file = saveFile();
-        com.sssok.domain.folder.Folder folder = folders.create(roomId, "연결");
+        Folder folder = folders.create(roomId, "연결");
         entityManager.flush();
         assertThatThrownBy(() -> {
             if (target.equals("room")) {

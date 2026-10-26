@@ -1,17 +1,18 @@
 package com.sssok.renewal.outgoing.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.SessionTokenProvider;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 @PostgresIntegrationTest
 @Transactional
@@ -42,7 +43,7 @@ class AuthSchemaTest extends PostgresContainerSupport {
         assertThat(count("legacy_auth_revocation", memberId)).isZero();
     }
 
-    @Autowired jakarta.persistence.EntityManager entityManager;
+    @Autowired EntityManager entityManager;
 
     @Test
     void 존재하지_않는_회원의_세션은_저장할_수_없다() {

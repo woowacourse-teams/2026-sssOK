@@ -1,5 +1,48 @@
 package com.sssok.renewal.incoming.media;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.media.MediaCreatedEvent;
+import com.sssok.application.media.MediaReadyEvent;
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.port.out.FolderMediaRepository;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.application.room.JoinRoomService;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.domain.folder.Folder;
+import com.sssok.domain.room.Room;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.support.AcceptanceTest;
+import com.sssok.support.PostgresContainerSupport;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -8,45 +51,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.renewal.application.auth.AnonymousAuthService;
-import com.sssok.renewal.application.auth.AuthResult;
-import com.sssok.application.folder.CreateFolderService;
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
-import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
-import com.sssok.domain.file.UploadStatus;
-import com.sssok.domain.file.StorageKey;
-import com.sssok.domain.folder.Folder;
-import com.sssok.domain.room.Room;
-import com.sssok.support.PostgresContainerSupport;
-import com.sssok.support.AcceptanceTest;
-import java.time.Duration;
-import java.util.Optional;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import com.sssok.application.media.MediaCreatedEvent;
-import com.sssok.application.media.MediaReadyEvent;
-import org.springframework.test.context.event.ApplicationEvents;
-import org.springframework.test.context.event.RecordApplicationEvents;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
 
 // API 인수 테스트 (Testcontainers). 폴더 담기가 PostgreSQL 전용 ON CONFLICT 를 써서 H2 로는 못 돈다.
 // 스토리지만 목으로 두고 나머지는 실제 흐름 그대로 태운다.
@@ -103,9 +107,9 @@ class MediaUploadApiTest extends PostgresContainerSupport {
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.when(fileStorage.presignGet(
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        Mockito.when(fileStorage.presignGet(
+            ArgumentMatchers.any(), ArgumentMatchers.anyString(),
+            ArgumentMatchers.anyString(), ArgumentMatchers.any()))
             .thenReturn("https://fileStorage.example.com/read");
         mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         AuthResult host = anonymousAuthService.authenticate("가현");
@@ -297,14 +301,14 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         List<Long> sizes = List.of(1024L, 2048L);
         for (int i = 0; i < 2; i++) {
             JsonNode issued = data.path("issued").get(i);
-            com.sssok.domain.file.StoredFile stored = fileRepository.findById(issued.path("mediaId").asLong()).orElseThrow();
+            StoredFile stored = fileRepository.findById(issued.path("mediaId").asLong()).orElseThrow();
             assertThat(stored.getStatus()).isEqualTo(UploadStatus.RESERVED);
             assertThat(stored.getFileSize().bytes()).isEqualTo(sizes.get(i));
             assertThat(issued.path("fileName").asText()).isEqualTo("same.jpg");
             assertThat(issued.path("uploadUrl").asText())
                 .isEqualTo("https://fileStorage.example.com/" + stored.getStorageKey().value());
             assertThat(issued.path("headers").path("Content-Type").asText()).isEqualTo(types.get(i));
-            org.mockito.Mockito.verify(fileStorage).presignPut(
+            Mockito.verify(fileStorage).presignPut(
                 stored.getStorageKey(), types.get(i), Duration.ofSeconds(issued.path("expiresIn").asInt()));
         }
         assertThat(data.path("issued").get(0).path("mediaId").asLong())
@@ -329,7 +333,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
 
         assertThat(fileRepository.findAllByRoomId(roomId)).isEmpty();
         assertThat(folderMediaRepository.findMediaIdsByFolderId(folder.getId())).isEmpty();
-        org.mockito.Mockito.verify(fileStorage, org.mockito.Mockito.never())
+        Mockito.verify(fileStorage, Mockito.never())
             .presignPut(any(), anyString(), any(Duration.class));
     }
 
@@ -485,11 +489,11 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             """;
         JsonNode data = objectMapper.readTree(issue(body).andExpect(status().isOk())
             .andReturn().getResponse().getContentAsString()).path("data");
-        assertThat(data.properties()).extracting(java.util.Map.Entry::getKey)
+        assertThat(data.properties()).extracting(Map.Entry::getKey)
             .containsExactlyInAnyOrder("issued", "rejected");
-        assertThat(data.path("issued").get(0).properties()).extracting(java.util.Map.Entry::getKey)
+        assertThat(data.path("issued").get(0).properties()).extracting(Map.Entry::getKey)
             .containsExactlyInAnyOrder("mediaId", "fileName", "uploadUrl", "method", "headers", "expiresIn");
-        assertThat(data.path("rejected").get(0).properties()).extracting(java.util.Map.Entry::getKey)
+        assertThat(data.path("rejected").get(0).properties()).extracting(Map.Entry::getKey)
             .containsExactlyInAnyOrder("fileName", "code", "message");
         assertThat(data.path("rejected").get(0).path("message").asText())
             .isEqualTo("이미지와 영상만 업로드할 수 있습니다");
@@ -504,7 +508,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.code").value("FOLDER_NOT_FOUND"))
             .andExpect(jsonPath("$.message").value("존재하지 않는 폴더입니다: [-1]"));
         assertThat(fileRepository.findAllByRoomId(roomId)).isEmpty();
-        org.mockito.Mockito.verify(fileStorage, org.mockito.Mockito.never())
+        Mockito.verify(fileStorage, Mockito.never())
             .presignPut(any(), anyString(), any(Duration.class));
     }
 

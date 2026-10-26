@@ -1,23 +1,7 @@
 package com.sssok.renewal.incoming.download;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.renewal.application.auth.AnonymousAuthService;
-import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.media.DeleteMediaService;
 import com.sssok.application.port.out.FileRepository;
@@ -28,6 +12,8 @@ import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
@@ -35,9 +21,11 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import java.util.stream.StreamSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -53,6 +41,20 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 // #581 단건·다건 다운로드 API 계약. 구조를 바꾸기 전 코드와 바꾼 뒤 코드가 이 테스트를 똑같이 통과해야 한다.
 // 스토리지만 목으로 두고, 서명 URL에 저장소 키와 Content-Disposition 을 그대로 실어 돌려줘서
@@ -292,7 +294,7 @@ class DownloadApiTest extends PostgresContainerSupport {
 
         private String mediaIdsBody(Long... mediaIds) {
             return "{\"mediaIds\":[%s]}".formatted(
-                java.util.Arrays.stream(mediaIds).map(String::valueOf).collect(Collectors.joining(",")));
+                Arrays.stream(mediaIds).map(String::valueOf).collect(Collectors.joining(",")));
         }
 
         private JsonNode files(ResultActions result) throws Exception {
@@ -301,7 +303,7 @@ class DownloadApiTest extends PostgresContainerSupport {
         }
 
         private List<Long> mediaIdsOf(JsonNode files) {
-            return java.util.stream.StreamSupport.stream(files.spliterator(), false)
+            return StreamSupport.stream(files.spliterator(), false)
                 .map(file -> file.path("mediaId").asLong()).toList();
         }
 

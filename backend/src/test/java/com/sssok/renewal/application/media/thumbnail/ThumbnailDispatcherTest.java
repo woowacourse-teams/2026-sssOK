@@ -1,14 +1,10 @@
 package com.sssok.renewal.application.media.thumbnail;
 
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
-import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
-import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
 import com.sssok.renewal.outgoing.config.ThumbnailQueueProperties;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,10 +12,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 
 class ThumbnailDispatcherTest {
     final ThumbnailJobService thumbnailJobService = mock(ThumbnailJobService.class);
@@ -96,7 +97,7 @@ class ThumbnailDispatcherTest {
         doAnswer(invocation -> { tasks.add(invocation.getArgument(0)); return null; })
             .when(images).execute(any(Runnable.class));
         dispatcher.dispatchPendingJobs();
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> tasks.getFirst().run())
+        Assertions.assertThatThrownBy(() -> tasks.getFirst().run())
             .isInstanceOf(IllegalStateException.class);
         dispatcher.dispatchPendingJobs();
         verify(thumbnailJobService, times(3)).claimNext(ThumbnailKind.IMAGE);
@@ -131,7 +132,7 @@ class ThumbnailDispatcherTest {
         when(thumbnailJobService.claimNext(ThumbnailKind.IMAGE)).thenThrow(new IllegalStateException("DB"))
             .thenReturn(Optional.empty());
         when(thumbnailJobService.claimNext(ThumbnailKind.VIDEO)).thenReturn(Optional.empty());
-        org.assertj.core.api.Assertions.assertThatThrownBy(dispatcher::dispatchPendingJobs).isInstanceOf(IllegalStateException.class);
+        Assertions.assertThatThrownBy(dispatcher::dispatchPendingJobs).isInstanceOf(IllegalStateException.class);
         dispatcher.dispatchPendingJobs();
         verify(thumbnailJobService, times(2)).claimNext(ThumbnailKind.IMAGE);
     }

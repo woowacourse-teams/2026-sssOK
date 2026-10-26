@@ -1,9 +1,7 @@
 package com.sssok.renewal.application.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.infrastructure.config.JwtProperties;
+import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.member.Member;
 import com.sssok.renewal.domain.member.Nickname;
@@ -17,6 +15,9 @@ import java.util.Base64;
 import java.util.Date;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 @H2IntegrationTest
 class SessionTokenProviderTest {
@@ -72,7 +73,7 @@ class SessionTokenProviderTest {
         rejected(old);
         rejected(current);
         assertThatThrownBy(() -> linkLogin.login(code))
-            .isInstanceOf(com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException.class);
+            .isInstanceOf(LinkCodeNotFoundException.class);
         assertThat(sessions.parse(sessions.issue(member.getId(), Instant.now()).value())).isEqualTo(member.getId());
     }
 
