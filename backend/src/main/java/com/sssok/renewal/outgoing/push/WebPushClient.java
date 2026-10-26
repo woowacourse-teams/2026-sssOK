@@ -55,8 +55,7 @@ public class WebPushClient {
         try {
             body = encryptor.encrypt(payload.getBytes(StandardCharsets.UTF_8),
                 subscription.p256dhBytes(), subscription.authBytes());
-        } catch (IllegalArgumentException e) {
-            // 곡선 위의 점이 아닌 공개키처럼 형식만 맞는 구독은 다시 보내도 실패하므로 만료로 처리한다.
+        } catch (InvalidSubscriptionKeyException e) {
             return PushSendResult.EXPIRED;
         }
         try {

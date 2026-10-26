@@ -3,8 +3,10 @@ package com.sssok.renewal.outgoing.push;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.PublicKey;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPublicKey;
 import java.util.Arrays;
@@ -38,10 +40,7 @@ public class WebPushEncryptor {
             byte[] salt = new byte[SALT_LENGTH];
             random.nextBytes(salt);
 
-            KeyAgreement agreement = KeyAgreement.getInstance("ECDH");
-            agreement.init(serverKeys.getPrivate());
-            agreement.doPhase(VapidKeys.publicKey(userAgentPublicKey), true);
-            byte[] ecdhSecret = agreement.generateSecret();
+            byte[] ecdhSecret = ecdhSecret(serverKeys, userAgentPublicKey);
 
             byte[] keyInfo = concat(KEY_INFO_PREFIX, userAgentPublicKey, serverPublicKey);
             byte[] ikm = hkdf(authSecret, ecdhSecret, keyInfo, 32);
@@ -64,6 +63,19 @@ public class WebPushEncryptor {
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("푸시 본문 암호화에 실패했습니다", e);
         }
+    }
+
+    // 구독 공개키 문제만 InvalidSubscriptionKeyException 으로 구분한다. 그 밖의 암호화 오류는 구독 탓이 아니다.
+    private static byte[] ecdhSecret(KeyPair serverKeys, byte[] userAgentPublicKey) throws GeneralSecurityException {
+        KeyAgreement agreement = KeyAgreement.getInstance("ECDH");
+        agreement.init(serverKeys.getPrivate());
+        try {
+            PublicKey userAgentKey = VapidKeys.publicKey(userAgentPublicKey);
+            agreement.doPhase(userAgentKey, true);
+        } catch (IllegalArgumentException | InvalidKeyException e) {
+            throw new InvalidSubscriptionKeyException(e);
+        }
+        return agreement.generateSecret();
     }
 
     private KeyPair ephemeralKeyPair() throws GeneralSecurityException {

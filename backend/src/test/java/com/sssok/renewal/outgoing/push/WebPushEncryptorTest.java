@@ -66,11 +66,22 @@ class WebPushEncryptorTest {
     }
 
     @Test
+    void 곡선_위에_없는_구독_공개키는_구독_키_오류로_구분한다() {
+        byte[] offCurveKey = new byte[65];
+        offCurveKey[0] = 0x04;
+
+        assertThatThrownBy(() -> encryptor.encrypt("hi".getBytes(StandardCharsets.UTF_8), offCurveKey, authSecret))
+            .isInstanceOf(InvalidSubscriptionKeyException.class);
+    }
+
+    @Test
     void 레코드_하나에_담기지_않는_본문은_거절한다() {
         byte[] tooLong = new byte[WebPushEncryptor.MAX_PLAINTEXT_LENGTH + 1];
 
+        // 구독 탓이 아니므로 구독 키 오류로 분류하지 않는다.
         assertThatThrownBy(() -> encryptor.encrypt(tooLong, browserPublicKey, authSecret))
-            .isInstanceOf(IllegalArgumentException.class);
+            .isInstanceOf(IllegalArgumentException.class)
+            .isNotInstanceOf(InvalidSubscriptionKeyException.class);
     }
 
     private byte[] decryptAsBrowser(byte[] message) throws Exception {
