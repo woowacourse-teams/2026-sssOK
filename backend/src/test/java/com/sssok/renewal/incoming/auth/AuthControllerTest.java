@@ -20,10 +20,11 @@ import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.auth.exception.InvalidLinkCodeException;
+import com.sssok.renewal.domain.member.MemberStatus;
 import com.sssok.renewal.domain.member.SocialProvider;
 import com.sssok.renewal.domain.member.exception.InvalidNicknameException;
-import com.sssok.renewal.domain.member.MemberStatus;
 import java.time.Instant;
+import java.util.List;
 import java.util.NoSuchElementException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -110,7 +112,7 @@ class AuthControllerTest {
 
     @Test
     void 애플_시작은_익명_인증없이_URL과_확인값을_반환한다() throws Exception {
-        given(startAppleLoginService.start(null)).willReturn(appleStartResult());
+        given(startAppleLoginService.start(List.of())).willReturn(appleStartResult());
         mockMvc.perform(post("/api/v1/auth/oauth/apple/start"))
             .andExpect(status().isOk())
             .andExpect(header().string("Cache-Control", "no-store"))
@@ -123,15 +125,15 @@ class AuthControllerTest {
 
     @Test
     void 애플_시작은_익명_토큰을_전달한다() throws Exception {
-        given(startAppleLoginService.start("anonymous-token")).willReturn(appleStartResult());
+        given(startAppleLoginService.start(List.of("anonymous-token"))).willReturn(appleStartResult());
         mockMvc.perform(post("/api/v1/auth/oauth/apple/start").header("Authorization", "Bearer anonymous-token"))
             .andExpect(status().isOk());
-        verify(startAppleLoginService).start("anonymous-token");
+        verify(startAppleLoginService).start(List.of("anonymous-token"));
     }
 
     @Test
     void 비활성_애플_시작은_503이다() throws Exception {
-        given(startAppleLoginService.start(null)).willThrow(SocialAuthException.unavailable());
+        given(startAppleLoginService.start(List.of())).willThrow(SocialAuthException.unavailable());
         mockMvc.perform(post("/api/v1/auth/oauth/apple/start")).andExpect(status().isServiceUnavailable());
     }
 
@@ -236,7 +238,7 @@ class AuthControllerTest {
 
     @Test
     void 인증_없이_카카오_로그인을_시작하고_쿠키_없이_확인값을_반환한다() throws Exception {
-        given(startKakaoLoginService.start(null)).willReturn(kakaoStartResult());
+        given(startKakaoLoginService.start(List.of())).willReturn(kakaoStartResult());
         mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
             .andExpect(status().isOk())
             .andExpect(header().string("Cache-Control", "no-store"))
@@ -250,12 +252,12 @@ class AuthControllerTest {
     }
 
     @Test
-    void 익명_토큰은_헤더에서만_읽어_로그인_시작에_전달한다() throws Exception {
-        given(startKakaoLoginService.start("anonymous-token")).willReturn(kakaoStartResult());
+    void 헤더의_익명_토큰을_로그인_시작에_전달한다() throws Exception {
+        given(startKakaoLoginService.start(List.of("anonymous-token"))).willReturn(kakaoStartResult());
         mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
                 .header("Authorization", "Bearer anonymous-token"))
             .andExpect(status().isOk());
-        verify(startKakaoLoginService).start("anonymous-token");
+        verify(startKakaoLoginService).start(List.of("anonymous-token"));
     }
 
     @ParameterizedTest
@@ -268,14 +270,14 @@ class AuthControllerTest {
 
     @Test
     void 카카오_시작에서_만료된_익명_토큰은_401로_반환한다() throws Exception {
-        given(startKakaoLoginService.start("expired")).willThrow(new UnauthorizedException("다시 접속해주세요"));
+        given(startKakaoLoginService.start(List.of("expired"))).willThrow(new UnauthorizedException("다시 접속해주세요"));
         mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", "Bearer expired"))
             .andExpect(status().isUnauthorized());
     }
 
     @Test
     void 카카오가_비활성이면_503을_반환한다() throws Exception {
-        given(startKakaoLoginService.start(null)).willThrow(SocialAuthException.unavailable());
+        given(startKakaoLoginService.start(List.of())).willThrow(SocialAuthException.unavailable());
         mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("SOCIAL_AUTH_UNAVAILABLE"));
@@ -284,6 +286,33 @@ class AuthControllerTest {
     private SocialLoginStartResult kakaoStartResult() {
         return new SocialLoginStartResult("https://kauth.kakao.com/oauth/authorize?state=test-state",
             "test-state", "private-verifier", Instant.parse("2026-10-25T12:05:00Z"));
+    }
+
+    @Test
+    void 카카오_시작은_본문의_복수_익명_토큰도_같은_목록으로_전달한다() throws Exception {
+        List<String> tokens = List.of("first-token", "second-token");
+        given(startKakaoLoginService.start(tokens)).willReturn(kakaoStartResult());
+
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"anonymousAccessTokens\":[\"first-token\",\"second-token\"]}"))
+            .andExpect(status().isOk());
+
+        verify(startKakaoLoginService).start(tokens);
+    }
+
+    @Test
+    void 애플_시작은_헤더와_본문의_토큰을_합치고_중복을_제거한다() throws Exception {
+        List<String> tokens = List.of("first-token", "second-token");
+        given(startAppleLoginService.start(tokens)).willReturn(appleStartResult());
+
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/start")
+                .header("Authorization", "Bearer first-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"anonymousAccessTokens\":[\"first-token\",\"second-token\"]}"))
+            .andExpect(status().isOk());
+
+        verify(startAppleLoginService).start(tokens);
     }
 
     @Test

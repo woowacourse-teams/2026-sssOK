@@ -15,12 +15,8 @@ public class StartKakaoLoginService {
     private final OAuthLoginAttemptService oauthLoginAttemptService;
     private final KakaoOAuthProperties kakaoOAuthProperties;
 
-    public SocialLoginStartResult start(String anonymousAccessToken) {
-        return startMany(anonymousAccessToken == null ? List.of() : List.of(anonymousAccessToken));
-    }
-
-    public SocialLoginStartResult startMany(List<String> anonymousAccessTokens) {
-        OAuthLoginAttemptResult attempt = oauthLoginAttemptService.startMany(SocialProvider.KAKAO, anonymousAccessTokens);
+    public SocialLoginStartResult start(List<String> anonymousAccessTokens) {
+        OAuthLoginAttemptResult attempt = oauthLoginAttemptService.start(SocialProvider.KAKAO, anonymousAccessTokens);
         String authorizationUrl = UriComponentsBuilder.fromUriString(AUTHORIZATION_ENDPOINT)
             .queryParam("response_type", "code")
             .queryParam("client_id", "{clientId}")

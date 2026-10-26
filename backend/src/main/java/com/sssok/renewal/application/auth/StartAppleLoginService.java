@@ -15,12 +15,8 @@ public class StartAppleLoginService {
     private final OAuthLoginAttemptService oauthLoginAttemptService;
     private final AppleOAuthProperties appleOAuthProperties;
 
-    public SocialLoginStartResult start(String anonymousAccessToken) {
-        return startMany(anonymousAccessToken == null ? List.of() : List.of(anonymousAccessToken));
-    }
-
-    public SocialLoginStartResult startMany(List<String> anonymousAccessTokens) {
-        OAuthLoginAttemptResult attempt = oauthLoginAttemptService.startMany(SocialProvider.APPLE, anonymousAccessTokens);
+    public SocialLoginStartResult start(List<String> anonymousAccessTokens) {
+        OAuthLoginAttemptResult attempt = oauthLoginAttemptService.start(SocialProvider.APPLE, anonymousAccessTokens);
         // 이름·이메일 scope 없이 code/query 방식을 사용한다. nonce는 서버에 저장한 값만 넣는다.
         String authorizationUrl = UriComponentsBuilder.fromUriString(AUTHORIZATION_ENDPOINT)
             .queryParam("response_type", "code")

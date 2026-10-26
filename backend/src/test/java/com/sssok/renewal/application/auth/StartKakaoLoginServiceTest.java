@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -23,10 +24,10 @@ class StartKakaoLoginServiceTest {
         String redirectUri = "https://example.com/auth/callback/kakao?next=/rooms&label=한글+값";
         KakaoOAuthProperties properties = new KakaoOAuthProperties("client+id", "secret-value", redirectUri);
         Instant expiresAt = Instant.parse("2026-10-25T12:05:00Z");
-        when(attempts.startMany(SocialProvider.KAKAO, List.of("anonymous-token"))).thenReturn(
+        when(attempts.start(SocialProvider.KAKAO, List.of("anonymous-token"))).thenReturn(
             new OAuthLoginAttemptResult(SocialProvider.KAKAO, "server-state", "private-verifier", null, redirectUri, expiresAt));
 
-        SocialLoginStartResult result = new StartKakaoLoginService(attempts, properties).start("anonymous-token");
+        SocialLoginStartResult result = new StartKakaoLoginService(attempts, properties).start(List.of("anonymous-token"));
         URI url = URI.create(result.authorizationUrl());
         Map<String, String> parameters = Arrays.stream(url.getRawQuery().split("&"))
             .map(part -> part.split("=", 2))

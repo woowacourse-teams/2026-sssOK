@@ -38,15 +38,12 @@ public class OAuthLoginAttemptService {
     private final KakaoOAuthProperties kakaoOAuthProperties;
     private final AppleOAuthProperties appleOAuthProperties;
 
-    // 익명 회원 ID를 요청에서 받지 않고 서비스 인증 토큰에서 확인한다. 인증 없이 시작하려면 null을 전달한다.
+    // 익명 회원 ID는 전달받은 서비스 인증 토큰으로 확인한다. 인증이 없으면 빈 목록을 받는다.
     @Transactional(readOnly = true)
-    public OAuthLoginAttemptResult start(SocialProvider provider, String anonymousAccessToken) {
-        return startMany(provider, anonymousAccessToken == null ? List.of() : List.of(anonymousAccessToken));
-    }
-
-    @Transactional(readOnly = true)
-    public OAuthLoginAttemptResult startMany(SocialProvider provider, List<String> anonymousAccessTokens) {
-        if (anonymousAccessTokens.size() > 100) throw SocialAuthException.invalid();
+    public OAuthLoginAttemptResult start(SocialProvider provider, List<String> anonymousAccessTokens) {
+        if (anonymousAccessTokens.size() > 100) {
+            throw SocialAuthException.invalid();
+        }
         String redirectUri = requireEnabledRedirectUri(provider);
         List<Long> anonymousMemberIds = anonymousAccessTokens.stream()
             .map(this::resolveAnonymousMemberId).distinct().sorted().toList();
@@ -91,18 +88,12 @@ public class OAuthLoginAttemptService {
     }
 
     private Long resolveAnonymousMemberId(String anonymousAccessToken) {
-        if (anonymousAccessToken == null) {
-            return null;
-        }
         Long memberId = sessionTokenProvider.parse(anonymousAccessToken);
         requireAnonymousMember(memberId);
         return memberId;
     }
 
     private void requireAnonymousMember(Long memberId) {
-        if (memberId == null) {
-            return;
-        }
         Member member = memberRepository.findById(memberId).orElseThrow(SocialAuthException::invalid);
         if (member.getStatus() != MemberStatus.ANONYMOUS) {
             throw SocialAuthException.invalid();

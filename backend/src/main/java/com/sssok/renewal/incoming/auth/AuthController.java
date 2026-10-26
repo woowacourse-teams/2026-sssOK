@@ -53,16 +53,14 @@ public class AuthController {
 
     @Operation(summary = "카카오 로그인 시작", description = "카카오 로그인 URL과 일회용 확인값을 발급한다. "
         + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다. "
-        + "헤더 생략 시 익명 활동을 연결하지 않는다. 이 API만으로 가입이나 로그인이 완료되지는 않는다.")
+        + "헤더와 본문의 익명 토큰 목록을 생략하면 익명 활동을 연결하지 않는다. 이 API만으로 가입이나 로그인이 완료되지는 않는다.")
     @PostMapping("/oauth/kakao/start")
     public ResponseEntity<ApiResponse<SocialLoginStartResponse>> startKakaoLogin(
         @RequestHeader(value = "Authorization", required = false) String authorization,
         @Valid @RequestBody(required = false) SocialLoginStartRequest request
     ) {
-        String anonymousAccessToken = extractOptionalBearerToken(authorization);
-        SocialLoginStartResponse response = SocialLoginStartResponse.from(request == null
-            ? startKakaoLoginService.start(anonymousAccessToken)
-            : startKakaoLoginService.startMany(anonymousTokens(anonymousAccessToken, request)));
+        List<String> tokens = anonymousTokens(authorization, request);
+        SocialLoginStartResponse response = SocialLoginStartResponse.from(startKakaoLoginService.start(tokens));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
     }
 
@@ -84,10 +82,8 @@ public class AuthController {
         @RequestHeader(value = "Authorization", required = false) String authorization,
         @Valid @RequestBody(required = false) SocialLoginStartRequest request
     ) {
-        String anonymousAccessToken = extractOptionalBearerToken(authorization);
-        SocialLoginStartResponse response = SocialLoginStartResponse.from(request == null
-            ? startAppleLoginService.start(anonymousAccessToken)
-            : startAppleLoginService.startMany(anonymousTokens(anonymousAccessToken, request)));
+        List<String> tokens = anonymousTokens(authorization, request);
+        SocialLoginStartResponse response = SocialLoginStartResponse.from(startAppleLoginService.start(tokens));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
     }
 
@@ -180,9 +176,15 @@ public class AuthController {
         return tokenHttpSupport.respond(result, delivery, HttpStatus.OK);
     }
 
-    private List<String> anonymousTokens(String headerToken, SocialLoginStartRequest request) {
-        List<String> tokens = new ArrayList<>(request.anonymousAccessTokens());
-        if (headerToken != null) tokens.add(headerToken);
+    private List<String> anonymousTokens(String authorization, SocialLoginStartRequest request) {
+        List<String> tokens = new ArrayList<>();
+        if (request != null) {
+            tokens.addAll(request.anonymousAccessTokens());
+        }
+        String headerToken = extractOptionalBearerToken(authorization);
+        if (headerToken != null) {
+            tokens.add(headerToken);
+        }
         return tokens.stream().distinct().toList();
     }
 

@@ -1,11 +1,5 @@
 package com.sssok.renewal.application.auth;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.*;
-
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.member.Member;
@@ -25,6 +19,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,6 +27,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.*;
+
 
 @PostgresIntegrationTest
 @TestPropertySource(properties = {
@@ -65,7 +67,7 @@ class CompleteAppleLoginServiceTest extends PostgresContainerSupport {
     void URL에_넣은_서버_nonce로_검증하고_익명_회원을_가입시킨다() {
         Member anonymous = anonymous();
         String oldToken = sessionTokenProvider.issue(anonymous.getId(), Instant.now()).value();
-        SocialLoginStartResult start = startAppleLoginService.start(oldToken);
+        SocialLoginStartResult start = startAppleLoginService.start(List.of(oldToken));
         String nonce = Arrays.stream(URI.create(start.authorizationUrl()).getRawQuery().split("&"))
             .filter(part -> part.startsWith("nonce=")).map(part -> part.substring(6))
             .map(value -> URLDecoder.decode(value, StandardCharsets.UTF_8)).findFirst().orElseThrow();
@@ -81,8 +83,8 @@ class CompleteAppleLoginServiceTest extends PostgresContainerSupport {
 
     @Test
     void 인증없이_신규가입_후_동일한_애플_회원으로_로그인한다() {
-        AuthResult first = complete(startAppleLoginService.start(null));
-        AuthResult second = complete(startAppleLoginService.start(null));
+        AuthResult first = complete(startAppleLoginService.start(List.of()));
+        AuthResult second = complete(startAppleLoginService.start(List.of()));
         assertThat(second.userId()).isEqualTo(first.userId());
         assertThat(second.nickname()).isEqualTo("사용자");
         assertThat(sessionTokenProvider.parse(first.accessToken())).isEqualTo(first.userId());
@@ -91,9 +93,9 @@ class CompleteAppleLoginServiceTest extends PostgresContainerSupport {
 
     @Test
     void 기존_애플_회원에_익명_활동을_통합한다() {
-        AuthResult registered = complete(startAppleLoginService.start(null));
+        AuthResult registered = complete(startAppleLoginService.start(List.of()));
         Member anonymous = anonymous();
-        AuthResult merged = complete(startAppleLoginService.start(sessionTokenProvider.issue(anonymous.getId(), Instant.now()).value()));
+        AuthResult merged = complete(startAppleLoginService.start(List.of(sessionTokenProvider.issue(anonymous.getId(), Instant.now()).value())));
         assertThat(merged.userId()).isEqualTo(registered.userId());
         assertThat(memberRepository.findById(anonymous.getId()).orElseThrow().getStatus()).isEqualTo(MemberStatus.MERGED);
         assertThat(sessionTokenProvider.parse(registered.accessToken())).isEqualTo(registered.userId());
@@ -101,7 +103,7 @@ class CompleteAppleLoginServiceTest extends PostgresContainerSupport {
 
     @Test
     void 다른_제공자의_시도는_소비하지_않는다() {
-        SocialLoginStartResult start = startAppleLoginService.start(null);
+        SocialLoginStartResult start = startAppleLoginService.start(List.of());
         assertThatThrownBy(() -> completeSocialLoginService.login(SocialProvider.KAKAO, "code", start.state(), start.loginVerifier()))
             .isInstanceOf(SocialAuthException.class);
         verify(kakaoClient, never()).authenticate(anyString(), isNull());
@@ -114,15 +116,15 @@ class CompleteAppleLoginServiceTest extends PostgresContainerSupport {
         SocialIdentity kakaoIdentity = new SocialIdentity(SocialProvider.KAKAO, identity.providerUserId());
         when(kakaoClient.authenticate(anyString(), isNull()))
             .thenReturn(new SocialAuthentication(kakaoIdentity, "access", "refresh"));
-        SocialLoginStartResult kakaoStart = startKakaoLoginService.start(null);
+        SocialLoginStartResult kakaoStart = startKakaoLoginService.start(List.of());
         AuthResult kakao = completeSocialLoginService.login(SocialProvider.KAKAO, "code", kakaoStart.state(), kakaoStart.loginVerifier());
-        AuthResult apple = complete(startAppleLoginService.start(null));
+        AuthResult apple = complete(startAppleLoginService.start(List.of()));
         assertThat(apple.userId()).isNotEqualTo(kakao.userId());
     }
 
     @Test
     void 검증_실패시_가입하지_않고_소비된_시도를_복원하지_않는다() {
-        SocialLoginStartResult start = startAppleLoginService.start(null);
+        SocialLoginStartResult start = startAppleLoginService.start(List.of());
         when(appleClient.authenticate(anyString(), anyString())).thenThrow(SocialAuthException.invalid());
         assertThatThrownBy(() -> complete(start)).isInstanceOf(SocialAuthException.class);
         assertThat(socialAccountRepository.findByIdentity(identity)).isEmpty();
@@ -132,7 +134,7 @@ class CompleteAppleLoginServiceTest extends PostgresContainerSupport {
 
     @Test
     void 잘못된_확인값은_제공자_호출_전에_거부하고_정상_시도를_보존한다() {
-        SocialLoginStartResult start = startAppleLoginService.start(null);
+        SocialLoginStartResult start = startAppleLoginService.start(List.of());
         assertThatThrownBy(() -> completeSocialLoginService.login(SocialProvider.APPLE, "code", start.state(), "x".repeat(43)))
             .isInstanceOf(SocialAuthException.class);
         verify(appleClient, never()).authenticate(anyString(), anyString());
