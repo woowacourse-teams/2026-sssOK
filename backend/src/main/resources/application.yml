@@ -210,3 +210,19 @@ management:
           include: readinessState,db
       # 외부 시스템과 내부 구성 요소의 상세 상태는 응답에 포함하지 않는다.
       show-details: never
+
+# 실제 연동·탈퇴 검증 전까지 기본 비활성화. 활성화 시 제공자 설정과 암호화 키를 검증한다.
+oauth:
+  token-encryption-key: ${OAUTH_TOKEN_ENCRYPTION_KEY:}
+  kakao:
+    enabled: ${OAUTH_KAKAO_ENABLED:false}
+    client-id: ${OAUTH_KAKAO_CLIENT_ID:}
+    client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
+    redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI:}
+  apple:
+    enabled: ${OAUTH_APPLE_ENABLED:false}
+    client-id: ${OAUTH_APPLE_CLIENT_ID:}
+    team-id: ${OAUTH_APPLE_TEAM_ID:}
+    key-id: ${OAUTH_APPLE_KEY_ID:}
+    private-key: ${OAUTH_APPLE_PRIVATE_KEY:}
+    redirect-uri: ${OAUTH_APPLE_REDIRECT_URI:}

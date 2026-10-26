@@ -1,5 +1,6 @@
 package com.sssok.renewal.outgoing.database.member;
 
+import com.sssok.renewal.domain.auth.EncryptedSocialTokens;
 import com.sssok.renewal.domain.member.SocialAccount;
 import com.sssok.renewal.domain.member.SocialIdentity;
 import java.util.List;
@@ -30,4 +31,15 @@ public class SocialAccountRepository {
         return jpaRepository.findByProviderAndProviderUserId(identity.provider(), identity.providerUserId())
             .map(SocialAccountJpaEntity::toDomain);
     }
+    public void updateTokens(SocialIdentity identity, EncryptedSocialTokens tokens) {
+        if (jpaRepository.updateTokens(identity.provider().name(), identity.providerUserId(),
+            tokens.accessToken(), tokens.refreshToken()) != 1) {
+            throw new IllegalStateException("토큰을 저장할 소셜 계정을 찾을 수 없습니다");
+        }
+    }
+
+    public Optional<EncryptedSocialTokens> findTokens(SocialIdentity identity) {
+        return jpaRepository.findTokens(identity.provider(), identity.providerUserId());
+    }
 }
+
