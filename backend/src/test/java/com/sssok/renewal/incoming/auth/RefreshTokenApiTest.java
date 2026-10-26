@@ -64,6 +64,18 @@ class RefreshTokenApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 쿠키_갱신은_CSRF_헤더가_없거나_허용되지_않은_출처면_거절한다() throws Exception {
+        Cookie cookie = new Cookie(AuthTokenHttpSupport.COOKIE_NAME, "r".repeat(43));
+        mvc.perform(post("/api/v1/auth/refresh").cookie(cookie)).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/auth/refresh").cookie(cookie)
+                .header("X-CSRF-Protection", "1").header("Origin", "https://untrusted.example"))
+            .andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/auth/anonymous").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"웹\"}"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
     void 두_전달방식_혼용과_토큰_누락을_거절한다() throws Exception {
         mvc.perform(post("/api/v1/auth/refresh")
                 .cookie(new Cookie(AuthTokenHttpSupport.COOKIE_NAME, "r".repeat(43)))

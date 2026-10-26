@@ -184,7 +184,7 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     }
 
     protected String 익명_인증(String nickname) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"" + nickname + "\"}"))
             .andReturn();

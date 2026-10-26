@@ -181,7 +181,7 @@ class RoomEventApiTest extends PostgresContainerSupport {
     }
 
     private String 익명_인증으로_토큰_발급받기() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"로지\"}"))
             .andReturn();

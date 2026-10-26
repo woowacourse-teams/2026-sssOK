@@ -39,7 +39,9 @@ public class AuthTokenHttpSupport {
     }
 
     public void validateDelivery(RefreshTokenDelivery delivery, HttpServletRequest request) {
-
+        if (delivery == RefreshTokenDelivery.COOKIE) {
+            requireCookieRequest(request);
+        }
     }
 
     public ResponseEntity<ApiResponse<AuthResponse>> respond(AuthResult result, RefreshTokenDelivery delivery,

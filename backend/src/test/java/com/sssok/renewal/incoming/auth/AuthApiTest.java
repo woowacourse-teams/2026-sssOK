@@ -37,7 +37,7 @@ class AuthApiTest extends PostgresContainerSupport {
             .andExpect(status().isCreated()).andReturn();
         String code = objectMapper.readTree(codeResult.getResponse().getContentAsString())
             .get("data").get("linkCode").asText();
-        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/link")
+        MvcResult loginResult = mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"" + code + "\"}"))
             .andExpect(status().isOk()).andReturn();
@@ -67,7 +67,7 @@ class AuthApiTest extends PostgresContainerSupport {
 
     @Test
     void 닉네임으로_익명_인증하면_토큰과_userId를_발급받는다() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/anonymous")
+        mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andExpect(status().isCreated())
@@ -79,11 +79,11 @@ class AuthApiTest extends PostgresContainerSupport {
 
     @Test
     void 호출할_때마다_다른_회원이_생성된다() throws Exception {
-        MvcResult first = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult first = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andReturn();
-        MvcResult second = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult second = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andReturn();
@@ -97,7 +97,7 @@ class AuthApiTest extends PostgresContainerSupport {
 
     @Test
     void 닉네임_없이_요청하면_400() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/anonymous")
+        mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"\"}"))
             .andExpect(status().isBadRequest())
@@ -134,14 +134,14 @@ class AuthApiTest extends PostgresContainerSupport {
         assertThat(firstCode).isNotEqualTo(secondCode);
 
         // 실제로 이전 코드가 무효화됐는지: 첫 번째 코드로는 로그인이 실패해야 한다.
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"" + firstCode + "\"}"))
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("LINK_CODE_NOT_FOUND"));
 
         // 두 번째(최신) 코드로는 로그인이 성공해야 한다.
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"" + secondCode + "\"}"))
             .andExpect(status().isOk());
@@ -164,7 +164,7 @@ class AuthApiTest extends PostgresContainerSupport {
 
     @Test
     void 연결_코드로_로그인하면_같은_회원의_새_토큰을_받는다() throws Exception {
-        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult registerResult = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andReturn();
@@ -178,7 +178,7 @@ class AuthApiTest extends PostgresContainerSupport {
         String linkCode = objectMapper.readTree(linkCodeResult.getResponse().getContentAsString())
             .get("data").get("linkCode").asText();
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"" + linkCode + "\"}"))
             .andExpect(status().isOk())
@@ -196,12 +196,12 @@ class AuthApiTest extends PostgresContainerSupport {
         String linkCode = objectMapper.readTree(linkCodeResult.getResponse().getContentAsString())
             .get("data").get("linkCode").asText();
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"" + linkCode + "\"}"))
             .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"" + linkCode + "\"}"))
             .andExpect(status().isNotFound())
@@ -210,7 +210,7 @@ class AuthApiTest extends PostgresContainerSupport {
 
     @Test
     void 존재하지_않는_코드로_로그인하면_404() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"999999\"}"))
             .andExpect(status().isNotFound())
@@ -219,7 +219,7 @@ class AuthApiTest extends PostgresContainerSupport {
 
     @Test
     void 형식이_잘못된_코드로_로그인하면_400() throws Exception {
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"abc\"}"))
             .andExpect(status().isBadRequest())
@@ -227,7 +227,7 @@ class AuthApiTest extends PostgresContainerSupport {
     }
 
     private String 익명_인증으로_토큰_발급받기() throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andReturn();

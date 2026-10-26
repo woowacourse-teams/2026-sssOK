@@ -83,7 +83,8 @@ class WebConfigCorsTest {
                 .header("Access-Control-Request-Method", "GET"))
             .andExpect(status().isOk())
             .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN))
-            .andExpect(header().exists("Access-Control-Allow-Methods"));
+            .andExpect(header().exists("Access-Control-Allow-Methods"))
+            .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test
