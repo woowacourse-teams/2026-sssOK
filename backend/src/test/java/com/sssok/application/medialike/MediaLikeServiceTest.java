@@ -1,31 +1,33 @@
 package com.sssok.application.medialike;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.MediaLikeRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 @PostgresIntegrationTest
 @Transactional
 @RecordApplicationEvents
 class MediaLikeServiceTest extends PostgresContainerSupport {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final long ROOM_ID = 1L;

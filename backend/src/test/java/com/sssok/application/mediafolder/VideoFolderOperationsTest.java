@@ -1,15 +1,17 @@
 package com.sssok.application.mediafolder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 // 영상도 사진과 똑같이 폴더에 담기고 빠지는지 본다.
 //
@@ -18,13 +20,13 @@ import org.springframework.transaction.annotation.Transactional;
 @PostgresIntegrationTest
 @Transactional
 class VideoFolderOperationsTest extends PostgresContainerSupport {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final Long ROOM_ID = 1L;

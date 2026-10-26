@@ -1,9 +1,5 @@
 package com.sssok.application.mediafolder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doAnswer;
-
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.MediaIdsResolver;
@@ -12,14 +8,20 @@ import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamExcept
 import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
+
 
 // Repository + Service 통합 테스트. 담기가 PostgreSQL 전용 네이티브 쿼리(ON CONFLICT)를 쓰므로
 // H2가 아닌 실제 PostgreSQL로 돌린다. 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -28,13 +30,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RecordApplicationEvents
 class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     @Autowired

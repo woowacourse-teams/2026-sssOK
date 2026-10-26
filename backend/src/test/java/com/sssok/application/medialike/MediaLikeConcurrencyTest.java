@@ -1,9 +1,8 @@
 package com.sssok.application.medialike;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -12,19 +11,22 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 @PostgresIntegrationTest
 class MediaLikeConcurrencyTest extends PostgresContainerSupport {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final int THREADS = 8;

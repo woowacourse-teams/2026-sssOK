@@ -1,11 +1,5 @@
 package com.sssok.application.media;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-
 import com.sssok.application.media.exception.InvalidMediaIdsException;
 import com.sssok.application.media.exception.MediaForbiddenException;
 import com.sssok.application.media.exception.MediaNotFoundException;
@@ -18,6 +12,7 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.LongStream;
@@ -26,6 +21,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
 
 @ExtendWith(MockitoExtension.class)
 class DeleteMediaServiceTest {
@@ -139,7 +140,7 @@ class DeleteMediaServiceTest {
     @Test
     void null_ID가_섞인_목록은_거부한다() {
         assertThatThrownBy(() -> service.deleteAll(
-            ROOM_ID, java.util.Arrays.asList(1L, null), REQUESTER_ID))
+            ROOM_ID, Arrays.asList(1L, null), REQUESTER_ID))
             .isInstanceOf(InvalidMediaIdsException.class);
     }
 
