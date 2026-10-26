@@ -66,6 +66,18 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         return result.userId();
     }
 
+    @Test
+    void 재입장하면_새로_보낸_닉네임으로_기존_닉네임을_덮어쓰지_않는다() {
+        Room room = createRoom();
+        joinRoomService.join(room.getId(), guestId, "처음별명");
+
+        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, "다른별명");
+
+        assertThat(result.displayName()).isEqualTo("처음별명");
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId).orElseThrow().getNickname())
+            .isEqualTo("처음별명");
+    }
+
     private Room createRoom() {
         return createRoomService.create(hostId, "우테코 회식", null).room();
     }
@@ -84,7 +96,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 표시_이름은_요청이_아니라_인증된_회원_정보에서_온다() {
+    void 닉네임을_생략하면_인증된_회원_이름을_사용한다() {
         Room room = createRoom();
 
         JoinRoomResult result = joinRoomService.join(room.getId(), guestId);

@@ -26,7 +26,7 @@ public record JoinRoomResult(
         return new JoinRoomResult(
             room.getId(),
             member.getId(),
-            member.getDisplayName().value(),
+            roomMember.getNickname() == null ? member.getDisplayName().value() : roomMember.getNickname(),
             room.getHostId(),
             roomMember.getJoinedAt(),
             newlyJoined

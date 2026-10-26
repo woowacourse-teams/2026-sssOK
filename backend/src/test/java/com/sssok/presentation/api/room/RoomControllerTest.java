@@ -117,7 +117,7 @@ class RoomControllerTest {
 
     @Test
     void 방을_생성하면_201과_roomId를_포함한_방_정보를_반환한다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull()))
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull(), isNull()))
             .willReturn(roomDetail(UploadPolicy.ANYONE, false));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -133,7 +133,7 @@ class RoomControllerTest {
 
     @Test
     void 방_생성_시_uploadPolicy를_보내면_그대로_전달된다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host")))
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host"), isNull()))
             .willReturn(roomDetail(UploadPolicy.HOST_ONLY, true));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -350,7 +350,7 @@ class RoomControllerTest {
 
     @Test
     void 처음_입장하면_201과_멤버_정보를_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         performJoin("{}")
@@ -364,8 +364,8 @@ class RoomControllerTest {
     }
 
     @Test
-    void 표시_이름은_요청_바디로_받지_않는다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+    void 닉네임_생략시_기본_이름으로_입장한다() throws Exception {
+        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
@@ -373,12 +373,12 @@ class RoomControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.displayName").value("민수"));
 
-        then(joinRoomService).should().join(eq(ROOM_ID), eq(MEMBER_ID));
+        then(joinRoomService).should().join(eq(ROOM_ID), eq(MEMBER_ID), isNull());
     }
 
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_200을_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, false));
 
         performJoin("{}")
@@ -390,7 +390,7 @@ class RoomControllerTest {
 
     @Test
     void 없는_방에_입장하면_404를_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomNotFoundException(ROOM_ID));
+        given(joinRoomService.join(anyLong(), anyLong(), isNull())).willThrow(new RoomNotFoundException(ROOM_ID));
 
         performJoin("{}")
             .andExpect(status().isNotFound())
@@ -399,7 +399,7 @@ class RoomControllerTest {
 
     @Test
     void 만료된_방에_입장하면_410을_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomExpiredException());
+        given(joinRoomService.join(anyLong(), anyLong(), isNull())).willThrow(new RoomExpiredException());
 
         performJoin("{}")
             .andExpect(status().isGone())
