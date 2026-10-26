@@ -35,7 +35,7 @@ public class JoinRoomService {
 
     @Transactional
     public JoinRoomResult join(Long roomId, Long memberId, String nickname) {
-        if (nickname != null) new Nickname(nickname);
+        Nickname requestedNickname = nickname == null ? null : new Nickname(nickname);
         Instant now = Instant.now();
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
@@ -50,8 +50,10 @@ public class JoinRoomService {
             return JoinRoomResult.rejoined(room, joined.get(), member);
         }
 
+        Nickname roomNickname = requestedNickname == null ? member.getDisplayName() : requestedNickname;
+
         // 실제로 행을 넣은 쪽만 신규 참여다. 재입장은 알림을 다시 보내지 않는다.
-        if (roomMemberRepository.joinIfAbsent(roomId, memberId, now, nickname == null ? member.getDisplayName().value() : nickname)) {
+        if (roomMemberRepository.joinIfAbsent(roomId, memberId, now, roomNickname)) {
             JoinRoomResult result = JoinRoomResult.newlyJoined(room, requireJoined(roomId, memberId), member);
             eventPublisher.publishEvent(RoomMemberJoinedEvent.from(result));
             return result;

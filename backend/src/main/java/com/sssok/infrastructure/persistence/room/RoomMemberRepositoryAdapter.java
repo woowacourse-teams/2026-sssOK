@@ -2,7 +2,7 @@ package com.sssok.infrastructure.persistence.room;
 
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.room.RoomMember;
-import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.domain.member.Nickname;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
 
     private final RoomMemberJpaRepository jpaRepository;
-    private final MemberRepository memberRepository;
 
     @Override
     public RoomMember save(RoomMember roomMember) {
@@ -29,13 +28,8 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
     }
 
     @Override
-    public boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt) {
-        return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt, null) > 0;
-    }
-
-    @Override
-    public boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt, String nickname) {
-        return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt, nickname) > 0;
+    public boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt, Nickname nickname) {
+        return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt, nickname.value()) > 0;
     }
 
     @Override
@@ -50,8 +44,7 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
             roomMember.getRoomId(),
             roomMember.getMemberId(),
             roomMember.getJoinedAt(),
-            roomMember.getNickname() != null ? roomMember.getNickname() : memberRepository.findById(roomMember.getMemberId())
-                .map(member -> member.getDisplayName().value()).orElse(null)
+            roomMember.getNickname()
         );
     }
 

@@ -1,8 +1,5 @@
 package com.sssok.application.room;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -14,13 +11,18 @@ import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.support.H2IntegrationTest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.random.RandomGenerator;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
+
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 // SSE 구독 전 방 존재/만료/멤버십 검증이 실제 Repository 빈을 통해 도는지 확인하는 통합 테스트.
 // H2 설정은 application-test.yml(test 프로파일)에 모아뒀다 (docs/backend/TEST_CONVENTION.md 참고).
@@ -59,7 +61,7 @@ class SubscribeRoomEventsServiceTest {
             null
         );
         Room saved = roomRepository.save(expired);
-        roomMemberRepository.save(RoomMember.join(saved.getId(), MEMBER_ID, Instant.now()));
+        roomMemberRepository.save(RoomMember.join(saved.getId(), MEMBER_ID, Instant.now(), new Nickname("참여자")));
 
         assertThatThrownBy(() -> subscribeRoomEventsService.validate(saved.getId(), MEMBER_ID))
             .isInstanceOf(RoomExpiredException.class);
@@ -78,7 +80,7 @@ class SubscribeRoomEventsServiceTest {
     void 입장한_회원이면_예외_없음() {
         Room active = Room.create(RoomCode.generate(RANDOM), new RoomName("활성방"), MEMBER_ID, Instant.now());
         Room saved = roomRepository.save(active);
-        roomMemberRepository.save(RoomMember.join(saved.getId(), MEMBER_ID, Instant.now()));
+        roomMemberRepository.save(RoomMember.join(saved.getId(), MEMBER_ID, Instant.now(), new Nickname("참여자")));
 
         assertThatCode(() -> subscribeRoomEventsService.validate(saved.getId(), MEMBER_ID))
             .doesNotThrowAnyException();

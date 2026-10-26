@@ -1,6 +1,7 @@
 package com.sssok.application.port.out;
 
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.domain.member.Nickname;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -15,8 +16,7 @@ public interface RoomMemberRepository {
 
     // 참여 기록이 없을 때만 넣고, 실제로 넣었으면 true.
     // 동시에 같은 사람의 입장 요청이 여러 개 들어와도 단 하나만 true를 받는다.
-    boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt);
-    boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt, String nickname);
+    boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt, Nickname nickname);
 
     List<RoomMember> findByRoomsAndMembers(Collection<Long> roomIds,
                                                    Collection<Long> memberIds);

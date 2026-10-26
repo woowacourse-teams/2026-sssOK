@@ -7,7 +7,9 @@ import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.random.RandomGenerator;
@@ -23,6 +25,7 @@ public class CreateRoomService {
     private final RoomRepository roomRepository;
     private final RoomMemberRepository roomMemberRepository;
     private final RoomDetailReader roomDetailReader;
+    private final MemberRepository memberRepository;
 
     private final RandomGenerator randomGenerator = new SecureRandom();
 
@@ -33,7 +36,7 @@ public class CreateRoomService {
 
     @Transactional
     public RoomDetail create(Long hostId, String name, String uploadPolicy, String nickname) {
-        if (nickname != null) new Nickname(nickname);
+        Nickname roomNickname = resolveNickname(hostId, nickname);
         Instant now = Instant.now();
         Room room = Room.create(
             RoomCode.generate(randomGenerator),
@@ -46,9 +49,18 @@ public class CreateRoomService {
 
         // 방장은 자기 방에 별도로 입장 API를 호출하지 않아도 참여자로 등록돼 있어야 자연스럽다.
         // 방금 만든 roomId라 동시 입장 경쟁이 있을 수 없으므로, joinIfAbsent(ON CONFLICT 원자적 삽입)까지는 필요 없다.
-        roomMemberRepository.save(RoomMember.join(saved.getId(), hostId, now, nickname));
+        roomMemberRepository.save(RoomMember.join(saved.getId(), hostId, now, roomNickname));
 
         return roomDetailReader.read(saved, hostId);
+    }
+
+    private Nickname resolveNickname(Long hostId, String nickname) {
+        if (nickname != null) {
+            return new Nickname(nickname);
+        }
+        return memberRepository.findById(hostId)
+            .orElseThrow(() -> new UnauthorizedException("다시 접속해주세요"))
+            .getDisplayName();
     }
 
     private UploadPolicy resolveUploadPolicy(String uploadPolicy) {

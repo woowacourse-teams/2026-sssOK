@@ -20,8 +20,7 @@ public interface RoomMemberJpaRepository extends JpaRepository<RoomMemberJpaEnti
     @Modifying
     @Query(value = """
         INSERT INTO room_member (room_id, member_id, joined_at, created_at, updated_at, nickname)
-        VALUES (:roomId, :memberId, :joinedAt, :joinedAt, :joinedAt,
-            COALESCE(:nickname, (SELECT nickname FROM member WHERE id = :memberId)))
+        VALUES (:roomId, :memberId, :joinedAt, :joinedAt, :joinedAt, :nickname)
         ON CONFLICT (room_id, member_id) DO NOTHING
         """, nativeQuery = true)
     int insertIfAbsent(

@@ -26,17 +26,13 @@ public class RoomMember {
         this.joinedAt = joinedAt;
     }
 
-    public static RoomMember join(Long roomId, Long memberId, Instant now) {
-        return new RoomMember(null, roomId, memberId, now);
-    }
-
     public static RoomMember reconstruct(Long id, Long roomId, Long memberId, Instant joinedAt) {
         return new RoomMember(id, roomId, memberId, joinedAt);
     }
 
-    public static RoomMember join(Long roomId, Long memberId, Instant now, String nickname) {
+    public static RoomMember join(Long roomId, Long memberId, Instant now, Nickname nickname) {
         return new RoomMember(null, roomId, memberId, now,
-            nickname == null ? null : new Nickname(nickname).value());
+            nickname.value());
     }
 
     public static RoomMember reconstruct(Long id, Long roomId, Long memberId, Instant joinedAt, String nickname) {
