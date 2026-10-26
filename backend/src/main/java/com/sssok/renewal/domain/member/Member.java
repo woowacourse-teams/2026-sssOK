@@ -9,7 +9,7 @@ import lombok.Getter;
 public class Member {
 
     private final Long id;
-    private final Nickname displayName;
+    private Nickname displayName;
     private final Instant createdAt;
     private MemberStatus status;
 
@@ -46,6 +46,7 @@ public class Member {
     public void withdraw() {
         requireStatus(MemberStatus.REGISTERED);
         status = MemberStatus.WITHDRAWN;
+        displayName = new Nickname("탈퇴한 사용자");
     }
 
     public boolean isActive() {

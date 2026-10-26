@@ -40,6 +40,7 @@ class MemberTest {
         member.withdraw();
 
         assertThat(member.getStatus()).isEqualTo(MemberStatus.WITHDRAWN);
+        assertThat(member.getDisplayName().value()).isEqualTo("탈퇴한 사용자");
         assertThat(member.isActive()).isFalse();
     }
 

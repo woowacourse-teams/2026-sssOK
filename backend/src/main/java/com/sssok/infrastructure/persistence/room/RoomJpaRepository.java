@@ -11,6 +11,9 @@ public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, Long> {
 
     Optional<RoomJpaEntity> findByCode(String code);
 
+    @Query("select r.id from RoomJpaEntity r where r.hostId = :memberId and r.status <> 'DELETED' order by r.id")
+    List<Long> findUndeletedIdsByHostId(@Param("memberId") Long memberId);
+
     @Modifying(flushAutomatically = true)
     @Query(value = """
         UPDATE room
