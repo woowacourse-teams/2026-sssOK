@@ -13,6 +13,7 @@ import com.sssok.renewal.application.auth.SessionTokenProvider;
 import com.sssok.renewal.application.auth.SocialLoginStartResult;
 import com.sssok.renewal.application.auth.StartAppleLoginService;
 import com.sssok.renewal.application.auth.StartKakaoLoginService;
+import com.sssok.renewal.application.auth.WithdrawAccountService;
 import com.sssok.renewal.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
@@ -55,6 +56,9 @@ class AuthControllerTest {
     MockMvc mockMvc;
 
     @MockitoBean
+    WithdrawAccountService withdrawAccountService;
+
+    @MockitoBean
     CompleteSocialLoginService completeSocialLoginService;
 
     @MockitoBean
@@ -86,6 +90,22 @@ class AuthControllerTest {
 
     @MockitoBean
     RoomMemberRepository roomMemberRepository;
+
+    @Test
+    void 탈퇴는_인증한_회원만_전달하고_204를_반환한다() throws Exception {
+        given(tokenProvider.parse("service-token")).willReturn(12L);
+        mockMvc.perform(delete("/api/v1/auth/account")
+                .header("Authorization", "Bearer service-token"))
+            .andExpect(status().isNoContent());
+        verify(withdrawAccountService).withdraw(12L);
+    }
+
+    @Test
+    void 탈퇴는_인증이_없으면_거부한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/auth/account"))
+            .andExpect(status().isUnauthorized());
+        verifyNoInteractions(withdrawAccountService);
+    }
 
     @Test
     void 애플_시작은_익명_인증없이_URL과_확인값을_반환한다() throws Exception {

@@ -11,6 +11,7 @@ import com.sssok.renewal.application.auth.LinkLoginService;
 import com.sssok.renewal.application.auth.SessionTokenProvider;
 import com.sssok.renewal.application.auth.StartAppleLoginService;
 import com.sssok.renewal.application.auth.StartKakaoLoginService;
+import com.sssok.renewal.application.auth.WithdrawAccountService;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.member.SocialProvider;
@@ -27,6 +28,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -41,6 +43,7 @@ public class AuthController {
 
     private final AuthTokenHttpSupport tokenHttpSupport;
     private final AnonymousAuthService anonymousAuthService;
+    private final WithdrawAccountService withdrawAccountService;
     private final IssueLinkCodeService issueLinkCodeService;
     private final LinkLoginService linkLoginService;
     private final SessionTokenProvider sessionTokenProvider;
@@ -97,6 +100,14 @@ public class AuthController {
         AuthResult result = completeSocialLoginService.login(SocialProvider.APPLE,
             request.code(), request.state(), request.loginVerifier(), request.refreshTokenDelivery());
         return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
+    }
+
+    @Operation(summary = "회원 탈퇴", description = "서비스 탈퇴와 전체 인증 무효화를 완료한다. "
+        + "소셜 연결 해제는 커밋 후 한 번 시도하며, 실패해도 서비스 탈퇴는 완료된다.")
+    @DeleteMapping("/account")
+    public ResponseEntity<Void> withdraw(@Parameter(hidden = true) @AuthMember Long memberId) {
+        withdrawAccountService.withdraw(memberId);
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, tokenHttpSupport.clearCookie()).build();
     }
 
     @Operation(summary = "현재 세션 로그아웃", description = "Authorization 헤더의 서비스 토큰을 무효화한다. "
