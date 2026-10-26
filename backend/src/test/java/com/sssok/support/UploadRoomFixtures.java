@@ -1,5 +1,6 @@
 package com.sssok.support;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,7 +24,7 @@ public final class UploadRoomFixtures {
                 VALUES (?, ?, '테스트 방', 'ACTIVE', 'ANYONE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0)
                 """, id, code());
         }
-        String product = jdbc.execute((java.sql.Connection connection) -> connection.getMetaData().getDatabaseProductName());
+        String product = jdbc.execute((Connection connection) -> connection.getMetaData().getDatabaseProductName());
         if ("PostgreSQL".equals(product)) {
             jdbc.queryForObject("SELECT setval('room_id_seq', GREATEST((SELECT last_value FROM room_id_seq), "
                 + "(SELECT COALESCE(MAX(id), 1) FROM room)))", Long.class);

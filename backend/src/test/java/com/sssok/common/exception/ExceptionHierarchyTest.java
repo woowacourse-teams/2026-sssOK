@@ -1,13 +1,14 @@
 package com.sssok.common.exception;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 class ExceptionHierarchyTest {
 
@@ -29,7 +30,7 @@ class ExceptionHierarchyTest {
 
     private boolean inheritsSssOkException(Path path) {
         String className = "com.sssok." + SOURCE_ROOT.relativize(path).toString()
-            .replace(java.io.File.separatorChar, '.').replaceAll("\\.java$", "");
+            .replace(File.separatorChar, '.').replaceAll("\\.java$", "");
         try {
             Class<?> exceptionType = Class.forName(className, false, getClass().getClassLoader());
             return SssOkException.class.isAssignableFrom(exceptionType);
