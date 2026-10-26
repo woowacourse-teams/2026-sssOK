@@ -1,10 +1,11 @@
 package com.sssok.renewal.application.auth;
 
-import com.sssok.renewal.outgoing.database.member.MemberRepository;
-import com.sssok.renewal.outgoing.security.TokenProvider;
-import com.sssok.renewal.outgoing.security.TokenProvider.IssuedToken;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.member.Member;
 import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.outgoing.security.TokenProvider.IssuedToken;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,9 +21,14 @@ public class AnonymousAuthService {
 
     @Transactional
     public AuthResult authenticate(String nickname) {
+        return authenticate(nickname, RefreshTokenDelivery.COOKIE);
+    }
+
+    @Transactional
+    public AuthResult authenticate(String nickname, RefreshTokenDelivery delivery) {
         Instant now = Instant.now();
         Member member = memberRepository.save(Member.register(new Nickname(nickname), now));
-        IssuedToken token = tokenProvider.issue(member.getId(), now);
-        return new AuthResult(token.value(), member.getId(), member.getDisplayName().value(), token.expiresAt());
+        IssuedToken token = tokenProvider.issue(member.getId(), now, delivery);
+        return AuthResult.from(member, token);
     }
 }

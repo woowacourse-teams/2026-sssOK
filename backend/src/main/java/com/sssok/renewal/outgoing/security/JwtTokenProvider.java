@@ -24,8 +24,12 @@ public class JwtTokenProvider {
 
     public TokenProvider.IssuedToken issue(Long memberId, Instant now) {
         Instant expiresAt = now.plus(jwtProperties.accessTokenTtl());
+        return issue(memberId, now, UUID.randomUUID().toString(), expiresAt);
+    }
+
+    public TokenProvider.IssuedToken issue(Long memberId, Instant now, String sessionId, Instant expiresAt) {
         String token = Jwts.builder()
-            .id(UUID.randomUUID().toString())
+            .id(sessionId)
             .subject(String.valueOf(memberId))
             .claim(TokenSubjectType.CLAIM_NAME, TokenSubjectType.MEMBER.claimValue())
             .issuedAt(Date.from(now))

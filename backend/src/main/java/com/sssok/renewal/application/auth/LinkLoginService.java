@@ -2,13 +2,14 @@ package com.sssok.renewal.application.auth;
 
 import com.sssok.renewal.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
-import com.sssok.renewal.outgoing.database.auth.LinkCodeRepository;
-import com.sssok.renewal.outgoing.database.member.MemberRepository;
-import com.sssok.renewal.outgoing.security.TokenProvider;
-import com.sssok.renewal.outgoing.security.TokenProvider.IssuedToken;
 import com.sssok.renewal.domain.auth.LinkCode;
 import com.sssok.renewal.domain.auth.LinkCodeValue;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.outgoing.database.auth.LinkCodeRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.outgoing.security.TokenProvider.IssuedToken;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,11 @@ public class LinkLoginService {
     // LinkCodeExpiredException을 던질 때도 그 직전의 청소용 삭제는 커밋돼야 하므로 롤백 대상에서 뺌
     @Transactional(noRollbackFor = LinkCodeExpiredException.class)
     public AuthResult login(String rawCode) {
+        return login(rawCode, RefreshTokenDelivery.COOKIE);
+    }
+
+    @Transactional(noRollbackFor = LinkCodeExpiredException.class)
+    public AuthResult login(String rawCode, RefreshTokenDelivery delivery) {
         Instant now = Instant.now();
         LinkCodeValue code = new LinkCodeValue(rawCode);
 
@@ -48,7 +54,7 @@ public class LinkLoginService {
         
         Member member = memberRepository.findById(linkCode.getMemberId())
             .orElseThrow(LinkCodeNotFoundException::new);
-        IssuedToken token = tokenProvider.issue(member.getId(), now);
-        return new AuthResult(token.value(), member.getId(), member.getDisplayName().value(), token.expiresAt());
+        IssuedToken token = tokenProvider.issue(member.getId(), now, delivery);
+        return AuthResult.from(member, token);
     }
 }
