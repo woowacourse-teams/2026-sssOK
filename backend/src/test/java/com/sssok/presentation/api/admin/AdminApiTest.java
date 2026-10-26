@@ -1,5 +1,19 @@
 package com.sssok.presentation.api.admin;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.infrastructure.persistence.admin.AdminJpaEntity;
+import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
+import com.sssok.support.PostgresApiTest;
+import com.sssok.support.PostgresContainerSupport;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -8,18 +22,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
-import com.sssok.support.PostgresApiTest;
-import com.sssok.support.PostgresContainerSupport;
-import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.test.web.servlet.ResultActions;
 
 // API 인수 테스트 — 마이그레이션으로 심은 초기 계정으로 로그인해 관리자 API 를 관통 확인한다.
 @PostgresApiTest
@@ -302,10 +304,10 @@ class AdminApiTest extends PostgresContainerSupport {
     // 그 계정의 비밀번호를 테스트용으로 바꿔 두고 로그인한다.
     private String 슈퍼관리자_토큰() throws Exception {
         var entity = adminJpaRepository.findByLoginId(SUPER_ADMIN_LOGIN_ID).orElseThrow();
-        adminJpaRepository.save(new com.sssok.infrastructure.persistence.admin.AdminJpaEntity(
+        adminJpaRepository.save(new AdminJpaEntity(
             entity.getId(),
             entity.getLoginId(),
-            new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder().encode("testpass123"),
+            new BCryptPasswordEncoder().encode("testpass123"),
             entity.getName(),
             entity.getRole(),
             entity.getCreatedAt()

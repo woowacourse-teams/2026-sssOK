@@ -1,30 +1,9 @@
 package com.sssok.presentation.api.media;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import com.sssok.renewal.application.media.upload.complete.CompleteUploadResult;
-import com.sssok.renewal.application.media.upload.complete.CompleteUploadService;
-import com.sssok.renewal.application.media.upload.complete.FailedMedia;
-import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsResult;
-import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsService;
 import com.sssok.application.media.MediaDetail;
-import com.sssok.renewal.application.media.upload.issue.RejectedFile;
-import com.sssok.renewal.application.media.upload.reissue.ReissueUploadUrlService;
-import com.sssok.renewal.application.media.upload.reissue.ReissuedUploadUrl;
-import com.sssok.renewal.application.media.upload.shared.UploadUrl;
-import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
-import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.renewal.outgoing.security.TokenProvider;
-import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
 import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
 import com.sssok.domain.file.exception.UploadRetryExceededException;
 import com.sssok.domain.room.Room;
@@ -33,6 +12,21 @@ import com.sssok.domain.room.RoomMember;
 import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.renewal.application.media.upload.complete.CompleteUploadResult;
+import com.sssok.renewal.application.media.upload.complete.CompleteUploadService;
+import com.sssok.renewal.application.media.upload.complete.FailedMedia;
+import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
+import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
+import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsResult;
+import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsService;
+import com.sssok.renewal.application.media.upload.issue.RejectedFile;
+import com.sssok.renewal.application.media.upload.reissue.ReissueUploadUrlService;
+import com.sssok.renewal.application.media.upload.reissue.ReissuedUploadUrl;
+import com.sssok.renewal.application.media.upload.shared.UploadUrl;
+import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
+import com.sssok.renewal.incoming.media.MediaUploadController;
+import com.sssok.renewal.outgoing.monitoring.UploadMetrics;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
@@ -40,14 +34,23 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(com.sssok.renewal.incoming.media.MediaUploadController.class)
+
+@WebMvcTest(MediaUploadController.class)
 class MediaUploadControllerTest {
 
     private static final Long ROOM_ID = 10L;
@@ -56,7 +59,7 @@ class MediaUploadControllerTest {
     private static final String BEARER = "Bearer valid-token";
 
     @MockitoBean
-    com.sssok.renewal.outgoing.monitoring.UploadMetrics metrics;
+    UploadMetrics metrics;
 
     @Autowired
     MockMvc mockMvc;
@@ -134,7 +137,7 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.data.issued[0].headers['Content-Type']").value("image/jpeg"))
             .andExpect(jsonPath("$.data.issued[0].expiresIn").value(600))
             .andExpect(jsonPath("$.data.rejected[0].code").value("UNSUPPORTED_MEDIA_TYPE"));
-        org.mockito.Mockito.verify(metrics).issued(1, 1);
+        Mockito.verify(metrics).issued(1, 1);
     }
 
     @Test
@@ -224,7 +227,7 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.data.registered[0].likedByMe").value(false))
             .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(31))
             .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
-        org.mockito.Mockito.verify(metrics).registered(1, 1);
+        Mockito.verify(metrics).registered(1, 1);
     }
 
     @Test
