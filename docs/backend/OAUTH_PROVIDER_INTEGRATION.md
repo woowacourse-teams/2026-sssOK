@@ -158,7 +158,7 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 
 | 제공자 | 확인 절차 | 설정 |
 | --- | --- | --- |
-| 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URI |
+| 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URI / ADMIN_KEY |
 | 애플 | code → ID 토큰 서명·issuer·audience·expiration·issued-at·nonce 검증 → sub | OAUTH_APPLE_ENABLED / CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY / REDIRECT_URI |
 
 표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 현재 웹 리다이렉트는 HTTPS만 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다.
@@ -183,16 +183,16 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 
 운영 키를 코드·DB에 저장하거나 서버 시작마다 새로 생성하지 않는다. 현재 형식은 단일 키를 사용하므로, 기존 암호문을 이전하지 않고 환경변수만 교체하면 복호화할 수 없다. 키 보관·백업이 필요하며 키 교체 시 구키로 복호화 후 신키로 재암호화하는 별도 절차를 마련해야 한다. 이 단계에서 운영 키 생성·설정·배포는 수행하지 않았다.
 
-V41 이전 계정처럼 보관 토큰이 없거나 제공자가 토큰 무효를 응답하면 재인증 필요로 구분한다. 자동 토큰 갱신은 이번 범위에 포함하지 않는다. 암호화 저장 완료가 탈퇴 기능 완료를 의미하지 않는다.
+애플은 V41 이전 계정처럼 보관 토큰이 없거나 제공자가 토큰 무효를 응답하면 재인증 필요로 구분한다. 카카오 연결 해제는 보관 토큰을 사용하지 않는다. 자동 토큰 갱신은 이번 범위에 포함하지 않는다. 암호화 저장 완료가 탈퇴 기능 완료를 의미하지 않는다.
 
 ## 제공자 연결 해제 모듈
 
-`UnlinkSocialAccountService.unlink(identity)`는 탈퇴 흐름에서 사용할 내부 기능이다. 저장소에서 암호문을 읽고 복호화한 후 기존 제공자 클라이언트의 unlink를 호출한다. 별도의 공개 엔드포인트는 없으며 호출자가 회원 본인 확인과 탈퇴 진행 제어를 담당해야 한다.
+`UnlinkSocialAccountService.unlink(identity)`는 탈퇴 흐름에서 사용할 내부 기능이다. 카카오는 사용자 식별자만 전달하고, 애플은 저장소에서 암호문을 읽고 복호화한 후 제공자 클라이언트의 unlink를 호출한다. 별도의 공개 엔드포인트는 없으며 호출자가 회원 본인 확인과 탈퇴 진행 제어를 담당해야 한다.
 
-- 카카오: access token으로 `POST https://kapi.kakao.com/v1/user/unlink`를 호출한다. 성공 응답의 양수 정수 id가 대상 subject와 같은지 확인한다. [카카오 공식 문서](https://developers.kakao.com/docs/ko/kakaologin/rest-api#unlink)
+- 카카오: 서버의 `OAUTH_KAKAO_ADMIN_KEY`를 `Authorization: KakaoAK {adminKey}`로 전달하고, 본문에 `target_id_type=user_id`와 `target_id={providerUserId}`를 넣어 `POST https://kapi.kakao.com/v1/user/unlink`를 호출한다. 성공 응답의 양수 정수 id가 대상 subject와 같은지 확인한다. 카카오 활성화 시 어드민 키가 필수이며 서버 비밀 설정으로 관리한다. [카카오 공식 문서](https://developers.kakao.com/docs/ko/kakaologin/rest-api#unlink)
 - 애플: refresh token을 우선 선택하고 없으면 access token을 사용해 `POST https://appleid.apple.com/auth/revoke`를 호출한다. 기존 ES256 client secret 생성기를 재사용하며 token_type_hint를 함께 전달한다. 본문 없는 HTTP 200을 성공으로 처리한다. 애플 문서상 이미 무효화된 토큰도 200일 수 있다. [애플 공식 문서](https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens)
-- 보관 토큰 없음, 카카오 HTTP 401/code -401, HTTP 400/error invalid_grant는 SOCIAL_REAUTHENTICATION_REQUIRED(409)로 구분한다. invalid_client·429·5xx·리다이렉트·불명확한 응답·통신 오류·암호문 오류는 503이다. 실패 원문과 토큰은 예외에 남기지 않는다.
-- 만료된 카카오 access token을 refresh token으로 자동 갱신하지 않는다. 재인증 후 저장된 토큰으로 다시 진행해야 한다. 무효 토큰이나 타임아웃만 보고 이미 연결 해제됐다고 추정하지 않는다.
+- 애플의 보관 토큰 없음, HTTP 400/error invalid_grant는 SOCIAL_REAUTHENTICATION_REQUIRED(409)로 구분한다. invalid_client·429·5xx·리다이렉트·불명확한 응답·통신 오류·암호문 오류는 503이다. 실패 원문과 토큰은 예외에 남기지 않는다.
+- 카카오 연결 해제는 사용자 access/refresh token의 만료·누락·암호문 손상에 영향을 받지 않는다. 어드민 키 인증 실패는 재인증 요청이 아닌 503으로 처리한다. 현재 로그인 시 제공자 토큰을 암호화해 저장하는 공통 구조는 유지한다. 무효 토큰이나 타임아웃만 보고 이미 연결 해제됐다고 추정하지 않는다.
 - DB 트랜잭션 중 호출하면 Propagation.NEVER로 거부한다. 외부 요청의 자동 재시도는 없으며 로컬 회원·방·세션·소셜 계정·암호문은 성공/실패 모두 변경하지 않는다. 실제 외부 계정은 테스트에 사용하지 않았다.
 
 외부 연결 해제와 로컬 DB 커밋은 하나의 트랜잭션으로 묶을 수 없다. 아래 탈퇴 API는 서비스 탈퇴를 먼저 커밋하며, 외부 성공을 확인한 경우에만 소셜 계정 행과 암호문을 제거한다. 카카오 재시도에서 토큰 무효만으로 최초 성공을 추정하지 않는다.

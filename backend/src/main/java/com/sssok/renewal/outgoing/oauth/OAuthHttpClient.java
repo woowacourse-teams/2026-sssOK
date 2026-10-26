@@ -42,11 +42,12 @@ public class OAuthHttpClient {
             .body(JsonNode.class));
     }
 
-    public JsonNode postUnlink(String url, String accessToken) {
-        return executeUnlinkRequest(() -> {
+    public JsonNode postAdminUnlink(String url, String adminKey, MultiValueMap<String, String> form) {
+        return executeJsonRequest(() -> {
             ResponseEntity<JsonNode> response = restClient.post().uri(url)
-                .headers(headers -> headers.setBearerAuth(accessToken))
+                .header("Authorization", "KakaoAK " + adminKey)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(form)
                 .retrieve().toEntity(JsonNode.class);
             JsonNode body = response.getBody();
             if (response.getStatusCode().value() != 200 || body == null || !body.isObject()) {

@@ -14,12 +14,14 @@ public class KakaoAuthClient implements SocialAuthClient {
     private final String clientId;
     private final String clientSecret;
     private final String redirectUri;
+    private final String adminKey;
 
-    public KakaoAuthClient(OAuthHttpClient oauthHttpClient, String clientId, String clientSecret, String redirectUri) {
+    public KakaoAuthClient(OAuthHttpClient oauthHttpClient, String clientId, String clientSecret, String redirectUri, String adminKey) {
         this.oauthHttpClient = oauthHttpClient;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.redirectUri = redirectUri;
+        this.adminKey = adminKey;
     }
 
     @Override
@@ -43,11 +45,10 @@ public class KakaoAuthClient implements SocialAuthClient {
         if (authentication.identity().provider() != provider()) {
             throw SocialAuthException.invalid();
         }
-        String token = authentication.accessToken();
-        if (token == null || token.isBlank()) {
-            throw SocialAuthException.reauthenticationRequired();
-        }
-        JsonNode response = oauthHttpClient.postUnlink("https://kapi.kakao.com/v1/user/unlink", token);
+        LinkedMultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("target_id_type", "user_id");
+        form.add("target_id", authentication.identity().providerUserId());
+        JsonNode response = oauthHttpClient.postAdminUnlink("https://kapi.kakao.com/v1/user/unlink", adminKey, form);
         JsonNode id = response.path("id");
         if (!id.isIntegralNumber() || !id.canConvertToLong() || id.longValue() <= 0
             || !id.asText().equals(authentication.identity().providerUserId())) {

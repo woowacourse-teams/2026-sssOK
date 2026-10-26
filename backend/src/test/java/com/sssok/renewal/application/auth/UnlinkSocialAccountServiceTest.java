@@ -19,6 +19,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.NullSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -52,32 +54,48 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
 
     @ParameterizedTest
     @EnumSource(SocialProvider.class)
-    void 저장된_암호문을_복호화해_제공자만_호출하고_로컬_상태는_유지한다(SocialProvider provider) {
+    void 제공자별_인증으로_연결을_해제하고_로컬_상태는_유지한다(SocialProvider provider) {
         SocialIdentity identity = identity(provider);
         SocialAuthentication authentication = new SocialAuthentication(identity, "plain-access", "plain-refresh");
         AuthResult registered = socialMemberLoginService.login(authentication, List.of(), RefreshTokenDelivery.COOKIE);
         EncryptedSocialTokens stored = socialAccountRepository.findTokens(identity).orElseThrow();
         SocialAuthClient client = provider == SocialProvider.KAKAO ? kakao : apple;
+        SocialAuthentication unlinkAuthentication = provider == SocialProvider.KAKAO
+            ? new SocialAuthentication(identity, null, null) : authentication;
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            assertThat((SocialAuthentication) invocation.getArgument(0)).isEqualTo(authentication);
+            assertThat((SocialAuthentication) invocation.getArgument(0)).isEqualTo(unlinkAuthentication);
             return null;
         }).when(client).unlink(any());
         unlinkSocialAccountService.unlink(identity);
-        verify(client).unlink(authentication);
+        verify(client).unlink(unlinkAuthentication);
         assertThat(socialAccountRepository.findTokens(identity).orElseThrow()).isEqualTo(stored);
         assertThat(sessionTokenProvider.parse(registered.accessToken())).isEqualTo(registered.userId());
     }
 
     @Test
-    void 토큰이_없는_이전_계정은_재인증이_필요하다() {
-        SocialIdentity identity = identity(SocialProvider.KAKAO);
+    void 애플_토큰이_없는_이전_계정은_재인증이_필요하다() {
+        SocialIdentity identity = identity(SocialProvider.APPLE);
         socialMemberLoginService.login(new SocialAuthentication(identity, "access", null), List.of(), RefreshTokenDelivery.COOKIE);
         jdbcTemplate.update("UPDATE social_account SET encrypted_access_token = NULL, encrypted_refresh_token = NULL WHERE provider_user_id = ?",
             identity.providerUserId());
         assertThatThrownBy(() -> unlinkSocialAccountService.unlink(identity)).isInstanceOfSatisfying(SocialAuthException.class,
             e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.SOCIAL_REAUTHENTICATION_REQUIRED));
-        verify(kakao, never()).unlink(any());
+        verify(apple, never()).unlink(any());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"v1:broken"})
+    void 카카오_연결해제는_누락되거나_손상된_보관_토큰을_사용하지_않는다(String storedAccessToken) {
+        SocialIdentity identity = identity(SocialProvider.KAKAO);
+        socialMemberLoginService.login(new SocialAuthentication(identity, "access", null), List.of(), RefreshTokenDelivery.COOKIE);
+        jdbcTemplate.update("UPDATE social_account SET encrypted_access_token = ? WHERE provider_user_id = ?",
+            storedAccessToken, identity.providerUserId());
+
+        unlinkSocialAccountService.unlink(identity);
+
+        verify(kakao).unlink(new SocialAuthentication(identity, null, null));
     }
 
     @Test
@@ -93,14 +111,14 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 손상된_암호문은_외부로_전달하지_않는다() {
-        SocialIdentity identity = identity(SocialProvider.KAKAO);
+    void 손상된_애플_암호문은_외부로_전달하지_않는다() {
+        SocialIdentity identity = identity(SocialProvider.APPLE);
         socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(), RefreshTokenDelivery.COOKIE);
         jdbcTemplate.update("UPDATE social_account SET encrypted_access_token = 'v1:broken' WHERE provider_user_id = ?",
             identity.providerUserId());
         assertThatThrownBy(() -> unlinkSocialAccountService.unlink(identity)).isInstanceOfSatisfying(SocialAuthException.class,
             e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.SOCIAL_AUTH_UNAVAILABLE));
-        verify(kakao, never()).unlink(any());
+        verify(apple, never()).unlink(any());
     }
 
     @Test

@@ -218,6 +218,7 @@ oauth:
     enabled: ${OAUTH_KAKAO_ENABLED:false}
     client-id: ${OAUTH_KAKAO_CLIENT_ID:}
     client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
+    admin-key: ${OAUTH_KAKAO_ADMIN_KEY:}
     redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI:}
   apple:
     enabled: ${OAUTH_APPLE_ENABLED:false}

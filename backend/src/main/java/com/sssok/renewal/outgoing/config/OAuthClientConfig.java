@@ -30,7 +30,7 @@ public class OAuthClientConfig {
     public KakaoAuthClient kakaoAuthClient(KakaoOAuthProperties properties, SocialTokenCipher tokenCipher) {
         properties.validate();
         tokenCipher.requireConfigured();
-        return new KakaoAuthClient(createHttpClient(), properties.clientId(), properties.clientSecret(), properties.redirectUri());
+        return new KakaoAuthClient(createHttpClient(), properties.clientId(), properties.clientSecret(), properties.redirectUri(), properties.adminKey());
     }
 
     @Bean

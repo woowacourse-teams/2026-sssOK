@@ -3,6 +3,7 @@ package com.sssok.renewal.application.auth;
 import com.sssok.renewal.domain.auth.EncryptedSocialTokens;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.domain.member.SocialIdentity;
+import com.sssok.renewal.domain.member.SocialProvider;
 import com.sssok.renewal.outgoing.database.member.SocialAccountRepository;
 import com.sssok.renewal.outgoing.oauth.SocialAuthClient;
 import com.sssok.renewal.outgoing.oauth.SocialAuthentication;
@@ -34,6 +35,10 @@ public class UnlinkSocialAccountService {
     }
 
     private SocialAuthentication loadAuthentication(SocialIdentity identity) {
+        // 카카오는 어드민 키와 회원번호로 연결을 해제하므로 보관 토큰에 의존하지 않는다.
+        if (identity.provider() == SocialProvider.KAKAO) {
+            return new SocialAuthentication(identity, null, null);
+        }
         EncryptedSocialTokens storedTokens = socialAccountRepository.findTokens(identity)
             .orElseThrow(SocialAuthException::reauthenticationRequired);
         if (storedTokens.accessToken() == null && storedTokens.refreshToken() == null) {

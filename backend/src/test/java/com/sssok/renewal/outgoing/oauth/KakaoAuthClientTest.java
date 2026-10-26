@@ -22,7 +22,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class KakaoAuthClientTest {
     private final RestClient.Builder builder = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final KakaoAuthClient kakaoAuthClient = new KakaoAuthClient(new OAuthHttpClient(builder.build()), "client", "secret", "https://example.com/callback");
+    private final KakaoAuthClient kakaoAuthClient = new KakaoAuthClient(new OAuthHttpClient(builder.build()), "client", "secret", "https://example.com/callback", "admin-key");
 
     @Test
     void 서버에서_코드를_교환하고_사용자_번호를_식별자로_반환한다() {
@@ -81,21 +81,23 @@ class KakaoAuthClientTest {
     }
 
     @Test
-    void 연결해제는_Bearer_토큰으로_요청하고_회원번호를_검증한다() {
+    void 연결해제는_어드민_키와_회원번호로_요청한다() {
         server.expect(requestTo("https://kapi.kakao.com/v1/user/unlink"))
-            .andExpect(method(HttpMethod.POST)).andExpect(header("Authorization", "Bearer access"))
+            .andExpect(method(HttpMethod.POST)).andExpect(header("Authorization", "KakaoAK admin-key"))
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
+            .andExpect(content().string("target_id_type=user_id&target_id=123"))
             .andRespond(withSuccess("{\"id\":123}", MediaType.APPLICATION_JSON));
         kakaoAuthClient.unlink(unlinkAuthentication());
         server.verify();
     }
 
     @Test
-    void 만료된_토큰은_재인증으로_구분하고_자동_재시도하지_않는다() {
+    void 잘못된_어드민_키는_서버_설정_장애이며_재인증을_요구하지_않는다() {
         server.expect(requestTo("https://kapi.kakao.com/v1/user/unlink"))
             .andRespond(withStatus(HttpStatus.UNAUTHORIZED).body("{\"code\":-401,\"msg\":\"secret\"}")
                 .contentType(MediaType.APPLICATION_JSON));
         assertThatThrownBy(() -> kakaoAuthClient.unlink(unlinkAuthentication())).isInstanceOfSatisfying(SocialAuthException.class,
-            e -> { assertThat(e.errorCode()).isEqualTo(ErrorCode.SOCIAL_REAUTHENTICATION_REQUIRED);
+            e -> { assertThat(e.errorCode()).isEqualTo(ErrorCode.SOCIAL_AUTH_UNAVAILABLE);
                 assertThat(e.getMessage()).doesNotContain("secret"); assertThat(e.getCause()).isNull(); });
         server.verify();
     }
@@ -121,6 +123,6 @@ class KakaoAuthClientTest {
 
     private SocialAuthentication unlinkAuthentication() {
         return new SocialAuthentication(new SocialIdentity(SocialProvider.KAKAO, "123"),
-            "access", "refresh");
+            null, null);
     }
 }
