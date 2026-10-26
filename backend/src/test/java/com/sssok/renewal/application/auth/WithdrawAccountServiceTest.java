@@ -10,6 +10,7 @@ import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.EncryptedSocialTokens;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.member.MemberStatus;
 import com.sssok.renewal.domain.member.SocialAccount;
 import com.sssok.renewal.domain.member.SocialIdentity;
@@ -36,6 +37,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -142,7 +144,7 @@ class WithdrawAccountServiceTest extends PostgresContainerSupport {
         assertThat(socialAccountRepository.findTokens(identity)).contains(stored);
         assertThatThrownBy(() -> register(identity)).isInstanceOf(SocialAuthException.class);
         AuthResult anonymous = anonymousAuthService.authenticate("익명");
-        assertThatThrownBy(() -> socialMemberLoginService.login(authentication(identity), anonymous.userId()))
+        assertThatThrownBy(() -> socialMemberLoginService.login(authentication(identity), List.of(anonymous.userId()), RefreshTokenDelivery.COOKIE))
             .isInstanceOf(SocialAuthException.class);
         assertThat(sessionTokenProvider.parse(anonymous.accessToken())).isEqualTo(anonymous.userId());
         assertThatThrownBy(() -> withdrawAccountService.withdraw(member.userId())).isInstanceOf(SocialAuthException.class);
@@ -210,7 +212,7 @@ class WithdrawAccountServiceTest extends PostgresContainerSupport {
     }
 
     private AuthResult register(SocialIdentity identity) {
-        return socialMemberLoginService.login(authentication(identity), null);
+        return socialMemberLoginService.login(authentication(identity), List.of(), RefreshTokenDelivery.COOKIE);
     }
 
     private SocialAuthentication authentication(SocialIdentity identity) {

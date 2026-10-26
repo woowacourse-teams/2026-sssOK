@@ -11,8 +11,8 @@ import com.sssok.renewal.domain.member.SocialIdentity;
 import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.renewal.outgoing.database.member.SocialAccountRepository;
 import com.sssok.renewal.outgoing.oauth.SocialAuthentication;
-import com.sssok.renewal.outgoing.security.SocialTokenCipher;
 import com.sssok.renewal.outgoing.security.SocialTokenCipher.TokenType;
+import com.sssok.renewal.outgoing.security.SocialTokenCipher;
 import com.sssok.renewal.outgoing.security.TokenProvider.IssuedToken;
 import java.time.Instant;
 import java.util.List;
@@ -33,64 +33,57 @@ public class SocialMemberLoginService {
     private final MergeAnonymousMemberService mergeAnonymousMemberService;
     private final SocialTokenCipher socialTokenCipher;
 
-    // 제공자가 검증한 식별자와 토큰만 받는다. 회원 변경·토큰 보관·인증 교체는 함께 커밋한다.
+    // 회원 변경·제공자 토큰 보관·서비스 인증 교체는 함께 커밋한다.
     @Transactional
-    public AuthResult login(SocialAuthentication authentication, Long anonymousMemberId) {
-        return login(authentication, anonymousMemberId, RefreshTokenDelivery.COOKIE);
-    }
-
-    @Transactional
-    public AuthResult login(SocialAuthentication authentication, Long anonymousMemberId, RefreshTokenDelivery delivery) {
-        return loginMany(authentication, anonymousMemberId == null ? List.of() : List.of(anonymousMemberId), delivery);
-    }
-
-    @Transactional
-    public AuthResult loginMany(SocialAuthentication authentication, List<Long> anonymousMemberIds,
-                                RefreshTokenDelivery delivery) {
+    public AuthResult login(SocialAuthentication authentication, List<Long> anonymousMemberIds,
+                            RefreshTokenDelivery delivery) {
         List<Long> sourceIds = anonymousMemberIds.stream().distinct().sorted().toList();
-        Optional<SocialAccount> account = socialAccountRepository.findByIdentity(authentication.identity());
-        Set<Long> lockIds = new TreeSet<>(sourceIds);
-        account.ifPresent(value -> lockIds.add(value.memberId()));
-        for (Long id : lockIds) {
-            if (!memberRepository.lockById(id)) throw SocialAuthException.invalid();
-        }
+        lockLoginMembers(authentication.identity(), sourceIds);
         sourceIds.forEach(id -> requireMemberStatus(id, MemberStatus.ANONYMOUS));
-        EncryptedSocialTokens encryptedTokens = encryptTokens(authentication);
-        Long firstSource = sourceIds.isEmpty() ? null : sourceIds.getFirst();
-        Member member = resolveLoginMember(authentication.identity(), firstSource);
-        for (Long sourceId : sourceIds) {
-            if (!sourceId.equals(firstSource)) mergeAnonymousMemberService.merge(sourceId, member.getId());
-        }
-        socialAccountRepository.updateTokens(authentication.identity(), encryptedTokens);
+
+        Member member = resolveLoginMember(authentication.identity(), sourceIds);
+        mergeAnonymousMembers(sourceIds, member);
+        socialAccountRepository.updateTokens(authentication.identity(), encryptTokens(authentication));
 
         IssuedToken token = sessionTokenProvider.issue(member.getId(), Instant.now(), delivery);
         return AuthResult.from(member, token);
     }
 
-    private Member resolveLoginMember(SocialIdentity identity, Long anonymousMemberId) {
-        Optional<SocialAccount> socialAccount = socialAccountRepository.findByIdentity(identity);
-        if (socialAccount.isEmpty()) {
-            return registerMember(identity, anonymousMemberId);
+    private void lockLoginMembers(SocialIdentity identity, List<Long> sourceIds) {
+        Set<Long> memberIds = new TreeSet<>(sourceIds);
+        socialAccountRepository.findByIdentity(identity).ifPresent(account -> memberIds.add(account.memberId()));
+        for (Long memberId : memberIds) {
+            if (!memberRepository.lockById(memberId)) {
+                throw SocialAuthException.invalid();
+            }
         }
-
-        Long registeredMemberId = socialAccount.get().memberId();
-        if (anonymousMemberId == null) {
-            return lockMember(registeredMemberId, MemberStatus.REGISTERED);
-        }
-        return mergeAnonymousMemberService.merge(anonymousMemberId, registeredMemberId);
     }
 
-    private Member registerMember(SocialIdentity identity, Long anonymousMemberId) {
+    private Member resolveLoginMember(SocialIdentity identity, List<Long> sourceIds) {
+        // 잠금을 기다리는 동안 소셜 계정이 연결될 수 있으므로 다시 확인한다.
+        Optional<SocialAccount> account = socialAccountRepository.findByIdentity(identity);
+        if (account.isPresent()) {
+            return lockMember(account.get().memberId(), MemberStatus.REGISTERED);
+        }
+        return registerMember(identity, sourceIds);
+    }
+
+    private Member registerMember(SocialIdentity identity, List<Long> sourceIds) {
         Instant now = Instant.now();
-        Member member = anonymousMemberId == null
+        Member member = sourceIds.isEmpty()
             ? Member.register(new Nickname("사용자"), now)
-            : lockMember(anonymousMemberId, MemberStatus.ANONYMOUS);
+            : lockMember(sourceIds.getFirst(), MemberStatus.ANONYMOUS);
         member.completeRegistration();
         member = memberRepository.save(member);
         socialAccountRepository.save(SocialAccount.link(member.getId(), identity, now));
-        // 익명 시절 발급한 토큰·연결 코드로 가입된 계정에 다시 접근하지 못하게 한다.
         sessionTokenProvider.revokeAll(member.getId());
         return member;
+    }
+
+    private void mergeAnonymousMembers(List<Long> sourceIds, Member member) {
+        sourceIds.stream()
+            .filter(sourceId -> !member.isSame(sourceId))
+            .forEach(sourceId -> mergeAnonymousMemberService.merge(sourceId, member.getId()));
     }
 
     private Member lockMember(Long memberId, MemberStatus expectedStatus) {

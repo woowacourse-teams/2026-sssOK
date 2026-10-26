@@ -36,6 +36,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -72,7 +73,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         sourceToken = sessionTokenProvider.issue(sourceId, Instant.now()).value();
         identity = new SocialIdentity(SocialProvider.KAKAO, UUID.randomUUID().toString());
         Long originalTarget = memberRepository.save(Member.register(new Nickname("회원닉네임"), Instant.now())).getId();
-        AuthResult registered = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), originalTarget);
+        AuthResult registered = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(originalTarget), RefreshTokenDelivery.COOKIE);
         targetId = registered.userId();
         targetToken = registered.accessToken();
         roomId = createRoomService.create(sourceId, "통합할 방", null).room().getId();
@@ -103,7 +104,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     void 활동을_이전하고_중복을_합치며_회원_닉네임과_다른_세션을_유지한다() {
         String code = issueLinkCodeService.issue(sourceId).linkCode();
         Long onlySourceRoom = createRoomService.create(sourceId, "익명만 참여", null).room().getId();
-        AuthResult result = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), sourceId);
+        AuthResult result = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(sourceId), RefreshTokenDelivery.COOKIE);
         assertThat(result.userId()).isEqualTo(targetId);
         assertThat(result.nickname()).isEqualTo("회원닉네임");
         assertThat(sessionTokenProvider.parse(result.accessToken())).isEqualTo(targetId);
@@ -134,7 +135,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     void 통합_트랜잭션이_실패하면_활동과_인증을_모두_복원한다() {
         String code = issueLinkCodeService.issue(sourceId).linkCode();
         assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
-            socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), sourceId);
+            socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(sourceId), RefreshTokenDelivery.COOKIE);
             throw new IllegalStateException("통합 후 실패");
         })).isInstanceOf(IllegalStateException.class);
         assertThat(memberRepository.findById(sourceId).orElseThrow().getStatus()).isEqualTo(MemberStatus.ANONYMOUS);
@@ -151,7 +152,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     @Test
     void 같은_익명_회원의_동시_통합은_한번만_성공한다() throws Exception {
         SocialIdentity otherIdentity = new SocialIdentity(SocialProvider.KAKAO, UUID.randomUUID().toString());
-        Long otherTarget = socialMemberLoginService.login(new SocialAuthentication(otherIdentity, "access", "refresh"), null).userId();
+        Long otherTarget = socialMemberLoginService.login(new SocialAuthentication(otherIdentity, "access", "refresh"), List.of(), RefreshTokenDelivery.COOKIE).userId();
         CountDownLatch start = new CountDownLatch(1);
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
             Future<Long> a = executor.submit(() -> { await(start); return mergeOrConflict(identity); });
@@ -171,8 +172,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         String secondToken = sessionTokenProvider.issue(second, Instant.now()).value();
         Long secondRoom = createRoomService.create(second, "다른 방", null, "여행자").room().getId();
 
-        AuthResult result = socialMemberLoginService.loginMany(new SocialAuthentication(identity, "access", "refresh"),
-            List.of(second, sourceId, second), RefreshTokenDelivery.COOKIE);
+        AuthResult result = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(second, sourceId, second), RefreshTokenDelivery.COOKIE);
 
         assertThat(result.userId()).isEqualTo(targetId);
         assertThat(memberRepository.findById(second).orElseThrow().getStatus()).isEqualTo(MemberStatus.MERGED);
@@ -191,8 +191,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         Long secondRoom = createRoomService.create(second, "다른 방", null, "사진가").room().getId();
         SocialIdentity newIdentity = new SocialIdentity(SocialProvider.KAKAO, UUID.randomUUID().toString());
 
-        AuthResult result = socialMemberLoginService.loginMany(new SocialAuthentication(newIdentity, "access", "refresh"),
-            List.of(second, sourceId), RefreshTokenDelivery.COOKIE);
+        AuthResult result = socialMemberLoginService.login(new SocialAuthentication(newIdentity, "access", "refresh"), List.of(second, sourceId), RefreshTokenDelivery.COOKIE);
 
         assertThat(result.userId()).isEqualTo(sourceId);
         assertThat(result.memberStatus()).isEqualTo(MemberStatus.REGISTERED);
@@ -203,8 +202,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
 
     @Test
     void 통합_대상에_등록_회원이_포함되면_어떤_익명_계정도_변경하지_않는다() {
-        assertThatThrownBy(() -> socialMemberLoginService.loginMany(new SocialAuthentication(identity, "access", "refresh"),
-            List.of(sourceId, targetId), RefreshTokenDelivery.COOKIE)).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(sourceId, targetId), RefreshTokenDelivery.COOKIE)).isInstanceOf(SocialAuthException.class);
 
         assertThat(memberRepository.findById(sourceId).orElseThrow().getStatus()).isEqualTo(MemberStatus.ANONYMOUS);
         assertThat(roomRepository.findById(roomId).orElseThrow().getHostId()).isEqualTo(sourceId);
@@ -218,7 +216,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
 
     private Long mergeOrConflict(SocialIdentity socialIdentity) {
         try {
-            return socialMemberLoginService.login(new SocialAuthentication(socialIdentity, "access", "refresh"), sourceId).userId();
+            return socialMemberLoginService.login(new SocialAuthentication(socialIdentity, "access", "refresh"), List.of(sourceId), RefreshTokenDelivery.COOKIE).userId();
         } catch (SocialAuthException e) {
             assertThat(e.errorCode()).isEqualTo(ErrorCode.SOCIAL_AUTH_CONFLICT);
             return null;

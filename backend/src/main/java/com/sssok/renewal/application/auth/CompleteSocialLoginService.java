@@ -36,7 +36,7 @@ public class CompleteSocialLoginService {
             throw SocialAuthException.invalid();
         }
         try {
-            return socialMemberLoginService.loginMany(authentication, attempt.anonymousMemberIds(), delivery);
+            return socialMemberLoginService.login(authentication, attempt.anonymousMemberIds(), delivery);
         } catch (DataIntegrityViolationException e) {
             // 동일 소셜 계정의 동시 가입은 DB 유일성 제약으로 막는다. 롤백 후 새 시도로 재시작한다.
             throw SocialAuthException.conflict();

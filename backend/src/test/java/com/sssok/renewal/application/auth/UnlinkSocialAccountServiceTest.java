@@ -1,22 +1,19 @@
 package com.sssok.renewal.application.auth;
 
-import com.sssok.renewal.domain.auth.EncryptedSocialTokens;
-import com.sssok.renewal.outgoing.oauth.SocialAuthClient;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
+import com.sssok.renewal.domain.auth.EncryptedSocialTokens;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.member.SocialIdentity;
 import com.sssok.renewal.domain.member.SocialProvider;
 import com.sssok.renewal.outgoing.database.member.SocialAccountRepository;
 import com.sssok.renewal.outgoing.oauth.AppleAuthClient;
 import com.sssok.renewal.outgoing.oauth.KakaoAuthClient;
+import com.sssok.renewal.outgoing.oauth.SocialAuthClient;
 import com.sssok.renewal.outgoing.oauth.SocialAuthentication;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +26,12 @@ import org.springframework.transaction.IllegalTransactionStateException;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 
 @PostgresIntegrationTest
 class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
@@ -52,7 +55,7 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
     void 저장된_암호문을_복호화해_제공자만_호출하고_로컬_상태는_유지한다(SocialProvider provider) {
         SocialIdentity identity = identity(provider);
         SocialAuthentication authentication = new SocialAuthentication(identity, "plain-access", "plain-refresh");
-        AuthResult registered = socialMemberLoginService.login(authentication, null);
+        AuthResult registered = socialMemberLoginService.login(authentication, List.of(), RefreshTokenDelivery.COOKIE);
         EncryptedSocialTokens stored = socialAccountRepository.findTokens(identity).orElseThrow();
         SocialAuthClient client = provider == SocialProvider.KAKAO ? kakao : apple;
         doAnswer(invocation -> {
@@ -69,7 +72,7 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
     @Test
     void 토큰이_없는_이전_계정은_재인증이_필요하다() {
         SocialIdentity identity = identity(SocialProvider.KAKAO);
-        socialMemberLoginService.login(new SocialAuthentication(identity, "access", null), null);
+        socialMemberLoginService.login(new SocialAuthentication(identity, "access", null), List.of(), RefreshTokenDelivery.COOKIE);
         jdbcTemplate.update("UPDATE social_account SET encrypted_access_token = NULL, encrypted_refresh_token = NULL WHERE provider_user_id = ?",
             identity.providerUserId());
         assertThatThrownBy(() -> unlinkSocialAccountService.unlink(identity)).isInstanceOfSatisfying(SocialAuthException.class,
@@ -80,7 +83,7 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
     @Test
     void 외부_실패시_토큰과_서비스_인증을_삭제하지_않는다() {
         SocialIdentity identity = identity(SocialProvider.KAKAO);
-        AuthResult registered = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), null);
+        AuthResult registered = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(), RefreshTokenDelivery.COOKIE);
         EncryptedSocialTokens stored = socialAccountRepository.findTokens(identity).orElseThrow();
         doThrow(SocialAuthException.unavailable()).when(kakao).unlink(any());
         assertThatThrownBy(() -> unlinkSocialAccountService.unlink(identity)).isInstanceOf(SocialAuthException.class);
@@ -92,7 +95,7 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
     @Test
     void 손상된_암호문은_외부로_전달하지_않는다() {
         SocialIdentity identity = identity(SocialProvider.KAKAO);
-        socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), null);
+        socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(), RefreshTokenDelivery.COOKIE);
         jdbcTemplate.update("UPDATE social_account SET encrypted_access_token = 'v1:broken' WHERE provider_user_id = ?",
             identity.providerUserId());
         assertThatThrownBy(() -> unlinkSocialAccountService.unlink(identity)).isInstanceOfSatisfying(SocialAuthException.class,
