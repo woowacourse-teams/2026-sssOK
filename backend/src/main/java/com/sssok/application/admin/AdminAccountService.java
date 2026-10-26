@@ -13,6 +13,7 @@ import com.sssok.domain.admin.AdminPermission;
 import com.sssok.domain.admin.AdminRole;
 import com.sssok.domain.admin.LoginId;
 import com.sssok.domain.admin.exception.InvalidAdminPasswordException;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -110,7 +111,7 @@ public class AdminAccountService {
         if (rawPassword == null) {
             throw new InvalidAdminPasswordException();
         }
-        int length = rawPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+        int length = rawPassword.getBytes(StandardCharsets.UTF_8).length;
         if (length < MIN_PASSWORD_LENGTH || length > MAX_PASSWORD_LENGTH) {
             throw new InvalidAdminPasswordException();
         }
