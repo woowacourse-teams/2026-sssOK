@@ -31,4 +31,22 @@ public interface RoomMemberJpaRepository extends JpaRepository<RoomMemberJpaEnti
         @Param("nickname") String nickname
     );
 
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+        INSERT INTO room_member (room_id, member_id, joined_at, created_at, updated_at, nickname)
+        SELECT room_id, :targetMemberId, joined_at, created_at, now(), nickname
+        FROM room_member WHERE member_id = :sourceMemberId
+        ON CONFLICT (room_id, member_id) DO UPDATE
+        SET joined_at = LEAST(room_member.joined_at, EXCLUDED.joined_at), updated_at = now()
+        """, nativeQuery = true)
+    int mergeMemberships(
+        @Param("sourceMemberId") Long sourceMemberId,
+        @Param("targetMemberId") Long targetMemberId
+    );
+
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+        DELETE FROM room_member WHERE member_id = :sourceMemberId
+        """, nativeQuery = true)
+    int deleteByMemberId(@Param("sourceMemberId") Long sourceMemberId);
 }
