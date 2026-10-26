@@ -67,6 +67,19 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 같은_회원이_방마다_다른_닉네임을_사용한다() {
+        Room first = createRoom();
+        Room second = createRoomService.create(hostId, "두번째 방", null, "방장별명").room();
+
+        joinRoomService.join(first.getId(), guestId, "여행자");
+        joinRoomService.join(second.getId(), guestId, "사진가");
+
+        assertThat(getRoomService.getByCode(first.getCode(), guestId).myNickname()).isEqualTo("여행자");
+        assertThat(getRoomService.getByCode(second.getCode(), guestId).myNickname()).isEqualTo("사진가");
+        assertThat(getRoomService.getByCode(second.getCode(), guestId).hostName()).isEqualTo("방장별명");
+    }
+
+    @Test
     void 재입장하면_새로_보낸_닉네임으로_기존_닉네임을_덮어쓰지_않는다() {
         Room room = createRoom();
         joinRoomService.join(room.getId(), guestId, "처음별명");

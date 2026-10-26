@@ -2,9 +2,10 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.MediaLikeRepository;
-import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.application.room.RoomNicknameReader;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,7 +21,7 @@ import org.springframework.stereotype.Component;
 public class MediaDetailAssembler {
 
     private final FolderMediaRepository folderMediaRepository;
-    private final MemberRepository memberRepository;
+    private final RoomNicknameReader roomNicknameReader;
     private final MediaLikeRepository mediaLikeRepository;
     private final MediaUrlResolver mediaUrlResolver;
 
@@ -62,7 +63,7 @@ public class MediaDetailAssembler {
         return loaded.files().stream()
             .map(file -> MediaDetail.of(
                 file,
-                loaded.uploaderNames().get(file.getUploaderId()),
+                loaded.uploaderNames().get(new RoomNicknameReader.Participant(file.getRoomId(), file.getUploaderId())),
                 loaded.folderIds().getOrDefault(file.getId(), List.of()),
                 urls.apply(file),
                 loaded.likeCounts().getOrDefault(file.getId(), 0L),
@@ -74,7 +75,7 @@ public class MediaDetailAssembler {
     public record LoadedMedia(
         List<StoredFile> files,
         Map<Long, List<Long>> folderIds,
-        Map<Long, String> uploaderNames,
+        Map<RoomNicknameReader.Participant, String> uploaderNames,
         Map<Long, Long> likeCounts,
         Set<Long> likedByViewer
     ) {
@@ -83,13 +84,11 @@ public class MediaDetailAssembler {
 
     // 방을 나간 사람이 올린 사진은 회원 행이 없을 수 있어, 이름이 빠진 채로 내려간다.
     // 사진 자체는 방에 남으므로 목록에서 빼지는 않는다.
-    private Map<Long, String> uploaderNames(List<StoredFile> files) {
+    private Map<RoomNicknameReader.Participant, String> uploaderNames(List<StoredFile> files) {
         Set<Long> uploaderIds = files.stream()
             .map(StoredFile::getUploaderId)
             .collect(Collectors.toSet());
 
-        return memberRepository.findAllByIdIn(uploaderIds).stream()
-            .collect(Collectors.toMap(Member::getId,
-                member -> member.getDisplayName().value(), (first, second) -> first));
+        return roomNicknameReader.readAll(files.stream().map(StoredFile::getRoomId).distinct().toList(), uploaderIds);
     }
 }
