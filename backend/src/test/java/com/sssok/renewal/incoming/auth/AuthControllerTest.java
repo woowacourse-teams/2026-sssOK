@@ -9,8 +9,12 @@ import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
 import com.sssok.renewal.application.auth.SessionTokenProvider;
+import com.sssok.renewal.application.auth.SocialLoginStartResult;
+import com.sssok.renewal.application.auth.StartAppleLoginService;
+import com.sssok.renewal.application.auth.StartKakaoLoginService;
 import com.sssok.renewal.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
+import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.auth.exception.InvalidLinkCodeException;
@@ -49,6 +53,12 @@ class AuthControllerTest {
     MockMvc mockMvc;
 
     @MockitoBean
+    StartAppleLoginService startAppleLoginService;
+
+    @MockitoBean
+    StartKakaoLoginService startKakaoLoginService;
+
+    @MockitoBean
     AnonymousAuthService anonymousAuthService;
 
     @MockitoBean
@@ -71,6 +81,97 @@ class AuthControllerTest {
 
     @MockitoBean
     RoomMemberRepository roomMemberRepository;
+
+    @Test
+    void 애플_시작은_익명_인증없이_URL과_확인값을_반환한다() throws Exception {
+        given(startAppleLoginService.start(null)).willReturn(appleStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/start"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.authorizationUrl").value(appleStartResult().authorizationUrl()))
+            .andExpect(jsonPath("$.data.state").value("server-state"))
+            .andExpect(jsonPath("$.data.loginVerifier").value("private-verifier"))
+            .andExpect(jsonPath("$.data.accessToken").doesNotExist());
+    }
+
+    @Test
+    void 애플_시작은_익명_토큰을_전달한다() throws Exception {
+        given(startAppleLoginService.start("anonymous-token")).willReturn(appleStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/start").header("Authorization", "Bearer anonymous-token"))
+            .andExpect(status().isOk());
+        verify(startAppleLoginService).start("anonymous-token");
+    }
+
+    @Test
+    void 비활성_애플_시작은_503이다() throws Exception {
+        given(startAppleLoginService.start(null)).willThrow(SocialAuthException.unavailable());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/start")).andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void 애플_시작의_잘못된_인증헤더는_익명으로_처리하지_않는다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/start").header("Authorization", "Basic token"))
+            .andExpect(status().isUnauthorized());
+        verifyNoInteractions(startAppleLoginService);
+    }
+
+    private SocialLoginStartResult appleStartResult() {
+        return new SocialLoginStartResult("https://appleid.apple.com/auth/authorize?state=server-state&nonce=server-nonce",
+            "server-state", "private-verifier", Instant.parse("2026-11-01T00:00:00Z"));
+    }
+
+    @Test
+    void 인증_없이_카카오_로그인을_시작하고_쿠키_없이_확인값을_반환한다() throws Exception {
+        given(startKakaoLoginService.start(null)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.authorizationUrl").value("https://kauth.kakao.com/oauth/authorize?state=test-state"))
+            .andExpect(jsonPath("$.data.state").value("test-state"))
+            .andExpect(jsonPath("$.data.loginVerifier").value("private-verifier"))
+            .andExpect(jsonPath("$.data.expiresAt").value("2026-10-25T12:05:00Z"))
+            .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+            .andExpect(jsonPath("$.data.nonce").doesNotExist());
+    }
+
+    @Test
+    void 익명_토큰은_헤더에서만_읽어_로그인_시작에_전달한다() throws Exception {
+        given(startKakaoLoginService.start("anonymous-token")).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
+                .header("Authorization", "Bearer anonymous-token"))
+            .andExpect(status().isOk());
+        verify(startKakaoLoginService).start("anonymous-token");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "Basic token", "Bearer ", "Bearer two tokens"})
+    void 잘못된_인증_헤더를_인증_없는_요청으로_취급하지_않는다(String authorization) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", authorization))
+            .andExpect(status().isUnauthorized());
+        verifyNoInteractions(startKakaoLoginService);
+    }
+
+    @Test
+    void 카카오_시작에서_만료된_익명_토큰은_401로_반환한다() throws Exception {
+        given(startKakaoLoginService.start("expired")).willThrow(new UnauthorizedException("다시 접속해주세요"));
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", "Bearer expired"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 카카오가_비활성이면_503을_반환한다() throws Exception {
+        given(startKakaoLoginService.start(null)).willThrow(SocialAuthException.unavailable());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(jsonPath("$.code").value("SOCIAL_AUTH_UNAVAILABLE"));
+    }
+
+    private SocialLoginStartResult kakaoStartResult() {
+        return new SocialLoginStartResult("https://kauth.kakao.com/oauth/authorize?state=test-state",
+            "test-state", "private-verifier", Instant.parse("2026-10-25T12:05:00Z"));
+    }
 
     @Test
     void 익명_인증에_성공하면_201과_토큰_정보를_반환한다() throws Exception {

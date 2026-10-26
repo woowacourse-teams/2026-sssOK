@@ -47,6 +47,7 @@ import static org.mockito.Mockito.when;
 })
 class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
     @Autowired OAuthLoginAttemptService oauthLoginAttemptService;
+    @Autowired StartKakaoLoginService startKakaoLoginService;
     @Autowired MemberRepository memberRepository;
     @Autowired SessionTokenProvider sessionTokenProvider;
     @Autowired JdbcTemplate jdbcTemplate;
@@ -59,6 +60,18 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
     void setUp() {
         when(kakaoClient.provider()).thenReturn(SocialProvider.KAKAO);
         when(appleClient.provider()).thenReturn(SocialProvider.APPLE);
+    }
+
+    @Test
+    void 카카오_시작_결과가_실제로_소비할_수_있는_익명_회원_요청과_연결된다() {
+        Member member = anonymousMember();
+        String token = sessionTokenProvider.issue(member.getId(), Instant.now()).value();
+        SocialLoginStartResult result = startKakaoLoginService.start(token);
+        OAuthLoginAttempt attempt = oauthLoginAttemptService.consume(SocialProvider.KAKAO, result.state(), result.loginVerifier());
+        assertThat(attempt.anonymousMemberIds()).containsExactly(member.getId());
+        assertThat(result.authorizationUrl()).contains("client_id=test-client", "state=" + result.state());
+        assertThatThrownBy(() -> oauthLoginAttemptService.consume(SocialProvider.KAKAO, result.state(), result.loginVerifier()))
+            .isInstanceOf(SocialAuthException.class);
     }
 
     @Test

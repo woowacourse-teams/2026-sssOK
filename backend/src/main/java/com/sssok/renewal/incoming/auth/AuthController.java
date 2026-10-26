@@ -8,6 +8,8 @@ import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
 import com.sssok.renewal.application.auth.SessionTokenProvider;
+import com.sssok.renewal.application.auth.StartAppleLoginService;
+import com.sssok.renewal.application.auth.StartKakaoLoginService;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,7 +17,10 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +31,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "인증", description = "익명 인증, 연결 코드 로그인, 인증 갱신 및 로그아웃")
+@Tag(name = "인증", description = "익명 인증, 소셜 가입·로그인, 연결 코드 발급·로그인 및 로그아웃")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -37,6 +42,37 @@ public class AuthController {
     private final IssueLinkCodeService issueLinkCodeService;
     private final LinkLoginService linkLoginService;
     private final SessionTokenProvider sessionTokenProvider;
+    private final StartKakaoLoginService startKakaoLoginService;
+    private final StartAppleLoginService startAppleLoginService;
+
+    @Operation(summary = "카카오 로그인 시작", description = "카카오 로그인 URL과 일회용 확인값을 발급한다. "
+        + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다. "
+        + "헤더 생략 시 익명 활동을 연결하지 않는다. 이 API만으로 가입이나 로그인이 완료되지는 않는다.")
+    @PostMapping("/oauth/kakao/start")
+    public ResponseEntity<ApiResponse<SocialLoginStartResponse>> startKakaoLogin(
+        @RequestHeader(value = "Authorization", required = false) String authorization,
+        @Valid @RequestBody(required = false) SocialLoginStartRequest request
+    ) {
+        String anonymousAccessToken = extractOptionalBearerToken(authorization);
+        SocialLoginStartResponse response = SocialLoginStartResponse.from(request == null
+            ? startKakaoLoginService.start(anonymousAccessToken)
+            : startKakaoLoginService.startMany(anonymousTokens(anonymousAccessToken, request)));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
+    }
+
+    @Operation(summary = "애플 로그인 시작", description = "애플 웹 로그인 URL과 일회용 확인값을 발급한다. "
+        + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다.")
+    @PostMapping("/oauth/apple/start")
+    public ResponseEntity<ApiResponse<SocialLoginStartResponse>> startAppleLogin(
+        @RequestHeader(value = "Authorization", required = false) String authorization,
+        @Valid @RequestBody(required = false) SocialLoginStartRequest request
+    ) {
+        String anonymousAccessToken = extractOptionalBearerToken(authorization);
+        SocialLoginStartResponse response = SocialLoginStartResponse.from(request == null
+            ? startAppleLoginService.start(anonymousAccessToken)
+            : startAppleLoginService.startMany(anonymousTokens(anonymousAccessToken, request)));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
+    }
 
     @Operation(summary = "현재 세션 로그아웃", description = "Authorization 헤더의 서비스 토큰을 무효화한다. "
         + "다른 로그인 세션은 유지된다. 성공 시 204, 없거나 만료·무효화된 인증이면 401을 반환한다.")
@@ -108,4 +144,23 @@ public class AuthController {
         return tokenHttpSupport.respond(result, delivery, HttpStatus.OK);
     }
 
+    private List<String> anonymousTokens(String headerToken, SocialLoginStartRequest request) {
+        List<String> tokens = new ArrayList<>(request.anonymousAccessTokens());
+        if (headerToken != null) tokens.add(headerToken);
+        return tokens.stream().distinct().toList();
+    }
+
+    private String extractOptionalBearerToken(String authorization) {
+        if (authorization == null) {
+            return null;
+        }
+        if (!authorization.startsWith("Bearer ")) {
+            throw new UnauthorizedException("다시 접속해주세요");
+        }
+        String token = authorization.substring("Bearer ".length());
+        if (token.isBlank() || token.chars().anyMatch(Character::isWhitespace)) {
+            throw new UnauthorizedException("다시 접속해주세요");
+        }
+        return token;
+    }
 }
