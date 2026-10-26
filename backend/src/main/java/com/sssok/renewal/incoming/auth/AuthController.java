@@ -1,32 +1,53 @@
 package com.sssok.renewal.incoming.auth;
 
+import com.sssok.common.exception.ErrorCode;
+import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
-import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.renewal.incoming.auth.AuthMember;
+import com.sssok.renewal.application.auth.SessionTokenProvider;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "인증", description = "닉네임만으로 시작하는 익명 인증, 그리고 다른 기기에서 같은 계정을 이어 쓰기 위한 연결 코드 발급·로그인")
+@Tag(name = "인증", description = "익명 인증, 연결 코드 로그인, 인증 갱신 및 로그아웃")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
+    private final AuthTokenHttpSupport tokenHttpSupport;
     private final AnonymousAuthService anonymousAuthService;
     private final IssueLinkCodeService issueLinkCodeService;
     private final LinkLoginService linkLoginService;
+    private final SessionTokenProvider sessionTokenProvider;
+
+    @Operation(summary = "현재 세션 로그아웃", description = "Authorization 헤더의 서비스 토큰을 무효화한다. "
+        + "다른 로그인 세션은 유지된다. 성공 시 204, 없거나 만료·무효화된 인증이면 401을 반환한다.")
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestHeader(value = "Authorization", required = false) String header) {
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new UnauthorizedException("다시 접속해주세요");
+        }
+        sessionTokenProvider.logout(header.substring("Bearer ".length()));
+        return ResponseEntity.noContent().header(HttpHeaders.SET_COOKIE, tokenHttpSupport.clearCookie()).build();
+    }
 
     @Operation(
         summary = "닉네임으로 익명 인증",
@@ -35,10 +56,10 @@ public class AuthController {
             + "Authorization: Bearer {accessToken} 헤더에 실어 보내면 된다."
     )
     @PostMapping("/anonymous")
-    public ResponseEntity<ApiResponse<AuthResponse>> createAnonymous(@RequestBody AnonymousAuthRequest request) {
-        AuthResult result = anonymousAuthService.authenticate(request.nickname());
-        return ResponseEntity.status(HttpStatus.CREATED)
-            .body(ApiResponse.of(AuthResponse.from(result)));
+    public ResponseEntity<ApiResponse<AuthResponse>> createAnonymous(@RequestBody AnonymousAuthRequest request, HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = anonymousAuthService.authenticate(request.nickname(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.CREATED);
     }
 
     @Operation(
@@ -64,8 +85,27 @@ public class AuthController {
             + "사용법: 사용자가 다른 기기 화면에서 본 6자리 코드를 그대로 linkCode에 담아 보내면 된다."
     )
     @PostMapping("/link")
-    public ApiResponse<AuthResponse> login(@RequestBody LinkLoginRequest request) {
-        AuthResult result = linkLoginService.login(request.linkCode());
-        return ApiResponse.of(AuthResponse.from(result));
+    public ResponseEntity<ApiResponse<AuthResponse>> login(@RequestBody LinkLoginRequest request,
+        HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = linkLoginService.login(request.linkCode(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
     }
+
+    @Operation(summary = "인증 토큰 갱신", description = "쿠키 또는 본문의 refresh token을 한 번 사용해 두 토큰을 교체한다.")
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+        @CookieValue(name = AuthTokenHttpSupport.COOKIE_NAME, required = false) String cookieToken,
+        @RequestBody(required = false) RefreshRequest request, HttpServletRequest httpRequest
+    ) {
+        String bodyToken = request == null ? null : request.refreshToken();
+        if (cookieToken != null && bodyToken != null) {
+            throw new AuthTokenRequestException(ErrorCode.INVALID_REQUEST_BODY);
+        }
+        RefreshTokenDelivery delivery = cookieToken == null ? RefreshTokenDelivery.BODY : RefreshTokenDelivery.COOKIE;
+        tokenHttpSupport.validateDelivery(delivery, httpRequest);
+        AuthResult result = sessionTokenProvider.refresh(cookieToken == null ? bodyToken : cookieToken, delivery);
+        return tokenHttpSupport.respond(result, delivery, HttpStatus.OK);
+    }
+
 }

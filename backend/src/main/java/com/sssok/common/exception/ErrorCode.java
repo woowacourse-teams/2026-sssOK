@@ -43,6 +43,7 @@ public enum ErrorCode {
     INVALID_CREDENTIALS(401, "아이디 또는 비밀번호가 올바르지 않습니다"),
 
     // 403 Forbidden
+    INVALID_COOKIE_AUTH_REQUEST(403, "허용되지 않은 쿠키 인증 요청입니다"),
     NOT_ROOM_HOST(403, "방장만 수행할 수 있는 작업입니다"),
     ROOM_MEMBERSHIP_REQUIRED(403, "입장한 방만 구독할 수 있습니다"),
     NOT_ROOM_MEMBER(403, "입장한 방에서만 이용할 수 있습니다"),

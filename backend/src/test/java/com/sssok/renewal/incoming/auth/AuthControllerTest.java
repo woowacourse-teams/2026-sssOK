@@ -1,36 +1,47 @@
 package com.sssok.renewal.incoming.auth;
 
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
+import com.sssok.application.port.out.AdminTokenProvider;
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.port.out.RoomRepository;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
+import com.sssok.renewal.application.auth.SessionTokenProvider;
 import com.sssok.renewal.application.auth.exception.LinkCodeExpiredException;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
-import com.sssok.application.port.out.RoomMemberRepository;
-import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.renewal.outgoing.security.TokenProvider;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.renewal.domain.member.exception.InvalidNicknameException;
 import java.time.Instant;
 import java.util.NoSuchElementException;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 // AuthController의 요청/응답 매핑과 예외 -> 에러 응답 변환만 검증하는 슬라이스 테스트.
 // Service는 Mock으로 대체하므로 실제 회원 생성·토큰 발급·코드 발급 로직은 이 테스트의 관심사가 아니다.
+@Import(AuthTokenHttpSupport.class)
 @WebMvcTest(AuthController.class)
 class AuthControllerTest {
 
@@ -48,7 +59,7 @@ class AuthControllerTest {
 
     // AuthMemberArgumentResolver가 의존하는 포트 — Authorization 헤더 파싱 검증에 필요하다.
     @MockitoBean
-    TokenProvider tokenProvider;
+    SessionTokenProvider tokenProvider;
 
     @MockitoBean
     AdminTokenProvider adminTokenProvider;
@@ -63,10 +74,10 @@ class AuthControllerTest {
 
     @Test
     void 익명_인증에_성공하면_201과_토큰_정보를_반환한다() throws Exception {
-        given(anonymousAuthService.authenticate(anyString()))
-            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z")));
+        given(anonymousAuthService.authenticate(anyString(), eq(RefreshTokenDelivery.COOKIE)))
+            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
 
-        mockMvc.perform(post("/api/v1/auth/anonymous")
+        mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"민수\"}"))
             .andExpect(status().isCreated())
@@ -78,10 +89,10 @@ class AuthControllerTest {
 
     @Test
     void 닉네임이_유효하지_않으면_400과_에러코드를_반환한다() throws Exception {
-        given(anonymousAuthService.authenticate(anyString()))
+        given(anonymousAuthService.authenticate(anyString(), eq(RefreshTokenDelivery.COOKIE)))
             .willThrow(new InvalidNicknameException());
 
-        mockMvc.perform(post("/api/v1/auth/anonymous")
+        mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"\"}"))
             .andExpect(status().isBadRequest())
@@ -129,10 +140,10 @@ class AuthControllerTest {
 
     @Test
     void 유효한_연결_코드로_로그인하면_200과_토큰_정보를_반환한다() throws Exception {
-        given(linkLoginService.login("483920"))
-            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z")));
+        given(linkLoginService.login("483920", RefreshTokenDelivery.COOKIE))
+            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"483920\"}"))
             .andExpect(status().isOk())
@@ -143,9 +154,9 @@ class AuthControllerTest {
 
     @Test
     void 형식이_잘못된_코드면_400을_반환한다() throws Exception {
-        given(linkLoginService.login(anyString())).willThrow(new InvalidLinkCodeException("abc"));
+        given(linkLoginService.login(anyString(), eq(RefreshTokenDelivery.COOKIE))).willThrow(new InvalidLinkCodeException("abc"));
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"abc\"}"))
             .andExpect(status().isBadRequest())
@@ -154,9 +165,9 @@ class AuthControllerTest {
 
     @Test
     void 존재하지_않는_코드면_404를_반환한다() throws Exception {
-        given(linkLoginService.login(anyString())).willThrow(new LinkCodeNotFoundException());
+        given(linkLoginService.login(anyString(), eq(RefreshTokenDelivery.COOKIE))).willThrow(new LinkCodeNotFoundException());
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"999999\"}"))
             .andExpect(status().isNotFound())
@@ -165,9 +176,9 @@ class AuthControllerTest {
 
     @Test
     void 만료된_코드면_410을_반환한다() throws Exception {
-        given(linkLoginService.login(anyString())).willThrow(new LinkCodeExpiredException());
+        given(linkLoginService.login(anyString(), eq(RefreshTokenDelivery.COOKIE))).willThrow(new LinkCodeExpiredException());
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"999999\"}"))
             .andExpect(status().isGone())
@@ -176,9 +187,9 @@ class AuthControllerTest {
 
     @Test
     void 매핑되지_않은_예외는_500과_일관된_에러_형식으로_반환된다() throws Exception {
-        given(linkLoginService.login(anyString())).willThrow(new NoSuchElementException());
+        given(linkLoginService.login(anyString(), eq(RefreshTokenDelivery.COOKIE))).willThrow(new NoSuchElementException());
 
-        mockMvc.perform(post("/api/v1/auth/link")
+        mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"linkCode\":\"999999\"}"))
             .andExpect(status().isInternalServerError())
