@@ -195,7 +195,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
             List.of(second, sourceId), RefreshTokenDelivery.COOKIE);
 
         assertThat(result.userId()).isEqualTo(sourceId);
-        assertThat(result.memberStatus()).isEqualTo("REGISTERED");
+        assertThat(result.memberStatus()).isEqualTo(MemberStatus.REGISTERED);
         assertThat(memberRepository.findById(second).orElseThrow().getStatus()).isEqualTo(MemberStatus.MERGED);
         assertThat(roomNickname(secondRoom, sourceId)).isEqualTo("사진가");
         assertThat(sessionTokenProvider.parse(result.accessToken())).isEqualTo(sourceId);

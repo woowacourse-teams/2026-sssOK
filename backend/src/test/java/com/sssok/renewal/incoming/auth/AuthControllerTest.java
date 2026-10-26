@@ -22,6 +22,7 @@ import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.auth.exception.InvalidLinkCodeException;
 import com.sssok.renewal.domain.member.SocialProvider;
 import com.sssok.renewal.domain.member.exception.InvalidNicknameException;
+import com.sssok.renewal.domain.member.MemberStatus;
 import java.time.Instant;
 import java.util.NoSuchElementException;
 import org.hamcrest.Matchers;
@@ -144,7 +145,7 @@ class AuthControllerTest {
     @Test
     void 애플_완료는_애플_제공자를_선택하고_서비스_토큰만_반환한다() throws Exception {
         given(completeSocialLoginService.login(SocialProvider.APPLE, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE))
-            .willReturn(new AuthResult("service-token", 20L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
+            .willReturn(new AuthResult("service-token", 20L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh", Instant.now().plusSeconds(2592000), MemberStatus.REGISTERED));
         mockMvc.perform(post("/api/v1/auth/oauth/apple/login").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON).content(appleLoginBody()))
             .andExpect(status().isOk())
@@ -152,6 +153,7 @@ class AuthControllerTest {
             .andExpect(header().string("Set-Cookie", Matchers.containsString("sssok_refresh=service-refresh")))
             .andExpect(jsonPath("$.data.accessToken").value("service-token"))
             .andExpect(jsonPath("$.data.userId").value(20))
+            .andExpect(jsonPath("$.data.memberStatus").value("REGISTERED"))
             .andExpect(jsonPath("$.data.idToken").doesNotExist())
             .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
         verify(completeSocialLoginService).login(SocialProvider.APPLE, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE);
@@ -192,7 +194,7 @@ class AuthControllerTest {
     @Test
     void 카카오_완료는_서비스_토큰을_캐시없이_반환한다() throws Exception {
         given(completeSocialLoginService.login(SocialProvider.KAKAO, "code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE))
-            .willReturn(new AuthResult("service-token", 10L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
+            .willReturn(new AuthResult("service-token", 10L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh", Instant.now().plusSeconds(2592000), MemberStatus.REGISTERED));
         mockMvc.perform(post("/api/v1/auth/oauth/kakao/login").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"code\":\"code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}"
@@ -202,6 +204,7 @@ class AuthControllerTest {
             .andExpect(header().string("Set-Cookie", Matchers.containsString("sssok_refresh=service-refresh")))
             .andExpect(jsonPath("$.data.accessToken").value("service-token"))
             .andExpect(jsonPath("$.data.userId").value(10))
+            .andExpect(jsonPath("$.data.memberStatus").value("REGISTERED"))
             .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
     }
 
@@ -286,7 +289,7 @@ class AuthControllerTest {
     @Test
     void 익명_인증에_성공하면_201과_토큰_정보를_반환한다() throws Exception {
         given(anonymousAuthService.authenticate(anyString(), eq(RefreshTokenDelivery.COOKIE)))
-            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
+            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z"), "service-refresh", Instant.now().plusSeconds(2592000), MemberStatus.ANONYMOUS));
 
         mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -294,6 +297,7 @@ class AuthControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.accessToken").value("token-value"))
             .andExpect(jsonPath("$.data.userId").value(1))
+            .andExpect(jsonPath("$.data.memberStatus").value("ANONYMOUS"))
             .andExpect(jsonPath("$.data.nickname").value("민수"))
             .andExpect(jsonPath("$.data.expiresAt").value("2026-09-17T05:30:00Z"));
     }
@@ -352,7 +356,7 @@ class AuthControllerTest {
     @Test
     void 유효한_연결_코드로_로그인하면_200과_토큰_정보를_반환한다() throws Exception {
         given(linkLoginService.login("483920", RefreshTokenDelivery.COOKIE))
-            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z"), "service-refresh", Instant.now().plusSeconds(2592000)));
+            .willReturn(new AuthResult("token-value", 1L, "민수", Instant.parse("2026-09-17T05:30:00Z"), "service-refresh", Instant.now().plusSeconds(2592000), MemberStatus.ANONYMOUS));
 
         mockMvc.perform(post("/api/v1/auth/link").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -360,6 +364,7 @@ class AuthControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.accessToken").value("token-value"))
             .andExpect(jsonPath("$.data.userId").value(1))
+            .andExpect(jsonPath("$.data.memberStatus").value("ANONYMOUS"))
             .andExpect(jsonPath("$.data.nickname").value("민수"));
     }
 

@@ -18,7 +18,7 @@ public record AuthResponse(
 
     public static AuthResponse from(AuthResult result, RefreshTokenDelivery delivery) {
         return new AuthResponse(result.accessToken(), result.userId(), result.nickname(), result.expiresAt(),
-            delivery == RefreshTokenDelivery.BODY ? result.refreshToken() : null, result.refreshExpiresAt(), result.memberStatus());
+            delivery == RefreshTokenDelivery.BODY ? result.refreshToken() : null, result.refreshExpiresAt(), result.memberStatus().name());
     }
     @Override
     public String toString() { return "AuthResponse[REDACTED]"; }
