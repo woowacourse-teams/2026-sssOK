@@ -1,22 +1,25 @@
 package com.sssok.renewal.outgoing.database.auth;
 
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
+import com.sssok.renewal.outgoing.database.member.MemberJpaEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Index;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ForeignKey;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import com.sssok.renewal.outgoing.database.member.MemberJpaEntity;
-import org.hibernate.annotations.ColumnDefault;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 @Entity
 @Table(name = "auth_session", indexes = {
@@ -39,6 +42,17 @@ public class AuthSessionJpaEntity {
     @Column(name = "revoked", nullable = false)
     @ColumnDefault("false")
     private boolean revoked;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "refresh_token_delivery", length = 10)
+    private RefreshTokenDelivery refreshTokenDelivery;
+
+    public AuthSessionJpaEntity(String id, Long memberId, Instant expiresAt, RefreshTokenDelivery delivery) {
+        this(id, memberId, expiresAt, false);
+        this.refreshTokenDelivery = delivery;
+    }
+
+    public void revoke() { this.revoked = true; }
 
     // 쓰기는 memberId가 담당한다. 회원이 물리 삭제되면 DB가 인증 기록도 삭제한다.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
