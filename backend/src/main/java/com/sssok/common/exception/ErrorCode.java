@@ -35,8 +35,11 @@ public enum ErrorCode {
     INVALID_FEEDBACK_STATUS(400, "올바르지 않은 처리 상태입니다: %s"),
     INVALID_FEEDBACK_ASSIGNEE(400, "올바르지 않은 담당자입니다: %s"),
 
+    SOCIAL_AUTH_UNAVAILABLE(503, "소셜 인증 제공자에 연결할 수 없습니다. 잠시 후 다시 시도해주세요"),
+
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),
+    INVALID_SOCIAL_AUTH(401, "소셜 인증 정보가 유효하지 않습니다. 로그인을 다시 시작해주세요"),
     INVALID_CREDENTIALS(401, "아이디 또는 비밀번호가 올바르지 않습니다"),
 
     // 403 Forbidden
@@ -63,6 +66,8 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
 
     // 409 Conflict
+    SOCIAL_REAUTHENTICATION_REQUIRED(409, "소셜 계정 인증을 다시 진행해주세요"),
+    SOCIAL_AUTH_CONFLICT(409, "회원 상태가 변경되었습니다. 로그인을 다시 시작해주세요"),
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),
