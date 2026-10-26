@@ -91,6 +91,7 @@ public enum ErrorCode {
 
     INVALID_SEARCH_QUERY(400, "검색어는 공백 정리 후 1~200자여야 합니다"),
     IMAGE_SEARCH_UNAVAILABLE(503, "이미지 검색을 사용할 수 없습니다. 잠시 후 다시 시도해주세요"),
+    WEB_PUSH_UNAVAILABLE(503, "알림을 사용할 수 없습니다"),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요");
