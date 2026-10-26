@@ -33,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SessionTokenProvider implements TokenProvider {
     private static final Duration REFRESH_TTL = Duration.ofDays(30);
+    private static final Duration REFRESH_REUSE_GRACE = Duration.ofSeconds(5);
     private static final SecureRandom RANDOM = new SecureRandom();
     private final JwtProperties jwtProperties;
     private final RefreshTokenJpaRepository refreshTokenJpaRepository;
@@ -58,7 +59,7 @@ public class SessionTokenProvider implements TokenProvider {
         return issueTokens(session, now);
     }
 
-    // 재사용 감지 시 세션 폐기를 커밋한 뒤 401을 반환한다.
+    // 유예 조건을 벗어난 재사용은 세션 폐기를 커밋한 뒤 401을 반환한다.
     @Transactional(noRollbackFor = UnauthorizedException.class)
     public AuthResult refresh(String rawToken, RefreshTokenDelivery delivery) {
         String tokenHash = validatedRefreshHash(rawToken);
@@ -67,8 +68,10 @@ public class SessionTokenProvider implements TokenProvider {
         Instant now = Instant.now();
 
         requireRefreshable(session, delivery, now);
-        consumeRefreshToken(tokenHash, session);
-        return AuthResult.from(member, issueTokens(session, now));
+        RefreshTokenJpaEntity refreshToken = requireUnusedRefreshToken(tokenHash, session, now);
+        IssuedToken issuedToken = issueTokens(session, now);
+        refreshToken.consume(now, hash(issuedToken.refreshToken()));
+        return AuthResult.from(member, issuedToken);
     }
 
     private String validatedRefreshHash(String rawToken) {
@@ -93,13 +96,25 @@ public class SessionTokenProvider implements TokenProvider {
         }
     }
 
-    private void consumeRefreshToken(String tokenHash, AuthSessionJpaEntity session) {
+    private RefreshTokenJpaEntity requireUnusedRefreshToken(String tokenHash, AuthSessionJpaEntity session, Instant now) {
         RefreshTokenJpaEntity token = refreshTokenJpaRepository.findById(tokenHash).orElseThrow(this::unauthorized);
-        if (token.isUsed()) {
-            session.revoke();
-            throw unauthorized();
+        if (!token.isUsed()) {
+            return token;
         }
-        token.consume();
+        if (!isRecentDuplicate(token, session, now)) {
+            session.revoke();
+        }
+        throw unauthorized();
+    }
+
+    private boolean isRecentDuplicate(RefreshTokenJpaEntity token, AuthSessionJpaEntity session, Instant now) {
+        if (!token.isWithinReuseGrace(now, REFRESH_REUSE_GRACE) || token.getReplacementTokenHash() == null) {
+            return false;
+        }
+        return refreshTokenJpaRepository.findById(token.getReplacementTokenHash())
+            .filter(replacement -> replacement.getSessionId().equals(session.getId()))
+            .filter(replacement -> !replacement.isUsed())
+            .isPresent();
     }
 
     private IssuedToken issueTokens(AuthSessionJpaEntity session, Instant now) {

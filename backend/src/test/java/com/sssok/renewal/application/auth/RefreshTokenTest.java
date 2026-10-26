@@ -57,15 +57,61 @@ class RefreshTokenTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 이전_토큰_재사용은_새_토큰까지_폐기하되_다른_기기에는_영향이_없다() {
+    void 유예시간_이후_재사용은_새_토큰까지_폐기하되_다른_기기에는_영향이_없다() {
         AuthResult first = anonymous.authenticate("재사용");
         IssuedToken other = tokens.issue(first.userId(), Instant.now());
         AuthResult next = tokens.refresh(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+        String sessionId = jwt.verify(first.accessToken()).sessionId();
+        jdbc.update("update refresh_token set used_at = ? where session_id = ? and used = true",
+            Timestamp.from(Instant.now().minusSeconds(10)), sessionId);
         rejected(first.refreshToken(), RefreshTokenDelivery.COOKIE);
         rejected(next.refreshToken(), RefreshTokenDelivery.COOKIE);
         assertThatThrownBy(() -> tokens.parse(next.accessToken())).isInstanceOf(UnauthorizedException.class);
         assertThat(tokens.parse(other.value())).isEqualTo(first.userId());
         assertThat(tokens.refresh(other.refreshToken(), RefreshTokenDelivery.COOKIE).userId()).isEqualTo(first.userId());
+    }
+
+    @Test
+    void 짧은_중복요청은_거절하되_새_토큰과_세션은_유지한다() {
+        AuthResult first = anonymous.authenticate("중복");
+        AuthResult next = tokens.refresh(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+        String sessionId = jwt.verify(first.accessToken()).sessionId();
+        Timestamp usedAt = jdbc.queryForObject(
+            "select used_at from refresh_token where session_id = ? and used = true", Timestamp.class, sessionId);
+
+        rejected(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+        rejected(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+
+        assertThat(tokens.parse(next.accessToken())).isEqualTo(first.userId());
+        assertThat(jdbc.queryForObject("select used_at from refresh_token where session_id = ? and used = true",
+            Timestamp.class, sessionId)).isEqualTo(usedAt);
+        assertThat(jdbc.queryForObject("select count(*) from refresh_token where session_id = ?",
+            Integer.class, sessionId)).isEqualTo(2);
+        assertThat(tokens.refresh(next.refreshToken(), RefreshTokenDelivery.COOKIE).userId()).isEqualTo(first.userId());
+    }
+
+    @Test
+    void 후속_토큰도_사용됐다면_유예시간_안이어도_세션을_폐기한다() {
+        AuthResult first = anonymous.authenticate("후속");
+        AuthResult second = tokens.refresh(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+        AuthResult third = tokens.refresh(second.refreshToken(), RefreshTokenDelivery.COOKIE);
+
+        rejected(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+
+        rejected(third.refreshToken(), RefreshTokenDelivery.COOKIE);
+        assertThatThrownBy(() -> tokens.parse(third.accessToken())).isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void 기존_소비_기록에_유예_정보가_없으면_세션을_폐기한다() {
+        AuthResult first = anonymous.authenticate("이전");
+        AuthResult next = tokens.refresh(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+        jdbc.update("update refresh_token set used_at = NULL, replacement_token_hash = NULL "
+            + "where session_id = ? and used = true", jwt.verify(first.accessToken()).sessionId());
+
+        rejected(first.refreshToken(), RefreshTokenDelivery.COOKIE);
+
+        rejected(next.refreshToken(), RefreshTokenDelivery.COOKIE);
     }
 
     @Test
@@ -111,7 +157,7 @@ class RefreshTokenTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 동일_토큰의_동시갱신은_한번만_성공하고_재사용된_세션은_폐기한다() throws Exception {
+    void 동일_토큰의_동시갱신은_한번만_성공하고_세션은_유지한다() throws Exception {
         AuthResult first = anonymous.authenticate("동시");
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
@@ -133,7 +179,7 @@ class RefreshTokenTest extends PostgresContainerSupport {
             assertThat(List.of(one.get(10, TimeUnit.SECONDS),
                 two.get(10, TimeUnit.SECONDS))).containsExactlyInAnyOrder(true, false);
         }
-        assertThatThrownBy(() -> tokens.parse(first.accessToken())).isInstanceOf(UnauthorizedException.class);
+        assertThat(tokens.parse(first.accessToken())).isEqualTo(first.userId());
     }
 
     private void rejected(String token, RefreshTokenDelivery delivery) {

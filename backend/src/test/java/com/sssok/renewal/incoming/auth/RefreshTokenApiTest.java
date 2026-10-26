@@ -38,6 +38,8 @@ class RefreshTokenApiTest extends PostgresContainerSupport {
                 .header("X-CSRF-Protection", "1"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.refreshToken").doesNotExist()).andReturn();
         Cookie next = refreshed.getResponse().getCookie(AuthTokenHttpSupport.COOKIE_NAME);
+        mvc.perform(post("/api/v1/auth/refresh").cookie(first).header("X-CSRF-Protection", "1"))
+            .andExpect(status().isUnauthorized()).andExpect(header().doesNotExist("Set-Cookie"));
         assertThat(next.getValue()).isNotEqualTo(first.getValue());
         assertThat(data(refreshed).get("userId")).isEqualTo(data(login).get("userId"));
         mvc.perform(post("/api/v1/auth/logout")
