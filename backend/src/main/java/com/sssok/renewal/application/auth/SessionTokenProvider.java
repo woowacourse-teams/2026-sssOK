@@ -61,29 +61,45 @@ public class SessionTokenProvider implements TokenProvider {
     // 재사용 감지 시 세션 폐기를 커밋한 뒤 401을 반환한다.
     @Transactional(noRollbackFor = UnauthorizedException.class)
     public AuthResult refresh(String rawToken, RefreshTokenDelivery delivery) {
+        String tokenHash = validatedRefreshHash(rawToken);
+        AuthSessionJpaEntity session = lockRefreshSession(tokenHash);
+        Member member = requireActive(session.getMemberId());
+        Instant now = Instant.now();
+
+        requireRefreshable(session, delivery, now);
+        consumeRefreshToken(tokenHash, session);
+        return AuthResult.from(member, issueTokens(session, now));
+    }
+
+    private String validatedRefreshHash(String rawToken) {
         if (rawToken == null || !rawToken.matches("[A-Za-z0-9_-]{43}")) {
             throw unauthorized();
         }
-        String hash = hash(rawToken);
-        // 잠그기 전에는 소유자만 조회한다. 소비 여부는 회원 잠금을 획득한 뒤 새로 읽는다.
-        String sessionId = refreshTokenJpaRepository.findSessionId(hash).orElseThrow(this::unauthorized);
+        return hash(rawToken);
+    }
+
+    private AuthSessionJpaEntity lockRefreshSession(String tokenHash) {
+        // 잠금 전에는 식별자만 조회한다. 토큰 소비 상태는 잠금을 얻은 뒤 읽는다.
+        String sessionId = refreshTokenJpaRepository.findSessionId(tokenHash).orElseThrow(this::unauthorized);
         Long memberId = authSessionJpaRepository.findMemberId(sessionId).orElseThrow(this::unauthorized);
         lockMember(memberId);
-        AuthSessionJpaEntity session = authSessionJpaRepository.findById(sessionId).orElseThrow(this::unauthorized);
-        RefreshTokenJpaEntity refreshToken = refreshTokenJpaRepository.findById(hash).orElseThrow(this::unauthorized);
-        Instant now = Instant.now();
-        requireActive(memberId);
+        return authSessionJpaRepository.findById(sessionId).orElseThrow(this::unauthorized);
+    }
+
+    private void requireRefreshable(AuthSessionJpaEntity session, RefreshTokenDelivery delivery, Instant now) {
         if (session.isRevoked() || !session.getExpiresAt().isAfter(now)
             || session.getRefreshTokenDelivery() != delivery) {
             throw unauthorized();
         }
-        if (refreshToken.isUsed()) {
+    }
+
+    private void consumeRefreshToken(String tokenHash, AuthSessionJpaEntity session) {
+        RefreshTokenJpaEntity token = refreshTokenJpaRepository.findById(tokenHash).orElseThrow(this::unauthorized);
+        if (token.isUsed()) {
             session.revoke();
             throw unauthorized();
         }
-        refreshToken.consume();
-        Member member = memberRepository.findById(memberId).orElseThrow(this::unauthorized);
-        return AuthResult.from(member, issueTokens(session, now));
+        token.consume();
     }
 
     private IssuedToken issueTokens(AuthSessionJpaEntity session, Instant now) {
@@ -152,10 +168,12 @@ public class SessionTokenProvider implements TokenProvider {
         }
     }
 
-    private void requireActive(Long memberId) {
-        if (!memberRepository.findById(memberId).orElseThrow(this::unauthorized).isActive()) {
+    private Member requireActive(Long memberId) {
+        Member member = memberRepository.findById(memberId).orElseThrow(this::unauthorized);
+        if (!member.isActive()) {
             throw unauthorized();
         }
+        return member;
     }
 
     private String sessionKey(VerifiedToken token, String raw) {
