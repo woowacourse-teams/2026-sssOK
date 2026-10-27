@@ -13,6 +13,23 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 
+const AUTH_ORIGINS = new Set([
+  "https://kauth.kakao.com",
+  "https://accounts.kakao.com",
+  "https://appleid.apple.com",
+  "https://account.apple.com",
+  "https://idmsa.apple.com",
+]);
+
+const isAllowedWebUrl = (url: string) => {
+  try {
+    const { origin } = new URL(url);
+    return origin === WEB_ORIGIN || AUTH_ORIGINS.has(origin);
+  } catch {
+    return false;
+  }
+};
+
 export function SssokWebView() {
   const webView = useRef<WebView<object>>(null);
   const canGoBack = useRef(false);
@@ -82,15 +99,17 @@ export function SssokWebView() {
           onShouldStartLoadWithRequest={(request) => {
             if (request.isTopFrame === false) return true;
             if (request.url === "about:blank") return true;
-            try {
-              if (new URL(request.url).origin === WEB_ORIGIN) return true;
-            } catch {
-              return false;
-            }
+            if (isAllowedWebUrl(request.url)) return true;
             openExternal(request.url);
             return false;
           }}
-          onOpenWindow={({ nativeEvent }) => openExternal(nativeEvent.targetUrl)}
+          onOpenWindow={({ nativeEvent }) => {
+            if (isAllowedWebUrl(nativeEvent.targetUrl)) {
+              setSourceUrl(nativeEvent.targetUrl);
+              return;
+            }
+            openExternal(nativeEvent.targetUrl);
+          }}
           onNavigationStateChange={(state) => {
             rememberInternalUrl(state.url);
             canGoBack.current = state.canGoBack;
