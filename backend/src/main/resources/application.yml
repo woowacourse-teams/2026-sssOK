@@ -152,6 +152,21 @@ notification:
     connect-timeout: 2s
     # 알림은 공용 워커 풀에서 돈다. 디스코드가 응답하지 않을 때 스레드를 오래 붙잡지 않게 짧게 둔다.
     read-timeout: 5s
+  web-push:
+    # 방 참여자 브라우저 알림(Web Push)의 VAPID 키쌍(base64url). 개인키가 비밀이라 환경변수로만 받는다.
+    # 셋 중 하나라도 비어 있으면 발송만 건너뛰고 기동·구독 API 는 그대로 된다 (로컬·테스트 기본값).
+    # 키 생성: npx web-push generate-vapid-keys
+    vapid-public-key: ${WEB_PUSH_VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${WEB_PUSH_VAPID_PRIVATE_KEY:}
+    # 푸시 서비스가 문제 시 연락할 주소(mailto: 또는 https:)
+    subject: ${WEB_PUSH_SUBJECT:}
+    # 받는 브라우저가 꺼져 있을 때 푸시 서비스가 알림을 보관하는 시간. 지나면 버린다.
+    ttl: 1h
+    connect-timeout: 2s
+    read-timeout: 5s
+  upload-request:
+    # 같은 사람이 같은 방에 업로드 요청을 다시 보낼 수 있을 때까지의 시간. 그 안에 다시 보내면 429.
+    cooldown: 1m
 
 storage:
   cleanup:
