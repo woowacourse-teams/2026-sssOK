@@ -1,0 +1,4 @@
+# 기존 웹과 별도로 의존성과 lockfile을 관리한다.
+packages: []
+allowBuilds:
+  unrs-resolver: true
