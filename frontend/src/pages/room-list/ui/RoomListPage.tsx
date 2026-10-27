@@ -9,6 +9,7 @@ import {
 } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
+import { useMemberSessionQuery } from "@/entities/member-session";
 import { useMyRoomsQuery, type MyRoom } from "@/entities/room";
 import { LeaveRoomModal } from "@/features/leave-room";
 import mascotHello from "@/shared/assets/mascot-hello.svg";
@@ -18,7 +19,6 @@ import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 import { PageSpinner } from "@/shared/ui/spinner";
 import { Toast, type ToastProps } from "@/shared/ui/toast";
-import { readMemberAccessToken } from "../lib/memberAccessToken";
 import { useIsDesktop } from "../model/useIsDesktop";
 import { AddRoomSheet } from "./AddRoomSheet";
 import { JoinByLinkModal } from "./JoinByLinkModal";
@@ -79,7 +79,8 @@ const matchesFilter = (room: MyRoom, filter: RoomFilter) =>
 export const RoomListPage = () => {
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
-  const accessToken = readMemberAccessToken();
+  const { data: session } = useMemberSessionQuery();
+  const accessToken = session?.accessToken;
   const roomsQuery = useMyRoomsQuery({ token: accessToken });
 
   const [filter, setFilter] = useState<RoomFilter>("all");
