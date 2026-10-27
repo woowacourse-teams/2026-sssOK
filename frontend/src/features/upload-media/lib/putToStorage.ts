@@ -9,6 +9,20 @@
  * 이 요청은 외부 도메인이고 응답 본문이 비어 있다.
  */
 
+import { STORAGE_PROXY_PATH } from "@/shared/config";
+
+/**
+ * 앱 확인용 개발 서버에서는 R2 대신 개발 서버로 보낸다. 폰에서 맥 IP 로 연 페이지는
+ * R2 버킷 CORS 에 막히기 때문이다. 경로가 없으면(평소·배포) 받은 주소를 그대로 쓴다.
+ */
+const storageUrlOf = (url: string) => {
+  if (STORAGE_PROXY_PATH === undefined) return url;
+
+  const { host, pathname, search } = new URL(url);
+
+  return `${STORAGE_PROXY_PATH}/${host}${pathname}${search}`;
+};
+
 /** `total` 은 전송할 전체 바이트다. 파일명·mediaId 는 여기서 모른다 — 부르는 쪽이 붙인다. */
 type ProgressListener = (loaded: number, total: number) => void;
 
@@ -47,7 +61,7 @@ export const putToStorage = ({ url, headers, file, signal, onProgress }: PutToSt
       resolve(result);
     };
 
-    xhr.open("PUT", url);
+    xhr.open("PUT", storageUrlOf(url));
 
     // setRequestHeader 는 open 뒤에만 먹는다. Authorization 은 붙이지 않는다 —
     // 서명이 URL 에 이미 들어 있어서, 토큰을 얹으면 R2 가 403 으로 거절한다.

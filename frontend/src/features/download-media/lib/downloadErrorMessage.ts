@@ -17,6 +17,9 @@ const MESSAGE_BY_STATUS: Record<number, string> = {
   429: "받는 중인 요청이 많아요",
 };
 
+/** 앱에서 사진첩 쓰기를 거절당했을 때. 다시 눌러도 설정에서 켜기 전에는 똑같다. */
+export const PHOTO_PERMISSION_DENIED_MESSAGE = "사진 접근을 허용해야 사진첩에 저장할 수 있어요";
+
 /** 사유를 특정할 수 없을 때. 섞인 실패와 모르는 상태 코드가 여기로 온다. */
 export const DOWNLOAD_FALLBACK_MESSAGE = "받지 못했어요";
 

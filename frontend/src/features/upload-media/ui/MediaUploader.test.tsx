@@ -381,6 +381,15 @@ describe("MediaUploader", () => {
     expect(failureHeading()).not.toBeInTheDocument();
   });
 
+  it("전부 올라가면 올린 장수를 토스트로 알린다", async () => {
+    const user = userEvent.setup();
+
+    renderUploader();
+    await user.upload(getFileInput(), [fileOf("첫째.jpg"), fileOf("둘째.jpg")]);
+
+    expect(await screen.findByText("2장을 올렸어요.")).toBeInTheDocument();
+  });
+
   it("깨진 파일이 있으면 그 장수로 실패 모달이 뜬다", async () => {
     const user = userEvent.setup();
 
@@ -392,6 +401,8 @@ describe("MediaUploader", () => {
     expect(
       await screen.findByRole("heading", { name: "앗, 1장을 못 올렸어요" }),
     ).toBeInTheDocument();
+    // 실패 모달이 설명하므로 완료 토스트를 겹쳐 띄우지 않는다.
+    expect(screen.queryByText(/장을 올렸어요\./)).not.toBeInTheDocument();
   });
 
   it("재시도를 누르면 깨진 파일만 다시 올라간다", async () => {
