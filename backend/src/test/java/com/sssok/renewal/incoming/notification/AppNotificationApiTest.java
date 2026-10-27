@@ -22,7 +22,7 @@ import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
@@ -83,7 +83,7 @@ class AppNotificationApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     FileRepository fileRepository;
@@ -123,9 +123,9 @@ class AppNotificationApiTest extends PostgresContainerSupport {
         host = member("가현");
         room = createRoomService.create(host.id(), "제주 여행", null).room();
         guest = member("민수");
-        joinRoomService.join(room.getId(), guest.id());
+        roomMembershipService.join(room.getId(), guest.id());
         otherGuest = member("지수");
-        joinRoomService.join(room.getId(), otherGuest.id());
+        roomMembershipService.join(room.getId(), otherGuest.id());
 
         stranger = member("철수");
         createRoomService.create(stranger.id(), "다른 방", null);
