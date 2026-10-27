@@ -38,5 +38,5 @@ Docs: https://docs.expo.dev/eas/index.md
 ## Rules
 
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
-- Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
+- Expo Go only includes its bundled native modules. A native library not bundled in Expo Go requires a development build. Before creating one, install `expo-dev-client` using `npx expo install expo-dev-client`. For local builds, use `npx expo run:ios` or `npx expo run:android`. For EAS, first add a `development` profile with `developmentClient: true` and `distribution: "internal"` to `eas.json`, then run `npx eas-cli@latest build --profile development`. The current configuration only provides `production`; development build dependencies and profiles are not included.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md

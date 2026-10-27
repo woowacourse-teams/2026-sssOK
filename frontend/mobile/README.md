@@ -69,5 +69,6 @@ npx eas-cli@latest build --platform android --profile production
 
 첫 실행 시 Expo 프로젝트 연결과 Android 업로드 키 생성·선택이 필요하다.
 Google Play에 이미 등록된 앱이면 기존 패키지명과 업로드 키를 사용한다.
+기존 앱을 EAS 원격 버전 관리로 처음 전환할 때는 빌드 전에 `npx eas-cli@latest build:version:set`을 실행하고, Android의 원격 versionCode를 Play Console에 이미 업로드한 가장 높은 값으로 맞춘다. 다음 production 빌드에서 이 값이 자동 증가한다. 이미 동기화된 프로젝트는 다시 설정할 필요가 없다.
 빌드 완료 후 EAS 빌드 페이지에서 AAB를 내려받아 Play Console 비공개 테스트 트랙에 올린다.
 원격 versionCode를 자동 증가시키므로 후속 빌드도 같은 프로필을 사용한다.

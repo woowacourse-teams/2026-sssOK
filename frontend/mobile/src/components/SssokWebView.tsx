@@ -17,7 +17,22 @@ export function SssokWebView() {
   const webView = useRef<WebView<object>>(null);
   const canGoBack = useRef(false);
   const [failed, setFailed] = useState(false);
-  const [instance, setInstance] = useState(0);
+  const lastInternalUrl = useRef(WEB_URL);
+  const [sourceUrl, setSourceUrl] = useState(WEB_URL);
+
+  const rememberInternalUrl = (url: string) => {
+    try {
+      if (new URL(url).origin === WEB_ORIGIN) lastInternalUrl.current = url;
+    } catch {
+      // about:blank 등 서비스 주소가 아닌 값은 재시도 대상으로 저장하지 않는다.
+    }
+  };
+
+  const showError = (url?: string) => {
+    if (url) rememberInternalUrl(url);
+    canGoBack.current = false;
+    setFailed(true);
+  };
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -52,7 +67,7 @@ export function SssokWebView() {
             onPress={() => {
               canGoBack.current = false;
               setFailed(false);
-              setInstance((value) => value + 1);
+              setSourceUrl(lastInternalUrl.current);
             }}
           >
             <Text style={styles.buttonText}>다시 시도</Text>
@@ -60,9 +75,8 @@ export function SssokWebView() {
         </View>
       ) : (
         <WebView<object>
-          key={instance}
           ref={webView}
-          source={{ uri: WEB_URL }}
+          source={{ uri: sourceUrl }}
           style={styles.webView}
           originWhitelist={["*"]}
           onShouldStartLoadWithRequest={(request) => {
@@ -78,14 +92,15 @@ export function SssokWebView() {
           }}
           onOpenWindow={({ nativeEvent }) => openExternal(nativeEvent.targetUrl)}
           onNavigationStateChange={(state) => {
+            rememberInternalUrl(state.url);
             canGoBack.current = state.canGoBack;
           }}
-          onError={() => setFailed(true)}
+          onError={({ nativeEvent }) => showError(nativeEvent.url)}
           onHttpError={({ nativeEvent }) => {
-            if (nativeEvent.url === WEB_URL) setFailed(true);
+            showError(nativeEvent.url);
           }}
-          onContentProcessDidTerminate={() => setFailed(true)}
-          onRenderProcessGone={() => setFailed(true)}
+          onContentProcessDidTerminate={() => showError()}
+          onRenderProcessGone={() => showError()}
           startInLoadingState
           renderLoading={() => (
             <View style={[StyleSheet.absoluteFill, styles.message]}>
