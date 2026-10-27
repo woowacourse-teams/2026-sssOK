@@ -5,6 +5,7 @@ import { AdminFeedbacksPage } from "@/pages/admin-feedbacks";
 import { AdminLoginPage } from "@/pages/admin-login";
 import { CreateRoomPage } from "@/pages/create-room";
 import { GalleryPage } from "@/pages/gallery";
+import { LoginPage } from "@/pages/login";
 import { HomePage } from "@/pages/home";
 import { MediaDetailPage } from "@/pages/media-detail";
 import { RoomClosedPage } from "@/pages/room-closed";
@@ -17,6 +18,7 @@ import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 
 export const routes: RouteObject[] = [
+  { path: ROUTE_PATTERNS.login, element: <LoginPage /> },
   { path: ROUTE_PATTERNS.home, element: <HomePage /> },
   { path: ROUTE_PATTERNS.rooms, element: <RoomListPage /> },
   { path: ROUTE_PATTERNS.createRoom, element: <CreateRoomPage /> },
