@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
@@ -13,9 +14,8 @@ const queryClient = new QueryClient({
   },
 });
 
-const router = createBrowserRouter(routes);
-
 export const App = () => {
+  const [router] = useState(() => createBrowserRouter(routes));
   return (
     <QueryClientProvider client={queryClient}>
       <div className="container">

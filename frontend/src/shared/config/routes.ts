@@ -23,6 +23,7 @@ export const ROUTE_PATTERNS = {
   home: "/home",
   rooms: "/rooms",
   login: "/app/login",
+  loginCallback: "/app/auth/callback/:provider",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
   roomInvite: "/join/:code",

@@ -5,6 +5,7 @@ import { AdminFeedbacksPage } from "@/pages/admin-feedbacks";
 import { AdminLoginPage } from "@/pages/admin-login";
 import { CreateRoomPage } from "@/pages/create-room";
 import { GalleryPage } from "@/pages/gallery";
+import { LoginCallbackPage } from "@/pages/login-callback";
 import { LoginPage } from "@/pages/login";
 import { HomePage } from "@/pages/home";
 import { MediaDetailPage } from "@/pages/media-detail";
@@ -20,6 +21,7 @@ import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 
 export const routes: RouteObject[] = [
+  { path: ROUTE_PATTERNS.loginCallback, element: <LoginCallbackPage /> },
   {
     element: <RedirectIfMember />,
     children: [{ path: ROUTE_PATTERNS.login, element: <LoginPage /> }],
