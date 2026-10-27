@@ -11,7 +11,7 @@ import com.sssok.application.download.exception.DownloadExpiredException;
 import com.sssok.application.download.exception.DownloadForbiddenException;
 import com.sssok.application.download.exception.DownloadNotFoundException;
 import com.sssok.application.port.out.DownloadJobRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
@@ -41,11 +41,11 @@ class GetDownloadJobStatusServiceTest {
     DownloadJobRepository downloadJobRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @BeforeEach
     void setUp() {
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }
 

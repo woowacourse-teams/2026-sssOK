@@ -1,0 +1,155 @@
+package com.sssok.renewal.application.download.batch;
+
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import com.sssok.renewal.domain.download.DownloadFileNames;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+
+
+// Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
+@H2IntegrationTest
+class CreateBatchDownloadServiceTest {
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
+
+    private static final Long ROOM_ID = 1L;
+    // 업로더 필터를 쓰지 않는 기존 검증들이라 요청자가 누구인지는 결과에 영향이 없다.
+    private static final Long REQUESTER_ID = 100L;
+    private static final Long UPLOADER_ID = 100L;
+    private static final String PRESIGNED = "https://storage.example.com/signed";
+
+    @Autowired
+    CreateBatchDownloadService createBatchDownloadService;
+
+    @Autowired
+    FileRepository fileRepository;
+
+    @MockitoBean
+    FileStorage fileStorage;
+
+    @BeforeEach
+    void setUp() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+            .willReturn(PRESIGNED);
+    }
+
+    private DownloadTargetCommand byMediaIds(List<Long> mediaIds) {
+        return new DownloadTargetCommand(ROOM_ID, REQUESTER_ID, mediaIds, null, null);
+    }
+
+    private Long media(String fileName) {
+        return media(fileName, "image/jpeg");
+    }
+
+    private Long media(String fileName, String mimeType) {
+        StoredFile file = StoredFile.reserve(ROOM_ID, UPLOADER_ID, fileName, mimeType,
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
+        file.startProcessing();
+        file.markReady();
+        return fileRepository.save(file).getId();
+    }
+
+    @Test
+    void 대상_파일마다_서명_URL을_발급한다() {
+        Long media1 = media("IMG_0421.jpg");
+        Long media2 = media("IMG_0420.jpg");
+
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(media1, media2)));
+
+        assertThat(files).hasSize(2);
+        assertThat(files).extracting(BatchDownloadFile::downloadUrl).containsOnly(PRESIGNED);
+        assertThat(files).extracting(BatchDownloadFile::mediaId).containsExactlyInAnyOrder(media1, media2);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "회식 영상.mp4, video/mp4",
+        "아이폰 영상.mov, video/quicktime",
+        "browser-recording.webm, video/webm"
+    })
+    void 다건_다운로드는_동영상별_원본_파일명과_MIME으로_서명한다(
+        String fileName, String mimeType
+    ) {
+        Long mediaId = media(fileName, mimeType);
+
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(mediaId)));
+
+        assertThat(files).singleElement()
+            .extracting(BatchDownloadFile::fileName)
+            .isEqualTo(fileName);
+        verify(fileStorage).presignGet(
+            any(),
+            eq(DownloadFileNames.contentDispositionOf(fileName)),
+            eq(mimeType),
+            any(Duration.class));
+    }
+
+    @Test
+    void 같은_원본_파일명은_번호를_붙여_구분한다() {
+        Long media1 = media("IMG_0421.jpg");
+        Long media2 = media("IMG_0421.jpg");
+
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(media1, media2)));
+
+        assertThat(files).extracting(BatchDownloadFile::fileName)
+            .containsExactlyInAnyOrder("IMG_0421.jpg", "IMG_0421 (1).jpg");
+    }
+
+    @Test
+    void 만료_시각은_presignedGetTtl만큼_뒤다() {
+        Long media = media("IMG_0421.jpg");
+        Instant before = Instant.now();
+
+        List<BatchDownloadFile> files = createBatchDownloadService.create(byMediaIds(List.of(media)));
+
+        assertThat(files.get(0).expiresAt()).isAfter(before);
+    }
+
+    @Test
+    void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
+        assertThatThrownBy(() -> createBatchDownloadService.create(byMediaIds(List.of(999_999L))))
+            .isInstanceOf(DownloadMediaNotFoundException.class);
+    }
+
+    @Test
+    void 처리중인_미디어도_원본은_그대로라_대상에_들어간다() {
+        StoredFile processing = StoredFile.reserve(ROOM_ID, UPLOADER_ID, "processing.jpg", "image/jpeg",
+            new FileSize(1024), Instant.now(), SIZE_POLICY);
+        processing.startProcessing();
+        Long processingId = fileRepository.save(processing).getId();
+        Long readyId = media("ready.jpg");
+
+        List<BatchDownloadFile> files =
+            createBatchDownloadService.create(byMediaIds(List.of(processingId, readyId)));
+
+        assertThat(files).extracting(BatchDownloadFile::mediaId)
+            .containsExactlyInAnyOrder(processingId, readyId);
+    }
+}

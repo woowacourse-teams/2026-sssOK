@@ -12,7 +12,7 @@ import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
-import com.sssok.infrastructure.config.DownloadProperties;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

@@ -1,13 +1,9 @@
 package com.sssok.application.media;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.*;
-
-import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.MediaUrlCacheProperties;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
@@ -20,12 +16,17 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 import org.springframework.transaction.support.TransactionTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
 
 @Tag("integration-h2")
 @SpringJUnitConfig(MediaReadUrlCacheCommitTest.Config.class)
@@ -63,7 +64,7 @@ class MediaReadUrlCacheCommitTest {
     @EnableTransactionManagement
     static class Config {
         @Bean(destroyMethod = "shutdown")
-        org.springframework.jdbc.datasource.embedded.EmbeddedDatabase dataSource() {
+        EmbeddedDatabase dataSource() {
             return new EmbeddedDatabaseBuilder().generateUniqueName(true)
                 .setType(EmbeddedDatabaseType.H2).build();
         }
@@ -71,7 +72,7 @@ class MediaReadUrlCacheCommitTest {
             return new DataSourceTransactionManager(dataSource);
         }
         @Bean MediaReadUrlProvider provider() {
-            FileStoragePort storage = mock(FileStoragePort.class);
+            FileStorage storage = mock(FileStorage.class);
             when(storage.presignGet(any(), anyString(), anyString(), any()))
                 .thenAnswer(call -> UUID.randomUUID().toString());
             return new MediaReadUrlProvider(storage,

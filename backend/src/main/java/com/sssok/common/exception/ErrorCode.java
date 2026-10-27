@@ -34,12 +34,17 @@ public enum ErrorCode {
     INVALID_ADMIN_ROLE(400, "올바르지 않은 역할입니다: %s"),
     INVALID_FEEDBACK_STATUS(400, "올바르지 않은 처리 상태입니다: %s"),
     INVALID_FEEDBACK_ASSIGNEE(400, "올바르지 않은 담당자입니다: %s"),
+    INVALID_PUSH_SUBSCRIPTION(400, "%s"),
+
+    SOCIAL_AUTH_UNAVAILABLE(503, "소셜 인증 제공자에 연결할 수 없습니다. 잠시 후 다시 시도해주세요"),
 
     // 401 Unauthorized
     UNAUTHORIZED(401, "%s"),
+    INVALID_SOCIAL_AUTH(401, "소셜 인증 정보가 유효하지 않습니다. 로그인을 다시 시작해주세요"),
     INVALID_CREDENTIALS(401, "아이디 또는 비밀번호가 올바르지 않습니다"),
 
     // 403 Forbidden
+    INVALID_COOKIE_AUTH_REQUEST(403, "허용되지 않은 쿠키 인증 요청입니다"),
     NOT_ROOM_HOST(403, "방장만 수행할 수 있는 작업입니다"),
     ROOM_MEMBERSHIP_REQUIRED(403, "입장한 방만 구독할 수 있습니다"),
     NOT_ROOM_MEMBER(403, "입장한 방에서만 이용할 수 있습니다"),
@@ -63,6 +68,9 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
 
     // 409 Conflict
+    ROOM_HOST_CANNOT_LEAVE(409, "방장은 방에서 나갈 수 없습니다"),
+    SOCIAL_REAUTHENTICATION_REQUIRED(409, "소셜 계정 인증을 다시 진행해주세요"),
+    SOCIAL_AUTH_CONFLICT(409, "회원 상태가 변경되었습니다. 로그인을 다시 시작해주세요"),
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),
@@ -83,6 +91,7 @@ public enum ErrorCode {
     UPLOAD_RETRY_EXCEEDED(429, "재시도 횟수를 초과했습니다. 처음부터 다시 올려주세요"),
     RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_LOGIN_RATE_LIMITED(429, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요"),
+    UPLOAD_REQUEST_COOLDOWN(429, "방금 업로드를 요청했어요. 잠시 후 다시 요청해주세요"),
 
     // 415 Unsupported Media Type
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
@@ -90,6 +99,7 @@ public enum ErrorCode {
 
     INVALID_SEARCH_QUERY(400, "검색어는 공백 정리 후 1~200자여야 합니다"),
     IMAGE_SEARCH_UNAVAILABLE(503, "이미지 검색을 사용할 수 없습니다. 잠시 후 다시 시도해주세요"),
+    WEB_PUSH_UNAVAILABLE(503, "알림을 사용할 수 없습니다"),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요");

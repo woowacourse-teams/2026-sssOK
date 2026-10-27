@@ -2,14 +2,12 @@ package com.sssok.application.media;
 
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.MediaLikeRepository;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.application.room.RoomNicknameReader;
 import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.member.Member;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -20,7 +18,7 @@ import org.springframework.stereotype.Component;
 public class MediaDetailAssembler {
 
     private final FolderMediaRepository folderMediaRepository;
-    private final MemberRepository memberRepository;
+    private final RoomNicknameReader roomNicknameReader;
     private final MediaLikeRepository mediaLikeRepository;
     private final MediaUrlResolver mediaUrlResolver;
 
@@ -44,7 +42,7 @@ public class MediaDetailAssembler {
         return new LoadedMedia(
             files,
             folderMediaRepository.findFolderIdsByMedia(mediaIds),
-            uploaderNames(files),
+            roomNicknameReader.readUploaderNames(files),
             mediaLikeRepository.countByMediaIds(mediaIds),
             viewerId == null ? Set.of() : mediaLikeRepository.findLikedMediaIds(viewerId, mediaIds));
     }
@@ -62,7 +60,7 @@ public class MediaDetailAssembler {
         return loaded.files().stream()
             .map(file -> MediaDetail.of(
                 file,
-                loaded.uploaderNames().get(file.getUploaderId()),
+                loaded.uploaderNames().get(file.getId()),
                 loaded.folderIds().getOrDefault(file.getId(), List.of()),
                 urls.apply(file),
                 loaded.likeCounts().getOrDefault(file.getId(), 0L),
@@ -81,15 +79,4 @@ public class MediaDetailAssembler {
         private static final LoadedMedia EMPTY = new LoadedMedia(List.of(), Map.of(), Map.of(), Map.of(), Set.of());
     }
 
-    // 방을 나간 사람이 올린 사진은 회원 행이 없을 수 있어, 이름이 빠진 채로 내려간다.
-    // 사진 자체는 방에 남으므로 목록에서 빼지는 않는다.
-    private Map<Long, String> uploaderNames(List<StoredFile> files) {
-        Set<Long> uploaderIds = files.stream()
-            .map(StoredFile::getUploaderId)
-            .collect(Collectors.toSet());
-
-        return memberRepository.findAllByIdIn(uploaderIds).stream()
-            .collect(Collectors.toMap(Member::getId,
-                member -> member.getDisplayName().value(), (first, second) -> first));
-    }
 }

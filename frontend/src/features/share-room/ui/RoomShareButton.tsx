@@ -21,9 +21,13 @@ const copyPendingText = async (text: Promise<string>) => {
 
 interface RoomShareButtonProps {
   roomCode: string;
+  accessToken?: string;
 }
 
-export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
+export const RoomShareButton = ({
+  roomCode,
+  accessToken: memberAccessToken,
+}: RoomShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
@@ -98,7 +102,7 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   const copyDeviceLink = async () => {
     if (isCreatingDeviceLink) return;
 
-    const accessToken = getRoomSession(roomCode)?.accessToken;
+    const accessToken = memberAccessToken ?? getRoomSession(roomCode)?.accessToken;
     if (!accessToken) {
       setNotice({ message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.", tone: "error" });
       return;

@@ -7,15 +7,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.application.port.out.OrphanObjectRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.ProcessedMedia;
@@ -24,8 +22,10 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
-import com.sssok.support.PostgresContainerSupport;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
+import com.sssok.support.PostgresContainerSupport;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,7 +39,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.context.WebApplicationContext;
 
-// 커밋 뒤 도는 오브젝트 정리를 끈다. 그 스레드가 fileStoragePort 목을 동시에 건드리면 검증이
+// 커밋 뒤 도는 오브젝트 정리를 끈다. 그 스레드가 fileStorage 목을 동시에 건드리면 검증이
 // 간헐적으로 깨진다. 여기서 확인할 것은 "커밋 시점에 정리 대상이 남았는가"이고,
 // 실제로 지우는 부분은 PurgeOrphanObjectsServiceTest 가 맡는다.
 @AcceptanceTest
@@ -56,7 +56,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     CreateFolderService createFolderService;
@@ -77,7 +77,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
     TransactionTemplate transactionTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     MockMvc mockMvc;
     Long roomId;
@@ -93,8 +93,8 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         other = anonymousAuthService.authenticate("의찬");
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
-        joinRoomService.join(roomId, uploader.userId());
-        joinRoomService.join(roomId, other.userId());
+        roomMembershipService.join(roomId, uploader.userId());
+        roomMembershipService.join(roomId, other.userId());
     }
 
     @Test
@@ -112,7 +112,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         assertThat(fileRepository.findById(file.getId())).isEmpty();
         assertThat(folderMediaRepository.findMediaIdsByFolderId(folder.getId())).isEmpty();
         // 응답이 스토리지 왕복을 기다리지 않는다. 커밋 시점에 남는 것은 정리 대기열뿐이다.
-        verifyNoInteractions(fileStoragePort);
+        verifyNoInteractions(fileStorage);
         assertThat(pendingKeys())
             .contains(file.getStorageKey(), file.getStorageKey().thumbnail("webp"));
         assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L))

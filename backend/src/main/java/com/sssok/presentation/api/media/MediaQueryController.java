@@ -8,7 +8,7 @@ import com.sssok.application.media.MediaCursor;
 import com.sssok.application.media.MediaPage;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

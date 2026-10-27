@@ -1,4 +1,6 @@
 export interface CreateRoomRequest {
+  /** 생략하면 계정 기본 이름을 사용한다. */
+  nickname?: string;
   name: string;
   uploadPolicy: "everyone" | "host";
 }

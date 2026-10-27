@@ -35,7 +35,7 @@ spring:
 jwt:
   # 시크릿 자체는 실제 값을 커밋하지 않는다 — 로컬은 application-local.yml(gitignored), CI/운영은 환경변수로 공급한다.
   secret: ${JWT_SECRET}
-  access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30d}
+  access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:30m}
 
 release:
   # 통합 릴리스 버전(저장소 루트 VERSION)과 배포 대상 커밋. 배포 파이프라인이 image.env 에 쓰고
@@ -152,6 +152,21 @@ notification:
     connect-timeout: 2s
     # 알림은 공용 워커 풀에서 돈다. 디스코드가 응답하지 않을 때 스레드를 오래 붙잡지 않게 짧게 둔다.
     read-timeout: 5s
+  web-push:
+    # 방 참여자 브라우저 알림(Web Push)의 VAPID 키쌍(base64url). 개인키가 비밀이라 환경변수로만 받는다.
+    # 셋 중 하나라도 비어 있으면 발송만 건너뛰고 기동·구독 API 는 그대로 된다 (로컬·테스트 기본값).
+    # 키 생성: npx web-push generate-vapid-keys
+    vapid-public-key: ${WEB_PUSH_VAPID_PUBLIC_KEY:}
+    vapid-private-key: ${WEB_PUSH_VAPID_PRIVATE_KEY:}
+    # 푸시 서비스가 문제 시 연락할 주소(mailto: 또는 https:)
+    subject: ${WEB_PUSH_SUBJECT:}
+    # 받는 브라우저가 꺼져 있을 때 푸시 서비스가 알림을 보관하는 시간. 지나면 버린다.
+    ttl: 1h
+    connect-timeout: 2s
+    read-timeout: 5s
+  upload-request:
+    # 같은 사람이 같은 방에 업로드 요청을 다시 보낼 수 있을 때까지의 시간. 그 안에 다시 보내면 429.
+    cooldown: 1m
 
 storage:
   cleanup:
@@ -210,3 +225,20 @@ management:
           include: readinessState,db
       # 외부 시스템과 내부 구성 요소의 상세 상태는 응답에 포함하지 않는다.
       show-details: never
+
+# 실제 연동·탈퇴 검증 전까지 기본 비활성화. 활성화 시 제공자 설정과 암호화 키를 검증한다.
+oauth:
+  token-encryption-key: ${OAUTH_TOKEN_ENCRYPTION_KEY:}
+  kakao:
+    enabled: ${OAUTH_KAKAO_ENABLED:false}
+    client-id: ${OAUTH_KAKAO_CLIENT_ID:}
+    client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
+    admin-key: ${OAUTH_KAKAO_ADMIN_KEY:}
+    redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI:}
+  apple:
+    enabled: ${OAUTH_APPLE_ENABLED:false}
+    client-id: ${OAUTH_APPLE_CLIENT_ID:}
+    team-id: ${OAUTH_APPLE_TEAM_ID:}
+    key-id: ${OAUTH_APPLE_KEY_ID:}
+    private-key: ${OAUTH_APPLE_PRIVATE_KEY:}
+    redirect-uri: ${OAUTH_APPLE_REDIRECT_URI:}

@@ -20,7 +20,7 @@ import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamExcept
 import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.TokenProvider;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomMember;

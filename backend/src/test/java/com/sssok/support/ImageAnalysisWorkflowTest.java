@@ -1,5 +1,44 @@
 package com.sssok.support;
 
+import com.sssok.application.media.MediaEventListener;
+import com.sssok.application.media.MediaReadyEvent;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.renewal.application.search.AnalyzeImageService;
+import com.sssok.renewal.application.search.ImageAnalysisDispatcher;
+import com.sssok.renewal.application.search.exception.AiCallException;
+import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
+import com.sssok.renewal.incoming.search.ImageAnalysisSweeper;
+import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
+import com.sssok.renewal.outgoing.config.ImageSearchProperties;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.core.task.TaskRejectedException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -8,37 +47,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.application.media.MediaEventListener;
-import com.sssok.application.media.MediaReadyEvent;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.ImageDescriptionPort;
-import com.sssok.application.port.out.MediaSearchDocumentRepository;
-import com.sssok.application.port.out.TextEmbeddingPort;
-import com.sssok.application.search.AnalyzeImageService;
-import com.sssok.infrastructure.scheduler.ImageAnalysisSweeper;
-import java.time.Instant;
-import java.time.Clock;
-import com.sssok.application.search.exception.AiCallException;
-import com.sssok.application.search.exception.AiCallException.RetryDisposition;
-import java.util.List;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.core.task.AsyncTaskExecutor;
-import org.springframework.core.task.TaskRejectedException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.support.TransactionTemplate;
 
-@org.junit.jupiter.api.Tag("integration-postgres")
+@Tag("integration-postgres")
 @SpringBootTest(properties = {
     "media.search.enabled=true", "media.search.provider=test", "media.search.created-since=2090-01-01T00:00:00Z",
-    "media.search.sweep-delay=3600000", "media.thumbnail.auto-generate=false"
+    "media.search.sweep-delay=3600000", "media.search.dispatch-delay=3600000",
+    "media.search.concurrency=1", "media.thumbnail.auto-generate=false"
 })
 class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     // 전역 복구 배치가 공유 DB의 다른 테스트 이미지를 등록하지 않도록 도입 시각을 분리한다.
@@ -51,15 +65,22 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     @Autowired ImageAnalysisSweeper sweeper;
     @Autowired ApplicationEventPublisher events;
     @Autowired PlatformTransactionManager transactionManager;
-    @MockitoBean ImageDescriptionPort descriptions;
-    @MockitoBean TextEmbeddingPort embeddings;
-    @MockitoBean FileStoragePort storage;
+    @MockitoBean OpenAiImageDescriptionClient descriptions;
+    @MockitoBean OpenAiTextEmbeddingClient embeddings;
+    @MockitoBean FileStorage storage;
     @MockitoBean MediaEventListener mediaEvents;
     @MockitoBean(name = "imageAnalysisTaskExecutor") AsyncTaskExecutor executor;
+
+    private final List<Runnable> submitted = new ArrayList<>();
 
     @BeforeEach
     void setup() {
         cleanup();
+        Mockito.doAnswer(call -> {
+            submitted.add(call.getArgument(0));
+            return null;
+        }).when(executor).execute(any(Runnable.class));
+        UploadRoomFixtures.ensure(jdbc, 1L);
         given(clock.instant()).willReturn(NOW);
         jdbc.update("""
             INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,
@@ -70,14 +91,50 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
             """, MEDIA_ID);
         given(storage.presignGet(any(), anyString(), anyString(), any())).willReturn("https://signed.test/image");
         given(descriptions.describe(anyString(), any())).willReturn(
-            new ImageDescriptionPort.Description("해변 단체 사진", "바다, 사람", "vision-test", "v1"));
+            new OpenAiImageDescriptionClient.Description("해변 단체 사진", "바다, 사람", "vision-test", "v1"));
         given(embeddings.embed(anyString(), any())).willReturn(
-            new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
+            new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
     }
 
     @AfterEach
     void cleanup() {
-        jdbc.update("DELETE FROM stored_file WHERE id = ?", MEDIA_ID);
+        jdbc.update("DELETE FROM stored_file WHERE id BETWEEN 460101 AND 460125");
+        submitted.forEach(Runnable::run);
+        submitted.clear();
+    }
+
+    @Test
+    void 실제_DB큐의_25장을_한번_배정으로_끝까지_분석한다() throws Exception {
+        jdbc.update("""
+            INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,
+                media_type, file_size_bytes, storage_key, status, created_at, updated_at, reserved_at)
+            SELECT n, 1, 1, 'photo.jpg', 'JPEG', 100, 'test/' || n, 'READY',
+                TIMESTAMPTZ '2090-01-01 00:00:00Z', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            FROM generate_series(460102, 460125) n
+            """);
+        for (long id = MEDIA_ID; id <= 460125; id++) { documents.register(id, NOW); }
+        var worker = new ThreadPoolTaskExecutor();
+        worker.setCorePoolSize(2);
+        worker.setMaxPoolSize(2);
+        worker.setQueueCapacity(0);
+        worker.initialize();
+        var properties = new ImageSearchProperties(
+            NOW, 2, 20, 20, 3, null, null, null, null);
+        var dispatcher = new ImageAnalysisDispatcher(
+            worker, analyzer, documents, properties, clock);
+        try {
+            dispatcher.dispatch();
+            Awaitility.await().atMost(Duration.ofSeconds(15)).untilAsserted(() ->
+                assertThat(jdbc.queryForObject("""
+                    SELECT count(*) FROM media_search_document
+                    WHERE media_id BETWEEN 460101 AND 460125 AND status = 'READY' AND attempts = 1
+                    """, Integer.class)).isEqualTo(25));
+            verify(descriptions, Mockito.times(25)).describe(anyString(), any());
+            verify(embeddings, Mockito.times(25)).embed(anyString(), any());
+        } finally {
+            worker.shutdown();
+            assertThat(worker.getThreadPoolExecutor().awaitTermination(5, TimeUnit.SECONDS)).isTrue();
+        }
     }
 
     @Test
@@ -115,10 +172,10 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("READY");
         verify(descriptions).describe(anyString(), any());
-        verify(embeddings).embed(org.mockito.ArgumentMatchers.eq("해변 단체 사진\n바다, 사람"), any());
-        verify(storage).presignGet(org.mockito.ArgumentMatchers.eq(
-            new com.sssok.domain.file.StorageKey("test/preview.webp")),
-            org.mockito.ArgumentMatchers.eq("inline"), org.mockito.ArgumentMatchers.eq("image/webp"), any());
+        verify(embeddings).embed(ArgumentMatchers.eq("해변 단체 사진\n바다, 사람"), any());
+        verify(storage).presignGet(ArgumentMatchers.eq(
+            new StorageKey("test/preview.webp")),
+            ArgumentMatchers.eq("inline"), ArgumentMatchers.eq("image/webp"), any());
         assertThat(jdbc.queryForObject("SELECT vector_dims(embedding) FROM media_search_document WHERE media_id = ?",
             Integer.class, MEDIA_ID)).isEqualTo(3);
     }
@@ -161,7 +218,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         given(descriptions.describe(anyString(), any())).willAnswer(call -> {
             jdbc.update("DELETE FROM stored_file WHERE id = ?", MEDIA_ID);
-            return new ImageDescriptionPort.Description("사진", "바다", "vision-test", "v1");
+            return new OpenAiImageDescriptionClient.Description("사진", "바다", "vision-test", "v1");
         });
         analyzer.analyze(MEDIA_ID);
         assertThat(count()).isZero();
@@ -171,12 +228,15 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     void 유실된_등록을_복구하고_중단된_작업을_다시_제출한다() {
         sweeper.sweep();
         assertThat(status()).isEqualTo("PENDING");
+        submitted.forEach(Runnable::run);
+        submitted.clear();
+        jdbc.update("UPDATE media_search_document SET status = 'PENDING' WHERE media_id = ?", MEDIA_ID);
         documents.claim(MEDIA_ID, NOW.plusSeconds(1), 3).orElseThrow();
         jdbc.update("UPDATE media_search_document SET started_at = ? WHERE media_id = ?",
-            java.sql.Timestamp.from(NOW.minusSeconds(600)), MEDIA_ID);
+            Timestamp.from(NOW.minusSeconds(600)), MEDIA_ID);
         sweeper.sweep();
         assertThat(status()).isEqualTo("PENDING");
-        verify(executor, org.mockito.Mockito.times(2)).execute(any(Runnable.class));
+        verify(executor, Mockito.times(2)).execute(any(Runnable.class));
     }
 
     @Test
@@ -195,7 +255,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         new TransactionTemplate(transactionManager).executeWithoutResult(status ->
             events.publishEvent(new MediaReadyEvent(1L, MEDIA_ID)));
         assertThat(jdbc.queryForObject("SELECT next_attempt_at FROM media_search_document WHERE media_id = ?",
-            java.sql.Timestamp.class, MEDIA_ID).toInstant()).isEqualTo(NOW);
+            Timestamp.class, MEDIA_ID).toInstant()).isEqualTo(NOW);
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("READY");
     }
@@ -205,7 +265,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         given(embeddings.embed(anyString(), any()))
             .willThrow(new AiCallException("일시적 호출 거절", "RATE_LIMITED", RetryDisposition.SAFE_TO_RETRY))
-            .willReturn(new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
+            .willReturn(new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test"));
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("PENDING");
         given(clock.instant()).willReturn(NOW.plusSeconds(60));
@@ -214,8 +274,8 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         assertThat(status()).isEqualTo("READY");
         verify(descriptions).describe(anyString(), any());
         verify(storage).presignGet(any(), anyString(), anyString(), any());
-        verify(embeddings, org.mockito.Mockito.times(2)).embed(
-            org.mockito.ArgumentMatchers.eq("해변 단체 사진\n바다, 사람"), any());
+        verify(embeddings, Mockito.times(2)).embed(
+            ArgumentMatchers.eq("해변 단체 사진\n바다, 사람"), any());
     }
 
     @Test
@@ -229,19 +289,19 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         given(clock.instant()).willReturn(NOW.plusSeconds(60));
         analyzer.analyze(MEDIA_ID);
         assertThat(jdbc.queryForObject("SELECT next_attempt_at FROM media_search_document WHERE media_id = ?",
-            java.sql.Timestamp.class, MEDIA_ID).toInstant()).isEqualTo(NOW.plusSeconds(180));
+            Timestamp.class, MEDIA_ID).toInstant()).isEqualTo(NOW.plusSeconds(180));
         given(clock.instant()).willReturn(NOW.plusSeconds(180));
         analyzer.analyze(MEDIA_ID);
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("FAILED");
-        verify(descriptions, org.mockito.Mockito.times(3)).describe(anyString(), any());
+        verify(descriptions, Mockito.times(3)).describe(anyString(), any());
     }
 
     @Test
     void 영벡터는_재시도하지_않고_응답_오류로_종료한다() {
         documents.register(MEDIA_ID, NOW);
         given(embeddings.embed(anyString(), any())).willReturn(
-            new TextEmbeddingPort.Embedding(List.of(0.0, 0.0), "embedding-test"));
+            new OpenAiTextEmbeddingClient.Embedding(List.of(0.0, 0.0), "embedding-test"));
         analyzer.analyze(MEDIA_ID);
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("FAILED");
@@ -303,7 +363,7 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         doThrow(new IllegalStateException("database unavailable")).when(documents).complete(any(), any(), any());
         doThrow(new IllegalStateException("database unavailable")).when(documents).fail(
-            any(), anyString(), any(), any(), org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyBoolean());
+            any(), anyString(), any(), any(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyBoolean());
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("PROCESSING");
         given(clock.instant()).willReturn(NOW.plusSeconds(600));
@@ -330,14 +390,14 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
     void 외부_API는_DB_트랜잭션_밖에서_호출한다() {
         documents.register(MEDIA_ID, NOW);
         given(descriptions.describe(anyString(), any())).willAnswer(call -> {
-            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+            assertThat(TransactionSynchronizationManager
                 .isActualTransactionActive()).isFalse();
-            return new ImageDescriptionPort.Description("사진", "바다", "vision", "v1");
+            return new OpenAiImageDescriptionClient.Description("사진", "바다", "vision", "v1");
         });
         given(embeddings.embed(anyString(), any())).willAnswer(call -> {
-            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager
+            assertThat(TransactionSynchronizationManager
                 .isActualTransactionActive()).isFalse();
-            return new TextEmbeddingPort.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test");
+            return new OpenAiTextEmbeddingClient.Embedding(List.of(1.0, 0.0, 0.0), "embedding-test");
         });
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("READY");
@@ -348,13 +408,13 @@ class ImageAnalysisWorkflowTest extends PostgresContainerSupport {
         documents.register(MEDIA_ID, NOW);
         MediaSearchDocumentRepository.AnalysisAttempt attempt = documents.claim(MEDIA_ID, NOW, 3).orElseThrow();
         documents.beginExternalCall(attempt, NOW);
-        documents.saveDescription(attempt, new ImageDescriptionPort.Description("저장된 설명", "특징", "vision", "v1"), NOW);
+        documents.saveDescription(attempt, new OpenAiImageDescriptionClient.Description("저장된 설명", "특징", "vision", "v1"), NOW);
         given(clock.instant()).willReturn(NOW.plusSeconds(600));
         sweeper.sweep();
         analyzer.analyze(MEDIA_ID);
         assertThat(status()).isEqualTo("READY");
         verify(descriptions, never()).describe(anyString(), any());
-        verify(embeddings).embed(org.mockito.ArgumentMatchers.eq("저장된 설명\n특징"), any());
+        verify(embeddings).embed(ArgumentMatchers.eq("저장된 설명\n특징"), any());
     }
 
     private String errorCode() {

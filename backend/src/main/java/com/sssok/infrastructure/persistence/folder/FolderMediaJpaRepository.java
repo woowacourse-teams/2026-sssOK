@@ -9,9 +9,14 @@ import org.springframework.data.repository.query.Param;
 
 public interface FolderMediaJpaRepository extends JpaRepository<FolderMediaJpaEntity, Long> {
 
-    long deleteByFolderId(Long folderId);
+    @Modifying(flushAutomatically = true)
+    @Query("delete from FolderMediaJpaEntity f where f.folderId = :folderId")
+    int deleteByFolderId(@Param("folderId") Long folderId);
 
-    long deleteByMediaIdIn(List<Long> mediaIds);
+    // 부모 미디어의 bulk delete 전에 연결 행을 즉시 삭제한다. 파생 delete는 flush까지 지연된다.
+    @Modifying(flushAutomatically = true)
+    @Query("delete from FolderMediaJpaEntity f where f.mediaId in :mediaIds")
+    int deleteByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
 
     // 매핑 행이 아니라 실제로 목록에 노출되는 미디어만 센다.
     @Query(value = """

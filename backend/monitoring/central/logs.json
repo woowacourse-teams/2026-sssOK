@@ -7,7 +7,40 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "백엔드",
+      "type": "link",
+      "url": "/d/sssok-central-backend?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "호스트",
+      "type": "link",
+      "url": "/d/sssok-host-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "미디어 전송",
+      "type": "link",
+      "url": "/d/sssok-central-media?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그 수집 상태",
+      "type": "link",
+      "url": "/d/sssok-log-transfer?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -275,6 +308,6 @@
   "timezone": "browser",
   "title": "sssOK Central Logs",
   "uid": "sssok-central-logs",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }

@@ -2,12 +2,12 @@ package com.sssok.application.download;
 
 import com.sssok.common.monitoring.DownloadProcessingMetrics;
 import io.micrometer.core.instrument.Timer;
-import com.sssok.application.port.out.AbortableOutputStream;
+import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.download.DownloadJob;
-import com.sssok.domain.file.DownloadFileNames;
+import com.sssok.renewal.domain.download.DownloadFileNames;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import java.io.IOException;
@@ -32,7 +32,7 @@ public class DownloadCompressionWorker {
     private final DownloadJobTransitions downloadJobTransitions;
     private final DownloadJobRepository downloadJobRepository;
     private final FileRepository fileRepository;
-    private final FileStoragePort fileStoragePort;
+    private final FileStorage fileStorage;
 
     private final DownloadProcessingMetrics metrics;
 
@@ -56,7 +56,7 @@ public class DownloadCompressionWorker {
         AbortableOutputStream out = null;
         try {
             List<StoredFile> targets = loadTargets(jobId);
-            out = fileStoragePort.openUploadStream(zipStorageKey, ZIP_CONTENT_TYPE);
+            out = fileStorage.openUploadStream(zipStorageKey, ZIP_CONTENT_TYPE);
             writeZip(out, targets, jobId);
             downloadJobTransitions.markReady(jobId, zipStorageKey);
             return true;
@@ -91,7 +91,7 @@ public class DownloadCompressionWorker {
         for (int i = 0; i < targets.size(); i++) {
             StoredFile file = targets.get(i);
             zipOut.putNextEntry(new ZipEntry(entryNames.get(i)));
-            try (InputStream in = fileStoragePort.openDownloadStream(file.getStorageKey())) {
+            try (InputStream in = fileStorage.openDownloadStream(file.getStorageKey())) {
                 in.transferTo(zipOut);
             }
             zipOut.closeEntry();

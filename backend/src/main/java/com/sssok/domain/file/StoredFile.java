@@ -14,6 +14,8 @@ public class StoredFile {
     private final Long id;
     private final Long roomId;
     private final Long uploaderId;
+    // 업로드 예약 당시의 방 닉네임. 나가기·재참여 후에도 변경하지 않는다.
+    private final String uploaderNickname;
     private final String originalFileName;
     private final MediaType mediaType;
     private FileSize fileSize;
@@ -49,7 +51,7 @@ public class StoredFile {
                        Instant reservedAt, int retryCount,
                        StorageKey thumbnailKey, StorageKey previewKey,
                        Integer width, Integer height,
-                       Integer durationSeconds, Instant takenAt, GeoPoint location) {
+                       Integer durationSeconds, Instant takenAt, GeoPoint location, String uploaderNickname) {
         this.thumbnailKey = thumbnailKey;
         this.previewKey = previewKey;
         this.width = width;
@@ -60,6 +62,7 @@ public class StoredFile {
         this.id = id;
         this.roomId = roomId;
         this.uploaderId = uploaderId;
+        this.uploaderNickname = uploaderNickname;
         this.originalFileName = originalFileName;
         this.mediaType = mediaType;
         this.fileSize = fileSize;
@@ -75,12 +78,18 @@ public class StoredFile {
     public static StoredFile reserve(Long roomId, Long uploaderId, String originalFileName,
                                      String mimeType, FileSize fileSize, Instant now,
                                      UploadSizePolicy sizePolicy) {
+        return reserve(roomId, uploaderId, originalFileName, mimeType, fileSize, now, sizePolicy, null);
+    }
+
+    public static StoredFile reserve(Long roomId, Long uploaderId, String originalFileName,
+                                     String mimeType, FileSize fileSize, Instant now,
+                                     UploadSizePolicy sizePolicy, String uploaderNickname) {
         MediaType mediaType = MediaType.fromMimeType(mimeType);
         validateSize(mediaType, fileSize, sizePolicy);
 
         return new StoredFile(null, roomId, uploaderId, originalFileName, mediaType, fileSize,
                 StorageKey.generate(roomId, mediaType), null, UploadStatus.RESERVED, now, now, 0,
-                null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, uploaderNickname);
     }
 
     public static StoredFile reconstruct(Long id, Long roomId, Long uploaderId,
@@ -92,9 +101,23 @@ public class StoredFile {
                                          Integer width, Integer height,
                                          Integer durationSeconds, Instant takenAt,
                                          GeoPoint location) {
+        return reconstruct(id, roomId, uploaderId, originalFileName, mediaType, fileSize,
+            storageKey, folderId, status, createdAt, reservedAt, retryCount,
+            thumbnailKey, previewKey, width, height, durationSeconds, takenAt, location, null);
+    }
+
+    public static StoredFile reconstruct(Long id, Long roomId, Long uploaderId,
+                                         String originalFileName, MediaType mediaType,
+                                         FileSize fileSize, StorageKey storageKey, Long folderId,
+                                         UploadStatus status, Instant createdAt,
+                                         Instant reservedAt, int retryCount,
+                                         StorageKey thumbnailKey, StorageKey previewKey,
+                                         Integer width, Integer height,
+                                         Integer durationSeconds, Instant takenAt,
+                                         GeoPoint location, String uploaderNickname) {
         return new StoredFile(id, roomId, uploaderId, originalFileName, mediaType, fileSize,
                 storageKey, folderId, status, createdAt, reservedAt, retryCount,
-                thumbnailKey, previewKey, width, height, durationSeconds, takenAt, location);
+                thumbnailKey, previewKey, width, height, durationSeconds, takenAt, location, uploaderNickname);
     }
 
     private static void validateSize(MediaType mediaType, FileSize fileSize,

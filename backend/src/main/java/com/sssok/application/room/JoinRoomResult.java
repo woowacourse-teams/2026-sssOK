@@ -1,6 +1,6 @@
 package com.sssok.application.room;
 
-import com.sssok.domain.member.Member;
+import com.sssok.renewal.domain.member.Member;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
 import java.time.Instant;
@@ -26,7 +26,7 @@ public record JoinRoomResult(
         return new JoinRoomResult(
             room.getId(),
             member.getId(),
-            member.getDisplayName().value(),
+            roomMember.getNickname() == null ? member.getDisplayName().value() : roomMember.getNickname(),
             room.getHostId(),
             roomMember.getJoinedAt(),
             newlyJoined

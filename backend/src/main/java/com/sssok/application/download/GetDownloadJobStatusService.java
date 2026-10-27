@@ -4,11 +4,11 @@ import com.sssok.application.download.exception.DownloadExpiredException;
 import com.sssok.application.download.exception.DownloadForbiddenException;
 import com.sssok.application.download.exception.DownloadNotFoundException;
 import com.sssok.application.port.out.DownloadJobRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
-import com.sssok.domain.file.DownloadFileNames;
-import com.sssok.infrastructure.config.DownloadProperties;
+import com.sssok.renewal.domain.download.DownloadFileNames;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
 import java.time.Duration;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ public class GetDownloadJobStatusService {
     private static final String ZIP_CONTENT_TYPE = "application/zip";
 
     private final DownloadJobRepository downloadJobRepository;
-    private final FileStoragePort fileStoragePort;
+    private final FileStorage fileStorage;
     private final DownloadProperties downloadProperties;
 
     public GetDownloadJobStatusResult getStatus(Long jobId, Long requesterId) {
@@ -52,6 +52,6 @@ public class GetDownloadJobStatusService {
     private String presignZipUrl(DownloadJob job, Instant expiresAt) {
         String contentDisposition = DownloadFileNames.contentDispositionOf(job.getFileName());
         Duration remaining = Duration.between(Instant.now(), expiresAt);
-        return fileStoragePort.presignGet(job.getZipStorageKey(), contentDisposition, ZIP_CONTENT_TYPE, remaining);
+        return fileStorage.presignGet(job.getZipStorageKey(), contentDisposition, ZIP_CONTENT_TYPE, remaining);
     }
 }

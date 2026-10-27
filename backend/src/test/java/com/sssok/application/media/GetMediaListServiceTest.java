@@ -1,25 +1,20 @@
 package com.sssok.application.media;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.exception.InvalidPageSizeException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
-import com.sssok.domain.member.Member;
-import com.sssok.domain.member.Nickname;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,11 +26,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+
 
 // Repository + Service 통합 테스트 (H2). 방 존재·만료·입장 여부는 RoomMembershipInterceptor 가
 // 컨트롤러 앞에서 거르므로 여기서는 다루지 않는다.
 @H2IntegrationTest
 class GetMediaListServiceTest {
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 700L;
     private static final Long OTHER_ROOM_ID = 701L;
@@ -59,13 +63,15 @@ class GetMediaListServiceTest {
     MediaUrlResolver mediaUrlResolver;
 
     @MockitoSpyBean
-    FileStoragePort storage;
+    FileStorage storage;
 
     private Long uploaderId;
 
     // 이 테스트는 롤백되지 않으므로 방 전용 id 를 쓰고 직접 비운다.
     @BeforeEach
     void setUp() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 700L, 701L);
+
         jdbcTemplate.update("DELETE FROM folder_media");
         jdbcTemplate.update("DELETE FROM stored_file WHERE room_id IN (?, ?)", ROOM_ID, OTHER_ROOM_ID);
         jdbcTemplate.update("DELETE FROM folder WHERE room_id IN (?, ?)", ROOM_ID, OTHER_ROOM_ID);

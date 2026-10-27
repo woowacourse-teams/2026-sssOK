@@ -1,10 +1,12 @@
 package com.sssok.domain.room;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
+import com.sssok.renewal.domain.member.Nickname;
 import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 class RoomMemberTest {
 
@@ -14,7 +16,7 @@ class RoomMemberTest {
     private static final Long MEMBER_ID = 100L;
 
     private RoomMember joinRoom() {
-        return RoomMember.join(ROOM_ID, MEMBER_ID, NOW);
+        return RoomMember.join(ROOM_ID, MEMBER_ID, NOW, new Nickname("참여자"));
     }
 
     @Test
@@ -24,6 +26,7 @@ class RoomMemberTest {
         assertThat(roomMember.getRoomId()).isEqualTo(ROOM_ID);
         assertThat(roomMember.getMemberId()).isEqualTo(MEMBER_ID);
         assertThat(roomMember.getJoinedAt()).isEqualTo(NOW);
+        assertThat(roomMember.getNickname()).isEqualTo("참여자");
     }
 
     @Test

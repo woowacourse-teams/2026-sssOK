@@ -2,7 +2,7 @@ package com.sssok.presentation.api.room;
 
 import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.room.SubscribeRoomEventsService;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,6 +52,6 @@ public class RoomEventController {
         @RequestHeader(value = "Last-Event-ID", required = false) Long lastEventId
     ) {
         subscribeRoomEventsService.validate(roomId, memberId);
-        return sseEventPublisher.subscribe(roomId, lastEventId);
+        return sseEventPublisher.subscribe(roomId, memberId, lastEventId);
     }
 }

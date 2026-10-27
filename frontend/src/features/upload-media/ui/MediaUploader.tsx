@@ -15,6 +15,9 @@ import { UploadProgressBar } from "./UploadProgressBar";
 /** 토스트가 스스로 사라지기까지. 공유 링크 복사 알림과 같은 시간을 쓴다. */
 const NOTICE_DURATION_MS = 4000;
 
+/** 다 올렸다는 토스트가 떠 있는 시간.  */
+const DONE_TOAST_MS = 2000;
+
 export interface MediaUploaderProps {
   roomId: number;
   token: string;
@@ -65,6 +68,8 @@ export const MediaUploader = ({
   const [rejected, setRejected] = useState<RejectedSelection[]>([]);
   /** 배치 전체가 못 올라간 이유. 진행 바가 사라진 자리에 이게 대신 뜬다 (#148). */
   const [notice, setNotice] = useState<string | null>(null);
+  /** 실패 없이 끝난 판에서 올라간 장수. 진행 바가 말없이 사라지면 끝났는지 알 수 없다. */
+  const [doneCount, setDoneCount] = useState<number | null>(null);
   const failure = useUploadFailure();
   /*
    * 발급이 거절한 파일(`onRejected`)은 아직 잇지 않았다 — "고른 장수" 를 서버 응답으로
@@ -83,6 +88,13 @@ export const MediaUploader = ({
       // 취소했거나 새 판이 시작된 뒤에 끝난 판이다. 지금 떠 있는 모달을 지우면 안 된다.
       if (!superseded) {
         failure.settle(result);
+      }
+
+      const uploadedCount = result.registered.length + result.alreadyRegistered;
+
+      // 실패가 섞이면 실패 모달이 설명하므로 겹쳐 띄우지 않는다. 밀려난 판도 알리지 않는다.
+      if (!superseded && result.failed.length === 0 && uploadedCount > 0) {
+        setDoneCount(uploadedCount);
       }
     },
     /*
@@ -114,6 +126,14 @@ export const MediaUploader = ({
     return () => window.clearTimeout(timer);
   }, [notice]);
 
+  useEffect(() => {
+    if (doneCount === null) return;
+
+    const timer = window.setTimeout(() => setDoneCount(null), DONE_TOAST_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [doneCount]);
+
   /**
    * 올릴 수 없는 사람의 파일은 한 장도 내보내지 않는다.
    *
@@ -126,6 +146,7 @@ export const MediaUploader = ({
 
     // 지난 판의 이유를 지운다. 새로 올리는 중에 옛 실패가 떠 있으면 이 판의 말로 읽힌다.
     setNotice(null);
+    setDoneCount(null);
     upload.start(files);
   };
 
@@ -181,6 +202,13 @@ export const MediaUploader = ({
         <RejectedFilesModal rejected={rejected} onClose={() => setRejected([])} />
       )}
       {notice !== null && <Toast tone="error" message={notice} onClose={() => setNotice(null)} />}
+      {doneCount !== null && (
+        <Toast
+          message={`${doneCount}장을 올렸어요.`}
+          showClose={false}
+          onClose={() => setDoneCount(null)}
+        />
+      )}
       {failure.isOpen && (
         <UploadFailureModal
           failures={failure.failures}

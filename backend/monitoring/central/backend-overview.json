@@ -6,7 +6,49 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "title": "호스트",
+      "type": "link",
+      "url": "/d/sssok-host-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "미디어 전송",
+      "type": "link",
+      "url": "/d/sssok-central-media?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그",
+      "type": "link",
+      "url": "/d/sssok-central-logs?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그 수집 상태",
+      "type": "link",
+      "url": "/d/sssok-log-transfer?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "공유 RDS · AWS 콘솔",
+      "type": "link",
+      "url": "https://ap-northeast-2.console.aws.amazon.com/rds/home?region=ap-northeast-2#database:id=sssok-db;is-cluster=false",
+      "keepTime": false,
+      "includeVars": false,
+      "targetBlank": true,
+      "tooltip": "RDS 지표는 AWS에서 조회합니다. 시간 범위는 콘솔에서 별도로 맞추세요."
+    }
+  ],
   "panels": [
     {
       "datasource": {
@@ -1118,6 +1160,231 @@
       "title": "GC 정지 시간 비율 · 인스턴스별",
       "type": "timeseries",
       "description": "최근 구간에서 GC 정지 시간이 차지한 비율이다. CPU 사용률이 아니다. Heap 사용량과 응답 지연을 함께 보며 GC가 병목인지 판단한다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance,pool) (rate(hikaricp_connections_usage_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (instance,pool) (rate(hikaricp_connections_usage_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{instance}} · {{pool}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB 연결 점유 · 평균 사용 시간",
+      "type": "timeseries",
+      "description": "연결을 빌린 뒤 반환하기까지의 평균 시간. SQL 실행 시간만이 아니며 반환된 연결 기준이다. 평균은 일부 장기 점유를 가릴 수 있다. 사용 기록이 없으면 데이터 없음으로 표시한다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "short",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum by (instance,pool) (increase(hikaricp_connections_timeout_total{job=\"sssok-backend\",environment=\"$environment\"}[1m]))",
+          "legendFormat": "{{instance}} · {{pool}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "DB 연결 획득 timeout · 최근 1분",
+      "type": "timeseries",
+      "description": "각 시점 직전 1분의 연결 획득 timeout 추정 건수. 구간이 겹치므로 그래프 값을 합산하지 않는다. HTTP 500 건수와 다르며 후속 이벤트의 연결 실패도 포함될 수 있다."
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "좋아요 후속 이벤트 오류 · 선택 기간",
+      "description": "대시보드 종료 시각 기준 선택 기간 전체의 리스너 오류 로그 건수. HTTP 성공 요청의 후속 실패도 포함될 수 있으며 HTTP 500과 합산하지 않는다. 모든 로그가 연결 timeout인 것은 아니다. 결과 없음은 0으로 대체하지 않으며 로그 수집 상태를 함께 확인한다.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 64,
+        "w": 6,
+        "h": 10
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "데이터 없음",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "editorMode": "code",
+          "expr": "sum(count_over_time({environment=\"$environment\",service=\"sssok-backend\"} |= \"TransactionSynchronization.afterCompletion threw exception\" |= \"MediaLikeEventListener\" [$__range]))",
+          "queryType": "instant"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "description": "선택한 환경·기간의 리스너 오류 원문, 최신 100줄. requestId를 복사해 중앙 로그의 Request ID 검색에서 최종 HTTP 상태·처리시간과 대조한다. 표시 줄 수는 전체 오류 건수가 아니다.",
+      "gridPos": {
+        "x": 6,
+        "y": 64,
+        "w": 18,
+        "h": 10
+      },
+      "id": 20,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": true,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "editorMode": "code",
+          "expr": "{environment=\"$environment\",service=\"sssok-backend\"} |= \"TransactionSynchronization.afterCompletion threw exception\" |= \"MediaLikeEventListener\"",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 100,
+          "direction": "backward"
+        }
+      ],
+      "title": "좋아요 후속 이벤트 오류 · 원문",
+      "type": "logs",
+      "maxDataPoints": 100
     }
   ],
   "refresh": "30s",
@@ -1164,7 +1431,7 @@
   "timezone": "browser",
   "title": "sssOK Central Backend Overview",
   "uid": "sssok-central-backend",
-  "version": 2,
+  "version": 3,
   "weekStart": "",
   "description": "개발·운영 앱의 HTTP, JVM, DB 연결 관측. 상태 검사·Actuator·장기 SSE는 HTTP 집계에서 제외한다. JVM 메모리는 컨테이너 전체 메모리가 아니다. 없는 지표를 정상 0으로 대체하지 않는다."
 }

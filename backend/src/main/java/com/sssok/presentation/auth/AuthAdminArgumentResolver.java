@@ -1,6 +1,6 @@
 package com.sssok.presentation.auth;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.AdminTokenProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;

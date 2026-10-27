@@ -8,16 +8,36 @@
   "id": null,
   "links": [
     {
-      "title": "중앙 앱 상태",
+      "title": "백엔드",
       "type": "link",
-      "url": "/d/sssok-central-backend?var-environment=${environment}",
-      "keepTime": true
+      "url": "/d/sssok-central-backend?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
     },
     {
-      "title": "중앙 로그",
+      "title": "호스트",
       "type": "link",
-      "url": "/d/sssok-central-logs?var-environment=${environment}",
-      "keepTime": true
+      "url": "/d/sssok-host-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그",
+      "type": "link",
+      "url": "/d/sssok-central-logs?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그 수집 상태",
+      "type": "link",
+      "url": "/d/sssok-log-transfer?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -2232,7 +2252,7 @@
   "timezone": "browser",
   "title": "sssOK Central Upload & Download",
   "uid": "sssok-central-media",
-  "version": 1,
+  "version": 2,
   "weekStart": "",
   "description": "중앙 Prometheus로 수집한 개발·운영의 업로드 응답 항목, 미디어 처리 시도, ZIP 준비 상태. R2 직접 전송·사용자 기기 저장 완료는 포함하지 않는다. 필요한 행을 펼쳐 조회한다."
 }

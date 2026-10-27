@@ -1,5 +1,38 @@
 package com.sssok.presentation.api.media;
 
+import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.media.GetMediaListService;
+import com.sssok.application.media.GetMediaService;
+import com.sssok.application.media.MediaCursor;
+import com.sssok.application.media.MediaDetail;
+import com.sssok.application.media.MediaFullDetail;
+import com.sssok.application.media.MediaPage;
+import com.sssok.application.media.MediaUploaderFilter;
+import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.port.out.AdminTokenProvider;
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.search.SearchImagesService;
+import com.sssok.domain.file.GeoPoint;
+import com.sssok.domain.room.Room;
+import com.sssok.domain.room.RoomCode;
+import com.sssok.domain.room.RoomMember;
+import com.sssok.domain.room.RoomName;
+import com.sssok.domain.room.UploadPolicy;
+import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.renewal.outgoing.security.TokenProvider;
+import java.math.BigDecimal;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -13,38 +46,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.folder.exception.FolderNotFoundException;
-import com.sssok.application.media.GetMediaListService;
-import com.sssok.application.media.GetMediaService;
-import com.sssok.application.media.MediaCursor;
-import com.sssok.application.media.MediaDetail;
-import com.sssok.application.media.MediaFullDetail;
-import com.sssok.application.media.MediaPage;
-import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.port.out.RoomMemberRepository;
-import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
-import com.sssok.domain.file.GeoPoint;
-import com.sssok.domain.room.Room;
-import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomMember;
-import com.sssok.domain.room.RoomName;
-import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.roomstatus.RoomStatus;
-import java.math.BigDecimal;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
 
 @WebMvcTest(MediaQueryController.class)
 class MediaQueryControllerTest {
@@ -62,7 +63,7 @@ class MediaQueryControllerTest {
     MockMvc mockMvc;
 
     @MockitoBean
-    com.sssok.application.search.SearchImagesService searchImagesService;
+    SearchImagesService searchImagesService;
 
     @MockitoBean
     GetMediaListService getMediaListService;

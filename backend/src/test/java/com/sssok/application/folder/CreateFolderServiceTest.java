@@ -1,19 +1,22 @@
 package com.sssok.application.folder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.application.port.out.FolderRepository;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.folder.exception.FolderNameTooLongException;
 import com.sssok.domain.folder.exception.InvalidFolderNameException;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
 // 먼저 걸러주므로 여기서는 폴더 자체의 규칙(이름 검증, 중복)만 검증한다.
@@ -22,6 +25,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RecordApplicationEvents
 class CreateFolderServiceTest {
+    @BeforeEach
+    void prepareRooms() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+    }
+
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
 
     @Autowired
     CreateFolderService createFolderService;

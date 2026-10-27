@@ -1,22 +1,16 @@
 package com.sssok.application.download;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
-
-import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
+import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -30,17 +24,35 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+
 
 // Repository + Service 통합 테스트 (H2). 스토리지는 목으로 둔다 — 워커를 직접(동기) 호출한다.
 // 비동기 배선 자체는 DownloadJobAsyncTriggerTest 에서 별도로 검증한다.
 @H2IntegrationTest
 @Transactional
 class DownloadCompressionWorkerTest {
+    @BeforeEach
+    void prepareRooms() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+    }
+
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
     private static final Long REQUESTER_ID = 100L;
@@ -62,7 +74,7 @@ class DownloadCompressionWorkerTest {
     FileRepository fileRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     private Long media(String fileName, byte[] content) {
         return media(fileName, "image/jpeg", content);
@@ -72,7 +84,7 @@ class DownloadCompressionWorkerTest {
         StoredFile file = StoredFile.reserve(
             ROOM_ID, 1L, fileName, mimeType, new FileSize(content.length), Instant.now(), SIZE_POLICY);
         Long mediaId = fileRepository.save(file).getId();
-        given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))
+        given(fileStorage.openDownloadStream(eq(file.getStorageKey())))
             .willReturn(new ByteArrayInputStream(content));
         return mediaId;
     }
@@ -94,7 +106,7 @@ class DownloadCompressionWorkerTest {
         DownloadJob job = job(List.of(mediaA, mediaB), contentA.length + contentB.length);
 
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willReturn(capturing(captured));
 
         downloadCompressionWorker.compress(job.getId());
@@ -121,7 +133,7 @@ class DownloadCompressionWorkerTest {
         DownloadJob job = job(List.of(mp4Id, movId, webmId), mp4.length + mov.length + webm.length);
 
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willReturn(capturing(captured));
 
         downloadCompressionWorker.compress(job.getId());
@@ -143,7 +155,7 @@ class DownloadCompressionWorkerTest {
         DownloadJob job = job(List.of(mediaA, mediaB), contentA.length + contentB.length);
 
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willReturn(capturing(captured));
 
         downloadCompressionWorker.compress(job.getId());
@@ -157,7 +169,7 @@ class DownloadCompressionWorkerTest {
         DownloadJob job = job(List.of(media), 5L);
 
         AtomicBoolean aborted = new AtomicBoolean(false);
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willReturn(new AbortableOutputStream() {
                 @Override
                 public void write(int b) {
@@ -183,11 +195,11 @@ class DownloadCompressionWorkerTest {
         // 잡 행에는 사유 한 줄만 남아, 로그가 없으면 원인을 가릴 방법이 없다.
         Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
         DownloadJob job = job(List.of(media), 5L);
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willThrow(new IllegalStateException("스토리지 연결 실패"));
 
         ch.qos.logback.classic.Logger workerLogger = (ch.qos.logback.classic.Logger)
-            org.slf4j.LoggerFactory.getLogger(DownloadCompressionWorker.class);
+            LoggerFactory.getLogger(DownloadCompressionWorker.class);
         ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender =
             new ch.qos.logback.core.read.ListAppender<>();
         appender.start();
@@ -211,7 +223,7 @@ class DownloadCompressionWorkerTest {
         Long media = media("a.jpg", "hello".getBytes(StandardCharsets.UTF_8));
         DownloadJob job = job(List.of(media), 5L);
 
-        given(fileStoragePort.openUploadStream(any(), anyString()))
+        given(fileStorage.openUploadStream(any(), anyString()))
             .willThrow(new RuntimeException("R2 연결 실패"));
 
         downloadCompressionWorker.compress(job.getId());
