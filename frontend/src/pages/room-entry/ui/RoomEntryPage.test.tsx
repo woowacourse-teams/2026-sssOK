@@ -86,10 +86,11 @@ describe("RoomEntryPage", () => {
     });
 
     it("인증 토큰으로 방 입장까지 마친다", async () => {
-      let joinRequest: { url: string; authorization: string | null } | null = null;
+      let joinRequest: { url: string; authorization: string | null; body: unknown } | null = null;
       server.use(
-        http.post(`${API_BASE_URL}/rooms/:roomId/members`, ({ request }) => {
+        http.post(`${API_BASE_URL}/rooms/:roomId/members`, async ({ request }) => {
           joinRequest = {
+            body: await request.json(),
             url: request.url,
             authorization: request.headers.get("Authorization"),
           };
@@ -107,6 +108,7 @@ describe("RoomEntryPage", () => {
         // 입장 API 는 방 코드가 아니라 방 조회 응답의 roomId 를 쓴다
         url: absolute(`${API_BASE_URL}/rooms/5031/members`),
         authorization: "Bearer mock-token-10234",
+        body: { nickname: "해니" },
       });
     });
 
