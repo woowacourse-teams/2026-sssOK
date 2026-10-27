@@ -1,12 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { refreshMemberSession } from "../api/refreshMemberSession";
 
 /** 로그인 완료 시에도 이 키에 서버가 발급한 회원 세션을 저장한다. */
 export const MEMBER_SESSION_QUERY_KEY = ["member-session"] as const;
 
-export const useMemberSessionQuery = () =>
-  useQuery({
+export const memberSessionQueryOptions = () =>
+  queryOptions({
     queryKey: MEMBER_SESSION_QUERY_KEY,
     queryFn: refreshMemberSession,
     // 일회용 refresh 토큰을 자동 재시도하지 않는다. 동일 Query의 동시 호출은 합쳐진다.
@@ -24,3 +24,5 @@ export const useMemberSessionQuery = () =>
     },
     gcTime: Infinity,
   });
+
+export const useMemberSessionQuery = () => useQuery(memberSessionQueryOptions());

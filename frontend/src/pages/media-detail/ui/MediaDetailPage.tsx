@@ -4,7 +4,8 @@ import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { mediaQueryKey, photosQueryKey, useMediaQuery, type MediaList } from "@/entities/media";
 import { roomQueryKey, useRoomQuery, type Room } from "@/entities/room";
-import { readValidRoomSession, type AnonymousSession } from "@/entities/session";
+import { useRoomSession } from "@/entities/member-session";
+import { type AnonymousSession } from "@/entities/session";
 import { deleteMedia } from "@/features/delete-media";
 import { usePhotoSelection } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
@@ -194,7 +195,7 @@ const MediaDetailContent = ({
 
 export const MediaDetailPage = () => {
   const { code = "", mediaId: rawMediaId = "" } = useParams();
-  const session = readValidRoomSession(code);
+  const { session, isPending: isSessionPending, isError: isSessionError } = useRoomSession(code);
   const navigate = useNavigate();
   const mediaId = Number(rawMediaId);
   const isValidId = /^[1-9]\d*$/.test(rawMediaId) && Number.isSafeInteger(mediaId);
@@ -206,6 +207,10 @@ export const MediaDetailPage = () => {
   });
   const onBack = () => navigate(ROUTES.gallery(code), { replace: true });
 
+  if (isSessionPending)
+    return <DetailState message="로그인 정보를 불러오는 중이에요." onBack={onBack} isLoading />;
+  if (isSessionError)
+    return <DetailState message="로그인 정보를 확인하지 못했어요." onBack={onBack} />;
   if (!session) return <Navigate to={ROUTES.roomEntry(code)} replace />;
   if (!isValidId) return <DetailState message="올바르지 않은 사진 주소예요." onBack={onBack} />;
   if (roomQuery.isPending)

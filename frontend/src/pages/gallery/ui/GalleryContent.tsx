@@ -41,9 +41,10 @@ interface GalleryContentProps {
   room: Room;
   accessToken: string;
   userId: number;
+  nickname: string;
 }
 
-export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProps) => {
+export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryContentProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   useAnalyticsRoom(room.code, userId === room.hostId);
@@ -235,6 +236,7 @@ export const GalleryContent = ({ room, accessToken, userId }: GalleryContentProp
         roomCode={room.code}
         hostId={room.hostId}
         roomName={room.name}
+        session={{ userId, accessToken, nickname: room.myNickname ?? nickname }}
         isHost={userId === room.hostId}
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}

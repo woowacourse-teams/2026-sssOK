@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
+import { MEMBER_SESSION_QUERY_KEY, type MemberSession } from "@/entities/member-session";
 import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { MOCK_ROOM_CODES } from "@/mocks/handlers/room";
 import { RoomClosedPage } from "@/pages/room-closed";
@@ -32,10 +33,12 @@ const GALLERY_TEXT = "갤러리 도착";
 /** MSW 가 넘겨주는 request.url 은 언제나 절대 URL 이다. 베이스가 상대경로여도 맞춰 볼 수 있게 푼다. */
 const absolute = (path: string) => new URL(path, location.href).href;
 
-const renderAt = (code: string, state?: unknown) => {
+const renderAt = (code: string, state?: unknown, member?: MemberSession) => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
+
+  if (member) queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, member);
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -56,6 +59,47 @@ const getSubmitButton = () => screen.getByRole("button", { name: "입장하기" 
 beforeEach(() => localStorage.clear());
 
 describe("RoomEntryPage", () => {
+  const member: MemberSession = {
+    accessToken: "member-token",
+    userId: 42,
+    nickname: "회원",
+    expiresAt: FUTURE,
+    memberStatus: "REGISTERED",
+    refreshExpiresAt: FUTURE,
+  };
+
+  it.each([false, true])("회원 입장(joined=%s)은 회원 토큰을 사용한다", async (joined) => {
+    const anonymous = jest.fn();
+    const join = jest.fn();
+    server.use(
+      http.post(`${API_BASE_URL}/auth/anonymous`, () => {
+        anonymous();
+        return new HttpResponse(null, { status: 500 });
+      }),
+      http.get(`${API_BASE_URL}/rooms/:code`, ({ request }) => {
+        expect(request.headers.get("Authorization")).toBe("Bearer member-token");
+        return HttpResponse.json({
+          data: { roomId: 5031, code: MOCK_ROOM_CODES.active, status: "ACTIVE", joined },
+        });
+      }),
+      http.post(`${API_BASE_URL}/rooms/5031/members`, async ({ request }) => {
+        join(request.headers.get("Authorization"), await request.json());
+        return HttpResponse.json({ data: {} });
+      }),
+    );
+    renderAt(MOCK_ROOM_CODES.active, undefined, member);
+    if (!joined) {
+      const user = userEvent.setup();
+      await user.type(await screen.findByRole("textbox"), "방닉네임");
+      await user.click(getSubmitButton());
+    }
+    expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
+    expect(anonymous).not.toHaveBeenCalled();
+    if (joined) expect(join).not.toHaveBeenCalled();
+    else expect(join).toHaveBeenCalledWith("Bearer member-token", { nickname: "방닉네임" });
+    expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
+  });
+
   it("조회하는 동안 로딩 문구를 보여준다", () => {
     renderAt(MOCK_ROOM_CODES.active);
 
