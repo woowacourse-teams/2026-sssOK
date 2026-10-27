@@ -54,6 +54,33 @@ describe("DownloadModeSheet", () => {
     expect(screen.queryByText("개별로 저장")).not.toBeInTheDocument();
   });
 
+  describe("앱 웹뷰", () => {
+    beforeEach(() => {
+      window.ReactNativeWebView = { postMessage: jest.fn() };
+      window.sssokApp = { download: 1 };
+    });
+
+    afterEach(() => {
+      delete window.ReactNativeWebView;
+      delete window.sssokApp;
+    });
+
+    // 안드로이드 앱도 사진첩에 넣을 수 있다. 브라우저 판별(`prefersShareSheet`)과 상관없다.
+    it("기기와 상관없이 위 항목이 사진첩에 저장이다", () => {
+      renderSheet({ isPhone: false });
+
+      expect(screen.getByText("사진첩에 저장")).toBeInTheDocument();
+    });
+
+    it("앱은 나눠 저장하지 않으므로 묶음 안내를 띄우지 않는다", async () => {
+      renderSheet({ count: 200 });
+
+      await userEvent.click(screen.getByText("사진첩에 저장"));
+
+      expect(screen.queryByText(/번 나눠 저장해요/)).not.toBeInTheDocument();
+    });
+  });
+
   it("zip 항목이 받게 될 파일명을 미리 보여준다", () => {
     renderSheet();
 

@@ -15,7 +15,7 @@ import {
 
 import type { GalleryItem } from "@/entities/media";
 import { DeleteMediaModal } from "@/features/delete-media";
-import { downloadMedia, prefersShareSheet } from "@/features/download-media";
+import { downloadMedia, savesToPhotoLibrary } from "@/features/download-media";
 import { useMediaLike } from "@/features/toggle-media-like";
 import { track } from "@/shared/lib";
 import { colors } from "@/shared/styles/tokens";
@@ -335,7 +335,7 @@ const ViewerFooter = ({
         roomId,
         targets: [downloadTarget],
         // 폰에서 개별 다운을 할 경우, 여러 장 받기와 같은 기준으로 공유 시트를 쓸 기기를 가른다.
-        mode: prefersShareSheet() ? "share" : "individual",
+        mode: savesToPhotoLibrary() ? "share" : "individual",
         token,
       });
 
