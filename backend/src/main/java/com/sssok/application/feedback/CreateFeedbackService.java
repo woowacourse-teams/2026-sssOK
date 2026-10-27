@@ -1,15 +1,16 @@
 package com.sssok.application.feedback;
 
 import com.sssok.application.port.out.FeedbackRepository;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.application.room.RoomNicknameReader;
 import com.sssok.application.room.exception.RoomNotFoundException;
-import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.Feedback;
 import com.sssok.domain.feedback.FeedbackContent;
+import com.sssok.domain.feedback.FrontendVersion;
 import com.sssok.domain.feedback.UserAgent;
-import com.sssok.domain.member.Member;
 import com.sssok.domain.room.Room;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,7 +24,7 @@ public class CreateFeedbackService {
 
     private final FeedbackRepository feedbackRepository;
     private final RoomRepository roomRepository;
-    private final MemberRepository memberRepository;
+    private final RoomNicknameReader roomNicknameReader;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
@@ -38,10 +39,7 @@ public class CreateFeedbackService {
 
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
-        String nickname = memberRepository.findById(memberId)
-            .map(Member::getDisplayName)
-            .map(displayName -> displayName.value())
-            .orElse(null);
+        String nickname = roomNicknameReader.read(roomId, memberId);
 
         Feedback saved = feedbackRepository.save(Feedback.write(
             feedbackContent,

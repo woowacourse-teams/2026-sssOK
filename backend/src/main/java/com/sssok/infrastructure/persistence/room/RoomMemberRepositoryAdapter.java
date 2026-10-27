@@ -4,7 +4,9 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.room.RoomMembershipSummary;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.infrastructure.persistence.room.RoomMemberJpaRepository.RoomMembershipSummaryProjection;
+import com.sssok.renewal.domain.member.Nickname;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -42,8 +44,14 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
     }
 
     @Override
-    public boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt) {
-        return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt) > 0;
+    public boolean joinIfAbsent(Long roomId, Long memberId, Instant joinedAt, Nickname nickname) {
+        return jpaRepository.insertIfAbsent(roomId, memberId, joinedAt, nickname.value()) > 0;
+    }
+
+    @Override
+    public List<RoomMember> findByRoomsAndMembers(Collection<Long> roomIds,
+                                                          Collection<Long> memberIds) {
+        return jpaRepository.findByRoomIdInAndMemberIdIn(roomIds, memberIds).stream().map(this::toDomain).toList();
     }
 
     private RoomMembershipSummary toMembershipSummary(RoomMembershipSummaryProjection projection) {
@@ -63,7 +71,8 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
             roomMember.getId(),
             roomMember.getRoomId(),
             roomMember.getMemberId(),
-            roomMember.getJoinedAt()
+            roomMember.getJoinedAt(),
+            roomMember.getNickname()
         );
     }
 
@@ -72,7 +81,8 @@ public class RoomMemberRepositoryAdapter implements RoomMemberRepository {
             entity.getId(),
             entity.getRoomId(),
             entity.getMemberId(),
-            entity.getJoinedAt()
+            entity.getJoinedAt(),
+            entity.getNickname()
         );
     }
 }

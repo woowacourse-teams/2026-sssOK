@@ -10,13 +10,13 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.sssok.application.media.MediaUrlResolver;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.domain.member.Member;
-import com.sssok.domain.member.Nickname;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +44,7 @@ class RoomMembershipJoinRaceTest {
     @Test
     void 삽입에_성공하면_기록을_다시_조회하지_않는다() {
         when(roomMemberRepository.findByRoomIdAndMemberId(10L, 2L)).thenReturn(Optional.empty());
-        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any())).thenReturn(true);
+        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any(), any())).thenReturn(true);
         var result = roomMembershipService.join(10L, 2L);
         assertThat(result.newlyJoined()).isTrue();
         assertThat(result.joinedAt().getNano() % 1000).isZero();
@@ -55,10 +55,10 @@ class RoomMembershipJoinRaceTest {
     @Test
     void 다른_입장이_먼저_성공한_뒤_나가서_기록이_없으면_새로_참여한다() {
         when(roomMemberRepository.findByRoomIdAndMemberId(10L, 2L)).thenReturn(Optional.empty());
-        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any())).thenReturn(false, true);
+        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any(), any())).thenReturn(false, true);
         assertThat(roomMembershipService.join(10L, 2L).newlyJoined()).isTrue();
         verify(roomMemberRepository, times(2)).findByRoomIdAndMemberId(10L, 2L);
-        verify(roomMemberRepository, times(2)).joinIfAbsent(eq(10L), eq(2L), any());
+        verify(roomMemberRepository, times(2)).joinIfAbsent(eq(10L), eq(2L), any(), any());
         verify(eventPublisher, times(1)).publishEvent(any(RoomMemberJoinedEvent.class));
     }
 
@@ -68,7 +68,7 @@ class RoomMembershipJoinRaceTest {
         when(roomMemberRepository.findByRoomIdAndMemberId(10L, 2L))
             .thenReturn(Optional.empty())
             .thenReturn(Optional.of(RoomMember.reconstruct(30L, 10L, 2L, joinedAt)));
-        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any())).thenReturn(false);
+        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any(), any())).thenReturn(false);
         var result = roomMembershipService.join(10L, 2L);
         assertThat(result.newlyJoined()).isFalse();
         assertThat(result.joinedAt()).isEqualTo(joinedAt);

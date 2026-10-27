@@ -1,14 +1,6 @@
 package com.sssok.renewal.application.download.shared;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.application.folder.CreateFolderService;
-import com.sssok.renewal.application.download.exception.DownloadFolderNotFoundException;
-import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
-import com.sssok.renewal.application.download.exception.InvalidDownloadParamException;
-import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
@@ -16,26 +8,37 @@ import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
+import com.sssok.renewal.application.download.exception.DownloadFolderNotFoundException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
+import com.sssok.renewal.application.download.exception.InvalidDownloadParamException;
+import com.sssok.renewal.application.download.exception.TooManyDownloadFilesException;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.stream.LongStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 @PostgresIntegrationTest
 @Transactional
 class DownloadTargetResolverTest extends PostgresContainerSupport {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     @Autowired

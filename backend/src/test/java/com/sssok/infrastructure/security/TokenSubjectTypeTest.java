@@ -3,10 +3,11 @@ package com.sssok.infrastructure.security;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.AdminTokenProvider.IssuedAdminToken;
-import com.sssok.application.port.out.TokenProvider.IssuedToken;
+import com.sssok.renewal.outgoing.security.TokenProvider.IssuedToken;
 import com.sssok.infrastructure.config.JwtProperties;
+import com.sssok.renewal.outgoing.security.JwtTokenProvider;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;

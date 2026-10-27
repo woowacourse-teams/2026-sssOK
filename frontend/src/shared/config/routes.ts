@@ -1,5 +1,6 @@
 export const ROUTES = {
   home: "/home",
+  rooms: "/rooms",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
   /** 외부 공유 링크에서 브라우저를 확인하는 진입점 */
@@ -19,6 +20,7 @@ export const ROUTES = {
 /** 라우트 정의에 쓰는 패턴. ROUTES 는 실제 이동에 쓴다. */
 export const ROUTE_PATTERNS = {
   home: "/home",
+  rooms: "/rooms",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
   roomInvite: "/join/:code",

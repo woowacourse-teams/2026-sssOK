@@ -1,6 +1,7 @@
 package com.sssok.infrastructure.security;
 
 import com.sssok.application.port.out.PasswordEncoder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
 // salt 는 해시 문자열 안에 함께 들어가므로 따로 보관하지 않는다.
@@ -12,8 +13,8 @@ public class BCryptPasswordEncoderAdapter implements PasswordEncoder {
     private static final String DUMMY_HASH =
         "$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy";
 
-    private final org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder delegate =
-        new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder delegate =
+        new BCryptPasswordEncoder();
 
     @Override
     public String encode(String rawPassword) {

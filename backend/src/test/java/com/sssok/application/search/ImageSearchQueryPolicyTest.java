@@ -1,14 +1,16 @@
 package com.sssok.application.search;
 
+import com.sssok.application.media.MediaUploaderFilter;
+import com.sssok.application.port.out.FolderRepository;
+import com.sssok.application.search.exception.ImageSearchUnavailableException;
+import com.sssok.infrastructure.config.ImageSearchQueryProperties;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
-import com.sssok.application.search.exception.ImageSearchUnavailableException;
-import com.sssok.infrastructure.config.ImageSearchQueryProperties;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
 
 class ImageSearchQueryPolicyTest {
     @Test
@@ -18,8 +20,8 @@ class ImageSearchQueryPolicyTest {
         factory.addBean("embedding", provider);
         ImageSearchResultAssembler assembler = mock(ImageSearchResultAssembler.class);
         SearchImagesService service = new SearchImagesService(factory.getBeanProvider(OpenAiTextEmbeddingClient.class), assembler,
-            new ImageSearchQueryProperties(null, null), mock(com.sssok.application.port.out.FolderRepository.class), true);
-        assertThatThrownBy(() -> service.search(1L, "사진", 1L, null, com.sssok.application.media.MediaUploaderFilter.ALL))
+            new ImageSearchQueryProperties(null, null), mock(FolderRepository.class), true);
+        assertThatThrownBy(() -> service.search(1L, "사진", 1L, null, MediaUploaderFilter.ALL))
             .isInstanceOf(ImageSearchUnavailableException.class);
         verifyNoInteractions(provider, assembler);
     }

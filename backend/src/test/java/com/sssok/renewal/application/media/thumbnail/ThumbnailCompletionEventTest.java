@@ -1,26 +1,10 @@
 package com.sssok.renewal.application.media.thumbnail;
 
-import com.sssok.application.media.MediaDetail;
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
-import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
-import java.util.Map;
-import java.util.HashMap;
-
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-
 import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.media.MediaDetail;
 import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.storage.OrphanObjectCollector;
 import com.sssok.domain.file.FileSize;
@@ -29,10 +13,20 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,15 +34,25 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+
 
 // 워커가 도는 사이 사용자가 같은 미디어를 지우거나 폴더에 담는 경합을 확인한다.
 @PostgresIntegrationTest
 class ThumbnailCompletionEventTest extends PostgresContainerSupport {
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final Long ROOM_ID = 255L;
@@ -60,8 +64,8 @@ class ThumbnailCompletionEventTest extends PostgresContainerSupport {
     @Autowired
     ThumbnailJobJpaRepository jobRepository;
 
-    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
-    com.sssok.renewal.outgoing.database.UploadFileRepository uploadFileRepository;
+    @MockitoSpyBean
+    UploadFileRepository uploadFileRepository;
 
     private final Map<Long, ThumbnailClaim> claimedJobs = new HashMap<>();
 
@@ -105,7 +109,7 @@ class ThumbnailCompletionEventTest extends PostgresContainerSupport {
 
     @BeforeEach
     void setUpReadUrls() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 255L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 255L);
 
         Mockito.when(fileStorage.presignGet(
             ArgumentMatchers.any(), ArgumentMatchers.anyString(),
@@ -216,7 +220,7 @@ class ThumbnailCompletionEventTest extends PostgresContainerSupport {
         Instant now = Instant.now();
         ThumbnailJob job = new ThumbnailJob(storedFile.getId(), ThumbnailKind.IMAGE, now);
         job.claim(now, now.plusSeconds(120));
-        jobRepository.saveAndFlush(new com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity(job));
+        jobRepository.saveAndFlush(new ThumbnailJobJpaEntity(job));
         claimedJobs.put(storedFile.getId(), new ThumbnailClaim(storedFile.getId(), ThumbnailKind.IMAGE,
             job.getClaimToken(), job.getAttempts(), now));
         return storedFile;

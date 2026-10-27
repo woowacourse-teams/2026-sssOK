@@ -3,7 +3,7 @@
 #   docker compose --env-file .env --env-file image.env -f docker-compose.dev.yml up -d
 # 형태로 실행한다. 저장·조회·알림은 중앙 서버에서 운영한다.
 #
-# .env       : dev 서버에서 최초 1회 수동 생성 (DB 접속 정보, JWT, R2 자격증명, CORS 오리진)
+# .env       : dev 서버에서 최초 1회 수동 생성 (DB 접속 정보, JWT, R2 자격증명, CORS 오리진, OAuth)
 # image.env  : 배포마다 CI가 덮어씀 (BACKEND_IMAGE=ghcr.io/...:<커밋SHA> — 운영과 달리 태그가 아니라
 #              커밋 해시로 식별한다)
 #
@@ -15,6 +15,9 @@ services:
     image: ${BACKEND_IMAGE}
     container_name: sssok-app-dev
     restart: unless-stopped
+    # 서버 .env의 설정을 앱에 전달한다. 같은 이름은 아래 environment 값이 우선한다.
+    env_file:
+      - .env
     ports:
       # 전환 검증 동안 기존 직접 접근과 복귀 경로를 유지한다.
       - "8080:8080"
@@ -25,34 +28,10 @@ services:
       - "8081"
     environment:
       SPRING_PROFILES_ACTIVE: dev
-      MEDIA_URL_CACHE_ENABLED: ${MEDIA_URL_CACHE_ENABLED:-true}
-      MEDIA_URL_CACHE_MAXIMUM_SIZE: ${MEDIA_URL_CACHE_MAXIMUM_SIZE:-10000}
-      MEDIA_URL_CACHE_REFRESH_AHEAD: ${MEDIA_URL_CACHE_REFRESH_AHEAD:-2m}
-      MEDIA_THUMBNAIL_QUEUE_IMAGE_WORKERS: ${MEDIA_THUMBNAIL_QUEUE_IMAGE_WORKERS:-4}
-      MEDIA_THUMBNAIL_QUEUE_VIDEO_WORKERS: ${MEDIA_THUMBNAIL_QUEUE_VIDEO_WORKERS:-2}
-      MEDIA_THUMBNAIL_QUEUE_BACKFILL_ENABLED: ${MEDIA_THUMBNAIL_QUEUE_BACKFILL_ENABLED:-false}
-      # 배포마다 CI가 image.env 에 써 넣는다. 값이 없어도(구버전 image.env, 수동 기동) 뜨도록 기본값을 둔다.
+      # 배포마다 CI가 image.env에 기록하는 버전 정보.
       APP_RELEASE_VERSION: ${APP_RELEASE_VERSION:-unknown}
       APP_BACKEND_VERSION: ${APP_BACKEND_VERSION:-unknown}
       APP_GIT_SHA: ${APP_GIT_SHA:-unknown}
-      DB_URL: ${DB_URL}
-      DB_USERNAME: ${DB_USERNAME}
-      DB_PASSWORD: ${DB_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      IMAGE_SEARCH_ENABLED: ${IMAGE_SEARCH_ENABLED:-false}
-      MEDIA_SEARCH_CONCURRENCY: ${MEDIA_SEARCH_CONCURRENCY:-2}
-      MEDIA_SEARCH_DISPATCH_DELAY: ${MEDIA_SEARCH_DISPATCH_DELAY:-1000}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      MEDIA_SEARCH_CREATED_SINCE: ${MEDIA_SEARCH_CREATED_SINCE:-}
-      MEDIA_SEARCH_QUERY_MIN_SIMILARITY: ${MEDIA_SEARCH_QUERY_MIN_SIMILARITY:-}
-      R2_ENDPOINT: ${R2_ENDPOINT}
-      R2_ACCESS_KEY: ${R2_ACCESS_KEY}
-      R2_SECRET_KEY: ${R2_SECRET_KEY}
-      R2_BUCKET: ${R2_BUCKET}
-      R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
-      # 비어 있으면 의견 알림만 꺼진다.
-      DISCORD_FEEDBACK_WEBHOOK_URL: ${DISCORD_FEEDBACK_WEBHOOK_URL:-}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
       interval: 10s

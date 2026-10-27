@@ -21,3 +21,13 @@ export interface Room {
   photoCount: number;
   folders: RoomFolder[];
 }
+
+export interface MyRoom {
+  roomId: number;
+  code: string;
+  name: string;
+  isHost: boolean;
+  mediaCount: number;
+  memberCount: number;
+  thumbnailUrl: string | null;
+}

@@ -3,7 +3,7 @@ package com.sssok.infrastructure.config;
 import com.sssok.common.logging.RequestLoggingFilter;
 import com.sssok.presentation.api.common.RoomMembershipInterceptor;
 import com.sssok.presentation.auth.AuthAdminArgumentResolver;
-import com.sssok.presentation.auth.AuthMemberArgumentResolver;
+import com.sssok.renewal.incoming.auth.AuthMemberArgumentResolver;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -53,11 +53,13 @@ public class WebConfig implements WebMvcConfigurer {
                 API_PREFIX + "/rooms/*/media/**",
                 API_PREFIX + "/rooms/*/downloads",
                 API_PREFIX + "/rooms/*/downloads/**",
+                API_PREFIX + "/rooms/*/notification-setting",
+                API_PREFIX + "/rooms/*/upload-requests",
                 API_PREFIX + "/rooms/*/feedbacks");
     }
 
     // 프론트가 API와 다른 오리진에서 서빙되므로 브라우저가 프리플라이트(OPTIONS)를 보낸다.
-    // 인증은 쿠키가 아니라 Authorization 헤더라 credentials는 필요 없다.
+    // refresh token 쿠키를 전달할 수 있도록 명시적으로 허용한 출처에 credentials를 연다.
     //
     // X-Request-ID는 노출 헤더로 따로 열어 준다. 교차 오리진 응답에서 브라우저 JavaScript가 읽을 수
     // 있는 헤더는 기본 6개뿐이라, 열지 않으면 서버가 실어 보내도 프론트에서는 없는 헤더가 된다.
@@ -66,6 +68,7 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping(API_PREFIX + "/**")
             .allowedOrigins(corsProperties.allowedOrigins().toArray(new String[0]))
+            .allowCredentials(true)
             .allowedMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")
             .exposedHeaders(RequestLoggingFilter.REQUEST_ID_HEADER)

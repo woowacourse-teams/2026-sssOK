@@ -9,7 +9,7 @@ import com.sssok.application.room.UpdateRoomCommand;
 import com.sssok.application.room.UpdateRoomService;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 // 조회만 code 로 받고, 나머지는 roomId 로 받는다.
-@Tag(name = "방", description = "링크 하나로 여는 공유방의 생성·조회·수정·삭제·입장")
+@Tag(name = "방", description = "링크 하나로 여는 공유방의 생성·조회·수정·삭제")
 @RestController
 @RequestMapping("/rooms")
 @RequiredArgsConstructor
@@ -52,7 +52,7 @@ public class RoomController {
         @RequestBody CreateRoomRequest request
     ) {
         RoomDetail detail = createRoomService.create(
-            memberId, request.name(), request.uploadPolicy());
+            memberId, request.name(), request.uploadPolicy(), request.nickname());
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(ApiResponse.of(RoomResponse.from(detail)));
     }

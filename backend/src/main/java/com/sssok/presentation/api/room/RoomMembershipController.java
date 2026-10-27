@@ -3,7 +3,7 @@ package com.sssok.presentation.api.room;
 import com.sssok.application.room.JoinRoomResult;
 import com.sssok.application.room.RoomMembershipService;
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "방 참여", description = "내 방 목록·입장·나가기")
@@ -42,9 +43,10 @@ public class RoomMembershipController {
     @PostMapping("/rooms/{roomId}/members")
     public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(
         @Parameter(hidden = true) @AuthMember Long memberId,
-        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId
+        @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @RequestBody(required = false) JoinRoomRequest request
     ) {
-        JoinRoomResult result = roomMembershipService.join(roomId, memberId);
+        JoinRoomResult result = roomMembershipService.join(roomId, memberId, request == null ? null : request.nickname());
         HttpStatus status = result.newlyJoined() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status)
             .body(ApiResponse.of(RoomMemberResponse.from(result)));

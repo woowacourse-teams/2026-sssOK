@@ -1,14 +1,5 @@
 package com.sssok.presentation.api.media;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.RoomMembershipService;
@@ -17,6 +8,8 @@ import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
@@ -32,8 +25,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 // 정리 작업은 썸네일·zip 워커와 공용 풀(applicationTaskExecutor)을 나눠 쓴다.
 // 그 풀이 가득 차면 AFTER_COMMIT 에서의 작업 제출이 TaskRejectedException 으로 거부된다.
@@ -114,7 +115,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
         assertThat(pendingKeys()).contains(rejected.getStorageKey());
     }
 
-    private org.springframework.test.web.servlet.ResultActions deleteMedia(StoredFile file)
+    private ResultActions deleteMedia(StoredFile file)
         throws Exception {
         return mockMvc.perform(
             delete("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, file.getId())

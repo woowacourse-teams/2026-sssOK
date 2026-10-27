@@ -1,9 +1,5 @@
 package com.sssok.application.mediafolder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doAnswer;
-
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.media.MediaIdsResolver;
@@ -12,14 +8,21 @@ import com.sssok.application.mediafolder.exception.InvalidMediaFolderParamExcept
 import com.sssok.domain.folder.Folder;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doAnswer;
+
 
 // Repository + Service 통합 테스트. 담기가 PostgreSQL 전용 네이티브 쿼리(ON CONFLICT)를 쓰므로
 // H2가 아닌 실제 PostgreSQL로 돌린다. 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
@@ -28,13 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RecordApplicationEvents
 class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     @Autowired
@@ -54,31 +57,30 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     MediaIdsResolver mediaIdsResolver;
 
     // StoredFileJpaEntity는 존재 확인용 최소 매핑(id만)이라 나머지 NOT NULL 컬럼은 직접 채워야 한다.
-    private Long existingMedia(long id) {
-        return existingMedia(id, "READY");
+    private Long existingMedia() {
+        return existingMedia("READY");
     }
 
-    private Long existingMedia(long id, String status) {
-        return existingMedia(id, status, 1L);
+    private Long existingMedia(String status) {
+        return existingMedia(status, 1L);
     }
 
-    private Long existingMedia(long id, String status, long uploaderId) {
-        jdbcTemplate.update("""
+    private Long existingMedia(String status, long uploaderId) {
+        return jdbcTemplate.queryForObject("""
             INSERT INTO stored_file
-                (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes,
+                (room_id, uploader_id, original_file_name, media_type, file_size_bytes,
                  storage_key, status, created_at, updated_at, reserved_at, retry_count)
-            VALUES (?, 1, ?, 'test.jpg', 'JPEG', 1024, ?, ?, now(), now(), now(), 0)
-            """, id, uploaderId, "test-key-" + id, status);
-        return id;
+            VALUES (1, ?, 'test.jpg', 'JPEG', 1024, ?, ?, now(), now(), now(), 0) RETURNING id
+            """, Long.class, uploaderId, UUID.randomUUID().toString(), status);
     }
 
     @Test
     void 미디어_여러개를_폴더_하나에_담는다() {
         Folder folder = createFolderService.create(1L, "맛집");
-        existingMedia(1L);
-        existingMedia(2L);
+        Long mediaId = existingMedia();
+        Long secondMediaId = existingMedia();
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L, 2L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(mediaId, secondMediaId), folder.getId());
 
         assertThat(result.updatedCount()).isEqualTo(2);
         assertThat(result.alreadyInCount()).isZero();
@@ -89,11 +91,11 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     @Test
     void 이미_담긴_미디어는_alreadyInCount로_집계되고_오류가_아니다() {
         Folder folder = createFolderService.create(1L, "맛집");
-        existingMedia(1L);
-        addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        Long mediaId = existingMedia();
+        addMediaToFoldersService.add(1L, List.of(mediaId), folder.getId());
         applicationEvents.clear();
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(mediaId), folder.getId());
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.alreadyInCount()).isEqualTo(1);
@@ -103,9 +105,9 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     @Test
     void 썸네일이_아직_없는_PROCESSING_미디어도_담을_수_있다() {
         Folder folder = createFolderService.create(1L, "맛집");
-        existingMedia(1L, "PROCESSING");
+        Long mediaId = existingMedia("PROCESSING");
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(mediaId), folder.getId());
 
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(result.notFoundMediaIds()).isEmpty();
@@ -118,14 +120,14 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     @Test
     void 상태_확인_뒤_FAILED_로_바뀐_미디어는_담기지_않고_두_숫자가_어긋나지_않는다() {
         Folder folder = createFolderService.create(1L, "맛집");
-        existingMedia(1L, "PROCESSING");
+        Long mediaId = existingMedia("PROCESSING");
         doAnswer(invocation -> {
             ResolvedMediaIds resolved = (ResolvedMediaIds) invocation.callRealMethod();
-            jdbcTemplate.update("UPDATE stored_file SET status = 'FAILED' WHERE id = 1");
+            jdbcTemplate.update("UPDATE stored_file SET status = 'FAILED' WHERE id = ?", mediaId);
             return resolved;
-        }).when(mediaIdsResolver).resolveVisible(1L, List.of(1L));
+        }).when(mediaIdsResolver).resolveVisible(1L, List.of(mediaId));
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(mediaId), folder.getId());
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.alreadyInCount()).isZero();
@@ -135,28 +137,28 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
     @Test
     void 존재하지_않는_미디어는_건너뛰고_notFoundMediaIds로_보고한다() {
         Folder folder = createFolderService.create(1L, "맛집");
-        existingMedia(1L);
+        Long mediaId = existingMedia();
 
-        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(1L, 999L), folder.getId());
+        AddMediaToFoldersResult result = addMediaToFoldersService.add(1L, List.of(mediaId, Long.MAX_VALUE), folder.getId());
 
         assertThat(result.updatedCount()).isEqualTo(1);
-        assertThat(result.notFoundMediaIds()).containsExactly(999L);
+        assertThat(result.notFoundMediaIds()).containsExactly(Long.MAX_VALUE);
     }
 
     @Test
     void 없는_폴더면_예외() {
-        existingMedia(1L);
+        Long mediaId = existingMedia();
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(1L), -1L))
+        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(mediaId), -1L))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
     @Test
     void 다른_방_소속_폴더는_없는_폴더로_취급한다() {
         Folder folder = createFolderService.create(2L, "맛집");
-        existingMedia(1L);
+        Long mediaId = existingMedia();
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(1L), folder.getId()))
+        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(mediaId), folder.getId()))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
@@ -172,9 +174,9 @@ class AddMediaToFoldersServiceTest extends PostgresContainerSupport {
 
     @Test
     void folderId가_없으면_예외() {
-        existingMedia(1L);
+        Long mediaId = existingMedia();
 
-        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(1L), null))
+        assertThatThrownBy(() -> addMediaToFoldersService.add(1L, List.of(mediaId), null))
             .isInstanceOf(InvalidMediaFolderParamException.class);
     }
 

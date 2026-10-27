@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.domain.member.Nickname;
 import com.sssok.support.H2IntegrationTest;
 import java.time.Instant;
 import java.util.List;
@@ -115,7 +116,7 @@ class InMemorySseEventPublisherTest {
     @Test
     void 같은_방에_구독과_발행이_동시에_일어나도_예외_없이_처리된다() throws InterruptedException {
         Long roomId = 16384L;
-        memberships.save(RoomMember.join(roomId, 1L, Instant.now()));
+        memberships.save(RoomMember.join(roomId, 1L, Instant.now(), new Nickname("참여자")));
         int subscriberCount = 10;
         int publisherCount = 10;
         ExecutorService executor = Executors.newFixedThreadPool(subscriberCount + publisherCount);

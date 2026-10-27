@@ -2,6 +2,7 @@ package com.sssok.benchmark;
 
 import com.luciad.imageio.webp.WebPWriteParam;
 import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -119,7 +120,7 @@ final class DerivativeCodec {
     }
 
     static BufferedImage decode(byte[] encoded) throws IOException {
-        BufferedImage decoded = ImageIO.read(new java.io.ByteArrayInputStream(encoded));
+        BufferedImage decoded = ImageIO.read(new ByteArrayInputStream(encoded));
         if (decoded == null) {
             throw new IOException("디코딩할 수 없는 이미지다.");
         }

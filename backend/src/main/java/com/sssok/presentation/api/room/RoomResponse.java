@@ -17,7 +17,8 @@ public record RoomResponse(
     @Schema(description = "요청자(토큰 주인)가 이 방에 입장한 적이 있는지") boolean joined,
     @Schema(description = "방 생성 시각") Instant createdAt,
     @Schema(description = "폴더 소속과 무관하게 이 방에 있는 사진 전체 수. 갓 만든 방은 0이다") int photoCount,
-    @Schema(description = "이 방의 폴더 목록(생성 순). 갓 만든 방은 빈 배열이다") List<RoomFolderResponse> folders
+    @Schema(description = "이 방의 폴더 목록(생성 순). 갓 만든 방은 빈 배열이다") List<RoomFolderResponse> folders,
+    @Schema(description = "요청자의 방 닉네임. 미입장이면 null") String myNickname
 ) {
 
     public static RoomResponse from(RoomDetail detail) {
@@ -33,7 +34,8 @@ public record RoomResponse(
             detail.joined(),
             room.getCreatedAt(),
             detail.photoCount(),
-            detail.folders().stream().map(RoomFolderResponse::from).toList()
+            detail.folders().stream().map(RoomFolderResponse::from).toList(),
+            detail.myNickname()
         );
     }
 }

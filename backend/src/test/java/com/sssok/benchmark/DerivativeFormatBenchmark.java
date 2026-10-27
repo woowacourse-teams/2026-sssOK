@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -60,7 +61,7 @@ public final class DerivativeFormatBenchmark {
             throw new IllegalStateException("샘플이 없다: " + sampleDir);
         }
         System.out.printf("샘플 %d장, 대상 너비 %s%n",
-            samples.size(), java.util.Arrays.toString(targetWidths));
+            samples.size(), Arrays.toString(targetWidths));
 
         List<String> rows = new ArrayList<>();
         rows.add("sample,sourceWidth,sourceHeight,sourceBytes,targetWidth,targetHeight,"
@@ -78,7 +79,7 @@ public final class DerivativeFormatBenchmark {
         if (configured == null || configured.isBlank()) {
             return DEFAULT_TARGET_WIDTHS;
         }
-        return java.util.Arrays.stream(configured.split(","))
+        return Arrays.stream(configured.split(","))
             .map(String::trim)
             .mapToInt(Integer::parseInt)
             .toArray();
@@ -156,7 +157,7 @@ public final class DerivativeFormatBenchmark {
             encoded = encoder.encode();
             millis[i] = (System.nanoTime() - start) / 1_000_000;
         }
-        java.util.Arrays.sort(millis);
+        Arrays.sort(millis);
         return new Measured(millis[MEASURED_ROUNDS / 2], encoded);
     }
 

@@ -2,11 +2,11 @@ package com.sssok.application.download;
 
 import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
 import com.sssok.renewal.application.download.shared.DownloadTargetResolver;
-import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.download.exception.DownloadRateLimitedException;
 import com.sssok.application.port.out.DownloadJobRepository;
 import com.sssok.application.media.MediaUploaderFilter;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.renewal.domain.download.DownloadFileNames;

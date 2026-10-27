@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
-import com.sssok.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomNotFoundException;

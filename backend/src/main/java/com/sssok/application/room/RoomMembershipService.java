@@ -1,16 +1,17 @@
 package com.sssok.application.room;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
 import com.sssok.application.media.MediaUrlResolver;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomHostCannotLeaveException;
 import com.sssok.application.room.exception.RoomNotFoundException;
-import com.sssok.domain.member.Member;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -39,6 +40,12 @@ public class RoomMembershipService {
 
     @Transactional
     public JoinRoomResult join(Long roomId, Long memberId) {
+        return join(roomId, memberId, null);
+    }
+
+    @Transactional
+    public JoinRoomResult join(Long roomId, Long memberId, String nickname) {
+        Nickname requestedNickname = nickname == null ? null : new Nickname(nickname);
         Room room = getRoom(roomId);
         if (!room.canEnter()) {
             throw new RoomExpiredException();
@@ -46,7 +53,7 @@ public class RoomMembershipService {
         Member member = memberRepository.findById(memberId)
             .orElseThrow(() -> new UnauthorizedException("다시 접속해주세요"));
 
-        JoinRoomResult result = joinOrGetMembership(room, member);
+        JoinRoomResult result = joinOrGetMembership(room, member, requestedNickname);
         if (result.newlyJoined()) {
             eventPublisher.publishEvent(RoomMemberJoinedEvent.from(result));
         }
@@ -81,7 +88,8 @@ public class RoomMembershipService {
         );
     }
 
-    private JoinRoomResult joinOrGetMembership(Room room, Member member) {
+    private JoinRoomResult joinOrGetMembership(Room room, Member member, Nickname requestedNickname) {
+        Nickname roomNickname = requestedNickname == null ? member.getDisplayName() : requestedNickname;
         Long roomId = room.getId();
         Long memberId = member.getId();
         while (true) {
@@ -92,8 +100,8 @@ public class RoomMembershipService {
 
             // DB 정밀도에 맞춰 최초 입장과 재입장의 응답 시각을 동일하게 한다.
             Instant joinedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
-            if (roomMemberRepository.joinIfAbsent(roomId, memberId, joinedAt)) {
-                return JoinRoomResult.newlyJoined(room, RoomMember.join(roomId, memberId, joinedAt), member);
+            if (roomMemberRepository.joinIfAbsent(roomId, memberId, joinedAt, roomNickname)) {
+                return JoinRoomResult.newlyJoined(room, RoomMember.join(roomId, memberId, joinedAt, roomNickname), member);
             }
             // 다른 요청이 먼저 입장한 뒤 나갔을 수 있다. 기록이 반드시 있다고 가정하지 않고 다시 확인한다.
         }

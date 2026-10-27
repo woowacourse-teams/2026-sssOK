@@ -1,7 +1,5 @@
 package com.sssok.common.logging;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -9,6 +7,8 @@ import ch.qos.logback.core.read.ListAppender;
 import jakarta.servlet.AsyncEvent;
 import jakarta.servlet.AsyncListener;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
@@ -24,6 +24,8 @@ import org.springframework.mock.web.MockAsyncContext;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 class RequestLoggingFilterTest {
 
@@ -403,7 +405,7 @@ class RequestLoggingFilterTest {
         private final Map<String, String> captured = new HashMap<>();
 
         @Override
-        public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response) {
+        public void doFilter(ServletRequest request, ServletResponse response) {
             Map<String, String> snapshot = MDC.getCopyOfContextMap();
             if (snapshot != null) {
                 captured.putAll(snapshot);

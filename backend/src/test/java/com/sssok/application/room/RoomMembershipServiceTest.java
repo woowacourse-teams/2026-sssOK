@@ -3,8 +3,6 @@ package com.sssok.application.room;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -21,6 +19,8 @@ import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.realtime.InMemorySseEventPublisher;
 import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
 import jakarta.persistence.EntityManager;
@@ -424,6 +424,44 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
             }
         }
         assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)).isEmpty();
+    }
+
+    @Test
+    void 같은_회원이_방마다_다른_닉네임을_사용한다() {
+        Room first = createRoom();
+        Room second = createRoomService.create(hostId, "두번째 방", null, "방장별명").room();
+
+        roomMembershipService.join(first.getId(), guestId, "여행자");
+        roomMembershipService.join(second.getId(), guestId, "사진가");
+
+        assertThat(getRoomService.getByCode(first.getCode(), guestId).myNickname()).isEqualTo("여행자");
+        assertThat(getRoomService.getByCode(second.getCode(), guestId).myNickname()).isEqualTo("사진가");
+        assertThat(getRoomService.getByCode(second.getCode(), guestId).hostName()).isEqualTo("방장별명");
+    }
+
+    @Test
+    void 재입장하면_새로_보낸_닉네임으로_기존_닉네임을_덮어쓰지_않는다() {
+        Room room = createRoom();
+        roomMembershipService.join(room.getId(), guestId, "처음별명");
+
+        JoinRoomResult result = roomMembershipService.join(room.getId(), guestId, "다른별명");
+
+        assertThat(result.displayName()).isEqualTo("처음별명");
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId).orElseThrow().getNickname())
+            .isEqualTo("처음별명");
+    }
+
+    @Test
+    void 생성과_입장은_검증한_닉네임_값을_저장한다() {
+        Room room = createRoomService.create(hostId, "닉네임 검증", null, "  방장별명  ").room();
+
+        JoinRoomResult result = roomMembershipService.join(room.getId(), guestId, "  참여자별명  ");
+
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), hostId)
+            .orElseThrow().getNickname()).isEqualTo("방장별명");
+        assertThat(result.displayName()).isEqualTo("참여자별명");
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)
+            .orElseThrow().getNickname()).isEqualTo("참여자별명");
     }
 
     private Long createMember(String nickname) {
