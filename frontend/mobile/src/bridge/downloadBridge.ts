@@ -170,7 +170,8 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
 
   const save = async (requestId: string, files: BridgeFile[], signal: AbortSignal) => {
     // 읽기 권한은 필요 없다. 쓰기만 요청해야 "모든 사진 접근" 을 묻지 않는다.
-    const permission = await requestPermissionsAsync(true, ["photo", "video"]);
+    // 종류(photo·video)는 넘기지 않는다. 쓰기 전용이면 쓰이지 않고, 안드로이드 Expo Go 는 넘기는 순간 예외를 던진다.
+    const permission = await requestPermissionsAsync(true);
 
     if (!permission.granted) {
       send({ type: "download/done", requestId, result: "permissionDenied", failed: [] });
