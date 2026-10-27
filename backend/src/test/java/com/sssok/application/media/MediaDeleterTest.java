@@ -61,7 +61,7 @@ class MediaDeleterTest {
     }
 
     // 파일 수만큼 왕복하던 것이 실제로 한 번으로 줄었는지. 트랜잭션 안에서 스토리지를 건드리는
-    // 경로 자체가 없어졌다는 것은 생성자에 FileStoragePort 가 없다는 사실이 보장한다.
+    // 경로 자체가 없어졌다는 것은 생성자에 FileStorage 가 없다는 사실이 보장한다.
     @Test
     void 미디어가_몇_장이든_정리_대상을_한_번에_넘긴다() {
         List<StoredFile> files = LongStream.rangeClosed(1, 500)

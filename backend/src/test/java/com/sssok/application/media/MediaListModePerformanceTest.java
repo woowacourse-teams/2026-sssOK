@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.presentation.api.media.AllMediaListResponse;
 import com.sssok.presentation.api.media.MediaListResponse;
 import com.sssok.support.PostgresContainerSupport;
@@ -47,11 +47,11 @@ class MediaListModePerformanceTest extends PostgresContainerSupport {
     EntityManagerFactory entityManagerFactory;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @BeforeEach
     void setUp() {
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any()))
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any()))
             .willReturn("https://storage.example.com/signed");
         jdbcTemplate.update("DELETE FROM stored_file WHERE room_id = ?", ROOM_ID);
         jdbcTemplate.update("DELETE FROM member WHERE id = ?", UPLOADER_ID);

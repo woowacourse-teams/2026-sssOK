@@ -1,24 +1,19 @@
 package com.sssok.application.media;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-
 import com.sssok.application.media.exception.MediaNotFoundException;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.domain.member.Member;
-import com.sssok.domain.member.Nickname;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,14 +22,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+
 
 // Repository + Service 통합 테스트 (H2). 방 존재·만료·입장 여부는 RoomMembershipInterceptor 가
 // 컨트롤러 앞에서 거른다.
 @H2IntegrationTest
 class GetMediaServiceTest {
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long OTHER_ROOM_ID = 711L;
     private static final String PRESIGNED = "https://storage.example.com/signed";
@@ -55,7 +59,7 @@ class GetMediaServiceTest {
     JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     private Long hostId;
     private Long uploaderId;
@@ -63,10 +67,12 @@ class GetMediaServiceTest {
 
     @BeforeEach
     void setUp() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 711L);
+
         hostId = memberRepository.save(Member.register(new Nickname("방장"), Instant.now())).getId();
         uploaderId = memberRepository.save(Member.register(new Nickname("가현"), Instant.now())).getId();
         roomId = createRoomService.create(hostId, "우테코 회식", null).room().getId();
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
     }
 

@@ -4,8 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.StorageKey;
 import java.sql.Timestamp;
@@ -33,12 +33,12 @@ class OrphanObjectSweeperTest {
     JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @Test
     void 정리되지_않고_남은_오브젝트를_다시_지우고_대기열에서_뺀다() {
         StorageKey key = enqueued(Instant.now().minus(30, ChronoUnit.MINUTES));
-        given(fileStoragePort.deleteAll(anyList())).willReturn(List.of());
+        given(fileStorage.deleteAll(anyList())).willReturn(List.of());
 
         orphanObjectSweeper.sweep();
 
@@ -60,7 +60,7 @@ class OrphanObjectSweeperTest {
     @Test
     void 지우지_못하면_시도_횟수를_올린_채_대기열에_남긴다() {
         StorageKey key = enqueued(Instant.now().minus(30, ChronoUnit.MINUTES));
-        given(fileStoragePort.deleteAll(anyList())).willReturn(List.of(key));
+        given(fileStorage.deleteAll(anyList())).willReturn(List.of(key));
 
         orphanObjectSweeper.sweep();
 

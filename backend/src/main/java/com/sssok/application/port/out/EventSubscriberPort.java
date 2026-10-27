@@ -7,5 +7,7 @@ public interface EventSubscriberPort {
 
     // roomId를 구독하는 SseEmitter를 새로 만들어 등록한다.
     // lastEventId가 있으면 재연결로 간주해 그 이후 놓친 이벤트부터 먼저 재전송한다.
-    SseEmitter subscribe(Long roomId, Long lastEventId);
+    SseEmitter subscribe(Long roomId, Long memberId, Long lastEventId);
+
+    void disconnectMembership(Long roomId, Long membershipId);
 }

@@ -170,6 +170,10 @@ jobs:
     steps:
       - name: 코드 체크아웃
         uses: actions/checkout@v4
+      # 서버의 .env는 Git에 없으므로 Compose의 app.env_file 경로를 CI에서만 준비한다.
+      # 이 job은 앱을 실행하지 않아 실제 DB·OAuth 자격증명이 필요하지 않다.
+      - name: Compose 검증용 앱 환경 파일 준비
+        run: touch backend/.env
       - name: Compose 수집 설정 및 Nginx 문법 검증
         run: bash backend/monitoring/validate-dev-node.sh
       - name: 개발 Nginx 설정 변경 감지 검증

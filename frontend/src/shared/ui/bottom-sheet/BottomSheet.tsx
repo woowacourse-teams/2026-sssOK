@@ -50,7 +50,7 @@ const Handle = styled.div`
 
 const Title = styled.h2`
   font-size: ${typography.label1.fontSize};
-  font-weight: ${typography.label1.fontWeight};
+  font-weight: 700;
   line-height: ${typography.label1.lineHeight};
   color: ${colors.textStrong};
 `;

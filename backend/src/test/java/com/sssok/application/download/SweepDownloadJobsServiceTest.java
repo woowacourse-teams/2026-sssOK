@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 
 import com.sssok.application.port.out.DownloadJobRepository;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.domain.download.DownloadJob;
 import com.sssok.domain.download.DownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
@@ -30,7 +30,7 @@ class SweepDownloadJobsServiceTest {
     DownloadJobRepository downloadJobRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     private DownloadJob readyJobAt(Instant readyAt) {
         DownloadJob job = DownloadJob.create(1L, 100L, 1, 1024L, "sssOK_1.zip", Instant.now());
@@ -48,7 +48,7 @@ class SweepDownloadJobsServiceTest {
         assertThat(swept).isEqualTo(1);
         assertThat(downloadJobRepository.findById(job.getId()).orElseThrow().getStatus())
             .isEqualTo(DownloadJobStatus.EXPIRED);
-        verify(fileStoragePort).delete(job.getZipStorageKey());
+        verify(fileStorage).delete(job.getZipStorageKey());
     }
 
     @Test

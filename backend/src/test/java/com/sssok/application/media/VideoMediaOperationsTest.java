@@ -1,24 +1,8 @@
 package com.sssok.application.media;
 
-import com.sssok.common.monitoring.MediaProcessingMetrics.Kind;
-import com.sssok.common.monitoring.MediaProcessingMetrics.Source;
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-
 import com.sssok.application.download.CreateDownloadJobService;
 import com.sssok.application.download.DownloadCompressionWorker;
-import com.sssok.application.port.out.AbortableOutputStream;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.MemberRepository;
-import com.sssok.application.port.out.OrphanObjectRepository;
-import com.sssok.application.port.out.VideoFrameExtractorPort;
-import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractedFrame;
-import com.sssok.application.port.out.VideoFrameExtractorPort.ExtractionResult;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.GeoPoint;
@@ -26,8 +10,23 @@ import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.domain.member.Member;
-import com.sssok.domain.member.Nickname;
+import com.sssok.renewal.application.media.thumbnail.GenerateThumbnailService;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
+import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor;
+import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractedFrame;
+import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractionResult;
+import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -43,8 +42,14 @@ import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+
 
 // 영상이 사진과 똑같이 다뤄지는지 네 흐름을 한 자리에서 확인한다.
 //
@@ -87,13 +92,13 @@ class VideoMediaOperationsTest {
     OrphanObjectRepository orphanObjectRepository;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @MockitoBean
-    VideoFrameExtractorPort videoFrameExtractor;
+    FfmpegVideoFrameExtractor videoFrameExtractor;
 
     // 다운로드 생성 이벤트는 별도 스레드에서 압축을 시작한다. 이 통합 테스트에서는 대상 선정까지만
-    // 검증하므로 워커를 격리해 다음 테스트의 FileStoragePort 스텁과 경합하지 않게 한다.
+    // 검증하므로 워커를 격리해 다음 테스트의 FileStorage 스텁과 경합하지 않게 한다.
     @MockitoBean
     DownloadCompressionWorker downloadCompressionWorker;
 
@@ -106,18 +111,9 @@ class VideoMediaOperationsTest {
             Member.register(new Nickname("가현"), Instant.now())).getId();
         roomId = createRoomService.create(uploaderId, "우테코 회식", null).room().getId();
 
-        given(fileStoragePort.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
-        given(fileStoragePort.openUploadStream(any(), anyString()))
-            .willReturn(new AbortableOutputStream() {
-                @Override
-                public void write(int b) {
-                }
 
-                @Override
-                public void abort() {
-                }
-            });
         given(videoFrameExtractor.extractFirstFrame(anyString(), anyInt()))
             .willReturn(ExtractionResult.extracted(new ExtractedFrame(
                 1920, 1080, 12, TAKEN_AT, SEOUL, jpeg())));
@@ -196,7 +192,7 @@ class VideoMediaOperationsTest {
 
     // 워커를 실제로 돌려 READY 까지 보낸다 — 썸네일 키가 붙은 상태가 이 테스트의 출발점이다.
     @Autowired
-    com.sssok.infrastructure.persistence.thumbnail.ThumbnailJobRepository jobs;
+    ThumbnailJobJpaRepository jobs;
 
     private StoredFile readyVideo() {
         StoredFile file = StoredFile.reserve(
@@ -204,11 +200,11 @@ class VideoMediaOperationsTest {
         file.startProcessing();
         StoredFile saved = fileRepository.save(file);
 
-        var job = new com.sssok.infrastructure.persistence.thumbnail.ThumbnailJob(saved.getId(), Kind.VIDEO, Instant.now());
+        var job = new ThumbnailJob(saved.getId(), ThumbnailKind.VIDEO, Instant.now());
         job.claim(Instant.now(), Instant.now().plusSeconds(120));
-        jobs.saveAndFlush(job);
-        generateThumbnailService.generate(new com.sssok.application.media.thumbnail.ThumbnailClaim(
-            saved.getId(), Kind.VIDEO, job.getClaimToken(), 1, Instant.now()), Source.INITIAL);
+        jobs.saveAndFlush(new ThumbnailJobJpaEntity(job));
+        generateThumbnailService.generate(new ThumbnailClaim(
+            saved.getId(), ThumbnailKind.VIDEO, job.getClaimToken(), 1, Instant.now()), Source.INITIAL);
 
         StoredFile after = fileRepository.findById(saved.getId()).orElseThrow();
         assertThat(after.getStatus()).isEqualTo(UploadStatus.READY);

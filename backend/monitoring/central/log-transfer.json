@@ -9,7 +9,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "60s",
   "time": {
     "from": "now-1h",
@@ -573,5 +573,63 @@
         ]
       }
     ]
-  }
+  },
+  "links": [
+    {
+      "title": "백엔드 · dev",
+      "type": "link",
+      "url": "/d/sssok-central-backend?var-environment=dev",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "백엔드 · prod",
+      "type": "link",
+      "url": "/d/sssok-central-backend?var-environment=prod",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "호스트",
+      "type": "link",
+      "url": "/d/sssok-host-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "미디어 전송 · dev",
+      "type": "link",
+      "url": "/d/sssok-central-media?var-environment=dev",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "미디어 전송 · prod",
+      "type": "link",
+      "url": "/d/sssok-central-media?var-environment=prod",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그 · dev",
+      "type": "link",
+      "url": "/d/sssok-central-logs?var-environment=dev",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그 · prod",
+      "type": "link",
+      "url": "/d/sssok-central-logs?var-environment=prod",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    }
+  ]
 }

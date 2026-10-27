@@ -3,7 +3,7 @@ import { HiArrowLeft } from "react-icons/hi2";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { roomQueryKey, useRoomQuery } from "@/entities/room";
-import { readValidRoomSession } from "@/entities/session";
+import { useRoomSession } from "@/entities/member-session";
 import { UpdateRoomForm } from "@/features/update-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
@@ -20,13 +20,16 @@ export const RoomSettingsPage = () => {
   const { code = "" } = useParams<{ code: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const session = readValidRoomSession(code);
+  const { session, isPending: isSessionPending, isError: isSessionError } = useRoomSession(code);
   const roomQuery = useRoomQuery({
     code,
     token: session?.accessToken,
     userId: session?.userId,
     enabled: session !== null,
   });
+
+  if (isSessionPending) return <PageSpinner label="로그인 정보를 불러오는 중이에요." />;
+  if (isSessionError) return <main>로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</main>;
 
   if (session === null) {
     return <Navigate to={ROUTES.roomEntry(code)} replace />;

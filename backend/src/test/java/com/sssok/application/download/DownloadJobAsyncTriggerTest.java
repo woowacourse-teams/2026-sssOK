@@ -1,31 +1,33 @@
 package com.sssok.application.download;
 
+import com.sssok.application.port.out.DownloadJobRepository;
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.domain.download.DownloadJob;
+import com.sssok.domain.download.DownloadJobStatus;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import java.io.ByteArrayInputStream;
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.application.port.out.AbortableOutputStream;
-import com.sssok.application.port.out.DownloadJobRepository;
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.application.port.out.FileStoragePort;
-import com.sssok.application.port.out.MemberRepository;
-import com.sssok.domain.download.DownloadJob;
-import com.sssok.domain.download.DownloadJobStatus;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.member.Member;
-import com.sssok.domain.member.Nickname;
-import java.io.ByteArrayInputStream;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // 일부러 @Transactional을 안 쓴다 — CreateDownloadJobService가 QUEUED로 잡을 만드는 트랜잭션이
 // 실제로 커밋돼야 @TransactionalEventListener(AFTER_COMMIT)가 발화하고, 그래야 별도 스레드(media-worker)에서
@@ -33,6 +35,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 // 테스트가 끝나면 데이터를 직접 지운다(자동 롤백이 없으므로).
 @H2IntegrationTest
 class DownloadJobAsyncTriggerTest {
+    @BeforeEach
+    void prepareRooms() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L);
+    }
+
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
 
     private static final Long ROOM_ID = 1L;
 
@@ -54,7 +64,7 @@ class DownloadJobAsyncTriggerTest {
     JdbcTemplate jdbcTemplate;
 
     @MockitoBean
-    FileStoragePort fileStoragePort;
+    FileStorage fileStorage;
 
     @AfterEach
     void cleanUp() {
@@ -72,7 +82,7 @@ class DownloadJobAsyncTriggerTest {
             new FileSize(content.length), Instant.now(), SIZE_POLICY);
         file.startProcessing();
         file.markReady();
-        given(fileStoragePort.openDownloadStream(eq(file.getStorageKey())))
+        given(fileStorage.openDownloadStream(eq(file.getStorageKey())))
             .willReturn(new ByteArrayInputStream(content));
         return fileRepository.save(file).getId();
     }
@@ -82,7 +92,7 @@ class DownloadJobAsyncTriggerTest {
         requesterId = memberRepository.save(
             Member.register(new Nickname("다운로더"), Instant.now())).getId();
         Long media = media(ROOM_ID, requesterId, "hello".getBytes());
-        given(fileStoragePort.openUploadStream(any(), eq("application/zip")))
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
             .willReturn(discardingStream());
 
         CreateDownloadJobResult result =

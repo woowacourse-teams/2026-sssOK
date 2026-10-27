@@ -2,10 +2,6 @@ package com.sssok.infrastructure.persistence.file;
 
 import com.sssok.application.media.MediaUploaderFilter;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.GeoPoint;
-import com.sssok.domain.file.MediaType;
-import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import java.time.Instant;
@@ -24,24 +20,24 @@ public class FileRepositoryAdapter implements FileRepository {
 
     @Override
     public StoredFile save(StoredFile storedFile) {
-        return toDomain(jpaRepository.save(toEntity(storedFile)));
+        return jpaRepository.save(StoredFileJpaEntity.from(storedFile)).toDomain();
     }
 
     @Override
     public List<StoredFile> saveAll(List<StoredFile> storedFiles) {
-        return jpaRepository.saveAll(storedFiles.stream().map(this::toEntity).toList()).stream()
-            .map(this::toDomain)
+        return jpaRepository.saveAll(storedFiles.stream().map(StoredFileJpaEntity::from).toList()).stream()
+            .map(StoredFileJpaEntity::toDomain)
             .toList();
     }
 
     @Override
     public Optional<StoredFile> findById(Long id) {
-        return jpaRepository.findById(id).map(this::toDomain);
+        return jpaRepository.findById(id).map(StoredFileJpaEntity::toDomain);
     }
 
     @Override
     public Optional<StoredFile> findByIdForUpdate(Long id) {
-        return jpaRepository.findWithLockById(id).map(this::toDomain);
+        return jpaRepository.findWithLockById(id).map(StoredFileJpaEntity::toDomain);
     }
 
     @Override
@@ -49,7 +45,7 @@ public class FileRepositoryAdapter implements FileRepository {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return jpaRepository.findAllById(ids).stream().map(this::toDomain).toList();
+        return jpaRepository.findAllById(ids).stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -61,7 +57,7 @@ public class FileRepositoryAdapter implements FileRepository {
 
     @Override
     public List<StoredFile> findAllByRoomId(Long roomId) {
-        return jpaRepository.findAllByRoomId(roomId).stream().map(this::toDomain).toList();
+        return jpaRepository.findAllByRoomId(roomId).stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -69,7 +65,7 @@ public class FileRepositoryAdapter implements FileRepository {
         if (ids.isEmpty()) {
             return List.of();
         }
-        return jpaRepository.findAllByRoomIdAndIdIn(roomId, ids).stream().map(this::toDomain).toList();
+        return jpaRepository.findAllByRoomIdAndIdIn(roomId, ids).stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -77,7 +73,7 @@ public class FileRepositoryAdapter implements FileRepository {
         Long roomId, Collection<UploadStatus> statuses) {
         return jpaRepository
             .findAllByRoomIdAndStatusInOrderByCreatedAtDescIdDesc(roomId, names(statuses)).stream()
-            .map(this::toDomain)
+            .map(StoredFileJpaEntity::toDomain)
             .toList();
     }
 
@@ -87,7 +83,7 @@ public class FileRepositoryAdapter implements FileRepository {
         MediaUploaderFilter uploader) {
         return jpaRepository.findAllByRoomIdAndUploaderOrderByNewest(
                 roomId, names(statuses), requesterId, uploader.name()).stream()
-            .map(this::toDomain)
+            .map(StoredFileJpaEntity::toDomain)
             .toList();
     }
 
@@ -100,7 +96,7 @@ public class FileRepositoryAdapter implements FileRepository {
                 roomId, names(statuses), Limit.of(limit))
             : jpaRepository.findNextPageByRoomIdAndStatusInOrderByNewest(
                 roomId, names(statuses), lastCreatedAt, lastMediaId, limit);
-        return entities.stream().map(this::toDomain).toList();
+        return entities.stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -118,7 +114,7 @@ public class FileRepositoryAdapter implements FileRepository {
             : jpaRepository.findNextPageByRoomIdAndUploaderOrderByNewest(
                 roomId, names(statuses), requesterId, uploader.name(),
                 lastCreatedAt, lastMediaId, limit);
-        return entities.stream().map(this::toDomain).toList();
+        return entities.stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -139,7 +135,7 @@ public class FileRepositoryAdapter implements FileRepository {
         return jpaRepository
             .findAllByRoomIdAndIdInAndStatusInOrderByCreatedAtDescIdDesc(roomId, ids, names(statuses))
             .stream()
-            .map(this::toDomain)
+            .map(StoredFileJpaEntity::toDomain)
             .toList();
     }
 
@@ -149,7 +145,7 @@ public class FileRepositoryAdapter implements FileRepository {
         MediaUploaderFilter uploader) {
         return jpaRepository.findAllByRoomIdAndFolderIdAndUploaderOrderByNewest(
                 roomId, folderId, names(statuses), requesterId, uploader.name()).stream()
-            .map(this::toDomain)
+            .map(StoredFileJpaEntity::toDomain)
             .toList();
     }
 
@@ -162,7 +158,7 @@ public class FileRepositoryAdapter implements FileRepository {
                 roomId, folderId, names(statuses), limit)
             : jpaRepository.findNextPageByRoomIdAndFolderIdAndStatusInOrderByNewest(
                 roomId, folderId, names(statuses), lastCreatedAt, lastMediaId, limit);
-        return entities.stream().map(this::toDomain).toList();
+        return entities.stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -182,7 +178,7 @@ public class FileRepositoryAdapter implements FileRepository {
             : jpaRepository.findNextPageByRoomIdAndFolderIdAndUploaderOrderByNewest(
                 roomId, folderId, names(statuses), requesterId, uploader.name(),
                 lastCreatedAt, lastMediaId, limit);
-        return entities.stream().map(this::toDomain).toList();
+        return entities.stream().map(StoredFileJpaEntity::toDomain).toList();
     }
 
     @Override
@@ -205,52 +201,4 @@ public class FileRepositoryAdapter implements FileRepository {
         return statuses.stream().map(UploadStatus::name).toList();
     }
 
-    private StoredFileJpaEntity toEntity(StoredFile file) {
-        return new StoredFileJpaEntity(
-            file.getId(),
-            file.getRoomId(),
-            file.getUploaderId(),
-            file.getOriginalFileName(),
-            file.getMediaType().name(),
-            file.getFileSize().bytes(),
-            file.getStorageKey().value(),
-            file.getFolderId(),
-            file.getStatus().name(),
-            file.getCreatedAt(),
-            file.getReservedAt(),
-            file.getRetryCount(),
-            file.getThumbnailKey() == null ? null : file.getThumbnailKey().value(),
-            file.getPreviewKey() == null ? null : file.getPreviewKey().value(),
-            file.getWidth(),
-            file.getHeight(),
-            file.getDurationSeconds(),
-            file.getTakenAt(),
-            file.getLocation() == null ? null : file.getLocation().latitude(),
-            file.getLocation() == null ? null : file.getLocation().longitude()
-        );
-    }
-
-    private StoredFile toDomain(StoredFileJpaEntity entity) {
-        return StoredFile.reconstruct(
-            entity.getId(),
-            entity.getRoomId(),
-            entity.getUploaderId(),
-            entity.getOriginalFileName(),
-            MediaType.valueOf(entity.getMediaType()),
-            new FileSize(entity.getFileSizeBytes()),
-            new StorageKey(entity.getStorageKey()),
-            entity.getFolderId(),
-            UploadStatus.valueOf(entity.getStatus()),
-            entity.getCreatedAt(),
-            entity.getReservedAt(),
-            entity.getRetryCount(),
-            entity.getThumbnailKey() == null ? null : new StorageKey(entity.getThumbnailKey()),
-            entity.getPreviewKey() == null ? null : new StorageKey(entity.getPreviewKey()),
-            entity.getWidth(),
-            entity.getHeight(),
-            entity.getDurationSeconds(),
-            entity.getTakenAt(),
-            GeoPoint.ofNullable(entity.getLatitude(), entity.getLongitude())
-        );
-    }
 }

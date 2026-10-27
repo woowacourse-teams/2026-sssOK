@@ -3,7 +3,7 @@ package com.sssok.application.room;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.sssok.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomName;

@@ -5,18 +5,32 @@ import { AdminFeedbacksPage } from "@/pages/admin-feedbacks";
 import { AdminLoginPage } from "@/pages/admin-login";
 import { CreateRoomPage } from "@/pages/create-room";
 import { GalleryPage } from "@/pages/gallery";
+import { LoginCallbackPage } from "@/pages/login-callback";
+import { LoginPage } from "@/pages/login";
 import { HomePage } from "@/pages/home";
 import { MediaDetailPage } from "@/pages/media-detail";
 import { RoomClosedPage } from "@/pages/room-closed";
 import { RoomEntryPage } from "@/pages/room-entry";
+import { RoomListPage } from "@/pages/room-list";
 import { BrowserEntryPage } from "@/pages/browser-entry";
 import { RoomSettingsPage } from "@/pages/room-settings";
 import { ROUTE_PATTERNS, ROUTES } from "@/shared/config";
+import { RedirectIfMember } from "./RedirectIfMember";
+import { RequireMember } from "./RequireMember";
 import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 
 export const routes: RouteObject[] = [
+  { path: ROUTE_PATTERNS.loginCallback, element: <LoginCallbackPage /> },
+  {
+    element: <RedirectIfMember />,
+    children: [{ path: ROUTE_PATTERNS.login, element: <LoginPage /> }],
+  },
   { path: ROUTE_PATTERNS.home, element: <HomePage /> },
+  {
+    element: <RequireMember />,
+    children: [{ path: ROUTE_PATTERNS.rooms, element: <RoomListPage /> }],
+  },
   { path: ROUTE_PATTERNS.createRoom, element: <CreateRoomPage /> },
   { path: ROUTE_PATTERNS.closedRoom, element: <RoomClosedPage /> },
   { path: ROUTE_PATTERNS.roomInvite, element: <BrowserEntryPage /> },

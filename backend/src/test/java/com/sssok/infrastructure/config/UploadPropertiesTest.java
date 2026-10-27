@@ -1,5 +1,7 @@
 package com.sssok.infrastructure.config;
 
+import com.sssok.renewal.outgoing.config.UploadProperties;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.sssok.domain.file.MediaType;

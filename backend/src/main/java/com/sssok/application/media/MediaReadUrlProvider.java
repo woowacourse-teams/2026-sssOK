@@ -3,7 +3,7 @@ package com.sssok.application.media;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.Expiry;
-import com.sssok.application.port.out.FileStoragePort;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.infrastructure.config.MediaUrlCacheProperties;
@@ -21,7 +21,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 /** 열람 URL만 재사용한다. 권한 및 미디어 상태 검사는 호출 전에 수행한다. */
 @Component
 public class MediaReadUrlProvider {
-    private final FileStoragePort storage;
+    private final FileStorage storage;
     private final MediaUrlCacheProperties properties;
     private final Clock clock;
     private final Cache<Key, MediaUrlSource.ResolvedUrl> cache;
@@ -31,12 +31,12 @@ public class MediaReadUrlProvider {
     private final Counter failures;
 
     @Autowired
-    public MediaReadUrlProvider(FileStoragePort storage, MediaUrlCacheProperties properties,
+    public MediaReadUrlProvider(FileStorage storage, MediaUrlCacheProperties properties,
                                MeterRegistry registry) {
         this(storage, properties, registry, Clock.systemUTC());
     }
 
-    MediaReadUrlProvider(FileStoragePort storage, MediaUrlCacheProperties properties,
+    MediaReadUrlProvider(FileStorage storage, MediaUrlCacheProperties properties,
                          MeterRegistry registry, Clock clock) {
         this.storage = storage;
         this.properties = properties;

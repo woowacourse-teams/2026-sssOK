@@ -1,5 +1,10 @@
 package com.sssok.infrastructure.persistence.folder;
 
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import com.sssok.infrastructure.persistence.file.StoredFileJpaEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -30,6 +35,18 @@ public class FolderMediaJpaEntity extends BaseEntity {
 
     @Column(name = "media_id", nullable = false)
     private Long mediaId;
+
+    // 쓰기는 기존 ID 필드가 담당한다. 조회용 단방향 관계에 cascade는 사용하지 않는다.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "folder_id", nullable = false, insertable = false, updatable = false,
+        foreignKey = @ForeignKey(name = "fk_folder_media_folder"))
+    private FolderJpaEntity folder;
+
+    // 쓰기는 기존 ID 필드가 담당한다. 조회용 단방향 관계에 cascade는 사용하지 않는다.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "media_id", nullable = false, insertable = false, updatable = false,
+        foreignKey = @ForeignKey(name = "fk_folder_media_media"))
+    private StoredFileJpaEntity media;
 
     public FolderMediaJpaEntity(Long id, Long folderId, Long mediaId) {
         this.id = id;

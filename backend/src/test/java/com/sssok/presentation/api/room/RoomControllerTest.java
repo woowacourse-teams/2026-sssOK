@@ -14,22 +14,24 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomResult;
 import com.sssok.application.room.DeleteRoomService;
 import com.sssok.application.room.GetRoomService;
 import com.sssok.application.room.JoinRoomResult;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.MyRoomSummary;
 import com.sssok.application.room.RoomDetail;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.application.room.UpdateRoomCommand;
 import com.sssok.application.room.UpdateRoomService;
 import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomExpiredException;
+import com.sssok.application.room.exception.RoomHostCannotLeaveException;
+import com.sssok.application.room.exception.RoomModifiedException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
@@ -38,20 +40,26 @@ import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.exception.InvalidUploadPolicyException;
 import com.sssok.domain.room.exception.RoomHostRequiredException;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import java.time.Instant;
 import java.util.List;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+
 
 // Controller 슬라이스 테스트
-@WebMvcTest(RoomController.class)
+@WebMvcTest({RoomController.class, RoomMembershipController.class})
 class RoomControllerTest {
 
     private static final String CODE = "A3F9K2M7";
@@ -77,7 +85,7 @@ class RoomControllerTest {
     DeleteRoomService deleteRoomService;
 
     @MockitoBean
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     // AuthMemberArgumentResolver가 의존하는 포트
     @MockitoBean
@@ -116,7 +124,7 @@ class RoomControllerTest {
 
     @Test
     void 방을_생성하면_201과_roomId를_포함한_방_정보를_반환한다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull()))
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), isNull(), isNull()))
             .willReturn(roomDetail(UploadPolicy.ANYONE, false));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -132,7 +140,7 @@ class RoomControllerTest {
 
     @Test
     void 방_생성_시_uploadPolicy를_보내면_그대로_전달된다() throws Exception {
-        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host")))
+        given(createRoomService.create(eq(MEMBER_ID), anyString(), eq("host"), isNull()))
             .willReturn(roomDetail(UploadPolicy.HOST_ONLY, true));
 
         mockMvc.perform(post("/api/v1/rooms")
@@ -196,7 +204,7 @@ class RoomControllerTest {
     @Test
     void 토큰을_보냈는데_잘못됐으면_조회도_401이다() throws Exception {
         given(tokenProvider.parse("bad-token"))
-            .willThrow(new com.sssok.application.auth.exception.UnauthorizedException("다시 접속해주세요"));
+            .willThrow(new UnauthorizedException("다시 접속해주세요"));
 
         mockMvc.perform(get("/api/v1/rooms/{code}", CODE)
                 .header("Authorization", "Bearer bad-token"))
@@ -349,7 +357,7 @@ class RoomControllerTest {
 
     @Test
     void 처음_입장하면_201과_멤버_정보를_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         performJoin("{}")
@@ -363,8 +371,8 @@ class RoomControllerTest {
     }
 
     @Test
-    void 표시_이름은_요청_바디로_받지_않는다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+    void 닉네임_생략시_기본_이름으로_입장한다() throws Exception {
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
@@ -372,12 +380,12 @@ class RoomControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.displayName").value("민수"));
 
-        then(joinRoomService).should().join(eq(ROOM_ID), eq(MEMBER_ID));
+        then(roomMembershipService).should().join(eq(ROOM_ID), eq(MEMBER_ID), isNull());
     }
 
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_200을_반환한다() throws Exception {
-        given(joinRoomService.join(eq(ROOM_ID), eq(MEMBER_ID))).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, false));
 
         performJoin("{}")
@@ -385,11 +393,9 @@ class RoomControllerTest {
             .andExpect(jsonPath("$.data.displayName").value("민수"));
     }
 
-
-
     @Test
     void 없는_방에_입장하면_404를_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomNotFoundException(ROOM_ID));
+        given(roomMembershipService.join(anyLong(), anyLong(), isNull())).willThrow(new RoomNotFoundException(ROOM_ID));
 
         performJoin("{}")
             .andExpect(status().isNotFound())
@@ -398,11 +404,21 @@ class RoomControllerTest {
 
     @Test
     void 만료된_방에_입장하면_410을_반환한다() throws Exception {
-        given(joinRoomService.join(anyLong(), anyLong())).willThrow(new RoomExpiredException());
+        given(roomMembershipService.join(anyLong(), anyLong(), isNull())).willThrow(new RoomExpiredException());
 
         performJoin("{}")
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    @Test
+    void 중복_입장_후_참여기록이_사라지면_409를_반환한다() throws Exception {
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull()))
+            .willThrow(new RoomModifiedException());
+
+        performJoin("{}")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ROOM_MODIFIED"));
     }
 
     @Test
@@ -426,5 +442,41 @@ class RoomControllerTest {
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
+    }
+
+    @Test
+    void 내_방_목록은_역할과_집계와_null_썸네일을_반환한다() throws Exception {
+        given(roomMembershipService.getMyRooms(MEMBER_ID)).willReturn(List.of(
+            new MyRoomSummary(ROOM_ID, CODE, "방", true, 2, 3, null)));
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", BEARER))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.rooms[0].roomId").value(ROOM_ID))
+            .andExpect(jsonPath("$.data.rooms[0].isHost").value(true))
+            .andExpect(jsonPath("$.data.rooms[0].mediaCount").value(2))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(3))
+            .andExpect(jsonPath("$.data.rooms[0].thumbnailUrl").value(Matchers.nullValue()));
+    }
+
+    @Test
+    void 내_방_목록과_나가기는_인증이_필요하다() throws Exception {
+        mockMvc.perform(get("/api/v1/members/me/rooms")).andExpect(status().isUnauthorized());
+        mockMvc.perform(delete("/api/v1/rooms/10/members/me")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void 나가기는_인증된_본인을_전달하고_본문_없이_204를_반환한다() throws Exception {
+        mockMvc.perform(delete("/api/v1/rooms/10/members/me").header("Authorization", BEARER))
+            .andExpect(status().isNoContent())
+            .andExpect(MockMvcResultMatchers.content().string(""));
+        then(roomMembershipService).should().leave(ROOM_ID, MEMBER_ID);
+    }
+
+    @Test
+    void 방장_나가기는_409다() throws Exception {
+        Mockito.doThrow(new RoomHostCannotLeaveException())
+            .when(roomMembershipService).leave(ROOM_ID, MEMBER_ID);
+        mockMvc.perform(delete("/api/v1/rooms/10/members/me").header("Authorization", BEARER))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ROOM_HOST_CANNOT_LEAVE"));
     }
 }
