@@ -11,7 +11,24 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
+import {
+  createDownloadBridge,
+  DOWNLOAD_BRIDGE_VERSION,
+  type BridgeEvent,
+} from "../bridge/downloadBridge";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
+
+/** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장을 앱에 맡긴다. */
+const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION} }; true;`;
+
+/** 브릿지 메시지는 쏙 웹에서 온 것만 받는다. 로그인 페이지(`AUTH_ORIGINS`)도 저장을 시킬 수 없다. */
+const isWebOrigin = (url: string) => {
+  try {
+    return new URL(url).origin === WEB_ORIGIN;
+  } catch {
+    return false;
+  }
+};
 
 const AUTH_ORIGINS = new Set([
   "https://kauth.kakao.com",
@@ -32,6 +49,7 @@ const isAllowedWebUrl = (url: string) => {
 
 export function SssokWebView() {
   const webView = useRef<WebView<object>>(null);
+  const downloadBridge = useRef<ReturnType<typeof createDownloadBridge>>(null);
   const canGoBack = useRef(false);
   const [failed, setFailed] = useState(false);
   const lastInternalUrl = useRef(WEB_URL);
@@ -48,8 +66,22 @@ export function SssokWebView() {
   const showError = (url?: string) => {
     if (url) rememberInternalUrl(url);
     canGoBack.current = false;
+    // 답을 받을 페이지가 사라졌다. 받던 것을 이어 가봐야 결과를 알릴 곳이 없다.
+    downloadBridge.current?.cancelAll();
     setFailed(true);
   };
+
+  useEffect(() => {
+    const bridge = createDownloadBridge((event: BridgeEvent) => {
+      webView.current?.injectJavaScript(
+        `window.dispatchEvent(new CustomEvent("sssok:native", { detail: ${JSON.stringify(event)} })); true;`,
+      );
+    });
+
+    downloadBridge.current = bridge;
+
+    return () => bridge.cancelAll();
+  }, []);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -109,6 +141,12 @@ export function SssokWebView() {
               return;
             }
             openExternal(nativeEvent.targetUrl);
+          }}
+          injectedJavaScriptBeforeContentLoaded={BRIDGE_FLAG_SCRIPT}
+          onMessage={({ nativeEvent }) => {
+            // 서비스 페이지가 보낸 것만 받는다. 다른 주소의 페이지가 저장을 시키지 못하게 한다.
+            if (!isWebOrigin(nativeEvent.url)) return;
+            downloadBridge.current?.handle(nativeEvent.data);
           }}
           onNavigationStateChange={(state) => {
             rememberInternalUrl(state.url);

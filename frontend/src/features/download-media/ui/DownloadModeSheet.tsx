@@ -4,7 +4,7 @@ import { LuDownload, LuFileArchive, LuImageDown } from "react-icons/lu";
 
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
 import { SHARE_BATCH_SIZE } from "../config";
-import { prefersShareSheet } from "../lib/prefersShareSheet";
+import { isNativeApp, savesToPhotoLibrary } from "../lib/nativeApp";
 import { zipArchiveName } from "../lib/zipArchiveName";
 import { shareBatchCountOf } from "../model/shareBatches";
 import type { DownloadMode } from "../model/types";
@@ -52,16 +52,18 @@ export const DownloadModeSheet = ({
   // zip 이 기본이다. 여러 장을 받을 때 실제로 끝까지 동작하는 쪽이라서다.
   const [mode, setMode] = useState<DownloadMode>("zip");
   const name = useId();
-  const shareBatchCount = shareBatchCountOf(count);
+  const inNativeApp = isNativeApp();
+  // 앱은 바이트를 웹뷰로 넘기지 않아 나눠 저장하지 않는다 (`nativeApp` 참고).
+  const shareBatchCount = inNativeApp ? 1 : shareBatchCountOf(count);
 
   /**
    * 첫 항목은 **기기에 따라 다른 것이 앉는다.**
    *
    * 둘 다 "한 장씩" 받는다는 점은 같고, 그 낱장이 어디에 놓이느냐만 다르다 —
    * 데스크톱은 다운로드 폴더, 폰은 사진첩이다. 폰에서 낱장 저장은 첫 장만 받아지므로
-   * 아예 항목을 내주지 않는다 (`prefersShareSheet` 참고).
+   * 아예 항목을 내주지 않는다 (`prefersShareSheet` 참고). 앱에서는 기기와 상관없이 사진첩이다.
    */
-  const oneByOne: ModeOption = prefersShareSheet()
+  const oneByOne: ModeOption = savesToPhotoLibrary()
     ? {
         value: "share",
         icon: LuImageDown,
