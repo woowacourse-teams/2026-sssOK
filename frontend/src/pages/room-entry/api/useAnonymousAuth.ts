@@ -22,7 +22,7 @@ export const useAnonymousAuth = (roomCode: string, onSuccess: () => void) =>
       saveRoomSession(roomCode, session);
 
       try {
-        return await joinRoom(roomId, session.accessToken);
+        return await joinRoom(roomId, session.accessToken, { nickname });
       } catch (error) {
         removeRoomSession(roomCode);
         throw error;

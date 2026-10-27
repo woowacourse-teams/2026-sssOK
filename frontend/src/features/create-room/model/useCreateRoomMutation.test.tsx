@@ -57,6 +57,27 @@ describe("useCreateRoomMutation", () => {
     });
   });
 
+  it("방 생성 요청에 토큰과 입력한 방 닉네임을 함께 전달한다", async () => {
+    let received = false;
+    server.use(
+      http.post(`${API_BASE_URL}/rooms`, async ({ request }) => {
+        received = true;
+        expect(request.headers.get("Authorization")).toBe("Bearer mock-token-10234");
+        expect(await request.json()).toEqual({
+          name: formValues.name,
+          uploadPolicy: formValues.uploadPolicy,
+          nickname: formValues.nickname,
+        });
+        return HttpResponse.json({ data: { code: "TESTROOM" } }, { status: 201 });
+      }),
+    );
+    const { result } = renderHook(() => useCreateRoomMutation(), { wrapper: createWrapper() });
+    await act(async () => {
+      await result.current.mutateAsync(formValues);
+    });
+    expect(received).toBe(true);
+  });
+
   it("익명 인증이 실패하면 ApiError를 반환한다", async () => {
     server.use(
       http.post(`${API_BASE_URL}/auth/anonymous`, () => {
