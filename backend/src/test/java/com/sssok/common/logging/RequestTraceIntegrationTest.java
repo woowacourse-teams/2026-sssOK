@@ -1,16 +1,15 @@
 package com.sssok.common.logging;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.sssok.common.exception.ErrorCode;
+import com.sssok.common.exception.InvalidRequestParameterException;
 import com.sssok.presentation.api.common.GlobalExceptionHandler;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +21,9 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+
 
 /**
  * 필터 → 컨트롤러 → 예외 처리기로 이어지는 동안 요청 ID 와 응답 정보가 실제로 로그에 실리는지 본다.
@@ -72,7 +74,7 @@ class RequestTraceIntegrationTest {
         String issued = result.getResponse().getHeader(RequestLoggingFilter.REQUEST_ID_HEADER);
         List<String> requestIds = appender.list.stream()
             .map(event -> event.getMDCPropertyMap().get(LogFields.REQUEST_ID))
-            .filter(java.util.Objects::nonNull)
+            .filter(Objects::nonNull)
             .distinct()
             .toList();
 
@@ -114,7 +116,7 @@ class RequestTraceIntegrationTest {
 
         @GetMapping("/bad-request")
         String badRequest() {
-            throw new com.sssok.common.exception.InvalidRequestParameterException("roomId");
+            throw new InvalidRequestParameterException("roomId");
         }
     }
 }

@@ -1,9 +1,9 @@
 package com.sssok.presentation.api.common;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.TokenProvider;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;

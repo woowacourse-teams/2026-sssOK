@@ -3,7 +3,7 @@ package com.sssok.presentation.api.media;
 import com.sssok.application.media.DeleteMediaResult;
 import com.sssok.application.media.DeleteMediaService;
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

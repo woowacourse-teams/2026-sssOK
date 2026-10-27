@@ -1,16 +1,11 @@
 package com.sssok.presentation.api.mediafolder;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.util.concurrent.atomic.AtomicLong;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -18,6 +13,12 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 // API 인수 테스트 — 방/폴더/미디어를 준비하고 실제 PostgreSQL 위에서 담기·꺼내기를 관통 확인한다.
 @PostgresApiTest
@@ -172,7 +173,7 @@ class MediaFolderApiTest extends PostgresContainerSupport {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.updatedCount").value(2))
             .andExpect(jsonPath("$.data.movedToRootMediaIds[0]").value(mediaId))
-            .andExpect(jsonPath("$.data.folders", org.hamcrest.Matchers.hasSize(2)));
+            .andExpect(jsonPath("$.data.folders", Matchers.hasSize(2)));
     }
 
     @Test
@@ -290,7 +291,7 @@ class MediaFolderApiTest extends PostgresContainerSupport {
     }
 
     private String 익명_인증(String nickname) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"" + nickname + "\"}"))
             .andReturn();

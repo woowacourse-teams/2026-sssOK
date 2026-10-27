@@ -1,5 +1,33 @@
 package com.sssok.presentation.api.media;
 
+import com.sssok.application.media.DeleteMediaResult;
+import com.sssok.application.media.DeleteMediaService;
+import com.sssok.application.media.exception.MediaForbiddenException;
+import com.sssok.application.media.exception.MediaNotFoundException;
+import com.sssok.application.media.exception.TooManyMediaException;
+import com.sssok.application.port.out.AdminTokenProvider;
+import com.sssok.application.port.out.RoomMemberRepository;
+import com.sssok.application.port.out.RoomRepository;
+import com.sssok.domain.room.Room;
+import com.sssok.domain.room.RoomCode;
+import com.sssok.domain.room.RoomMember;
+import com.sssok.domain.room.RoomName;
+import com.sssok.domain.room.UploadPolicy;
+import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.renewal.outgoing.security.TokenProvider;
+import java.security.SecureRandom;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
@@ -8,33 +36,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.media.DeleteMediaResult;
-import com.sssok.application.media.DeleteMediaService;
-import com.sssok.application.media.exception.MediaForbiddenException;
-import com.sssok.application.media.exception.MediaNotFoundException;
-import com.sssok.application.media.exception.TooManyMediaException;
-import com.sssok.application.port.out.RoomMemberRepository;
-import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
-import com.sssok.domain.room.Room;
-import com.sssok.domain.room.RoomCode;
-import com.sssok.domain.room.RoomMember;
-import com.sssok.domain.room.RoomName;
-import com.sssok.domain.room.UploadPolicy;
-import com.sssok.domain.room.roomstatus.RoomStatus;
-import java.security.SecureRandom;
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
 
 @WebMvcTest(MediaDeleteController.class)
 class MediaDeleteControllerTest {
@@ -172,8 +173,8 @@ class MediaDeleteControllerTest {
     @Test
     void 최대_개수를_넘으면_400_TOO_MANY_FILES() throws Exception {
         willThrow(new TooManyMediaException(500))
-            .given(deleteMediaService).deleteAll(org.mockito.ArgumentMatchers.eq(ROOM_ID),
-                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(MEMBER_ID));
+            .given(deleteMediaService).deleteAll(ArgumentMatchers.eq(ROOM_ID),
+                ArgumentMatchers.any(), ArgumentMatchers.eq(MEMBER_ID));
 
         mockMvc.perform(delete("/api/v1/rooms/{roomId}/media", ROOM_ID)
                 .header("Authorization", BEARER)

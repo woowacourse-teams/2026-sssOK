@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomService;
 import com.sssok.application.room.GetRoomService;
@@ -83,7 +83,8 @@ class WebConfigCorsTest {
                 .header("Access-Control-Request-Method", "GET"))
             .andExpect(status().isOk())
             .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN))
-            .andExpect(header().exists("Access-Control-Allow-Methods"));
+            .andExpect(header().exists("Access-Control-Allow-Methods"))
+            .andExpect(header().string("Access-Control-Allow-Credentials", "true"));
     }
 
     @Test

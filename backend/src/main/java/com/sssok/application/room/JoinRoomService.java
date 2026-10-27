@@ -1,14 +1,15 @@
 package com.sssok.application.room;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
-import com.sssok.application.port.out.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
-import com.sssok.domain.member.Member;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import java.time.Instant;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +30,12 @@ public class JoinRoomService {
 
     @Transactional
     public JoinRoomResult join(Long roomId, Long memberId) {
+        return join(roomId, memberId, null);
+    }
+
+    @Transactional
+    public JoinRoomResult join(Long roomId, Long memberId, String nickname) {
+        Nickname requestedNickname = nickname == null ? null : new Nickname(nickname);
         Instant now = Instant.now();
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
@@ -43,8 +50,10 @@ public class JoinRoomService {
             return JoinRoomResult.rejoined(room, joined.get(), member);
         }
 
+        Nickname roomNickname = requestedNickname == null ? member.getDisplayName() : requestedNickname;
+
         // 실제로 행을 넣은 쪽만 신규 참여다. 재입장은 알림을 다시 보내지 않는다.
-        if (roomMemberRepository.joinIfAbsent(roomId, memberId, now)) {
+        if (roomMemberRepository.joinIfAbsent(roomId, memberId, now, roomNickname)) {
             JoinRoomResult result = JoinRoomResult.newlyJoined(room, requireJoined(roomId, memberId), member);
             eventPublisher.publishEvent(RoomMemberJoinedEvent.from(result));
             return result;

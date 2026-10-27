@@ -3,6 +3,7 @@ package com.sssok.renewal.application.search.exception;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
 import java.time.Instant;
+import java.util.Objects;
 
 public class AiCallException extends SssOkException {
     private final String safeMessage;
@@ -34,7 +35,7 @@ public class AiCallException extends SssOkException {
         this.retryNotBefore = retryNotBefore;
         this.safeMessage = message;
         this.code = code;
-        this.retryDisposition = java.util.Objects.requireNonNull(retryDisposition);
+        this.retryDisposition = Objects.requireNonNull(retryDisposition);
     }
 
     @Override

@@ -1,7 +1,49 @@
 package com.sssok.renewal.application.media.thumbnail;
 
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.GeoPoint;
+import com.sssok.domain.file.ProcessedMedia;
+import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
+import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor;
+import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractedFrame;
+import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractionResult;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.BDDMockito;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNoException;
@@ -15,46 +57,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor;
-import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractedFrame;
-import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractionResult;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.GeoPoint;
-import com.sssok.domain.file.StorageKey;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.List;
-import com.sssok.domain.file.ProcessedMedia;
-import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.image.BufferedImage;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.Iterator;
-import java.util.Optional;
-import javax.imageio.ImageIO;
-import javax.imageio.ImageReader;
-import javax.imageio.stream.ImageInputStream;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
 
 // Repository + Service 통합 테스트 (H2). 스토리지만 목으로 두고 실제로 이미지를 줄여본다.
 // 자동 디스패치은 test 프로파일에서 꺼져 있어, 여기서 직접 불러 결과를 확인한다.
 @H2IntegrationTest
 class GenerateThumbnailServiceTest {
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final Long ROOM_ID = 720L;
@@ -94,7 +104,7 @@ class GenerateThumbnailServiceTest {
 
     @BeforeEach
     void setUp() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 720L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 720L);
 
         countsBefore = new LinkedHashMap<>();
         for (String kind : List.of("image", "video")) {
@@ -456,7 +466,7 @@ class GenerateThumbnailServiceTest {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         given(fileStorage.openDownloadStream(any())).willThrow(new RuntimeException("일시 장애"));
         generate(file.getId(), ThumbnailKind.IMAGE, Source.INITIAL);
-        org.mockito.BDDMockito.willReturn(new ByteArrayInputStream(image(400, 300, "jpg")))
+        BDDMockito.willReturn(new ByteArrayInputStream(image(400, 300, "jpg")))
             .given(fileStorage).openDownloadStream(file.getStorageKey());
         generate(file.getId(), ThumbnailKind.IMAGE, Source.SWEEPER);
         assertRecorded("image", "initial", "retryable");
@@ -475,15 +485,16 @@ class GenerateThumbnailServiceTest {
     }
 
     @Autowired
-    com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository thumbnailJobs;
+    ThumbnailJobJpaRepository thumbnailJobs;
 
     @Test
     void 업로드_전에_파일_경로를_기록하고_실패시_재시도를_예약한다() throws IOException {
         StoredFile file = processing("사진.jpg", "image/jpeg");
         givenOriginal(image(300, 200, "jpg"));
-        org.mockito.Mockito.doAnswer(invocation -> {
+        Mockito.doAnswer(invocation -> {
             StorageKey uploadKey = invocation.getArgument(0);
-            var job = thumbnailJobs.findById(file.getId()).orElseThrow();
+            ThumbnailJobJpaEntity job = thumbnailJobs.findById(file.getId()).orElseThrow();
+
             assertThat(job.getThumbnailKey()).isEqualTo(uploadKey.value());
             assertThat(job.getPreviewKey()).isNotNull();
             throw new RuntimeException("upload failed");
@@ -496,15 +507,15 @@ class GenerateThumbnailServiceTest {
             .isEqualTo("RETRY_WAIT");
     }
 
-    private java.util.UUID lastToken;
+    private UUID lastToken;
 
     private void generate(Long mediaId, ThumbnailKind kind, Source source) {
         // 이 테스트는 이미지 변환을 검증한다. 선점 경쟁/백오프는 PostgreSQL 큐 테스트에서 검증한다.
-        var job = new com.sssok.renewal.domain.media.thumbnail.ThumbnailJob(mediaId, kind, Instant.now());
+        var job = new ThumbnailJob(mediaId, kind, Instant.now());
         job.claim(Instant.now(), Instant.now().plusSeconds(120));
-        thumbnailJobs.saveAndFlush(new com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity(job));
+        thumbnailJobs.saveAndFlush(new ThumbnailJobJpaEntity(job));
         lastToken = job.getClaimToken();
-        generateThumbnailService.generate(new com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim(
+        generateThumbnailService.generate(new ThumbnailClaim(
             mediaId, kind, lastToken, job.getAttempts(), Instant.now()), source);
     }
 

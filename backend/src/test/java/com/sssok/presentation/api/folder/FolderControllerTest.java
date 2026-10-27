@@ -1,14 +1,5 @@
 package com.sssok.presentation.api.folder;
 
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.DeleteFolderResult;
 import com.sssok.application.folder.DeleteFolderService;
@@ -16,10 +7,9 @@ import com.sssok.application.folder.RenameFolderResult;
 import com.sssok.application.folder.RenameFolderService;
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
+import com.sssok.application.port.out.AdminTokenProvider;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
-import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomNotFoundException;
@@ -34,7 +24,10 @@ import com.sssok.domain.room.RoomName;
 import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.domain.room.roomstatus.RoomStatus;
+import com.sssok.renewal.outgoing.security.TokenProvider;
+import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +35,16 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 // Controller 슬라이스 테스트. RoomMembershipInterceptor도 이 슬라이스에 함께 뜨므로
 // 방 존재/만료/입장 여부(404·410·403) 검증도 여기서 함께 다룬다.
@@ -79,16 +82,16 @@ class FolderControllerTest {
     @BeforeEach
     void setUp() {
         given(tokenProvider.parse("valid-token")).willReturn(MEMBER_ID);
-        given(roomRepository.findById(ROOM_ID)).willReturn(java.util.Optional.of(activeRoom()));
+        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.of(activeRoom()));
         given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
-            .willReturn(java.util.Optional.of(RoomMember.reconstruct(1L, ROOM_ID, MEMBER_ID, Instant.now())));
+            .willReturn(Optional.of(RoomMember.reconstruct(1L, ROOM_ID, MEMBER_ID, Instant.now())));
     }
 
     private Room activeRoom() {
         return Room.reconstruct(
             ROOM_ID,
             null,
-            RoomCode.generate(new java.security.SecureRandom()),
+            RoomCode.generate(new SecureRandom()),
             new RoomName("우테코 회식"),
             RoomStatus.initial(),
             UploadPolicy.ANYONE,
@@ -124,7 +127,7 @@ class FolderControllerTest {
 
     @Test
     void 없는_방이면_404와_ROOM_NOT_FOUND를_반환한다() throws Exception {
-        given(roomRepository.findById(ROOM_ID)).willReturn(java.util.Optional.empty());
+        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.empty());
 
         createFolder("{\"name\":\"맛집\"}")
             .andExpect(status().isNotFound())
@@ -134,10 +137,10 @@ class FolderControllerTest {
     @Test
     void 만료된_방이면_410과_ROOM_EXPIRED를_반환한다() throws Exception {
         Room expired = Room.reconstruct(
-            ROOM_ID, null, RoomCode.generate(new java.security.SecureRandom()), new RoomName("만료방"),
+            ROOM_ID, null, RoomCode.generate(new SecureRandom()), new RoomName("만료방"),
             ExpiredRoomStatus.INSTANCE, UploadPolicy.ANYONE, 1L, Instant.now(), null
         );
-        given(roomRepository.findById(ROOM_ID)).willReturn(java.util.Optional.of(expired));
+        given(roomRepository.findById(ROOM_ID)).willReturn(Optional.of(expired));
 
         createFolder("{\"name\":\"맛집\"}")
             .andExpect(status().isGone())
@@ -147,7 +150,7 @@ class FolderControllerTest {
     @Test
     void 입장하지_않았으면_403과_NOT_ROOM_MEMBER를_반환한다() throws Exception {
         given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
-            .willReturn(java.util.Optional.empty());
+            .willReturn(Optional.empty());
 
         createFolder("{\"name\":\"맛집\"}")
             .andExpect(status().isForbidden())
@@ -285,28 +288,28 @@ class FolderControllerTest {
     @Test
     void 삭제도_입장하지_않았으면_403과_NOT_ROOM_MEMBER를_반환한다() throws Exception {
         given(roomMemberRepository.findByRoomIdAndMemberId(ROOM_ID, MEMBER_ID))
-            .willReturn(java.util.Optional.empty());
+            .willReturn(Optional.empty());
 
         deleteFolder(100L)
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
     }
 
-    private org.springframework.test.web.servlet.ResultActions createFolder(String body) throws Exception {
+    private ResultActions createFolder(String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/folders", ROOM_ID)
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
     }
 
-    private org.springframework.test.web.servlet.ResultActions renameFolder(Long folderId, String body) throws Exception {
+    private ResultActions renameFolder(Long folderId, String body) throws Exception {
         return mockMvc.perform(patch("/api/v1/rooms/{roomId}/folders/{folderId}", ROOM_ID, folderId)
             .header("Authorization", BEARER)
             .contentType(MediaType.APPLICATION_JSON)
             .content(body));
     }
 
-    private org.springframework.test.web.servlet.ResultActions deleteFolder(Long folderId) throws Exception {
+    private ResultActions deleteFolder(Long folderId) throws Exception {
         return mockMvc.perform(delete("/api/v1/rooms/{roomId}/folders/{folderId}", ROOM_ID, folderId)
             .header("Authorization", BEARER));
     }

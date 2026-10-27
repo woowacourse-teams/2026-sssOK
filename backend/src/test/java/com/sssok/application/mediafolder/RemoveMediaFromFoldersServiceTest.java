@@ -6,11 +6,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.domain.folder.Folder;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,6 +27,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RecordApplicationEvents
 class RemoveMediaFromFoldersServiceTest {
+
+    @Autowired CreateRoomService createRoomService;
+    @Autowired AnonymousAuthService anonymousAuthService;
+    private Long roomId;
+
+    @BeforeEach
+    void prepareRoom() {
+        Long memberId = anonymousAuthService.authenticate("테스트회원").userId();
+        roomId = createRoomService.create(memberId, "폴더 테스트", null).room().getId();
+    }
 
     private static final long MEDIA_ID = 9001L;
     private static final long MISSING_MEDIA_ID = 9002L;
@@ -57,8 +70,8 @@ class RemoveMediaFromFoldersServiceTest {
             INSERT INTO stored_file
                 (id, room_id, uploader_id, original_file_name, media_type, file_size_bytes,
                  storage_key, status, created_at, updated_at, reserved_at, retry_count)
-            VALUES (?, 1, ?, 'test.jpg', 'JPEG', 1024, ?, 'READY', now(), now(), now(), 0)
-            """, id, uploaderId, "test-key-" + id);
+            VALUES (?, ?, ?, 'test.jpg', 'JPEG', 1024, ?, 'READY', now(), now(), now(), 0)
+            """, id, roomId, uploaderId, "test-key-" + id);
     }
 
     private void linkedToFolder(long folderId, long mediaId) {
@@ -67,15 +80,15 @@ class RemoveMediaFromFoldersServiceTest {
 
     @Test
     void 지정한_폴더와의_관계만_끊는다() {
-        Folder folderA = createFolderService.create(1L, "맛집");
-        Folder folderB = createFolderService.create(1L, "카페");
+        Folder folderA = createFolderService.create(roomId, "맛집");
+        Folder folderB = createFolderService.create(roomId, "카페");
         existingMedia(MEDIA_ID);
         linkedToFolder(folderA.getId(), MEDIA_ID);
         linkedToFolder(folderB.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result =
             removeMediaFromFoldersService.remove(
-                1L, List.of(MEDIA_ID), List.of(folderA.getId()));
+                roomId, List.of(MEDIA_ID), List.of(folderA.getId()));
 
         assertThat(result.updatedCount()).isEqualTo(1);
         assertThat(result.movedToRootMediaIds()).isEmpty(); // 여전히 folderB에 속해 있으므로 루트 아님
@@ -84,27 +97,27 @@ class RemoveMediaFromFoldersServiceTest {
 
     @Test
     void 마지막_폴더에서_빠지면_movedToRootMediaIds에_포함된다() {
-        Folder folder = createFolderService.create(1L, "맛집");
+        Folder folder = createFolderService.create(roomId, "맛집");
         existingMedia(MEDIA_ID);
         linkedToFolder(folder.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result =
             removeMediaFromFoldersService.remove(
-                1L, List.of(MEDIA_ID), List.of(folder.getId()));
+                roomId, List.of(MEDIA_ID), List.of(folder.getId()));
 
         assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
     }
 
     @Test
     void folderIds를_생략하면_속한_모든_폴더에서_빠진다() {
-        Folder folderA = createFolderService.create(1L, "맛집");
-        Folder folderB = createFolderService.create(1L, "카페");
+        Folder folderA = createFolderService.create(roomId, "맛집");
+        Folder folderB = createFolderService.create(roomId, "카페");
         existingMedia(MEDIA_ID);
         linkedToFolder(folderA.getId(), MEDIA_ID);
         linkedToFolder(folderB.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, List.of(MEDIA_ID), null);
+            roomId, List.of(MEDIA_ID), null);
 
         assertThat(result.updatedCount()).isEqualTo(2);
         assertThat(result.movedToRootMediaIds()).containsExactly(MEDIA_ID);
@@ -117,7 +130,7 @@ class RemoveMediaFromFoldersServiceTest {
         existingMedia(MEDIA_ID);
 
         RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, List.of(MEDIA_ID), null);
+            roomId, List.of(MEDIA_ID), null);
 
         assertThat(result.updatedCount()).isZero();
         assertThat(result.movedToRootMediaIds()).isEmpty();
@@ -126,13 +139,13 @@ class RemoveMediaFromFoldersServiceTest {
 
     @Test
     void 존재하지_않는_미디어는_건너뛰고_notFoundMediaIds로_보고한다() {
-        Folder folder = createFolderService.create(1L, "맛집");
+        Folder folder = createFolderService.create(roomId, "맛집");
         existingMedia(MEDIA_ID);
         linkedToFolder(folder.getId(), MEDIA_ID);
 
         RemoveMediaFromFoldersResult result =
             removeMediaFromFoldersService.remove(
-                1L, List.of(MEDIA_ID, 999L), List.of(folder.getId()));
+                roomId, List.of(MEDIA_ID, 999L), List.of(folder.getId()));
 
         assertThat(result.notFoundMediaIds()).containsExactly(999L);
     }
@@ -142,14 +155,14 @@ class RemoveMediaFromFoldersServiceTest {
         existingMedia(MEDIA_ID);
 
         assertThatThrownBy(() -> removeMediaFromFoldersService.remove(
-            1L, List.of(MEDIA_ID), List.of(-1L)))
+            roomId, List.of(MEDIA_ID), List.of(-1L)))
             .isInstanceOf(FolderNotFoundException.class);
     }
 
     @Test
     void mediaIds가_비어있으면_아무것도_꺼내지_않는다() {
         RemoveMediaFromFoldersResult result = removeMediaFromFoldersService.remove(
-            1L, List.of(), null);
+            roomId, List.of(), null);
 
         assertThat(result.updatedCount()).isZero();
     }

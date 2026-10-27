@@ -1,7 +1,7 @@
 package com.sssok.renewal.outgoing.database;
 
-import com.sssok.infrastructure.persistence.member.MemberJpaEntity;
-import com.sssok.infrastructure.persistence.member.MemberJpaRepository;
+import com.sssok.renewal.outgoing.database.member.MemberJpaEntity;
+import com.sssok.renewal.outgoing.database.member.MemberJpaRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;

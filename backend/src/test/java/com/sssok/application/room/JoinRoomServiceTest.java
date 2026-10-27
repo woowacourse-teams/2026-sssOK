@@ -1,10 +1,5 @@
 package com.sssok.application.room;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -16,6 +11,8 @@ import com.sssok.domain.room.UploadPolicy;
 import com.sssok.domain.room.roomstatus.ExpiredRoomStatus;
 import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
 import java.security.SecureRandom;
@@ -25,6 +22,10 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 // Repository + Service 통합 테스트
 // 입장이 PostgreSQL 전용 네이티브 쿼리를 쓰므로 H2가 아닌 실제 PostgreSQL로 돌린다.
@@ -66,6 +67,44 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
         return result.userId();
     }
 
+    @Test
+    void 같은_회원이_방마다_다른_닉네임을_사용한다() {
+        Room first = createRoom();
+        Room second = createRoomService.create(hostId, "두번째 방", null, "방장별명").room();
+
+        joinRoomService.join(first.getId(), guestId, "여행자");
+        joinRoomService.join(second.getId(), guestId, "사진가");
+
+        assertThat(getRoomService.getByCode(first.getCode(), guestId).myNickname()).isEqualTo("여행자");
+        assertThat(getRoomService.getByCode(second.getCode(), guestId).myNickname()).isEqualTo("사진가");
+        assertThat(getRoomService.getByCode(second.getCode(), guestId).hostName()).isEqualTo("방장별명");
+    }
+
+    @Test
+    void 재입장하면_새로_보낸_닉네임으로_기존_닉네임을_덮어쓰지_않는다() {
+        Room room = createRoom();
+        joinRoomService.join(room.getId(), guestId, "처음별명");
+
+        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, "다른별명");
+
+        assertThat(result.displayName()).isEqualTo("처음별명");
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId).orElseThrow().getNickname())
+            .isEqualTo("처음별명");
+    }
+
+    @Test
+    void 생성과_입장은_검증한_닉네임_값을_저장한다() {
+        Room room = createRoomService.create(hostId, "닉네임 검증", null, "  방장별명  ").room();
+
+        JoinRoomResult result = joinRoomService.join(room.getId(), guestId, "  참여자별명  ");
+
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), hostId)
+            .orElseThrow().getNickname()).isEqualTo("방장별명");
+        assertThat(result.displayName()).isEqualTo("참여자별명");
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)
+            .orElseThrow().getNickname()).isEqualTo("참여자별명");
+    }
+
     private Room createRoom() {
         return createRoomService.create(hostId, "우테코 회식", null).room();
     }
@@ -84,7 +123,7 @@ class JoinRoomServiceTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 표시_이름은_요청이_아니라_인증된_회원_정보에서_온다() {
+    void 닉네임을_생략하면_인증된_회원_이름을_사용한다() {
         Room room = createRoom();
 
         JoinRoomResult result = joinRoomService.join(room.getId(), guestId);

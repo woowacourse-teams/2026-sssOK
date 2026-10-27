@@ -1,31 +1,33 @@
 package com.sssok.application.folder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.domain.folder.Folder;
 import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 // 폴더 변경이 커밋된 뒤에만 room_events 에 남는지 확인한다.
 // room_events 에 남는다는 건 곧 구독자 브로드캐스트와 Last-Event-ID 재전송 대상이 된다는 뜻이다
 @H2IntegrationTest
 class FolderEventAfterCommitTest {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 348000L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 348000L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final Long ROOM_ID = 348_000L;

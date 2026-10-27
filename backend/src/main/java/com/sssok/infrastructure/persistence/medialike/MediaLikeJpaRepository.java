@@ -41,4 +41,22 @@ public interface MediaLikeJpaRepository extends JpaRepository<MediaLikeJpaEntity
     List<Long> findMediaIdsByMemberIdAndMediaIdIn(
         @Param("memberId") Long memberId,
         @Param("mediaIds") List<Long> mediaIds);
+
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+        INSERT INTO media_like (media_id, member_id, created_at, updated_at)
+        SELECT media_id, :targetMemberId, created_at, now()
+        FROM media_like WHERE member_id = :sourceMemberId
+        ON CONFLICT (media_id, member_id) DO NOTHING
+        """, nativeQuery = true)
+    int mergeLikes(
+        @Param("sourceMemberId") Long sourceMemberId,
+        @Param("targetMemberId") Long targetMemberId
+    );
+
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+        DELETE FROM media_like WHERE member_id = :sourceMemberId
+        """, nativeQuery = true)
+    int deleteByMemberId(@Param("sourceMemberId") Long sourceMemberId);
 }

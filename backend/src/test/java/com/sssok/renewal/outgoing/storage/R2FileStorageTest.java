@@ -1,17 +1,15 @@
 package com.sssok.renewal.outgoing.storage;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
-import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
+import com.sssok.renewal.domain.download.DownloadFileNames;
 import com.sssok.renewal.outgoing.config.R2Properties;
+import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.support.ExternalTest;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.net.URI;
-import java.util.Random;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -22,11 +20,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Random;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 // 실제 R2 에 붙어 서명 URL 과 HeadObject 가 동작하는지 확인한다.
 // 자격증명이 없으면 조용히 건너뛰므로 CI 는 이 테스트 없이도 통과한다.
@@ -126,7 +127,7 @@ class R2FileStorageTest {
         assertThat(put(putUrl, contentType)).isEqualTo(200);
         uploaded = key;
 
-        String disposition = com.sssok.renewal.domain.download.DownloadFileNames.contentDispositionOf(fileName);
+        String disposition = DownloadFileNames.contentDispositionOf(fileName);
         String url = adapter.presignGet(key, disposition, contentType, Duration.ofMinutes(5));
 
         HttpResponse<byte[]> response = get(url, BROWSER_ORIGIN);

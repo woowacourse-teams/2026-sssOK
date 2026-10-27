@@ -1,5 +1,28 @@
 package com.sssok.renewal.application.media.upload.reissue;
 
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.domain.file.exception.FileSizeExceededException;
+import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
+import com.sssok.domain.file.exception.UploadRetryExceededException;
+import com.sssok.domain.room.Room;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequestException;
+import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
+import com.sssok.renewal.application.media.upload.exception.MediaNotFoundException;
+import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import java.time.Duration;
+import java.time.Instant;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -7,31 +30,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequestException;
-import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
-import com.sssok.renewal.application.media.upload.exception.MediaNotFoundException;
-import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.application.room.CreateRoomService;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.exception.FileSizeExceededException;
-import com.sssok.domain.file.exception.UploadAlreadyCompletedException;
-import com.sssok.domain.file.exception.UploadRetryExceededException;
-import com.sssok.domain.room.Room;
-import java.time.Duration;
-import java.time.Instant;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2).
 @H2IntegrationTest
-@org.springframework.test.context.TestPropertySource(properties =
+@TestPropertySource(properties =
     "spring.datasource.url=jdbc:h2:mem:reissue-contract;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
 class ReissueUploadUrlServiceTest {
 
@@ -250,7 +252,7 @@ class ReissueUploadUrlServiceTest {
         fileRepository.save(failedFile);
         assertThat(reissue(roomId, failedFile.getId(), hostId, null).retryCount()).isEqualTo(1);
         assertThat(fileRepository.findById(failedFile.getId()).orElseThrow().getStatus())
-            .isEqualTo(com.sssok.domain.file.UploadStatus.FAILED);
+            .isEqualTo(UploadStatus.FAILED);
     }
 
     @Test

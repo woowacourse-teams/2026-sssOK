@@ -3,12 +3,13 @@ package com.sssok.renewal.outgoing.ai;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.renewal.application.search.exception.AiCallException.RetryDisposition;
+import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
+import java.io.IOException;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import com.sssok.renewal.outgoing.config.OpenAiImageSearchProperties;
-import java.net.http.HttpClient;
-import java.time.Duration;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
@@ -75,7 +76,7 @@ public class OpenAiSearchClient {
                     || ("rate_limit_error".equals(type) && "slow_down".equals(code))) {
                     disposition = RetryDisposition.SAFE_TO_RETRY;
                 }
-            } catch (java.io.IOException | RuntimeException ignored) {
+            } catch (IOException | RuntimeException ignored) {
                 // 판별할 수 없는 응답은 미처리가 보장되지 않으므로 재호출하지 않는다.
             }
         } else if (status >= 400 && status < 500 && status != 408) {

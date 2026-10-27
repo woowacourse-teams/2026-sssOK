@@ -5,10 +5,10 @@ import static org.awaitility.Awaitility.await;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.JoinRoomService;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.database.PushSubscriptionJpaEntity;
 import com.sssok.renewal.outgoing.database.PushSubscriptionJpaRepository;
 import com.sssok.renewal.outgoing.push.VapidKeys;

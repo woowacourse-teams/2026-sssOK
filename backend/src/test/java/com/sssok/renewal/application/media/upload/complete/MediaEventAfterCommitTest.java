@@ -1,5 +1,27 @@
 package com.sssok.renewal.application.media.upload.complete;
 
+import com.sssok.application.port.out.EventPublisherPort;
+import com.sssok.application.port.out.EventSubscriberPort;
+import com.sssok.application.port.out.RoomPermissionPort;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.room.Room;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.media.thumbnail.ThumbnailJobService;
+import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.support.H2IntegrationTest;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -8,29 +30,11 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.port.out.EventPublisherPort;
-import com.sssok.application.port.out.EventSubscriberPort;
-import com.sssok.application.port.out.RoomPermissionPort;
-import com.sssok.application.room.CreateRoomService;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.room.Room;
-import com.sssok.renewal.application.media.thumbnail.ThumbnailJobService;
-import com.sssok.renewal.outgoing.database.UploadFileRepository;
-import com.sssok.support.H2IntegrationTest;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.transaction.annotation.Transactional;
 
 // 등록 트랜잭션이 롤백되면 SSE 도 나가면 안 된다.
 // 커밋 전에 보내면 클라이언트는 서버에 없는 사진을 목록에 그린다.
 @H2IntegrationTest
-@org.springframework.test.context.TestPropertySource(properties =
+@TestPropertySource(properties =
     "spring.datasource.url=jdbc:h2:mem:upload-events-contract;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
 class MediaEventAfterCommitTest {
 
@@ -47,7 +51,7 @@ class MediaEventAfterCommitTest {
     UploadFileRepository fileRepository;
 
     @MockitoBean
-    com.sssok.renewal.application.media.thumbnail.ThumbnailJobService thumbnailJobService;
+    ThumbnailJobService thumbnailJobService;
 
     @MockitoBean
     RoomPermissionPort roomPermissionPort;
@@ -70,7 +74,7 @@ class MediaEventAfterCommitTest {
         roomId = room.getId();
         file = StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
             new FileSize(1024L), Instant.now(), SIZE_POLICY);
-        given(fileRepository.findByIdForUpdate(any())).willReturn(java.util.Optional.of(file));
+        given(fileRepository.findByIdForUpdate(any())).willReturn(Optional.of(file));
     }
 
     // 이 메서드는 스프링 테스트 기본값에 따라 끝에 롤백된다. register 는 그 트랜잭션에 참여하므로
@@ -97,12 +101,12 @@ class MediaEventAfterCommitTest {
 
 
     @Autowired
-    org.springframework.transaction.PlatformTransactionManager transactionManager;
+    PlatformTransactionManager transactionManager;
 
     @Test
     void 이벤트를_등록한_뒤_롤백해도_SSE는_발행하지_않는다() {
         given(fileRepository.save(any())).willAnswer(call -> call.getArgument(0));
-        new org.springframework.transaction.support.TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             mediaRegistrationService.register(roomId, List.of(file), "가현");
             status.setRollbackOnly();
         });

@@ -1,30 +1,29 @@
 package com.sssok.support;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import jakarta.persistence.EntityManager;
-
-import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.domain.search.ImageAnalysis;
+import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
 import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
+import jakarta.persistence.EntityManager;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 @PostgresIntegrationTest
 class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
@@ -247,8 +246,8 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         AnalysisAttempt current = repository.claim(460001L, now.plusSeconds(10), 3).orElseThrow();
         assertThat(repository.beginExternalCall(oldAttempt, now)).isFalse();
         assertThat(repository.beginExternalCall(current, now.plusSeconds(10))).isTrue();
-        com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient.Description description =
-            new com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient.Description("사진", "바다", "vision", "v1");
+        OpenAiImageDescriptionClient.Description description =
+            new OpenAiImageDescriptionClient.Description("사진", "바다", "vision", "v1");
         assertThat(repository.saveDescription(oldAttempt, description, now)).isFalse();
         assertThat(repository.saveDescription(current, description, now.plusSeconds(11))).isTrue();
         assertThat(repository.saveDescription(current, description, now.plusSeconds(12))).isFalse();

@@ -1,8 +1,8 @@
 package com.sssok.common.logging;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.sssok.infrastructure.config.ApplicationTaskExecutorConfig;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -16,6 +16,8 @@ import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 /**
  * MDC 가 요청 스레드 밖으로 새지 않는지 본다.
@@ -134,7 +136,7 @@ class MdcIsolationTest {
         private final Map<String, String> captured = new HashMap<>();
 
         @Override
-        public void doFilter(jakarta.servlet.ServletRequest request, jakarta.servlet.ServletResponse response) {
+        public void doFilter(ServletRequest request, ServletResponse response) {
             Map<String, String> snapshot = MDC.getCopyOfContextMap();
             if (snapshot != null) {
                 captured.putAll(snapshot);

@@ -1,5 +1,33 @@
 package com.sssok.presentation.api.media;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.domain.folder.Folder;
+import com.sssok.domain.room.Room;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.support.AcceptanceTest;
+import com.sssok.support.PostgresContainerSupport;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -11,32 +39,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
-import com.sssok.application.folder.CreateFolderService;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
-import com.sssok.application.room.CreateRoomService;
-import com.sssok.domain.folder.Folder;
-import com.sssok.domain.room.Room;
-import com.sssok.support.PostgresContainerSupport;
-import com.sssok.support.AcceptanceTest;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.Optional;
-import java.util.stream.Collectors;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
-import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.context.WebApplicationContext;
 
 // API 인수 테스트 (Testcontainers). 폴더 담기가 PostgreSQL 전용 ON CONFLICT 를 써서 H2 로는 못 돈다.
 // 업로드부터 조회까지 실제 흐름 그대로 태우고, 스토리지만 목으로 둔다.
@@ -72,9 +74,9 @@ class MediaQueryApiTest extends PostgresContainerSupport {
 
     @BeforeEach
     void setUp() {
-        org.mockito.Mockito.when(fileStorage.presignGet(
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        Mockito.when(fileStorage.presignGet(
+            ArgumentMatchers.any(), ArgumentMatchers.anyString(),
+            ArgumentMatchers.anyString(), ArgumentMatchers.any()))
             .thenReturn("https://storage.example.com/read");
         mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         AuthResult host = anonymousAuthService.authenticate("가현");

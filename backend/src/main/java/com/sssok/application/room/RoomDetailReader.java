@@ -3,7 +3,7 @@ package com.sssok.application.room;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.port.out.FolderRepository;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class RoomDetailReader {
 
-    private final MemberRepository memberRepository;
+    private final RoomNicknameReader roomNicknameReader;
     private final RoomMemberRepository roomMemberRepository;
     private final FolderRepository folderRepository;
     private final FolderMediaRepository folderMediaRepository;
@@ -30,14 +30,13 @@ public class RoomDetailReader {
             hostNameOf(room),
             isJoined(room, requesterId),
             photoCountOf(room),
-            foldersOf(room)
+            foldersOf(room),
+            isJoined(room, requesterId) ? roomNicknameReader.read(room.getId(), requesterId) : null
         );
     }
 
     private String hostNameOf(Room room) {
-        return memberRepository.findById(room.getHostId())
-            .map(member -> member.getDisplayName().value())
-            .orElse(null);
+        return roomNicknameReader.read(room.getId(), room.getHostId());
     }
 
     private boolean isJoined(Room room, Long requesterId) {
