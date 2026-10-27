@@ -12,7 +12,7 @@ import tanstackQuery from "@tanstack/eslint-plugin-query";
 
 export default tseslint.config(
   // ignore
-  { ignores: ["dist/**", "coverage/**", "storybook-static/**"] },
+  { ignores: ["dist/**", "coverage/**", "storybook-static/**", "mobile/**"] },
 
   // src 기본 규칙
   {
