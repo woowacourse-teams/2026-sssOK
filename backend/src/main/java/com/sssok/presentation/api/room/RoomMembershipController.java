@@ -25,7 +25,7 @@ public class RoomMembershipController {
     private final RoomMembershipService roomMembershipService;
 
     @Operation(summary = "내 방 목록", description = "만든 방과 참여 중인 방을 최근 참여순으로 조회한다. "
-        + "삭제된 방은 제외하며 isHost로 방장 여부를 구분한다. 썸네일 생성 중이거나 사진이 없으면 thumbnailUrl은 null이다.")
+        + "삭제된 방은 제외하며 isHost로 방장 여부를 구분한다. 썸네일이 준비된 사진 중 최신 사진을 대표로 사용하며, 없으면 thumbnailUrl은 null이다.")
     @GetMapping("/members/me/rooms")
     public ApiResponse<MyRoomsResponse> getMyRooms(
         @Parameter(hidden = true) @AuthMember Long memberId

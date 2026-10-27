@@ -265,12 +265,27 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
         assertThat(rooms.getFirst().isHost()).isFalse();
         assertThat(rooms.getFirst().mediaCount()).isEqualTo(3);
         assertThat(rooms.getFirst().memberCount()).isEqualTo(2);
-        assertThat(rooms.getFirst().thumbnailUrl()).isNull();
+        assertThat(rooms.getFirst().thumbnailUrl()).contains("old.webp");
         assertThat(rooms.getLast().isHost()).isTrue();
         assertThat(rooms.getLast().mediaCount()).isZero();
         assertThat(rooms.getLast().memberCount()).isEqualTo(1);
+        new TransactionTemplate(transactionManager).executeWithoutResult(tx ->
+            entityManager.createQuery("UPDATE StoredFileJpaEntity f SET f.thumbnailKey = :key WHERE f.id = :id")
+                .setParameter("key", "latest.webp").setParameter("id", latest).executeUpdate());
+        assertThat(roomMembershipService.getMyRooms(hostId).getFirst().thumbnailUrl()).contains("latest.webp");
         storedFileRepository.deleteById(latest);
         assertThat(roomMembershipService.getMyRooms(hostId).getFirst().thumbnailUrl()).contains("old.webp");
+    }
+
+    @Test
+    void 썸네일이_준비된_사진이_없으면_null을_반환하고_동영상과_실패한_사진은_선택하지_않는다() {
+        Room room = createRoom();
+        saveMedia(room.getId(), hostId, "JPEG", "PROCESSING", null);
+        saveMedia(room.getId(), hostId, "MP4", "READY", "video.webp");
+        saveMedia(room.getId(), hostId, "PNG", "FAILED", "failed.webp");
+        saveMedia(room.getId(), hostId, "PNG", "RESERVED", "reserved.webp");
+
+        assertThat(roomMembershipService.getMyRooms(hostId).getFirst().thumbnailUrl()).isNull();
     }
 
     @Test
