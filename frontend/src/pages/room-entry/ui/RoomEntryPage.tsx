@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import { useRoomQuery } from "@/entities/room";
-import { readValidRoomSession, removeRoomSession } from "@/entities/session";
+import { useRoomSession } from "@/entities/member-session";
+import { removeRoomSession } from "@/entities/session";
 import { NameEntryBottomSheet } from "@/features/join-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { type AnalyticsEntrySource, track } from "@/shared/lib";
 import { PageSpinner } from "@/shared/ui/spinner";
-import { useAnonymousAuth } from "../api";
+import { useJoinRoomMutation } from "../api";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
@@ -28,7 +29,7 @@ const entrySourceOf = (state: unknown): AnalyticsEntrySource =>
 export const RoomEntryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
   const entrySrc = entrySourceOf(useLocation().state);
-  const session = readValidRoomSession(code);
+  const { session, isPending: isSessionPending, isError: isSessionError } = useRoomSession(code);
   const {
     data: room,
     isPending,
@@ -37,17 +38,20 @@ export const RoomEntryPage = () => {
     code,
     token: session?.accessToken,
     userId: session?.userId,
+    enabled: !isSessionPending && !isSessionError,
   });
 
   // 방금 인증을 마친 방. 코드가 바뀌면 그 방 기준으로 다시 판단해야 해서 방 코드로 들고 있는다.
   const [authedCode, setAuthedCode] = useState<string | null>(null);
-  const auth = useAnonymousAuth(code, () => {
+  const auth = useJoinRoomMutation(code, () => {
     setAuthedCode(code);
     track("Room Joined", { room_code: code, entry_src: entrySrc });
   });
 
-  // 세션은 방마다 따로 있다. 처음 보는 방이면 이름부터 다시 묻는다.
-  const hasSession = authedCode === code || session !== null;
+  // 회원 토큰만 있어서는 참여한 것이 아니다. 서버의 참여 여부도 확인한다.
+  const hasSession =
+    authedCode === code ||
+    (session !== null && ("memberStatus" in session ? room?.joined === true : true));
 
   const roomUnavailable = room !== undefined && room.status !== "ACTIVE";
 
@@ -82,6 +86,9 @@ export const RoomEntryPage = () => {
       track("Room Join Failed", { room_code: code, reason: joinFailureReason });
     }
   }, [joinFailureReason, code]);
+
+  if (isSessionPending) return <PageSpinner label="로그인 정보를 불러오는 중이에요." />;
+  if (isSessionError) return <main>로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</main>;
 
   if (isPending) {
     return <PageSpinner label="방 정보를 불러오는 중이에요." />;

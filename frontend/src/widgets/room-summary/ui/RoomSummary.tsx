@@ -13,6 +13,7 @@ interface RoomSummaryProps {
   roomCode: string;
   hostId: number;
   roomName: string;
+  session?: { userId: number; nickname: string; accessToken: string };
   isHost?: boolean;
   hasSelectedFolder?: boolean;
   isSearchOpen?: boolean;
@@ -32,6 +33,7 @@ export const RoomSummary = ({
   roomCode,
   hostId,
   roomName,
+  session,
   isHost = false,
   hasSelectedFolder = false,
   isSearchOpen = false,
@@ -50,7 +52,7 @@ export const RoomSummary = ({
     <Header>
       <Stack gap={8}>
         <Row align="center" justify="space-between">
-          <RoomSessionBadge roomCode={roomCode} hostId={hostId} />
+          <RoomSessionBadge roomCode={roomCode} hostId={hostId} session={session} />
         </Row>
 
         <Row align="center" justify="space-between" gap={4}>
@@ -78,7 +80,7 @@ export const RoomSummary = ({
             )}
           </TitleArea>
           <Row align="center" gap={4}>
-            <RoomShareButton roomCode={roomCode} />
+            <RoomShareButton roomCode={roomCode} accessToken={session?.accessToken} />
             <RoomMenuButton
               isHost={isHost}
               hasSelectedFolder={hasSelectedFolder}

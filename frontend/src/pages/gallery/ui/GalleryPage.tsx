@@ -1,7 +1,7 @@
 import { Navigate, useParams } from "react-router-dom";
 
 import { useRoomQuery, type Room } from "@/entities/room";
-import { readValidRoomSession } from "@/entities/session";
+import { useRoomSession } from "@/entities/member-session";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { PageSpinner } from "@/shared/ui/spinner";
@@ -18,25 +18,29 @@ interface ActiveGalleryProps {
   room: Room;
   accessToken: string;
   userId: number;
+  nickname: string;
 }
 
-const ActiveGallery = ({ room, accessToken, userId }: ActiveGalleryProps) => {
+const ActiveGallery = ({ room, accessToken, userId, nickname }: ActiveGalleryProps) => {
   return (
     <GalleryModalProvider>
-      <GalleryContent room={room} accessToken={accessToken} userId={userId} />
+      <GalleryContent room={room} accessToken={accessToken} userId={userId} nickname={nickname} />
     </GalleryModalProvider>
   );
 };
 
 export const GalleryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
-  const session = readValidRoomSession(code);
+  const { session, isPending: isSessionPending, isError: isSessionError } = useRoomSession(code);
   const roomQuery = useRoomQuery({
     code,
     token: session?.accessToken,
     userId: session?.userId,
     enabled: session !== null,
   });
+
+  if (isSessionPending) return <PageSpinner label="로그인 정보를 불러오는 중이에요." />;
+  if (isSessionError) return <main>로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</main>;
 
   if (session === null) {
     return <Navigate to={ROUTES.roomEntry(code)} replace />;
@@ -58,11 +62,16 @@ export const GalleryPage = () => {
     return <Navigate to={ROUTES.closedRoom} replace />;
   }
 
+  if ("memberStatus" in session && !roomQuery.data.joined) {
+    return <Navigate to={ROUTES.roomEntry(code)} replace />;
+  }
+
   return (
     <ActiveGallery
       room={roomQuery.data}
       accessToken={session.accessToken}
       userId={session.userId}
+      nickname={session.nickname}
     />
   );
 };
