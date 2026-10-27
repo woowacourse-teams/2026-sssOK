@@ -53,6 +53,8 @@ public class WebConfig implements WebMvcConfigurer {
                 API_PREFIX + "/rooms/*/media/**",
                 API_PREFIX + "/rooms/*/downloads",
                 API_PREFIX + "/rooms/*/downloads/**",
+                API_PREFIX + "/rooms/*/notification-setting",
+                API_PREFIX + "/rooms/*/upload-requests",
                 API_PREFIX + "/rooms/*/feedbacks");
     }
 
