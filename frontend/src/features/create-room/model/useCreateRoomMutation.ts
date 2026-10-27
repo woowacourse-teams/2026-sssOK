@@ -15,6 +15,7 @@ export const useCreateRoomMutation = () =>
 
       const room = await createRoom(
         {
+          nickname: values.nickname,
           name: values.name,
           uploadPolicy: values.uploadPolicy,
         },

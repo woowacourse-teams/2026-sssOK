@@ -6,8 +6,10 @@ export const createAnonymous = (request: CreateAnonymousRequest) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-CSRF-Protection": "1",
     },
-    body: JSON.stringify(request),
+    credentials: "include",
+    body: JSON.stringify({ ...request, refreshTokenDelivery: "COOKIE" }),
     errorTracking: {
       level: "fatal",
       operation: "room_entry.create_anonymous_session",
