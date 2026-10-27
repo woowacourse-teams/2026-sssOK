@@ -9,8 +9,13 @@
     "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.ssssok.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "방에 공유할 사진과 영상을 선택합니다."
+        "NSPhotoLibraryUsageDescription": "방에 공유할 사진과 영상을 선택합니다.",
+        "NSPhotoLibraryAddUsageDescription": "방에서 받은 사진과 영상을 사진첩에 저장합니다."
       }
     },
     "android": {
@@ -22,6 +27,15 @@
         "projectId": "e6d7e94e-4901-4dba-8fe3-f0534f918478"
       }
     },
-    "owner": "sssok"
+    "owner": "sssok",
+    "plugins": [
+      "expo-sharing",
+      [
+        "expo-media-library",
+        {
+          "granularPermissions": ["photo", "video"]
+        }
+      ]
+    ]
   }
 }
