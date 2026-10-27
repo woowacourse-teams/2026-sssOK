@@ -58,7 +58,7 @@ class Reporter:
         loaded = [self.daily(day.start.date()) for day in period.days()]
         days = [item[0] if item and item[1] != 'failed' else None for item in loaded]
         week, incompatible = combine(days)
-        derive(week, period.seconds, incompatible)
+        derive(week, period.seconds, incompatible, days)
         for day, item in zip(period.days(), days):
             total = item.get('requests_total') if item else None
             if total and total.value is not None:

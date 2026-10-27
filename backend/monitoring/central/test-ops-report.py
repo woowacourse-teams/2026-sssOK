@@ -52,6 +52,7 @@ def day_values(requests=1000.0, errors=10.0, buckets=(900, 980, 995, 1000)):
         'cpu_peak_ratio': [sample(0.42)], 'memory_available_min_ratio': [sample(0.31)],
         'disk_available_min_ratio': [sample(0.6)], 'disk_available_min_bytes': [sample(12 * 1024 ** 3)],
         'scrape_samples': [sample(5760, job=job) for job in queries.TARGET_JOBS],
+        'scrape_success_samples': [sample(5760, job=job) for job in queries.TARGET_JOBS],
     }
 
 
@@ -153,13 +154,46 @@ class AggregateTest(unittest.TestCase):
         busy = self.day(requests=9000, errors=0, buckets=(8900, 9000, 9000, 9000))
         quiet = self.day(requests=1000, errors=100, buckets=(0, 0, 500, 1000))
         week, incompatible = combine([busy, quiet])
-        derive(week, 2 * 86400, incompatible)
+        derive(week, 2 * 86400, incompatible, [busy, quiet])
         self.assertEqual(week.get('requests_total').value, 10000)
         # 일별 오류율 평균(0% + 10%)/2 = 5%가 아니라 100 / 10000 = 1%
         self.assertAlmostEqual(week.get('error_rate').value, 0.01)
         merged = {'0.1': 8900, '0.5': 9000, '1.0': 9500, '+Inf': 10000}
         self.assertAlmostEqual(week.get('latency_p95').value, quantile(0.95, merged))
         self.assertEqual(week.get('cpu_peak_ratio').value, 0.42)
+
+    def week_of(self, days):
+        week, incompatible = combine(days)
+        derive(week, len(days) * 86400, incompatible, days)
+        return week
+
+    def test_weekly_error_rate_uses_only_days_with_both_metrics(self):
+        days = [self.day(requests=1000, errors=10) for _ in range(7)]
+        days[3].observations[('errors_5xx_total', '')] = Obs(None, 'count', '', 'error', 'timeout')
+        rate = self.week_of(days).get('error_rate')
+        # 6일치 오류 60건을 7일치 요청 7,000건으로 나누면 0.857%. 함께 관측된 6일 기준으로는 1%다.
+        self.assertAlmostEqual(rate.value, 0.01)
+        self.assertEqual((rate.status, rate.detail), ('partial', '공통 관측일 6/7일'))
+
+    def test_weekly_error_rate_when_each_metric_misses_a_different_day(self):
+        days = [self.day(requests=1000, errors=10 * (i + 1)) for i in range(7)]
+        for metric in ('requests_total', 'requests_by_api'):
+            days[1].observations[(metric, '')] = Obs(None, 'count', '', 'error', 'timeout')
+        for metric in ('errors_5xx_total', 'errors_5xx_by_api'):
+            days[4].observations[(metric, '')] = Obs(None, 'count', '', 'error', 'timeout')
+        rate = self.week_of(days).get('error_rate')
+        common = [0, 2, 3, 5, 6]
+        self.assertAlmostEqual(rate.value, sum(10 * (i + 1) for i in common) / (1000 * len(common)))
+        self.assertEqual((rate.status, rate.detail), ('partial', '공통 관측일 5/7일'))
+        api = self.week_of(days).get('error_rate_by_api', 'POST /api/v1/rooms/{roomId}/media')
+        self.assertAlmostEqual(api.value, sum(10 * (i + 1) for i in common) / (400 * len(common)))
+        self.assertEqual(api.status, 'partial')
+
+    def test_weekly_error_rate_without_common_day_is_no_data(self):
+        days = [self.day(), self.day()]
+        days[0].observations[('requests_total', '')] = Obs(None, 'count', '', 'error', 'timeout')
+        days[1].observations[('errors_5xx_total', '')] = Obs(None, 'count', '', 'error', 'timeout')
+        self.assertEqual(self.week_of(days).get('error_rate').status, 'no_data')
 
     def test_bucket_bounds_change_makes_weekly_p95_incomparable(self):
         first = self.day()
@@ -202,11 +236,31 @@ class CollectTest(unittest.TestCase):
         self.assertEqual(data.get('scrape_failed_samples', 'node').value, 0)
         values = day_values(errors=0)
         values['scrape_samples'] = []
+        values['scrape_success_samples'] = []
         values['requests_total'] = []
         data = collect(FakePrometheus({date(2026, 10, 1): values}), self.period)
         self.assertEqual(data.get('errors_5xx_total').status, 'no_data')
         self.assertEqual(data.get('error_rate').status, 'no_data')
         self.assertIsNone(data.get('scrape_failed_samples', 'node'))
+
+    def test_all_day_scrape_failure_is_no_data_not_zero(self):
+        # 하루 종일 up=0: 수집 시도 기록은 있지만 성공이 없어 앱 지표 시계열도 없다.
+        values = {
+            'scrape_samples': [sample(5760, job=job) for job in queries.TARGET_JOBS],
+            'scrape_success_samples': [sample(0, job=job) for job in queries.TARGET_JOBS],
+            'scrape_failed_samples': [sample(5760, job=job) for job in queries.TARGET_JOBS],
+        }
+        data = collect(FakePrometheus({date(2026, 10, 1): values}), self.period)
+        for metric in ('errors_5xx_total', 'thumbnail_failed', 'download_failures', 'log_entries_dropped'):
+            obs = data.get(metric)
+            self.assertEqual((obs.value, obs.status, obs.detail), (None, 'no_data', '수집 성공 기록 없음'), metric)
+        self.assertEqual(data.get('scrape_failed_samples', 'node').value, 5760)
+        self.assertEqual(data.get('scrape_coverage', 'sssok-backend').value, 0)
+        self.assertEqual(status(data), 'partial')
+        text = '\n'.join(message._numbers(data, {}, '전일') + message._data_state(data, {}))
+        self.assertIn('5xx 데이터 없음', text)
+        self.assertIn('썸네일 실패 데이터 없음', text)
+        self.assertIn('정상으로 계산하지 않았습니다', text)
 
     def test_zero_requests_is_not_missing_data(self):
         data = collect(FakePrometheus({date(2026, 10, 1): day_values(requests=0, errors=0, buckets=(0, 0, 0, 0))}),
@@ -242,7 +296,7 @@ class CollectTest(unittest.TestCase):
 
     def test_low_coverage_is_reported(self):
         values = day_values()
-        values['scrape_samples'] = [sample(2880, job=job) for job in queries.TARGET_JOBS]
+        values['scrape_success_samples'] = [sample(2880, job=job) for job in queries.TARGET_JOBS]
         data = collect(FakePrometheus({date(2026, 10, 1): values}), self.period)
         self.assertAlmostEqual(data.get('scrape_coverage', 'node').value, 0.5)
         text = '\n'.join(message._data_state(data, {}))

@@ -82,6 +82,10 @@ SPECS = (
     Spec('scrape_samples', 'count',
          f'sum by (job) (count_over_time(up{{environment="{ENVIRONMENT}",job=~"{"|".join(TARGET_JOBS)}"}}[{{range}}]))',
          f'수집 시도 기록 수(기대값: 기간 / {SCRAPE_INTERVAL}초)', by=('job',), source=''),
+    # up은 0/1이므로 합계가 수집 성공 횟수다. 시도 기록만으로는 하루 종일 실패한 경우를 구분할 수 없다.
+    Spec('scrape_success_samples', 'count',
+         f'sum by (job) (sum_over_time(up{{environment="{ENVIRONMENT}",job=~"{"|".join(TARGET_JOBS)}"}}[{{range}}]))',
+         'up=1로 기록된 수집 성공 수', by=('job',), source=''),
     Spec('scrape_failed_samples', 'count',
          f'sum by (job) (count_over_time((up{{environment="{ENVIRONMENT}",job=~"{"|".join(TARGET_JOBS)}"}} == 0)[{{range}}:{SCRAPE_INTERVAL}s]))',
          f'up=0으로 기록된 수집 실패 수({SCRAPE_INTERVAL}초 간격 평가)', by=('job',), absent='zero', source=''),

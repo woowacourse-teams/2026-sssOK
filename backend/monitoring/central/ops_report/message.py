@@ -165,11 +165,11 @@ def _data_state(data: Data, comparisons: dict) -> list:
     coverage = [(job, data.get('scrape_coverage', job)) for job in ('sssok-backend', 'node', 'alloy')]
     parts = [f'{job} {percent(o.value, 1)}' if o and o.value is not None else f'{job} 없음' for job, o in coverage]
     failed = data.get('scrape_failed_samples')
-    lines = ['- 수집 기록 ' + ' · '.join(parts)
+    lines = ['- 수집 성공 ' + ' · '.join(parts)
              + (f' · up=0 {count(failed.value)}회' if failed and failed.value else '')]
     low = [job for job, o in coverage if not o or o.value is None or o.value < 0.99]
     if low:
-        lines.append('- 수집 누락 구간이 있어 해당 구간은 정상으로 계산하지 않았습니다(서비스 중단 확정 아님)')
+        lines.append('- 수집 누락·실패 구간이 있어 해당 구간은 정상으로 계산하지 않았습니다(서비스 중단 확정 아님)')
     problems = sorted({f'{metric}: {STATE.get(o.status, o.status)}' for (metric, dim), o in data.observations.items()
                        if not dim and not o.derived and o.status not in ('ok', 'no_requests')})
     if problems:

@@ -27,42 +27,53 @@ def collect(prom: Prometheus, period: Period) -> Data:
     data = Data()
     at = period.end.timestamp()
     seconds = period.seconds
-    observed = {}
-    # "시계열 없음 = 0"으로 볼 수 있는지 판단하려면 수집 기록을 먼저 알아야 한다.
-    ordered = sorted(queries.SPECS, key=lambda spec: spec.name != 'scrape_samples')
+    attempted, succeeded = {}, {}
+    # "시계열 없음 = 0"으로 볼 수 있는지 판단하려면 수집 시도·성공 기록을 먼저 알아야 한다.
+    first = ('scrape_samples', 'scrape_success_samples')
+    ordered = sorted(queries.SPECS, key=lambda spec: spec.name not in first)
     for spec in ordered:
         try:
             result = prom.instant(queries.render(spec, seconds), at)
         except QueryError as error:
             data.observations[(spec.name, '')] = Obs(None, spec.unit, spec.method, 'error', _short(error))
             continue
-        _store(data, spec, result, observed)
-        if spec.name == 'scrape_samples':
-            for (name, job), obs in data.observations.items():
-                if name == 'scrape_samples' and job:
-                    observed[job] = bool(obs.value)
+        _store(data, spec, result, attempted, succeeded)
+        if spec.name in first:
+            seen = attempted if spec.name == 'scrape_samples' else succeeded
+            for job, obs in data.dims(spec.name).items():
+                seen[job] = bool(obs.value)
     _latency_windows(prom, period, data)
     _alert_intervals(prom, period, data)
     derive(data, seconds)
     return data
 
 
-def _store(data: Data, spec, result: list, observed: dict) -> None:
+def _store(data: Data, spec, result: list, attempted: dict, succeeded: dict) -> None:
     obs = data.observations
     if spec.name == 'scrape_failed_samples':
-        # 실패 기록이 없는 job은 시계열도 없다. 수집 기록이 있었던 job만 0으로 채운다.
-        for job, seen in observed.items():
+        # 실패 기록이 없는 job은 시계열도 없다. 수집을 시도한 job만 0으로 채운다.
+        for job, seen in attempted.items():
             if seen:
                 obs[(spec.name, job)] = Obs(0.0, spec.unit, spec.method, 'ok', '실패 기록 없음')
     # 0으로 나눈 비율 등 NaN은 값으로 쓰지 않는다.
     samples = [(s['metric'], float(s['value'][1])) for s in result if not math.isnan(float(s['value'][1]))]
     if not samples:
-        zero = spec.absent == 'zero' and (spec.source == '' and any(observed.values())
-                                         or observed.get(spec.source))
+        # 수집에 한 번도 성공하지 못한 대상의 카운터는 발생 없음(0)이 아니라 데이터 없음이다.
+        # 수집 실패 횟수만은 시도 기록이 있으면 0으로 볼 수 있다.
+        basis = attempted if spec.name == 'scrape_failed_samples' else succeeded
+        zero = spec.absent == 'zero' and (spec.source == '' and any(basis.values())
+                                         or basis.get(spec.source))
         if zero:
             obs[(spec.name, '')] = Obs(0.0, spec.unit, spec.method, 'ok', '시계열 없음 = 발생 없음')
         else:
-            reason = '수집 기록 없음' if spec.source and not observed.get(spec.source) else '시계열 없음'
+            if not spec.source:
+                reason = '시계열 없음'
+            elif succeeded.get(spec.source):
+                reason = '시계열 없음'
+            elif attempted.get(spec.source):
+                reason = '수집 성공 기록 없음'
+            else:
+                reason = '수집 기록 없음'
             obs[(spec.name, '')] = Obs(None, spec.unit, spec.method, 'no_data', reason)
         return
     for metric, value in samples:

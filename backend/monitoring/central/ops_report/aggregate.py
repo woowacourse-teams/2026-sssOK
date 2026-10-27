@@ -90,10 +90,33 @@ def _ratio(numerator: Obs | None, denominator: Obs | None, unit: str, method: st
                numerator.detail or denominator.detail, derived=True)
 
 
-def derive(data: Data, seconds: int, incompatible: frozenset = frozenset()) -> None:
+def _aligned_ratio(days: list, numerator: str, denominator: str, dim: str, method: str) -> Obs:
+    """분자·분모가 모두 정상 조회된 날만 합산한다. 지표별 실패 일자가 달라도 기간이 어긋나지 않는다."""
+    common = [day for day in days if day and all(
+        day.get(name) and day.get(name).status == 'ok' for name in (numerator, denominator))]
+    if not common:
+        return Obs(None, 'ratio', method, 'no_data', f'공통 관측일 0/{len(days)}일', derived=True)
+
+    def total(name):
+        values = [day.get(name, dim) for day in common]
+        return sum(o.value for o in values if o and o.value is not None)
+    num, den = total(numerator), total(denominator)
+    if not den:
+        return Obs(None, 'ratio', method, 'no_requests', '분모 0', derived=True)
+    state = 'ok' if len(common) == len(days) else 'partial'
+    detail = '' if state == 'ok' else f'공통 관측일 {len(common)}/{len(days)}일'
+    return Obs(num / den, 'ratio', method, state, detail, derived=True)
+
+
+def derive(data: Data, seconds: int, incompatible: frozenset = frozenset(), days: list | None = None) -> None:
+    """days(일간 Data 목록)를 주면 비율은 분자·분모를 함께 관측한 날만 묶어 계산한다."""
     obs = data.observations
-    obs[('error_rate', '')] = _ratio(data.get('errors_5xx_total'), data.get('requests_total'), 'ratio',
-                                     '5xx 합계 / 요청 합계')
+    if days is None:
+        obs[('error_rate', '')] = _ratio(data.get('errors_5xx_total'), data.get('requests_total'), 'ratio',
+                                         '5xx 합계 / 요청 합계')
+    else:
+        obs[('error_rate', '')] = _aligned_ratio(days, 'errors_5xx_total', 'requests_total', '',
+                                                 '공통 관측일의 5xx 합계 / 요청 합계')
     base = data.get('latency_buckets')
     method = '버킷 증가량 합산 후 histogram_quantile(0.95) 보간'
     if base is None or base.status not in USABLE:
@@ -118,17 +141,22 @@ def derive(data: Data, seconds: int, incompatible: frozenset = frozenset()) -> N
                                                    f'requests={count:.0f}', derived=True)
     requests = data.dims('requests_by_api')
     for dim, errors in data.dims('errors_5xx_by_api').items():
-        if errors.value:
+        if not errors.value:
+            continue
+        if days is None:
             obs[('error_rate_by_api', dim)] = _ratio(errors, requests.get(dim), 'ratio', 'API별 5xx / 요청')
+        else:
+            obs[('error_rate_by_api', dim)] = _aligned_ratio(days, 'errors_5xx_by_api', 'requests_by_api', dim,
+                                                             '공통 관측일의 API별 5xx / 요청')
     expected = seconds / SCRAPE_INTERVAL
-    samples = data.get('scrape_samples')
+    samples = data.get('scrape_success_samples')
     for job in TARGET_JOBS:
-        method = f'수집 기록 수 / 기대 수({expected:.0f})'
+        method = f'수집 성공 수 / 기대 수({expected:.0f})'
         if samples is None or samples.status not in USABLE:
             obs[('scrape_coverage', job)] = Obs(None, 'ratio', method, samples.status if samples else 'no_data',
                                                 derived=True)
             continue
-        found = obs.get(('scrape_samples', job))
+        found = obs.get(('scrape_success_samples', job))
         value = min((found.value if found else 0) / expected, 1.0)
         obs[('scrape_coverage', job)] = Obs(value, 'ratio', method, 'ok' if found else 'no_data', derived=True)
 
