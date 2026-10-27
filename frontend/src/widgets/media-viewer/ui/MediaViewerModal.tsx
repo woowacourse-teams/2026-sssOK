@@ -19,6 +19,7 @@ import { downloadMedia, savesToPhotoLibrary } from "@/features/download-media";
 import { useMediaLike } from "@/features/toggle-media-like";
 import { track } from "@/shared/lib";
 import { colors } from "@/shared/styles/tokens";
+import { Toast } from "@/shared/ui/toast";
 
 interface MediaViewerModalProps {
   items: GalleryItem[];
@@ -33,6 +34,9 @@ interface MediaViewerModalProps {
   onToggle: (mediaId: number) => void;
   onDeleted: (mediaId: number) => void;
 }
+
+/** 한 장 저장을 마쳤다는 토스트가 떠 있는 시간. 여러 장 받기의 완료 토스트와 같다. */
+const DOWNLOAD_DONE_TOAST_MS = 2000;
 
 const formatDate = (value: string) => {
   const date = new Date(value);
@@ -329,18 +333,32 @@ const ViewerFooter = ({
           size: item.media.size,
           mimeType: item.media.mimeType,
         };
+  const [doneMessage, setDoneMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (doneMessage === null) return;
+
+    const timer = window.setTimeout(() => setDoneMessage(null), DOWNLOAD_DONE_TOAST_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [doneMessage]);
+
   const download = useMutation({
     mutationFn: async () => {
+      const toPhotoLibrary = savesToPhotoLibrary();
       const outcome = await downloadMedia({
         roomId,
         targets: [downloadTarget],
-        // 폰에서 개별 다운을 할 경우, 여러 장 받기와 같은 기준으로 공유 시트를 쓸 기기를 가른다.
-        mode: savesToPhotoLibrary() ? "share" : "individual",
+        mode: toPhotoLibrary ? "share" : "individual",
         token,
       });
 
       if (outcome.type === "failed") throw new Error(outcome.reason);
       if (outcome.type === "empty") throw new Error("사진을 다운로드하지 못했어요.");
+
+      if (outcome.type === "saved") {
+        setDoneMessage(toPhotoLibrary ? "사진첩에 저장했어요." : "사진을 저장했어요.");
+      }
     },
   });
 
@@ -376,6 +394,10 @@ const ViewerFooter = ({
       >
         <HiArrowDownTray size={21} />
       </ActionButton>
+      {/* 뷰어가 최상위 레이어(dialog)라 그 안에 띄워야 가려지지 않는다. */}
+      {doneMessage !== null && (
+        <Toast message={doneMessage} showClose={false} onClose={() => setDoneMessage(null)} />
+      )}
     </Footer>
   );
 };
