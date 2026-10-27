@@ -163,6 +163,10 @@ def main():
             print('실제 Prometheus 정기 보고 조회·집계 검사 통과')
         finally:
             subprocess.run(['docker', 'rm', '-f', name], capture_output=True)
+            # Linux에서는 컨테이너가 만든 TSDB 파일을 러너 사용자가 지울 수 없어 컨테이너 안에서 지운다.
+            subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--user', '0',
+                            '--mount', f'type=bind,src={work},dst=/work', '--entrypoint', 'rm', image(),
+                            '-rf', '/work/tsdb'], check=True, capture_output=True)
 
 
 if __name__ == '__main__':
