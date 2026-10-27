@@ -1,5 +1,6 @@
 package com.sssok.application.port.out;
 
+import com.sssok.application.room.RoomMembershipSummary;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.renewal.domain.member.Nickname;
 import java.time.Instant;
@@ -11,6 +12,11 @@ import java.util.Optional;
 public interface RoomMemberRepository {
 
     RoomMember save(RoomMember roomMember);
+
+    List<RoomMembershipSummary> findRoomsByMemberId(Long memberId);
+
+    // 실제 삭제한 참여 기록 ID. 다른 요청이 먼저 삭제했거나 이미 나갔으면 비어 있다.
+    Optional<Long> deleteMembership(Long roomId, Long memberId);
 
     Optional<RoomMember> findByRoomIdAndMemberId(Long roomId, Long memberId);
 

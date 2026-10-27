@@ -1,5 +1,14 @@
 package com.sssok.renewal.incoming.media;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.folder.CreateFolderService;
@@ -8,7 +17,7 @@ import com.sssok.application.media.MediaReadyEvent;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
@@ -16,8 +25,8 @@ import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
-import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;
@@ -43,13 +52,6 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
 // API 인수 테스트 (Testcontainers). 폴더 담기가 PostgreSQL 전용 ON CONFLICT 를 써서 H2 로는 못 돈다.
@@ -81,7 +83,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
     CreateFolderService createFolderService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @MockitoBean
     FileStorage fileStorage;
@@ -118,6 +120,78 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         roomId = room.getId();
         given(fileStorage.presignPut(any(), anyString(), any(Duration.class)))
             .willReturn("https://fileStorage.example.com/signed");
+    }
+
+    @Test
+    void 나가기와_다른_닉네임으로_재참여해도_사진마다_업로드_당시_이름을_유지한다() throws Exception {
+        AuthResult guest = anonymousAuthService.authenticate("계정기본이름");
+        String guestToken = "Bearer " + guest.accessToken();
+        roomMembershipService.join(roomId, guest.userId(), "첫번째별명");
+        Long firstMediaId = uploadImageAs(guestToken);
+        assertThat(fileRepository.findById(firstMediaId).orElseThrow().getUploaderNickname())
+            .isEqualTo("첫번째별명");
+
+        roomMembershipService.leave(roomId, guest.userId());
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, firstMediaId)
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.uploaderName").value("첫번째별명"));
+
+        roomMembershipService.join(roomId, guest.userId(), "두번째별명");
+        Long secondMediaId = uploadImageAs(guestToken);
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media", roomId)
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.items[?(@.mediaId == " + firstMediaId + ")].uploaderName")
+                .value(org.hamcrest.Matchers.contains("첫번째별명")))
+            .andExpect(jsonPath("$.data.items[?(@.mediaId == " + secondMediaId + ")].uploaderName")
+                .value(org.hamcrest.Matchers.contains("두번째별명")));
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, firstMediaId)
+                .header("Authorization", token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.uploaderName").value("첫번째별명"));
+    }
+
+    @Test
+    void 예약_후_다른_닉네임으로_재참여해도_완료_응답은_예약_당시_이름을_사용한다() throws Exception {
+        AuthResult guest = anonymousAuthService.authenticate("계정이름");
+        String guestToken = "Bearer " + guest.accessToken();
+        roomMembershipService.join(roomId, guest.userId(), "예약별명");
+        String issued = mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", roomId)
+                .header("Authorization", guestToken)
+                .contentType(MediaType.APPLICATION_JSON).content(oneImage()))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
+        roomMembershipService.leave(roomId, guest.userId());
+        roomMembershipService.join(roomId, guest.userId(), "바뀐별명");
+        given(fileStorage.findUploaded(any()))
+            .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
+
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
+                .header("Authorization", guestToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mediaIds\":[%d]}".formatted(mediaId)))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.registered[0].uploaderName").value("예약별명"));
+    }
+
+    private Long uploadImageAs(String bearerToken) throws Exception {
+        String issued = mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", roomId)
+                .header("Authorization", bearerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(oneImage()))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        Long mediaId = issuedMediaId(issued);
+        given(fileStorage.findUploaded(any()))
+            .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
+                .header("Authorization", bearerToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"mediaIds\":[%d]}".formatted(mediaId)))
+            .andExpect(status().isCreated());
+        return mediaId;
     }
 
     private ResultActions issue(String body) throws Exception {
@@ -224,7 +298,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         Long mediaId = issuedMediaId(issued);
 
         AuthResult guest = anonymousAuthService.authenticate("민수");
-        joinRoomService.join(roomId, guest.userId());
+        roomMembershipService.join(roomId, guest.userId());
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", roomId, mediaId)
                 .header("Authorization", "Bearer " + guest.accessToken()))
@@ -449,7 +523,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         AuthResult host = anonymousAuthService.authenticate("방장");
         Long restrictedRoom = createRoomService.create(host.userId(), "방장만 업로드", "host").room().getId();
         AuthResult guest = anonymousAuthService.authenticate("참여자");
-        joinRoomService.join(restrictedRoom, guest.userId());
+        roomMembershipService.join(restrictedRoom, guest.userId());
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", restrictedRoom)
                 .header("Authorization", "Bearer " + guest.accessToken())

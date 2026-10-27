@@ -60,7 +60,7 @@ class RoomEventControllerTest {
     @Test
     void Authorization_헤더로_구독하면_비동기_요청이_시작된다() throws Exception {
         given(tokenProvider.parse("valid-token")).willReturn(1L);
-        given(sseEventPublisher.subscribe(1024L, null)).willReturn(new SseEmitter());
+        given(sseEventPublisher.subscribe(1024L, 1L, null)).willReturn(new SseEmitter());
 
         mockMvc.perform(get("/api/v1/rooms/1024/events")
                 .header("Authorization", "Bearer valid-token"))
@@ -70,20 +70,20 @@ class RoomEventControllerTest {
     @Test
     void Last_Event_ID_헤더가_있으면_그대로_publisher에_전달된다() throws Exception {
         given(tokenProvider.parse("valid-token")).willReturn(1L);
-        given(sseEventPublisher.subscribe(1024L, 42L)).willReturn(new SseEmitter());
+        given(sseEventPublisher.subscribe(1024L, 1L, 42L)).willReturn(new SseEmitter());
 
         mockMvc.perform(get("/api/v1/rooms/1024/events")
                 .header("Authorization", "Bearer valid-token")
                 .header("Last-Event-ID", "42"))
             .andExpect(request().asyncStarted());
 
-        verify(sseEventPublisher).subscribe(1024L, 42L);
+        verify(sseEventPublisher).subscribe(1024L, 1L, 42L);
     }
 
     @Test
     void Authorization_헤더가_없어도_token_쿼리_파라미터로_구독된다() throws Exception {
         given(tokenProvider.parse("query-token")).willReturn(1L);
-        given(sseEventPublisher.subscribe(1024L, null)).willReturn(new SseEmitter());
+        given(sseEventPublisher.subscribe(1024L, 1L, null)).willReturn(new SseEmitter());
 
         mockMvc.perform(get("/api/v1/rooms/1024/events").param("token", "query-token"))
             .andExpect(request().asyncStarted());

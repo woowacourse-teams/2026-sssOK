@@ -5,7 +5,6 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.DeleteRoomService;
-import com.sssok.application.room.RoomNicknameReader;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
@@ -115,8 +114,8 @@ class WithdrawAccountServiceTest extends PostgresContainerSupport {
         Long otherRoom = createRoomService.create(other.userId(), "다른방", null).room().getId();
         Long fileId = jdbcTemplate.queryForObject("""
             INSERT INTO stored_file (room_id, uploader_id, original_file_name, media_type, file_size_bytes,
-                storage_key, status, created_at, updated_at, reserved_at, retry_count)
-            VALUES (?, ?, 'a.jpg', 'JPEG', 1024, ?, 'RESERVED', now(), now(), now(), 0) RETURNING id
+                storage_key, status, created_at, updated_at, reserved_at, retry_count, uploader_nickname)
+            VALUES (?, ?, 'a.jpg', 'JPEG', 1024, ?, 'RESERVED', now(), now(), now(), 0, '업로드별명') RETURNING id
             """, Long.class, otherRoom, member.userId(), UUID.randomUUID().toString());
 
         withdrawAccountService.withdraw(member.userId());
@@ -126,7 +125,7 @@ class WithdrawAccountServiceTest extends PostgresContainerSupport {
         assertThat(roomRepository.findById(otherRoom).orElseThrow().isDeleted()).isFalse();
         assertThat(fileRepository.findById(fileId)).isPresent();
         assertThat(mediaDetailAssembler.load(List.of(fileRepository.findById(fileId).orElseThrow()), other.userId())
-            .uploaderNames().get(new RoomNicknameReader.Participant(otherRoom, member.userId()))).isEqualTo("탈퇴한 사용자");
+            .uploaderNames().get(fileId)).isEqualTo("탈퇴한 사용자");
         assertThat(sessionTokenProvider.parse(other.accessToken())).isEqualTo(other.userId());
     }
 
