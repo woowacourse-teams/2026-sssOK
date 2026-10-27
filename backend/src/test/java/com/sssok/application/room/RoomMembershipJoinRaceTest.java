@@ -1,6 +1,7 @@
 package com.sssok.application.room;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.sssok.application.media.MediaUrlResolver;
+import com.sssok.application.room.exception.RoomModifiedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.domain.room.Room;
@@ -53,13 +55,16 @@ class RoomMembershipJoinRaceTest {
     }
 
     @Test
-    void 다른_입장이_먼저_성공한_뒤_나가서_기록이_없으면_새로_참여한다() {
+    void 중복_삽입_후_참여기록이_없으면_재시도하지_않고_충돌로_종료한다() {
         when(roomMemberRepository.findByRoomIdAndMemberId(10L, 2L)).thenReturn(Optional.empty());
-        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any(), any())).thenReturn(false, true);
-        assertThat(roomMembershipService.join(10L, 2L).newlyJoined()).isTrue();
+        when(roomMemberRepository.joinIfAbsent(eq(10L), eq(2L), any(), any())).thenReturn(false);
+
+        assertThatThrownBy(() -> roomMembershipService.join(10L, 2L))
+            .isInstanceOf(RoomModifiedException.class);
+
         verify(roomMemberRepository, times(2)).findByRoomIdAndMemberId(10L, 2L);
-        verify(roomMemberRepository, times(2)).joinIfAbsent(eq(10L), eq(2L), any(), any());
-        verify(eventPublisher, times(1)).publishEvent(any(RoomMemberJoinedEvent.class));
+        verify(roomMemberRepository, times(1)).joinIfAbsent(eq(10L), eq(2L), any(), any());
+        verifyNoInteractions(eventPublisher);
     }
 
     @Test

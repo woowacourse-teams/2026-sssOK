@@ -5,6 +5,7 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomHostCannotLeaveException;
+import com.sssok.application.room.exception.RoomModifiedException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomMember;
@@ -92,18 +93,20 @@ public class RoomMembershipService {
         Nickname roomNickname = requestedNickname == null ? member.getDisplayName() : requestedNickname;
         Long roomId = room.getId();
         Long memberId = member.getId();
-        while (true) {
-            Optional<RoomMember> existingMembership = roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId);
-            if (existingMembership.isPresent()) {
-                return JoinRoomResult.rejoined(room, existingMembership.get(), member);
-            }
-
-            // DB 정밀도에 맞춰 최초 입장과 재입장의 응답 시각을 동일하게 한다.
-            Instant joinedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
-            if (roomMemberRepository.joinIfAbsent(roomId, memberId, joinedAt, roomNickname)) {
-                return JoinRoomResult.newlyJoined(room, RoomMember.join(roomId, memberId, joinedAt, roomNickname), member);
-            }
-            // 다른 요청이 먼저 입장한 뒤 나갔을 수 있다. 기록이 반드시 있다고 가정하지 않고 다시 확인한다.
+        Optional<RoomMember> existingMembership = roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId);
+        if (existingMembership.isPresent()) {
+            return JoinRoomResult.rejoined(room, existingMembership.get(), member);
         }
+
+        // DB 정밀도에 맞춰 최초 입장과 재입장의 응답 시각을 동일하게 한다.
+        Instant joinedAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
+        if (roomMemberRepository.joinIfAbsent(roomId, memberId, joinedAt, roomNickname)) {
+            return JoinRoomResult.newlyJoined(room, RoomMember.join(roomId, memberId, joinedAt, roomNickname), member);
+        }
+
+        // 중복 입장이면 기존 기록을 한 번만 확인한다. 그 사이 나갔다면 재요청을 안내한다.
+        RoomMember membership = roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)
+            .orElseThrow(RoomModifiedException::new);
+        return JoinRoomResult.rejoined(room, membership, member);
     }
 }

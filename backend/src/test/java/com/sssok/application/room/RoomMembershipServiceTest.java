@@ -8,6 +8,7 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomHostCannotLeaveException;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
+import com.sssok.application.room.exception.RoomModifiedException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
@@ -339,14 +340,18 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 입장과_나가기가_동시에_요청되어도_중간_참여기록_소실로_실패하지_않는다() throws Exception {
+    void 입장과_나가기가_겹치면_입장하거나_충돌로_종료한다() throws Exception {
         Room room = createRoom();
         try (var pool = Executors.newFixedThreadPool(2)) {
             for (int i = 0; i < 10; i++) {
                 var start = new CountDownLatch(1);
                 var join = pool.submit(() -> {
                     start.await();
-                    return roomMembershipService.join(room.getId(), guestId);
+                    try {
+                        return roomMembershipService.join(room.getId(), guestId);
+                    } catch (RoomModifiedException e) {
+                        return null;
+                    }
                 });
                 var leave = pool.submit(() -> {
                     start.await();

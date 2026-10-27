@@ -31,6 +31,7 @@ import com.sssok.application.room.exception.EmptyPatchException;
 import com.sssok.application.room.exception.RoomAlreadyDeletedException;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomHostCannotLeaveException;
+import com.sssok.application.room.exception.RoomModifiedException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
@@ -408,6 +409,16 @@ class RoomControllerTest {
         performJoin("{}")
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
+    }
+
+    @Test
+    void 중복_입장_후_참여기록이_사라지면_409를_반환한다() throws Exception {
+        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull()))
+            .willThrow(new RoomModifiedException());
+
+        performJoin("{}")
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ROOM_MODIFIED"));
     }
 
     @Test
