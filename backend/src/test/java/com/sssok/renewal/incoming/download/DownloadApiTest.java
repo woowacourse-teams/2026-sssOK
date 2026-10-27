@@ -7,7 +7,7 @@ import com.sssok.application.media.DeleteMediaService;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.FolderMediaRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
@@ -81,7 +81,7 @@ class DownloadApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     CreateFolderService createFolderService;
@@ -123,7 +123,7 @@ class DownloadApiTest extends PostgresContainerSupport {
         AuthResult guest = anonymousAuthService.authenticate("민수");
         guestId = guest.userId();
         guestToken = "Bearer " + guest.accessToken();
-        joinRoomService.join(roomId, guestId);
+        roomMembershipService.join(roomId, guestId);
 
         AuthResult stranger = anonymousAuthService.authenticate("지수");
         otherRoomId = createRoomService.create(stranger.userId(), "다른 방", null).room().getId();

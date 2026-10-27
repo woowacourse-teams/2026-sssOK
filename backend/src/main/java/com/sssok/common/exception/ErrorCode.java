@@ -69,6 +69,7 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(405, "지원하지 않는 요청 방식입니다"),
 
     // 409 Conflict
+    ROOM_HOST_CANNOT_LEAVE(409, "방장은 방에서 나갈 수 없습니다"),
     SOCIAL_REAUTHENTICATION_REQUIRED(409, "소셜 계정 인증을 다시 진행해주세요"),
     SOCIAL_AUTH_CONFLICT(409, "회원 상태가 변경되었습니다. 로그인을 다시 시작해주세요"),
     ROOM_MODIFIED(409, "방 정보가 방금 변경되었습니다. 다시 시도해주세요"),
