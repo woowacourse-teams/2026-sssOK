@@ -54,7 +54,8 @@ public class MediaRegistrationService {
     }
 
     private MediaDetail toMediaDetail(StoredFile processingFile, String uploaderName, List<Long> folderIds) {
-        return MediaDetail.of(processingFile, uploaderName, folderIds,
+        String originalNickname = processingFile.getUploaderNickname();
+        return MediaDetail.of(processingFile, originalNickname == null ? uploaderName : originalNickname, folderIds,
             mediaUrlResolver.resolve(processingFile), 0, false);
     }
 

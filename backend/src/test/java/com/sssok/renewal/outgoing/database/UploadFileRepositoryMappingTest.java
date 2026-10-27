@@ -21,7 +21,7 @@ class UploadFileRepositoryMappingTest {
         StoredFile original = StoredFile.reconstruct(10L, 20L, 30L, "a.jpg", MediaType.JPEG,
             new FileSize(1024), new StorageKey("rooms/20/a.jpg"), 40L, UploadStatus.READY,
             now, now.plusSeconds(1), 2, new StorageKey("thumb/a.jpg"), new StorageKey("preview/a.jpg"),
-            100, 200, 3, now.minusSeconds(60), new GeoPoint(new BigDecimal("37.123456"), new BigDecimal("127.123456")));
+            100, 200, 3, now.minusSeconds(60), new GeoPoint(new BigDecimal("37.123456"), new BigDecimal("127.123456")), "여행자");
         assertRoundTrip(original);
     }
 

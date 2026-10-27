@@ -6,7 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.database.PushSubscriptionJpaEntity;
@@ -49,7 +49,7 @@ class InvalidSubscriptionKeyApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     PushSubscriptionJpaRepository pushSubscriptionJpaRepository;
@@ -76,7 +76,7 @@ class InvalidSubscriptionKeyApiTest extends PostgresContainerSupport {
         AuthResult host = anonymousAuthService.authenticate("가현");
         Long roomId = createRoomService.create(host.userId(), "제주 여행", null).room().getId();
         AuthResult guest = anonymousAuthService.authenticate("민수");
-        joinRoomService.join(roomId, guest.userId());
+        roomMembershipService.join(roomId, guest.userId());
 
         byte[] offCurveKey = new byte[65];
         offCurveKey[0] = 0x04;

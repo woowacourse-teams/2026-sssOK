@@ -53,6 +53,9 @@ public class StoredFileJpaEntity extends BaseEntity {
     @Column(name = "uploader_id", nullable = false)
     private Long uploaderId;
 
+    @Column(name = "uploader_nickname", length = 12)
+    private String uploaderNickname;
+
     @Column(name = "original_file_name", nullable = false, length = 255)
     private String originalFileName;
 
@@ -122,10 +125,23 @@ public class StoredFileJpaEntity extends BaseEntity {
                                Integer width, Integer height,
                                Integer durationSeconds, Instant takenAt,
                                BigDecimal latitude, BigDecimal longitude) {
+        this(id, roomId, uploaderId, originalFileName, mediaType, fileSizeBytes, storageKey, folderId,
+            status, createdAt, reservedAt, retryCount, thumbnailKey, previewKey, width, height,
+            durationSeconds, takenAt, latitude, longitude, null);
+    }
+
+    public StoredFileJpaEntity(Long id, Long roomId, Long uploaderId, String originalFileName,
+                               String mediaType, Long fileSizeBytes, String storageKey, Long folderId,
+                               String status, Instant createdAt, Instant reservedAt, int retryCount,
+                               String thumbnailKey, String previewKey,
+                               Integer width, Integer height,
+                               Integer durationSeconds, Instant takenAt,
+                               BigDecimal latitude, BigDecimal longitude, String uploaderNickname) {
         super(createdAt);
         this.id = id;
         this.roomId = roomId;
         this.uploaderId = uploaderId;
+        this.uploaderNickname = uploaderNickname;
         this.originalFileName = originalFileName;
         this.mediaType = mediaType;
         this.fileSizeBytes = fileSizeBytes;
@@ -165,7 +181,8 @@ public class StoredFileJpaEntity extends BaseEntity {
             file.getDurationSeconds(),
             file.getTakenAt(),
             file.getLocation() == null ? null : file.getLocation().latitude(),
-            file.getLocation() == null ? null : file.getLocation().longitude()
+            file.getLocation() == null ? null : file.getLocation().longitude(),
+            file.getUploaderNickname()
         );
     }
 
@@ -189,7 +206,8 @@ public class StoredFileJpaEntity extends BaseEntity {
             getHeight(),
             getDurationSeconds(),
             getTakenAt(),
-            GeoPoint.ofNullable(getLatitude(), getLongitude())
+            GeoPoint.ofNullable(getLatitude(), getLongitude()),
+            getUploaderNickname()
         );
     }
 }

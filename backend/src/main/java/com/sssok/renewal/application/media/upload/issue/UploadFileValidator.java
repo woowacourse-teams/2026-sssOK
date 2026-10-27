@@ -23,6 +23,10 @@ public class UploadFileValidator {
     private final UploadProperties uploadProperties;
 
     public ValidatedUploadFiles validate(IssueUploadUrlsCommand command) {
+        return validate(command, null);
+    }
+
+    public ValidatedUploadFiles validate(IssueUploadUrlsCommand command, String uploaderNickname) {
         Instant uploadRequestedAt = Instant.now();
         List<StoredFile> acceptedFiles = new ArrayList<>();
         List<RejectedFile> rejectedFiles = new ArrayList<>();
@@ -30,7 +34,7 @@ public class UploadFileValidator {
             try {
                 acceptedFiles.add(createPendingUpload(command.roomId(), command.uploaderId(),
                     requestedFile.fileName(), requestedFile.mimeType(), requestedFile.size(),
-                    uploadRequestedAt, uploadProperties.sizePolicy()));
+                    uploadRequestedAt, uploadProperties.sizePolicy(), uploaderNickname));
             } catch (UploadRejectedException exception) {
                 rejectedFiles.add(RejectedFile.from(requestedFile, exception));
             }
@@ -45,11 +49,11 @@ public class UploadFileValidator {
     }
 
     private StoredFile createPendingUpload(Long roomId, Long uploaderId, String fileName, String mimeType,
-                                               Long fileSizeBytes, Instant uploadRequestedAt, UploadSizePolicy uploadSizePolicy) {
+                                               Long fileSizeBytes, Instant uploadRequestedAt, UploadSizePolicy uploadSizePolicy, String uploaderNickname) {
         validateMetadata(fileName, fileSizeBytes);
         try {
             return StoredFile.reserve(roomId, uploaderId, fileName, mimeType, new FileSize(fileSizeBytes),
-                uploadRequestedAt, uploadSizePolicy);
+                uploadRequestedAt, uploadSizePolicy, uploaderNickname);
         } catch (InvalidFileSizeException e) {
             throw new InvalidUploadFileException();
         } catch (UnsupportedMediaTypeException e) {

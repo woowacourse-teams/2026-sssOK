@@ -12,8 +12,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.application.auth.SessionTokenProvider;
+import com.sssok.renewal.application.auth.SocialMemberLoginService;
+import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
+import com.sssok.renewal.domain.member.SocialIdentity;
+import com.sssok.renewal.domain.member.SocialProvider;
+import com.sssok.renewal.outgoing.oauth.SocialAuthentication;
 import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -27,6 +36,12 @@ import org.springframework.test.web.servlet.ResultActions;
 // API 인수 테스트 — 생성부터 삭제까지 실제 PostgreSQL 위에서 관통 확인한다.
 @PostgresApiTest
 class RoomApiTest extends PostgresContainerSupport {
+
+    @Autowired
+    SessionTokenProvider sessionTokenProvider;
+
+    @Autowired
+    SocialMemberLoginService socialMemberLoginService;
 
     @Autowired
     MockMvc mockMvc;
@@ -121,7 +136,6 @@ class RoomApiTest extends PostgresContainerSupport {
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("INVALID_ROOM_NAME"));
     }
-
 
     @Test
     void roomId_자리에_방_코드를_넣으면_500이_아니라_400() throws Exception {
@@ -404,7 +418,6 @@ class RoomApiTest extends PostgresContainerSupport {
         assertThat(값(guestJoin, "userId")).isNotEqualTo(값(guestJoin, "hostId"));
     }
 
-
     @Test
     void 없는_방에_입장하면_404() throws Exception {
         입장(익명_인증("민수"), -1L)
@@ -434,6 +447,130 @@ class RoomApiTest extends PostgresContainerSupport {
                 .content("{}"))
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
+    void 목록_조회부터_나가기_권한차단_재참여까지_동작한다() throws Exception {
+        String host = 익명_인증("방장");
+        String guest = 익명_인증("참여자");
+        long roomId = 방_만들기(host).roomId();
+        입장(guest, roomId).andExpect(status().isCreated());
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", "Bearer " + guest))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.rooms[0].isHost").value(false))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(2));
+        mockMvc.perform(delete("/api/v1/rooms/{id}/members/me", roomId)
+                .header("Authorization", "Bearer " + host))
+            .andExpect(status().isConflict());
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(delete("/api/v1/rooms/{id}/members/me", roomId)
+                    .header("Authorization", "Bearer " + guest))
+                .andExpect(status().isNoContent());
+        }
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", "Bearer " + guest))
+            .andExpect(jsonPath("$.data.rooms").isEmpty());
+        mockMvc.perform(get("/api/v1/rooms/{id}/events", roomId)
+                .header("Authorization", "Bearer " + guest))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(post("/api/v1/rooms/{id}/media/upload-urls", roomId)
+                .header("Authorization", "Bearer " + guest)
+                .contentType(MediaType.APPLICATION_JSON).content("{}"))
+            .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/rooms/{id}/media", roomId)
+                .header("Authorization", "Bearer " + guest))
+            .andExpect(status().isForbidden());
+        입장(guest, roomId).andExpect(status().isCreated());
+        mockMvc.perform(get("/api/v1/members/me/rooms").header("Authorization", "Bearer " + guest))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(2));
+    }
+
+    @Test
+    void 소셜_가입_후에도_기존_방_목록과_방장_권한을_유지한다() throws Exception {
+        String anonymousToken = 익명_인증("가입할회원");
+        Long memberId = sessionTokenProvider.parse(anonymousToken);
+        long roomId = 방_만들기(anonymousToken).roomId();
+
+        AuthResult registered = 소셜_로그인(새_소셜_계정(), memberId);
+
+        assertThat(registered.userId()).isEqualTo(memberId);
+        내_방_목록(registered.accessToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.rooms.length()").value(1))
+            .andExpect(jsonPath("$.data.rooms[0].roomId").value(roomId))
+            .andExpect(jsonPath("$.data.rooms[0].isHost").value(true))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(1));
+        나가기(registered.accessToken(), roomId)
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("ROOM_HOST_CANNOT_LEAVE"));
+    }
+
+    @Test
+    void 계정_통합_후_방을_중복없이_조회하고_참여한_방에서_나갔다가_재참여한다() throws Exception {
+        SocialIdentity identity = 새_소셜_계정();
+        String targetAnonymous = 익명_인증("기존회원");
+        AuthResult target = 소셜_로그인(identity, sessionTokenProvider.parse(targetAnonymous));
+        String source = 익명_인증("통합할회원");
+        Long sourceId = sessionTokenProvider.parse(source);
+        long hostedRoom = 방_만들기(source).roomId();
+        입장(target.accessToken(), hostedRoom).andExpect(status().isCreated());
+        long joinedRoom = 방_만들기(익명_인증("다른방장")).roomId();
+        입장(source, joinedRoom).andExpect(status().isCreated());
+
+        AuthResult merged = 소셜_로그인(identity, sourceId);
+
+        assertThat(merged.userId()).isEqualTo(target.userId());
+        내_방_목록(merged.accessToken())
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.rooms.length()").value(2))
+            .andExpect(jsonPath("$.data.rooms[0].roomId").value(joinedRoom))
+            .andExpect(jsonPath("$.data.rooms[0].isHost").value(false))
+            .andExpect(jsonPath("$.data.rooms[0].memberCount").value(2))
+            .andExpect(jsonPath("$.data.rooms[1].roomId").value(hostedRoom))
+            .andExpect(jsonPath("$.data.rooms[1].isHost").value(true))
+            .andExpect(jsonPath("$.data.rooms[1].memberCount").value(1));
+        나가기(merged.accessToken(), hostedRoom).andExpect(status().isConflict());
+        내_방_목록(source).andExpect(status().isUnauthorized());
+        나가기(source, joinedRoom).andExpect(status().isUnauthorized());
+        나가기(merged.accessToken(), joinedRoom).andExpect(status().isNoContent());
+        내_방_목록(merged.accessToken())
+            .andExpect(jsonPath("$.data.rooms.length()").value(1))
+            .andExpect(jsonPath("$.data.rooms[0].roomId").value(hostedRoom));
+        입장(merged.accessToken(), joinedRoom).andExpect(status().isCreated());
+        내_방_목록(merged.accessToken())
+            .andExpect(jsonPath("$.data.rooms.length()").value(2))
+            .andExpect(jsonPath("$.data.rooms[0].roomId").value(joinedRoom));
+    }
+
+    @Test
+    void 로그아웃한_토큰으로는_목록_조회와_나가기를_할_수_없다() throws Exception {
+        String guest = 익명_인증("참여자");
+        long roomId = 방_만들기(익명_인증("방장")).roomId();
+        입장(guest, roomId).andExpect(status().isCreated());
+
+        sessionTokenProvider.logout(guest);
+
+        내_방_목록(guest).andExpect(status().isUnauthorized());
+        나가기(guest, roomId).andExpect(status().isUnauthorized());
+    }
+
+    private SocialIdentity 새_소셜_계정() {
+        return new SocialIdentity(SocialProvider.KAKAO, UUID.randomUUID().toString());
+    }
+
+    // 외부 제공자 인증 완료 후의 실제 가입·활동 통합·세션 발급부터 API까지 검증한다.
+    private AuthResult 소셜_로그인(SocialIdentity identity, Long sourceMemberId) {
+        return socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"),
+            List.of(sourceMemberId), RefreshTokenDelivery.COOKIE);
+    }
+
+    private ResultActions 내_방_목록(String token) throws Exception {
+        return mockMvc.perform(get("/api/v1/members/me/rooms")
+            .header("Authorization", "Bearer " + token));
+    }
+
+    private ResultActions 나가기(String token, long roomId) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/members/me", roomId)
+            .header("Authorization", "Bearer " + token));
     }
 
     private ResultActions 방_생성(String token, String body) throws Exception {

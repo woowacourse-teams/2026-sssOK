@@ -11,11 +11,9 @@ import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.application.folder.CreateFolderService;
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.port.out.FolderMediaRepository;
-import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.ProcessedMedia;
@@ -24,8 +22,10 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
-import com.sssok.support.PostgresContainerSupport;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
+import com.sssok.support.PostgresContainerSupport;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -56,7 +56,7 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     CreateFolderService createFolderService;
@@ -93,8 +93,8 @@ class MediaDeleteApiTest extends PostgresContainerSupport {
         other = anonymousAuthService.authenticate("의찬");
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
-        joinRoomService.join(roomId, uploader.userId());
-        joinRoomService.join(roomId, other.userId());
+        roomMembershipService.join(roomId, uploader.userId());
+        roomMembershipService.join(roomId, other.userId());
     }
 
     @Test

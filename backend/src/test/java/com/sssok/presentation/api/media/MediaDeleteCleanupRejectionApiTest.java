@@ -2,7 +2,7 @@ package com.sssok.presentation.api.media;
 
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
-import com.sssok.application.room.JoinRoomService;
+import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.OrphanObject;
 import com.sssok.domain.file.StorageKey;
@@ -60,7 +60,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
     CreateRoomService createRoomService;
 
     @Autowired
-    JoinRoomService joinRoomService;
+    RoomMembershipService roomMembershipService;
 
     @Autowired
     FileRepository fileRepository;
@@ -85,7 +85,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
         uploader = anonymousAuthService.authenticate("가현");
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
-        joinRoomService.join(roomId, uploader.userId());
+        roomMembershipService.join(roomId, uploader.userId());
     }
 
     @AfterEach

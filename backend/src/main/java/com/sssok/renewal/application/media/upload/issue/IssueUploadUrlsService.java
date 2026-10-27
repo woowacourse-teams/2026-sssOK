@@ -1,9 +1,10 @@
 package com.sssok.renewal.application.media.upload.issue;
 
+import com.sssok.application.room.RoomNicknameReader;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.renewal.application.media.upload.shared.UploadRoomValidator;
 import com.sssok.renewal.application.media.upload.shared.UploadUrl;
 import com.sssok.renewal.application.media.upload.shared.UploadUrlIssuer;
-import com.sssok.renewal.application.media.upload.shared.UploadRoomValidator;
-import com.sssok.domain.file.StoredFile;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.renewal.outgoing.database.UploadFolderRepository;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class IssueUploadUrlsService {
     private final UploadRoomValidator uploadRoomValidator;
+    private final RoomNicknameReader roomNicknameReader;
     private final UploadFolderValidator uploadFolderValidator;
     private final UploadFileValidator uploadFileValidator;
     private final UploadFileRepository uploadFileRepository;
@@ -26,7 +28,8 @@ public class IssueUploadUrlsService {
         command.validate();
         uploadRoomValidator.validate(command.roomId(), command.uploaderId());
         List<Long> targetFolderIds = uploadFolderValidator.validate(command.roomId(), command.folderIds());
-        ValidatedUploadFiles validatedFiles = uploadFileValidator.validate(command);
+        String uploaderNickname = roomNicknameReader.read(command.roomId(), command.uploaderId());
+        ValidatedUploadFiles validatedFiles = uploadFileValidator.validate(command, uploaderNickname);
         List<StoredFile> storedUploadFiles = uploadFileRepository.savePendingUploads(validatedFiles.acceptedFiles());
         for (StoredFile storedUploadFile : storedUploadFiles) {
             uploadFolderRepository.addFileToFolders(storedUploadFile.getId(), targetFolderIds);
