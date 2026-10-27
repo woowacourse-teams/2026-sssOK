@@ -132,6 +132,38 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 알림_구독과_기기_토큰을_옮기고_방_알림_설정은_나중에_바꾼_쪽을_남긴다() {
+        Long onlySourceRoom = createRoomService.create(sourceId, "익명만 설정", null).room().getId();
+        Long targetNewerRoom = createRoomService.create(sourceId, "회원이 나중에 설정", null).room().getId();
+        jdbcTemplate.update("""
+            INSERT INTO push_subscription (member_id, endpoint, p256dh, auth, created_at)
+            VALUES (?, 'https://push.example/source', 'p256dh', 'auth', now())
+            """, sourceId);
+        jdbcTemplate.update("""
+            INSERT INTO device_token (member_id, token, platform, created_at)
+            VALUES (?, 'source-device-token', 'IOS', now())
+            """, sourceId);
+        jdbcTemplate.update("""
+            INSERT INTO room_notification_setting (room_id, member_id, enabled, updated_at) VALUES
+                (?, ?, FALSE, '2026-01-02T00:00:00Z'), (?, ?, TRUE, '2026-01-01T00:00:00Z'),
+                (?, ?, FALSE, '2026-01-01T00:00:00Z'),
+                (?, ?, FALSE, '2026-01-01T00:00:00Z'), (?, ?, TRUE, '2026-01-02T00:00:00Z')
+            """, roomId, sourceId, roomId, targetId, onlySourceRoom, sourceId,
+            targetNewerRoom, sourceId, targetNewerRoom, targetId);
+
+        socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(sourceId), RefreshTokenDelivery.COOKIE);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT member_id FROM push_subscription WHERE endpoint = ?",
+            Long.class, "https://push.example/source")).isEqualTo(targetId);
+        assertThat(jdbcTemplate.queryForObject("SELECT member_id FROM device_token WHERE token = ?",
+            Long.class, "source-device-token")).isEqualTo(targetId);
+        assertThat(count("room_notification_setting", "member_id", sourceId)).isZero();
+        assertThat(notificationEnabled(roomId, targetId)).isFalse();
+        assertThat(notificationEnabled(onlySourceRoom, targetId)).isFalse();
+        assertThat(notificationEnabled(targetNewerRoom, targetId)).isTrue();
+    }
+
+    @Test
     void 통합_트랜잭션이_실패하면_활동과_인증을_모두_복원한다() {
         String code = issueLinkCodeService.issue(sourceId).linkCode();
         assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
@@ -212,6 +244,11 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     private String roomNickname(Long room, Long member) {
         return jdbcTemplate.queryForObject("SELECT nickname FROM room_member WHERE room_id = ? AND member_id = ?",
             String.class, room, member);
+    }
+
+    private boolean notificationEnabled(Long room, Long member) {
+        return jdbcTemplate.queryForObject("SELECT enabled FROM room_notification_setting WHERE room_id = ? AND member_id = ?",
+            Boolean.class, room, member);
     }
 
     private Long mergeOrConflict(SocialIdentity socialIdentity) {

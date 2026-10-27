@@ -38,4 +38,11 @@ public interface PushSubscriptionJpaRepository extends JpaRepository<PushSubscri
           AND COALESCE(s.enabled, TRUE)
         """, nativeQuery = true)
     List<PushSubscriptionJpaEntity> findRecipients(@Param("roomId") Long roomId, @Param("actorId") Long actorId);
+
+    // 익명 계정을 로그인 계정으로 합칠 때 그 브라우저로 계속 알림이 가도록 구독을 옮긴다.
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+        UPDATE push_subscription SET member_id = :targetMemberId WHERE member_id = :sourceMemberId
+        """, nativeQuery = true)
+    int transferMember(@Param("sourceMemberId") Long sourceMemberId, @Param("targetMemberId") Long targetMemberId);
 }

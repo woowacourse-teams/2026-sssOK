@@ -27,6 +27,7 @@ public class MergeAnonymousMemberService {
         mergeRoomMemberships(anonymousMemberId, registeredMemberId);
         mergeLikes(anonymousMemberId, registeredMemberId);
         transferOwnership(anonymousMemberId, registeredMemberId);
+        transferNotifications(anonymousMemberId, registeredMemberId);
 
         // 의견은 계정에 연결하되 작성 당시 닉네임·방 이름은 그대로 보존한다.
         memberActivityRepository.transferFeedbackAuthor(anonymousMemberId, registeredMemberId);
@@ -53,6 +54,14 @@ public class MergeAnonymousMemberService {
         memberActivityRepository.transferUploads(anonymousMemberId, registeredMemberId);
         // 로그인 뒤에도 진행 중인 다운로드 결과를 조회할 수 있게 요청자를 이전한다.
         memberActivityRepository.transferDownloadJobs(anonymousMemberId, registeredMemberId);
+    }
+
+    private void transferNotifications(Long anonymousMemberId, Long registeredMemberId) {
+        // 로그인한 기기·브라우저로 알림이 끊기지 않게 하고, 익명일 때 끈 방 알림도 그대로 둔다.
+        memberActivityRepository.transferPushSubscriptions(anonymousMemberId, registeredMemberId);
+        memberActivityRepository.transferDeviceTokens(anonymousMemberId, registeredMemberId);
+        memberActivityRepository.mergeNotificationSettings(anonymousMemberId, registeredMemberId);
+        memberActivityRepository.deleteNotificationSettings(anonymousMemberId);
     }
 
     private void lockMembers(Long anonymousMemberId, Long registeredMemberId) {
