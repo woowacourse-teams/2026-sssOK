@@ -119,6 +119,11 @@ jobs:
           PRIVATE_IP=$(python3 -B backend/monitoring/check-private-ip.py prod "$DEPLOY_PATH")
           echo "MONITORING_PRIVATE_IP=$PRIVATE_IP" >> "$GITHUB_ENV"
 
+      # 검증은 체크아웃 폴더에서 실행하므로 app.env_file 경로만 빈 파일로 준비한다.
+      # DEPLOY_PATH의 실제 서버 .env는 변경하지 않는다.
+      - name: Compose 검증용 앱 환경 파일 준비
+        run: touch backend/.env
+
       - name: 배치 전 Alloy 설정 검증
         run: bash backend/monitoring/validate-alloy.sh prod
 
