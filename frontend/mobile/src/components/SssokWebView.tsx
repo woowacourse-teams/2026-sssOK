@@ -21,9 +21,27 @@ import { WEB_ORIGIN, WEB_URL } from "../config/web";
 /** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장을 앱에 맡긴다. */
 const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION} }; true;`;
 
+/** 브릿지 메시지는 쏙 웹에서 온 것만 받는다. 로그인 페이지(`AUTH_ORIGINS`)도 저장을 시킬 수 없다. */
 const isWebOrigin = (url: string) => {
   try {
     return new URL(url).origin === WEB_ORIGIN;
+  } catch {
+    return false;
+  }
+};
+
+const AUTH_ORIGINS = new Set([
+  "https://kauth.kakao.com",
+  "https://accounts.kakao.com",
+  "https://appleid.apple.com",
+  "https://account.apple.com",
+  "https://idmsa.apple.com",
+]);
+
+const isAllowedWebUrl = (url: string) => {
+  try {
+    const { origin } = new URL(url);
+    return origin === WEB_ORIGIN || AUTH_ORIGINS.has(origin);
   } catch {
     return false;
   }
@@ -113,15 +131,17 @@ export function SssokWebView() {
           onShouldStartLoadWithRequest={(request) => {
             if (request.isTopFrame === false) return true;
             if (request.url === "about:blank") return true;
-            try {
-              if (new URL(request.url).origin === WEB_ORIGIN) return true;
-            } catch {
-              return false;
-            }
+            if (isAllowedWebUrl(request.url)) return true;
             openExternal(request.url);
             return false;
           }}
-          onOpenWindow={({ nativeEvent }) => openExternal(nativeEvent.targetUrl)}
+          onOpenWindow={({ nativeEvent }) => {
+            if (isAllowedWebUrl(nativeEvent.targetUrl)) {
+              setSourceUrl(nativeEvent.targetUrl);
+              return;
+            }
+            openExternal(nativeEvent.targetUrl);
+          }}
           injectedJavaScriptBeforeContentLoaded={BRIDGE_FLAG_SCRIPT}
           onMessage={({ nativeEvent }) => {
             // 서비스 페이지가 보낸 것만 받는다. 다른 주소의 페이지가 저장을 시키지 못하게 한다.

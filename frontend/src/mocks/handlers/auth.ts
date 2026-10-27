@@ -31,6 +31,10 @@ export const resetNicknames = () => {
  * 방마다 인증을 새로 하는 구조라, 목도 매번 다른 userId·토큰을 줘야 방별로 다른 사람이 된다.
  */
 export const authHandlers = [
+  // 소셜 로그인을 연결하기 전 기본 목 상태는 비회원이다. 익명 방 토큰으로 대체하지 않는다.
+  http.post(`${API_BASE_URL}/auth/refresh`, () =>
+    HttpResponse.json({ code: "UNAUTHORIZED", message: "로그인이 필요합니다." }, { status: 401 }),
+  ),
   http.post(`${API_BASE_URL}/auth/anonymous`, async ({ request }) => {
     const { nickname } = (await request.json()) as { nickname: string };
     const userId = readNextUserId();
