@@ -1,29 +1,30 @@
 package com.sssok.renewal.application.media.thumbnail;
 
 import com.sssok.application.media.MediaReadyEvent;
-import org.springframework.context.ApplicationEventPublisher;
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
 import com.sssok.application.storage.OrphanObjectCollector;
-import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
 import com.sssok.domain.file.ProcessedMedia;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.renewal.outgoing.config.ThumbnailQueueProperties;
-import com.sssok.renewal.domain.media.thumbnail.status.ThumbnailJobStatus;
-import com.sssok.renewal.domain.media.thumbnail.status.SucceededThumbnailJobStatus;
-import com.sssok.renewal.domain.media.thumbnail.status.FailedThumbnailJobStatus;
-import com.sssok.renewal.domain.media.thumbnail.status.CancelledThumbnailJobStatus;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
-import com.sssok.renewal.outgoing.database.ThumbnailJobRepository;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailRetryPolicy;
+import com.sssok.renewal.domain.media.thumbnail.status.CancelledThumbnailJobStatus;
+import com.sssok.renewal.domain.media.thumbnail.status.FailedThumbnailJobStatus;
+import com.sssok.renewal.domain.media.thumbnail.status.SucceededThumbnailJobStatus;
+import com.sssok.renewal.domain.media.thumbnail.status.ThumbnailJobStatus;
+import com.sssok.renewal.outgoing.config.ThumbnailQueueProperties;
+import com.sssok.renewal.outgoing.database.ThumbnailJobRepository;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -126,7 +127,7 @@ public class ThumbnailJobCompletionService {
     // 호출자가 확보한 파일 잠금을 재사용한다. 외부 호출만 public 메서드에서 잠금을 얻는다.
     private void enqueueUnusedFilesForCleanup(StoredFile lockedFile, StorageKey... keys) {
         // 완료 커밋 응답이 유실되어도 실제 채택된 파생본을 지우지 않는다.
-        List<StorageKey> unusedKeys = java.util.Arrays.stream(keys).filter(Objects::nonNull)
+        List<StorageKey> unusedKeys = Arrays.stream(keys).filter(Objects::nonNull)
             .filter(storageKey -> lockedFile == null || (!storageKey.equals(lockedFile.getThumbnailKey()) && !storageKey.equals(lockedFile.getPreviewKey())))
             .toList();
         if (!unusedKeys.isEmpty()) {

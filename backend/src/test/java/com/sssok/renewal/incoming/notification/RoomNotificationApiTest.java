@@ -21,20 +21,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.JoinRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.domain.notification.PushSubscription;
 import com.sssok.renewal.outgoing.database.PushSubscriptionJpaRepository;
 import com.sssok.renewal.outgoing.push.PushSendResult;
 import com.sssok.renewal.outgoing.push.WebPushClient;
-import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
 import java.time.Duration;

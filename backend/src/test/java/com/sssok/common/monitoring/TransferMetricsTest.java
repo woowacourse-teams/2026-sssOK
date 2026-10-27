@@ -1,19 +1,20 @@
 package com.sssok.common.monitoring;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
-import com.sssok.renewal.outgoing.monitoring.UploadMetrics;
-import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Result;
+import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
+import com.sssok.renewal.outgoing.monitoring.UploadMetrics;
 import io.micrometer.core.instrument.MockClock;
 import io.micrometer.prometheusmetrics.PrometheusConfig;
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import io.prometheus.metrics.model.registry.PrometheusRegistry;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+
 
 class TransferMetricsTest {
 
@@ -46,7 +47,7 @@ class TransferMetricsTest {
                 "sssok_download_waiting_seconds_bucket", "sssok_download_active 0.0");
             assertThat(registry.get("sssok.media.processing")
                 .tags("kind", "image", "source", "sweeper", "result", "success")
-                .timer().totalTime(java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(2);
+                .timer().totalTime(TimeUnit.SECONDS)).isEqualTo(2);
             assertThat(registry.get("sssok.upload.files")
                 .tags("stage", "register", "result", "rejected").counter().count()).isEqualTo(1);
             assertThat(registry.getMeters()).allSatisfy(meter ->

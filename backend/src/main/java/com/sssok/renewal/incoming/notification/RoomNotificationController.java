@@ -1,7 +1,7 @@
 package com.sssok.renewal.incoming.notification;
 
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import com.sssok.renewal.application.notification.request.RequestUploadService;
 import com.sssok.renewal.application.notification.setting.NotificationSettingService;
 import io.swagger.v3.oas.annotations.Operation;

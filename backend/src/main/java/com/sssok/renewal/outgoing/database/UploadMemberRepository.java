@@ -1,9 +1,9 @@
 package com.sssok.renewal.outgoing.database;
 
-import com.sssok.domain.member.Member;
-import com.sssok.domain.member.Nickname;
-import com.sssok.infrastructure.persistence.member.MemberJpaEntity;
-import com.sssok.infrastructure.persistence.member.MemberJpaRepository;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.database.member.MemberJpaEntity;
+import com.sssok.renewal.outgoing.database.member.MemberJpaRepository;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
@@ -18,6 +18,7 @@ public class UploadMemberRepository {
     }
 
     private Member toDomain(MemberJpaEntity entity) {
-        return Member.reconstruct(entity.getId(), new Nickname(entity.getNickname()), entity.getCreatedAt());
+        return Member.reconstruct(entity.getId(), new Nickname(entity.getNickname()),
+            entity.getCreatedAt(), entity.getStatus());
     }
 }

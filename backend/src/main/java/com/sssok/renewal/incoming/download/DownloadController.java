@@ -4,7 +4,7 @@ import com.sssok.renewal.application.download.batch.BatchDownloadFile;
 import com.sssok.renewal.application.download.batch.CreateBatchDownloadService;
 import com.sssok.renewal.application.download.single.GetMediaDownloadUrlService;
 import com.sssok.presentation.api.common.ApiResponse;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

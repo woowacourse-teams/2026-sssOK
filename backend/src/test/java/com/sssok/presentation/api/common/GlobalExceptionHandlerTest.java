@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.sssok.infrastructure.config.WebConfig;
 import com.sssok.presentation.api.HealthController;
 import com.sssok.presentation.auth.AuthAdminArgumentResolver;
-import com.sssok.presentation.auth.AuthMemberArgumentResolver;
+import com.sssok.renewal.incoming.auth.AuthMemberArgumentResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;

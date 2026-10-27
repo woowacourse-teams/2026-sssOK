@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:sssok-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:mem:sssok-test-${random.uuid};MODE=PostgreSQL;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password:

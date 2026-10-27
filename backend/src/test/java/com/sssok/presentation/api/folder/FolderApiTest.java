@@ -1,25 +1,26 @@
 package com.sssok.presentation.api.folder;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
 import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
 import com.sssok.support.PostgresApiTest;
 import com.sssok.support.PostgresContainerSupport;
-import org.junit.jupiter.api.Test;
 import java.util.concurrent.atomic.AtomicLong;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 
 // API 인수 테스트 — 방 생성/입장부터 폴더 생성까지 실제 PostgreSQL 위에서 관통 확인한다.
 @PostgresApiTest
@@ -47,9 +48,9 @@ class FolderApiTest extends PostgresContainerSupport {
 
         폴더_생성(token, roomId, "{\"name\":\"맛집\"}")
             .andExpect(status().isCreated())
-            .andExpect(jsonPath("$.data.id").value(org.hamcrest.Matchers.notNullValue()))
+            .andExpect(jsonPath("$.data.id").value(Matchers.notNullValue()))
             .andExpect(jsonPath("$.data.name").value("맛집"))
-            .andExpect(jsonPath("$.data.createdAt").value(org.hamcrest.Matchers.notNullValue()))
+            .andExpect(jsonPath("$.data.createdAt").value(Matchers.notNullValue()))
             .andExpect(jsonPath("$.data.photoCount").value(0));
     }
 
@@ -308,7 +309,7 @@ class FolderApiTest extends PostgresContainerSupport {
     }
 
     private String 익명_인증(String nickname) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"" + nickname + "\"}"))
             .andReturn();

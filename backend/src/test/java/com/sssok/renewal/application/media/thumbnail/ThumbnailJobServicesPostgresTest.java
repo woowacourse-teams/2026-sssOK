@@ -1,39 +1,60 @@
 package com.sssok.renewal.application.media.thumbnail;
 
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
-
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
-
 import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.ProcessedMedia;
+import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
-import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.renewal.application.media.upload.complete.MediaRegistrationService;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
+import com.sssok.renewal.outgoing.database.OrphanObjectRepository;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.PostgresContainerSupport;
 import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.imageio.ImageIO;
+import javax.sql.DataSource;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
 
 @PostgresIntegrationTest
 @ActiveProfiles("test")
@@ -43,8 +64,8 @@ import org.springframework.transaction.support.TransactionTemplate;
     "media.thumbnail.queue.max-attempts=2"
 })
 class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
     @Autowired ThumbnailJobService thumbnailJobService;
     @Autowired ThumbnailJobCompletionService thumbnailJobCompletionService;
@@ -53,18 +74,18 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     @Autowired MediaRegistrationService mediaRegistrationService;
     @Autowired OrphanObjectRepository orphans;
     @Autowired PlatformTransactionManager transactions;
-    @Autowired javax.sql.DataSource dataSource;
+    @Autowired DataSource dataSource;
     @MockitoBean(name = "thumbnailClock") Clock clock;
     @MockitoBean FileStorage storage;
     final AtomicReference<Instant> now = new AtomicReference<>();
 
     @BeforeEach
     void setup() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 532L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 532L);
 
-        org.mockito.Mockito.when(storage.presignGet(
-            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-            org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any()))
+        Mockito.when(storage.presignGet(
+            ArgumentMatchers.any(), ArgumentMatchers.anyString(),
+            ArgumentMatchers.anyString(), ArgumentMatchers.any()))
             .thenReturn("https://storage.example.com/read");
         ((com.zaxxer.hikari.HikariDataSource) dataSource).setMaximumPoolSize(6);
         repository.deleteAll();
@@ -93,9 +114,9 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
         StoredFile second = pending();
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        try (java.util.concurrent.ExecutorService pool = Executors.newFixedThreadPool(2)) {
-            java.util.concurrent.Future<Long> holder = pool.submit(() -> new TransactionTemplate(transactions).execute(tx -> {
-                com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity row = repository.claimable("IMAGE", now.get()).orElseThrow();
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Future<Long> holder = pool.submit(() -> new TransactionTemplate(transactions).execute(tx -> {
+                ThumbnailJobJpaEntity row = repository.claimable("IMAGE", now.get()).orElseThrow();
                 ThumbnailJob job = row.toDomain();
                 job.claim(now.get(), now.get().plusSeconds(120));
                 row.apply(job);
@@ -106,7 +127,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
             }));
             try {
                 assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
-                java.util.concurrent.Future<ThumbnailClaim> other = pool.submit(() -> thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow());
+                Future<ThumbnailClaim> other = pool.submit(() -> thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow());
                 assertThat(other.get(3, TimeUnit.SECONDS).mediaId()).isEqualTo(second.getId());
             } finally { release.countDown(); }
             assertThat(holder.get(5, TimeUnit.SECONDS)).isEqualTo(first.getId());
@@ -131,7 +152,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
         StoredFile file = pending();
         ThumbnailClaim first = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
         thumbnailJobCompletionService.fail(first, false, "NETWORK");
-        com.sssok.renewal.outgoing.database.ThumbnailJobJpaEntity retry = repository.findById(file.getId()).orElseThrow();
+        ThumbnailJobJpaEntity retry = repository.findById(file.getId()).orElseThrow();
         assertThat(retry.getState()).isEqualTo("RETRY_WAIT");
         assertThat(retry.getAvailableAt()).isBetween(now.get().plusMillis(2500), now.get().plusSeconds(5));
         assertThat(thumbnailJobService.claimNext(ThumbnailKind.IMAGE)).isEmpty();
@@ -162,13 +183,13 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     void 만료된_워커의_늦은_완료는_새_결과를_덮거나_지우지_않는다() {
         StoredFile file = pending();
         ThumbnailClaim old = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        com.sssok.domain.file.StorageKey oldKey = file.getStorageKey().attempt(old.token()).thumbnail("webp");
+        StorageKey oldKey = file.getStorageKey().attempt(old.token()).thumbnail("webp");
         assertThat(thumbnailJobService.recordGeneratedFiles(old, oldKey, null)).isTrue();
         now.set(now.get().plusSeconds(121));
         thumbnailJobCompletionService.recoverExpired(file.getId());
         now.set(repository.findById(file.getId()).orElseThrow().getAvailableAt());
         ThumbnailClaim fresh = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        com.sssok.domain.file.StorageKey newKey = file.getStorageKey().attempt(fresh.token()).thumbnail("webp");
+        StorageKey newKey = file.getStorageKey().attempt(fresh.token()).thumbnail("webp");
         ProcessedMedia result = ProcessedMedia.ofImage(newKey, null, 100, 100, null, null);
         thumbnailJobCompletionService.complete(fresh, result);
         assertThat(thumbnailJobService.renewLease(fresh)).isEqualTo(ThumbnailJobService.Heartbeat.FINISHED);
@@ -187,7 +208,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
         ThumbnailClaim claim = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
         new TransactionTemplate(transactions).executeWithoutResult(tx ->
             files.deleteAllByIdIn(List.of(file.getId())));
-        com.sssok.domain.file.StorageKey key = file.getStorageKey().attempt(claim.token()).thumbnail("webp");
+        StorageKey key = file.getStorageKey().attempt(claim.token()).thumbnail("webp");
         thumbnailJobCompletionService.complete(claim, ProcessedMedia.ofImage(key, null, 100, 100, null, null));
         assertThat(repository.findById(file.getId()).orElseThrow().getState()).isEqualTo("CANCELLED");
         assertThat(files.findById(file.getId())).isEmpty();
@@ -232,32 +253,32 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     }
 
     @Autowired ThumbnailDispatcher dispatcher;
-    @Autowired org.springframework.context.ApplicationContext context;
+    @Autowired ApplicationContext context;
 
     @Test
     void heartbeat와_일반_배치_스케줄러는_서로_분리된다() {
-        org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler scheduler = context.getBean(org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler.class);
+        ThreadPoolTaskScheduler scheduler = context.getBean(ThreadPoolTaskScheduler.class);
         assertThat(scheduler.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(2);
-        assertThat(context.getBeansOfType(java.util.concurrent.ScheduledExecutorService.class)).isEmpty();
+        assertThat(context.getBeansOfType(ScheduledExecutorService.class)).isEmpty();
     }
 
 
     @Test
     void 입력종료후_실제_워커가_대기열을_비우고_완료와_최종실패로_수렴한다() throws Exception {
         // 실제 PNG 변환과 DB 선점/완료를 연결한다. 외부 스토리지·AI 호출은 하지 않는다.
-        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(1280, 960,
-            java.awt.image.BufferedImage.TYPE_INT_RGB), "png", out);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(1280, 960,
+            BufferedImage.TYPE_INT_RGB), "png", out);
         byte[] valid = out.toByteArray();
-        java.util.Set<com.sssok.domain.file.StorageKey> invalid = new java.util.HashSet<>();
+        Set<StorageKey> invalid = new HashSet<>();
         for (int i = 0; i < 12; i++) {
             StoredFile file = pending();
             if (i % 4 == 0) { invalid.add(file.getStorageKey()); }
         }
         when(storage.openDownloadStream(any())).thenAnswer(call ->
-            new java.io.ByteArrayInputStream(invalid.contains(call.getArgument(0)) ? new byte[]{1, 2} : valid));
+            new ByteArrayInputStream(invalid.contains(call.getArgument(0)) ? new byte[]{1, 2} : valid));
 
-        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(20)).untilAsserted(() -> {
+        Awaitility.await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
             dispatcher.dispatchPendingJobs();
             assertThat(repository.findAll()).allMatch(j -> "SUCCEEDED".equals(j.getState()) || "FAILED".equals(j.getState()));
         });
@@ -266,7 +287,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     }
 
 
-    @Autowired com.sssok.infrastructure.realtime.RoomEventJpaRepository roomEvents;
+    @Autowired RoomEventJpaRepository roomEvents;
 
     @Test
     void 완료_트랜잭션_롤백은_READY와_작업성공과_이벤트를_모두_취소한다() {
@@ -309,7 +330,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
         assertThat(repository.findById(file.getId()).orElseThrow().getAvailableAt()).isEqualTo(retryAt);
         now.set(retryAt);
         ThumbnailClaim freshClaim = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        com.sssok.domain.file.StorageKey lateKey = file.getStorageKey().attempt(expiredClaim.token()).thumbnail("webp");
+        StorageKey lateKey = file.getStorageKey().attempt(expiredClaim.token()).thumbnail("webp");
         assertThat(thumbnailJobService.recordGeneratedFiles(expiredClaim, lateKey, null)).isFalse();
         assertThat(repository.findById(file.getId()).orElseThrow().getClaimToken()).isEqualTo(freshClaim.token());
         assertThat(repository.findById(file.getId()).orElseThrow().getThumbnailKey()).isNull();
@@ -319,7 +340,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     void 복구_롤백은_재시도예약과_고아파일_정리등록을_취소한다() {
         StoredFile file = pending();
         ThumbnailClaim claim = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        com.sssok.domain.file.StorageKey generatedKey = file.getStorageKey().attempt(claim.token()).thumbnail("webp");
+        StorageKey generatedKey = file.getStorageKey().attempt(claim.token()).thumbnail("webp");
         thumbnailJobService.recordGeneratedFiles(claim, generatedKey, null);
         now.set(now.get().plusSeconds(120));
         new TransactionTemplate(transactions).executeWithoutResult(transaction -> {
@@ -335,9 +356,9 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     void 완료는_파일잠금을_기다린_뒤_최신상태를_확인한다() throws Exception {
         StoredFile file = pending();
         ThumbnailClaim claim = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        AtomicReference<java.util.concurrent.Future<Boolean>> completion = new AtomicReference<>();
+        AtomicReference<Future<Boolean>> completion = new AtomicReference<>();
         CountDownLatch started = new CountDownLatch(1);
-        try (java.util.concurrent.ExecutorService executor = Executors.newSingleThreadExecutor()) {
+        try (ExecutorService executor = Executors.newSingleThreadExecutor()) {
             new TransactionTemplate(transactions).executeWithoutResult(transaction -> {
                 StoredFile lockedFile = files.findByIdForUpdate(file.getId()).orElseThrow();
                 completion.set(executor.submit(() -> {
@@ -347,7 +368,7 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
                 try { assertThat(started.await(5, TimeUnit.SECONDS)).isTrue(); }
                 catch (InterruptedException exception) { throw new RuntimeException(exception); }
                 assertThatThrownBy(() -> completion.get().get(200, TimeUnit.MILLISECONDS))
-                    .isInstanceOf(java.util.concurrent.TimeoutException.class);
+                    .isInstanceOf(TimeoutException.class);
                 // 완료가 파일 잠금을 기다리는 동안 작업 행은 먼저 잠그지 않아야 한다.
                 roomFixtureJdbc.queryForObject("select media_id from thumbnail_job where media_id = ? for update nowait",
                     Long.class, file.getId());

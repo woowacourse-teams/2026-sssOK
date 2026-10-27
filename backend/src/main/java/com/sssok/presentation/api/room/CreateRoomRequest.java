@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 
 public record CreateRoomRequest(
     @Schema(description = "방 이름 (최대 12자)", example = "우테코 회식") String name,
-    @Schema(description = "업로드 권한. everyone(누구나) 또는 host(방장만). 생략하면 everyone", example = "everyone") String uploadPolicy
+    @Schema(description = "업로드 권한. everyone(누구나) 또는 host(방장만). 생략하면 everyone", example = "everyone") String uploadPolicy,
+    @Schema(description = "이 방에서 사용할 닉네임. 생략하면 계정 기본 이름") String nickname
 ) {
 }

@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,4 +22,15 @@ public interface FeedbackJpaRepository extends JpaRepository<FeedbackJpaEntity, 
         """)
     List<FeedbackJpaEntity> findAllBefore(
         @Param("createdAt") Instant createdAt, @Param("id") Long id, Limit limit);
+
+    @Modifying(flushAutomatically = true)
+    @Query(value = """
+        UPDATE feedback
+        SET member_id = :targetMemberId, updated_at = now()
+        WHERE member_id = :sourceMemberId
+        """, nativeQuery = true)
+    int transferMember(
+        @Param("sourceMemberId") Long sourceMemberId,
+        @Param("targetMemberId") Long targetMemberId
+    );
 }

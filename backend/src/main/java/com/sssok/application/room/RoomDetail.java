@@ -9,6 +9,10 @@ public record RoomDetail(
     String hostName,
     boolean joined,
     int photoCount,
-    List<RoomFolderSummary> folders
+    List<RoomFolderSummary> folders,
+    String myNickname
 ) {
+    public RoomDetail(Room room, String hostName, boolean joined, int photoCount, List<RoomFolderSummary> folders) {
+        this(room, hostName, joined, photoCount, folders, null);
+    }
 }

@@ -1,15 +1,11 @@
 package com.sssok.application.media;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
-
-import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.application.storage.ObjectsOrphanedEvent;
 import com.sssok.domain.file.StorageKey;
+import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.MediaUrlCacheProperties;
+import com.sssok.infrastructure.config.ThumbnailProperties;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -25,6 +21,12 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
 
 class MediaReadUrlProviderTest {
     private static final Duration TTL = Duration.ofMinutes(30);
@@ -219,10 +221,10 @@ class MediaReadUrlProviderTest {
             new MediaUrlCacheProperties(true, 1_000L, Duration.ofMinutes(2)),
             new SimpleMeterRegistry(), clock);
         var resolver = new MediaUrlResolver(provider,
-            new com.sssok.infrastructure.config.ThumbnailProperties(TTL));
-        List<com.sssok.domain.file.StoredFile> files = new ArrayList<>();
+            new ThumbnailProperties(TTL));
+        List<StoredFile> files = new ArrayList<>();
         for (int i = 0; i < 300; i++) {
-            var file = mock(com.sssok.domain.file.StoredFile.class);
+            var file = mock(StoredFile.class);
             when(file.getThumbnailKey()).thenReturn(new StorageKey("thumbnails/" + i + ".webp"));
             when(file.getPreviewKey()).thenReturn(new StorageKey("previews/" + i + ".webp"));
             files.add(file);

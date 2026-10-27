@@ -1,7 +1,7 @@
 package com.sssok.infrastructure.config;
 
 import com.sssok.presentation.auth.AuthAdmin;
-import com.sssok.presentation.auth.AuthMember;
+import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;

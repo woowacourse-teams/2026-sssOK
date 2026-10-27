@@ -1,5 +1,7 @@
 package com.sssok.support;
 
+import java.security.SecureRandom;
+import java.util.Base64;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -10,6 +12,15 @@ import org.testcontainers.containers.PostgreSQLContainer;
 // 정리는 Testcontainers 자체의 Ryuk 리소스 리퍼가 테스트 실행이 끝나면 자동으로 처리
 public abstract class PostgresContainerSupport {
 
+    // 테스트 JVM에서만 쓰는 키. 운영 설정이나 고정 기본키로 재사용하지 않는다.
+    private static final String TEST_SOCIAL_TOKEN_KEY = createTestKey();
+
+    private static String createTestKey() {
+        byte[] bytes = new byte[32];
+        new SecureRandom().nextBytes(bytes);
+        return Base64.getEncoder().encodeToString(bytes);
+    }
+
     static final PostgreSQLContainer<?> POSTGRES;
 
     static {
@@ -19,6 +30,7 @@ public abstract class PostgresContainerSupport {
 
     @DynamicPropertySource
     static void registerDatasourceProperties(DynamicPropertyRegistry registry) {
+        registry.add("oauth.token-encryption-key", () -> TEST_SOCIAL_TOKEN_KEY);
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);

@@ -11,12 +11,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.port.out.AdminTokenProvider;
-import com.sssok.application.port.out.TokenProvider;
+import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.application.room.SubscribeRoomEventsService;
 import com.sssok.application.room.exception.RoomExpiredException;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;

@@ -35,7 +35,15 @@ public class RoomMemberJpaEntity extends BaseEntity {
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
 
+    @Column(name = "nickname", length = 12)
+    private String nickname;
+
     public RoomMemberJpaEntity(Long id, Long roomId, Long memberId, Instant joinedAt) {
+        this(id, roomId, memberId, joinedAt, null);
+    }
+
+    public RoomMemberJpaEntity(Long id, Long roomId, Long memberId, Instant joinedAt, String nickname) {
+        this.nickname = nickname;
         this.id = id;
         this.roomId = roomId;
         this.memberId = memberId;

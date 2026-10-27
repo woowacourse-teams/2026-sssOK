@@ -8,7 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.application.port.out.MemberRepository;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.infrastructure.persistence.admin.AdminJpaEntity;
 import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
@@ -184,7 +184,7 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     }
 
     protected String 익명_인증(String nickname) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous")
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/anonymous").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"nickname\":\"" + nickname + "\"}"))
             .andReturn();

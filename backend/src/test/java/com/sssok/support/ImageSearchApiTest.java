@@ -1,5 +1,30 @@
 package com.sssok.support;
 
+import com.sssok.application.folder.CreateFolderService;
+import com.sssok.application.room.CreateRoomService;
+import com.sssok.domain.search.ImageAnalysis;
+import com.sssok.renewal.application.auth.AnonymousAuthService;
+import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
+import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
+import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.core.task.AsyncTaskExecutor;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
@@ -8,28 +33,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.sssok.application.auth.AnonymousAuthService;
-import com.sssok.application.auth.AuthResult;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.renewal.outgoing.ai.OpenAiImageDescriptionClient;
-import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
-import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository.AnalysisAttempt;
-import com.sssok.renewal.outgoing.ai.OpenAiTextEmbeddingClient;
-import com.sssok.application.room.CreateRoomService;
-import com.sssok.domain.search.ImageAnalysis;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.core.task.AsyncTaskExecutor;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.ResultActions;
 
 @AcceptanceTest
 @SpringBootTest(properties = {
@@ -43,7 +46,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     @Autowired JdbcTemplate jdbc;
     @Autowired AnonymousAuthService auth;
     @Autowired CreateRoomService rooms;
-    @Autowired com.sssok.application.folder.CreateFolderService folders;
+    @Autowired CreateFolderService folders;
     @Autowired MediaSearchDocumentRepository documents;
     @MockitoBean OpenAiTextEmbeddingClient embeddings;
     @MockitoBean OpenAiImageDescriptionClient descriptions;
@@ -96,7 +99,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.items[1].mediaId").value(460202))
             .andExpect(jsonPath("$.data.items[2].mediaId").value(460203))
             .andExpect(jsonPath("$.data.items[0].displayUrl").value("https://signed.test/image"));
-        verify(embeddings).embed(org.mockito.ArgumentMatchers.eq("바닷가 단체 사진"), any());
+        verify(embeddings).embed(ArgumentMatchers.eq("바닷가 단체 사진"), any());
     }
 
     @Test
@@ -138,7 +141,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
         AuthResult stranger = auth.authenticate("방 밖 사용자");
         mvc.perform(get(path()).param("query", "사진").header("Authorization", "Bearer " + stranger.accessToken()))
             .andExpect(status().isForbidden());
-        org.mockito.Mockito.verifyNoInteractions(embeddings);
+        Mockito.verifyNoInteractions(embeddings);
     }
 
     @Test
@@ -150,7 +153,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
     void 빈_검색어와_길이_초과는_400이다() throws Exception {
         search(" \t ").andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("INVALID_SEARCH_QUERY"));
         search("가".repeat(201)).andExpect(status().isBadRequest());
-        org.mockito.Mockito.verifyNoInteractions(embeddings);
+        Mockito.verifyNoInteractions(embeddings);
     }
 
     @Test
@@ -174,7 +177,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
         mvc.perform(get(path()).header("Authorization", "Bearer " + member.accessToken()))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.items[0].mediaId").value(460201));
-        org.mockito.Mockito.verifyNoInteractions(embeddings);
+        Mockito.verifyNoInteractions(embeddings);
     }
 
     @Test
@@ -204,7 +207,7 @@ class ImageSearchApiTest extends PostgresContainerSupport {
                     .header("Authorization", "Bearer " + member.accessToken()))
                 .andExpect(status().isNotFound());
         }
-        org.mockito.Mockito.verifyNoInteractions(embeddings);
+        Mockito.verifyNoInteractions(embeddings);
     }
 
     private ResultActions search(String query) throws Exception {

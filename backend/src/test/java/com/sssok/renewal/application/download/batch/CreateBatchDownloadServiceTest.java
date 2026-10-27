@@ -1,6 +1,25 @@
 package com.sssok.renewal.application.download.batch;
 
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
 import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import com.sssok.renewal.domain.download.DownloadFileNames;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -10,28 +29,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
-import com.sssok.application.port.out.FileRepository;
-import com.sssok.renewal.outgoing.storage.FileStorage;
-import com.sssok.domain.file.FileSize;
-import com.sssok.domain.file.StoredFile;
-import com.sssok.domain.file.UploadStatus;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 // Repository + Service 통합 테스트 (H2). 스토리지 서명은 목으로 둔다.
 @H2IntegrationTest
 class CreateBatchDownloadServiceTest {
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     private static final Long ROOM_ID = 1L;
@@ -51,7 +54,7 @@ class CreateBatchDownloadServiceTest {
 
     @BeforeEach
     void setUp() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
 
         given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
             .willReturn(PRESIGNED);
@@ -103,7 +106,7 @@ class CreateBatchDownloadServiceTest {
             .isEqualTo(fileName);
         verify(fileStorage).presignGet(
             any(),
-            eq(com.sssok.renewal.domain.download.DownloadFileNames.contentDispositionOf(fileName)),
+            eq(DownloadFileNames.contentDispositionOf(fileName)),
             eq(mimeType),
             any(Duration.class));
     }

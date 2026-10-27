@@ -1,8 +1,5 @@
 package com.sssok.renewal.domain.media.thumbnail;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.renewal.domain.media.thumbnail.status.CancelledThumbnailJobStatus;
 import com.sssok.renewal.domain.media.thumbnail.status.FailedThumbnailJobStatus;
 import com.sssok.renewal.domain.media.thumbnail.status.PendingThumbnailJobStatus;
@@ -11,7 +8,11 @@ import com.sssok.renewal.domain.media.thumbnail.status.RunningThumbnailJobStatus
 import com.sssok.renewal.domain.media.thumbnail.status.SucceededThumbnailJobStatus;
 import com.sssok.renewal.domain.media.thumbnail.status.ThumbnailJobStatus;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 class ThumbnailJobStatusTest {
     private static final Instant NOW = Instant.parse("2030-01-01T00:00:00Z");
@@ -48,7 +49,7 @@ class ThumbnailJobStatusTest {
 
     @Test
     void 종료_상태에서는_다시_선점하거나_재시도하지_않는다() {
-        for (ThumbnailJobStatus status : java.util.List.of(SucceededThumbnailJobStatus.INSTANCE,
+        for (ThumbnailJobStatus status : List.of(SucceededThumbnailJobStatus.INSTANCE,
             FailedThumbnailJobStatus.INSTANCE, CancelledThumbnailJobStatus.INSTANCE)) {
             assertThatThrownBy(status::claim).isInstanceOf(IllegalStateException.class);
             assertThatThrownBy(status::retry).isInstanceOf(IllegalStateException.class);

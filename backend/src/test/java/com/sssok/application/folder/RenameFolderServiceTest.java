@@ -1,26 +1,29 @@
 package com.sssok.application.folder;
 
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.sssok.application.folder.exception.DuplicateFolderNameException;
 import com.sssok.application.folder.exception.FolderNotFoundException;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.folder.Folder;
-import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
-import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
 import com.sssok.domain.folder.exception.FolderNameTooLongException;
 import com.sssok.domain.folder.exception.InvalidFolderNameException;
+import com.sssok.infrastructure.persistence.folder.FolderMediaJpaEntity;
+import com.sssok.infrastructure.persistence.folder.FolderMediaJpaRepository;
+import com.sssok.support.H2IntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
 import java.time.Instant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sssok.support.H2IntegrationTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.event.ApplicationEvents;
 import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.transaction.annotation.Transactional;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 
 // Repository + Service 통합 테스트 (H2). 방 존재/만료/입장 여부는 RoomMembershipInterceptor가
 // 먼저 걸러주므로 여기서는 폴더 자체의 규칙(이름 검증, 중복, 자기 자신 제외)만 검증한다.
@@ -28,13 +31,13 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @RecordApplicationEvents
 class RenameFolderServiceTest {
-    @org.junit.jupiter.api.BeforeEach
+    @BeforeEach
     void prepareRooms() {
-        com.sssok.support.UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
-    private org.springframework.jdbc.core.JdbcTemplate roomFixtureJdbc;
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
 
 
     @Autowired
