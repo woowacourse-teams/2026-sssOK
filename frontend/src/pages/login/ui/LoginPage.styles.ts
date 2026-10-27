@@ -96,6 +96,7 @@ export const SocialButton = styled.button<{ $provider: "kakao" | "apple" }>(({ $
     height: 20,
     flexShrink: 0,
   },
+  "&:disabled": { cursor: "wait", opacity: 0.65 },
   "&:focus-visible": { outline: `3px solid ${colors.primary}`, outlineOffset: 4 },
 }));
 

@@ -1,7 +1,8 @@
-import { useState } from "react";
 import { FaApple } from "react-icons/fa";
 
 import mascot from "@/shared/assets/mascot.png";
+import { useAppleLogin } from "../model/useAppleLogin";
+import { useKakaoLogin } from "../model/useKakaoLogin";
 import kakaoSymbol from "../assets/kakao-symbol.svg";
 import {
   Page,
@@ -18,10 +19,16 @@ import {
 } from "./LoginPage.styles";
 
 export const LoginPage = () => {
-  const [notice, setNotice] = useState("");
+  const kakao = useKakaoLogin();
+  const apple = useAppleLogin();
+  const isPending = kakao.isPending || apple.isPending;
 
-  const handleLogin = (provider: string) => {
-    setNotice(`${provider} 로그인을 준비하고 있어요.`);
+  const handleKakaoLogin = () => {
+    if (!isPending) void kakao.login();
+  };
+
+  const handleAppleLogin = () => {
+    if (!isPending) void apple.login();
   };
 
   return (
@@ -43,17 +50,29 @@ export const LoginPage = () => {
           </IntroText>
         </Intro>
         <Actions aria-label="소셜 로그인">
-          <SocialButton type="button" $provider="kakao" onClick={() => handleLogin("카카오")}>
+          <SocialButton
+            type="button"
+            $provider="kakao"
+            disabled={isPending}
+            aria-busy={kakao.isPending}
+            onClick={handleKakaoLogin}
+          >
             <img src={kakaoSymbol} alt="" aria-hidden="true" />
             <span>카카오 로그인</span>
           </SocialButton>
-          <SocialButton type="button" $provider="apple" onClick={() => handleLogin("Apple")}>
+          <SocialButton
+            type="button"
+            $provider="apple"
+            disabled={isPending}
+            aria-busy={apple.isPending}
+            onClick={handleAppleLogin}
+          >
             <FaApple aria-hidden="true" />
             <span>Apple로 로그인</span>
           </SocialButton>
-          {notice && (
+          {(kakao.error || apple.error) && (
             <Notice role="status" aria-live="polite">
-              {notice}
+              {kakao.error || apple.error}
             </Notice>
           )}
         </Actions>
