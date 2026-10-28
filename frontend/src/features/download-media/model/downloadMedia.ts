@@ -8,8 +8,15 @@ import {
   downloadMessageOfStatus,
   isRetryableError,
   isRetryableStatus,
+  PHOTO_PERMISSION_DENIED_MESSAGE,
 } from "../lib/downloadErrorMessage";
 import { fetchMediaBlob } from "../lib/fetchMediaBlob";
+import {
+  isNativeApp,
+  saveToPhotoLibrary,
+  shareFromNativeApp,
+  type NativeFile,
+} from "../lib/nativeApp";
 import { saveBlob } from "../lib/saveBlob";
 import { shareFiles } from "../lib/shareFiles";
 import type { DownloadPhase } from "./downloadProgress";
@@ -121,6 +128,70 @@ const fetchAll = async (
   return { fetched: results.filter((one): one is FetchedMedia => one !== null), aborted };
 };
 
+/**
+ * 앱 안에서는 바이트를 받지 않고 서명 URL 만 넘긴다. 앱이 받아 사진첩에 넣는다 (`nativeApp` 참고).
+ * 방식(`individual`·`share`)은 가리지 않는다 — 앱에서 낱장이 놓일 자리는 사진첩 하나다.
+ * 바이트가 웹뷰를 거치지 않으니 공유 시트 묶음(`SHARE_BATCH_SIZE`)도 나누지 않는다.
+ */
+const saveInNativeApp = async (
+  { targets, signal, onProgress, onDownloaded }: DownloadMediaParams,
+  issuedByMediaId: Map<number, BatchDownloadFile>,
+  failed: FailedDownload[],
+): Promise<DownloadOutcome> => {
+  const targetById = new Map(targets.map((target) => [target.mediaId, target]));
+  const files: NativeFile[] = [];
+
+  targets.forEach((target) => {
+    const issuedFile = issuedByMediaId.get(target.mediaId);
+
+    // 서버가 대상에서 뺐다. `fetchAll` 과 같은 규칙이다.
+    if (issuedFile === undefined) {
+      failed.push({ mediaId: target.mediaId, fileName: target.fileName, status: 404 });
+      return;
+    }
+
+    files.push({
+      id: target.mediaId,
+      url: issuedFile.downloadUrl,
+      fileName: issuedFile.fileName,
+      // `toFile` 과 같은 이유로 목록이 알려준 MIME 을 쓴다.
+      mimeType: target.mimeType,
+    });
+  });
+
+  if (files.length === 0) {
+    return { type: "empty", failed };
+  }
+
+  const result = await saveToPhotoLibrary(files, {
+    signal,
+    onProgress: (mediaId, loaded, total) =>
+      onProgress?.({
+        mediaId,
+        loaded,
+        // 응답에 길이가 없으면 앱은 -1 을 준다. 그때는 목록이 알려준 크기로 센다.
+        total: total > 0 ? total : (targetById.get(mediaId)?.size ?? loaded),
+      }),
+    onSaved: onDownloaded,
+  });
+
+  if (result.type === "aborted") {
+    return { type: "aborted" };
+  }
+
+  if (result.type === "permissionDenied") {
+    return { type: "failed", reason: PHOTO_PERMISSION_DENIED_MESSAGE, isRetryable: false };
+  }
+
+  result.failed.forEach(({ id, status }) =>
+    failed.push({ mediaId: id, fileName: targetById.get(id)?.fileName ?? "", status }),
+  );
+
+  const savedCount = files.length - result.failed.length;
+
+  return savedCount === 0 ? { type: "empty", failed } : { type: "saved", savedCount, failed };
+};
+
 export const downloadMedia = async (params: DownloadMediaParams): Promise<DownloadOutcome> => {
   const { roomId, targets, mode, token, signal, onPhase, onZipProgress, onZipBytes } = params;
   const failed: FailedDownload[] = [];
@@ -191,6 +262,39 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
      */
     onPhase?.("receiving");
 
+    // 앱 안에서는 받아서 떨굴 곳이 없다. 앱이 받아 공유 시트로 넘기면 파일 앱 등에 저장한다.
+    if (isNativeApp()) {
+      const shared = await shareFromNativeApp(
+        {
+          id: 0,
+          url: settled.downloadUrl,
+          fileName: settled.fileName,
+          mimeType: "application/zip",
+        },
+        {
+          signal,
+          onProgress: (_, loaded, total) =>
+            onZipBytes?.({ loaded, total: total > 0 ? total : job.totalSize }),
+        },
+      );
+
+      if (shared.type !== "completed") {
+        return { type: "aborted" };
+      }
+
+      const [failure] = shared.failed;
+
+      if (failure !== undefined) {
+        return {
+          type: "failed",
+          reason: downloadMessageOfStatus(failure.status),
+          isRetryable: isRetryableStatus(failure.status),
+        };
+      }
+
+      return { type: "saved", savedCount: settled.mediaCount, failed };
+    }
+
     const zip = await fetchMediaBlob({
       url: settled.downloadUrl,
       size: job.totalSize,
@@ -237,6 +341,10 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
   }
 
   const issuedByMediaId = new Map(issued.files.map((file) => [file.mediaId, file]));
+
+  if (isNativeApp()) {
+    return saveInNativeApp(params, issuedByMediaId, failed);
+  }
 
   const { fetched, aborted } = await fetchAll(params, issuedByMediaId, failed);
 

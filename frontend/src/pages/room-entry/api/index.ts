@@ -1,2 +1,2 @@
 export * from "./joinRoom";
-export * from "./useAnonymousAuth";
+export * from "./useJoinRoomMutation";

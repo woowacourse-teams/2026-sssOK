@@ -1,6 +1,7 @@
 export const ROUTES = {
   home: "/home",
   rooms: "/rooms",
+  login: "/app/login",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
   /** 외부 공유 링크에서 브라우저를 확인하는 진입점 */
@@ -21,6 +22,8 @@ export const ROUTES = {
 export const ROUTE_PATTERNS = {
   home: "/home",
   rooms: "/rooms",
+  login: "/app/login",
+  loginCallback: "/app/auth/callback/:provider",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
   roomInvite: "/join/:code",
