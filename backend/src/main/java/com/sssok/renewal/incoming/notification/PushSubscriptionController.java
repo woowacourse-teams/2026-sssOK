@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-@Tag(name = "방 알림", description = "방 참여자에게 가는 브라우저 알림(Web Push) 설정과 업로드 요청")
+@Tag(name = "방 알림", description = "방 참여자에게 가는 브라우저·앱 알림 설정과 업로드 요청")
 @RestController
 @RequestMapping("/api/v1/push-subscriptions")
 @RequiredArgsConstructor
