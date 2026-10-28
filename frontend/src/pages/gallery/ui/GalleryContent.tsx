@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
 import { useMemberSessionQuery } from "@/entities/member-session";
-import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
+import { canUploadTo, myRoomsQueryKey, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
 import { DeleteRoomModal } from "@/features/delete-room";
@@ -16,7 +16,7 @@ import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
-import { track } from "@/shared/lib";
+import { isAppWebView, track } from "@/shared/lib";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -469,7 +469,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             removeRoomSession(room.code);
             queryClient.removeQueries({ queryKey: ["room", room.code] });
             queryClient.removeQueries({ queryKey: ["photos", room.roomId] });
-            navigate(ROUTES.home, { replace: true });
+            void queryClient.invalidateQueries({ queryKey: myRoomsQueryKey });
+            navigate(isAppWebView() ? ROUTES.rooms : ROUTES.home, { replace: true });
           }}
         />
       )}
