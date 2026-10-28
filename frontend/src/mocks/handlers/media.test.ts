@@ -8,6 +8,7 @@ const HOST = "mock-token-10234";
 const MEMBER = "mock-token-12";
 const join = (token: string) =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+    body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });

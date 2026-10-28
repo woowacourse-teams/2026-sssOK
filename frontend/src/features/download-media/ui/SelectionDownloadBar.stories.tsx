@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-webpack5";
 
-import { MOCK_ROOM_ID, mediaOfRoom } from "@/mocks/handlers/room";
+import { MOCK_ROOM_CODES, MOCK_ROOM_ID, mediaOfRoom } from "@/mocks/handlers/room";
 import { API_BASE_URL } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 import { SelectionDownloadBar } from "./SelectionDownloadBar";
@@ -94,6 +94,7 @@ const LiveDownload = () => {
     const join = async () => {
       // 받기 API 는 입장한 방에서만 열린다. 목도 같은 검사를 한다.
       await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+        body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
         method: "POST",
         headers: { Authorization: `Bearer ${TOKEN}` },
       });
