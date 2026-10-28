@@ -132,6 +132,7 @@ export default function () {
 
   const join = client.post('room_join', `/rooms/${entrant.roomId}/members`, {
     token: entrant.token,
+    body: { code: entrant.code },
     expectedStatus: 201,
     validate: (member) => (member.roomId === entrant.roomId && member.userId === entrant.userId ? null : '입장 응답의 방·회원 불일치'),
   });

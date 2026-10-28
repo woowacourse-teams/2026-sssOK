@@ -64,8 +64,8 @@ export function createApi(baseUrl, { retries = 3, timeoutMs = 15_000 } = {}) {
     createRoom: (token, name) =>
       request('POST', '/rooms', { token, body: { name, uploadPolicy: 'everyone' }, expect: [201] }),
     getRoom: (token, code) => request('GET', `/rooms/${encodeURIComponent(code)}`, { token }),
-    joinRoom: (token, roomId) =>
-      request('POST', `/rooms/${roomId}/members`, { token, expect: [200, 201] }),
+    joinRoom: (token, roomId, code) =>
+      request('POST', `/rooms/${roomId}/members`, { token, body: { code }, expect: [200, 201] }),
     deleteRoom: (token, roomId) => request('DELETE', `/rooms/${roomId}`, { token }),
     issueUploadUrls: (token, roomId, files) =>
       request('POST', `/rooms/${roomId}/media/upload-urls`, { token, body: { files } }),

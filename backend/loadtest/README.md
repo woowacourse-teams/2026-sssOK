@@ -91,7 +91,7 @@ node seed/seed.mjs --base-url http://localhost:8080
 1. `GET /version` 으로 대상 서버가 살아 있는지 확인하고 `fixtures/<runId>.json` 을 만든다
 2. `POST /api/v1/auth/anonymous` 로 익명 계정 30개 생성 (닉네임 `lt<4자리>r1u0` ~ `r1u29`)
 3. 첫 계정(방장)이 `POST /api/v1/rooms` 로 방 생성
-4. 나머지 29명이 `POST /api/v1/rooms/{roomId}/members` 로 입장
+4. 나머지 29명이 `POST /api/v1/rooms/{roomId}/members` 로 입장 (본문에 방 코드 `code` 를 함께 보낸다)
 5. 검색 API 를 한 번 호출해 **AI 분석이 켜진 서버인지** 확인 (켜져 있으면 여기서 멈춘다 — 아래 참고)
 6. 사진 300장 업로드. 30명이 10장씩 나눠 올린다. 한 묶음(10장)마다
    - `POST /media/upload-urls` 로 업로드 주소 발급 → **바로 fixtures 에 기록**
@@ -308,7 +308,7 @@ k6 run -e PROFILE=load -e RATE=1 -e WARMUP=1m -e DURATION=3m -e RUN_ID=create-1r
 ```
 신규 입장자 1명 (= 미입장 계정 1개, 한 번만)
   GET  /rooms/{code}             초대 링크로 방 확인 — 아직 미입장이어야 한다
-  POST /rooms/{roomId}/members   입장 — 201(새로 입장)만 성공. 200(이미 입장)은 신규 입장으로 세지 않는다
+  POST /rooms/{roomId}/members   입장 (본문에 방 코드) — 201(새로 입장)만 성공. 200(이미 입장)은 신규 입장으로 세지 않는다
   GET  /media/all                최초 갤러리 목록 — 사진 수·썸네일 검증
   GET  /rooms/{roomId}/events    SSE 구독 — 마지막 입장 뒤 OBSERVE 동안 끊기지 않아야 성공
 ```
