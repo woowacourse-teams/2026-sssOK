@@ -226,6 +226,25 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 방_코드가_다르면_방이_없을_때와_같은_예외로_거부하고_참여_기록을_남기지_않는다() {
+        Room room = createRoom();
+        RoomCode otherCode = createRoomService.create(hostId, "다른 방", null).room().getCode();
+
+        assertThatThrownBy(() -> roomMembershipService.join(room.getId(), otherCode, guestId))
+            .isInstanceOf(RoomNotFoundException.class);
+        assertThat(roomMemberRepository.findByRoomIdAndMemberId(room.getId(), guestId)).isEmpty();
+    }
+
+    @Test
+    void 만료된_방이라도_코드가_다르면_만료_여부를_드러내지_않는다() {
+        Room expired = roomRepository.save(expiredRoom());
+        RoomCode otherCode = createRoom().getCode();
+
+        assertThatThrownBy(() -> roomMembershipService.join(expired.getId(), otherCode, guestId))
+            .isInstanceOf(RoomNotFoundException.class);
+    }
+
+    @Test
     void 만료된_방이면_예외() {
         Room expired = roomRepository.save(expiredRoom());
 

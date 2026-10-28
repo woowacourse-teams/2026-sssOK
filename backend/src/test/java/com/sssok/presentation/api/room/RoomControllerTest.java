@@ -424,6 +424,36 @@ class RoomControllerTest {
     }
 
     @Test
+    void 바디_없이_입장하면_방_코드가_없어_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
+                .header("Authorization", BEARER))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+
+        then(roomMembershipService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 방_코드를_빼고_닉네임만_보내면_400을_반환한다() throws Exception {
+        performJoin("""
+            {"nickname":"민수"}
+            """)
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+
+        then(roomMembershipService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 형식이_잘못된_방_코드로_입장하면_400을_반환한다() throws Exception {
+        performJoin("""
+            {"code":"invalid-code"}
+            """)
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+    }
+
+    @Test
     void 입장에_인증이_없으면_401을_반환한다() throws Exception {
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
                 .contentType(MediaType.APPLICATION_JSON)

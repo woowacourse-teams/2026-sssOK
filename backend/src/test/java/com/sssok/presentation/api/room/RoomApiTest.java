@@ -426,6 +426,45 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 다른_방의_코드로_입장하면_404이고_그_방_자원도_열리지_않는다() throws Exception {
+        String hostToken = 익명_인증("가현");
+        String strangerToken = 익명_인증("민수");
+        long roomId = 방_만들기(hostToken).roomId();
+        String strangerRoomCode = 방_만들기(strangerToken).code();
+
+        입장(strangerToken, roomId, "{\"code\":\"" + strangerRoomCode + "\"}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/all", roomId)
+                .header("Authorization", "Bearer " + strangerToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
+    @Test
+    void 방_코드_없이_입장하면_400() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들기(hostToken).roomId();
+
+        입장(익명_인증("민수"), roomId, "{\"nickname\":\"민수\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+    }
+
+    @Test
+    void 삭제된_방이라도_코드가_다르면_404() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들기(hostToken).roomId();
+        String otherCode = 방_만들기(hostToken).code();
+        삭제(hostToken, roomId).andExpect(status().isOk());
+
+        입장(익명_인증("민수"), roomId, "{\"code\":\"" + otherCode + "\"}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+    }
+
+    @Test
     void 삭제된_방에_입장하면_410() throws Exception {
         String hostToken = 익명_인증("가현");
         String guestToken = 익명_인증("민수");
