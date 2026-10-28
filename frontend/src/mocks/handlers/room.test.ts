@@ -6,10 +6,15 @@ const TOKEN = "Bearer mock-token-10234";
 const getRoom = (code: string, token?: string) =>
   fetch(`${API_BASE_URL}/rooms/${code}`, token ? { headers: { Authorization: token } } : undefined);
 
-const joinRoom = (token: string, roomId: number = MOCK_ROOM_ID) =>
+const joinRoom = (
+  token: string,
+  roomId: number = MOCK_ROOM_ID,
+  code: string = MOCK_ROOM_CODES.active,
+) =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/members`, {
     method: "POST",
     headers: { Authorization: token },
+    body: JSON.stringify({ code }),
   });
 
 const roomIdOf = async (code: string) => (await (await getRoom(code)).json()).data.roomId as number;
@@ -174,7 +179,7 @@ describe("GET /rooms/{code} 목 핸들러", () => {
   });
 
   it("입장 기록은 방마다 따로다 — 다른 방에 입장해도 이 방은 joined 가 false 다", async () => {
-    await joinRoom(TOKEN, await roomIdOf(MOCK_ROOM_CODES.second));
+    await joinRoom(TOKEN, await roomIdOf(MOCK_ROOM_CODES.second), MOCK_ROOM_CODES.second);
 
     const body = await (await getRoom(MOCK_ROOM_CODES.active, TOKEN)).json();
 
@@ -184,7 +189,7 @@ describe("GET /rooms/{code} 목 핸들러", () => {
   it("입장한 방만 joined 가 true 다", async () => {
     const secondRoomId = await roomIdOf(MOCK_ROOM_CODES.second);
 
-    await joinRoom(TOKEN, secondRoomId);
+    await joinRoom(TOKEN, secondRoomId, MOCK_ROOM_CODES.second);
 
     const body = await (await getRoom(MOCK_ROOM_CODES.second, TOKEN)).json();
 
@@ -197,6 +202,38 @@ describe("POST /rooms/{roomId}/members 목 핸들러", () => {
     expect((await joinRoom(TOKEN)).status).toBe(201);
     expect((await joinRoom(TOKEN)).status).toBe(200);
   });
+
+  it.each([undefined, {}, { code: "" }, { code: "7k93qx2s" }, { code: 12345678 }])(
+    "코드 누락·형식 오류는 참여 기록 없이 400으로 거부한다: %j",
+    async (body) => {
+      const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+        method: "POST",
+        headers: { Authorization: TOKEN, "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      expect(response.status).toBe(400);
+      expect((await response.json()).code).toBe("INVALID_ROOM_CODE");
+      expect((await (await getRoom(MOCK_ROOM_CODES.active, TOKEN)).json()).data.joined).toBe(false);
+    },
+  );
+
+  it("다른 방의 코드로는 참여 기록 없이 404로 거부한다", async () => {
+    const response = await joinRoom(TOKEN, MOCK_ROOM_ID, MOCK_ROOM_CODES.second);
+    expect(response.status).toBe(404);
+    expect((await response.json()).code).toBe("ROOM_NOT_FOUND");
+    expect((await (await getRoom(MOCK_ROOM_CODES.active, TOKEN)).json()).data.joined).toBe(false);
+  });
+
+  it.each([MOCK_ROOM_CODES.expired, MOCK_ROOM_CODES.deleted, MOCK_ROOM_CODES.purged])(
+    "종료된 방도 코드 검증 후 만료를 확인한다: %s",
+    async (code) => {
+      const roomId = await roomIdOf(code);
+      expect((await joinRoom(TOKEN, roomId, MOCK_ROOM_CODES.active)).status).toBe(404);
+      const response = await joinRoom(TOKEN, roomId, code);
+      expect(response.status).toBe(410);
+      expect((await response.json()).code).toBe("ROOM_EXPIRED");
+    },
+  );
 
   it("토큰이 없으면 401 UNAUTHORIZED 로 내려준다", async () => {
     const response = await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {

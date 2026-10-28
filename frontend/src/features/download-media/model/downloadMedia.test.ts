@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 
-import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
+import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
 import { saveBlob } from "../lib/saveBlob";
@@ -31,6 +31,7 @@ const targetOf = (mediaId: number): DownloadTarget => ({
 
 const enterRoom = () =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+    body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}` },
   });

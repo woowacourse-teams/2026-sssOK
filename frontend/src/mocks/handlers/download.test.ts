@@ -2,7 +2,7 @@ import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
 import { server } from "../server";
-import { MOCK_ROOM_ID } from "./room";
+import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
 
 const TOKEN = "Bearer mock-token-10234";
 const OTHER_TOKEN = "Bearer mock-token-99";
@@ -10,6 +10,7 @@ const OTHER_TOKEN = "Bearer mock-token-99";
 /** 다운로드는 참여자만 할 수 있다. 목은 입장한 방을 기억하므로 먼저 들어가야 한다. */
 const join = (token = TOKEN) =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+    body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: token },
   });
