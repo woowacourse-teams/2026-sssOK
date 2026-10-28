@@ -183,13 +183,14 @@ call O04 logout A 200 GET /members/me/rooms "$A_AT"
 
 echo "== 8. 쿠키 방식 CSRF 헤더"
 call X01 csrf D 400 POST /auth/anonymous "" '{"nickname":"604D","refreshTokenDelivery":"COOKIE"}'
-JAR="$OUT/d.cookies"
-call X02 csrf D 201 POST /auth/anonymous "" '{"nickname":"604D","refreshTokenDelivery":"COOKIE"}' -H 'X-CSRF-Protection: 1' -c "$JAR.raw"
+# 쿠키 파일에는 refresh token 원문이 들어가므로 기록 폴더 밖에 두고 끝나면 지운다
+JAR="$(mktemp)"; trap 'rm -f "$JAR"' EXIT
+call X02 csrf D 201 POST /auth/anonymous "" '{"nickname":"604D","refreshTokenDelivery":"COOKIE"}' -H 'X-CSRF-Protection: 1' -c "$JAR"
 D_AT=$(jq -r .data.accessToken <<<"$LAST_RAW")
-call X03 csrf D 400 POST /auth/refresh "" '' -b "$JAR.raw"
-call X04 csrf D 400 POST /auth/refresh "" '' -b "$JAR.raw" -H 'X-CSRF-Protection: 1' -H 'Origin: https://evil.example.com'
-call X05 csrf D 200 POST /auth/refresh "" '' -b "$JAR.raw" -c "$JAR.raw" -H 'X-CSRF-Protection: 1'
-mask < "$JAR.raw" > "$JAR" && rm -f "$JAR.raw"
+call X03 csrf D 400 POST /auth/refresh "" '' -b "$JAR"
+call X04 csrf D 400 POST /auth/refresh "" '' -b "$JAR" -H 'X-CSRF-Protection: 1' -H 'Origin: https://evil.example.com'
+call X05 csrf D 200 POST /auth/refresh "" '' -b "$JAR" -c "$JAR" -H 'X-CSRF-Protection: 1'
+rm -f "$JAR"
 
 echo "== 9. 탈퇴 후 기존 토큰 (A)"
 call Z01 cleanup B 200 DELETE "/rooms/$B_ROOM_ID" "$B_AT"
