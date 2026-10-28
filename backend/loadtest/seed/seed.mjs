@@ -166,7 +166,7 @@ async function seedRoom(index) {
 
   const notJoined = room.participants.filter((user) => !user.joined);
   await mapWithConcurrency(notJoined, ACCOUNT_CONCURRENCY, async (user) => {
-    await api.joinRoom(user.accessToken, room.roomId);
+    await api.joinRoom(user.accessToken, room.roomId, room.code);
     user.joined = true;
     save();
   });

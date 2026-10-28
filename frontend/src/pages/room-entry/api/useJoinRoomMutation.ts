@@ -16,7 +16,7 @@ export const useJoinRoomMutation = (roomCode: string, onSuccess: () => void) => 
     mutationFn: async ({ nickname, roomId }: EnterRoomVariables) => {
       const member = await queryClient.fetchQuery(memberSessionQueryOptions());
       const session = member ?? (await createAnonymous({ nickname }));
-      const result = await joinRoom(roomId, session.accessToken, { nickname });
+      const result = await joinRoom(roomId, session.accessToken, { code: roomCode, nickname });
       if (!member) saveRoomSession(roomCode, session);
       await queryClient.invalidateQueries({ queryKey: ["room", roomCode] });
       void queryClient.invalidateQueries({ queryKey: ["myRooms"] });

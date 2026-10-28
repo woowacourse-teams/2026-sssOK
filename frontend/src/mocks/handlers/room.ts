@@ -660,7 +660,7 @@ export const roomHandlers = [
    * 입장은 멱등이다. 처음이면 201, 이미 입장했으면 200 으로 같은 내용을 돌려준다.
    * 목은 이번 세션에 입장한 방을 기억해 두 번째 호출부터 200 을 준다.
    */
-  http.post(`${API_BASE_URL}/rooms/:roomId/members`, ({ request, params }) => {
+  http.post(`${API_BASE_URL}/rooms/:roomId/members`, async ({ request, params }) => {
     const token = request.headers.get("Authorization");
 
     if (token === null) {
@@ -670,7 +670,22 @@ export const roomHandlers = [
       );
     }
 
+    const body = (await request.json().catch(() => null)) as { code?: unknown } | null;
+    if (typeof body?.code !== "string" || !ROOM_CODE_PATTERN.test(body.code)) {
+      return HttpResponse.json(
+        { code: "INVALID_ROOM_CODE", message: "방 코드 형식이 올바르지 않습니다." },
+        { status: 400 },
+      );
+    }
+
     const roomId = Number(params.roomId);
+    if (codeOfRoomId(roomId) !== body.code) return roomNotFound();
+    if (roomStatusOfId(roomId) !== "ACTIVE") {
+      return HttpResponse.json(
+        { code: "ROOM_EXPIRED", message: "만료된 방입니다." },
+        { status: 410 },
+      );
+    }
     const joinedRooms = readJoinedRooms();
     const alreadyJoined = joinedRooms.has(joinKey(token, roomId));
 

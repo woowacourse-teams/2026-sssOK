@@ -6,7 +6,7 @@ import { http, HttpResponse } from "msw";
 
 import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { markMediaDeleted } from "@/mocks/db";
-import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
+import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { routes } from "./routes";
@@ -193,6 +193,7 @@ describe("라우트", () => {
     const visited: string[] = [];
 
     await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+      body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
       method: "POST",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
@@ -225,6 +226,7 @@ describe("라우트", () => {
     const user = userEvent.setup();
     renderAtGallery();
     await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+      body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
       method: "POST",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
@@ -250,6 +252,7 @@ describe("라우트", () => {
     );
     const router = renderAtGallery();
     await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+      body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
       method: "POST",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
