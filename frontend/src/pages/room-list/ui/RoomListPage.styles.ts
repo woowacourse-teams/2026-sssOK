@@ -83,22 +83,6 @@ export const BellSlot = styled.span`
   }
 `;
 
-export const AvatarSlot = styled.span`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: ${radius.full};
-  background: ${colors.primarySubtle};
-  color: ${colors.primary};
-
-  svg {
-    width: 16px;
-    height: 16px;
-  }
-`;
-
 export const Body = styled.div`
   display: flex;
   flex: 1;
