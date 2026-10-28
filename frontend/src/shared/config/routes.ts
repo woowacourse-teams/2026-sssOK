@@ -1,6 +1,7 @@
 export const ROUTES = {
   home: "/home",
   rooms: "/rooms",
+  accountSettings: "/settings",
   login: "/app/login",
   createRoom: "/rooms/create",
   closedRoom: "/rooms/closed",
@@ -22,6 +23,7 @@ export const ROUTES = {
 export const ROUTE_PATTERNS = {
   home: "/home",
   rooms: "/rooms",
+  accountSettings: "/settings",
   login: "/app/login",
   loginCallback: "/app/auth/callback/:provider",
   createRoom: "/rooms/create",
