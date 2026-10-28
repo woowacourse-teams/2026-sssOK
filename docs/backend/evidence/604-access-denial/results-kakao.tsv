@@ -1,0 +1,14 @@
+id	group	method	path	actor	expected	actual	summary
+K01	setup	POST	/auth/anonymous	X	201	201	{"data":{"accessToken":"<JWT>","userId":913,"nickname":"604X","expiresAt":"2026-10-28T04:50:07.693915846Z","refreshToken":"<REFRESH>","refreshExpiresAt":"2026-1
+K02	setup	POST	/rooms	X	201	201	{"data":{"roomId":183,"code":"WV6UML7Z","name":"604X익명방","status":"ACTIVE","hostId":913,"hostName":"604X","uploadPolicy":"everyone","joined":true,"createdAt":"2
+K03	setup	POST	/auth/oauth/kakao/start	X	200	200	{"data":{"authorizationUrl":"https://kauth.kakao.com/oauth/authorize?response_type=code&client_id=<redacted>&redirect_uri=https%3A%2F%2Fde
+K04	social	POST	/auth/oauth/kakao/login	M	200	200	{"data":{"accessToken":"<JWT>","userId":908,"nickname":"사용자","expiresAt":"2026-10-28T04:52:24.847988912Z","refreshToken":"<REFRESH>","refreshExpiresAt":"2026-11
+M01	merged	GET	/members/me/rooms	X	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+M02	merged	GET	/rooms/183/media/all	X	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+M03	merged	POST	/auth/refresh	X	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+M04	merged	GET	/members/me/rooms	M	200	200	{"data":{"rooms":[{"roomId":183,"code":"WV6UML7Z","name":"604X익명방","isHost":true,"mediaCount":0,"memberCount":1,"thumbnailUrl":null}]}}
+W01	withdraw	DELETE	/auth/account	M	204	204	
+W02	withdraw	GET	/members/me/rooms	M	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+W03	withdraw	POST	/auth/refresh	M	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+W04	withdraw	GET	/rooms/183/media/all	M	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+W05	withdraw	GET	/members/me/rooms	X	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
