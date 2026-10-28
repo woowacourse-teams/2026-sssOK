@@ -28,6 +28,8 @@ def compose_config():
 def main():
     run([sys.executable, '-B', str(ROOT / 'test-check-alerts.py')])
     run([sys.executable, '-B', str(ROOT / 'test-log-transfer.py')])
+    run([sys.executable, '-B', str(ROOT / 'test-ops-report.py')])
+    run([sys.executable, '-B', str(ROOT / 'test-ops-report-prometheus.py')], stdout=subprocess.DEVNULL)
     services = compose_config()['services']
     assert set(services) == {'prometheus', 'loki', 'grafana', 'alertmanager', 'node-exporter', 'nginx'}
 
