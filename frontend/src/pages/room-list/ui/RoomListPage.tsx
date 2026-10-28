@@ -5,7 +5,6 @@ import {
   HiOutlineBell,
   HiOutlineCog6Tooth,
   HiPlus,
-  HiUser,
 } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
@@ -17,6 +16,7 @@ import { ROUTES } from "@/shared/config";
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
 import { Button } from "@/shared/ui/button";
 import { DropdownMenu, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
+import { IconButton } from "@/shared/ui/icon-button";
 import { PageSpinner } from "@/shared/ui/spinner";
 import { Toast, type ToastProps } from "@/shared/ui/toast";
 import { useIsDesktop } from "../model/useIsDesktop";
@@ -25,7 +25,6 @@ import { JoinByLinkModal } from "./JoinByLinkModal";
 import { RoomCard } from "./RoomCard";
 import {
   AccountSlots,
-  AvatarSlot,
   BellSlot,
   Body,
   Chip,
@@ -58,20 +57,19 @@ const FILTERS: { value: RoomFilter; label: string; emptyMessage: string }[] = [
   { value: "member", label: "참여한 방", emptyMessage: "참여한 방이 없어요." },
 ];
 
-/**
- * 알림 종과 프로필 원이 들어갈 자리. 알림과 회원 정보가 아직 없어서 눌리지 않게 모양만 둔다.
- * 기능이 생기면 버튼으로 바꾸고, 프로필 원에는 닉네임 첫 글자를 넣는다.
- */
-const AccountPlaceholders = () => (
-  <AccountSlots aria-hidden="true">
-    <BellSlot>
-      <HiOutlineBell />
-    </BellSlot>
-    <AvatarSlot>
-      <HiUser />
-    </AvatarSlot>
-  </AccountSlots>
-);
+const AccountActions = () => {
+  const navigate = useNavigate();
+  return (
+    <AccountSlots>
+      <BellSlot aria-hidden="true">
+        <HiOutlineBell />
+      </BellSlot>
+      <IconButton aria-label="설정" onClick={() => navigate(ROUTES.accountSettings)}>
+        <HiOutlineCog6Tooth aria-hidden="true" />
+      </IconButton>
+    </AccountSlots>
+  );
+};
 
 const matchesFilter = (room: MyRoom, filter: RoomFilter) =>
   filter === "all" || (filter === "host" ? room.isHost : !room.isHost);
@@ -265,7 +263,7 @@ export const RoomListPage = () => {
           <Logo>
             <img src="/icons/icon-192.png" alt="" />쏙
           </Logo>
-          <AccountPlaceholders />
+          <AccountActions />
         </NavInner>
       </Nav>
 
@@ -289,7 +287,7 @@ export const RoomListPage = () => {
             </HeaderActions>
           )}
           <MobileOnly>
-            <AccountPlaceholders />
+            <AccountActions />
           </MobileOnly>
         </Header>
 
