@@ -1,0 +1,39 @@
+name: PostHog 지표 디스코드 요약
+
+# 매일 아침 어제 지표를, 월요일에는 지난주 7일 지표까지 디스코드로 보낸다.
+# schedule 은 기본 브랜치(main)의 워크플로만 돌린다. develop 에 머지해도 main 승격 전까지는
+# 수동 실행으로만 보낼 수 있다.
+on:
+  schedule:
+    # KST 10:00. GitHub 대기열 사정으로 몇 분~수십 분 늦게 돌 수 있다.
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      weekly:
+        description: '월요일이 아니어도 지난주 7일 요약을 함께 보내기'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    name: 지표 요약 발송
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Node 20 설정
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 디스코드로 요약 발송
+        env:
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          DISCORD_METRICS_WEBHOOK_URL: ${{ secrets.DISCORD_METRICS_WEBHOOK_URL }}
+          WEEKLY: ${{ inputs.weekly || false }}
+        run: node .github/scripts/posthog-daily-digest.mjs
