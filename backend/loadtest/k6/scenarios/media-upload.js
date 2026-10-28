@@ -170,7 +170,7 @@ export function setup() {
   if (!created.ok) exec.test.abort(`업로드 전용 방을 만들지 못했습니다: ${created.reason}`);
   const room = created.data;
   for (const uploader of UPLOADERS) {
-    const joined = client.post('setup', `/rooms/${room.roomId}/members`, { token: uploader.token, expectedStatus: 201 });
+    const joined = client.post('setup', `/rooms/${room.roomId}/members`, { token: uploader.token, body: { code: room.code }, expectedStatus: 201 });
     if (!joined.ok) {
       exec.test.abort(`userId=${uploader.userId} 이 업로드 방에 입장하지 못했습니다: ${joined.reason}. 방 roomId=${room.roomId} 를 지운다`);
     }

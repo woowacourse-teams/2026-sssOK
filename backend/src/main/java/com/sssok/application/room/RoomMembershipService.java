@@ -8,6 +8,7 @@ import com.sssok.application.room.exception.RoomHostCannotLeaveException;
 import com.sssok.application.room.exception.RoomModifiedException;
 import com.sssok.application.room.exception.RoomNotFoundException;
 import com.sssok.domain.room.Room;
+import com.sssok.domain.room.RoomCode;
 import com.sssok.domain.room.RoomMember;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.member.Member;
@@ -40,14 +41,19 @@ public class RoomMembershipService {
     }
 
     @Transactional
-    public JoinRoomResult join(Long roomId, Long memberId) {
-        return join(roomId, memberId, null);
+    public JoinRoomResult join(Long roomId, RoomCode code, Long memberId) {
+        return join(roomId, code, memberId, null);
     }
 
     @Transactional
-    public JoinRoomResult join(Long roomId, Long memberId, String nickname) {
+    public JoinRoomResult join(Long roomId, RoomCode code, Long memberId, String nickname) {
         Nickname requestedNickname = nickname == null ? null : new Nickname(nickname);
         Room room = getRoom(roomId);
+        // roomId 는 순차 증가라 추측할 수 있어, 공유 링크로 받은 코드가 맞을 때만 입장시킨다.
+        // 틀리면 방이 없을 때와 같은 응답을 줘서 방의 존재·만료 여부를 드러내지 않는다.
+        if (!room.getCode().matches(code)) {
+            throw new RoomNotFoundException(roomId);
+        }
         if (!room.canEnter()) {
             throw new RoomExpiredException();
         }

@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.RoomMembershipService;
+import com.sssok.domain.room.Room;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.database.PushSubscriptionJpaEntity;
@@ -74,9 +75,10 @@ class InvalidSubscriptionKeyApiTest extends PostgresContainerSupport {
     void 곡선_위에_없는_공개키를_가진_구독은_발송할_때_지운다() throws Exception {
         MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
         AuthResult host = anonymousAuthService.authenticate("가현");
-        Long roomId = createRoomService.create(host.userId(), "제주 여행", null).room().getId();
+        Room room = createRoomService.create(host.userId(), "제주 여행", null).room();
+        Long roomId = room.getId();
         AuthResult guest = anonymousAuthService.authenticate("민수");
-        roomMembershipService.join(roomId, guest.userId());
+        roomMembershipService.join(roomId, room.getCode(), guest.userId());
 
         byte[] offCurveKey = new byte[65];
         offCurveKey[0] = 0x04;

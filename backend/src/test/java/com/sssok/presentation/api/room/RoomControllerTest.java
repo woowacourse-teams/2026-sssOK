@@ -68,6 +68,9 @@ class RoomControllerTest {
     private static final Long MEMBER_ID = 2L;
     private static final Instant CREATED_AT = Instant.parse("2026-08-13T00:00:00Z");
     private static final String BEARER = "Bearer valid-token";
+    private static final String JOIN_BODY = """
+        {"code":"%s"}
+        """.formatted(CODE);
 
     @Autowired
     MockMvc mockMvc;
@@ -357,10 +360,10 @@ class RoomControllerTest {
 
     @Test
     void 처음_입장하면_201과_멤버_정보를_반환한다() throws Exception {
-        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(new RoomCode(CODE)), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
-        performJoin("{}")
+        performJoin(JOIN_BODY)
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.roomId").value(ROOM_ID))
             .andExpect(jsonPath("$.data.userId").value(MEMBER_ID))
@@ -372,53 +375,82 @@ class RoomControllerTest {
 
     @Test
     void 닉네임_생략시_기본_이름으로_입장한다() throws Exception {
-        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(new RoomCode(CODE)), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, true));
 
-        mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
-                .header("Authorization", BEARER))
+        performJoin(JOIN_BODY)
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.data.displayName").value("민수"));
 
-        then(roomMembershipService).should().join(eq(ROOM_ID), eq(MEMBER_ID), isNull());
+        then(roomMembershipService).should().join(eq(ROOM_ID), eq(new RoomCode(CODE)), eq(MEMBER_ID), isNull());
     }
 
     @Test
     void 이미_참여_중인_사람이_다시_입장하면_200을_반환한다() throws Exception {
-        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull())).willReturn(
+        given(roomMembershipService.join(eq(ROOM_ID), eq(new RoomCode(CODE)), eq(MEMBER_ID), isNull())).willReturn(
             new JoinRoomResult(ROOM_ID, MEMBER_ID, "민수", HOST_ID, CREATED_AT, false));
 
-        performJoin("{}")
+        performJoin(JOIN_BODY)
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.displayName").value("민수"));
     }
 
     @Test
     void 없는_방에_입장하면_404를_반환한다() throws Exception {
-        given(roomMembershipService.join(anyLong(), anyLong(), isNull())).willThrow(new RoomNotFoundException(ROOM_ID));
+        given(roomMembershipService.join(anyLong(), any(), anyLong(), isNull())).willThrow(new RoomNotFoundException(ROOM_ID));
 
-        performJoin("{}")
+        performJoin(JOIN_BODY)
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
 
     @Test
     void 만료된_방에_입장하면_410을_반환한다() throws Exception {
-        given(roomMembershipService.join(anyLong(), anyLong(), isNull())).willThrow(new RoomExpiredException());
+        given(roomMembershipService.join(anyLong(), any(), anyLong(), isNull())).willThrow(new RoomExpiredException());
 
-        performJoin("{}")
+        performJoin(JOIN_BODY)
             .andExpect(status().isGone())
             .andExpect(jsonPath("$.code").value("ROOM_EXPIRED"));
     }
 
     @Test
     void 중복_입장_후_참여기록이_사라지면_409를_반환한다() throws Exception {
-        given(roomMembershipService.join(eq(ROOM_ID), eq(MEMBER_ID), isNull()))
+        given(roomMembershipService.join(eq(ROOM_ID), eq(new RoomCode(CODE)), eq(MEMBER_ID), isNull()))
             .willThrow(new RoomModifiedException());
 
-        performJoin("{}")
+        performJoin(JOIN_BODY)
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value("ROOM_MODIFIED"));
+    }
+
+    @Test
+    void 바디_없이_입장하면_방_코드가_없어_400을_반환한다() throws Exception {
+        mockMvc.perform(post("/api/v1/rooms/{roomId}/members", ROOM_ID)
+                .header("Authorization", BEARER))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+
+        then(roomMembershipService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 방_코드를_빼고_닉네임만_보내면_400을_반환한다() throws Exception {
+        performJoin("""
+            {"nickname":"민수"}
+            """)
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+
+        then(roomMembershipService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 형식이_잘못된_방_코드로_입장하면_400을_반환한다() throws Exception {
+        performJoin("""
+            {"code":"invalid-code"}
+            """)
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
     }
 
     @Test
