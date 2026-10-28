@@ -127,9 +127,9 @@ class AppNotificationApiTest extends PostgresContainerSupport {
         host = member("가현");
         room = createRoomService.create(host.id(), "제주 여행", null).room();
         guest = member("민수");
-        roomMembershipService.join(room.getId(), guest.id());
+        roomMembershipService.join(room.getId(), room.getCode(), guest.id());
         otherGuest = member("지수");
-        roomMembershipService.join(room.getId(), otherGuest.id());
+        roomMembershipService.join(room.getId(), room.getCode(), otherGuest.id());
 
         stranger = member("철수");
         createRoomService.create(stranger.id(), "다른 방", null);
