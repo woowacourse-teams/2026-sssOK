@@ -85,7 +85,7 @@ class MediaDeleteCleanupRejectionApiTest extends PostgresContainerSupport {
         uploader = anonymousAuthService.authenticate("가현");
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
-        roomMembershipService.join(roomId, uploader.userId());
+        roomMembershipService.join(roomId, room.getCode(), uploader.userId());
     }
 
     @AfterEach
