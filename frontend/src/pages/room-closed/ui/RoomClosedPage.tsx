@@ -1,5 +1,8 @@
+import { Navigate } from "react-router-dom";
+
 import closedRoomImage from "@/shared/assets/mascot-close.png";
 import { ROUTES } from "@/shared/config";
+import { isAppWebView } from "@/shared/lib";
 import { Stack } from "@/shared/ui/stack";
 import {
   ActionLink,
@@ -13,6 +16,8 @@ import {
 } from "./RoomClosedPage.styles";
 
 export const RoomClosedPage = () => {
+  if (isAppWebView()) return <Navigate to={ROUTES.rooms} replace />;
+
   return (
     <Page>
       <Content>
