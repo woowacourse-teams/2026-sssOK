@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 // 방 입장 여부는 RoomMembershipInterceptor 가 컨트롤러 진입 전에 확인한다.
-@Tag(name = "방 알림", description = "방 참여자에게 가는 브라우저 알림(Web Push) 설정과 업로드 요청")
+@Tag(name = "방 알림", description = "방 참여자에게 가는 브라우저·앱 알림 설정과 업로드 요청")
 @RestController
 @RequestMapping("/api/v1/rooms/{roomId}")
 @RequiredArgsConstructor
@@ -57,7 +57,7 @@ public class RoomNotificationController {
 
     @Operation(
         summary = "업로드 요청 보내기",
-        description = "\"내 사진 올려 줘\" 요청을 보낸다. 알림을 켠 같은 방의 다른 참여자에게 브라우저 알림이 간다. "
+        description = "\"내 사진 올려 줘\" 요청을 보낸다. 알림을 켠 같은 방의 다른 참여자에게 브라우저·앱 알림이 간다. "
             + "발송은 비동기라 요청을 접수하면 바로 202를 돌려준다. 같은 방에서 쿨다운(기본 1분) 안에 다시 요청하면 429."
     )
     @PostMapping("/upload-requests")

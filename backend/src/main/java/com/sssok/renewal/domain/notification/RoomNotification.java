@@ -1,6 +1,7 @@
 package com.sssok.renewal.domain.notification;
 
-// 서비스 워커가 그대로 띄우는 알림 내용. roomId 는 이미 그 방을 보고 있는 탭이면 알림을 거르는 데 쓴다.
+// 서비스 워커가 그대로 띄우는 알림 내용(앱에는 FCM 메시지로 옮겨 담는다).
+// roomId 는 이미 그 방을 보고 있는 탭이면 알림을 거르는 데 쓴다.
 public record RoomNotification(
     RoomNotificationType type,
     Long roomId,

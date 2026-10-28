@@ -39,7 +39,7 @@ flowchart LR
 
 | 파일 | 만드는 주체 | 설명 |
 | --- | --- | --- |
-| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정 |
+| `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정, 방 알림 키(Web Push·FCM) |
 | `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
 | `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
 | `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱·모니터링 컨테이너 정의 (`8080` 직접 노출 — 호스트에 설치된 Nginx가 `80`에서 받아 넘긴다, Actuator `8081`은 내부 전용) |
@@ -143,9 +143,22 @@ CORS_ALLOWED_ORIGINS=여기에_프론트_배포_오리진(콤마로_여러_개_�
 DISCORD_FEEDBACK_WEBHOOK_URL=여기에_의견_알림_채널_웹훅_URL(비우면_알림_없이_동작)
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=여기에_Grafana_관리자_비밀번호
+WEB_PUSH_VAPID_PUBLIC_KEY=여기에_VAPID_공개키(비우면_브라우저_알림_없이_동작)
+WEB_PUSH_VAPID_PRIVATE_KEY=여기에_VAPID_개인키
+WEB_PUSH_SUBJECT=mailto:여기에_연락받을_이메일
+FCM_SERVICE_ACCOUNT=여기에_Firebase_서비스_계정_키_JSON의_base64(비우면_앱_알림_없이_동작)
 EOF
 chmod 600 .env
 ```
+
+방 참여자 알림 키는 비어 있으면 해당 알림 발송만 건너뛰고 서버는 정상 기동한다.
+
+- `WEB_PUSH_*`: 브라우저 알림용 VAPID 키쌍. `npx web-push generate-vapid-keys`로 만든다.
+  키를 바꾸면 기존 브라우저 구독이 모두 무효가 되므로 한 번 정하면 유지한다.
+- `FCM_SERVICE_ACCOUNT`: 네이티브 앱 알림용. Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 →
+  "새 비공개 키 생성"으로 받은 JSON을 `base64 -i <키 파일>.json | tr -d '\n'`으로 한 줄로 만들어 넣는다.
+  형식이 잘못되면 서버가 기동하지 않으므로 넣은 뒤 헬스체크를 확인한다. iOS 전송에 필요한 APNs 키(.p8)는
+  서버가 아니라 Firebase 콘솔의 Cloud Messaging 설정에 올린다.
 
 ### 5. self-hosted 러너 설치 (EC2 내부)
 
@@ -272,12 +285,20 @@ CORS_ALLOWED_ORIGINS=여기에_dev_프론트_오리진(콤마로_여러_개_가�
 DISCORD_FEEDBACK_WEBHOOK_URL=여기에_의견_알림_채널_웹훅_URL(비우면_알림_없이_동작)
 GRAFANA_ADMIN_USER=admin
 GRAFANA_ADMIN_PASSWORD=여기에_Grafana_관리자_비밀번호
+WEB_PUSH_VAPID_PUBLIC_KEY=여기에_VAPID_공개키(비우면_브라우저_알림_없이_동작)
+WEB_PUSH_VAPID_PRIVATE_KEY=여기에_VAPID_개인키
+WEB_PUSH_SUBJECT=mailto:여기에_연락받을_이메일
+FCM_SERVICE_ACCOUNT=여기에_Firebase_서비스_계정_키_JSON의_base64(비우면_앱_알림_없이_동작)
 EOF
 chmod 600 .env
 ```
 
-`DB_URL`의 데이터베이스 이름(`sssok_dev`)과 `R2_BUCKET`(`sssok-dev`)만 운영과 다르다 —
+`DB_URL`의 데이터베이스 이름(`sssok_dev`)과 `R2_BUCKET`(`sssok-dev`)은 운영과 다르다 —
 엔드포인트·계정 등 나머지는 운영과 같은 자원을 공유해도 된다.
+
+`FCM_SERVICE_ACCOUNT`는 운영과 다른 Firebase 프로젝트(dev용)의 서비스 계정 키를 넣는다.
+dev 서버가 실제 사용자 기기로 알림을 보내지 않게 하기 위해서다. 앱도 dev 빌드는 dev Firebase 프로젝트의
+설정 파일로 빌드해야 하며, 다른 프로젝트의 기기 토큰은 발송 시 `SENDER_ID_MISMATCH`로 삭제된다.
 
 ### 5. self-hosted 러너 설치 (dev EC2 내부)
 

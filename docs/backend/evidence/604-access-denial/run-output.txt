@@ -1,0 +1,90 @@
+== 0. 준비
+A userId=903 token=eyJhbGciOi…  B userId=904 token=eyJhbGciOi…
+S01 POST /rooms [A] expected=201 actual=201
+S02 POST /rooms/176/folders [A] expected=201 actual=201
+S03 POST /rooms/176/media/upload-urls [A] expected=200 actual=200
+R2 PUT status=200
+S04 POST /rooms/176/media [A] expected=201 actual=201
+S05 PUT /rooms/176/media/7774/likes [A] expected=200 actual=200
+S06 POST /rooms/176/downloads/zip [A] expected=202 actual=202
+S07 POST /rooms [B] expected=201 actual=201
+roomId=176 folderId=43 mediaId=7774 jobId=7 B roomId=177
+BEFORE-room GET /rooms/ZKY6UMDH [A] expected=200 actual=200
+BEFORE-media GET /rooms/176/media/all [A] expected=200 actual=200
+BEFORE-detail GET /rooms/176/media/7774 [A] expected=200 actual=200
+== 1. B 토큰으로 A의 방 자원 요청 (B는 A의 방 미참여)
+T01 GET /rooms/176 [B] expected=404 actual=400
+T02 PATCH /rooms/176 [B] expected=403 actual=403
+T03 GET /rooms/176/events [B] expected=403 actual=403
+T04 GET /rooms/176/notification-setting [B] expected=403 actual=403
+T05 PUT /rooms/176/notification-setting [B] expected=403 actual=403
+T06 POST /rooms/176/upload-requests [B] expected=403 actual=403
+T07 GET /rooms/176/media [B] expected=403 actual=403
+T08 GET /rooms/176/media/all [B] expected=403 actual=403
+T09 GET /rooms/176/media/7774 [B] expected=403 actual=403
+T10 PUT /rooms/176/media/7774/likes [B] expected=403 actual=403
+T11 DELETE /rooms/176/media/7774/likes [B] expected=403 actual=403
+T12 POST /rooms/176/media/upload-urls [B] expected=403 actual=403
+T13 POST /rooms/176/media/7774/upload-url [B] expected=403 actual=403
+T14 POST /rooms/176/media [B] expected=403 actual=403
+T15 GET /rooms/176/downloads/media/7774 [B] expected=403 actual=403
+T16 POST /rooms/176/downloads/batch [B] expected=403 actual=403
+T17 POST /rooms/176/downloads/zip [B] expected=403 actual=403
+T18 GET /rooms/176/downloads/zip/7 [B] expected=403 actual=403
+T19 GET /rooms/177/downloads/zip/7 [B] expected=404 actual=403
+T20 POST /rooms/176/folders [B] expected=403 actual=403
+T21 PATCH /rooms/176/folders/43 [B] expected=403 actual=403
+T22 PUT /rooms/176/media/folders [B] expected=403 actual=403
+T23 DELETE /rooms/176/media/folders [B] expected=403 actual=403
+T24 DELETE /rooms/176/folders/43 [B] expected=403 actual=403
+T25 DELETE /rooms/176/media [B] expected=403 actual=403
+T26 DELETE /rooms/176/media/7774 [B] expected=403 actual=403
+T27 DELETE /rooms/176 [B] expected=403 actual=403
+T28 GET /members/me/rooms [B] expected=200 actual=200
+T29 GET /rooms/176/media/all [none] expected=401 actual=401
+T30 GET /rooms/176/media/all [forged] expected=401 actual=401
+== 2. 거부 후 A 데이터 변경 여부
+AFTER-room GET /rooms/ZKY6UMDH [A] expected=200 actual=200
+AFTER-media GET /rooms/176/media/all [A] expected=200 actual=200
+AFTER-detail GET /rooms/176/media/7774 [A] expected=200 actual=200
+SNAPSHOT: 변경 없음
+== 3. 응답 본문의 A 데이터 노출 검사
+== 4. 방 ID만으로 입장 (공유 코드 없이)
+T31 POST /rooms/176/members [B] expected=403 actual=201
+T32 GET /rooms/176/media/all [B] expected=403 actual=200
+T33 DELETE /rooms/176/members/me [B] expected=204 actual=204
+== 5. Refresh token 재사용 (C)
+U01 POST /auth/refresh [C] expected=200 actual=200
+U02 POST /auth/refresh [C] expected=401 actual=401
+  (5초 이내 재사용 — 유예 구간, 세션 유지 기대)
+U03 GET /members/me/rooms [C] expected=200 actual=200
+U04 POST /auth/refresh [C] expected=401 actual=401
+U05 POST /auth/refresh [C] expected=401 actual=401
+U06 GET /members/me/rooms [C] expected=401 actual=401
+== 6. 연결 코드 (B가 A 계정으로 로그인 시도)
+L01 POST /auth/link [B] expected=400 actual=400
+L02 POST /auth/link [B] expected=404 actual=404
+A의 두 번째 기기가 연결 코드 사용: userId=903 (A=903)
+L03 POST /auth/link [B] expected=404 actual=404
+  만료 대기 (5분 10초)
+L04 POST /auth/link [B] expected=410 actual=410
+== 7. 로그아웃 (A의 두 번째 기기 세션)
+O01 POST /auth/logout [A2] expected=204 actual=204
+O02 GET /members/me/rooms [A2] expected=401 actual=401
+O03 POST /auth/refresh [A2] expected=401 actual=401
+O04 GET /members/me/rooms [A] expected=200 actual=200
+== 8. 쿠키 방식 CSRF 헤더
+X01 POST /auth/anonymous [D] expected=400 actual=403
+X02 POST /auth/anonymous [D] expected=201 actual=201
+X03 POST /auth/refresh [D] expected=400 actual=403
+X04 POST /auth/refresh [D] expected=400 actual=403
+X05 POST /auth/refresh [D] expected=200 actual=200
+== 9. 탈퇴 후 기존 토큰 (A)
+Z01 DELETE /rooms/177 [B] expected=200 actual=200
+Z02 DELETE /rooms/176 [A] expected=200 actual=200
+W01 DELETE /auth/account [A] expected=204 actual=409
+W02 GET /members/me/rooms [A] expected=401 actual=200
+W03 POST /auth/refresh [A] expected=401 actual=200
+W04 GET /rooms/176/media/all [A] expected=401 actual=410
+== done
+Wed Oct 28 10:35:56 KST 2026
