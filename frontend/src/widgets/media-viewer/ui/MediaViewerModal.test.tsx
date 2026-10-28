@@ -392,6 +392,25 @@ describe("라이트박스 단일 다운로드", () => {
     expect(saveBlobMock).not.toHaveBeenCalled();
   });
 
+  it("사진첩에 넣고 나면 저장했다고 알린다", async () => {
+    prefersShareSheetMock.mockReturnValue(true);
+    mockShare(async () => {});
+    renderViewer();
+
+    await userEvent.click(screen.getByRole("button", { name: "사진 다운로드" }));
+
+    expect(await screen.findByText("사진첩에 저장했어요.")).toBeInTheDocument();
+  });
+
+  it("파일로 저장하는 기기에서도 저장했다고 알린다", async () => {
+    prefersShareSheetMock.mockReturnValue(false);
+    renderViewer();
+
+    await userEvent.click(screen.getByRole("button", { name: "사진 다운로드" }));
+
+    expect(await screen.findByText("사진을 저장했어요.")).toBeInTheDocument();
+  });
+
   it("공유 시트를 그냥 닫으면 오류 문구를 띄우지 않는다", async () => {
     prefersShareSheetMock.mockReturnValue(true);
     const share = mockShare(async () => {
@@ -406,6 +425,8 @@ describe("라이트박스 단일 다운로드", () => {
       expect(screen.getByRole("button", { name: "사진 다운로드" })).toBeEnabled(),
     );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    // 닫았으면 저장된 게 아니다.
+    expect(screen.queryByText("사진첩에 저장했어요.")).not.toBeInTheDocument();
   });
 
   it("공유 시트를 쓰지 않는 기기에서는 지금처럼 파일로 바로 저장한다", async () => {

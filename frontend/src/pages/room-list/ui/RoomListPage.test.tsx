@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
+import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
 import { routes } from "@/app/routes";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
@@ -12,6 +13,15 @@ const renderRoomList = () => {
   const router = createMemoryRouter(routes, { initialEntries: [ROUTES.rooms] });
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+
+  queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, {
+    accessToken: "member-token",
+    userId: 10234,
+    nickname: "회원",
+    memberStatus: "REGISTERED",
+    expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+    refreshExpiresAt: "2099-01-01T00:00:00Z",
   });
 
   render(

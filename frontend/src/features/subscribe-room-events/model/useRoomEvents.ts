@@ -59,7 +59,8 @@ export const useRoomEvents = ({
   }, [onMediaFoldersUpdated]);
 
   useEffect(() => {
-    const url = new URL(`${API_BASE_URL}/rooms/${roomId}/events`);
+    // 앱 확인용 개발 서버(`pnpm start:app`)는 API 주소가 상대 경로라 현재 페이지 주소를 기준으로 푼다.
+    const url = new URL(`${API_BASE_URL}/rooms/${roomId}/events`, window.location.origin);
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
