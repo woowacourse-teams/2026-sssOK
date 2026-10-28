@@ -1,0 +1,72 @@
+id	group	method	path	actor	expected	actual	summary
+S01	setup	POST	/rooms	A	201	201	{"data":{"roomId":176,"code":"ZKY6UMDH","name":"604A비밀방","status":"ACTIVE","hostId":903,"hostName":"604A","uploadPolicy":"everyone","joined":true,"created
+S02	setup	POST	/rooms/176/folders	A	201	201	{"data":{"id":43,"name":"604A폴더","createdAt":"2026-10-28T01:30:29.644366421Z","photoCount":0}}
+S03	setup	POST	/rooms/176/media/upload-urls	A	200	200	{"data":{"issued":[{"mediaId":7774,"fileName":"604-A-secret.jpg","uploadUrl":"https://<R2_ACCOUNT>.r2.cloudflarestorage.com/sssok-dev/rooms/
+S04	setup	POST	/rooms/176/media	A	201	201	{"data":{"registered":[{"mediaId":7774,"type":"IMAGE","fileName":"604-A-secret.jpg","mimeType":"image/jpeg","size":1355,"thumbnailUrl":null,"thumbnailUrlExpires
+S05	setup	PUT	/rooms/176/media/7774/likes	A	200	200	{"data":{"mediaId":7774,"liked":true,"likeCount":1}}
+S06	setup	POST	/rooms/176/downloads/zip	A	202	202	{"data":{"jobId":7,"status":"QUEUED","mediaCount":1,"totalSize":1355,"fileName":"sssOK_176.zip"}}
+S07	setup	POST	/rooms	B	201	201	{"data":{"roomId":177,"code":"8XGD88Y6","name":"604B방","status":"ACTIVE","hostId":904,"hostName":"604B","uploadPolicy":"everyone","joined":true,"createdAt":"2
+BEFORE-room	verify	GET	/rooms/ZKY6UMDH	A	200	200	{"data":{"roomId":176,"code":"ZKY6UMDH","name":"604A비밀방","status":"ACTIVE","hostId":903,"hostName":"604A","uploadPolicy":"everyone","joined":true,"created
+BEFORE-media	verify	GET	/rooms/176/media/all	A	200	200	{"data":{"items":[{"mediaId":7774,"type":"IMAGE","fileName":"604-A-secret.jpg","mimeType":"image/jpeg","size":1355,"thumbnailUrl":null,"thumbnailUrlExpiresAt":n
+BEFORE-detail	verify	GET	/rooms/176/media/7774	A	200	200	{"data":{"mediaId":7774,"type":"IMAGE","fileName":"604-A-secret.jpg","mimeType":"image/jpeg","size":1355,"thumbnailUrl":null,"thumbnailUrlExpiresAt":null,"displ
+T01	room	GET	/rooms/176	B	404	400	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: 176"}
+T02	room	PATCH	/rooms/176	B	403	403	{"code":"NOT_ROOM_HOST","message":"방장만 수행할 수 있는 작업입니다"}
+T03	room	GET	/rooms/176/events	B	403	403	{"code":"ROOM_MEMBERSHIP_REQUIRED","message":"입장한 방만 구독할 수 있습니다"}
+T04	room	GET	/rooms/176/notification-setting	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T05	room	PUT	/rooms/176/notification-setting	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T06	room	POST	/rooms/176/upload-requests	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T07	media	GET	/rooms/176/media	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T08	media	GET	/rooms/176/media/all	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T09	media	GET	/rooms/176/media/7774	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T10	media	PUT	/rooms/176/media/7774/likes	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T11	media	DELETE	/rooms/176/media/7774/likes	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T12	media	POST	/rooms/176/media/upload-urls	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T13	media	POST	/rooms/176/media/7774/upload-url	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T14	media	POST	/rooms/176/media	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T15	download	GET	/rooms/176/downloads/media/7774	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T16	download	POST	/rooms/176/downloads/batch	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T17	download	POST	/rooms/176/downloads/zip	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T18	download	GET	/rooms/176/downloads/zip/7	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T19	download	GET	/rooms/177/downloads/zip/7	B	404	403	{"code":"DOWNLOAD_FORBIDDEN","message":"본인이 요청한 다운로드가 아닙니다"}
+T20	folder	POST	/rooms/176/folders	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T21	folder	PATCH	/rooms/176/folders/43	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T22	folder	PUT	/rooms/176/media/folders	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T23	folder	DELETE	/rooms/176/media/folders	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T24	folder	DELETE	/rooms/176/folders/43	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T25	media	DELETE	/rooms/176/media	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T26	media	DELETE	/rooms/176/media/7774	B	403	403	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+T27	room	DELETE	/rooms/176	B	403	403	{"code":"NOT_ROOM_HOST","message":"방장만 수행할 수 있는 작업입니다"}
+T28	room	GET	/members/me/rooms	B	200	200	{"data":{"rooms":[{"roomId":177,"code":"8XGD88Y6","name":"604B방","isHost":true,"mediaCount":0,"memberCount":1,"thumbnailUrl":null}]}}
+T29	anon	GET	/rooms/176/media/all	none	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+T30	anon	GET	/rooms/176/media/all	forged	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+AFTER-room	verify	GET	/rooms/ZKY6UMDH	A	200	200	{"data":{"roomId":176,"code":"ZKY6UMDH","name":"604A비밀방","status":"ACTIVE","hostId":903,"hostName":"604A","uploadPolicy":"everyone","joined":true,"created
+AFTER-media	verify	GET	/rooms/176/media/all	A	200	200	{"data":{"items":[{"mediaId":7774,"type":"IMAGE","fileName":"604-A-secret.jpg","mimeType":"image/jpeg","size":1355,"thumbnailUrl":"https://<R2_ACCOUNT>
+AFTER-detail	verify	GET	/rooms/176/media/7774	A	200	200	{"data":{"mediaId":7774,"type":"IMAGE","fileName":"604-A-secret.jpg","mimeType":"image/jpeg","size":1355,"thumbnailUrl":"https://<R2_ACCOUNT>
+T31	join	POST	/rooms/176/members	B	403	201	{"data":{"roomId":176,"userId":904,"displayName":"604B","hostId":903,"joinedAt":"2026-10-28T01:30:36.926214Z"}}
+T32	join	GET	/rooms/176/media/all	B	403	200	{"data":{"items":[{"mediaId":7774,"type":"IMAGE","fileName":"604-A-secret.jpg","mimeType":"image/jpeg","size":1355,"thumbnailUrl":"https://<R2_ACCOUNT>
+T33	join	DELETE	/rooms/176/members/me	B	204	204	
+U01	refresh	POST	/auth/refresh	C	200	200	{"data":{"accessToken":"<JWT>","userId":905,"nickname":"604C","expiresAt":"2026-10-28T02:00:37.286402697Z","refreshToken":"<REFRESH>","refreshExpiresAt":"2026-1
+U02	refresh	POST	/auth/refresh	C	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+U03	refresh	GET	/members/me/rooms	C	200	200	{"data":{"rooms":[]}}
+U04	refresh	POST	/auth/refresh	C	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+U05	refresh	POST	/auth/refresh	C	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+U06	refresh	GET	/members/me/rooms	C	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+L01	link	POST	/auth/link	B	400	400	{"code":"INVALID_LINK_CODE","message":"코드가 올바르지 않습니다"}
+L02	link	POST	/auth/link	B	404	404	{"code":"LINK_CODE_NOT_FOUND","message":"유효하지 않은 코드입니다"}
+L03	link	POST	/auth/link	B	404	404	{"code":"LINK_CODE_NOT_FOUND","message":"유효하지 않은 코드입니다"}
+L04	link	POST	/auth/link	B	410	410	{"code":"LINK_CODE_EXPIRED","message":"만료된 코드입니다"}
+O01	logout	POST	/auth/logout	A2	204	204	
+O02	logout	GET	/members/me/rooms	A2	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+O03	logout	POST	/auth/refresh	A2	401	401	{"code":"UNAUTHORIZED","message":"다시 접속해주세요"}
+O04	logout	GET	/members/me/rooms	A	200	200	{"data":{"rooms":[{"roomId":176,"code":"ZKY6UMDH","name":"604A비밀방","isHost":true,"mediaCount":1,"memberCount":1,"thumbnailUrl":"https://<R2_ACCOUNT>
+X01	csrf	POST	/auth/anonymous	D	400	403	{"code":"INVALID_COOKIE_AUTH_REQUEST","message":"허용되지 않은 쿠키 인증 요청입니다"}
+X02	csrf	POST	/auth/anonymous	D	201	201	{"data":{"accessToken":"<JWT>","userId":906,"nickname":"604D","expiresAt":"2026-10-28T02:05:55.746341612Z","refreshExpiresAt":"2026-11-27T01:35:55.746341612Z","
+X03	csrf	POST	/auth/refresh	D	400	403	{"code":"INVALID_COOKIE_AUTH_REQUEST","message":"허용되지 않은 쿠키 인증 요청입니다"}
+X04	csrf	POST	/auth/refresh	D	400	403	Invalid CORS request
+X05	csrf	POST	/auth/refresh	D	200	200	{"data":{"accessToken":"<JWT>","userId":906,"nickname":"604D","expiresAt":"2026-10-28T02:05:55.968379725Z","refreshExpiresAt":"2026-11-27T01:35:55.746342Z","mem
+Z01	cleanup	DELETE	/rooms/177	B	200	200	{"data":{"deletedAt":"2026-10-28T01:35:56.042537817Z"}}
+Z02	cleanup	DELETE	/rooms/176	A	200	200	{"data":{"deletedAt":"2026-10-28T01:35:56.264569325Z"}}
+W01	withdraw	DELETE	/auth/account	A	204	409	{"code":"SOCIAL_AUTH_CONFLICT","message":"회원 상태가 변경되었습니다. 로그인을 다시 시작해주세요"}
+W02	withdraw	GET	/members/me/rooms	A	401	200	{"data":{"rooms":[]}}
+W03	withdraw	POST	/auth/refresh	A	401	200	{"data":{"accessToken":"<JWT>","userId":903,"nickname":"604A","expiresAt":"2026-10-28T02:05:56.467747305Z","refreshToken":"<REFRESH>","refreshExpiresAt":"2026-1
+W04	withdraw	GET	/rooms/176/media/all	A	401	410	{"code":"ROOM_EXPIRED","message":"이미 사라진 방입니다"}

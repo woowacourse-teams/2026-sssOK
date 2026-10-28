@@ -269,8 +269,11 @@ class MediaLikeApiTest extends PostgresContainerSupport {
     }
 
     private void 입장(String token, long roomId) throws Exception {
+        String code = jdbcTemplate.queryForObject("SELECT code FROM room WHERE id = ?", String.class, roomId);
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-            .header("Authorization", "Bearer " + token));
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"code\":\"" + code + "\"}"));
     }
 
     private String 값(MvcResult result, String field) throws Exception {

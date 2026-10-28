@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 
+import { AccountSettingsPage } from "@/pages/account-settings";
 import { AdminAccountsPage } from "@/pages/admin-accounts";
 import { AdminFeedbacksPage } from "@/pages/admin-feedbacks";
 import { AdminLoginPage } from "@/pages/admin-login";
@@ -32,7 +33,10 @@ export const routes: RouteObject[] = [
   { path: ROUTE_PATTERNS.home, element: <HomePage /> },
   {
     element: <RequireMember />,
-    children: [{ path: ROUTE_PATTERNS.rooms, element: <RoomListPage /> }],
+    children: [
+      { path: ROUTE_PATTERNS.rooms, element: <RoomListPage /> },
+      { path: ROUTE_PATTERNS.accountSettings, element: <AccountSettingsPage /> },
+    ],
   },
   { path: ROUTE_PATTERNS.createRoom, element: <CreateRoomPage /> },
   { path: ROUTE_PATTERNS.closedRoom, element: <RoomClosedPage /> },

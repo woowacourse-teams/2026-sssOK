@@ -1,0 +1,55 @@
+id	group	actor	method	path	expected	actual	result	summary
+P01	setup	H	POST	/rooms	201	201	PASS	{"data":{"roomId":4,"code":"QHLUYQ48","name":"626비밀방","status":"ACTIVE","hostId":5,"hostName":"626방장","uploadPolicy":"everyone","j
+P02	setup	S	POST	/rooms	201	201	PASS	{"data":{"roomId":5,"code":"DF638P9M","name":"626외부인방","status":"ACTIVE","hostId":6,"hostName":"626외부인","uploadPolicy":"everyo
+P03	setup	H	POST	/rooms/4/folders	201	201	PASS	{"data":{"id":3,"name":"626폴더","createdAt":"2026-10-28T05:53:29.100811Z","photoCount":0}}
+A01	join	S	POST	/rooms/4/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: null"}
+A02	join	S	POST	/rooms/4/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: null"}
+A03	join	S	POST	/rooms/4/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: "}
+A04	join	S	POST	/rooms/4/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: qhluyq48"}
+A05	join	S	POST	/rooms/4/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 4"}
+A06	join	S	POST	/rooms/4/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 4"}
+A07	join	S	POST	/rooms/1004/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 1004"}
+A08	join	S	GET	/rooms/ZZZZZZZZ	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: ZZZZZZZZ"}
+A09	join	S	GET	/members/me/rooms	200	200	PASS	{"data":{"rooms":[{"roomId":5,"code":"DF638P9M","name":"626외부인방","isHost":true,"mediaCount":0,"memberCount":1,"thumbnailUrl":null}]}
+B01	read	S	GET	/rooms/4/media	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B02	read	S	GET	/rooms/4/media/all	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B03	read	S	GET	/rooms/4/media/2	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B04	read	S	GET	/rooms/4/events	403	403	PASS	{"code":"ROOM_MEMBERSHIP_REQUIRED","message":"입장한 방만 구독할 수 있습니다"}
+B05	read	S	GET	/rooms/4/notification-setting	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B06	download	S	GET	/rooms/4/downloads/media/2	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B07	download	S	POST	/rooms/4/downloads/batch	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B08	download	S	POST	/rooms/4/downloads/zip	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B09	write	S	POST	/rooms/4/folders	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B10	write	S	PATCH	/rooms/4/folders/3	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B11	write	S	DELETE	/rooms/4/folders/3	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B12	write	S	PUT	/rooms/4/media/folders	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B13	write	S	DELETE	/rooms/4/media/folders	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B14	write	S	PUT	/rooms/4/media/2/likes	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B15	write	S	DELETE	/rooms/4/media/2/likes	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B16	write	S	DELETE	/rooms/4/media/2	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B17	write	S	DELETE	/rooms/4/media	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B18	write	S	POST	/rooms/4/media/upload-urls	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B19	write	S	PUT	/rooms/4/notification-setting	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B20	write	S	POST	/rooms/4/upload-requests	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B21	write	S	POST	/rooms/4/feedbacks	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B22	host	S	PATCH	/rooms/4	403	403	PASS	{"code":"NOT_ROOM_HOST","message":"방장만 수행할 수 있는 작업입니다"}
+B23	host	S	DELETE	/rooms/4	403	403	PASS	{"code":"NOT_ROOM_HOST","message":"방장만 수행할 수 있는 작업입니다"}
+C01	invite	I	GET	/rooms/QHLUYQ48	200	200	PASS	{"data":{"roomId":4,"code":"QHLUYQ48","name":"626비밀방","status":"ACTIVE","hostId":5,"hostName":"626방장","uploadPolicy":"everyone","j
+C02	invite	I	POST	/rooms/4/members	201	201	PASS	{"data":{"roomId":4,"userId":7,"displayName":"초대받은","hostId":5,"joinedAt":"2026-10-28T05:53:30.350207Z"}}
+C03	invite	I	POST	/rooms/4/members	200	200	PASS	{"data":{"roomId":4,"userId":7,"displayName":"초대받은","hostId":5,"joinedAt":"2026-10-28T05:53:30.350207Z"}}
+C04	invite	I	GET	/rooms/4/media/all	200	200	PASS	{"data":{"items":[{"mediaId":2,"type":"IMAGE","fileName":"626-secret.jpg","mimeType":"image/jpeg","size":1024,"thumbnailUrl":null,"thumbnail
+C05	invite	I	GET	/rooms/4/notification-setting	200	200	PASS	{"data":{"enabled":true}}
+C06	invite	I	POST	/rooms/4/folders	201	201	PASS	{"data":{"id":4,"name":"초대폴더","createdAt":"2026-10-28T05:53:30.487390Z","photoCount":0}}
+C07	invite	I	GET	/rooms/4/media/2	200	200	PASS	{"data":{"mediaId":2,"type":"IMAGE","fileName":"626-secret.jpg","mimeType":"image/jpeg","size":1024,"thumbnailUrl":null,"thumbnailUrlExpires
+C08	invite	I	PUT	/rooms/4/media/2/likes	200	200	PASS	{"data":{"mediaId":2,"liked":true,"likeCount":1}}
+C09	invite	I	GET	/rooms/4/downloads/media/2	302	302	PASS	
+C10	invite	I	GET	/rooms/4/events	200	200	PASS	:heartbeat
+D01	leave	I	DELETE	/rooms/4/members/me	204	204	PASS	
+D02	leave	I	GET	/rooms/4/media/all	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+D03	leave	I	POST	/rooms/4/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: null"}
+D04	leave	I	POST	/rooms/4/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 4"}
+D05	leave	I	POST	/rooms/4/members	201	201	PASS	{"data":{"roomId":4,"userId":7,"displayName":"626초대받은","hostId":5,"joinedAt":"2026-10-28T05:53:47.735234Z"}}
+D06	leave	I	GET	/rooms/4/media/all	200	200	PASS	{"data":{"items":[{"mediaId":2,"type":"IMAGE","fileName":"626-secret.jpg","mimeType":"image/jpeg","size":1024,"thumbnailUrl":null,"thumbnail
+E01	deleted	H	DELETE	/rooms/4	200	200	PASS	{"data":{"deletedAt":"2026-10-28T05:53:47.789642Z"}}
+E02	deleted	S	POST	/rooms/4/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 4"}
+E03	deleted	S	POST	/rooms/4/members	410	410	PASS	{"code":"ROOM_EXPIRED","message":"이미 사라진 방입니다"}
