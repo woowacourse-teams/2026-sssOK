@@ -6,13 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.renewal.domain.notification.DeviceToken;
 import com.sssok.renewal.domain.notification.RoomNotification;
 import com.sssok.renewal.outgoing.config.FcmProperties;
+import java.net.http.HttpClient;
 import java.time.Clock;
 import java.util.Map;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -27,6 +28,7 @@ public class FcmClient {
     // UNREGISTERED: 앱이 지워졌거나 토큰이 바뀌었다. SENDER_ID_MISMATCH: 다른 Firebase 프로젝트의 토큰이다
     // (예: 다른 환경용 앱 빌드가 등록한 토큰). 둘 다 이 서버에서는 다시 보내도 소용없다.
     private static final Set<String> EXPIRED_ERROR_CODES = Set.of("UNREGISTERED", "SENDER_ID_MISMATCH");
+    private static final String THIRD_PARTY_AUTH_ERROR = "THIRD_PARTY_AUTH_ERROR";
 
     private final FcmProperties properties;
     private final ObjectMapper objectMapper;
@@ -44,8 +46,13 @@ public class FcmClient {
         this.properties = properties;
         this.objectMapper = objectMapper;
         this.clock = clock;
-        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        requestFactory.setConnectTimeout(properties.connectTimeout());
+        // HttpURLConnection 은 길이를 정해 보낸 요청이 401 을 받으면 응답 본문을 버려서
+        // APNs 인증 실패(THIRD_PARTY_AUTH_ERROR)를 구분할 수 없다. JDK HttpClient 는 본문을 그대로 준다.
+        HttpClient httpClient = HttpClient.newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(properties.connectTimeout())
+            .build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(properties.readTimeout());
         this.restClient = RestClient.builder().requestFactory(requestFactory).build();
         if (properties.enabled()) {
@@ -124,7 +131,8 @@ public class FcmClient {
         if (errorCode != null && EXPIRED_ERROR_CODES.contains(errorCode)) {
             return PushSendResult.EXPIRED;
         }
-        if (status == 401) {
+        // APNs 인증 정보가 틀려도 401 이 오지만 Google 액세스 토큰은 멀쩡하니 버리지 않는다.
+        if (status == 401 && !THIRD_PARTY_AUTH_ERROR.equals(errorCode)) {
             tokenProvider.invalidate();
         }
         log.warn("FCM 발송 실패. memberId={}, status={}, errorCode={}", deviceToken.getMemberId(), status, errorCode);

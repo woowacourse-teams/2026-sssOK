@@ -260,6 +260,22 @@ class FcmClientTest {
     }
 
     @Test
+    void APNs_인증이_거절되면_만료로_보지_않고_액세스_토큰도_유지한다() {
+        FcmClient client = client(fixed(NOW));
+        sendStatus = 401;
+        sendResponse = """
+            {"error":{"code":401,"status":"UNAUTHENTICATED",
+             "details":[{"@type":"type.googleapis.com/google.firebase.fcm.v1.FcmError","errorCode":"THIRD_PARTY_AUTH_ERROR"}]}}
+            """;
+
+        assertThat(client.send(DEVICE, NOTIFICATION)).isEqualTo(PushSendResult.FAILED);
+        assertThat(client.send(DEVICE, NOTIFICATION)).isEqualTo(PushSendResult.FAILED);
+
+        assertThat(tokenRequests).hasSize(1);
+        assertThat(sendRequests).extracting(Request::authorization).containsOnly("Bearer access-1");
+    }
+
+    @Test
     void 서비스_계정_키가_없으면_보내지_않는다() {
         FcmClient client = new FcmClient(properties(""), objectMapper, fixed(NOW));
 
