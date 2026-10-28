@@ -47,6 +47,7 @@ public class RoomMembershipController {
     public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true)
         @RequestBody(required = false) JoinRoomRequest request
     ) {
         JoinRoomRequest body = request == null ? new JoinRoomRequest(null, null) : request;
