@@ -136,8 +136,11 @@ abstract class AdminFeedbackApiSupport extends PostgresContainerSupport {
     }
 
     protected void 방_입장(String token, long roomId) throws Exception {
+        String code = roomRepository.findById(roomId).orElseThrow().getCode().value();
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-            .header("Authorization", "Bearer " + token));
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"code\":\"" + code + "\"}"));
     }
 
     protected ResultActions 방_삭제(String token, long roomId) throws Exception {

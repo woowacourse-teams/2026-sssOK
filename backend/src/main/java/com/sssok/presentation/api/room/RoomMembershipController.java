@@ -2,6 +2,7 @@ package com.sssok.presentation.api.room;
 
 import com.sssok.application.room.JoinRoomResult;
 import com.sssok.application.room.RoomMembershipService;
+import com.sssok.domain.room.RoomCode;
 import com.sssok.presentation.api.common.ApiResponse;
 import com.sssok.renewal.incoming.auth.AuthMember;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,18 +36,23 @@ public class RoomMembershipController {
 
     @Operation(
         summary = "방 입장",
-        description = "이 계정을 방의 참여자로 등록한다. 같은 사람이 여러 번 호출해도 참여 기록은 늘어나지 "
+        description = "이 계정을 방의 참여자로 등록한다. 요청 바디의 code에 공유 링크·QR로 받은 방 코드를 함께 보내야 한다. "
+            + "같은 사람이 여러 번 호출해도 참여 기록은 늘어나지 "
             + "않는다 — 처음 입장이면 201, 이미 입장한 상태에서 다시 호출하면 200을 반환한다(응답 바디는 동일). "
             + "사용법: 방 구독(SSE)이나 업로드 전에 이 API로 먼저 입장 처리를 해둬야 한다 "
-            + "(미입장 상태로 구독을 시도하면 403이 난다). 만료·삭제된 방이면 410이 난다."
+            + "(미입장 상태로 구독을 시도하면 403이 난다). code가 없거나 형식이 틀리면 400(INVALID_ROOM_CODE), "
+            + "그 방의 코드와 다르면 방이 없을 때와 같은 404(ROOM_NOT_FOUND)가 난다. 만료·삭제된 방이면 410이 난다."
     )
     @PostMapping("/rooms/{roomId}/members")
     public ResponseEntity<ApiResponse<RoomMemberResponse>> joinRoom(
         @Parameter(hidden = true) @AuthMember Long memberId,
         @Parameter(description = "방 조회 응답의 roomId") @PathVariable Long roomId,
+        @io.swagger.v3.oas.annotations.parameters.RequestBody(required = true)
         @RequestBody(required = false) JoinRoomRequest request
     ) {
-        JoinRoomResult result = roomMembershipService.join(roomId, memberId, request == null ? null : request.nickname());
+        JoinRoomRequest body = request == null ? new JoinRoomRequest(null, null) : request;
+        RoomCode code = new RoomCode(body.code());
+        JoinRoomResult result = roomMembershipService.join(roomId, code, memberId, body.nickname());
         HttpStatus status = result.newlyJoined() ? HttpStatus.CREATED : HttpStatus.OK;
         return ResponseEntity.status(status)
             .body(ApiResponse.of(RoomMemberResponse.from(result)));

@@ -23,6 +23,7 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
 import com.sssok.domain.folder.Folder;
 import com.sssok.domain.room.Room;
+import com.sssok.domain.room.RoomCode;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
@@ -105,6 +106,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
 
     private MockMvc mockMvc;
     private Long roomId;
+    private RoomCode roomCode;
     private String token;
 
     @BeforeEach
@@ -118,6 +120,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         token = "Bearer " + host.accessToken();
         Room room = createRoomService.create(host.userId(), "우테코 회식", null).room();
         roomId = room.getId();
+        roomCode = room.getCode();
         given(fileStorage.presignPut(any(), anyString(), any(Duration.class)))
             .willReturn("https://fileStorage.example.com/signed");
     }
@@ -126,7 +129,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
     void 나가기와_다른_닉네임으로_재참여해도_사진마다_업로드_당시_이름을_유지한다() throws Exception {
         AuthResult guest = anonymousAuthService.authenticate("계정기본이름");
         String guestToken = "Bearer " + guest.accessToken();
-        roomMembershipService.join(roomId, guest.userId(), "첫번째별명");
+        roomMembershipService.join(roomId, roomCode, guest.userId(), "첫번째별명");
         Long firstMediaId = uploadImageAs(guestToken);
         assertThat(fileRepository.findById(firstMediaId).orElseThrow().getUploaderNickname())
             .isEqualTo("첫번째별명");
@@ -138,7 +141,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.data.uploaderName").value("첫번째별명"));
 
-        roomMembershipService.join(roomId, guest.userId(), "두번째별명");
+        roomMembershipService.join(roomId, roomCode, guest.userId(), "두번째별명");
         Long secondMediaId = uploadImageAs(guestToken);
 
         mockMvc.perform(get("/api/v1/rooms/{roomId}/media", roomId)
@@ -158,14 +161,14 @@ class MediaUploadApiTest extends PostgresContainerSupport {
     void 예약_후_다른_닉네임으로_재참여해도_완료_응답은_예약_당시_이름을_사용한다() throws Exception {
         AuthResult guest = anonymousAuthService.authenticate("계정이름");
         String guestToken = "Bearer " + guest.accessToken();
-        roomMembershipService.join(roomId, guest.userId(), "예약별명");
+        roomMembershipService.join(roomId, roomCode, guest.userId(), "예약별명");
         String issued = mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", roomId)
                 .header("Authorization", guestToken)
                 .contentType(MediaType.APPLICATION_JSON).content(oneImage()))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
         Long mediaId = issuedMediaId(issued);
         roomMembershipService.leave(roomId, guest.userId());
-        roomMembershipService.join(roomId, guest.userId(), "바뀐별명");
+        roomMembershipService.join(roomId, roomCode, guest.userId(), "바뀐별명");
         given(fileStorage.findUploaded(any()))
             .willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
 
@@ -298,7 +301,7 @@ class MediaUploadApiTest extends PostgresContainerSupport {
         Long mediaId = issuedMediaId(issued);
 
         AuthResult guest = anonymousAuthService.authenticate("민수");
-        roomMembershipService.join(roomId, guest.userId());
+        roomMembershipService.join(roomId, roomCode, guest.userId());
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/{mediaId}/upload-url", roomId, mediaId)
                 .header("Authorization", "Bearer " + guest.accessToken()))
@@ -521,9 +524,10 @@ class MediaUploadApiTest extends PostgresContainerSupport {
     @Test
     void 방장만_업로드하는_방의_참여자는_발급할_수_없다() throws Exception {
         AuthResult host = anonymousAuthService.authenticate("방장");
-        Long restrictedRoom = createRoomService.create(host.userId(), "방장만 업로드", "host").room().getId();
+        Room restricted = createRoomService.create(host.userId(), "방장만 업로드", "host").room();
+        Long restrictedRoom = restricted.getId();
         AuthResult guest = anonymousAuthService.authenticate("참여자");
-        roomMembershipService.join(restrictedRoom, guest.userId());
+        roomMembershipService.join(restrictedRoom, restricted.getCode(), guest.userId());
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/media/upload-urls", restrictedRoom)
                 .header("Authorization", "Bearer " + guest.accessToken())

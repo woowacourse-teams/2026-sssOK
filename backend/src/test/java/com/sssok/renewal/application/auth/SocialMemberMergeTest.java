@@ -6,6 +6,7 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.RoomMembershipService;
 import com.sssok.common.exception.ErrorCode;
+import com.sssok.domain.room.Room;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
@@ -76,8 +77,9 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         AuthResult registered = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(originalTarget), RefreshTokenDelivery.COOKIE);
         targetId = registered.userId();
         targetToken = registered.accessToken();
-        roomId = createRoomService.create(sourceId, "통합할 방", null).room().getId();
-        roomMembershipService.join(roomId, targetId);
+        Room room = createRoomService.create(sourceId, "통합할 방", null).room();
+        roomId = room.getId();
+        roomMembershipService.join(roomId, room.getCode(), targetId);
         jdbcTemplate.update("UPDATE room_member SET joined_at = '2020-01-01T00:00:00Z' WHERE room_id = ? AND member_id = ?",
             roomId, sourceId);
         fileId = jdbcTemplate.queryForObject("""

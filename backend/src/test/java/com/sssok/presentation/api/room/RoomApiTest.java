@@ -420,7 +420,46 @@ class RoomApiTest extends PostgresContainerSupport {
 
     @Test
     void 없는_방에_입장하면_404() throws Exception {
-        입장(익명_인증("민수"), -1L)
+        입장(익명_인증("민수"), -1L, "{\"code\":\"ABCD2345\"}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+    }
+
+    @Test
+    void 다른_방의_코드로_입장하면_404이고_그_방_자원도_열리지_않는다() throws Exception {
+        String hostToken = 익명_인증("가현");
+        String strangerToken = 익명_인증("민수");
+        long roomId = 방_만들기(hostToken).roomId();
+        String strangerRoomCode = 방_만들기(strangerToken).code();
+
+        입장(strangerToken, roomId, "{\"code\":\"" + strangerRoomCode + "\"}")
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
+
+        mockMvc.perform(get("/api/v1/rooms/{roomId}/media/all", roomId)
+                .header("Authorization", "Bearer " + strangerToken))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value("NOT_ROOM_MEMBER"));
+    }
+
+    @Test
+    void 방_코드_없이_입장하면_400() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들기(hostToken).roomId();
+
+        입장(익명_인증("민수"), roomId, "{\"nickname\":\"민수\"}")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_ROOM_CODE"));
+    }
+
+    @Test
+    void 삭제된_방이라도_코드가_다르면_404() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들기(hostToken).roomId();
+        String otherCode = 방_만들기(hostToken).code();
+        삭제(hostToken, roomId).andExpect(status().isOk());
+
+        입장(익명_인증("민수"), roomId, "{\"code\":\"" + otherCode + "\"}")
             .andExpect(status().isNotFound())
             .andExpect(jsonPath("$.code").value("ROOM_NOT_FOUND"));
     }
@@ -593,8 +632,15 @@ class RoomApiTest extends PostgresContainerSupport {
     }
 
     private ResultActions 입장(String token, long roomId) throws Exception {
+        String code = jdbcTemplate.queryForObject("SELECT code FROM room WHERE id = ?", String.class, roomId);
+        return 입장(token, roomId, "{\"code\":\"" + code + "\"}");
+    }
+
+    private ResultActions 입장(String token, long roomId, String body) throws Exception {
         return mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-            .header("Authorization", "Bearer " + token));
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(body));
     }
 
     // 만료 기한이 있던 시절에 만료된 방을 재현한다. 지금은 만료되는 방이 생기지 않아 저장된 상태를 직접 바꾼다.
@@ -602,7 +648,7 @@ class RoomApiTest extends PostgresContainerSupport {
         jdbcTemplate.update("UPDATE room SET status = 'EXPIRED' WHERE id = ?", roomId);
     }
 
-    // roomId 는 수정·삭제·입장에, code 는 조회에 쓴다.
+    // roomId 는 수정·삭제·입장 경로에, code 는 조회와 입장 바디에 쓴다.
     private 생성된_방 방_만들기(String token) throws Exception {
         MvcResult created = 방_생성(token, "{\"name\":\"우테코 회식\"}").andReturn();
         return new 생성된_방(Long.parseLong(값(created, "roomId")), 값(created, "code"));
