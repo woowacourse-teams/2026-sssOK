@@ -48,4 +48,13 @@ class RoomCodeTest {
         assertThatThrownBy(() -> new RoomCode(null))
             .isInstanceOf(InvalidRoomCodeException.class);
     }
+
+    @Test
+    void 같은_값의_코드만_일치한다() {
+        RoomCode code = new RoomCode("ABCD2345");
+
+        assertThat(code.matches(new RoomCode("ABCD2345"))).isTrue();
+        assertThat(code.matches(new RoomCode("ABCD2346"))).isFalse();
+        assertThat(code.matches(null)).isFalse();
+    }
 }

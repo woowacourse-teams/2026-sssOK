@@ -44,7 +44,7 @@ public class RoomController {
             + "자동 생성해서 응답에 함께 내려준다. uploadPolicy는 생략하면 everyone이 적용된다. "
             + "방에는 만료 기한이 없어 방장이 삭제하기 전까지 계속 이용할 수 있다(expiryDays는 받지 않으며 보내도 무시된다). "
             + "사용법: 응답의 code로 공유 링크(예: https://sssok.app/rooms/{code})를 만들어 공유하면, "
-            + "받은 사람은 GET /rooms/{code}로 방 정보를 확인할 수 있다."
+            + "받은 사람은 GET /rooms/{code}로 방 정보를 확인하고, 같은 code를 입장 요청 본문에 담아 입장한다."
     )
     @PostMapping
     public ResponseEntity<ApiResponse<RoomResponse>> createRoom(
@@ -59,10 +59,11 @@ public class RoomController {
 
     @Operation(
         summary = "코드로 방 조회",
-        description = "공유받은 코드로 방 정보를 조회한다. 다섯 개 API 중 유일하게 code(문자열)를 식별자로 받고, "
-            + "나머지(수정/삭제/입장/구독)는 이 응답에 담긴 roomId(숫자)를 쓴다. "
+        description = "공유받은 코드로 방 정보를 조회한다. 다섯 개 API 중 유일하게 code(문자열)를 경로 식별자로 받고, "
+            + "나머지(수정/삭제/입장/구독)는 이 응답에 담긴 roomId(숫자)를 경로에 쓴다. "
+            + "단, 입장 요청은 초대받은 사람인지 확인하려고 본문에 이 code를 함께 받는다. "
             + "인증은 선택이다 — 토큰 없이도 조회는 되지만, joined(내가 이 방에 입장했는지)는 토큰이 있을 때만 정확히 계산된다. "
-            + "사용법: 공유 링크에서 code를 꺼내 이 API를 먼저 호출하고, 응답의 roomId를 이후 모든 요청에 사용한다."
+            + "사용법: 공유 링크에서 code를 꺼내 이 API를 먼저 호출하고, 응답의 roomId를 이후 요청 경로에 사용한다."
     )
     @GetMapping("/{code}")
     public ApiResponse<RoomResponse> getRoom(

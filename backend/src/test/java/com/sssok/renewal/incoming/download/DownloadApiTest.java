@@ -12,6 +12,7 @@ import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
+import com.sssok.domain.room.Room;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.storage.FileStorage;
@@ -118,12 +119,13 @@ class DownloadApiTest extends PostgresContainerSupport {
         AuthResult host = anonymousAuthService.authenticate("가현");
         hostId = host.userId();
         hostToken = "Bearer " + host.accessToken();
-        roomId = createRoomService.create(hostId, "제주 여행", null).room().getId();
+        Room room = createRoomService.create(hostId, "제주 여행", null).room();
+        roomId = room.getId();
 
         AuthResult guest = anonymousAuthService.authenticate("민수");
         guestId = guest.userId();
         guestToken = "Bearer " + guest.accessToken();
-        roomMembershipService.join(roomId, guestId);
+        roomMembershipService.join(roomId, room.getCode(), guestId);
 
         AuthResult stranger = anonymousAuthService.authenticate("지수");
         otherRoomId = createRoomService.create(stranger.userId(), "다른 방", null).room().getId();
