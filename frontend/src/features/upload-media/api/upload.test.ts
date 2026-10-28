@@ -1,4 +1,4 @@
-import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
+import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { API_BASE_URL } from "@/shared/config";
 import { putToStorage } from "../lib/putToStorage";
 import { issueUploadUrls } from "./issueUploadUrls";
@@ -18,6 +18,7 @@ const imageFile = (fileName: string) => new File(["사진"], fileName, { type: "
 /** 업로드는 참여자만 부를 수 있어서 모든 흐름이 입장부터 시작한다. */
 const enterRoom = async () => {
   await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
+    body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
