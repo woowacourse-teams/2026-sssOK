@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { delay, http, HttpResponse } from "msw";
-import { createMemoryRouter, RouterProvider } from "react-router-dom";
+import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
 
 import { server } from "@/mocks/server";
 import { LoginPage } from "@/pages/login";
@@ -54,6 +54,10 @@ it.each([401, 503])("세션 복원 %s 응답에서는 로그인 UI를 이용할 
 });
 
 it("LoginPage 자체는 세션 요청 없이 UI만 표시한다", () => {
-  render(<LoginPage />);
+  render(
+    <MemoryRouter>
+      <LoginPage />
+    </MemoryRouter>,
+  );
   expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeInTheDocument();
 });

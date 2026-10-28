@@ -6,6 +6,7 @@ import { AdminLoginPage } from "@/pages/admin-login";
 import { CreateRoomPage } from "@/pages/create-room";
 import { GalleryPage } from "@/pages/gallery";
 import { LoginCallbackPage } from "@/pages/login-callback";
+import { PrivacyPolicyPage, TermsOfServicePage } from "@/pages/legal";
 import { LoginPage } from "@/pages/login";
 import { HomePage } from "@/pages/home";
 import { MediaDetailPage } from "@/pages/media-detail";
@@ -21,6 +22,8 @@ import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 
 export const routes: RouteObject[] = [
+  { path: ROUTE_PATTERNS.privacy, element: <PrivacyPolicyPage /> },
+  { path: ROUTE_PATTERNS.terms, element: <TermsOfServicePage /> },
   { path: ROUTE_PATTERNS.loginCallback, element: <LoginCallbackPage /> },
   {
     element: <RedirectIfMember />,

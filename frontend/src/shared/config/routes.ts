@@ -1,5 +1,7 @@
 export const ROUTES = {
   home: "/home",
+  privacy: "/privacy",
+  terms: "/terms",
   rooms: "/rooms",
   login: "/app/login",
   createRoom: "/rooms/create",
@@ -21,6 +23,8 @@ export const ROUTES = {
 /** 라우트 정의에 쓰는 패턴. ROUTES 는 실제 이동에 쓴다. */
 export const ROUTE_PATTERNS = {
   home: "/home",
+  privacy: "/privacy",
+  terms: "/terms",
   rooms: "/rooms",
   login: "/app/login",
   loginCallback: "/app/auth/callback/:provider",
