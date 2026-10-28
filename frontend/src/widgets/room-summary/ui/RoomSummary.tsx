@@ -1,4 +1,4 @@
-import { HiMagnifyingGlass } from "react-icons/hi2";
+import { HiArrowLeft, HiMagnifyingGlass } from "react-icons/hi2";
 
 import { RoomSessionBadge } from "@/entities/session";
 import { MediaSearchField, type SearchType } from "@/features/search-media";
@@ -14,6 +14,8 @@ interface RoomSummaryProps {
   hostId: number;
   roomName: string;
   session?: { userId: number; nickname: string; accessToken: string };
+  exitLabel?: string;
+  onExit?: () => void;
   isHost?: boolean;
   hasSelectedFolder?: boolean;
   isSearchOpen?: boolean;
@@ -34,6 +36,8 @@ export const RoomSummary = ({
   hostId,
   roomName,
   session,
+  exitLabel,
+  onExit,
   isHost = false,
   hasSelectedFolder = false,
   isSearchOpen = false,
@@ -52,6 +56,11 @@ export const RoomSummary = ({
     <Header>
       <Stack gap={8}>
         <Row align="center" justify="space-between">
+          {onExit && (
+            <IconButton aria-label={exitLabel ?? "방에서 나가기"} onClick={onExit}>
+              <HiArrowLeft aria-hidden="true" />
+            </IconButton>
+          )}
           <RoomSessionBadge roomCode={roomCode} hostId={hostId} session={session} />
         </Row>
 
