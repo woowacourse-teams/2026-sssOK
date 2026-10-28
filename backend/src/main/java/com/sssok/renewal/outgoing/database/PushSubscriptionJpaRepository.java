@@ -28,13 +28,16 @@ public interface PushSubscriptionJpaRepository extends JpaRepository<PushSubscri
     @Query("delete from PushSubscriptionJpaEntity s where s.endpoint = :endpoint")
     void deleteByEndpoint(@Param("endpoint") String endpoint);
 
-    // 같은 방 참여자 중 행위자를 빼고, 알림을 끄지 않은(설정 행이 없으면 켜짐) 사람의 구독만 고른다.
+    // 같은 방 참여자 중 행위자와 탈퇴한 회원을 빼고, 알림을 끄지 않은(설정 행이 없으면 켜짐) 사람의 구독만 고른다.
+    // 탈퇴해도 남의 방 참여 기록과 구독 행은 남으므로 회원 상태로 거른다.
     @Query(value = """
         SELECT ps.* FROM push_subscription ps
         JOIN room_member rm ON rm.member_id = ps.member_id
+        JOIN member m ON m.id = rm.member_id
         LEFT JOIN room_notification_setting s ON s.room_id = rm.room_id AND s.member_id = rm.member_id
         WHERE rm.room_id = :roomId
           AND rm.member_id <> :actorId
+          AND m.status <> 'WITHDRAWN'
           AND COALESCE(s.enabled, TRUE)
         """, nativeQuery = true)
     List<PushSubscriptionJpaEntity> findRecipients(@Param("roomId") Long roomId, @Param("actorId") Long actorId);

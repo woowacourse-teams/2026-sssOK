@@ -53,6 +53,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -90,6 +91,9 @@ class AppNotificationApiTest extends PostgresContainerSupport {
 
     @Autowired
     DeviceTokenJpaRepository deviceTokenJpaRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     FcmClient fcmClient;
@@ -239,6 +243,20 @@ class AppNotificationApiTest extends PostgresContainerSupport {
             verify(fcmClient, after(300).never()).send(sentTo(guest), any());
             verify(fcmClient, never()).send(sentTo(otherGuest), any());
             verify(fcmClient, never()).send(sentTo(stranger), any());
+        }
+
+        @Test
+        void 남의_방에_참여했던_회원이_탈퇴하면_앱과_웹_모두로_가지_않는다() throws Exception {
+            String endpoint = "https://fcm.googleapis.com/fcm/send/" + UUID.randomUUID();
+            subscribeWebPush(otherGuest, endpoint);
+            // 탈퇴해도 남이 만든 방의 참여 기록과 기기 토큰·구독은 남는다.
+            jdbcTemplate.update("UPDATE member SET status = 'WITHDRAWN' WHERE id = ?", otherGuest.id());
+
+            requestUpload(guest).andExpect(status().isAccepted());
+
+            verify(fcmClient, timeout(ASYNC_WAIT.toMillis())).send(sentTo(host), any());
+            verify(fcmClient, after(300).never()).send(sentTo(otherGuest), any());
+            verify(webPushClient, never()).send(any(), anyString());
         }
 
         @Test

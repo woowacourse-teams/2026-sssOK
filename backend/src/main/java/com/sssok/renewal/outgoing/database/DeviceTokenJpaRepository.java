@@ -32,9 +32,11 @@ public interface DeviceTokenJpaRepository extends JpaRepository<DeviceTokenJpaEn
     @Query(value = """
         SELECT dt.* FROM device_token dt
         JOIN room_member rm ON rm.member_id = dt.member_id
+        JOIN member m ON m.id = rm.member_id
         LEFT JOIN room_notification_setting s ON s.room_id = rm.room_id AND s.member_id = rm.member_id
         WHERE rm.room_id = :roomId
           AND rm.member_id <> :actorId
+          AND m.status <> 'WITHDRAWN'
           AND COALESCE(s.enabled, TRUE)
         """, nativeQuery = true)
     List<DeviceTokenJpaEntity> findRecipients(@Param("roomId") Long roomId, @Param("actorId") Long actorId);
