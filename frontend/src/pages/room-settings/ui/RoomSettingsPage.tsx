@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { HiArrowLeft } from "react-icons/hi2";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { roomQueryKey, useRoomQuery } from "@/entities/room";
 import { useRoomSession } from "@/entities/member-session";
@@ -9,7 +9,7 @@ import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { IconButton } from "@/shared/ui/icon-button";
 import { PageSpinner } from "@/shared/ui/spinner";
-import { Header, Page, PageState, Title } from "./RoomSettingsPage.styles";
+import { Header, LegalLinks, Page, PageState, Title } from "./RoomSettingsPage.styles";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
@@ -68,6 +68,10 @@ export const RoomSettingsPage = () => {
           navigate(ROUTES.gallery(code), { replace: true });
         }}
       />
+      <LegalLinks aria-label="약관 및 정책">
+        <Link to={ROUTES.terms}>이용약관</Link>
+        <Link to={ROUTES.privacy}>개인정보처리방침</Link>
+      </LegalLinks>
     </Page>
   );
 };

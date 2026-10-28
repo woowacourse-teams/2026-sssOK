@@ -280,7 +280,9 @@ class MediaFolderApiTest extends PostgresContainerSupport {
         long roomId = Long.parseLong(값(created, "roomId"));
 
         mockMvc.perform(post("/api/v1/rooms/{roomId}/members", roomId)
-            .header("Authorization", "Bearer " + token));
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"code\":\"" + 값(created, "code") + "\"}"));
 
         return roomId;
     }

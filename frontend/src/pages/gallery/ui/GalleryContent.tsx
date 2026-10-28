@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
+import { useMemberSessionQuery } from "@/entities/member-session";
 import { canUploadTo, myRoomsQueryKey, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
@@ -46,6 +47,7 @@ interface GalleryContentProps {
 
 export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryContentProps) => {
   const navigate = useNavigate();
+  const memberSession = useMemberSessionQuery();
   const queryClient = useQueryClient();
   useAnalyticsRoom(room.code, userId === room.hostId);
   const {
@@ -237,6 +239,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         hostId={room.hostId}
         roomName={room.name}
         session={{ userId, accessToken, nickname: room.myNickname ?? nickname }}
+        exitLabel={memberSession.data ? "내 방 목록" : "홈으로"}
+        // 디자인 확인 중에는 비회원에게도 표시한다.
+        onExit={() => navigate(memberSession.data ? ROUTES.rooms : ROUTES.home, { replace: true })}
         isHost={userId === room.hostId}
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}

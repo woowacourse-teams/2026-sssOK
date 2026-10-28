@@ -11,7 +11,9 @@ export const CreateRoomPage = () => {
   return (
     <Page>
       <CreateRoomHeader />
-      <CreateRoomForm onSuccess={(room) => navigate(ROUTES.gallery(room.code))} />
+      <CreateRoomForm
+        onSuccess={(room) => navigate(ROUTES.gallery(room.code), { replace: true })}
+      />
     </Page>
   );
 };

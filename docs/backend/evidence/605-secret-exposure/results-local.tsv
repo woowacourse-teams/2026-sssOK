@@ -1,0 +1,58 @@
+id	scenario	status
+L01	익명 인증(Refresh 본문 전달)	201
+L02	토큰 갱신(본문)	200
+L03	이미 쓴 Refresh 재사용	401
+L04	형식이 틀린 Refresh	401
+L05	익명 인증(Refresh 쿠키 전달)	201
+L06	토큰 갱신(쿠키)	200
+L07	CSRF 헤더 없는 쿠키 갱신	403
+L08	Refresh 재사용으로 폐기된 세션의 로그아웃	401
+L09	위조 Bearer 토큰	401
+L10	익명 인증(로그아웃용)	201
+L11	로그아웃	204
+L12	로그아웃한 Access로 다시 로그아웃	401
+L13	로그아웃한 세션의 Refresh로 갱신	401
+K01	카카오 로그인 시작(익명 토큰 연결)	200
+K02	카카오 로그인 완료(잘못된 인가 코드)	503
+K03	카카오 로그인 완료(이미 쓴 state)	401
+P01	애플 로그인 시작	200
+P02	애플 로그인 완료(잘못된 인가 코드)	401
+W01	익명 회원 탈퇴	409
+
+# 값 검색 (서버 로그 / 응답 본문·헤더)
+needle	log_hits	response_hits
+access-L01	0	-
+refresh-L01	0	-
+access-L02	0	-
+refresh-L02	0	-
+refresh-L04	0	-
+access-L05	0	-
+cookie-L05	0	-
+access-L06	0	-
+cookie-L06	0	-
+forged-L09	0	-
+access-L10	0	-
+refresh-L10	0	-
+kakao-state	0	-
+kakao-verifier	0	-
+kakao-code	0	-
+kakao-code2	0	-
+apple-state	0	-
+apple-verifier	0	-
+apple-code	0	-
+JWT_SECRET	0	0
+OAUTH_TOKEN_ENCRYPTION_KEY	0	0
+OAUTH_KAKAO_CLIENT_SECRET	0	0
+OAUTH_KAKAO_ADMIN_KEY	0	0
+OAUTH_APPLE_PRIVATE_KEY	0	0
+
+# 패턴 검색 (서버 로그)
+pattern	log_hits
+Bearer [A-Za-z0-9]	0
+KakaoAK	0
+eyJ[A-Za-z0-9_-]{4,}\.	0
+sssok_refresh=	0
+BEGIN PRIVATE KEY	0
+"(access_token|refresh_token|id_token)"	0
+client_secret	0
+[?&]code=	0

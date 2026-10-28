@@ -105,3 +105,13 @@ export const Notice = styled.p({
   color: colors.textSecondary,
   minHeight: 20,
 });
+
+export const LegalLinks = styled.nav({
+  display: "flex",
+  justifyContent: "center",
+  flexWrap: "wrap",
+  gap: spacing[16],
+  marginTop: spacing[16],
+  ...typography.caption2,
+  "& a": { color: colors.textSecondary, textUnderlineOffset: 3 },
+});

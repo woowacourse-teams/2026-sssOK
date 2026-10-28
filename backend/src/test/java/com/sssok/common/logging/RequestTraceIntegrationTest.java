@@ -35,9 +35,11 @@ class RequestTraceIntegrationTest {
     private final ListAppender<ILoggingEvent> appender = new ListAppender<>();
 
     private MockMvc mockMvc;
+    private Level originalLevel;
 
     @BeforeEach
     void setUp() {
+        originalLevel = rootLogger.getLevel();
         appender.start();
         rootLogger.addAppender(appender);
         rootLogger.setLevel(Level.DEBUG);
@@ -51,6 +53,7 @@ class RequestTraceIntegrationTest {
     void tearDown() {
         rootLogger.detachAppender(appender);
         appender.stop();
+        rootLogger.setLevel(originalLevel);
     }
 
     @Test
@@ -72,7 +75,7 @@ class RequestTraceIntegrationTest {
         MvcResult result = mockMvc.perform(get("/boom")).andReturn();
 
         String issued = result.getResponse().getHeader(RequestLoggingFilter.REQUEST_ID_HEADER);
-        List<String> requestIds = appender.list.stream()
+        List<String> requestIds = events().stream()
             .map(event -> event.getMDCPropertyMap().get(LogFields.REQUEST_ID))
             .filter(Objects::nonNull)
             .distinct()
@@ -88,7 +91,7 @@ class RequestTraceIntegrationTest {
 
         mockMvc.perform(get("/boom").header(HttpHeaders.AUTHORIZATION, "Bearer " + token));
 
-        assertThat(appender.list)
+        assertThat(events())
             .noneMatch(event -> event.getFormattedMessage().contains(token));
     }
 
@@ -103,7 +106,18 @@ class RequestTraceIntegrationTest {
     }
 
     private List<ILoggingEvent> eventsOf(Level level) {
-        return appender.list.stream().filter(event -> event.getLevel() == level).toList();
+        return events().stream().filter(event -> event.getLevel() == level).toList();
+    }
+
+    // 루트 로거라 다른 스레드의 로그도 쌓인다. 훑는 중에 목록이 바뀌지 않게 잠금 안에서 복사하고,
+    // MockMvc 는 테스트 스레드에서 돌므로 이 스레드의 로그만 본다.
+    private List<ILoggingEvent> events() {
+        String testThread = Thread.currentThread().getName();
+        synchronized (appender) {
+            return appender.list.stream()
+                .filter(event -> testThread.equals(event.getThreadName()))
+                .toList();
+        }
     }
 
     @RestController

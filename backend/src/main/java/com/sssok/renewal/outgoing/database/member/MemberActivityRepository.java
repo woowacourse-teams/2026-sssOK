@@ -6,6 +6,9 @@ import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.medialike.MediaLikeJpaRepository;
 import com.sssok.infrastructure.persistence.room.RoomJpaRepository;
 import com.sssok.infrastructure.persistence.room.RoomMemberJpaRepository;
+import com.sssok.renewal.outgoing.database.DeviceTokenJpaRepository;
+import com.sssok.renewal.outgoing.database.PushSubscriptionJpaRepository;
+import com.sssok.renewal.outgoing.database.RoomNotificationSettingJpaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
@@ -19,6 +22,9 @@ public class MemberActivityRepository {
     private final StoredFileJpaRepository storedFileJpaRepository;
     private final DownloadJobJpaRepository downloadJobJpaRepository;
     private final FeedbackJpaRepository feedbackJpaRepository;
+    private final PushSubscriptionJpaRepository pushSubscriptionJpaRepository;
+    private final DeviceTokenJpaRepository deviceTokenJpaRepository;
+    private final RoomNotificationSettingJpaRepository roomNotificationSettingJpaRepository;
 
     public void mergeRoomMemberships(Long sourceMemberId, Long targetMemberId) {
         roomMemberJpaRepository.mergeMemberships(sourceMemberId, targetMemberId);
@@ -50,5 +56,21 @@ public class MemberActivityRepository {
 
     public void transferFeedbackAuthor(Long sourceMemberId, Long targetMemberId) {
         feedbackJpaRepository.transferMember(sourceMemberId, targetMemberId);
+    }
+
+    public void transferPushSubscriptions(Long sourceMemberId, Long targetMemberId) {
+        pushSubscriptionJpaRepository.transferMember(sourceMemberId, targetMemberId);
+    }
+
+    public void transferDeviceTokens(Long sourceMemberId, Long targetMemberId) {
+        deviceTokenJpaRepository.transferMember(sourceMemberId, targetMemberId);
+    }
+
+    public void mergeNotificationSettings(Long sourceMemberId, Long targetMemberId) {
+        roomNotificationSettingJpaRepository.mergeSettings(sourceMemberId, targetMemberId);
+    }
+
+    public void deleteNotificationSettings(Long memberId) {
+        roomNotificationSettingJpaRepository.deleteByMemberId(memberId);
     }
 }
