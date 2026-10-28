@@ -73,6 +73,7 @@ jobs:
           target = Path('central-release')
           target.mkdir()
           for name in (*FILES, 'deploy.py'):
+              (target / name).parent.mkdir(parents=True, exist_ok=True)
               shutil.copyfile(source / name, target / name)
           PY
       - uses: actions/upload-artifact@v4
