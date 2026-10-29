@@ -189,13 +189,13 @@
             <div class="step-body">
               <div class="num">1</div>
               <h3>공유방 만들기</h3>
-              <p>방 제목 정하고, 며칠 열어둘지만 고르면 끝!</p>
+              <p>방 제목만 정하면 끝!</p>
               <p>가입도 필요없어요.</p>
             </div>
             <div class="ch">
               <img
                 src="/landing/assets/create.png"
-                alt="방 제목·이름·업로드 권한·만료 기간을 정하는 방 만들기 화면"
+                alt="방 제목·이름·업로드 권한을 정하는 방 만들기 화면"
               />
             </div>
           </div>
@@ -401,6 +401,455 @@
             <span class="emo rv-pop">👥</span>
             <h3>친구들끼리</h3>
             <p>단톡방에 각자 올리던 사진, 링크 하나에</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECH — 앞에서 본 기능(바로 보기·검색·폴더)이 뒤에서 어떻게 움직이는지 보여 준다.
+         형식은 위 섹션들과 같다: 가운데 제목 → 그림 한 덩어리 → 짧은 설명.
+         막대그래프는 .rv 가 화면에 들어와 .in 이 붙을 때 --v(0~1) 만큼 차오른다 -->
+    <section id="tech" class="tech-intro">
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>앞에서 본 기능들,<br />뒤에서는 이렇게 움직여요</h2>
+          <p>쏙이 가볍고 빠른 이유를 소개할게요.</p>
+          <ul class="t-jump" aria-label="기술 소개 바로가기">
+            <li><a href="#tech-upload">⚡ 바로 보이는 업로드</a></li>
+            <li><a href="#tech-search">🔍 AI 검색</a></li>
+            <li><a href="#tech-organize">📁 AI 사진 정리</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECH 1 — 업로드 -->
+    <section id="tech-upload" class="tech">
+      <div class="wrap">
+        <div class="sec-head rv">
+          <p class="t-mark"><span class="n">1</span>업로드</p>
+          <h2>올리는 즉시,<br />다 같이 볼 수 있게</h2>
+          <p>사진은 먼저 화면에 띄우고, 검색 준비는 뒤에서 따로 해요.</p>
+        </div>
+
+        <!-- 업로드 흐름도. 글 대신 작은 그림으로 보여 준다:
+             원본 한 장 → 같은 사진의 여러 크기(썸네일) → 두 갈래(갤러리에 한 칸씩 채워짐 / AI가 훑으며 장면 설명).
+             .rv 에 .in 이 붙으면 갤러리 칸이 차례로 채워진다 -->
+        <div class="t-flow rv">
+          <ol class="t-flow-row" aria-label="사진 업로드 처리 흐름">
+            <li class="t-node">
+              <span class="t-pic">
+                <img src="/landing/assets/photo-3.jpg" alt="올린 사진" loading="lazy" />
+                <em aria-hidden="true">↑</em>
+              </span>
+              <b>원본 업로드</b>
+            </li>
+            <li class="t-arrow" aria-hidden="true"></li>
+            <li class="t-node">
+              <span class="t-sizes" aria-hidden="true">
+                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
+                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
+                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
+              </span>
+              <b>썸네일 생성</b>
+            </li>
+            <li class="t-arrow" aria-hidden="true"></li>
+            <li class="t-branches">
+              <div class="t-branch live">
+                <span class="t-mini-gallery" aria-hidden="true">
+                  <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" />
+                  <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" />
+                  <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" />
+                  <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" />
+                  <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" />
+                  <img class="new" src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
+                </span>
+                <div>
+                  <b>갤러리에 바로</b>
+                  <span>SSE 실시간 반영</span>
+                </div>
+              </div>
+              <div class="t-branch">
+                <span class="t-scan" aria-hidden="true">
+                  <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
+                  <i></i>
+                </span>
+                <div>
+                  <b>AI 분석</b>
+                  <span class="t-caption-chip">“식탁 위 파스타”</span>
+                </div>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <p class="t-footnote rv">
+          <span aria-hidden="true">✓</span>작업을 DB에 기록해 두어서, 멈춘 지점부터 이어서 처리해요
+        </p>
+
+        <div class="t-metrics">
+          <figure class="t-metric rv">
+            <span class="t-tag">이미지 처리 방식 개선</span>
+            <figcaption>사진 후처리 메모리</figcaption>
+            <p class="t-big">51% <small>감소</small></p>
+            <dl class="t-bars">
+              <div>
+                <dt>개선 전</dt>
+                <dd class="t-track" aria-hidden="true"><i style="--v: 1"></i></dd>
+                <dd>1,485 MiB</dd>
+              </div>
+              <div class="hi">
+                <dt>개선 후</dt>
+                <dd class="t-track" aria-hidden="true"><i style="--v: 0.486"></i></dd>
+                <dd>722 MiB</dd>
+              </div>
+            </dl>
+          </figure>
+          <figure class="t-metric rv">
+            <span class="t-tag">워커 2개 → 4개</span>
+            <figcaption>사진 300장 준비 시간</figcaption>
+            <p class="t-big">47% <small>단축</small></p>
+            <dl class="t-bars">
+              <div>
+                <dt>워커 2개</dt>
+                <dd class="t-track" aria-hidden="true"><i style="--v: 1"></i></dd>
+                <dd>288초</dd>
+              </div>
+              <div class="hi">
+                <dt>워커 4개</dt>
+                <dd class="t-track" aria-hidden="true"><i style="--v: 0.531"></i></dd>
+                <dd>153초</dd>
+              </div>
+            </dl>
+          </figure>
+        </div>
+
+        <details class="t-more">
+          <summary>측정 조건 보기</summary>
+          <dl>
+            <div>
+              <dt>사진 후처리 메모리</dt>
+              <dd>
+                같은 사진으로 이미지 처리 방식을 바꾸기 전과 후의 후처리 메모리 사용량을 비교했어요.
+              </dd>
+            </div>
+            <div>
+              <dt>사진 300장 준비 시간</dt>
+              <dd>
+                사진 300장이 모두 준비되기까지 걸린 시간을 후처리 워커 2개와 4개로 비교했어요.
+              </dd>
+            </div>
+          </dl>
+        </details>
+      </div>
+    </section>
+
+    <!-- TECH 2 — AI 검색. 위 "단어로 찾는 사진 검색" 데모와 같은 미니 화면(.d-screen)을 쓴다 -->
+    <section id="tech-search" class="tech">
+      <div class="wrap">
+        <div class="sec-head rv">
+          <p class="t-mark"><span class="n">2</span>AI 검색</p>
+          <h2>“같이 먹은 음식 사진”,<br />이렇게 찾았어요</h2>
+          <p>파일 이름을 몰라도, 기억나는 장면을 검색하면 찾아 줘요.</p>
+        </div>
+
+        <div class="t-search">
+          <!-- 벡터 비교 그림. 검색 문장과 각 사진 설명을 숫자 막대(벡터)로 그리고,
+               사진 줄 막대마다 검색 문장의 높이(--q)만큼 점선 테두리를 둘러 모양이 겹치는지 보여 준다.
+               막대는 .rv 에 .in 이 붙으면 아래에서 자라난다 -->
+          <div class="t-vec rv">
+            <div class="t-vec-group now">
+              <div class="t-vec-group-head">
+                <span class="t-vec-group-label">🔍 검색할 때</span>
+                <span class="t-vec-col bars">문장 의미를 숫자로</span>
+                <span class="t-vec-col res">검색어와 닮은 정도</span>
+              </div>
+              <div class="t-vec-row query">
+                <span class="t-vec-in" aria-hidden="true">🔍</span>
+                <span class="t-vec-text">같이 먹은 음식 사진</span>
+                <span class="t-vbars" role="img" aria-label="검색 문장의 벡터"
+                  ><i style="--h: 6"></i><i style="--h: 9"></i><i style="--h: 3"></i
+                  ><i style="--h: 7"></i><i style="--h: 4"></i><i style="--h: 8"></i
+                  ><i style="--h: 2"></i><i style="--h: 5"></i><i style="--h: 7"></i
+                  ><i style="--h: 3"></i
+                ></span>
+                <span class="t-vec-res"></span>
+              </div>
+            </div>
+            <p class="t-vec-compare">↓ 이 모양과 얼마나 닮았는지 비교해요</p>
+            <div class="t-vec-group saved">
+              <div class="t-vec-group-head">
+                <span class="t-vec-group-label">🗂️ 사진마다 AI가 적어 둔 설명</span>
+              </div>
+              <div class="t-vec-row hit">
+                <img
+                  class="t-vec-in"
+                  src="/landing/assets/photo-3.jpg"
+                  alt="파스타 사진"
+                  loading="lazy"
+                />
+                <span class="t-vec-text">“식탁 위 파스타”</span>
+                <span class="t-vbars" role="img" aria-label="검색 문장과 닮은 벡터"
+                  ><i style="--h: 5; --q: 6"></i><i style="--h: 9; --q: 9"></i
+                  ><i style="--h: 3; --q: 3"></i><i style="--h: 6; --q: 7"></i
+                  ><i style="--h: 4; --q: 4"></i><i style="--h: 8; --q: 8"></i
+                  ><i style="--h: 3; --q: 2"></i><i style="--h: 5; --q: 5"></i
+                  ><i style="--h: 6; --q: 7"></i><i style="--h: 4; --q: 3"></i
+                ></span>
+                <span class="t-vec-res"><b>94%</b> 닮음</span>
+              </div>
+              <div class="t-vec-row miss">
+                <img
+                  class="t-vec-in"
+                  src="/landing/assets/photo-2.jpg"
+                  alt="놀이공원 타워 사진"
+                  loading="lazy"
+                />
+                <span class="t-vec-text">“놀이공원 타워”</span>
+                <span class="t-vbars" role="img" aria-label="검색 문장과 다른 벡터"
+                  ><i style="--h: 2; --q: 6"></i><i style="--h: 3; --q: 9"></i
+                  ><i style="--h: 8; --q: 3"></i><i style="--h: 2; --q: 7"></i
+                  ><i style="--h: 9; --q: 4"></i><i style="--h: 1; --q: 8"></i
+                  ><i style="--h: 7; --q: 2"></i><i style="--h: 8; --q: 5"></i
+                  ><i style="--h: 2; --q: 7"></i><i style="--h: 6; --q: 3"></i
+                ></span>
+                <span class="t-vec-res"><b>21%</b> 닮음</span>
+              </div>
+            </div>
+          </div>
+
+          <span class="t-search-arrow" aria-hidden="true">→</span>
+
+          <div class="t-screen rv">
+            <div class="d-screen">
+              <div class="d-search t-query">
+                <span aria-hidden="true">🔍</span>
+                <span>같이 먹은 음식 사진</span>
+              </div>
+              <div class="t-photos">
+                <img
+                  src="/landing/assets/photo-1.jpg"
+                  alt="검색에 걸린 음식 사진"
+                  loading="lazy"
+                  class="hit"
+                />
+                <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" />
+                <img
+                  src="/landing/assets/photo-3.jpg"
+                  alt="검색에 걸린 음식 사진"
+                  loading="lazy"
+                  class="hit"
+                />
+                <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" />
+                <img
+                  src="/landing/assets/photo-5.jpg"
+                  alt="검색에 걸린 음식 사진"
+                  loading="lazy"
+                  class="hit"
+                />
+                <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" />
+              </div>
+            </div>
+            <p class="t-caption">검색 결과 · 화면 예시</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECH 3 — AI 사진 정리. 위 "폴더로 나눠 담기" 를 AI 가 대신 제안하는 기능 -->
+    <section id="tech-organize" class="tech">
+      <div class="wrap">
+        <div class="sec-head rv">
+          <p class="t-mark">
+            <span class="n">3</span>AI 사진 정리 <span class="badge">곧 출시 예정</span>
+          </p>
+          <h2>내가 나온 사진만<br />알아서 모아 줄게요</h2>
+          <p>AI가 사람별로 묶어 제안하면, 확인하고 고른 것만 폴더에 담아요.</p>
+        </div>
+
+        <ol class="t-steps rv" aria-label="사람별 사진 정리 흐름">
+          <li><b>사진 모으기</b></li>
+          <li><b>얼굴로 사람 나누기</b></li>
+          <li><b>몸 특징으로 보완</b></li>
+          <li class="me"><b>결과 확인</b></li>
+          <li><b>폴더에 반영</b></li>
+        </ol>
+
+        <div class="t-organize">
+          <!-- 눌러 볼 수 있지만 실제로 폴더를 만들지는 않는 화면 예시 (main.js) -->
+          <div class="t-review-wrap rv">
+            <div class="d-screen t-review" id="techReview" aria-label="분류 결과 확인 화면 예시">
+              <div class="t-review-head">
+                <p>🙆‍♀️ 사람별로 묶었어요</p>
+                <span>다른 사람 사진은 눌러서 빼 주세요</span>
+              </div>
+              <div class="t-group p1">
+                <label
+                  ><input type="checkbox" checked /> <b>지수</b>
+                  <span class="t-count">3장</span></label
+                >
+                <div class="t-tiles">
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="지수의 1번째 사진 빼기"
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="지수의 2번째 사진 빼기"
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="true"
+                    aria-label="지수의 3번째 사진 빼기"
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="지수의 4번째 사진 빼기"
+                  ></button>
+                </div>
+                <p class="t-edit" aria-live="polite"></p>
+              </div>
+              <div class="t-group p2">
+                <label
+                  ><input type="checkbox" checked /> <b>서연</b>
+                  <span class="t-count">3장</span></label
+                >
+                <div class="t-tiles">
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="서연의 1번째 사진 빼기"
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="서연의 2번째 사진 빼기"
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="서연의 3번째 사진 빼기"
+                  ></button>
+                </div>
+                <p class="t-edit" aria-live="polite"></p>
+              </div>
+              <div class="t-group crowd off">
+                <label
+                  ><input type="checkbox" /> <b>단체 사진</b>
+                  <span class="t-count">3장</span></label
+                >
+                <div class="t-tiles">
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="단체 사진의 1번째 사진 빼기"
+                    disabled
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="단체 사진의 2번째 사진 빼기"
+                    disabled
+                  ></button>
+                  <button
+                    type="button"
+                    aria-pressed="false"
+                    aria-label="단체 사진의 3번째 사진 빼기"
+                    disabled
+                  ></button>
+                </div>
+                <p class="t-edit" aria-live="polite"></p>
+              </div>
+              <button type="button" class="t-apply">
+                선택한 <span>2</span>개 묶음을 폴더로 만들기
+              </button>
+              <div class="t-result" aria-live="polite" hidden>
+                <p>폴더가 생겼어요</p>
+                <ul></ul>
+                <button type="button" class="t-redo">다시 고르기</button>
+              </div>
+            </div>
+            <p class="t-caption">⬆️ 사진이나 묶음을 빼고 폴더로 만들어 보세요</p>
+          </div>
+
+          <div class="t-recall rv">
+            <h3>놓쳤던 사진을<br />더 많이 찾았어요</h3>
+            <p class="t-recall-sub">목표 인물–사진 연결 <b>회수율</b></p>
+            <ol class="t-chart" aria-label="단계별 목표 인물–사진 연결 회수율">
+              <li style="--v: 0.5"><b>50%</b><i aria-hidden="true"></i><span>얼굴 기준</span></li>
+              <li style="--v: 0.6">
+                <b>60%</b><i aria-hidden="true"></i><span>얼굴 연결 보완</span>
+              </li>
+              <li style="--v: 0.725">
+                <b>72.5%</b><i aria-hidden="true"></i><span>옷차림 보완</span>
+              </li>
+              <li style="--v: 0.925" class="hi">
+                <b>92.5%</b><i aria-hidden="true"></i><span>사람 재식별 모델</span>
+              </li>
+            </ol>
+            <p class="t-fine">
+              사진 62장으로 개발 중에 실험한 결과예요.
+              <br />
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TECH NEXT — 앞으로의 쏙. 아직 계획 단계라 기술 1~3 과 섹션을 나눠 구분한다.
+         대화 말풍선은 .rv 가 화면에 들어오면 요청 → 답 순서로 하나씩 뜬다 -->
+    <section id="tech-next" class="tech">
+      <div class="wrap">
+        <div class="sec-head rv">
+          <h2>앞으로의 쏙은?</h2>
+          <p>버튼을 찾아 누르는 대신, 원하는 정리를 말로 부탁하게 될 거예요.</p>
+        </div>
+
+        <div class="t-chat-wrap rv">
+          <div class="d-screen t-chat" aria-label="글로 정리를 요청하는 화면 예시">
+            <p class="t-bubble me">사람별로 나누고, 단체 사진은 따로 모아줘</p>
+            <div class="t-reply">
+              <img src="/landing/assets/characte8.png" alt="" />
+              <div class="t-bubble">
+                <p>좋아요! 이렇게 정리해 볼게요.</p>
+                <ul class="t-folders">
+                  <li>📁 지수</li>
+                  <li>📁 서연</li>
+                  <li>📁 단체 사진</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="t-now-next rv">
+          <div>
+            <span>지금은</span>
+            <p>정리 버튼을 하나씩 찾아 눌러요</p>
+            <small>사람별로 나누기, 폴더 만들기를 따로따로 실행해요</small>
+          </div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="next">
+            <i class="t-next-icon" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 20l1.3-3.9A9 8 0 1 1 7.7 19L3 20" />
+              </svg>
+            </i>
+            <div>
+              <span>앞으로는</span>
+              <p>말로 부탁하면 쏙이 알아서 정리해요</p>
+              <small>여러 정리 도구를 MCP로 연결해, 요청에 맞는 순서로 실행해요</small>
+            </div>
           </div>
         </div>
       </div>
