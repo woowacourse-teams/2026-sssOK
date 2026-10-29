@@ -27,6 +27,7 @@ import { useAnalyticsRoom } from "../model/useAnalyticsRoom";
 import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
+import { useGalleryRefresh } from "../model/useGalleryRefresh";
 import { useGallerySearch } from "../model/useGallerySearch";
 import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
@@ -49,6 +50,11 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const navigate = useNavigate();
   const memberSession = useMemberSessionQuery();
   const queryClient = useQueryClient();
+  const { refreshRoom, refreshPhotos } = useGalleryRefresh({
+    roomCode: room.code,
+    roomId: room.roomId,
+    userId,
+  });
   useAnalyticsRoom(room.code, userId === room.hostId);
   const {
     uploadSlots,
@@ -186,30 +192,16 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       if (activeMediaId !== null && mediaIds.includes(activeMediaId)) {
         setActiveMediaId(null);
       }
-      void queryClient.invalidateQueries({
-        queryKey: roomQueryKey(room.code, userId),
-        exact: true,
-      });
+      void refreshRoom();
     },
     onFoldersChanged: () => {
-      void queryClient.invalidateQueries({
-        queryKey: roomQueryKey(room.code, userId),
-        exact: true,
-      });
+      void refreshRoom();
     },
     onFolderDeleted: (folderId) => {
       if (selectedFolderId === folderId) selectFolder(null);
     },
     onMediaFoldersUpdated: () => {
-      void Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: roomQueryKey(room.code, userId),
-          exact: true,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: photosQueryKey(room.roomId, userId),
-        }),
-      ]);
+      void Promise.all([refreshRoom(), refreshPhotos()]);
     },
   });
 
@@ -311,12 +303,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         hideButton={selectedPhotoIds.length > 0}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         onPreviewReady={addPendingMedia}
-        onRegistered={() =>
-          queryClient.invalidateQueries({
-            queryKey: roomQueryKey(room.code, userId),
-            exact: true,
-          })
-        }
+        onRegistered={() => refreshRoom()}
         /*
          * 업로드가 "이 방은 이제 없다" 고 답했다 (만료·삭제·세션 만료). 갤러리에 남겨두면
          * 무엇을 눌러도 같은 실패만 돌려받는다.
@@ -388,10 +375,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
                 ? { ...current, items: current.items.filter((item) => item.mediaId !== mediaId) }
                 : current,
             );
-            void queryClient.invalidateQueries({
-              queryKey: roomQueryKey(room.code, userId),
-              exact: true,
-            });
+            void refreshRoom();
           }}
         />
       )}
@@ -417,16 +401,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             setIsDeleteSelectionOpen(false);
             removePendingMedia(selectedPhotoIds);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-            ]);
+            await Promise.all([refreshPhotos(), refreshRoom()]);
           }}
         />
       )}
@@ -446,16 +421,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             else removePendingMediaFromFolder(selectedPhotoIds, folderId);
             selectFolder(folderId);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-            ]);
+            await Promise.all([refreshPhotos(), refreshRoom()]);
           }}
         />
       )}
@@ -494,10 +460,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           onClose={() => setIsEditFolderOpen(false)}
           onSuccess={async () => {
             setIsEditFolderOpen(false);
-            await queryClient.invalidateQueries({
-              queryKey: roomQueryKey(room.code, userId),
-              exact: true,
-            });
+            await refreshRoom();
           }}
         />
       )}
