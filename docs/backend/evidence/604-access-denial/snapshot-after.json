@@ -1,0 +1,35 @@
+{
+  "folders": [
+    {
+      "createdAt": "2026-10-28T01:30:29.644366Z",
+      "id": 43,
+      "name": "604A폴더",
+      "photoCount": 1
+    }
+  ],
+  "hostId": 903,
+  "name": "604A비밀방",
+  "photoCount": 1,
+  "roomId": 176,
+  "status": "ACTIVE",
+  "uploadPolicy": "everyone"
+}
+[
+  {
+    "fileName": "604-A-secret.jpg",
+    "folderIds": [
+      43
+    ],
+    "likeCount": 1,
+    "mediaId": 7774
+  }
+]
+{
+  "fileName": "604-A-secret.jpg",
+  "folderIds": [
+    43
+  ],
+  "likeCount": 1,
+  "likedByMe": true,
+  "mediaId": 7774
+}

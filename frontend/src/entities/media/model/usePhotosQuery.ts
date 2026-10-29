@@ -25,17 +25,27 @@ export const photosQueryKey = (roomId: number, userId: number) => ["photos", roo
  * 목록을 한 번에 받으니 페이지를 넘기며 새 URL 을 받던 기회가 없다.
  * 그대로 두면 오래 켜 둔 갤러리의 썸네일이 한꺼번에 깨진다.
  */
-export const untilThumbnailsExpire = (data: MediaList | undefined, now = Date.now()) => {
+const untilThumbnailRefresh = (data: MediaList | undefined, now: number) => {
   const expiries = (data?.items ?? [])
     .map((item) => (item.thumbnailUrlExpiresAt ? Date.parse(item.thumbnailUrlExpiresAt) : NaN))
     .filter((time) => Number.isFinite(time));
 
-  if (expiries.length === 0) return false;
+  if (expiries.length === 0) return null;
 
-  return Math.max(
-    Math.min(...expiries) - now - THUMBNAIL_REFRESH_MARGIN_MS,
-    MIN_REFRESH_INTERVAL_MS,
-  );
+  return Math.min(...expiries) - now - THUMBNAIL_REFRESH_MARGIN_MS;
+};
+
+export const untilThumbnailsExpire = (data: MediaList | undefined, now = Date.now()) => {
+  const remaining = untilThumbnailRefresh(data, now);
+  if (remaining === null) return false;
+
+  return Math.max(remaining, MIN_REFRESH_INTERVAL_MS);
+};
+
+export const shouldRefetchOnFocus = (data: MediaList | undefined, now = Date.now()) => {
+  const remaining = untilThumbnailRefresh(data, now);
+
+  return remaining !== null && remaining <= 0;
 };
 
 export const usePhotosQuery = ({ roomId, token, userId }: UsePhotosQueryParams) =>
@@ -45,4 +55,5 @@ export const usePhotosQuery = ({ roomId, token, userId }: UsePhotosQueryParams) 
     queryKey: photosQueryKey(roomId, userId),
     queryFn: () => getPhotos({ roomId, token }),
     refetchInterval: (query) => untilThumbnailsExpire(query.state.data),
+    refetchOnWindowFocus: (query) => shouldRefetchOnFocus(query.state.data),
   });

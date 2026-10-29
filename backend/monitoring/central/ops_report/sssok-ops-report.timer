@@ -1,0 +1,12 @@
+[Unit]
+Description=sssOK 운영 일간·주간 보고 예약
+
+[Timer]
+OnCalendar=*-*-* 09:00:00 Asia/Seoul
+# 놓친 실행은 부팅 후 한 번만 실행한다(과거 보고는 발송하지 않음).
+Persistent=true
+AccuracySec=1min
+Unit=sssok-ops-report.service
+
+[Install]
+WantedBy=timers.target

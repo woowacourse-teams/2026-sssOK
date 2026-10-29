@@ -8,8 +8,17 @@ import tarfile
 import unittest
 from unittest.mock import patch
 
-from deploy import Deployment, FILES, SERVICES
+from deploy import Deployment, FILES, REPORT_FILES, SERVICES
 import notifications
+
+
+class ReportFilesTest(unittest.TestCase):
+    def test_every_report_file_is_deployed(self):
+        root = Path(__file__).resolve().parent
+        files = {str(path.relative_to(root)) for path in (root / 'ops_report').iterdir()
+                 if path.suffix in ('.py', '.service', '.timer')}
+        self.assertEqual(files, set(REPORT_FILES))
+        self.assertTrue(set(REPORT_FILES) <= set(FILES))
 
 
 class DeploymentTest(unittest.TestCase):
@@ -21,6 +30,8 @@ class DeploymentTest(unittest.TestCase):
         self.source.mkdir()
         self.target.mkdir()
         for name in FILES:
+            for root in (self.source, self.target):
+                (root / name).parent.mkdir(parents=True, exist_ok=True)
             (self.source / name).write_text('candidate:' + name)
             if name != 'dashboards.yml':
                 (self.target / name).write_text('old:' + name)
@@ -128,6 +139,7 @@ class DeploymentTest(unittest.TestCase):
 
     def test_success_preserves_secret_and_records_commit(self):
         d = self.deployment
+        self.target.chmod(0o750)
         with patch.object(d, 'preflight'), patch.object(d, 'snapshot_grafana'), \
              patch.object(d, 'compose'), patch.object(d, 'container', return_value='grafana'), \
              patch.object(d, 'apply_services'), patch('deploy.run'):
@@ -136,6 +148,9 @@ class DeploymentTest(unittest.TestCase):
         self.assertFalse((d.backup / '.env').exists())
         self.assertEqual((self.target / 'deployed-commit.txt').read_text(), 'a' * 40 + '\n')
         self.assertEqual((self.target / 'dashboards.yml').stat().st_mode & 0o777, 0o644)
+        self.assertEqual(self.target.stat().st_mode & 0o777, 0o750)
+        self.assertEqual((self.target / 'ops_report').stat().st_mode & 0o777, 0o755)
+        self.assertEqual((self.target / 'ops_report/cli.py').read_text(), 'candidate:ops_report/cli.py')
 
     def test_apply_failure_restores_previous_files_and_grafana(self):
         d = self.deployment
@@ -191,6 +206,7 @@ class DeploymentTest(unittest.TestCase):
                 staged = self.source / 'staged'
                 staged.mkdir(exist_ok=True)
                 for name in FILES:
+                    (staged / name).parent.mkdir(parents=True, exist_ok=True)
                     (staged / name).write_text('new:' + name)
                 (staged / notifications.OVERRIDE).write_text('new-notification-mount')
                 d.staged = staged

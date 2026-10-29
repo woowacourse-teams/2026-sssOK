@@ -1,3 +1,162 @@
+## 운영 일간·주간 보고 (#603)
+
+중앙 서버에서 매일 09:00 KST에 운영(`environment="prod"`) 지표를 조회·집계해 SQLite에 저장하고,
+Discord `#지표-매일-요약` 채널로 정해진 형식의 보고서를 보낸다. 기존 알림(`#서버-알림`)과 웹훅을 공유하지 않는다. 숫자와 규칙으로 확인한 사실만 쓰며
+원인 추론·LLM 분석·디스코드 봇은 이번 범위가 아니다.
+
+### 구성
+
+| 파일 (`ops_report/`) | 역할 |
+| --- | --- |
+| `periods.py` | KST 일간·주간 경계. 월요일 실행은 전날 일간 + 지난주(월 00:00 ~ 이번 주 월 00:00) 주간 |
+| `queries.py` | 지표·조회식. 모든 조회식은 `environment="prod"` 고정, 상태 검사·Actuator·SSE 제외 |
+| `prometheus.py` · `collect.py` | loopback Prometheus GET 조회 → 원시 관측값. 지표별 실패를 분리 |
+| `aggregate.py` | 파생 지표(오류율·p95·수집률), 일간 → 주간 재집계, 이전 기간 비교 |
+| `store.py` | SQLite 스키마·저장·실행/발송 기록 |
+| `message.py` · `discord.py` | 보고서 작성, 웹훅 발송(메시지 ID 수신) |
+| `service.py` · `cli.py` | 실행 흐름, 중복 방지, 명령 |
+| `sssok-ops-report.service` · `.timer` | systemd 예약 실행 |
+
+```text
+timer 09:00 KST → 대상 날짜 결정 → 누락 일간 집계 복구(발송 없음) → 전날·대상일 조회·저장
+              → (월요일) 7일 일간 값 재집계·전주 비교 → 메시지 작성 → 발송 기록 확인 → Discord → 결과 저장
+```
+
+### 지표와 해석
+
+| 영역 | 보고 값 | 계산 |
+| --- | --- | --- |
+| 이용량 | 요청 수, 전 기간 대비 증감, 상위 3개 API | `increase()` 합계. 관측 기반 추정치 |
+| 오류 | 5xx 건수·비율(요청 수와 함께), 5xx 발생 API | 주간은 두 지표가 함께 조회된 날의 5xx 합계 / 요청 합계 |
+| 응답 시간 | 기간 전체 p95, 느린 API(요청 20건 이상), 5분 구간 p95 최대(5분 요청 20건 이상) | 버킷 증가량을 합산해 `histogram_quantile`과 같은 보간 |
+| 미디어 | 업로드 거절, 썸네일 제출 거절·실패·재시도·영구 실패, 다운로드 실패·성공 | 거절·재시도는 확인 대상이며 장애 판정이 아니다 |
+| 서버 자원 | CPU 피크(전체 코어 **5분 평균**의 최댓값), 메모리·루트 디스크 최소 여유 | 1분 간격 subquery |
+| 관측 신뢰도 | 대상별 수집 성공률(`up=1` 기준), `up=0` 기록 수, Alloy 로그 폐기·전송 실패 | 수집 실패를 서비스 중단으로 단정하지 않는다 |
+| 기준 초과 구간 | 기존 알림 규칙의 firing 구간(`ALERTS`), 횟수·관측 시간, 주간 2일 이상 반복 | 1분 간격 관측값. 발송 여부와 무관 |
+
+- 일별 오류율·p95를 평균하지 않는다. 주간 p95는 7일 버킷 증가량을 합친 뒤 계산하고, 버킷 경계가
+  다른 날이 섞이면 해당 p95를 **비교 불가**로 표시한다.
+- 상태는 `ok`(전체 기간) · `partial`(일부 일자) · `no_data`(시계열·수집 기록 없음) · `no_requests`(요청 0) ·
+  `error`(조회 실패) · `incomparable`로 구분한다. 5xx·실패 결과처럼 처음 발생할 때 생기는 카운터만,
+  같은 기간에 해당 수집 대상의 **수집 성공** 기록이 있을 때 "시계열 없음 = 0"으로 본다. 하루 종일
+  `up=0`이면 0이 아니라 데이터 없음이다.
+- 주간 오류율은 5xx와 요청 수가 모두 정상 조회된 날만 묶어 계산한다. 공통 날짜가 7일보다 적으면
+  일부 기간(공통 관측일 n/7일)으로 표시한다.
+- 이전 값이 0이면 증감률 대신 "신규 발생", 둘 다 0이면 생략, 이전 기간이 없거나 일부 기간이면
+  "비교 데이터 부족"·"비교 생략"으로 표시한다.
+- 수집 성공률이 99% 미만이면 누락·실패 구간을 정상으로 계산하지 않았다고 표시한다. 기준 초과 구간도 관측된 구간만이다.
+- 기간 경계는 `[기간]` 범위의 instant query이므로 마지막 수집 간격만큼의 경계 오차가 있다.
+- Prometheus 보존은 15일·2GB다. 15일보다 오래된 날은 조회하지 않고 추정해 채우지 않으며,
+  용량 제한으로 더 일찍 지워진 구간은 수집 성공률로 드러난다.
+
+### 저장 데이터
+
+DB: `/var/lib/sssok-ops-report/report.sqlite3` (systemd `StateDirectory`, 700). 코드 배포 폴더
+`/home/ubuntu/monitoring`과 분리되어 중앙 CD의 백업·복구·파일 교체 대상이 아니다.
+
+| 테이블 | 내용 |
+| --- | --- |
+| `reports` | 보고서 ID, 스키마 버전, 종류, 환경, 기간, 상태(complete/partial/failed). (환경, 종류, 시작)이 유일 |
+| `observations` | 지표, 차원(API·job 등), 값, 단위, 계산 방식, 상태, 상세, 파생 여부 |
+| `comparisons` · `links` | 이전 기간 값·증감·비교 상태·이전 보고서 ID, 기간이 반영된 Grafana 링크 |
+| `distributions` | 응답 시간 버킷 경계별 증가량(전체·API별). 주간 재집계에 사용 |
+| `threshold_intervals` | 알림 규칙별 기준 초과 구간 |
+| `runs` · `deliveries` · `delivery_attempts` | 실행 상태, 발송 대상·payload·메시지 ID·상태(sending/sent/failed/unknown)·시도 이력 |
+
+웹훅 주소는 DB·로그·저장소에 남기지 않는다. 완료된 일간 집계는 재실행 시 재사용하고, 부분·실패
+집계는 보존 기간 안에서 다시 조회해 같은 행을 갱신한다. 발송된 payload는 그대로 보관된다.
+자동 정리는 하지 않으며 하루 수천 행(대부분 API별 버킷) 수준이다. 디스크 여유는 호스트 알림으로 함께 본다.
+
+백업은 실행 중에도 일관된 사본을 만드는 명령을 쓴다. 서버 디스크 손실 대비는 사본을 서버 밖에 보관한다.
+
+```bash
+cd /home/ubuntu/monitoring
+python3 -B -m ops_report --db /var/lib/sssok-ops-report/report.sqlite3 backup \
+  --to "/home/ubuntu/monitoring/backups/ops-report-$(date +%Y%m%d).sqlite3"
+```
+
+복원은 timer를 멈춘 뒤 사본을 같은 경로에 `ubuntu` 소유·600으로 복사하고 timer를 다시 켠다.
+
+### 설치 (중앙 서버, 최초 1회)
+
+1. 이 변경을 develop에 병합하고 해당 커밋으로 **중앙 CD**를 실행한다. CD는 `ops_report/`의 코드와
+   유닛 파일을 `/home/ubuntu/monitoring/ops_report/`에 배치·백업·복구하지만 systemd에는 설치하지 않는다.
+   컨테이너 서비스·Compose는 바뀌지 않는다.
+2. 미리보기로 실데이터 조회를 확인한다. 이 단계는 집계만 저장하고 발송하지 않는다.
+   ```bash
+   cd /home/ubuntu/monitoring
+   sudo install -d -o ubuntu -g ubuntu -m 700 /var/lib/sssok-ops-report
+   python3 -B -m ops_report run --preview
+   ```
+   출력의 요청 수·p95·자원 값을 같은 기간의 Grafana 화면과 비교한다. `데이터 없음`·`조회 실패`가 있으면
+   실제 시계열·라벨(특히 미디어 카운터, `ALERTS`)을 Prometheus에서 확인한 뒤 진행한다.
+3. 유닛을 설치하고 timer를 켠다.
+   ```bash
+   sudo install -m 644 ops_report/sssok-ops-report.service ops_report/sssok-ops-report.timer /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now sssok-ops-report.timer
+   systemctl list-timers sssok-ops-report.timer
+   python3 -B -m ops_report doctor
+   ```
+4. 발송을 켠다. 보고 발송 설정은 알림 선택(`discord-selection.json`)과 별도인 서버 파일이다.
+   Discord `#지표-매일-요약` 채널 설정 → 연동 → 웹후크에서 보고용 웹후크 URL을 복사해 서버 `.env`에
+   `OPS_REPORT_DISCORD_WEBHOOK_URL=...` 한 줄을 추가한다. 기존 `CENTRAL_DISCORD_WEBHOOK_URL`(알림용)은 그대로 둔다.
+   보고 작업은 이 한 줄만 읽으며 `.env` 전체를 환경변수로 올리지 않는다. 중앙 CD는 `.env`를 덮어쓰지 않는다.
+   ```bash
+   printf '{"send": true}\n' > ops-report.json && chmod 600 ops-report.json
+   ```
+   파일이 없거나 `false`면 예약 실행은 집계·미리보기만 하고 보내지 않는다. 끌 때는 `false`로 바꾼다.
+
+유닛 파일이 바뀐 배포 후에는 3단계를 다시 수행한다. `doctor`가 설치본과 배포본의 차이, timer 상태,
+Prometheus·DB·웹훅 설정을 점검한다. 자동 CD 성공 판정에는 연결하지 않는다.
+
+### 운영
+
+| 상황 | 명령·처리 |
+| --- | --- |
+| 실행 결과·로그 | `systemctl status sssok-ops-report.service`, `journalctl -u sssok-ops-report.service --since today` |
+| 실행·발송 기록 | `python3 -B -m ops_report status` |
+| 특정 날짜 미리보기 | `python3 -B -m ops_report run --date 2026-10-26 --preview` |
+| 특정 날짜 발송(수동 재시도) | `python3 -B -m ops_report run --date 2026-10-26 --send` — 발송 완료 기록이 있으면 건너뜀 |
+| 집계 다시 조회 | `run ... --refresh` 또는 `backfill --days 7 --refresh` (보존 기간 안만) |
+| 누락 집계 복구 | `python3 -B -m ops_report backfill --days 15` — **발송하지 않는다** |
+| 결과 불확실 재발송 | 채널에서 메시지가 없음을 확인한 뒤에만 `run --date ... --send --force` |
+| 서버 밖에서 미리보기 | `--prometheus https://monitor.ssssok.com/api/datasources/proxy/uid/prometheus --prometheus-token-file <Viewer 토큰 파일> --db <임시 경로> run --date ... --preview` — 확인 후 토큰 삭제 |
+
+수동 명령은 `cd /home/ubuntu/monitoring`에서 `ubuntu` 사용자로 실행한다(DB 기본 경로가 timer와 같다).
+
+- **실패 처리**: 일부 지표 조회 실패 → 나머지를 보고하고 데이터 상태에 실패 지표를 적는다. 전체 조회 실패 →
+  정상 보고서 대신 "보고서 생성 실패" 메시지를 보내고 실행은 실패로 끝난다.
+- **중복 방지**: 실행 잠금으로 동시 실행을 거절한다. 발송 키 `prod:<대상일>:report`(실패 안내는 `:failure`)가
+  `sent`면 다시 보내지 않는다. 요청 전 `sending`을 먼저 기록하므로 중간 종료도 `unknown`으로 남는다.
+- **발송 실패**: 연결 실패·429는 최대 3회 재시도, 4xx는 즉시 `failed`. 응답 시간 초과·연결 끊김·5xx는
+  메시지 생성 여부를 알 수 없어 `unknown`으로 두고 자동 재전송하지 않는다. 발송 실패·불확실·생성 실패는
+  종료 코드 1이므로 Discord를 쓸 수 없어도 `systemctl`·`journalctl`로 확인할 수 있다.
+- **누락 복구**: 서버가 꺼져 09:00 실행을 놓치면 `Persistent=true`로 부팅 후 한 번 실행한다. 각 실행은
+  최근 8일 중 없는 일간 집계를 채우지만 보고는 그날 대상만 보낸다. 오래된 메시지를 한꺼번에 보내지 않는다.
+
+### 팀 관찰 기록
+
+1. 보고서 메시지에서 스레드를 만든다(제목 예: `10-26 확인`).
+2. **관찰**: 확인할 항목·수치 중 볼 것을 고른다. **확인**: 근거 링크로 Grafana·로그를 보고 사실을 적는다.
+3. **조치**: 이슈 번호·PR·설정 변경을 적는다. 조치가 없으면 "조치 없음 · 사유"를 적는다.
+4. **결과**: 다음 보고서에서 같은 지표가 어떻게 됐는지 적고 스레드를 닫는다.
+
+스레드 내용은 보고 작업이 읽지 않는다(봇·스레드 읽기는 후속 범위). DB의 `deliveries.message_id`로
+보고서와 메시지를 연결해 찾는다.
+
+### 검증
+
+- `test-ops-report.py`: KST 경계·월요일 통합, 주간 오류율·p95 합산, 버킷 경계 변경, 0 vs 데이터 없음 vs
+  조회 실패, 이전 값 0, 보존 기간 밖, 재실행 재사용, 전체 실패, 발송 중복·불확실·재시도·4xx, 실제 HTTP 수신기
+  응답 처리와 웹훅 비노출, 잠금, 미리보기·날짜 지정·복구 무발송, 백업, 유닛 파일.
+- `test-ops-report-prometheus.py`: 배포 이미지의 Prometheus에 운영·개발(100배) 합성 시계열을 적재하고
+  보고 작업을 실행한다. 개발 값 미혼입, 헬스체크 제외, p95가 Prometheus `histogram_quantile`과 일치,
+  CPU·메모리·디스크·수집률·알림 구간 값을 검사한다.
+- 둘 다 `validate.py`에서 실행된다. 유닛 파일은 Ubuntu 24.04의 systemd 255로 `systemd-analyze verify`와
+  예약 시각(09:00 KST = 00:00 UTC)을 로컬 확인했다.
+- 실제 운영 Prometheus 조회, 실제 Discord 수신, 서버 설치는 아직 하지 않았다. 위 설치 2·3단계에서 확인한다.
+
 ## 모니터링 기본 주소 전환 (#468)
 
 중앙 Grafana의 기본 주소는 `https://monitor.ssssok.com/`이다.

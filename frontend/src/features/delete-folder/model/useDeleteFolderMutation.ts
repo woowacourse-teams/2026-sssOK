@@ -62,8 +62,14 @@ export const useDeleteFolderMutation = ({
       onError();
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: roomKey, exact: true });
-      void queryClient.invalidateQueries({ queryKey: photosKey, exact: true });
+      void queryClient.invalidateQueries(
+        { queryKey: roomKey, exact: true },
+        { cancelRefetch: false },
+      );
+      void queryClient.invalidateQueries(
+        { queryKey: photosKey, exact: true },
+        { cancelRefetch: false },
+      );
     },
   });
 };

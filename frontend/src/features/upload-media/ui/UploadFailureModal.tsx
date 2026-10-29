@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Modal } from "@/shared/ui/modal";
 import { uploadFailureReasonOf } from "../lib/uploadFailureReason";
 import type { FailedUpload } from "../model/types";
@@ -36,12 +37,14 @@ export interface UploadFailureModalProps {
  * (`RejectedFilesModal`)과 사용자가 직접 누른 취소는 애초에 이 모달에 오지 않는다.
  */
 export const UploadFailureModal = ({ failures, onRetry, onClose }: UploadFailureModalProps) => {
+  const titleId = useId();
+  const descriptionId = useId();
   return (
     // 카드 안에 닫기가 이미 있다. X 를 또 두면 같은 일을 하는 버튼이 둘이 된다.
-    <Modal onClose={onClose} showClose={false}>
+    <Modal onClose={onClose} showClose={false} labelledBy={titleId} describedBy={descriptionId}>
       <Content>
-        <Title>앗, {failures.length}장을 못 올렸어요</Title>
-        <Description>
+        <Title id={titleId}>앗, {failures.length}장을 못 올렸어요</Title>
+        <Description id={descriptionId}>
           네트워크가 끊겼거나 예기치 못한 이유로 실패했어요.
           {onRetry && (
             <>

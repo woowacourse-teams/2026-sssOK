@@ -54,7 +54,7 @@ const renderAt = (code: string, state?: unknown, member?: MemberSession) => {
   );
 };
 
-const getSubmitButton = () => screen.getByRole("button", { name: "입장하기" });
+const getSubmitButton = () => screen.getByRole("button", { name: /^입장하기/ });
 
 beforeEach(() => localStorage.clear());
 
@@ -96,7 +96,11 @@ describe("RoomEntryPage", () => {
     expect(await screen.findByText(GALLERY_TEXT)).toBeInTheDocument();
     expect(anonymous).not.toHaveBeenCalled();
     if (joined) expect(join).not.toHaveBeenCalled();
-    else expect(join).toHaveBeenCalledWith("Bearer member-token", { nickname: "방닉네임" });
+    else
+      expect(join).toHaveBeenCalledWith("Bearer member-token", {
+        code: MOCK_ROOM_CODES.active,
+        nickname: "방닉네임",
+      });
     expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
   });
 
@@ -152,7 +156,7 @@ describe("RoomEntryPage", () => {
         // 입장 API 는 방 코드가 아니라 방 조회 응답의 roomId 를 쓴다
         url: absolute(`${API_BASE_URL}/rooms/5031/members`),
         authorization: "Bearer mock-token-10234",
-        body: { nickname: "해니" },
+        body: { code: MOCK_ROOM_CODES.active, nickname: "해니" },
       });
     });
 

@@ -13,3 +13,4 @@ export type {
 export { runWithLimit } from "./runWithLimit";
 export { waitUnlessAborted } from "./waitUnlessAborted";
 export { withDirectionParticle } from "./koreanParticle";
+export { isAppWebView } from "./isAppWebView";

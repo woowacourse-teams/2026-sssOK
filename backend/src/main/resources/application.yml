@@ -164,6 +164,16 @@ notification:
     ttl: 1h
     connect-timeout: 2s
     read-timeout: 5s
+  fcm:
+    # 네이티브 앱(iOS·Android) 알림을 보낼 Firebase 서비스 계정 키(JSON 을 base64 로 감싼 값). 비밀이라 환경변수로만 받는다.
+    # 비어 있으면 앱 알림 발송만 건너뛰고 기동·기기 토큰 API 는 그대로 된다 (로컬·테스트 기본값).
+    # 값 만들기: base64 -i service-account.json | tr -d '\n'
+    service-account: ${FCM_SERVICE_ACCOUNT:}
+    api-base-url: https://fcm.googleapis.com
+    # 받는 기기가 꺼져 있을 때 FCM·APNs 가 알림을 보관하는 시간. 지나면 버린다.
+    ttl: 1h
+    connect-timeout: 2s
+    read-timeout: 5s
   upload-request:
     # 같은 사람이 같은 방에 업로드 요청을 다시 보낼 수 있을 때까지의 시간. 그 안에 다시 보내면 429.
     cooldown: 1m

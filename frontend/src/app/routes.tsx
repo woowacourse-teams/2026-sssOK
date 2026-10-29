@@ -1,11 +1,13 @@
 import { Navigate, type RouteObject } from "react-router-dom";
 
+import { AccountSettingsPage } from "@/pages/account-settings";
 import { AdminAccountsPage } from "@/pages/admin-accounts";
 import { AdminFeedbacksPage } from "@/pages/admin-feedbacks";
 import { AdminLoginPage } from "@/pages/admin-login";
 import { CreateRoomPage } from "@/pages/create-room";
 import { GalleryPage } from "@/pages/gallery";
 import { LoginCallbackPage } from "@/pages/login-callback";
+import { PrivacyPolicyPage, TermsOfServicePage } from "@/pages/legal";
 import { LoginPage } from "@/pages/login";
 import { HomePage } from "@/pages/home";
 import { MediaDetailPage } from "@/pages/media-detail";
@@ -21,6 +23,8 @@ import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 
 export const routes: RouteObject[] = [
+  { path: ROUTE_PATTERNS.privacy, element: <PrivacyPolicyPage /> },
+  { path: ROUTE_PATTERNS.terms, element: <TermsOfServicePage /> },
   { path: ROUTE_PATTERNS.loginCallback, element: <LoginCallbackPage /> },
   {
     element: <RedirectIfMember />,
@@ -29,7 +33,10 @@ export const routes: RouteObject[] = [
   { path: ROUTE_PATTERNS.home, element: <HomePage /> },
   {
     element: <RequireMember />,
-    children: [{ path: ROUTE_PATTERNS.rooms, element: <RoomListPage /> }],
+    children: [
+      { path: ROUTE_PATTERNS.rooms, element: <RoomListPage /> },
+      { path: ROUTE_PATTERNS.accountSettings, element: <AccountSettingsPage /> },
+    ],
   },
   { path: ROUTE_PATTERNS.createRoom, element: <CreateRoomPage /> },
   { path: ROUTE_PATTERNS.closedRoom, element: <RoomClosedPage /> },

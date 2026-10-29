@@ -3,7 +3,8 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
-import { canUploadTo, roomQueryKey, type Room } from "@/entities/room";
+import { useMemberSessionQuery } from "@/entities/member-session";
+import { canUploadTo, myRoomsQueryKey, roomQueryKey, type Room } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
 import { DeleteRoomModal } from "@/features/delete-room";
@@ -15,7 +16,7 @@ import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
-import { track } from "@/shared/lib";
+import { isAppWebView, track } from "@/shared/lib";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -26,6 +27,7 @@ import { useAnalyticsRoom } from "../model/useAnalyticsRoom";
 import { useCreateFolderAction } from "../model/useCreateFolderAction";
 import { useGalleryFilter } from "../model/useGalleryFilter";
 import { useGalleryPhotos } from "../model/useGalleryPhotos";
+import { useGalleryRefresh } from "../model/useGalleryRefresh";
 import { useGallerySearch } from "../model/useGallerySearch";
 import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
@@ -46,7 +48,13 @@ interface GalleryContentProps {
 
 export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryContentProps) => {
   const navigate = useNavigate();
+  const memberSession = useMemberSessionQuery();
   const queryClient = useQueryClient();
+  const { refreshRoom, refreshPhotos } = useGalleryRefresh({
+    roomCode: room.code,
+    roomId: room.roomId,
+    userId,
+  });
   useAnalyticsRoom(room.code, userId === room.hostId);
   const {
     uploadSlots,
@@ -184,30 +192,16 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       if (activeMediaId !== null && mediaIds.includes(activeMediaId)) {
         setActiveMediaId(null);
       }
-      void queryClient.invalidateQueries({
-        queryKey: roomQueryKey(room.code, userId),
-        exact: true,
-      });
+      void refreshRoom();
     },
     onFoldersChanged: () => {
-      void queryClient.invalidateQueries({
-        queryKey: roomQueryKey(room.code, userId),
-        exact: true,
-      });
+      void refreshRoom();
     },
     onFolderDeleted: (folderId) => {
       if (selectedFolderId === folderId) selectFolder(null);
     },
     onMediaFoldersUpdated: () => {
-      void Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: roomQueryKey(room.code, userId),
-          exact: true,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: photosQueryKey(room.roomId, userId),
-        }),
-      ]);
+      void Promise.all([refreshRoom(), refreshPhotos()]);
     },
   });
 
@@ -237,6 +231,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         hostId={room.hostId}
         roomName={room.name}
         session={{ userId, accessToken, nickname: room.myNickname ?? nickname }}
+        exitLabel={memberSession.data ? "내 방 목록" : "홈으로"}
+        // 디자인 확인 중에는 비회원에게도 표시한다.
+        onExit={() => navigate(memberSession.data ? ROUTES.rooms : ROUTES.home, { replace: true })}
         isHost={userId === room.hostId}
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
@@ -306,12 +303,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         hideButton={selectedPhotoIds.length > 0}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         onPreviewReady={addPendingMedia}
-        onRegistered={() =>
-          queryClient.invalidateQueries({
-            queryKey: roomQueryKey(room.code, userId),
-            exact: true,
-          })
-        }
+        onRegistered={() => refreshRoom()}
         /*
          * 업로드가 "이 방은 이제 없다" 고 답했다 (만료·삭제·세션 만료). 갤러리에 남겨두면
          * 무엇을 눌러도 같은 실패만 돌려받는다.
@@ -383,10 +375,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
                 ? { ...current, items: current.items.filter((item) => item.mediaId !== mediaId) }
                 : current,
             );
-            void queryClient.invalidateQueries({
-              queryKey: roomQueryKey(room.code, userId),
-              exact: true,
-            });
+            void refreshRoom();
           }}
         />
       )}
@@ -412,16 +401,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             setIsDeleteSelectionOpen(false);
             removePendingMedia(selectedPhotoIds);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-            ]);
+            await Promise.all([refreshPhotos(), refreshRoom()]);
           }}
         />
       )}
@@ -441,16 +421,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             else removePendingMediaFromFolder(selectedPhotoIds, folderId);
             selectFolder(folderId);
             clearSelection();
-            await Promise.all([
-              queryClient.invalidateQueries({
-                queryKey: photosQueryKey(room.roomId, userId),
-                exact: true,
-              }),
-              queryClient.invalidateQueries({
-                queryKey: roomQueryKey(room.code, userId),
-                exact: true,
-              }),
-            ]);
+            await Promise.all([refreshPhotos(), refreshRoom()]);
           }}
         />
       )}
@@ -464,7 +435,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             removeRoomSession(room.code);
             queryClient.removeQueries({ queryKey: ["room", room.code] });
             queryClient.removeQueries({ queryKey: ["photos", room.roomId] });
-            navigate(ROUTES.home, { replace: true });
+            void queryClient.invalidateQueries({ queryKey: myRoomsQueryKey });
+            navigate(isAppWebView() ? ROUTES.rooms : ROUTES.home, { replace: true });
           }}
         />
       )}
@@ -488,10 +460,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           onClose={() => setIsEditFolderOpen(false)}
           onSuccess={async () => {
             setIsEditFolderOpen(false);
-            await queryClient.invalidateQueries({
-              queryKey: roomQueryKey(room.code, userId),
-              exact: true,
-            });
+            await refreshRoom();
           }}
         />
       )}

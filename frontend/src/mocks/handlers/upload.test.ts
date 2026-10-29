@@ -32,10 +32,15 @@ const roomIdOf = async (code: string) =>
   (await (await fetch(`${API_BASE_URL}/rooms/${code}`)).json()).data.roomId as number;
 
 /** 업로드는 참여자만 부를 수 있어서 모든 흐름이 입장부터 시작한다. */
-const enterRoom = async (roomId = MOCK_ROOM_ID, token = HOST_TOKEN) => {
+const enterRoom = async (
+  roomId = MOCK_ROOM_ID,
+  token = HOST_TOKEN,
+  code: string = MOCK_ROOM_CODES.active,
+) => {
   await fetch(`${API_BASE_URL}/rooms/${roomId}/members`, {
     method: "POST",
     headers: { Authorization: token },
+    body: JSON.stringify({ code }),
   });
 
   return roomId;
@@ -234,7 +239,7 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
   });
 
   it("만료된 방이면 410 ROOM_EXPIRED 다", async () => {
-    const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.expired));
+    const roomId = await roomIdOf(MOCK_ROOM_CODES.expired);
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId });
 
@@ -243,7 +248,7 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
   });
 
   it("삭제된 방이면 410 ROOM_ALREADY_DELETED 다", async () => {
-    const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.deleted));
+    const roomId = await roomIdOf(MOCK_ROOM_CODES.deleted);
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId });
 
@@ -252,7 +257,7 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
   });
 
   it("영구 삭제된 방이면 410 ROOM_ALREADY_DELETED 다", async () => {
-    const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.purged));
+    const roomId = await roomIdOf(MOCK_ROOM_CODES.purged);
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId });
 
@@ -270,7 +275,11 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
   });
 
   it("방장만 올릴 수 있는 방에 참여자가 부르면 403 UPLOAD_NOT_ALLOWED 다", async () => {
-    const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.hostOnly), GUEST_TOKEN);
+    const roomId = await enterRoom(
+      await roomIdOf(MOCK_ROOM_CODES.hostOnly),
+      GUEST_TOKEN,
+      MOCK_ROOM_CODES.hostOnly,
+    );
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId, token: GUEST_TOKEN });
 
@@ -279,7 +288,11 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
   });
 
   it("방장만 올릴 수 있는 방이어도 방장은 발급받는다", async () => {
-    const roomId = await enterRoom(await roomIdOf(MOCK_ROOM_CODES.hostOnly));
+    const roomId = await enterRoom(
+      await roomIdOf(MOCK_ROOM_CODES.hostOnly),
+      HOST_TOKEN,
+      MOCK_ROOM_CODES.hostOnly,
+    );
 
     const response = await issueUploadUrls([file("한라산.jpg")], { roomId });
 
