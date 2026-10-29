@@ -587,16 +587,13 @@ nav .wrap {
   padding: 16px 0;
 }
 
-/* STEP 목업(create·invite·pick, 390×705)은 모서리가 투명(반지름 30px = 폭 7.7%, 높이 4.26%)이다.
-   같은 반지름으로 흰 베젤(6px)과 바깥 선을 둘러 폰처럼 보이게 하고, 연한 주황빛 그림자로 띄운다 */
+/* STEP 목업(create·invite·pick, 390×705 비율)은 모서리를 반지름 30px(폭 7.7%, 높이 4.26%)로 둥글린다.
+   테두리 없이 연한 주황빛 그림자만으로 배경에서 띄운다 */
 .step .ch img {
   width: min(100%, 230px);
   height: auto;
   border-radius: 7.7% / 4.26%;
   box-shadow:
-    0 0 0 1px var(--line),
-    0 0 0 6px #fff,
-    0 0 0 7px var(--line),
     0 22px 44px rgba(242, 109, 44, 0.12),
     0 6px 14px rgba(46, 34, 28, 0.05);
 }
