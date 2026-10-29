@@ -20,6 +20,12 @@ FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
          'host-overview.json', 'backend-overview.json', 'logs.json', 'media-transfer.json',
          'log-transfer.json', 'check.sh', 'check-alerts.py', 'verify-dashboards.py',
          'compose.discord.yml', 'notifications.py')
+# systemd timer로 실행하는 보고 작업. 컨테이너가 아니므로 SERVICES와 무관하다.
+REPORT_FILES = tuple('ops_report/' + name for name in (
+    '__init__.py', '__main__.py', 'aggregate.py', 'cli.py', 'collect.py', 'discord.py', 'message.py',
+    'periods.py', 'prometheus.py', 'queries.py', 'service.py', 'store.py',
+    'sssok-ops-report.service', 'sssok-ops-report.timer'))
+FILES += REPORT_FILES
 MANAGED_FILES = FILES + (notifications.OVERRIDE,)
 SERVICES = ('prometheus', 'alertmanager', 'loki', 'grafana', 'node-exporter', 'nginx')
 
@@ -69,11 +75,14 @@ class Deployment:
                 raise RuntimeError(f'후보 파일 누락: {name}')
             if (self.target / name).is_symlink():
                 raise RuntimeError(f'기존 배포 파일의 심볼릭 링크는 지원하지 않습니다: {name}')
+        if (self.target / 'ops_report').is_symlink():
+            raise RuntimeError('보고 작업 폴더의 심볼릭 링크는 지원하지 않습니다')
         if (self.target / notifications.OVERRIDE).is_symlink():
             raise RuntimeError('알림 Compose 파일의 심볼릭 링크는 지원하지 않습니다')
         self.staging = tempfile.TemporaryDirectory(prefix='sssok-central-candidate-')
         self.staged = Path(self.staging.name)
         for name in FILES:
+            (self.staged / name).parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(self.source / name, self.staged / name)
         enabled = notifications.prepare(self.source, self.target, self.staged)
         old = json.loads(self.compose('config', '--format', 'json', capture=True).stdout)
@@ -136,6 +145,7 @@ class Deployment:
         for name in MANAGED_FILES:
             path = self.target / name
             if path.exists():
+                (self.backup / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, self.backup / name)
         # .env는 덮어쓰지도, CI 산출물이나 백업에 복사하지도 않는다.
         print(f'설정 백업: {self.backup}', flush=True)
@@ -189,6 +199,7 @@ class Deployment:
         for name in MANAGED_FILES:
             saved = self.backup / name
             if saved.exists():
+                (self.target / name).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(saved, self.target / name)
             elif (self.target / name).exists():
                 (self.target / name).unlink()
@@ -231,6 +242,9 @@ class Deployment:
             for name in MANAGED_FILES:
                 if name == notifications.OVERRIDE and not (self.staged / name).is_file():
                     continue
+                if (self.target / name).parent != self.target:
+                    (self.target / name).parent.mkdir(parents=True, exist_ok=True)
+                    (self.target / name).parent.chmod(0o755)
                 shutil.copyfile(self.staged / name, self.target / name)
                 (self.target / name).chmod(0o644)
             self.compose('config', '--quiet')

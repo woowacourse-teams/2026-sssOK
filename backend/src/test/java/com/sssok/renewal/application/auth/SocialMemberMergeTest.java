@@ -6,6 +6,7 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.RoomMembershipService;
 import com.sssok.common.exception.ErrorCode;
+import com.sssok.domain.room.Room;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
@@ -76,8 +77,9 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         AuthResult registered = socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(originalTarget), RefreshTokenDelivery.COOKIE);
         targetId = registered.userId();
         targetToken = registered.accessToken();
-        roomId = createRoomService.create(sourceId, "통합할 방", null).room().getId();
-        roomMembershipService.join(roomId, targetId);
+        Room room = createRoomService.create(sourceId, "통합할 방", null).room();
+        roomId = room.getId();
+        roomMembershipService.join(roomId, room.getCode(), targetId);
         jdbcTemplate.update("UPDATE room_member SET joined_at = '2020-01-01T00:00:00Z' WHERE room_id = ? AND member_id = ?",
             roomId, sourceId);
         fileId = jdbcTemplate.queryForObject("""
@@ -129,6 +131,38 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         assertThat(count("feedback", "member_id", targetId)).isEqualTo(1);
         assertThat(jdbcTemplate.queryForObject("SELECT room_name FROM feedback WHERE room_id = ?", String.class, roomId))
             .isEqualTo("작성 당시 방");
+    }
+
+    @Test
+    void 알림_구독과_기기_토큰을_옮기고_방_알림_설정은_나중에_바꾼_쪽을_남긴다() {
+        Long onlySourceRoom = createRoomService.create(sourceId, "익명만 설정", null).room().getId();
+        Long targetNewerRoom = createRoomService.create(sourceId, "회원이 나중에 설정", null).room().getId();
+        jdbcTemplate.update("""
+            INSERT INTO push_subscription (member_id, endpoint, p256dh, auth, created_at)
+            VALUES (?, 'https://push.example/source', 'p256dh', 'auth', now())
+            """, sourceId);
+        jdbcTemplate.update("""
+            INSERT INTO device_token (member_id, token, platform, created_at)
+            VALUES (?, 'source-device-token', 'IOS', now())
+            """, sourceId);
+        jdbcTemplate.update("""
+            INSERT INTO room_notification_setting (room_id, member_id, enabled, updated_at) VALUES
+                (?, ?, FALSE, '2026-01-02T00:00:00Z'), (?, ?, TRUE, '2026-01-01T00:00:00Z'),
+                (?, ?, FALSE, '2026-01-01T00:00:00Z'),
+                (?, ?, FALSE, '2026-01-01T00:00:00Z'), (?, ?, TRUE, '2026-01-02T00:00:00Z')
+            """, roomId, sourceId, roomId, targetId, onlySourceRoom, sourceId,
+            targetNewerRoom, sourceId, targetNewerRoom, targetId);
+
+        socialMemberLoginService.login(new SocialAuthentication(identity, "access", "refresh"), List.of(sourceId), RefreshTokenDelivery.COOKIE);
+
+        assertThat(jdbcTemplate.queryForObject("SELECT member_id FROM push_subscription WHERE endpoint = ?",
+            Long.class, "https://push.example/source")).isEqualTo(targetId);
+        assertThat(jdbcTemplate.queryForObject("SELECT member_id FROM device_token WHERE token = ?",
+            Long.class, "source-device-token")).isEqualTo(targetId);
+        assertThat(count("room_notification_setting", "member_id", sourceId)).isZero();
+        assertThat(notificationEnabled(roomId, targetId)).isFalse();
+        assertThat(notificationEnabled(onlySourceRoom, targetId)).isFalse();
+        assertThat(notificationEnabled(targetNewerRoom, targetId)).isTrue();
     }
 
     @Test
@@ -212,6 +246,11 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     private String roomNickname(Long room, Long member) {
         return jdbcTemplate.queryForObject("SELECT nickname FROM room_member WHERE room_id = ? AND member_id = ?",
             String.class, room, member);
+    }
+
+    private boolean notificationEnabled(Long room, Long member) {
+        return jdbcTemplate.queryForObject("SELECT enabled FROM room_notification_setting WHERE room_id = ? AND member_id = ?",
+            Boolean.class, room, member);
     }
 
     private Long mergeOrConflict(SocialIdentity socialIdentity) {

@@ -587,16 +587,13 @@ nav .wrap {
   padding: 16px 0;
 }
 
-/* STEP 목업(create·invite·pick, 390×705)은 모서리가 투명(반지름 30px = 폭 7.7%, 높이 4.26%)이다.
-   같은 반지름으로 흰 베젤(6px)과 바깥 선을 둘러 폰처럼 보이게 하고, 연한 주황빛 그림자로 띄운다 */
+/* STEP 목업(create·invite·pick, 390×705 비율)은 모서리를 반지름 30px(폭 7.7%, 높이 4.26%)로 둥글린다.
+   테두리 없이 연한 주황빛 그림자만으로 배경에서 띄운다 */
 .step .ch img {
   width: min(100%, 230px);
   height: auto;
   border-radius: 7.7% / 4.26%;
   box-shadow:
-    0 0 0 1px var(--line),
-    0 0 0 6px #fff,
-    0 0 0 7px var(--line),
     0 22px 44px rgba(242, 109, 44, 0.12),
     0 6px 14px rgba(46, 34, 28, 0.05);
 }
@@ -1368,5 +1365,1664 @@ nav .wrap {
   .perks li {
     padding: 8px 13px;
     font-size: 13.5px;
+  }
+}
+
+/* ── tech — 앞에서 본 기능이 뒤에서 어떻게 움직이는지 (업로드 · AI 검색 · AI 사진 정리) ──
+   위 섹션들과 같은 틀(가운데 제목, 흰 카드, 같은 글씨 크기)을 쓰고,
+   검색·정리 예시는 기능 데모와 같은 미니 화면(.d-screen)으로 그려 이어서 읽히게 한다.
+   막대는 부모 .rv 에 .in 이 붙으면 --v(0~1) 만큼 차오른다 */
+
+/* 기술 소개 들머리 — 쏙이가 위에서 내려다보듯 제목 위에 선다 */
+.tech-intro {
+  padding-bottom: 40px;
+}
+
+.tech-intro .sec-head {
+  margin-bottom: 0;
+}
+
+.t-intro-char {
+  width: 120px;
+  margin: 0 auto 18px;
+}
+
+.t-jump {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.t-jump a {
+  display: inline-block;
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 100px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    border-color 0.2s,
+    color 0.2s;
+}
+
+.t-jump a:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.tech {
+  /* 고정 네비에 제목이 가리지 않게 */
+  scroll-margin-top: 40px;
+}
+
+/* 섹션 제목 위 구분 표시 — STEP 섹션의 주황 번호 원을 작게 가져와 "① 업로드" 로 붙인다.
+   .sec-head p 의 회색 부제 스타일을 덮어야 해서 한 단계 더 구체적으로 쓴다 */
+.sec-head .t-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.t-mark .n {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 4px 10px rgba(242, 109, 44, 0.28);
+}
+
+.t-mark .badge {
+  margin-left: 2px;
+}
+
+.t-caption {
+  margin-top: 12px;
+  color: var(--sub);
+  font-size: 14px;
+  text-align: center;
+}
+
+.t-fine {
+  color: var(--sub);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* ── 기술 1 — 업로드 흐름도. 후처리 뒤 두 갈래가 점선 하나에 매달려 따로 처리된다 ── */
+.t-flow {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 20px 50px rgba(46, 34, 28, 0.07);
+}
+
+/* 칸: 원본 | → | 썸네일 | → | 두 갈래. 노드 이름은 사진 아래에 띄워(absolute) 두어,
+   사진 가운데·화살표·갈래가 갈라지는 점이 한 가로줄에 맞는다 */
+.t-flow-row {
+  list-style: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px minmax(0, 1fr) 36px minmax(0, 1.7fr);
+  align-items: center;
+  column-gap: 16px;
+  padding-bottom: 28px;
+}
+
+.t-node {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.t-node b {
+  position: absolute;
+  top: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* 단계 사이 화살표 — 비교표의 둥근 화살표와 같은 모양 */
+.t-arrow {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.t-arrow::before {
+  content: "→";
+}
+
+.t-node b,
+.t-branch b {
+  font-size: 16px;
+}
+
+.t-branch div > span {
+  color: var(--sub);
+  font-size: 13.5px;
+}
+
+/* 원본 사진 — 위로 올라가는 화살표 배지 */
+.t-pic {
+  position: relative;
+  display: block;
+  width: 84px;
+  height: 84px;
+}
+
+.t-pic img {
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.t-pic em {
+  position: absolute;
+  right: -8px;
+  bottom: -8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+/* 썸네일 — 같은 사진을 큰 것부터 작은 것까지 겹쳐 "여러 크기로 줄인다" 를 보여 준다 */
+.t-sizes {
+  display: flex;
+  align-items: flex-end;
+  height: 84px;
+}
+
+.t-sizes img {
+  border: 2px solid var(--surface);
+  border-radius: 12px;
+  object-fit: cover;
+  box-shadow: 0 4px 10px rgba(46, 34, 28, 0.12);
+}
+
+.t-sizes img:nth-child(1) {
+  width: 64px;
+  height: 64px;
+}
+
+.t-sizes img:nth-child(2) {
+  width: 44px;
+  height: 44px;
+  margin-left: -14px;
+  border-radius: 10px;
+}
+
+.t-sizes img:nth-child(3) {
+  width: 28px;
+  height: 28px;
+  margin-left: -10px;
+  border-radius: 7px;
+}
+
+.t-branches {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 24px;
+}
+
+.t-branches::before {
+  content: "";
+  position: absolute;
+  top: 25%;
+  bottom: 25%;
+  left: 0;
+  border-left: 2px dashed #e3cfbd;
+}
+
+.t-branch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: var(--r);
+  background: var(--bg);
+}
+
+.t-branch::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: -24px;
+  width: 24px;
+  border-top: 2px dashed #e3cfbd;
+}
+
+.t-branch.live {
+  background: #fde9dc;
+}
+
+.t-branch div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.t-branch b {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  white-space: nowrap;
+}
+
+.t-live {
+  padding: 1px 7px;
+  border-radius: 100px;
+  background: #e2f2e7;
+  color: #2f7d4f;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+
+/* 갤러리 — 칸이 하나씩 채워지고, 방금 올린 사진(.new)이 마지막에 주황 테두리로 들어온다 */
+.t-mini-gallery {
+  display: grid;
+  flex-shrink: 0;
+  grid-template-columns: repeat(3, 26px);
+  gap: 3px;
+}
+
+.t-mini-gallery img {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.3s,
+    transform 0.4s var(--pop);
+}
+
+.t-mini-gallery img:nth-child(2) {
+  transition-delay: 0.1s;
+}
+
+.t-mini-gallery img:nth-child(3) {
+  transition-delay: 0.2s;
+}
+
+.t-mini-gallery img:nth-child(4) {
+  transition-delay: 0.3s;
+}
+
+.t-mini-gallery img:nth-child(5) {
+  transition-delay: 0.4s;
+}
+
+.t-mini-gallery img.new {
+  box-shadow: 0 0 0 2px var(--primary);
+  transition-delay: 0.8s;
+}
+
+.t-flow.in .t-mini-gallery img {
+  opacity: 1;
+  transform: none;
+}
+
+/* AI 분석 — 사진 위로 스캔 선이 오르내린다 */
+/* 갤러리(26px × 3칸 + 틈 = 84px)와 폭을 맞춰, 두 갈래의 글자가 같은 자리에서 시작한다 */
+.t-scan {
+  position: relative;
+  flex-shrink: 0;
+  width: 84px;
+  height: 56px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.t-scan img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.t-scan i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: var(--primary);
+  box-shadow: 0 0 10px 2px rgba(242, 109, 44, 0.6);
+  animation: t-scan 2.2s ease-in-out infinite alternate;
+}
+
+@keyframes t-scan {
+  to {
+    top: calc(100% - 3px);
+  }
+}
+
+.t-caption-chip {
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: var(--surface);
+  color: var(--ink) !important;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* 흐름도 카드 아래 각주 — 강조 없이 초록 ✓ 와 작은 회색 글씨 한 줄 */
+.t-footnote {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 980px;
+  margin: 14px auto 0;
+  padding: 0 4px;
+  color: var(--sub);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.t-footnote span {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #e2f2e7;
+  color: #2f7d4f;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* 개선 전후 막대 — 문제 카드(.card)와 같은 흰 카드 */
+.t-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  max-width: 980px;
+  margin: 22px auto 0;
+}
+
+.t-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  text-align: center;
+}
+
+.t-tag {
+  padding: 4px 12px;
+  border-radius: 100px;
+  background: var(--bg);
+  color: var(--sub);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.t-metric figcaption {
+  margin-top: 14px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.t-big {
+  margin: 4px 0 18px;
+  color: var(--primary);
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.t-big small {
+  font-size: 22px;
+}
+
+.t-bars {
+  width: 100%;
+}
+
+.t-bars > div {
+  display: grid;
+  grid-template-columns: 70px 1fr 84px;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 0;
+  text-align: left;
+}
+
+.t-bars dt {
+  color: var(--sub);
+  font-size: 14.5px;
+  font-weight: 600;
+}
+
+.t-bars dd:last-child {
+  text-align: right;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.t-track {
+  height: 12px;
+  border-radius: 100px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.t-track i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #d9c8b8;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.9s var(--e) 0.3s;
+}
+
+.t-bars .hi .t-track i {
+  background: var(--primary);
+}
+
+.t-metric.in .t-track i {
+  transform: scaleX(var(--v));
+}
+
+/* 측정 조건 — 기본은 접혀 있다 */
+.t-more {
+  max-width: 980px;
+  margin: 18px auto 0;
+  text-align: center;
+}
+
+.t-more summary {
+  display: inline-block;
+  padding: 8px 4px;
+  color: var(--sub);
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+
+.t-more summary::-webkit-details-marker {
+  display: none;
+}
+
+/* 접힘 표시 — 아래 꺾쇠가 열리면 위로 뒤집힌다 */
+.t-more summary::after {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-left: 8px;
+  border-right: 2px solid var(--primary);
+  border-bottom: 2px solid var(--primary);
+  transform: translateY(-3px) rotate(45deg);
+  transition: transform 0.2s var(--e);
+}
+
+.t-more[open] summary::after {
+  transform: translateY(1px) rotate(-135deg);
+}
+
+.t-more dl {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  margin-top: 8px;
+  padding: 22px 28px;
+  border-radius: var(--r);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-align: left;
+}
+
+.t-more dt {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.t-more dd {
+  margin-top: 4px;
+  color: var(--sub);
+  font-size: 14.5px;
+}
+
+/* ── 기술 2 — AI 검색. 왼쪽 벡터 비교(어떻게) → 오른쪽 검색 결과(찾았어요) ── */
+.t-search {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) 40px minmax(0, 320px);
+  justify-content: center;
+  align-items: center;
+  gap: 24px;
+}
+
+/* 비교 → 결과 사이 화살표 — 비교표의 둥근 화살표와 같은 모양 */
+.t-search-arrow {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+.t-query {
+  border-color: var(--primary);
+}
+
+.t-photos {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+/* 검색에 걸린 사진만 남기고 나머지는 흐리게 — 위 검색 데모가 끝난 모습과 같다 */
+.t-photos img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 8px;
+  opacity: 0.18;
+  transform: scale(0.92);
+}
+
+.t-photos img.hit {
+  opacity: 1;
+  transform: none;
+  box-shadow: 0 0 0 3px var(--primary);
+}
+
+/* 벡터 비교 — 검색 문장 한 줄과 사진 두 장을 같은 칸에 맞춰 세운다 */
+.t-vec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 26px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: 0 16px 40px rgba(46, 34, 28, 0.07);
+}
+
+.t-vec-group-head,
+.t-vec-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 150px 82px;
+  align-items: center;
+  gap: 14px;
+}
+
+.t-vec-row {
+  padding: 12px;
+  border-radius: var(--r);
+  background: var(--bg);
+}
+
+/* 검색 줄 — 아래 사진들과 비교하는 기준이라 주황 테두리로 띄운다 */
+.t-vec-row.query {
+  background: var(--surface);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.t-vec-in {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+span.t-vec-in {
+  display: grid;
+  place-items: center;
+  background: #fde9dc;
+  font-size: 22px;
+}
+
+.t-vec-text {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* 시간대별 구역 — 검색 줄(지금 만든 모양)과 사진 줄들(미리 만들어 둔 모양)을 나눠 묶는다.
+   구역 안쪽 여백(8px)만큼 머리 줄도 들여야 칸이 세로로 맞는다 */
+.t-vec-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: calc(var(--r) + 8px);
+}
+
+/* 구역 이름표 줄 — 아래 줄과 같은 칸에 맞춰, 칸 설명을 해당 막대·배지 바로 위에 둔다 */
+.t-vec-group-head {
+  padding: 0 12px;
+}
+
+.t-vec-group-label {
+  grid-column: 1 / 3;
+  font-size: 13.5px;
+  font-weight: 800;
+}
+
+.t-vec-group.saved .t-vec-group-label {
+  grid-column: 1 / 4;
+}
+
+.t-vec-col {
+  color: var(--sub);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.t-vec-col.bars {
+  grid-column: 3;
+  text-align: center;
+}
+
+.t-vec-col.res {
+  grid-column: 4;
+  justify-self: end;
+}
+
+.t-vec-group.now .t-vec-group-label {
+  color: var(--primary);
+}
+
+/* 미리 만들어 둔 묶음 — 연한 바탕 상자로 감싸고, 안의 줄은 흰색으로 띄운다 */
+.t-vec-group.saved {
+  background: var(--bg);
+}
+
+.t-vec-group.saved .t-vec-group-label {
+  color: var(--primary);
+}
+
+.t-vec-group.saved .t-vec-row {
+  background: var(--surface);
+}
+
+/* 넘긴 줄은 사진과 글자만 흐리게 — 막대와 점선은 또렷해야 비교가 보인다 */
+.t-vec-row.miss .t-vec-in,
+.t-vec-row.miss .t-vec-text {
+  opacity: 0.5;
+}
+
+.t-vec-compare {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 벡터 — 높이가 다른 막대 10개. 칸(i) 하나에 막대(::after)가 --h(1~9) 만큼 자란다 */
+.t-vbars {
+  display: flex;
+  align-items: stretch;
+  gap: 3px;
+  height: 40px;
+}
+
+.t-vbars i {
+  position: relative;
+  flex: 1;
+}
+
+.t-vbars i::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 6%;
+  right: 6%;
+  height: calc(var(--h) * 11%);
+  border-radius: 3px;
+  background: #b9a796;
+  transform: scaleY(0);
+  transform-origin: bottom;
+  transition: transform 0.6s var(--e);
+}
+
+.t-vec-row.query .t-vbars i::after,
+.t-vec-row.hit .t-vbars i::after {
+  background: var(--primary);
+}
+
+.t-vec.in .t-vbars i::after {
+  transform: scaleY(1);
+}
+
+/* 줄마다 조금씩 늦게 자라 검색 → 사진 순서로 읽힌다 */
+.t-vec-row.hit .t-vbars i::after {
+  transition-delay: 0.25s;
+}
+
+.t-vec-row.miss .t-vbars i::after {
+  transition-delay: 0.5s;
+}
+
+/* 사진 줄 막대마다 검색 문장의 높이(--q)만큼 점선 테두리를 두른다.
+   막대가 점선 상자를 거의 채우면 닮은 것, 크게 벗어나면 다른 것이다 */
+.t-vbars i[style*="--q"]::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--q) * 11%);
+  border: 1.5px dashed var(--primary);
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.4s 0.9s;
+}
+
+.t-vec.in .t-vbars i[style*="--q"]::before {
+  opacity: 1;
+}
+
+/* 결과 — 검색 문장과 닮은 정도. 많이 닮은 줄은 주황, 덜 닮은 줄은 회색 */
+.t-vec-res {
+  justify-self: end;
+  min-width: 78px;
+  padding: 4px 10px;
+  text-align: center;
+  border-radius: 100px;
+  background: var(--line);
+  color: var(--sub);
+  font-size: 12.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.t-vec-res b {
+  font-size: 14px;
+}
+
+.t-vec-row.query .t-vec-res {
+  visibility: hidden;
+}
+
+.t-vec-row.hit .t-vec-res {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(242, 109, 44, 0.3);
+}
+
+.t-vec-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.t-vec-tags li {
+  padding: 6px 12px;
+  border-radius: 100px;
+  background: var(--bg);
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+/* ── 기술 3 — AI 사진 정리 ── */
+/* 다섯 단계 — STEP 섹션의 번호 원을 작게 이어 붙인다 */
+.t-steps {
+  list-style: none;
+  counter-reset: t-step;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  max-width: 980px;
+  margin: 0 auto 48px;
+}
+
+.t-steps li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 6px;
+  text-align: center;
+  counter-increment: t-step;
+}
+
+.t-steps li::before {
+  content: counter(t-step);
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: #fde9dc;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* 번호 사이를 잇는 선 */
+.t-steps li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 19px;
+  left: 50%;
+  width: 100%;
+  border-top: 2px solid var(--line);
+}
+
+/* 사용자가 직접 고르는 단계를 강조한다 */
+.t-steps li.me::before {
+  background: var(--primary);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(242, 109, 44, 0.32);
+}
+
+.t-steps b {
+  font-size: 16px;
+}
+
+.t-steps span {
+  color: var(--sub);
+  font-size: 14px;
+}
+
+.t-organize {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  align-items: center;
+  gap: 48px;
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.t-review {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.t-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #fff3ea;
+  transition: background 0.2s;
+}
+
+/* 체크 해제한 묶음 — 테두리 대신 배경색으로 구분한다. 묶음 전체를 흐리면 이름까지 안 읽혀서,
+   사진만 흐리고 글자는 회색으로 둔다 */
+.t-group.off {
+  background: #f8f4ef;
+}
+
+.t-group.off label {
+  color: var(--sub);
+}
+
+.t-group.off .t-tiles {
+  opacity: 0.45;
+}
+
+.t-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.t-group input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.t-count {
+  margin-left: auto;
+  color: var(--sub);
+  font-size: 14px;
+}
+
+.t-tiles {
+  display: flex;
+  gap: 6px;
+}
+
+/* 사진 자리 — 그 사람이 나온 사진처럼 실루엣을 그린다. 사람마다 색이 달라 묶음이 구분된다.
+   누르면 사진은 흐려진 채 남고 모서리에 ✕ 표시가 붙어, 어떤 사진을 뺐는지 보인다 */
+.t-tiles button {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--tile-bg) var(--tile-img) center bottom / 78% no-repeat;
+  color: var(--sub);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.t-group.p1 {
+  --tile-bg: #fde3d2;
+  --tile-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='7' fill='%23F0A27A'/%3E%3Cpath d='M6 42c0-9 6-15 14-15s14 6 14 15z' fill='%23F0A27A'/%3E%3C/svg%3E");
+}
+
+.t-group.p2 {
+  --tile-bg: #efe6dc;
+  --tile-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='16' r='7' fill='%23B7A08C'/%3E%3Cpath d='M6 42c0-9 6-15 14-15s14 6 14 15z' fill='%23B7A08C'/%3E%3C/svg%3E");
+}
+
+.t-group.crowd {
+  --tile-bg: #fbeee2;
+  --tile-img: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%23E9CDB5'%3E%3Ccircle cx='14' cy='15' r='6.5'/%3E%3Cpath d='M1 42c0-9 5.5-15 13-15s13 6 13 15z'/%3E%3C/g%3E%3Cg fill='%23D9AE8C' stroke='%23FBEEE2' stroke-width='2'%3E%3Ccircle cx='26' cy='18' r='6.5'/%3E%3Cpath d='M13 44c0-9 5.5-15 13-15s13 6 13 15z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* 뺀 사진 — 묶음에서 사라진다. 다시 넣으려면 아래 "되돌리기" 를 누른다 */
+.t-tiles button[aria-pressed="true"] {
+  display: none;
+}
+
+/* ✕ 표시 — 마우스를 올리면 흐리게 떠서 눌러서 뺄 수 있다는 걸 알린다.
+   터치 화면은 탭한 자리에 hover 가 남아 옆에서 밀려온 사진에 ✕ 가 뜨므로, 마우스가 있을 때만 보인다 */
+@media (hover: hover) {
+  .t-tiles button:not(:disabled):hover::before {
+    content: "✕";
+  }
+}
+
+.t-tiles button:focus-visible::before {
+  content: "✕";
+}
+
+.t-tiles button:not(:disabled):hover::before,
+.t-tiles button:focus-visible::before {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.35;
+}
+
+.t-tiles button:disabled {
+  cursor: default;
+}
+
+/* 화면 맨 위 — 이게 AI 가 제안한 묶음이고, 사진을 눌러 뺄 수 있다는 걸 먼저 알린다 */
+.t-review-head {
+  padding: 2px 4px 4px;
+}
+
+.t-review-head p {
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.t-review-head span {
+  color: var(--sub);
+  font-size: 13.5px;
+}
+
+/* 묶음마다 내가 고친 흔적 — 비어 있으면 자리도 차지하지 않는다 */
+.t-edit {
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.t-undo {
+  margin-left: 8px;
+  border: 0;
+  background: none;
+  color: var(--sub);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.t-edit:empty {
+  display: none;
+}
+
+.t-apply {
+  width: 100%;
+  padding: 13px;
+  border: 0;
+  border-radius: 100px;
+  background: var(--primary);
+  color: #fff;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.t-apply:disabled {
+  background: var(--line);
+  color: var(--sub);
+  cursor: default;
+}
+
+/* 폴더로 만든 뒤 — 묶음 목록은 흐리게 두고, 버튼 자리에 만들어진 폴더를 보여 준다 */
+.t-review.done .t-group {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.t-review.done .t-apply {
+  display: none;
+}
+
+.t-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #fde9dc;
+  text-align: center;
+  animation: rv-pop-in 0.4s var(--pop) both;
+}
+
+.t-result[hidden] {
+  display: none;
+}
+
+.t-result p {
+  color: var(--primary);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.t-result ul {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.t-result li {
+  padding: 6px 12px;
+  border-radius: 100px;
+  background: var(--surface);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.t-redo {
+  border: 0;
+  background: none;
+  color: var(--sub);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* 회수율 그래프 — 막대가 값만큼 자라고, 위 값 라벨이 막대 끝을 따라 올라간다 */
+.t-recall {
+  padding: 36px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  text-align: center;
+}
+
+.t-recall h3 {
+  font-size: 24px;
+}
+
+.t-recall-sub {
+  margin: 8px 0 24px;
+  color: var(--sub);
+  font-size: 15px;
+}
+
+.t-recall-sub b {
+  color: var(--primary);
+}
+
+.t-chart {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: end;
+  gap: 14px;
+  height: 230px;
+  margin-bottom: 20px;
+}
+
+.t-chart li {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+}
+
+.t-chart b {
+  font-size: 16px;
+}
+
+.t-chart i {
+  width: 100%;
+  max-width: 64px;
+  height: 0;
+  border-radius: 12px 12px 4px 4px;
+  background: #f1c3a2;
+  transition: height 0.9s var(--e) 0.2s;
+}
+
+.t-chart li:nth-child(2) i {
+  background: #eeae84;
+  transition-delay: 0.32s;
+}
+
+.t-chart li:nth-child(3) i {
+  background: #ec9965;
+  transition-delay: 0.44s;
+}
+
+.t-chart li.hi i {
+  background: var(--primary);
+  transition-delay: 0.56s;
+}
+
+.t-chart li.hi b {
+  color: var(--primary);
+  font-size: 24px;
+}
+
+.t-recall.in .t-chart i {
+  height: calc(var(--v) * 140px);
+}
+
+.t-chart span {
+  min-height: 40px;
+  color: var(--sub);
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* ── 앞으로의 쏙 — 글로 정리를 부탁하는 대화 예시 ── */
+.t-chat-wrap {
+  max-width: 460px;
+  margin: 0 auto;
+}
+
+.t-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 20px;
+}
+
+.t-bubble {
+  max-width: 85%;
+  padding: 14px 18px;
+  border-radius: 20px 20px 20px 6px;
+  background: var(--bg);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* 내가 보낸 요청 — 오른쪽 주황 말풍선 */
+.t-bubble.me {
+  align-self: flex-end;
+  border-radius: 20px 20px 6px 20px;
+  background: var(--primary);
+  color: #fff;
+}
+
+.t-reply {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.t-reply img {
+  flex-shrink: 0;
+  width: 44px;
+}
+
+.t-folders {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.t-folders li {
+  padding: 6px 12px;
+  border-radius: 100px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* 요청 → 답 순서로 하나씩 뜬다. 부모 .rv 에 .in 이 붙을 때 시작 */
+.t-chat .t-bubble.me,
+.t-chat .t-reply {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.t-chat-wrap.in .t-bubble.me {
+  animation: rv-in 0.5s var(--e) 0.3s forwards;
+}
+
+.t-chat-wrap.in .t-reply {
+  animation: rv-in 0.5s var(--e) 1.1s forwards;
+}
+
+/* 지금 → 앞으로 — 비교표와 같은 둥근 화살표로 잇는다 */
+.t-now-next {
+  display: grid;
+  grid-template-columns: 1fr 44px 1fr;
+  align-items: center;
+  gap: 20px;
+  max-width: 820px;
+  margin: 40px auto 0;
+}
+
+.t-now-next > div {
+  height: 100%;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+
+.t-now-next > div span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--sub);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.t-now-next p {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* 한 줄 요약 아래 덧붙이는 설명 — 기술 용어(MCP)는 여기에만 둔다 */
+.t-now-next small {
+  display: block;
+  margin-top: 6px;
+  color: var(--sub);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* 앞으로는 — "지금" 과 같은 흰 카드에, 말로 부탁한다는 걸 보여 주는 말풍선 아이콘을 붙인다 */
+.t-now-next .next {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.t-next-icon {
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #fde9dc;
+  color: var(--primary);
+}
+
+.t-next-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.t-now-next .next span {
+  color: var(--primary);
+}
+
+.t-now-next .arrow {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--primary);
+  font-weight: 800;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .t-scan i {
+    animation: none;
+    top: 45%;
+  }
+
+  .t-mini-gallery img {
+    transition: none;
+  }
+
+  .t-track i,
+  .t-chart i,
+  .t-vbars i::after,
+  .t-vbars i::before {
+    transition: none;
+  }
+
+  .t-chat .t-bubble.me,
+  .t-chat .t-reply {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .t-flow {
+    padding: 32px 24px;
+  }
+
+  /* 흐름도 — 위에서 아래로. 화살표도 아래를 가리킨다 */
+  .t-flow-row {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    row-gap: 14px;
+    padding-bottom: 0;
+  }
+
+  .t-node {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .t-node b {
+    position: static;
+    margin-top: 12px;
+    transform: none;
+  }
+
+  .t-arrow::before {
+    content: "↓";
+  }
+
+  .t-branches {
+    width: 100%;
+  }
+
+  .t-organize {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+    margin: 0 auto;
+    gap: 32px;
+  }
+
+  /* 검색 — 비교 그림 아래로 결과 화면. 화살표도 아래를 가리킨다 */
+  .t-search {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    max-width: 480px;
+    margin: 0 auto;
+    gap: 16px;
+  }
+
+  .t-search > .rv {
+    width: 100%;
+  }
+
+  .t-search-arrow {
+    transform: rotate(90deg);
+  }
+
+  /* 지금 → 앞으로 — 좁으면 위아래로, 화살표도 아래를 가리킨다 */
+  .t-now-next {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    max-width: 440px;
+    gap: 12px;
+  }
+
+  .t-now-next > div {
+    width: 100%;
+  }
+
+  .t-now-next .arrow {
+    transform: rotate(90deg);
+  }
+
+  /* 다섯 단계 — 좁으면 세로 목록으로 */
+  .t-steps {
+    grid-template-columns: 1fr;
+    max-width: 440px;
+    gap: 0;
+  }
+
+  .t-steps li {
+    display: grid;
+    grid-template-columns: 38px 1fr;
+    column-gap: 14px;
+    align-items: center;
+    padding: 0 0 18px;
+    text-align: left;
+  }
+
+  .t-steps li::before {
+    margin: 0;
+  }
+
+  .t-steps li:not(:last-child)::after {
+    top: 40px;
+    bottom: 0;
+    left: 18px;
+    width: 0;
+    border-top: 0;
+    border-left: 2px solid var(--line);
+  }
+}
+
+@media (max-width: 640px) {
+  .t-metrics,
+  .t-more dl {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .t-metric {
+    padding: 26px 22px;
+  }
+
+  .t-big {
+    font-size: 42px;
+  }
+
+  .t-vec {
+    padding: 18px 14px;
+  }
+
+  /* 좁은 화면 — 사진·문장·결과를 한 줄에, 막대는 그 아래 한 줄로 길게 */
+  /* 좁은 화면 — 이름표는 왼쪽, 칸 설명은 오른쪽 끝 */
+  .t-vec-group-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  /* 배지에 이미 "닮음"이 적혀 있어, 좁은 화면에선 이 설명을 빼 이름표가 한 줄에 들어가게 한다 */
+  .t-vec-col.res {
+    display: none;
+  }
+
+  .t-vec-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "in text res"
+      "in bars bars";
+    column-gap: 12px;
+    row-gap: 8px;
+    padding: 12px;
+  }
+
+  .t-vec-in {
+    grid-area: in;
+    width: 44px;
+    height: 44px;
+  }
+
+  .t-vec-text {
+    grid-area: text;
+    font-size: 15px;
+  }
+
+  .t-vbars {
+    grid-area: bars;
+    height: 28px;
+  }
+
+  .t-vec-res {
+    grid-area: res;
+    padding: 3px 9px;
+    font-size: 12px;
+  }
+
+  /* 검색 줄엔 배지가 없으니 그 자리를 비워 문장이 한 줄에 들어가게 한다 */
+  .t-vec-row.query {
+    grid-template-columns: 44px minmax(0, 1fr);
+    grid-template-areas:
+      "in text"
+      "in bars";
+  }
+
+  .t-vec-row.query .t-vec-res {
+    display: none;
+  }
+
+  /* 다섯 단계 — 세로 목록이 한 화면을 다 차지하지 않게 원과 간격을 줄인다 */
+  .t-steps {
+    margin-bottom: 32px;
+  }
+
+  .t-steps li {
+    grid-template-columns: 30px 1fr;
+    column-gap: 12px;
+    padding-bottom: 10px;
+  }
+
+  .t-steps li::before {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .t-steps li:not(:last-child)::after {
+    top: 32px;
+    left: 14px;
+  }
+
+  .t-steps b {
+    font-size: 15px;
+  }
+
+  /* 체험 화면 — 사진 칸을 키워 손가락으로 누르기 쉽게, 남는 오른쪽 여백도 줄인다 */
+  .t-tiles {
+    gap: 8px;
+  }
+
+  /* 더 좁은 폰에선 네 장이 넘치지 않게 칸이 같이 줄어든다 */
+  .t-tiles button {
+    flex: 0 1 56px;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    aspect-ratio: 1;
+    border-radius: 12px;
+  }
+
+  .t-recall {
+    padding: 28px 20px;
+  }
+
+  .t-chart {
+    gap: 8px;
+  }
+
+  .t-chart span {
+    font-size: 12.5px;
+  }
+
+  .t-chart li.hi b {
+    font-size: 20px;
+  }
+
+  .t-bubble {
+    font-size: 15px;
   }
 }

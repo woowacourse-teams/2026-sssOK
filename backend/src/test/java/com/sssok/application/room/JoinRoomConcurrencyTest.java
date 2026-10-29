@@ -42,7 +42,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
         Long guestId = anonymousAuthService.authenticate("민수").userId();
         Room room = createRoomService.create(hostId, "우테코 회식", null).room();
 
-        List<JoinRoomResult> results = 동시에_입장(room.getId(), guestId);
+        List<JoinRoomResult> results = 동시에_입장(room, guestId);
 
         long newly = results.stream().filter(JoinRoomResult::newlyJoined).count();
         assertThat(results).hasSize(THREADS);
@@ -55,7 +55,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
         Long guestId = anonymousAuthService.authenticate("민수").userId();
         Room room = createRoomService.create(hostId, "우테코 회식", null).room();
 
-        List<JoinRoomResult> results = 동시에_입장(room.getId(), guestId);
+        List<JoinRoomResult> results = 동시에_입장(room, guestId);
 
         assertThat(results).extracting(JoinRoomResult::joinedAt).containsOnly(results.get(0).joinedAt());
         assertThat(results).extracting(JoinRoomResult::hostId).containsOnly(hostId);
@@ -64,7 +64,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
     }
 
     // 같은 지점에서 한꺼번에 풀어 조회-저장 구간을 겹치게 만든다.
-    private List<JoinRoomResult> 동시에_입장(Long roomId, Long memberId) throws Exception {
+    private List<JoinRoomResult> 동시에_입장(Room room, Long memberId) throws Exception {
         ExecutorService pool = Executors.newFixedThreadPool(THREADS);
         CountDownLatch start = new CountDownLatch(1);
         AtomicInteger failures = new AtomicInteger();
@@ -74,7 +74,7 @@ class JoinRoomConcurrencyTest extends PostgresContainerSupport {
             for (int i = 0; i < THREADS; i++) {
                 futures.add(pool.submit((Callable<JoinRoomResult>) () -> {
                     start.await();
-                    return roomMembershipService.join(roomId, memberId);
+                    return roomMembershipService.join(room.getId(), room.getCode(), memberId);
                 }));
             }
             start.countDown();

@@ -36,3 +36,18 @@ export const PageState = styled.main`
 
   ${typography.body}
 `;
+
+export const LegalLinks = styled.nav`
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: ${spacing[16]};
+  margin-top: ${spacing[24]};
+  padding: ${spacing[16]} ${spacing[20]} ${spacing[32]};
+
+  a {
+    color: ${colors.textSecondary};
+    text-underline-offset: 3px;
+    ${typography.caption2}
+  }
+`;
