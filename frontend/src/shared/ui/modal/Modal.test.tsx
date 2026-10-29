@@ -144,3 +144,63 @@ test("title 이 있어도 showClose 가 false 면 닫기 버튼을 그리지 않
   expect(screen.getByRole("heading", { name: "의견 #41" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
 });
+
+test("열릴 때 이름 있는 네이티브 모달로 포커스를 옮긴다", () => {
+  render(
+    <Modal onClose={jest.fn()} showClose={false}>
+      <h2>올릴 수 없는 형식이에요</h2>
+      <button>확인</button>
+    </Modal>,
+  );
+  const dialog = screen.getByRole("dialog", { name: "올릴 수 없는 형식이에요" });
+  expect(dialog.tagName).toBe("DIALOG");
+  expect(dialog).toHaveAttribute("open");
+  expect(dialog).toHaveFocus();
+});
+
+test("Tab과 Shift+Tab이 모달 안에서 순환하고 Enter로 확인한다", async () => {
+  const user = userEvent.setup();
+  const onClose = jest.fn();
+  render(
+    <Modal onClose={onClose} showClose={false}>
+      <h2>업로드 오류</h2>
+      <button>다시 고르기</button>
+      <button onClick={onClose}>확인</button>
+    </Modal>,
+  );
+  const first = screen.getByRole("button", { name: "다시 고르기" });
+  const last = screen.getByRole("button", { name: "확인" });
+  await user.tab();
+  expect(first).toHaveFocus();
+  await user.tab({ shift: true });
+  expect(last).toHaveFocus();
+  await user.tab();
+  expect(first).toHaveFocus();
+  await user.tab();
+  await user.keyboard("{Enter}");
+  expect(onClose).toHaveBeenCalledTimes(1);
+});
+
+test("다시 렌더링해도 포커스를 빼앗지 않고 닫으면 이전 위치로 복귀한다", async () => {
+  const user = userEvent.setup();
+  const trigger = document.createElement("button");
+  document.body.append(trigger);
+  trigger.focus();
+  const { rerender, unmount } = render(
+    <Modal onClose={() => {}}>
+      <h2>안내</h2>
+      <button>확인</button>
+    </Modal>,
+  );
+  await user.click(screen.getByRole("button", { name: "확인" }));
+  rerender(
+    <Modal onClose={() => {}}>
+      <h2>안내</h2>
+      <button>확인</button>
+    </Modal>,
+  );
+  expect(screen.getByRole("button", { name: "확인" })).toHaveFocus();
+  unmount();
+  expect(trigger).toHaveFocus();
+  trigger.remove();
+});

@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LuX } from "react-icons/lu";
 import { colors, radius, shadow, spacing } from "@/shared/styles/tokens";
@@ -26,6 +26,8 @@ export interface ModalProps {
   title?: ReactNode;
   container?: Element | null;
   children: ReactNode;
+  labelledBy?: string;
+  describedBy?: string;
 }
 
 export const Modal = ({
@@ -35,26 +37,84 @@ export const Modal = ({
   title,
   container,
   children,
+  labelledBy,
+  describedBy,
 }: ModalProps) => {
-  // 바깥 클릭과 같은 길이다. 닫으면 안 되는 순간은 부르는 쪽이 onClose 를 비워서 막는다.
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const generatedTitleId = useId();
+
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    if (!labelledBy) {
+      const heading = dialog.querySelector("h1, h2, h3");
+      if (heading) {
+        if (!heading.id) heading.id = generatedTitleId;
+        dialog.setAttribute("aria-labelledby", heading.id);
+      }
+    }
+    dialog.showModal();
+    dialog.focus({ preventScroll: true });
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
+        previousFocus.focus({ preventScroll: true });
+      }
     };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [generatedTitleId, labelledBy]);
 
   return createPortal(
-    <Overlay data-testid="modal-overlay" onClick={onClose}>
-      <Card
-        role="dialog"
-        aria-modal="true"
-        size={size}
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Overlay
+      ref={dialogRef}
+      tabIndex={-1}
+      aria-modal="true"
+      aria-labelledby={labelledBy}
+      aria-describedby={describedBy}
+      data-testid="modal-overlay"
+      onClick={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          onClose();
+        }
+        if (event.key !== "Tab") return;
+        const dialog = event.currentTarget;
+        const controls = Array.from(
+          dialog.querySelectorAll<HTMLElement>(
+            'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+          ),
+        ).filter((element) => !element.closest('[hidden], [inert], [aria-hidden="true"]'));
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) {
+          event.preventDefault();
+          dialog.focus();
+        } else if (
+          event.shiftKey &&
+          (document.activeElement === first || document.activeElement === dialog)
+        ) {
+          event.preventDefault();
+          last.focus();
+        } else if (
+          !event.shiftKey &&
+          (document.activeElement === last || document.activeElement === dialog)
+        ) {
+          event.preventDefault();
+          first.focus();
+        }
+      }}
+    >
+      <Card size={size} onClick={(event) => event.stopPropagation()}>
         {title !== undefined ? (
           <TitleBar size={size}>
             {title}
@@ -80,15 +140,30 @@ export const Modal = ({
   );
 };
 
-const Overlay = styled.div`
+const Overlay = styled.dialog`
   position: fixed;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: ${spacing[20]};
   background: ${colors.overlay};
   z-index: 1000;
+
+  &::backdrop {
+    background: transparent;
+  }
+
+  &:focus {
+    outline: none;
+  }
 `;
 
 const Card = styled.div<{ size: NonNullable<ModalProps["size"]> }>`
