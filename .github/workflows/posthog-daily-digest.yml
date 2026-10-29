@@ -5,8 +5,8 @@ name: PostHog 지표 디스코드 요약
 # 수동 실행으로만 보낼 수 있다.
 on:
   schedule:
-    # KST 10:00. GitHub 대기열 사정으로 몇 분~수십 분 늦게 돌 수 있다.
-    - cron: '0 1 * * *'
+    # KST 09:00. GitHub 대기열 사정으로 몇 분~수십 분 늦게 돌 수 있다.
+    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       weekly:
