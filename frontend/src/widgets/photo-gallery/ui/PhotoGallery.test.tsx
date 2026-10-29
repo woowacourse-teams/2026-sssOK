@@ -61,7 +61,7 @@ describe("PhotoGallery", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 선택" }));
+    await user.click(screen.getByRole("button", { name: /^IMG_0421\.jpg 선택, / }));
 
     expect(onTogglePhoto).toHaveBeenCalledWith(5012);
   });

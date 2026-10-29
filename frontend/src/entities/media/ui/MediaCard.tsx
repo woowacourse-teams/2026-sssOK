@@ -53,7 +53,7 @@ export const MediaCard = ({ media, isMine, isSelected, onToggle, onOpen }: Media
         type="button"
         $selected={isSelected}
         onClick={onToggle}
-        aria-label={`${media.fileName} 선택`}
+        aria-label={`${media.fileName} 선택, ${isSelected ? "선택됨" : "선택 안 됨"}`}
         aria-pressed={isSelected}
       >
         <HiCheck />

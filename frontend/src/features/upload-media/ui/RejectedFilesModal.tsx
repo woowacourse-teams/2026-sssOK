@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { Modal } from "@/shared/ui/modal";
 import { formatBytes } from "../lib/formatBytes";
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "../lib/mediaFileRules";
@@ -43,11 +44,13 @@ const titleOf = (rejected: RejectedSelection[]) => {
 };
 
 export const RejectedFilesModal = ({ rejected, onClose }: RejectedFilesModalProps) => {
+  const titleId = useId();
+  const descriptionId = useId();
   return (
-    <Modal onClose={onClose} showClose={false}>
+    <Modal onClose={onClose} showClose={false} labelledBy={titleId} describedBy={descriptionId}>
       <Content>
-        <Title>{titleOf(rejected)}</Title>
-        <Description>
+        <Title id={titleId}>{titleOf(rejected)}</Title>
+        <Description id={descriptionId}>
           {LIMIT_TEXT}
           <br />
           나머지는 그대로 올라가고 있어요.

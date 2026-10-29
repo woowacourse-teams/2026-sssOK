@@ -9,6 +9,7 @@ export interface InputProps extends Omit<
   "value" | "onChange"
 > {
   label: string;
+  countLabel?: string;
   errorMessage?: string;
   value: string;
   /**
@@ -23,6 +24,7 @@ export interface InputProps extends Omit<
 
 export const Input = ({
   label,
+  countLabel,
   errorMessage = "",
   value,
   maxLength,
@@ -45,7 +47,7 @@ export const Input = ({
         maxLength={maxLength}
         // maxLength 가 없으면 slice 의 끝이 undefined 라 원본이 그대로 간다.
         onChange={(event) => onValueChange(event.target.value.slice(0, maxLength))}
-        aria-invalid={hasError}
+        aria-invalid={props["aria-invalid"] ?? hasError}
         $hasError={hasError}
       />
 
@@ -55,7 +57,26 @@ export const Input = ({
           <ErrorMessage>{errorMessage}</ErrorMessage>
           {maxLength !== undefined && (
             <Count>
-              {value.length}/{maxLength}
+              <span aria-hidden={countLabel ? true : undefined}>
+                {value.length}/{maxLength}
+              </span>
+              {countLabel && (
+                <span
+                  style={{
+                    position: "absolute",
+                    width: 1,
+                    height: 1,
+                    padding: 0,
+                    margin: -1,
+                    overflow: "hidden",
+                    clipPath: "inset(50%)",
+                    whiteSpace: "nowrap",
+                    border: 0,
+                  }}
+                >
+                  {countLabel}
+                </span>
+              )}
             </Count>
           )}
         </Row>
