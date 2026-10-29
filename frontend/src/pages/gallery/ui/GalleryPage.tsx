@@ -40,7 +40,12 @@ export const GalleryPage = () => {
   });
 
   if (isSessionPending) return <PageSpinner label="로그인 정보를 불러오는 중이에요." />;
-  if (isSessionError) return <main>로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</main>;
+  if (isSessionError)
+    return (
+      <main>
+        <span role="alert">로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</span>
+      </main>
+    );
 
   if (session === null) {
     return <Navigate to={ROUTES.roomEntry(code)} replace />;
@@ -55,7 +60,11 @@ export const GalleryPage = () => {
       ? (ERROR_MESSAGE[roomQuery.error.code] ?? roomQuery.error.message)
       : "방 정보를 불러오지 못했어요.";
 
-    return <PageState>{message}</PageState>;
+    return (
+      <PageState>
+        <span role="alert">{message}</span>
+      </PageState>
+    );
   }
 
   if (roomQuery.data.status !== "ACTIVE") {
