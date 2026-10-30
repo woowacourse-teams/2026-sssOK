@@ -5,12 +5,11 @@ name: PostHog 지표 디스코드 요약
 # 수동 실행으로만 보낼 수 있다.
 on:
   schedule:
-    # KST 09:00. GitHub 대기열 사정으로 몇 분~수십 분 늦게 돌 수 있다.
-    - cron: '0 0 * * *'
+    - cron: "47 23 * * *"
   workflow_dispatch:
     inputs:
       weekly:
-        description: '월요일이 아니어도 지난주 7일 요약을 함께 보내기'
+        description: "월요일이 아니어도 지난주 7일 요약을 함께 보내기"
         type: boolean
         default: false
 
@@ -29,7 +28,7 @@ jobs:
       - name: Node 20 설정
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: 디스코드로 요약 발송
         env:
