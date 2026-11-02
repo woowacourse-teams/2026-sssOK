@@ -10,17 +10,23 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 
 class DeployTests(unittest.TestCase):
-    def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None):
+    def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None, changed_data=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / 'gallery').mkdir()
-            (root / 'gallery/.env').write_text('GALLERY_STANDALONE=true\n')
+            data = root / 'data'
+            data.mkdir()
+            receipt = data / 'unacknowledged.json'
+            receipt.write_text('pending delivery')
+            next_data = root / 'new-data' if changed_data else data
+            (root / 'gallery/.env').write_text(f'GALLERY_STANDALONE=true\nGALLERY_DATA_DIR={next_data}\n')
             if previous:
                 old = root / 'old'
                 old.mkdir()
                 for name in ('settings.env', 'image.env', 'compose.yml', 'smoke.py', 'control.py'):
                     (old / name).write_text('')
                 (root / 'current').symlink_to(old)
+                (old / 'settings.env').write_text(f'GALLERY_DATA_DIR={data}\n')
             if invalid_current == 'broken_link':
                 (root / 'current').symlink_to(root / 'missing')
             elif invalid_current == 'directory':
@@ -32,7 +38,7 @@ class DeployTests(unittest.TestCase):
             binary.mkdir()
             docker = binary / 'docker'
             docker.write_text('''#!/usr/bin/env python3
-import os, sys
+import json, os, sys
 from pathlib import Path
 args = sys.argv[1:]
 if os.environ.get('CHECK_GALLERY_ENV'):
@@ -41,6 +47,10 @@ root = Path(os.environ['MCP_DEPLOY_ROOT'])
 with (root/'calls').open('a') as f: f.write(' '.join(args)+'\\n')
 old = str(root/'old/compose.yml') in args
 failure = os.environ['FAILURE']
+if 'config' in args and '--format' in args:
+    settings = Path(args[args.index('--env-file') + 1]).read_text()
+    source = next(line.split('=', 1)[1] for line in settings.splitlines() if line.startswith('GALLERY_DATA_DIR='))
+    print(json.dumps({'services': {'gallery-mcp': {'volumes': [{'type': 'bind', 'source': source, 'target': '/data'}]}}}))
 if failure == 'pull' and 'pull' in args: sys.exit(1)
 if failure == 'verify' and 'verify' in args: sys.exit(1)
 if failure == 'drain' and 'drain' in args: sys.exit(1)
@@ -59,6 +69,7 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
             result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True)
             calls = (root / 'calls').read_text() if (root / 'calls').exists() else ''
             current = (root / 'current').resolve() if (root / 'current').exists() else None
+            self.assertEqual(receipt.read_text(), 'pending delivery')
             return result, calls, current == root / 'old', current is not None
 
     def test_first_deploy(self):
@@ -104,6 +115,15 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
                 self.assertTrue(old)
                 self.assertNotIn(' up ', calls)
                 self.assertNotIn(' drain', calls)
+
+    def test_changed_data_directory_keeps_previous_release_and_receipts(self):
+        result, calls, old, exists = self.run_deploy(previous=True, changed_data=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Persistent data directory changed', result.stderr)
+        self.assertTrue(old)
+        self.assertTrue(exists)
+        for operation in (' pull', ' run ', ' drain', ' up ', ' stop', ' resume'):
+            self.assertNotIn(operation, calls)
 
     def test_drain_timeout_resumes_without_replacing(self):
         result, calls, old, _ = self.run_deploy('drain', True)

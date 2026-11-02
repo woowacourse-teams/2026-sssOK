@@ -39,6 +39,19 @@ compose() (
   docker compose --project-name sssok-gallery \
     --env-file "$dir/settings.env" --env-file "$dir/image.env" -f "$dir/compose.yml" "$@"
 )
+data_directory() {
+  compose "$1" config --format json | python3 -c '
+import json, sys
+from pathlib import Path
+volumes = json.load(sys.stdin)["services"]["gallery-mcp"].get("volumes", [])
+mounts = [v for v in volumes if v.get("target") == "/data"]
+if len(mounts) != 1 or mounts[0].get("type") != "bind":
+    sys.exit("Expected exactly one persistent /data bind mount")
+source = mounts[0].get("source", "")
+if not source or not Path(source).is_absolute():
+    sys.exit("Expected an absolute /data source path")
+print(Path(source).resolve())'
+}
 inside() {
   local dir=$1 script=$2; shift 2
   compose "$dir" exec -T gallery-mcp python - "$@" < "$dir/$script"
@@ -81,6 +94,14 @@ trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 compose "$release" config --quiet
+if [[ -n "$previous" ]]; then
+  previous_data=$(data_directory "$previous")
+  next_data=$(data_directory "$release")
+  [[ "$previous_data" == "$next_data" ]] || {
+    echo 'Persistent data directory changed; deployment refused. Migrate data separately before deploying.' >&2
+    exit 1
+  }
+fi
 compose "$release" pull
 # Verify model hashes and secret access under the actual container UID before downtime.
 compose "$release" run --rm --no-deps -T \
