@@ -10,7 +10,7 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 
 class DeployTests(unittest.TestCase):
-    def run_deploy(self, failure='', previous=False):
+    def run_deploy(self, failure='', previous=False, invalid_current=None):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / 'gallery').mkdir()
@@ -21,6 +21,13 @@ class DeployTests(unittest.TestCase):
                 for name in ('settings.env', 'image.env', 'compose.yml', 'smoke.py', 'control.py'):
                     (old / name).write_text('')
                 (root / 'current').symlink_to(old)
+            if invalid_current == 'broken_link':
+                (root / 'current').symlink_to(root / 'missing')
+            elif invalid_current == 'directory':
+                (root / 'current').mkdir()
+            elif invalid_current == 'incomplete_release':
+                (root / 'incomplete').mkdir()
+                (root / 'current').symlink_to(root / 'incomplete')
             binary = root / 'bin'
             binary.mkdir()
             docker = binary / 'docker'
@@ -47,7 +54,7 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
             env = {**os.environ, 'PATH': str(binary) + ':' + os.environ['PATH'],
                    'MCP_DEPLOY_ROOT': str(root), 'GALLERY_IMAGE': IMAGE, 'FAILURE': failure}
             result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True)
-            calls = (root / 'calls').read_text()
+            calls = (root / 'calls').read_text() if (root / 'calls').exists() else ''
             current = (root / 'current').resolve() if (root / 'current').exists() else None
             return result, calls, current == root / 'old', current is not None
 
@@ -57,6 +64,15 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
         self.assertTrue(exists)
         self.assertFalse(old)
         self.assertIn(' verify', calls)
+        self.assertNotIn(' drain', calls)
+
+    def test_invalid_current_stops_before_docker_commands(self):
+        for kind in ('broken_link', 'directory', 'incomplete_release'):
+            with self.subTest(kind=kind):
+                result, calls, _, _ = self.run_deploy(invalid_current=kind)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn('Invalid current release', result.stderr)
+                self.assertEqual(calls, '')
 
     def test_preflight_failures_leave_old_release_running(self):
         for failure in ('pull', 'verify'):

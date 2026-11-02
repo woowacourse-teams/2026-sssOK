@@ -10,6 +10,15 @@ root=${MCP_DEPLOY_ROOT:-/home/ubuntu/sssok-mcp}
 mkdir -p "$root/releases"
 exec 9>"$root/deploy.lock"
 flock -n 9 || { echo 'Another deployment is running'; exit 1; }
+# A missing current is a first deployment; a broken or malformed current is not.
+previous=''
+if [[ -e "$root/current" || -L "$root/current" ]]; then
+  [[ -L "$root/current" && -d "$root/current" ]] || { echo 'Invalid current release; manual recovery required' >&2; exit 1; }
+  previous=$(python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).resolve(strict=True))' "$root/current")
+  for required in settings.env image.env compose.yml smoke.py control.py; do
+    [[ -f "$previous/$required" && -r "$previous/$required" ]] || { echo "Invalid current release: missing readable $required" >&2; exit 1; }
+  done
+fi
 release=$(mktemp -d "$root/releases/gallery-XXXXXXXX")
 cp "$source_dir/compose.yml" "$source_dir/smoke.py" "$source_dir/control.py" "$release/"
 cp "$source_dir/../servers/gallery/model-checksums.json" "$release/"
@@ -17,7 +26,6 @@ chmod 644 "$release/model-checksums.json"
 printf 'GALLERY_IMAGE=%s\n' "$GALLERY_IMAGE" > "$release/image.env"
 # Per-release snapshot means rollback restores configuration as well as image.
 cp "$root/gallery/.env" "$release/settings.env"
-previous=$(readlink -f "$root/current" 2>/dev/null || true)
 changed=false
 drained=false
 compose() {
