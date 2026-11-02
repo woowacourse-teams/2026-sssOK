@@ -65,11 +65,11 @@ import org.springframework.web.context.WebApplicationContext;
 // #582 zip 다운로드 API 계약. 구조를 바꾸기 전 코드와 바꾼 뒤 코드가 이 테스트를 똑같이 통과해야 한다.
 // 트랜잭션을 걸지 않는다 — 잡 생성이 실제로 커밋돼야 커밋 후 비동기 압축이 돈다.
 // 스토리지만 목으로 두고, 원본 읽기·zip 쓰기·서명을 가로채 무엇을 어떤 이름으로 묶고 서명했는지 확인한다.
+// 스프링 컨텍스트를 DownloadApiTest 와 공유하도록 같은 설정을 쓴다. 동시 진행 한도(3)·보관 기간(1h)은 기본값이다.
 @AcceptanceTest
 @SpringBootTest(properties = {
-    "jwt.secret=bG9jYWwtY29udHJhY3QtdGVzdC1rZXktbm90LWZvci1wcm9kdWN0aW9uLTU4Mg==",
-    "download.max-concurrent-jobs-per-requester=3",
-    "download.retention=1h"
+    "jwt.secret=bG9jYWwtY29udHJhY3QtdGVzdC1rZXktbm90LWZvci1wcm9kdWN0aW9uLTU4MQ==",
+    "download.presigned-get-ttl=5m"
 })
 class ZipDownloadApiTest extends PostgresContainerSupport {
 

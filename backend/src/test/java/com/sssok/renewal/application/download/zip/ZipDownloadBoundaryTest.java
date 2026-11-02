@@ -18,21 +18,27 @@ import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.PostgresContainerSupport;
-import com.sssok.support.PostgresIntegrationTest;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionTemplate;
 
 // #582 zip 의 트랜잭션·비동기·정리 경계 계약. API 로는 만들 수 없는 상황(롤백, 정리 중 일부 실패)을 직접 만든다.
 // 트랜잭션을 걸지 않는다 — 커밋 여부에 따라 비동기 워커가 도는지를 봐야 한다.
-@PostgresIntegrationTest
+// 스프링 컨텍스트를 DownloadApiTest 와 공유하도록 같은 설정을 쓴다.
+@Tag("integration-postgres")
+@SpringBootTest(properties = {
+    "jwt.secret=bG9jYWwtY29udHJhY3QtdGVzdC1rZXktbm90LWZvci1wcm9kdWN0aW9uLTU4MQ==",
+    "download.presigned-get-ttl=5m"
+})
 class ZipDownloadBoundaryTest extends PostgresContainerSupport {
 
     private static final Duration RETENTION = Duration.ofHours(1);
