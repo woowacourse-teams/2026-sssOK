@@ -1,0 +1,29 @@
+name: Gallery MCP CI
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ['mcp/**', '.github/workflows/mcp-*.yml']
+  workflow_dispatch:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build ARM64 runtime
+        run: docker build -t gallery-mcp-test mcp/servers/gallery
+      - name: Test server and deployment controls
+        run: |
+          docker run --rm --network none --entrypoint python \
+            -v "$PWD/mcp/servers/gallery/tests:/tests:ro" \
+            -v "$PWD/mcp/servers/gallery/scripts:/app/scripts:ro" \
+            -v "$PWD/mcp/deployment:/deployment:ro" \
+            gallery-mcp-test -m unittest discover -s /tests -v
+          python3 -m unittest discover -s mcp/deployment/tests -v
+          bash -n mcp/deployment/deploy.sh
+          docker compose --env-file mcp/deployment/.env.example -f mcp/deployment/compose.yml config --quiet
