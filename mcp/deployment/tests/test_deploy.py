@@ -11,7 +11,7 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 class DeployTests(unittest.TestCase):
     def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None, changed_data=False,
-                   legacy_release=False):
+                   legacy_release=False, v1_release=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / 'gallery').mkdir()
@@ -29,7 +29,9 @@ class DeployTests(unittest.TestCase):
                 (root / 'current').symlink_to(old)
                 (old / 'settings.env').write_text(f'GALLERY_DATA_DIR={data}\n')
                 if not legacy_release:
-                    (old / 'storage-version').write_text('sqlite-v1\n')
+                    (old / 'storage-version').write_text('sqlite-v1\n' if v1_release else 'sqlite-v2\n')
+                if v1_release:
+                    (data / 'executions-v1.sqlite3').touch()
             if invalid_current == 'broken_link':
                 (root / 'current').symlink_to(root / 'missing')
             elif invalid_current == 'directory':
@@ -164,7 +166,7 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
     def test_sqlite_upgrade_failure_does_not_restore_json_only_image(self):
         result, calls, old, _ = self.run_deploy('sqlite-smoke', previous=True, legacy_release=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('JSON-only rollback refused', result.stderr)
+        self.assertIn('incompatible rollback refused', result.stderr)
         self.assertNotIn('Previous release restored', result.stdout)
         self.assertTrue(old)
         self.assertIn(' stop', calls)
@@ -184,6 +186,16 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
         self.assertFalse(old)
         self.assertIn(' drain', calls)
         self.assertIn(' resume', calls)
+
+    def test_v1_upgrade_allowed_but_failed_v2_cannot_roll_back(self):
+        result,calls,old,_=self.run_deploy(previous=True,v1_release=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertFalse(old)
+        result,calls,old,_=self.run_deploy('smoke',previous=True,v1_release=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('incompatible rollback refused',result.stderr)
+        self.assertNotIn('Previous release restored',result.stdout)
+        self.assertNotIn(' resume',calls)
 
 
 if __name__ == '__main__':

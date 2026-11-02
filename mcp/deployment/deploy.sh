@@ -20,7 +20,7 @@ if [[ -e "$root/current" || -L "$root/current" ]]; then
   done
 fi
 release=$(mktemp -d "$root/releases/gallery-XXXXXXXX")
-printf 'sqlite-v1\n' > "$release/storage-version"
+printf 'sqlite-v2\n' > "$release/storage-version"
 cp "$source_dir/compose.yml" "$source_dir/smoke.py" "$source_dir/control.py" "$release/"
 cp "$source_dir/../servers/gallery/model-checksums.json" "$release/"
 chmod 644 "$release/model-checksums.json"
@@ -67,11 +67,11 @@ finish() {
   trap - EXIT INT TERM
   if [[ "$result" != 0 && "$changed" == true ]]; then
     if [[ -n "$previous" ]]; then
-      if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && -f "$next_data/executions-v1.sqlite3" ]]; then
-        # A JSON-only image cannot see new SQLite receipts. Never silently roll back storage.
+      if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v2 && -f "$next_data/executions-v1.sqlite3" ]]; then
+        # Older images cannot interpret the migrated schema or similar-photo jobs.
         compose "$release" stop || true
         drained=false
-        echo 'ERROR: SQLite storage created; JSON-only rollback refused. Keep data and restore a SQLite-compatible release manually.' >&2
+        echo 'ERROR: SQLite storage may be migrated; incompatible rollback refused. Keep data and restore a sqlite-v2 release manually.' >&2
       else
         echo 'Deployment failed; restoring previous image and configuration'
         if compose "$previous" up -d --wait --wait-timeout 90 && smoke "$previous"; then
@@ -109,7 +109,7 @@ if [[ -n "$previous" ]]; then
     echo 'Persistent data directory changed; deployment refused. Migrate data separately before deploying.' >&2
     exit 1
   }
-  if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && -f "$next_data/executions-v1.sqlite3" ]]; then
+  if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v2 && -f "$next_data/executions-v1.sqlite3" ]]; then
     echo 'SQLite data exists but the previous release is JSON-only; manual recovery required.' >&2
     exit 1
   fi
