@@ -1,7 +1,8 @@
 package com.sssok.application.media;
 
-import com.sssok.application.download.CreateDownloadJobService;
-import com.sssok.application.download.DownloadCompressionWorker;
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import com.sssok.renewal.application.download.zip.CreateDownloadJobService;
+import com.sssok.renewal.application.download.zip.DownloadCompressionWorker;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
@@ -159,9 +160,9 @@ class VideoMediaOperationsTest {
     void 영상도_다운로드_대상이_된다() {
         StoredFile video = readyVideo();
 
-        var job = createDownloadJobService.create(
+        var job = createDownloadJobService.create(new DownloadTargetCommand(
             roomId, uploaderId, List.of(video.getId()), null,
-            null);
+            null));
 
         assertThat(job).isNotNull();
     }
