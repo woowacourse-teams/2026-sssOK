@@ -6,6 +6,8 @@
 //     GET  <downloadUrl>           완성된 zip 내려받기 (storage_get, ZIP_FETCH=0 이면 건너뜀)
 //
 //   zip_complete_ms 는 READY 를 처음 본 시각까지라 POLL_INTERVAL 단위로만 잡힌다(기본 2초면 최소 약 2초).
+//   zip_wait_ms 는 QUEUED 가 아닌 상태를 처음 본 시각까지(워커를 기다린 시간의 상한), zip_run_ms 는 그 뒤 READY 까지다.
+//   느려졌을 때 워커 대기 때문인지 압축 자체 때문인지 가른다. 서버 쪽 정확한 값은 sssok.download.waiting 을 본다.
 //   429(동시 작업 상한)·FAILED·ZIP_TIMEOUT 초과는 모두 실패다. 각각 zip_rejected·zip_failed·zip_timeout 으로 센다.
 //   서버는 계정마다 동시 3개까지 받는다(download.max-concurrent-jobs-per-requester). 가상 사용자마다 계정을 따로 쓰므로
 //   이 상한 때문에 429 가 나지는 않는다. 429 가 나면 서버 전체 처리 여력 문제다.
@@ -30,6 +32,8 @@ const PHASE = 'zip';
 const APIS = ['zip_create', 'zip_status', 'storage_get'];
 
 const zipCompleteMs = new Trend('zip_complete_ms', true);
+const zipWaitMs = new Trend('zip_wait_ms', true);
+const zipRunMs = new Trend('zip_run_ms', true);
 const zipOk = new Rate('zip_ok');
 const zipRejected = new Counter('zip_rejected');
 const zipFailed = new Counter('zip_failed');
@@ -62,7 +66,7 @@ export const options = {
   },
   thresholds: {
     ...trackApis(APIS, [PHASE]),
-    ...trackMetrics({ 'zip_complete_ms{phase:zip}': 'trend', 'zip_ok{phase:zip}': 'rate', 'zip_rejected{phase:zip}': 'count', 'zip_failed{phase:zip}': 'count', 'zip_timeout{phase:zip}': 'count' }),
+    ...trackMetrics({ 'zip_complete_ms{phase:zip}': 'trend', 'zip_wait_ms{phase:zip}': 'trend', 'zip_run_ms{phase:zip}': 'trend', 'zip_ok{phase:zip}': 'rate', 'zip_rejected{phase:zip}': 'count', 'zip_failed{phase:zip}': 'count', 'zip_timeout{phase:zip}': 'count' }),
     ...stopConditions(PROFILE, PHASE),
     ...(PROFILE === 'smoke' && { 'zip_ok{phase:zip}': ['rate==1'] }),
   },
@@ -115,6 +119,7 @@ export default function () {
   const accepted = Date.now();
   const deadline = accepted + ZIP_TIMEOUT * 1000;
   const jobId = created.data.jobId;
+  let startedAt = null;
   while (Date.now() < deadline) {
     sleep(POLL_INTERVAL);
     const status = client.get('zip_status', `${base}/${jobId}`, {
@@ -123,8 +128,13 @@ export default function () {
     });
     if (!status.ok) continue;
     const job = status.data;
+    if (startedAt === null && job.status !== 'QUEUED') {
+      startedAt = Date.now();
+      zipWaitMs.add(startedAt - accepted);
+    }
     if (job.status === 'READY') {
       zipCompleteMs.add(Date.now() - accepted);
+      zipRunMs.add(Date.now() - startedAt);
       if (!job.downloadUrl) {
         finish('failed', `jobId=${jobId} READY 인데 downloadUrl 없음`);
         return;
@@ -168,6 +178,6 @@ function finish(result, message) {
 export function handleSummary(data) {
   return writeSummary(data, {
     scenario: SCENARIO, apis: APIS, phases: [PHASE], config: CONFIG, resultsDir: RESULTS_DIR,
-    extras: ['zip_complete_ms{phase:zip}', 'zip_ok{phase:zip}', 'zip_rejected{phase:zip}', 'zip_failed{phase:zip}', 'zip_timeout{phase:zip}'],
+    extras: ['zip_complete_ms{phase:zip}', 'zip_wait_ms{phase:zip}', 'zip_run_ms{phase:zip}', 'zip_ok{phase:zip}', 'zip_rejected{phase:zip}', 'zip_failed{phase:zip}', 'zip_timeout{phase:zip}'],
   });
 }
