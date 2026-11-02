@@ -28,12 +28,17 @@ printf 'GALLERY_IMAGE=%s\n' "$GALLERY_IMAGE" > "$release/image.env"
 cp "$root/gallery/.env" "$release/settings.env"
 changed=false
 drained=false
-compose() {
+compose() (
   local dir=$1; shift
-  # Ignore a legacy GALLERY_IMAGE in the caller environment on rollback.
-  env -u GALLERY_IMAGE docker compose --project-name sssok-gallery \
+  # Only release snapshots supply GALLERY_* values, including during rollback.
+  # The subshell leaves the deployer's environment (and image digest) intact.
+  local name
+  while IFS= read -r name; do
+    unset "$name"
+  done < <(compgen -e | LC_ALL=C sort | sed -n '/^GALLERY_/p')
+  docker compose --project-name sssok-gallery \
     --env-file "$dir/settings.env" --env-file "$dir/image.env" -f "$dir/compose.yml" "$@"
-}
+)
 inside() {
   local dir=$1 script=$2; shift 2
   compose "$dir" exec -T gallery-mcp python - "$@" < "$dir/$script"

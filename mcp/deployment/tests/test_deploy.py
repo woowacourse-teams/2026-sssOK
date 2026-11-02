@@ -10,7 +10,7 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 
 class DeployTests(unittest.TestCase):
-    def run_deploy(self, failure='', previous=False, invalid_current=None):
+    def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / 'gallery').mkdir()
@@ -35,6 +35,8 @@ class DeployTests(unittest.TestCase):
 import os, sys
 from pathlib import Path
 args = sys.argv[1:]
+if os.environ.get('CHECK_GALLERY_ENV'):
+    assert not any(key.startswith('GALLERY_') for key in os.environ), 'Leaked GALLERY environment'
 root = Path(os.environ['MCP_DEPLOY_ROOT'])
 with (root/'calls').open('a') as f: f.write(' '.join(args)+'\\n')
 old = str(root/'old/compose.yml') in args
@@ -53,6 +55,7 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
             lock.chmod(0o755)
             env = {**os.environ, 'PATH': str(binary) + ':' + os.environ['PATH'],
                    'MCP_DEPLOY_ROOT': str(root), 'GALLERY_IMAGE': IMAGE, 'FAILURE': failure}
+            env.update(extra_env or {})
             result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True)
             calls = (root / 'calls').read_text() if (root / 'calls').exists() else ''
             current = (root / 'current').resolve() if (root / 'current').exists() else None
@@ -73,6 +76,25 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn('Invalid current release', result.stderr)
                 self.assertEqual(calls, '')
+
+    def test_gallery_environment_is_removed_on_deploy_and_rollback(self):
+        overrides = {name: 'caller-override' for name in (
+            'GALLERY_DATA_DIR', 'GALLERY_MODELS_DIR', 'GALLERY_TOKEN_PATH',
+            'GALLERY_BACKEND_TOKEN_PATH', 'GALLERY_DOWNLOAD_HOSTS',
+            'GALLERY_STANDALONE', 'GALLERY_BACKEND_URL', 'GALLERY_FUTURE_SETTING')}
+        overrides['CHECK_GALLERY_ENV'] = '1'
+        for failure in ('', 'smoke'):
+            with self.subTest(failure=failure):
+                result, calls, old, _ = self.run_deploy(failure, True, extra_env=overrides)
+                self.assertNotIn('Leaked GALLERY environment', result.stderr)
+                if failure:
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertTrue(old)
+                    self.assertIn('Previous release restored and verified', result.stdout)
+                else:
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn(f'Deployed {IMAGE}', result.stdout)
+                self.assertIn(' resume', calls)
 
     def test_preflight_failures_leave_old_release_running(self):
         for failure in ('pull', 'verify'):
