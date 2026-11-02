@@ -1,0 +1,18 @@
+{
+  "yunet.onnx": {
+    "experimentPath": "models/yunet.onnx",
+    "sha256": "8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4"
+  },
+  "sface.onnx": {
+    "experimentPath": "models/sface.onnx",
+    "sha256": "0ba9fbfa01b5270c96627c4ef784da859931e02f04419c829e83484087c34e79"
+  },
+  "ssdlite.pth": {
+    "experimentPath": "torch-cache/checkpoints/ssdlite320_mobilenet_v3_large_coco-a79551df.pth",
+    "sha256": "a79551df90c79834bcd3bb3845ef9d966b5449a3a9b2833ae8404778ca5d65d2"
+  },
+  "osnet.pth": {
+    "experimentPath": "models/osnet_x1_0_msmt17_combineall_256x128_amsgrad_ep150_stp60_lr0.0015_b64_fb10_softmax_labelsmooth_flip_jitter.pth",
+    "sha256": "48df972f72887b95cf3b43b3a07c3a7d2398381aea0f9cae64a7ef11d512b727"
+  }
+}
