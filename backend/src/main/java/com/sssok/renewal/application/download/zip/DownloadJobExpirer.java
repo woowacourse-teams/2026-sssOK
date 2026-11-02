@@ -1,0 +1,24 @@
+package com.sssok.renewal.application.download.zip;
+
+import com.sssok.renewal.outgoing.database.DownloadJobRepository;
+import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.domain.download.DownloadJob;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+// 실물을 먼저 지운다. DB 행이 남아 있어야 중간에 실패해도 다음 회차에 다시 찾아 시도할 수 있다.
+@Component
+@RequiredArgsConstructor
+public class DownloadJobExpirer {
+
+    private final DownloadJobRepository downloadJobRepository;
+    private final FileStorage fileStorage;
+
+    @Transactional
+    public void expire(DownloadJob job) {
+        fileStorage.delete(job.getZipStorageKey());
+        job.markExpired();
+        downloadJobRepository.save(job);
+    }
+}

@@ -1,6 +1,6 @@
 package com.sssok.renewal.outgoing.database.member;
 
-import com.sssok.infrastructure.persistence.download.DownloadJobJpaRepository;
+import com.sssok.renewal.outgoing.database.DownloadJobJpaRepository;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.medialike.MediaLikeJpaRepository;

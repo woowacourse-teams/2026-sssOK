@@ -1,6 +1,6 @@
 package com.sssok.renewal.application.auth;
 
-import com.sssok.application.port.out.DownloadJobRepository;
+import com.sssok.renewal.outgoing.database.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.CreateRoomService;
