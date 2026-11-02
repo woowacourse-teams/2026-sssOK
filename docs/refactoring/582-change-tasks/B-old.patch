@@ -1,0 +1,208 @@
+diff --git a/backend/src/main/java/com/sssok/application/download/SweepDownloadJobsService.java b/backend/src/main/java/com/sssok/application/download/SweepDownloadJobsService.java
+index 290969af..b420bc42 100644
+--- a/backend/src/main/java/com/sssok/application/download/SweepDownloadJobsService.java
++++ b/backend/src/main/java/com/sssok/application/download/SweepDownloadJobsService.java
+@@ -21,7 +21,7 @@ public class SweepDownloadJobsService {
+ 
+     public int sweepExpired(Instant now) {
+         Instant threshold = now.minus(downloadProperties.retention());
+-        List<DownloadJob> targets = downloadJobRepository.findAllExpiredReady(threshold);
++        List<DownloadJob> targets = downloadJobRepository.findAllExpiredReady(threshold, downloadProperties.sweepBatchSize());
+ 
+         int swept = 0;
+         for (DownloadJob job : targets) {
+diff --git a/backend/src/main/java/com/sssok/application/port/out/DownloadJobRepository.java b/backend/src/main/java/com/sssok/application/port/out/DownloadJobRepository.java
+index 42081d7e..85ed6516 100644
+--- a/backend/src/main/java/com/sssok/application/port/out/DownloadJobRepository.java
++++ b/backend/src/main/java/com/sssok/application/port/out/DownloadJobRepository.java
+@@ -24,5 +24,5 @@ public interface DownloadJobRepository {
+     List<Long> findMediaIdsByJobId(Long jobId);
+ 
+     // READY인 채로 threshold(now - retention) 이전에 완료된 잡. 만료 정리 배치가 쓴다.
+-    List<DownloadJob> findAllExpiredReady(Instant threshold);
++    List<DownloadJob> findAllExpiredReady(Instant threshold, int limit);
+ }
+diff --git a/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobJpaRepository.java b/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobJpaRepository.java
+index 7d933f4a..1b09b503 100644
+--- a/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobJpaRepository.java
++++ b/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobJpaRepository.java
+@@ -2,6 +2,7 @@ package com.sssok.infrastructure.persistence.download;
+ 
+ import java.time.Instant;
+ import java.util.List;
++import org.springframework.data.domain.Limit;
+ import org.springframework.data.jpa.repository.JpaRepository;
+ import org.springframework.data.jpa.repository.Modifying;
+ import org.springframework.data.jpa.repository.Query;
+@@ -11,7 +12,8 @@ public interface DownloadJobJpaRepository extends JpaRepository<DownloadJobJpaEn
+ 
+     long countByRequesterIdAndStatusIn(Long requesterId, List<String> statuses);
+ 
+-    List<DownloadJobJpaEntity> findAllByStatusAndReadyAtBefore(String status, Instant threshold);
++    List<DownloadJobJpaEntity> findAllByStatusAndReadyAtBeforeOrderByReadyAt(String status, Instant threshold,
++                                                                           Limit limit);
+ 
+     @Modifying(flushAutomatically = true)
+     @Query(value = """
+diff --git a/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobRepositoryAdapter.java b/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobRepositoryAdapter.java
+index 37965d80..d733a476 100644
+--- a/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobRepositoryAdapter.java
++++ b/backend/src/main/java/com/sssok/infrastructure/persistence/download/DownloadJobRepositoryAdapter.java
+@@ -8,6 +8,7 @@ import java.time.Instant;
+ import java.util.List;
+ import java.util.Optional;
+ import lombok.RequiredArgsConstructor;
++import org.springframework.data.domain.Limit;
+ import org.springframework.stereotype.Component;
+ 
+ @Component
+@@ -49,8 +50,9 @@ public class DownloadJobRepositoryAdapter implements DownloadJobRepository {
+     }
+ 
+     @Override
+-    public List<DownloadJob> findAllExpiredReady(Instant threshold) {
+-        return jpaRepository.findAllByStatusAndReadyAtBefore(DownloadJobStatus.READY.name(), threshold).stream()
++    public List<DownloadJob> findAllExpiredReady(Instant threshold, int limit) {
++        String ready = DownloadJobStatus.READY.name();
++        return jpaRepository.findAllByStatusAndReadyAtBeforeOrderByReadyAt(ready, threshold, Limit.of(limit)).stream()
+             .map(this::toDomain)
+             .toList();
+     }
+diff --git a/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java b/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java
+index a564768c..081fee57 100644
+--- a/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java
++++ b/backend/src/main/java/com/sssok/renewal/outgoing/config/DownloadProperties.java
+@@ -4,5 +4,6 @@ import java.time.Duration;
+ import org.springframework.boot.context.properties.ConfigurationProperties;
+ 
+ @ConfigurationProperties(prefix = "download")
+-public record DownloadProperties(Duration presignedGetTtl, int maxConcurrentJobsPerRequester, Duration retention) {
++public record DownloadProperties(Duration presignedGetTtl, int maxConcurrentJobsPerRequester, Duration retention,
++                                 int sweepBatchSize) {
+ }
+diff --git a/backend/src/main/resources/application.yml b/backend/src/main/resources/application.yml
+index 78a1d0e4..5c517268 100644
+--- a/backend/src/main/resources/application.yml
++++ b/backend/src/main/resources/application.yml
+@@ -186,6 +186,8 @@ storage:
+     retry-after: 5m
+     sweep-batch-size: 200
+     sweep-cron: "0 */10 * * * *"
++  # 한 회차에 정리할 최대 잡 수. 오래된 것부터 정리하고 나머지는 다음 회차로 넘긴다.
++  sweep-batch-size: 100
+ 
+ download:
+   # 단건 다운로드 리다이렉트 대상 서명 URL의 유효기간
+@@ -196,6 +198,8 @@ download:
+   retention: 1h
+   # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
+   sweep-cron: "0 */10 * * * *"
++  # 한 회차에 정리할 최대 잡 수. 오래된 것부터 정리하고 나머지는 다음 회차로 넘긴다.
++  sweep-batch-size: 100
+ 
+ springdoc:
+   swagger-ui:
+diff --git a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsBatchSizeTest.java b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsBatchSizeTest.java
+new file mode 100644
+index 00000000..24043de9
+--- /dev/null
++++ b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsBatchSizeTest.java
+@@ -0,0 +1,59 @@
++package com.sssok.application.download;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import com.sssok.application.port.out.DownloadJobRepository;
++import com.sssok.domain.download.DownloadJob;
++import com.sssok.domain.download.DownloadJobStatus;
++import com.sssok.domain.file.StorageKey;
++import com.sssok.renewal.outgoing.storage.FileStorage;
++import com.sssok.support.H2IntegrationTest;
++import java.time.Duration;
++import java.time.Instant;
++import org.junit.jupiter.api.Test;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.test.context.TestPropertySource;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.transaction.annotation.Transactional;
++
++@H2IntegrationTest
++@Transactional
++@TestPropertySource(properties = "download.sweep-batch-size=2")
++class SweepDownloadJobsBatchSizeTest {
++
++    @Autowired
++    SweepDownloadJobsService sweepDownloadJobsService;
++
++    @Autowired
++    DownloadJobRepository downloadJobRepository;
++
++    @MockitoBean
++    FileStorage fileStorage;
++
++    private DownloadJob readyJobAt(Instant readyAt) {
++        DownloadJob job = DownloadJob.create(1L, 100L, 1, 1024L, "sssOK_1.zip", Instant.now());
++        job.markRunning();
++        job.markReady(new StorageKey("rooms/1/downloads/" + System.nanoTime() + ".zip"), readyAt);
++        return downloadJobRepository.save(job);
++    }
++
++    @Test
++    void 한_회차에는_설정한_수만큼_오래된_것부터_정리하고_나머지는_다음_회차로_넘긴다() {
++        Instant now = Instant.now();
++        DownloadJob newest = readyJobAt(now.minus(Duration.ofHours(2)));
++        DownloadJob oldest = readyJobAt(now.minus(Duration.ofHours(4)));
++        DownloadJob middle = readyJobAt(now.minus(Duration.ofHours(3)));
++
++        assertThat(sweepDownloadJobsService.sweepExpired(now)).isEqualTo(2);
++        assertThat(statusOf(oldest)).isEqualTo(DownloadJobStatus.EXPIRED);
++        assertThat(statusOf(middle)).isEqualTo(DownloadJobStatus.EXPIRED);
++        assertThat(statusOf(newest)).isEqualTo(DownloadJobStatus.READY);
++
++        assertThat(sweepDownloadJobsService.sweepExpired(now)).isEqualTo(1);
++        assertThat(statusOf(newest)).isEqualTo(DownloadJobStatus.EXPIRED);
++    }
++
++    private Object statusOf(DownloadJob job) {
++        return downloadJobRepository.findById(job.getId()).orElseThrow().getStatus();
++    }
++}
+diff --git a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
+index 618b6c3c..0ab72b49 100644
+--- a/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
++++ b/backend/src/test/java/com/sssok/application/download/SweepDownloadJobsServiceFailureTest.java
+@@ -2,6 +2,7 @@ package com.sssok.application.download;
+ 
+ import static org.assertj.core.api.Assertions.assertThat;
+ import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.anyInt;
+ import static org.mockito.BDDMockito.given;
+ import static org.mockito.BDDMockito.willThrow;
+ import static org.mockito.Mockito.mock;
+@@ -26,7 +27,7 @@ class SweepDownloadJobsServiceFailureTest {
+     private final DownloadJobRepository downloadJobRepository = mock(DownloadJobRepository.class);
+     private final DownloadJobExpirer downloadJobExpirer = mock(DownloadJobExpirer.class);
+     private final DownloadProperties downloadProperties =
+-        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1));
++        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1), 100);
+ 
+     private final SweepDownloadJobsService sweepDownloadJobsService =
+         new SweepDownloadJobsService(downloadJobRepository, downloadJobExpirer, downloadProperties);
+@@ -35,7 +36,7 @@ class SweepDownloadJobsServiceFailureTest {
+     void 한_잡이_실패해도_나머지는_계속_정리한다() {
+         DownloadJob failing = job(1L);
+         DownloadJob healthy = job(2L);
+-        given(downloadJobRepository.findAllExpiredReady(any())).willReturn(List.of(failing, healthy));
++        given(downloadJobRepository.findAllExpiredReady(any(), anyInt())).willReturn(List.of(failing, healthy));
+         willThrow(new IllegalStateException("스토리지 오류")).given(downloadJobExpirer).expire(failing);
+ 
+         int swept = sweepDownloadJobsService.sweepExpired(NOW);
+@@ -46,7 +47,7 @@ class SweepDownloadJobsServiceFailureTest {
+ 
+     @Test
+     void 전부_실패해도_예외를_밖으로_던지지_않는다() {
+-        given(downloadJobRepository.findAllExpiredReady(any())).willReturn(List.of(job(1L)));
++        given(downloadJobRepository.findAllExpiredReady(any(), anyInt())).willReturn(List.of(job(1L)));
+         willThrow(new IllegalStateException("스토리지 오류")).given(downloadJobExpirer).expire(any());
+ 
+         // 배치가 죽으면 다음 회차까지 아무것도 정리되지 않는다.
