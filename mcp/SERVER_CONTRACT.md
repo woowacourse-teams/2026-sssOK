@@ -70,7 +70,7 @@ HTTP 2xx만으로 성공 처리하지 않는다. accepted=true 및 executionId·
 - 실행 UUID가 현재 실행인지 확인하는 것은 Spring 책임이다. 분산 워커의 정확히 한 번 실행을 보장하는 구현이 아니다.
 - 기존 `/data/receipts/*.json`은 시작 복구에서 한 트랜잭션으로 최초 한 번 이전한다. 기존 미전송·수신 확인·대기 상태를 유지한다. 기존 RUNNING의 완성된 `response.json`만 형식·사진 범위를 검증해 완료로 복구하고, 없거나 손상됐으면 실패 처리한다. 권한·디스크 오류나 잘못된 영수증은 이전 전체를 롤백하고 시작을 중단한다.
 - 이전 완료 표시는 같은 DB 트랜잭션으로 저장하며 이후 재시작에서 JSON을 다시 읽지 않는다. 원본 JSON은 자동 삭제하지 않는 백업이며 최신 상태가 아니다. 입력 URL이 남아 있을 수 있으므로 접근을 제한하고 이전·전송 검증 후 운영자가 보존·삭제를 결정한다.
-- DB는 스키마 버전 1을 사용하고 알 수 없는 버전은 열어 갱신하지 않는다. 과거 실험의 다른 SQLite 파일은 자동 변환·삭제하지 않는다. JSON 전용 구버전으로의 자동 롤백은 SQLite 파일 생성 후 거부한다.
+- DB는 스키마 버전 2를 사용하고 알 수 없는 버전은 열어 갱신하지 않는다. 과거 실험의 다른 SQLite 파일은 자동 변환·삭제하지 않는다. JSON 전용 구버전으로의 자동 롤백은 SQLite 파일 생성 후 거부한다.
 
 ## SQLite 저장과 트랜잭션
 
@@ -103,3 +103,23 @@ Spring 통신 실패와 개별 분석 실패는 기존 재시도·실패 처리�
 재시작 시 커밋된 완료 결과·대기 작업은 유지되고 미완료 RUNNING은 실패 처리된다.
 수동 재시작 시 진행 중인 분석은 중단될 수 있다.
 이 감시는 작업의 종료를 검출하며, 종료하지 않은 교착이나 이벤트 루프 정지까지 감지하지는 않는다.
+
+## #661: 작업 종류와 중복 사진 결과 (schema v2)
+
+- 기존 도구는 PERSON, 새 `group_similar_photos(room_id, job_id, request_id, attempt, photos)`는 SIMILAR를 저장한다.
+- 접수·조회·이벤트의 `jobType`은 PERSON 또는 SIMILAR다. 입력 한도·단일 워커·시간 제한·인증은 동일하다.
+- 동일 execution UUID의 종류 변경은 거절한다. 두 종류가 한 대기열을 공유한다.
+- SIMILAR 결과: `resultVersion=1`, `pipelineVersion`, `groups[{groupId,mediaIds}]`,
+  `smallGroupMediaIds`(2장 후보 배열), `unassignedMediaIds`(단독 사진), `errors`, `counts`.
+- 그룹은 최소 3장, 실행 내 ID, 사진 중복 없음. 오류를 포함해 입력 전체를 정확히 분할한다.
+- PERSON 결과 형식은 유지한다. SIMILAR에는 얼굴·신체 수를 넣지 않는다.
+- SQLite 파일명은 `executions-v1.sqlite3`을 유지하지만 `PRAGMA user_version=2`다.
+  이전 서버를 중지한 상태에서 단일 트랜잭션으로 kind 컬럼을 추가하고 기존 기록을 PERSON으로 해석한다.
+  기존 완료 결과·수신 확인·대기 상태는 유지한다. 기존 RUNNING 복구 정책은 그대로다.
+- v1 실행 파일은 v2 DB를 읽을 수 없다. 배포 표시는 sqlite-v2이며 마이그레이션 가능성이 있는
+  배포 실패 후 v1/JSON 이미지로 자동 복귀하지 않는다. 데이터 보존 후 v2 호환 릴리스로 복구한다.
+  변경 전 정지 상태 DB 백업으로 돌아가는 경우 신규 접수·미전송 결과 유실을 따로 검토해야 한다.
+- 기존 미전송 PERSON 이벤트에도 jobType 필드가 추가되어 이벤트 해시가 바뀔 수 있다.
+  Spring 중복 처리는 eventId만이 아니라 executionId·terminal state를 기준으로 해야 한다.
+
+정책·자원 측정·모델 준비: [SIMILAR_PHOTOS.md](SIMILAR_PHOTOS.md).

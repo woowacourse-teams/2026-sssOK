@@ -104,3 +104,12 @@ Spring/RDS 수신 API는 후속 작업이다.
 - [수동 실행 및 기본 브랜치 요건](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)
 - [GitHub hosted ARM64 runner](https://docs.github.com/en/actions/how-tos/write-workflows/choose-where-workflows-run/choose-the-runner-for-a-job)
 - [Compose up과 wait](https://docs.docker.com/reference/cli/docker/compose/up/)
+
+### #661 schema v2 upgrade
+
+Current releases record `storage-version=sqlite-v2`. Existing sqlite-v1 installations can upgrade
+with the same data directory after draining/stopping. Prepare all six checked model files first.
+The DB filename remains `executions-v1.sqlite3`; its user_version becomes 2. If replacement fails,
+rollback to sqlite-v1/JSON is refused when the DB exists: preserve data and restore a v2-compatible
+release manually. The prior v1 instructions above describe the previous release. Stop and back up
+before the first v2 migration. See [similar-photo setup](../SIMILAR_PHOTOS.md).
