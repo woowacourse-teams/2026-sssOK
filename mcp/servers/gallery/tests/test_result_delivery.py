@@ -117,3 +117,40 @@ class DeliveryTest(unittest.TestCase):
         with self.assertRaises(ValueError):replace(self.settings,backend_url=None)
         for url in ['http://backend.test/events','https://user:pass@backend.test/events','https://backend.test/events?token=x']:
             with self.assertRaises(ValueError):replace(self.settings,backend_url=url)
+
+    def test_invalid_callback_ports_and_urls_rejected_before_delivery(self):
+        urls = [
+            'https://backend.test:bad/events',
+            'https://backend.test:65536/events',
+            'https://backend.test:-1/events',
+            'https://backend.test:0/events',
+            'https://backend.test:/events',
+            'https://[broken/events',
+            'https://backend.test/\nevents',
+            'https://user:private-secret@backend.test:bad/events',
+        ]
+        for url in urls:
+            with self.subTest(url=url):
+                with self.assertRaisesRegex(ValueError, '^Callback URL or port is invalid$') as error:
+                    replace(self.settings, backend_url=url)
+                self.assertNotIn(url, str(error.exception))
+                self.assertTrue(error.exception.__suppress_context__)
+
+    def test_valid_callback_urls_remain_deliverable(self):
+        for url in ('https://backend.test/events', 'https://backend.test:8443/events',
+                    'http://localhost:8080/events', 'http://127.0.0.1:8080/events'):
+            with self.subTest(url=url), tempfile.TemporaryDirectory() as directory:
+                settings = replace(self.settings, backend_url=url, data=Path(directory))
+                service = PersonGroupingService(settings)
+                calls = []
+                def handler(request):
+                    calls.append(str(request.url))
+                    return httpx.Response(200, json={'accepted': True,
+                        'executionId': self.execution, 'state': 'COMPLETED'})
+                # Each endpoint gets an independent unacknowledged result.
+                service.start(1, self.execution, [self.photo], job_id=self.business, attempt=2)
+                service.store.claim()
+                service.store.finish(self.execution, 'COMPLETED', result={'groups': []})
+                self.tick(handler, Delivery(service))
+                self.assertEqual(calls, [url])
+                self.assertIsNotNone(service.store.get(1, self.execution)['acknowledged_at'])

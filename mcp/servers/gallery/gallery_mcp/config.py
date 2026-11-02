@@ -3,6 +3,8 @@ import os
 from pathlib import Path
 from urllib.parse import urlsplit
 
+import httpx
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -28,7 +30,18 @@ class Settings:
         if not self.standalone and not self.backend_url:
             raise ValueError('Configure Spring callback URL or explicitly enable standalone test mode')
         if self.backend_url:
-            url = urlsplit(self.backend_url)
+            try:
+                # urlsplit validates the port only when .port is accessed.
+                url = urlsplit(self.backend_url)
+                port = url.port
+                transport_url = httpx.URL(self.backend_url)
+                if (any(char.isspace() or ord(char) < 32 or ord(char) == 127 for char in self.backend_url)
+                        or url.netloc.endswith(':') or port == 0
+                        or not transport_url.is_absolute_url):
+                    raise ValueError('Invalid callback URL')
+            except (ValueError, httpx.InvalidURL):
+                # Do not echo configured URLs or parser errors containing credentials.
+                raise ValueError('Callback URL or port is invalid') from None
             if (url.scheme != 'https' and not (url.scheme == 'http' and url.hostname in ('localhost', '127.0.0.1'))):
                 raise ValueError('Callback must use HTTPS (loopback HTTP is allowed for tests)')
             if not url.hostname or url.username or url.password or url.query or url.fragment:
