@@ -107,10 +107,16 @@ class GalleryTest(unittest.TestCase):
         job = self.start()
         directory = self.settings.data / 'runs' / job['jobId']
         directory.mkdir(parents=True)
-        (directory / 'response.json').write_text(json.dumps({'groups': [{'mediaIds': [1]}]}))
         (directory / 'input').mkdir()
         (directory / 'input' / 'private.jpg').write_bytes(b'private')
-        self.service.command = lambda job: [sys.executable, '-c', 'pass']
+        script = '''import json, sys
+from gallery_mcp.execution_store import Store
+store=Store(sys.argv[1])
+store.complete(1,sys.argv[2],{'groups':[{'groupId':'person_001','mediaIds':[1],
+'faceMembershipCount':1,'bodyAdditionCount':0}], 'counts':{},'pipelineVersion':'test',
+'unassignedMediaIds':[],'errors':[]})
+'''
+        self.service.command = lambda job: [sys.executable, '-c', script, str(self.settings.data), job['id']]
         asyncio.run(self.service.execute(self.service.store.claim()))
         self.assertFalse(directory.exists())
         result = self.service.get(1, job['jobId'])

@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory(dir='/data') as tmp:
         assert terminal[-1]['jobId']==args['job_id']
         service.cleanup_finished()
         assert not (Path(tmp)/'runs'/job['executionId']).exists()
-        assert not list(Path(tmp).glob('*.sqlite3'))
+        assert (Path(tmp) / 'executions-v1.sqlite3').is_file()
         baseline=json.loads(Path('/baseline.json').read_text());baseline=baseline.get('result',baseline)
         groups=lambda result:sorted(sorted(g['mediaIds']) for g in result['groups'])
         assert groups(job['result'])==groups(baseline)
@@ -60,5 +60,5 @@ with tempfile.TemporaryDirectory(dir='/data') as tmp:
     restored=PersonGroupingService(settings)
     with TestClient(create_app(settings,restored)) as client:
         assert call(client,'get_gallery_job',{'room_id':1,'execution_id':job['executionId']})['result']==job['result']
-    print(json.dumps({'counts':job['result']['counts'],'sameMemberships':True,'noSqlite':True,'callbackRetryAndAck':True,'terminalEvents':len(terminal),'artifactsRemoved':True,'restartResultPreserved':True,'elapsedSeconds':round(time.monotonic()-started,2),'memoryPeakBytes':int(Path('/sys/fs/cgroup/memory.peak').read_text())}))
+    print(json.dumps({'counts':job['result']['counts'],'sameMemberships':True,'sqliteReceipts':True,'callbackRetryAndAck':True,'terminalEvents':len(terminal),'artifactsRemoved':True,'restartResultPreserved':True,'elapsedSeconds':round(time.monotonic()-started,2),'memoryPeakBytes':int(Path('/sys/fs/cgroup/memory.peak').read_text())}))
 receiver.shutdown()

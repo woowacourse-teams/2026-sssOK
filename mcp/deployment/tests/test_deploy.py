@@ -10,7 +10,8 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 
 class DeployTests(unittest.TestCase):
-    def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None, changed_data=False):
+    def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None, changed_data=False,
+                   legacy_release=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / 'gallery').mkdir()
@@ -27,6 +28,8 @@ class DeployTests(unittest.TestCase):
                     (old / name).write_text('')
                 (root / 'current').symlink_to(old)
                 (old / 'settings.env').write_text(f'GALLERY_DATA_DIR={data}\n')
+                if not legacy_release:
+                    (old / 'storage-version').write_text('sqlite-v1\n')
             if invalid_current == 'broken_link':
                 (root / 'current').symlink_to(root / 'missing')
             elif invalid_current == 'directory':
@@ -56,6 +59,9 @@ if failure == 'verify' and 'verify' in args: sys.exit(1)
 if failure == 'drain' and 'drain' in args: sys.exit(1)
 if failure == 'up' and 'up' in args and not old: sys.exit(1)
 if failure == 'resume' and 'resume' in args and not old: sys.exit(1)
+if failure == 'sqlite-smoke' and 'up' in args and not old:
+    (root/'data/executions-v1.sqlite3').touch()
+if failure == 'sqlite-smoke' and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
 if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
 ''')
             docker.chmod(0o755)
@@ -154,6 +160,22 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
         self.assertFalse(exists)
         self.assertIn(' stop', calls)
         self.assertNotIn(' down', calls)
+
+    def test_sqlite_upgrade_failure_does_not_restore_json_only_image(self):
+        result, calls, old, _ = self.run_deploy('sqlite-smoke', previous=True, legacy_release=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('JSON-only rollback refused', result.stderr)
+        self.assertNotIn('Previous release restored', result.stdout)
+        self.assertTrue(old)
+        self.assertIn(' stop', calls)
+        self.assertNotIn(' resume', calls)
+        self.assertEqual(sum(' up ' in call for call in calls.splitlines()), 1)
+
+    def test_json_release_can_be_restored_before_sqlite_is_created(self):
+        result, calls, old, _ = self.run_deploy('up', previous=True, legacy_release=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(old)
+        self.assertIn('Previous release restored and verified', result.stdout)
 
     def test_successful_update_resumes_and_switches_current(self):
         result, calls, old, exists = self.run_deploy(previous=True)

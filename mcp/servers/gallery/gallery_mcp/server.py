@@ -1,7 +1,8 @@
 import asyncio
-from contextlib import asynccontextmanager, suppress
+from contextlib import asynccontextmanager
 import hmac
 import os
+import logging
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -46,26 +47,42 @@ def create_app(settings=None, service=None):
     async def lifespan(app):
         with service.boot():
             async with original_lifespan(app):
-                tasks = [asyncio.create_task(service.dispatch())]
+                stopping = False
+                tasks = [asyncio.create_task(service.dispatch(), name='analysis-dispatch')]
                 if settings.backend_url:
-                    tasks.append(asyncio.create_task(Delivery(service).run()))
+                    tasks.append(asyncio.create_task(Delivery(service).run(), name="result-delivery"))
+                def task_finished(task):
+                    # Retrieve exceptions even during normal shutdown.
+                    error = None if task.cancelled() else task.exception()
+                    if stopping:
+                        return
+                    service.unavailable = True
+                    # Never include exception text: it may contain signed URLs.
+                    logging.getLogger(__name__).error(
+                        'Essential task %s stopped (%s); new analysis requests blocked',
+                        task.get_name(), type(error).__name__ if error else 'unexpected exit')
+
+                for task in tasks:
+                    task.add_done_callback(task_finished)
                 try:
                     yield
                 finally:
+                    stopping = True
+                    service.unavailable = True
                     for task in tasks:
                         task.cancel()
-                    for task in tasks:
-                        with suppress(asyncio.CancelledError):
-                            await task
+                    # One failed task must not skip cancellation/cleanup of the other.
+                    await asyncio.gather(*tasks, return_exceptions=True)
 
     app.router.lifespan_context = lifespan
 
     async def health(request):
-        return JSONResponse({'status':'ok'})
+        return JSONResponse({'status': 'unavailable' if service.unavailable else 'ok'},
+                            status_code=503 if service.unavailable else 200)
 
     async def ready(request):
         files = ['yunet.onnx','sface.onnx','ssdlite.pth','osnet.pth']
-        available = all((settings.assets/name).is_file() for name in files)
+        available = not service.unavailable and all((settings.assets/name).is_file() for name in files)
         return JSONResponse({'ready':available},status_code=200 if available else 503)
 
     app.routes.append(Route('/healthz',health))

@@ -4,8 +4,27 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import sqlite3
 import tempfile
 import time
+
+
+def has_active_work(data):
+    database = data / 'executions-v1.sqlite3'
+    if database.exists():
+        connection = sqlite3.connect(database.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)
+        try:
+            if connection.execute('PRAGMA user_version').fetchone()[0] != 1:
+                raise RuntimeError('Unsupported execution database version')
+            if connection.execute("SELECT 1 FROM executions WHERE state IN ('QUEUED','RUNNING') LIMIT 1").fetchone():
+                return True
+            if connection.execute("SELECT 1 FROM metadata WHERE key='json_imported'").fetchone():
+                return False
+        finally:
+            connection.close()
+    # Also usable against the pre-SQLite release during its final drain.
+    return any(json.loads(path.read_text())['state'] in ('QUEUED', 'RUNNING')
+               for path in (data / 'receipts').glob('*.json'))
 
 def control(action, settings, timeout=600):
     data = settings.data
@@ -31,8 +50,7 @@ def control(action, settings, timeout=600):
         marker.touch()
     deadline = time.monotonic() + timeout
     while True:
-        rows = [json.loads(p.read_text()) for p in (data / 'receipts').glob('*.json')]
-        if not any(r['state'] in ('QUEUED', 'RUNNING') for r in rows):
+        if not has_active_work(data):
             print('PASS: no queued or running analysis')
             return
         if time.monotonic() >= deadline:

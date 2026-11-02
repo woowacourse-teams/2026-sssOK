@@ -69,6 +69,33 @@ class DeliveryTest(unittest.TestCase):
         self.tick(succeeded)
         self.assertEqual(events[0],events[1])
 
+    def test_committed_response_survives_restart_cleanup_and_delivery_retry(self):
+        result = {'groups': [], 'counts': {'groups': 0}, 'pipelineVersion': 'test',
+                  'unassignedMediaIds': [1], 'errors': []}
+        directory = self.root / 'runs' / self.execution
+        directory.mkdir(parents=True)
+        worker_store = Store(self.root)
+        self.assertTrue(worker_store.complete(1, self.execution, result))
+        self.service = PersonGroupingService(self.settings)
+        with self.service.boot():
+            self.service.cleanup_finished()
+            self.assertFalse(directory.exists())
+            self.assertEqual(self.service.get(1, self.execution)['result'], result)
+            self.tick(lambda request: httpx.Response(503))
+            self.assertIsNone(self.service.store.get(1, self.execution)['acknowledged_at'])
+        self.service = PersonGroupingService(self.settings)
+        def accepted(request):
+            payload = json.loads(request.content)
+            self.assertEqual(payload['state'], 'COMPLETED')
+            self.assertEqual(payload['result'], result)
+            self.assertEqual(payload['jobId'], self.business)
+            self.assertEqual(payload['attempt'], 2)
+            return httpx.Response(200, json={'accepted': True,
+                'executionId': self.execution, 'state': 'COMPLETED'})
+        with self.service.boot():
+            self.tick(accepted)
+            self.assertIsNotNone(self.service.store.get(1, self.execution)['acknowledged_at'])
+
     def test_wrong_ack_and_redirect_do_not_discard_result(self):
         self.complete()
         for response in [httpx.Response(200,json={'accepted':True,'executionId':str(uuid4()),'state':'COMPLETED'}),
@@ -98,7 +125,7 @@ class DeliveryTest(unittest.TestCase):
         self.service.store.acknowledge(self.execution,'COMPLETED')
         self.service.store.prune(0)
         self.assertEqual(self.service.store.rows(),[])
-        self.assertFalse(list(self.root.glob('*.sqlite3')))
+        self.assertTrue((self.root / Store.DATABASE).is_file())
 
     def test_identity_cannot_change_on_retry(self):
         with self.assertRaises(ValueError):

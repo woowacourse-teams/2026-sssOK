@@ -39,9 +39,9 @@ def execute(room_id, job_id, settings):
         inputs = {f'image_{i:06d}':p.mediaId for i,p in enumerate(sorted(photos,key=lambda p:p.filename),1)}
         for error, raw in zip(response['errors'],result['errors']):
             error['mediaId'] = inputs.get(raw['image_id'])
-        temporary = directory / 'response.tmp'
-        temporary.write_text(json.dumps(response,allow_nan=False))
-        temporary.replace(directory / 'response.json')
+        # Publish directly: there is no file handoff waiting for the parent to finish.
+        # A timeout/restart that already marked this execution failed cannot be undone.
+        store.complete(room_id, job_id, response)
 
 
 if __name__ == '__main__':

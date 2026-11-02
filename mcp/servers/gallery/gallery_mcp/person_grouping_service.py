@@ -17,6 +17,7 @@ class PersonGroupingService:
     def __init__(self, settings: Settings, command=None):
         self.settings = settings
         self.store = Store(settings.data)
+        self.unavailable = False
         self.process = None
         self.command = command or (lambda job: [sys.executable,'-m','gallery_mcp.analysis_worker',str(job['room_id']),job['id']])
 
@@ -35,6 +36,8 @@ class PersonGroupingService:
         # worker remain available while queued work drains.
         with (self.settings.data / 'admission.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_SH)
+            if self.unavailable:
+                raise ValueError('Analysis service unavailable; retry after restart')
             if (self.settings.data / 'draining').exists():
                 raise ValueError('Server deployment in progress; retry later')
             return self._start(room_id, request_id, photos, job_id, attempt)
@@ -45,12 +48,11 @@ class PersonGroupingService:
         if type(attempt) is not int or attempt < 1:
             raise ValueError('Execution attempt must be a positive integer')
         self.store.prune(self.settings.receipt_retention_seconds)
-        if len(self.store.rows()) >= self.settings.max_receipts and not self.store._path(request_id).exists():
-            raise ValueError('Delivery backlog is full; retry after Spring acknowledges results')
         photos = sorted(photos,key=lambda p:p.mediaId)
         validate(room_id,request_id,photos,self.settings)
         row,reused = self.store.create(room_id,request_id,fingerprint(photos),
-                                       [p.model_dump() for p in photos],self.settings.max_queue,job_id,attempt)
+                                       [p.model_dump() for p in photos],self.settings.max_queue,job_id,attempt,
+                                       max_receipts=self.settings.max_receipts)
         return {**self.view(row),'reused':reused}
 
     def get(self, room_id, job_id):
@@ -114,8 +116,9 @@ class PersonGroupingService:
                     failure_log.write(f'Worker exit code: {self.process.returncode}\n'.encode())
                 self.store.finish(job['id'],'FAILED',error='ANALYSIS_FAILED')
                 return
-            result = json.loads((self.settings.data / 'runs' / job['id'] / 'response.json').read_text())
-            self.store.finish(job['id'],'COMPLETED',result=result)
+            # The worker has already committed result + COMPLETED in SQLite.
+            # An exit without a commit must not publish a false success.
+            self.store.finish(job['id'],'FAILED',error='WORKER_RESULT_NOT_COMMITTED')
         except asyncio.CancelledError:
             await self.stop_worker()
             self.store.finish(job['id'],'FAILED',error='SERVER_STOPPED')
