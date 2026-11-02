@@ -1,0 +1,110 @@
+"""Exercise deployment failures with a fake Docker CLI; no daemon or EC2 needed."""
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+
+SCRIPT = Path(__file__).resolve().parents[1] / 'deploy.sh'
+IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
+
+
+class DeployTests(unittest.TestCase):
+    def run_deploy(self, failure='', previous=False):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp).resolve()
+            (root / 'gallery').mkdir()
+            (root / 'gallery/.env').write_text('GALLERY_STANDALONE=true\n')
+            if previous:
+                old = root / 'old'
+                old.mkdir()
+                for name in ('settings.env', 'image.env', 'compose.yml', 'smoke.py', 'control.py'):
+                    (old / name).write_text('')
+                (root / 'current').symlink_to(old)
+            binary = root / 'bin'
+            binary.mkdir()
+            docker = binary / 'docker'
+            docker.write_text('''#!/usr/bin/env python3
+import os, sys
+from pathlib import Path
+args = sys.argv[1:]
+root = Path(os.environ['MCP_DEPLOY_ROOT'])
+with (root/'calls').open('a') as f: f.write(' '.join(args)+'\\n')
+old = str(root/'old/compose.yml') in args
+failure = os.environ['FAILURE']
+if failure == 'pull' and 'pull' in args: sys.exit(1)
+if failure == 'verify' and 'verify' in args: sys.exit(1)
+if failure == 'drain' and 'drain' in args: sys.exit(1)
+if failure == 'up' and 'up' in args and not old: sys.exit(1)
+if failure == 'resume' and 'resume' in args and not old: sys.exit(1)
+if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
+''')
+            docker.chmod(0o755)
+            # The production host has flock. The fake harness is single-process.
+            lock = binary / 'flock'
+            lock.write_text('#!/bin/sh\nexit 0\n')
+            lock.chmod(0o755)
+            env = {**os.environ, 'PATH': str(binary) + ':' + os.environ['PATH'],
+                   'MCP_DEPLOY_ROOT': str(root), 'GALLERY_IMAGE': IMAGE, 'FAILURE': failure}
+            result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True)
+            calls = (root / 'calls').read_text()
+            current = (root / 'current').resolve() if (root / 'current').exists() else None
+            return result, calls, current == root / 'old', current is not None
+
+    def test_first_deploy(self):
+        result, calls, old, exists = self.run_deploy()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(exists)
+        self.assertFalse(old)
+        self.assertIn(' verify', calls)
+
+    def test_preflight_failures_leave_old_release_running(self):
+        for failure in ('pull', 'verify'):
+            with self.subTest(failure=failure):
+                result, calls, old, _ = self.run_deploy(failure, True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(old)
+                self.assertNotIn(' up ', calls)
+                self.assertNotIn(' drain', calls)
+
+    def test_drain_timeout_resumes_without_replacing(self):
+        result, calls, old, _ = self.run_deploy('drain', True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(old)
+        self.assertNotIn(' up ', calls)
+        self.assertIn(' resume', calls)
+
+    def test_start_and_smoke_failure_restore_and_verify_previous(self):
+        for failure in ('up', 'smoke'):
+            with self.subTest(failure=failure):
+                result, calls, old, _ = self.run_deploy(failure, True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(old)
+                self.assertIn('Previous release restored and verified', result.stdout)
+                self.assertIn(' resume', calls)
+
+    def test_resume_failure_restores_previous_current_link(self):
+        result, calls, old, exists = self.run_deploy('resume', True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue(old)
+        self.assertTrue(exists)
+        self.assertIn('Previous release restored and verified', result.stdout)
+
+    def test_first_failure_stops_container(self):
+        result, calls, _, exists = self.run_deploy('smoke')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(exists)
+        self.assertIn(' stop', calls)
+        self.assertNotIn(' down', calls)
+
+    def test_successful_update_resumes_and_switches_current(self):
+        result, calls, old, exists = self.run_deploy(previous=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(exists)
+        self.assertFalse(old)
+        self.assertIn(' drain', calls)
+        self.assertIn(' resume', calls)
+
+
+if __name__ == '__main__':
+    unittest.main()
