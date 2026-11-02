@@ -10,4 +10,6 @@
 | OSNet 코드 | https://github.com/KaiyangZhou/deep-person-reid/tree/f8cd150fdf77e8d9e1ed143b7f308c2c609ded50 | `pipeline/vendor/LICENSE`, 소스 저작권 고지 유지 |
 | OSNet-x1.0 MSMT17 가중치 | https://huggingface.co/kaiyangzhou/osnet | 기존 실험에서 선택한 체크포인트 해시 고정 |
 
-OSNet 전체 구현을 옮겼지만 실행 경로에서는 `pretrained=False`로 모델을 만들고 제공된 체크포인트만 로드한다. 서비스 실행 중 모델을 자동 다운로드하지 않는다. 모델 파일을 재배포할 때는 각 배포처의 조건을 확인한다.
+OSNet 구현에서 자동 다운로드 코드를 제거하고 모델 생성 기본값을 `pretrained=False`로 변경했다.
+`pretrained=True` 요청은 명시적인 오류로 거부하며, 실행 경로에서는 검증된 로컬 체크포인트만 로드한다.
+따라서 `gdown`은 서비스 의존성에 포함하지 않는다. 모델 파일을 재배포할 때는 각 배포처의 조건을 확인한다.
