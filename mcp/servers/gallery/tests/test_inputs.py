@@ -1,6 +1,7 @@
 """Input validation tests independent of the MCP server and analysis worker."""
 from dataclasses import replace
 from pathlib import Path
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -49,6 +50,59 @@ class InputTests(unittest.TestCase):
         (self.root/'input/p.jpg').write_bytes(b'changed')
         self.assertEqual((target/self.photo.filename).read_bytes(),b'test')
         with self.assertRaises(ValueError):stage_photos([self.photo],self.root/'oversized',replace(self.settings,max_photo_bytes=1))
+
+    def test_file_or_parent_replaced_after_validation_cannot_escape(self):
+        outside = self.root / 'outside'
+        outside.mkdir()
+        (outside / 'p.jpg').write_bytes(b'secret')
+        for parent in (False, True):
+            with self.subTest(parent=parent):
+                folder = self.root / 'input' / f'case-{parent}'
+                folder.mkdir()
+                (folder / 'p.jpg').write_bytes(b'photo')
+                photo = self.photo.model_copy(update={'source': f'{folder.name}/p.jpg'})
+                def swap_after_validation(photo, settings):
+                    kind = source_kind(photo, settings)
+                    if parent:
+                        folder.rename(folder.with_name('original'))
+                        folder.symlink_to(outside, target_is_directory=True)
+                    else:
+                        (folder / 'p.jpg').unlink()
+                        (folder / 'p.jpg').symlink_to(outside / 'p.jpg')
+                    return kind
+                target = self.root / f'copy-{parent}'
+                with patch('gallery_mcp.inputs.source_kind', side_effect=swap_after_validation):
+                    with self.assertRaises(ValueError):
+                        stage_photos([photo], target, self.settings)
+                self.assertFalse((target / photo.filename).exists())
+
+    def test_open_directory_is_pinned_during_parent_replacement(self):
+        folder = self.root / 'input' / 'nested'
+        folder.mkdir()
+        (folder / 'p.jpg').write_bytes(b'photo')
+        outside = self.root / 'outside'
+        outside.mkdir()
+        (outside / 'p.jpg').write_bytes(b'secret')
+        photo = self.photo.model_copy(update={'source': 'nested/p.jpg'})
+        original_open = os.open
+        def swap_after_open(path, flags, **kwargs):
+            descriptor = original_open(path, flags, **kwargs)
+            if path == 'nested' and not folder.is_symlink():
+                folder.rename(folder.with_name('original'))
+                folder.symlink_to(outside, target_is_directory=True)
+            return descriptor
+        target = self.root / 'copy'
+        with patch('gallery_mcp.inputs.source_kind', return_value='local'), \
+                patch('gallery_mcp.inputs.os.open', side_effect=swap_after_open):
+            stage_photos([photo], target, self.settings)
+        self.assertEqual((target / photo.filename).read_bytes(), b'photo')
+
+    def test_local_symlinks_and_special_files_rejected(self):
+        (self.root / 'input/link.jpg').symlink_to('p.jpg')
+        os.mkfifo(self.root / 'input/pipe.jpg')
+        for source in ('link.jpg', 'pipe.jpg', '.', 'nested/../p.jpg'):
+            with self.subTest(source=source), self.assertRaises(ValueError):
+                source_kind(self.photo.model_copy(update={'source': source}), self.settings)
 
     def test_storage_stream_copy_redirect_and_size_limit(self):
         settings=replace(self.settings,download_hosts=('bucket.test',))

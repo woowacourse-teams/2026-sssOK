@@ -1,5 +1,8 @@
 import hashlib
 import json
+import os
+import stat
+from contextlib import contextmanager, ExitStack
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import UUID
@@ -30,10 +33,8 @@ def source_kind(photo: Photo, settings: Settings):
         return 'https'
     if settings.input_root is None:
         raise ValueError('Local photo input is disabled')
-    relative = Path(photo.source)
-    resolved = (settings.input_root / relative).resolve()
-    if relative.is_absolute() or not resolved.is_relative_to(settings.input_root.resolve()) or not resolved.is_file():
-        raise ValueError('Photo is outside the allowed input directory or does not exist')
+    with _open_local(settings.input_root, photo.source):
+        pass
     return 'local'
 
 
@@ -65,11 +66,9 @@ def stage_photos(photos, target, settings):
             path = target / photo.filename
             size = 0
             if kind == 'local':
-                source = (settings.input_root / photo.source).resolve()
                 # Copy into the job snapshot, so later source changes cannot alter analysis.
-                chunks = _local_chunks(source)
-                with path.open('xb') as output:
-                    for chunk in chunks:
+                with _open_local(settings.input_root, photo.source) as source, path.open('xb') as output:
+                    while chunk := source.read(64 * 1024):
                         size += len(chunk); total += len(chunk)
                         _require_size(size, total, settings)
                         output.write(chunk)
@@ -87,10 +86,28 @@ def stage_photos(photos, target, settings):
                 raise ValueError('Empty photo input')
 
 
-def _local_chunks(path):
-    with path.open('rb') as stream:
-        while chunk := stream.read(64 * 1024):
-            yield chunk
+@contextmanager
+def _open_local(root, source):
+    relative = Path(source)
+    if relative.is_absolute() or not relative.parts or '..' in relative.parts:
+        raise ValueError('Photo must be a relative path inside the input directory')
+    with ExitStack() as stack:
+        try:
+            # Pin each directory by descriptor; never follow a replaced symlink.
+            directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+            directory = os.open(root, directory_flags)
+            stack.callback(os.close, directory)
+            for part in relative.parts[:-1]:
+                directory = os.open(part, directory_flags, dir_fd=directory)
+                stack.callback(os.close, directory)
+            descriptor = os.open(relative.parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK,
+                                 dir_fd=directory)
+            stream = stack.enter_context(os.fdopen(descriptor, 'rb'))
+            if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                raise ValueError('Local photo must be a regular file')
+        except OSError:
+            raise ValueError('Local photo is unavailable or contains a symbolic link') from None
+        yield stream
 
 
 def _require_size(size, total, settings):
