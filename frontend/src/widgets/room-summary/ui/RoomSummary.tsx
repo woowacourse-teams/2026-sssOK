@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { HiArrowLeft, HiMagnifyingGlass } from "react-icons/hi2";
 
 import { RoomSessionBadge } from "@/entities/session";
@@ -52,6 +53,12 @@ export const RoomSummary = ({
   onEditFolder,
   onDeleteFolder,
 }: RoomSummaryProps) => {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.focus({ preventScroll: true });
+  }, [roomCode]);
+
   return (
     <Header>
       <Stack gap={8}>
@@ -66,7 +73,9 @@ export const RoomSummary = ({
 
         <Row align="center" justify="space-between" gap={4}>
           <TitleArea>
-            <RoomTitle>{roomName}</RoomTitle>
+            <RoomTitle ref={titleRef} tabIndex={-1} aria-label={`${roomName} 갤러리에 입장했어요.`}>
+              {roomName}
+            </RoomTitle>
             {onOpenSearch && (
               <IconButton
                 size="sm"

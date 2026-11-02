@@ -85,7 +85,11 @@ describe("라우트", () => {
 
     renderAt(ROUTES.gallery(ROOM_CODE));
 
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    const galleryTitle = await screen.findByRole("heading", {
+      name: "제주 여행 갤러리에 입장했어요.",
+    });
+    expect(galleryTitle).toHaveFocus();
+    expect(galleryTitle).toHaveAccessibleName("제주 여행 갤러리에 입장했어요.");
     expect(await screen.findByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
 
@@ -101,7 +105,7 @@ describe("라우트", () => {
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByAltText("VID_0032.mp4")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "첫째 날 4" }));
+    await user.click(screen.getByRole("button", { name: "첫째 날 폴더, 사진 및 동영상 4개" }));
 
     expect(screen.getByAltText("IMG_0421.jpg")).toBeInTheDocument();
     expect(screen.queryByAltText("VID_0032.mp4")).not.toBeInTheDocument();
@@ -111,7 +115,9 @@ describe("라우트", () => {
     const user = userEvent.setup();
     const router = renderAtGallery();
 
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "제주 여행 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
     await user.click(screen.getByRole("button", { name: "방 설정" }));
@@ -124,7 +130,9 @@ describe("라우트", () => {
     const user = userEvent.setup();
     const router = renderAtGallery();
 
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "제주 여행 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
     await user.click(screen.getByRole("button", { name: "방 설정" }));
 
@@ -134,7 +142,9 @@ describe("라우트", () => {
     await user.click(screen.getByRole("radio", { name: "방장만" }));
     await user.click(screen.getByRole("button", { name: "변경 사항 저장" }));
 
-    expect(await screen.findByRole("heading", { name: "제주 3박 4일" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "제주 3박 4일 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
   });
 
@@ -142,7 +152,9 @@ describe("라우트", () => {
     const user = userEvent.setup();
     const router = renderAtGallery();
 
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "제주 여행 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "방 메뉴 열기" }));
     await user.click(screen.getByRole("button", { name: "방 삭제" }));
@@ -167,13 +179,16 @@ describe("라우트", () => {
     });
     renderAt(ROUTES.gallery(ROOM_CODE));
 
-    const photo = await screen.findByRole("button", { name: "IMG_0421.jpg 선택" });
+    const photo = await screen.findByRole("button", { name: /^IMG_0421\.jpg 선택, / });
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
 
+    expect(photo).toHaveAccessibleName("IMG_0421.jpg 선택, 선택 안 됨");
     await user.click(photo);
+    expect(photo).toHaveAccessibleName("IMG_0421.jpg 선택, 선택됨");
     expect(screen.queryByRole("button", { name: "사진 올리기" })).not.toBeInTheDocument();
 
     await user.click(photo);
+    expect(photo).toHaveAccessibleName("IMG_0421.jpg 선택, 선택 안 됨");
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
   });
 
@@ -197,14 +212,18 @@ describe("라우트", () => {
       method: "POST",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "제주 여행 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
 
     // 갤러리를 보고 있는 사이에 방이 사라졌다. 화면은 아직 그 사실을 모른다.
     await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}`, {
       method: "DELETE",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
-    expect(screen.getByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "제주 여행 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
 
     const fileInput = document.querySelector<HTMLInputElement>('input[type="file"]');
 
@@ -230,13 +249,13 @@ describe("라우트", () => {
       method: "POST",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
-    await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
+    await user.click(await screen.findByRole("button", { name: /^IMG_0421\.jpg 선택, / }));
     await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
     const selection = await screen.findByRole("button", { name: "사진 선택" });
     expect(selection).toHaveAttribute("aria-pressed", "true");
     await user.click(selection);
     await user.click(screen.getByRole("button", { name: "갤러리로 돌아가기" }));
-    expect(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: /^IMG_0421\.jpg 선택, / })).toHaveAttribute(
       "aria-pressed",
       "false",
     );
@@ -256,15 +275,15 @@ describe("라우트", () => {
       method: "POST",
       headers: { Authorization: "Bearer mock-token-10234" },
     });
-    await user.click(await screen.findByRole("button", { name: "IMG_0421.jpg 선택" }));
+    await user.click(await screen.findByRole("button", { name: /^IMG_0421\.jpg 선택, / }));
     await user.click(screen.getByRole("button", { name: "IMG_0421.jpg 크게 보기" }));
     await user.click(await screen.findByRole("button", { name: "사진 삭제" }));
     await user.click(screen.getByRole("button", { name: "삭제하기" }));
     await waitFor(() =>
       expect(screen.queryByRole("heading", { name: "사진을 삭제할까요?" })).not.toBeInTheDocument(),
     );
-    expect(screen.queryByRole("button", { name: "IMG_0421.jpg 선택" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "IMG_0419.jpg 선택" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^IMG_0421\.jpg 선택, / })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^IMG_0419\.jpg 선택, / })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
     expect(screen.queryByAltText("IMG_0421.jpg")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 올리기" })).toBeInTheDocument();
@@ -278,7 +297,9 @@ describe("라우트", () => {
     await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
-    expect(await screen.findByRole("heading", { name: "제주 여행" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "제주 여행 갤러리에 입장했어요." }),
+    ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe(ROUTES.gallery("7K93QX2S"));
   });
 

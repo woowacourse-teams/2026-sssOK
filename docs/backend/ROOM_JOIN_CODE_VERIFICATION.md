@@ -95,6 +95,21 @@ PSQL='docker exec -i <postgres 컨테이너> psql -U sssok -d <DB> -qtA' docs/ba
 - 방 단위 API의 참여자 확인(`RoomMembershipInterceptor`)은 방 존재·만료를 참여 여부보다 먼저 검사한다. 그래서 참여자가 아닌 사람도 roomId를 바꿔 가며 응답(404·410·403)으로 방이 있는지, 만료됐는지 알 수 있다. 사진 같은 자원은 열리지 않는다.
 - 실시간 구독(SSE)은 첫 하트비트(15초 주기)를 보낼 때 응답 헤더가 나간다. 연결 직후에는 상태 코드를 받을 수 없다.
 
-## 남은 확인
+## dev 서버 재확인
 
-- dev 서버에서 #604의 T31·T32 요청을 다시 보내 확인하는 일은 머지 후 dev에 자동 배포되면 이 스크립트를 `BASE=https://dev-api.ssssok.com/api/v1`로 실행해 결과를 덧붙인다. dev는 사진을 실제 업로드로 넣어야 하므로 `PSQL` 없이 실행하면 C07~C09는 건너뛴다.
+#632 머지 후 dev 자동 배포(`deploy-dev.yml`)가 끝난 서버에 같은 스크립트를 보내 #604의 T31·T32가 거부되는지 다시 확인했다.
+
+| 항목 | 값 |
+| -- | -- |
+| 일시 | 2026-10-29 10:39 KST |
+| 대상 | dev 서버 (`https://dev-api.ssssok.com/api/v1`, `develop` `9774ed3d` 배포본) |
+| 실행 | `BASE=https://dev-api.ssssok.com/api/v1 docs/backend/evidence/626-room-join-code/run.sh` |
+| 결과 원본 | [evidence/626-room-join-code/results-dev.tsv](evidence/626-room-join-code/results-dev.tsv) |
+| 결과 | 51건 모두 기대한 상태 코드 |
+
+- A(입장 시도 9건): T31과 같은 본문 없는 입장(A01)을 포함해 모두 400 또는 404였고, S의 내 방 목록에 H의 방이 없었다
+- B(자원 접근 23건): T32와 같은 사진 목록 조회(B02)를 포함해 모두 403이었다. 오류 코드도 로컬과 같다 (`ROOM_MEMBERSHIP_REQUIRED` 1, `NOT_ROOM_HOST` 2, `NOT_ROOM_MEMBER` 20)
+- C·D·E: 초대받은 사람의 입장·이용, 나갔다 다시 들어오기, 삭제된 방 응답 모두 로컬과 같았다
+- dev는 사진을 DB에 직접 넣지 않아(`PSQL` 없음) 사진이 필요한 C07~C09 3건은 건너뛰었다. 그래서 로컬 54건보다 3건 적다. B의 사진 단위 요청은 없는 사진 ID(`999999`)로 보냈고, 참여자 확인이 먼저라 모두 403이었다
+
+확인에 쓴 H의 방은 스크립트 끝(E01)에서 삭제했다.

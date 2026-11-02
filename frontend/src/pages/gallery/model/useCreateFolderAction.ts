@@ -26,11 +26,10 @@ export const useCreateFolderAction = ({
   const requestCreateFolder = async () => {
     const folder = await openModal({ type: "create-folder" });
     if (!folder) return null;
-
-    await queryClient.invalidateQueries({
-      queryKey: roomQueryKey(roomCode, userId),
-      exact: true,
-    });
+    await queryClient.invalidateQueries(
+      { queryKey: roomQueryKey(roomCode, userId), exact: true },
+      { cancelRefetch: false },
+    );
     return folder;
   };
 

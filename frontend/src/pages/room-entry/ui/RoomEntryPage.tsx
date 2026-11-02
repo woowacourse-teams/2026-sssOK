@@ -88,7 +88,12 @@ export const RoomEntryPage = () => {
   }, [joinFailureReason, code]);
 
   if (isSessionPending) return <PageSpinner label="로그인 정보를 불러오는 중이에요." />;
-  if (isSessionError) return <main>로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</main>;
+  if (isSessionError)
+    return (
+      <main>
+        <span role="alert">로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</span>
+      </main>
+    );
 
   if (isPending) {
     return <PageSpinner label="방 정보를 불러오는 중이에요." />;
@@ -101,7 +106,7 @@ export const RoomEntryPage = () => {
 
     return (
       <main>
-        <p>{message}</p>
+        <p role="alert">{message}</p>
         <HomeLink />
       </main>
     );
@@ -114,7 +119,7 @@ export const RoomEntryPage = () => {
   if (auth.isError) {
     return (
       <main>
-        <p>입장하지 못했어요. 잠시 후 다시 시도해주세요.</p>
+        <p role="alert">입장하지 못했어요. 잠시 후 다시 시도해주세요.</p>
         <HomeLink />
       </main>
     );

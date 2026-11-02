@@ -1,0 +1,52 @@
+id	group	actor	method	path	expected	actual	result	summary
+P01	setup	H	POST	/rooms	201	201	PASS	{"data":{"roomId":194,"code":"CPPCWSDZ","name":"626비밀방","status":"ACTIVE","hostId":928,"hostName":"626방장","uploadPolicy":"everyone
+P02	setup	S	POST	/rooms	201	201	PASS	{"data":{"roomId":195,"code":"ZYRFFKKP","name":"626외부인방","status":"ACTIVE","hostId":929,"hostName":"626외부인","uploadPolicy":"ev
+P03	setup	H	POST	/rooms/194/folders	201	201	PASS	{"data":{"id":45,"name":"626폴더","createdAt":"2026-10-29T01:39:45.192974546Z","photoCount":0}}
+A01	join	S	POST	/rooms/194/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: null"}
+A02	join	S	POST	/rooms/194/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: null"}
+A03	join	S	POST	/rooms/194/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: "}
+A04	join	S	POST	/rooms/194/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: cppcwsdz"}
+A05	join	S	POST	/rooms/194/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 194"}
+A06	join	S	POST	/rooms/194/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 194"}
+A07	join	S	POST	/rooms/1194/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 1194"}
+A08	join	S	GET	/rooms/ZZZZZZZZ	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: ZZZZZZZZ"}
+A09	join	S	GET	/members/me/rooms	200	200	PASS	{"data":{"rooms":[{"roomId":195,"code":"ZYRFFKKP","name":"626외부인방","isHost":true,"mediaCount":0,"memberCount":1,"thumbnailUrl":null}
+B01	read	S	GET	/rooms/194/media	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B02	read	S	GET	/rooms/194/media/all	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B03	read	S	GET	/rooms/194/media/999999	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B04	read	S	GET	/rooms/194/events	403	403	PASS	{"code":"ROOM_MEMBERSHIP_REQUIRED","message":"입장한 방만 구독할 수 있습니다"}
+B05	read	S	GET	/rooms/194/notification-setting	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B06	download	S	GET	/rooms/194/downloads/media/999999	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B07	download	S	POST	/rooms/194/downloads/batch	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B08	download	S	POST	/rooms/194/downloads/zip	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B09	write	S	POST	/rooms/194/folders	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B10	write	S	PATCH	/rooms/194/folders/45	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B11	write	S	DELETE	/rooms/194/folders/45	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B12	write	S	PUT	/rooms/194/media/folders	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B13	write	S	DELETE	/rooms/194/media/folders	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B14	write	S	PUT	/rooms/194/media/999999/likes	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B15	write	S	DELETE	/rooms/194/media/999999/likes	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B16	write	S	DELETE	/rooms/194/media/999999	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B17	write	S	DELETE	/rooms/194/media	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B18	write	S	POST	/rooms/194/media/upload-urls	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B19	write	S	PUT	/rooms/194/notification-setting	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B20	write	S	POST	/rooms/194/upload-requests	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B21	write	S	POST	/rooms/194/feedbacks	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+B22	host	S	PATCH	/rooms/194	403	403	PASS	{"code":"NOT_ROOM_HOST","message":"방장만 수행할 수 있는 작업입니다"}
+B23	host	S	DELETE	/rooms/194	403	403	PASS	{"code":"NOT_ROOM_HOST","message":"방장만 수행할 수 있는 작업입니다"}
+C01	invite	I	GET	/rooms/CPPCWSDZ	200	200	PASS	{"data":{"roomId":194,"code":"CPPCWSDZ","name":"626비밀방","status":"ACTIVE","hostId":928,"hostName":"626방장","uploadPolicy":"everyone
+C02	invite	I	POST	/rooms/194/members	201	201	PASS	{"data":{"roomId":194,"userId":930,"displayName":"초대받은","hostId":928,"joinedAt":"2026-10-29T01:39:48.816612Z"}}
+C03	invite	I	POST	/rooms/194/members	200	200	PASS	{"data":{"roomId":194,"userId":930,"displayName":"초대받은","hostId":928,"joinedAt":"2026-10-29T01:39:48.816612Z"}}
+C04	invite	I	GET	/rooms/194/media/all	200	200	PASS	{"data":{"items":[]}}
+C05	invite	I	GET	/rooms/194/notification-setting	200	200	PASS	{"data":{"enabled":true}}
+C06	invite	I	POST	/rooms/194/folders	201	201	PASS	{"data":{"id":46,"name":"초대폴더","createdAt":"2026-10-29T01:39:49.349170048Z","photoCount":0}}
+C10	invite	I	GET	/rooms/194/events	200	200	PASS	:heartbeat
+D01	leave	I	DELETE	/rooms/194/members/me	204	204	PASS	
+D02	leave	I	GET	/rooms/194/media/all	403	403	PASS	{"code":"NOT_ROOM_MEMBER","message":"입장한 방에서만 이용할 수 있습니다"}
+D03	leave	I	POST	/rooms/194/members	400	400	PASS	{"code":"INVALID_ROOM_CODE","message":"올바르지 않은 방 코드 형식입니다: null"}
+D04	leave	I	POST	/rooms/194/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 194"}
+D05	leave	I	POST	/rooms/194/members	201	201	PASS	{"data":{"roomId":194,"userId":930,"displayName":"626초대받은","hostId":928,"joinedAt":"2026-10-29T01:40:06.851369Z"}}
+D06	leave	I	GET	/rooms/194/media/all	200	200	PASS	{"data":{"items":[]}}
+E01	deleted	H	DELETE	/rooms/194	200	200	PASS	{"data":{"deletedAt":"2026-10-29T01:40:07.182270420Z"}}
+E02	deleted	S	POST	/rooms/194/members	404	404	PASS	{"code":"ROOM_NOT_FOUND","message":"존재하지 않는 방입니다: 194"}
+E03	deleted	S	POST	/rooms/194/members	410	410	PASS	{"code":"ROOM_EXPIRED","message":"이미 사라진 방입니다"}

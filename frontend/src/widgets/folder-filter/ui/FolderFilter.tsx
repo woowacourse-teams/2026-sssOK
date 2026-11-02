@@ -51,6 +51,8 @@ export const FolderFilter = ({
           <FolderButton
             type="button"
             $active={selectedFolderId === null}
+            aria-label={`전체 사진 및 동영상, ${totalCount}개`}
+            aria-pressed={selectedFolderId === null}
             onClick={() => onSelectFolder(null)}
           >
             전체 <Count $active={selectedFolderId === null}>{totalCount}</Count>
@@ -64,6 +66,8 @@ export const FolderFilter = ({
                 key={folder.id}
                 type="button"
                 $active={isSelected}
+                aria-label={`${folder.name} 폴더, 사진 및 동영상 ${folder.photoCount}개`}
+                aria-pressed={isSelected}
                 onClick={() => onSelectFolder(folder.id)}
               >
                 {folder.name} <Count $active={isSelected}>{folder.photoCount}</Count>

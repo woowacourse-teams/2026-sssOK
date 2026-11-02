@@ -198,3 +198,92 @@ if (stepsEl && stepDots.length) {
     { passive: true },
   );
 }
+
+// 기술 소개 — 분류 결과 확인 화면 예시. AI 가 묶은 결과에서 사진이나 묶음을 빼고,
+// (뺀 사진은 목록에서 사라지고, 묶음마다 "되돌리기"로 다시 넣을 수 있다)
+// 버튼을 누르면 고른 묶음만 폴더로 만들어진 결과를 보여 준다. 실제로 폴더를 만들지는 않는다
+const techReview = document.getElementById("techReview");
+if (techReview) {
+  const groups = [...techReview.querySelectorAll(".t-group")];
+  const applyBtn = techReview.querySelector(".t-apply");
+  const applyCount = applyBtn.querySelector("span");
+  const result = techReview.querySelector(".t-result");
+  const resultList = result.querySelector("ul");
+
+  const read = (group) => {
+    const tiles = [...group.querySelectorAll(".t-tiles button")];
+    const out = tiles.filter((t) => t.getAttribute("aria-pressed") === "true").length;
+    return {
+      name: group.querySelector("b").textContent,
+      on: group.querySelector("input").checked,
+      tiles,
+      out,
+      kept: tiles.length - out,
+    };
+  };
+
+  const sync = () => {
+    let selected = 0;
+    groups.forEach((group) => {
+      const g = read(group);
+      group.classList.toggle("off", !g.on);
+      g.tiles.forEach((t) => (t.disabled = !g.on));
+      group.querySelector(".t-count").textContent = `${g.kept}장`;
+      // 내가 고친 흔적 — 사진을 뺀 것을 한 줄로 보여 주고 되돌리기를 붙인다. 묶음을 끈 건 체크박스로 충분히 보인다
+      const edit = group.querySelector(".t-edit");
+      if (g.on && g.out) {
+        edit.replaceChildren(`✕ ${g.out}장은 다른 사람이라 뺐어요`, group.undo);
+      } else {
+        edit.replaceChildren();
+      }
+      if (g.on) selected += 1;
+    });
+    applyCount.textContent = selected;
+    applyBtn.disabled = selected === 0;
+  };
+
+  groups.forEach((group) => {
+    const tiles = group.querySelectorAll(".t-tiles button");
+    group.querySelector("input").addEventListener("change", sync);
+    tiles.forEach((tile) => {
+      tile.addEventListener("click", () => {
+        // 누른 사진이 사라지면 포커스도 같이 사라지므로, 키보드로 눌렀다면 되돌리기로 옮긴다
+        const hadFocus = tile.matches(":focus-visible");
+        tile.setAttribute("aria-pressed", "true");
+        sync();
+        if (hadFocus) group.undo.focus();
+      });
+    });
+
+    group.undo = document.createElement("button");
+    group.undo.type = "button";
+    group.undo.className = "t-undo";
+    group.undo.textContent = "되돌리기";
+    group.undo.addEventListener("click", () => {
+      tiles.forEach((tile) => tile.setAttribute("aria-pressed", "false"));
+      sync();
+    });
+  });
+
+  applyBtn.addEventListener("click", () => {
+    resultList.replaceChildren(
+      ...groups
+        .map(read)
+        .filter((g) => g.on)
+        .map((g) => {
+          const li = document.createElement("li");
+          li.textContent = `📁 ${g.name} · ${g.kept}장`;
+          return li;
+        }),
+    );
+    techReview.classList.add("done");
+    result.hidden = false;
+  });
+
+  result.querySelector(".t-redo").addEventListener("click", () => {
+    techReview.classList.remove("done");
+    result.hidden = true;
+  });
+
+  sync();
+}

@@ -54,7 +54,7 @@ const renderAt = (code: string, state?: unknown, member?: MemberSession) => {
   );
 };
 
-const getSubmitButton = () => screen.getByRole("button", { name: "입장하기" });
+const getSubmitButton = () => screen.getByRole("button", { name: /^입장하기/ });
 
 beforeEach(() => localStorage.clear());
 

@@ -25,7 +25,13 @@ describe("FolderFilter", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "첫째 날 4" }));
+    expect(screen.getByRole("button", { name: "전체 사진 및 동영상, 13개" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const folderButton = screen.getByRole("button", { name: "첫째 날 폴더, 사진 및 동영상 4개" });
+    expect(folderButton).toHaveAttribute("aria-pressed", "false");
+    await user.click(folderButton);
 
     expect(onSelectFolder).toHaveBeenCalledWith(501);
   });
