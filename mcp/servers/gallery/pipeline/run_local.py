@@ -11,15 +11,17 @@ def main():
     parser.add_argument('--output', type=Path, required=True, help='새 결과 폴더. 기존 폴더는 덮어쓰지 않습니다.')
     parser.add_argument('--assets-root', type=Path, default=Path(__file__).resolve().parent.parent,
                         help='yunet.onnx, sface.onnx, ssdlite.pth, osnet.pth가 있는 폴더')
+    parser.add_argument('--kind', choices=['PERSON', 'SIMILAR'], default='PERSON')
     parser.add_argument('--threads', type=int, default=4)
     args = parser.parse_args()
     if args.threads < 1:
         parser.error('--threads must be positive')
     if __package__ in (None, ""):
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from pipeline.photo_analysis import run
+    if args.kind == 'SIMILAR':
+        from pipeline.similar_analysis import run
     else:
-        from .photo_analysis import run
+        from pipeline.photo_analysis import run
     try:
         result = run(args.input, args.output, args.assets_root, args.threads)
     except KeyboardInterrupt:
