@@ -59,8 +59,10 @@ export function createApi(baseUrl, { retries = 3, timeoutMs = 15_000 } = {}) {
 
   return {
     version: () => request('GET', '/version', { root: true }),
+    // 쿠키 전달은 브라우저 Origin 이 있어야 해서, 시험 도구는 refresh 토큰을 본문으로 받는다.
     createAnonymous: (nickname) =>
-      request('POST', '/auth/anonymous', { body: { nickname }, expect: [201] }),
+      request('POST', '/auth/anonymous', { body: { nickname, refreshTokenDelivery: 'BODY' }, expect: [201] }),
+    refresh: (refreshToken) => request('POST', '/auth/refresh', { body: { refreshToken }, expect: [200] }),
     createRoom: (token, name) =>
       request('POST', '/rooms', { token, body: { name, uploadPolicy: 'everyone' }, expect: [201] }),
     getRoom: (token, code) => request('GET', `/rooms/${encodeURIComponent(code)}`, { token }),
