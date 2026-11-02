@@ -67,6 +67,24 @@ class GroupingTests(unittest.TestCase):
         self.assertEqual(additions, [])
         self.assertEqual(pending[0]['reason'], 'insufficient_face_anchored_references')
 
+    def test_single_reference_competitor_can_block_but_not_receive_assignment(self):
+        # Both identities have two faces, but B has only one usable body reference.
+        for competitor_score, expected_count in ((.70, 0), (.60, 0), (.40, 1)):
+            with self.subTest(competitor_score=competitor_score):
+                faces = [face(0, 'a1'), face(1, 'a2'), face(2, 'b1'), face(3, 'b2')]
+                bodies = [body(0, 'a1'), body(1, 'a2'), body(2, 'b1'), body(3, 'candidate')]
+                scores = [.62, .62, competitor_score]
+                features = np.array([[score, (1-score**2)**.5] for score in scores] + [[1., 0.]])
+                additions, pending = match_bodies(
+                    bodies, features, faces, [{'face_ids': [0, 1]}, {'face_ids': [2, 3]}])
+                self.assertEqual(len(additions), expected_count)
+                if additions:
+                    self.assertEqual(additions[0]['group'], 0)
+                    self.assertEqual(set(additions[0]['reference_body_ids']), {0, 1})
+                else:
+                    self.assertEqual(pending[0]['reason'], 'insufficient_similarity_or_margin')
+                    self.assertAlmostEqual(pending[0]['margin'], .62-competitor_score)
+
     def test_small_candidate_is_kept_pending(self):
         faces = [face(0, 'ref1'), face(1, 'ref2')]
         bodies = [body(0, 'ref1'), body(1, 'ref2'), body(2, 'candidate')]

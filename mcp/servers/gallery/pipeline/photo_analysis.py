@@ -11,7 +11,7 @@ import numpy as np
 
 from .person_grouping import build_face_groups, match_bodies
 
-PIPELINE_VERSION = '1.0.0-local'
+PIPELINE_VERSION = '1.0.1-local'
 POLICY = {
     'face_detector': 'YuNet', 'face_features': 'SFace', 'body_detector': 'SSDLite320 MobileNetV3',
     'body_features': 'OSNet-x1.0 MSMT17, full body, no flip', 'face_detection_score': .75,
@@ -20,6 +20,7 @@ POLICY = {
     'face_expansion': {'mean': .45, 'best': .45, 'margin': .12, 'references': 'frozen initial groups'},
     'body_attachment': {'top2_mean': .60, 'margin': .06, 'min_score': .8,
                         'min_area_ratio': .03, 'min_relative_area': .35,
+                        'min_assignment_photos': 2, 'min_competitor_photos': 1,
                         'references': 'frozen face-anchored bodies from different images'},
     'new_body_references': False, 'group_ids': 'run scoped',
 }

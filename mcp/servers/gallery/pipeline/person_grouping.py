@@ -159,16 +159,20 @@ def match_bodies(bodies, features, faces, groups):
                 if reference_photo not in per_photo or value > per_photo[reference_photo][0]:
                     per_photo[reference_photo] = (value, ref)
             top = sorted(per_photo.values(), reverse=True)[:2]
-            if len(top) < 2:
+            if not top:
                 continue
             options.append({'group': gi, 'score': float(np.mean([x[0] for x in top])),
                             'reference_body_ids': [x[1] for x in top]})
         options.sort(key=lambda x: x['score'], reverse=True)
-        if not options:
+        # Two independent photos are required to assign an identity. A single
+        # reference still counts as competing evidence against that assignment.
+        eligible = [option for option in options if len(option['reference_body_ids']) >= 2]
+        if not eligible:
             pending.append({'body_id': bid, 'reason': 'insufficient_face_anchored_references'})
             continue
-        best = options[0]
-        margin = best['score'] - (options[1]['score'] if len(options) > 1 else -1)
+        best = eligible[0]
+        competitors = [option['score'] for option in options if option['group'] != best['group']]
+        margin = best['score'] - max(competitors, default=-1)
         if best['score'] < .60 or margin < .06:
             pending.append({'body_id': bid, 'reason': 'insufficient_similarity_or_margin',
                             'best_group': best['group'], 'score': best['score'], 'margin': margin})
