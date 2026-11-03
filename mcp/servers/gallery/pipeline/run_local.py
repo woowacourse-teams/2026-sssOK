@@ -16,13 +16,18 @@ def main():
     args = parser.parse_args()
     if args.threads < 1:
         parser.error('--threads must be positive')
-    if __package__ in (None, ""):
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    if args.kind == 'SIMILAR':
-        from pipeline.similar_analysis import run
-    else:
-        from pipeline.photo_analysis import run
     try:
+        if __package__:
+            if args.kind == 'SIMILAR':
+                from .similar_analysis import run
+            else:
+                from .photo_analysis import run
+        else:
+            sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+            if args.kind == 'SIMILAR':
+                from pipeline.similar_analysis import run
+            else:
+                from pipeline.photo_analysis import run
         result = run(args.input, args.output, args.assets_root, args.threads)
     except KeyboardInterrupt:
         print('실행이 중단됐습니다. 결과 폴더의 job.json을 확인하세요.', file=sys.stderr)
