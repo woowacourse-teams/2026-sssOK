@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GalleryItem } from "@/entities/media";
 import { type SearchType, type Uploader, useMediaSearchQuery } from "@/features/search-media";
 import { isApiError } from "@/shared/api";
-import { track, withSubjectParticle } from "@/shared/lib";
+import { track } from "@/shared/lib";
 
 interface UseGallerySearchParams {
   roomId: number;
@@ -113,11 +113,7 @@ export const useGallerySearch = ({
   const uploaders = useMemo(() => collectUploaders(allItems, userId), [allItems, userId]);
 
   // 결과를 보는 동안 입력창에 남겨 둘 글
-  const appliedText = !isSearching
-    ? null
-    : isKeywordSearch
-      ? query
-      : `${uploaders.find((uploader) => uploader.name === query)?.isMe ? "내가" : withSubjectParticle(query)} 올린 사진`;
+  const appliedText = isSearching ? query : null;
 
   const errorMessage =
     isApiError(searchQuery.error) && searchQuery.error.code === "IMAGE_SEARCH_UNAVAILABLE"

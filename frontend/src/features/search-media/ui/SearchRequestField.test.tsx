@@ -126,9 +126,9 @@ describe("SearchRequestField", () => {
 
   it("결과를 보는 동안 입력창에 검색어를 남기고, X 로 지운다", async () => {
     const user = userEvent.setup();
-    const { onClear } = renderField({ appliedText: "소이가 올린 사진" });
+    const { onClear } = renderField({ appliedText: "소이" });
 
-    expect(input()).toHaveValue("소이가 올린 사진");
+    expect(input()).toHaveValue("소이");
 
     await user.click(screen.getByRole("button", { name: "요청 닫기·검색어 지우기" }));
 

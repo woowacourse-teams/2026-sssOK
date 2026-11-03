@@ -192,13 +192,13 @@ describe("useGallerySearch", () => {
       ]);
     });
 
-    it("요청 패널에서 고른 사람으로 바로 찾고, 입력창에 남길 글을 만든다", () => {
+    it("요청 패널에서 고른 사람으로 바로 찾고, 입력창에는 그 이름을 남긴다", () => {
       const { result } = renderGallerySearch([item(2, "지우"), item(1, "소이")]);
 
       act(() => result.current.searchBy("nickname", "소이"));
 
       expect(result.current.items.map((slot) => slot.mediaId)).toEqual([1]);
-      expect(result.current.appliedText).toBe("소이가 올린 사진");
+      expect(result.current.appliedText).toBe("소이");
     });
 
     it("검색을 닫으면 다음에 열 때 검색어 기준으로 돌아간다", () => {
