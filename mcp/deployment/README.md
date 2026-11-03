@@ -110,6 +110,9 @@ Spring/RDS 수신 API는 후속 작업이다.
 Current releases record `storage-version=sqlite-v2`. Existing sqlite-v1 installations can upgrade
 with the same data directory after draining/stopping. Prepare all six checked model files first.
 The DB filename remains `executions-v1.sqlite3`; its user_version becomes 2. If replacement fails,
-rollback to sqlite-v1/JSON is refused when the DB exists: preserve data and restore a v2-compatible
-release manually. The prior v1 instructions above describe the previous release. Stop and back up
+the failed release is stopped before reading the DB user_version in read-only mode. A sqlite-v1
+release can be restored only while the DB is still v1; a sqlite-v2 release accepts v1/v2.
+JSON-only rollback requires no SQLite DB. Unknown/unreadable DB versions, a missing DB for a
+SQLite release, or failure to stop the new release block automatic rollback and resume.
+After migration to v2, preserve data and restore a v2-compatible release manually. The prior v1 instructions above describe the previous release. Stop and back up
 before the first v2 migration. See [similar-photo setup](../SIMILAR_PHOTOS.md).
