@@ -30,6 +30,7 @@ class OrganizeInterpretationConfigTest {
             assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class);
             assertThat(result.getBean(OrganizeRequestInterpreter.class))
                 .isInstanceOf(OpenAiOrganizeRequestInterpreter.class);
+            assertThat(result).hasSingleBean(McpOrganizeToolExecutor.class);
         });
     }
 

@@ -3,11 +3,14 @@ package com.sssok.renewal.outgoing.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.renewal.application.organization.interpret.InterpretOrganizeRequestService;
 import com.sssok.renewal.application.organization.interpret.OrganizeRequestInterpreter;
+import com.sssok.renewal.outgoing.ai.McpAuthenticationCheck;
 import com.sssok.renewal.outgoing.ai.McpOrganizeToolCatalog;
+import com.sssok.renewal.outgoing.ai.McpOrganizeToolExecutor;
 import com.sssok.renewal.outgoing.ai.OpenAiOrganizeRequestInterpreter;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
+import java.net.URI;
 import java.net.http.HttpClient;
 import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -24,6 +27,9 @@ import org.springframework.web.client.RestClient;
 @ConditionalOnProperty(name = "gallery.organization.interpretation.enabled", havingValue = "true")
 @EnableConfigurationProperties({OrganizeInterpretationProperties.class, OrganizeMcpProperties.class})
 public class OrganizeInterpretationConfig {
+    private static final int MAX_COMPLETION_TOKENS = 512;
+    private static final String DEFAULT_MCP_ENDPOINT = "/mcp";
+
     @Bean
     public InterpretOrganizeRequestService interpretOrganizeRequestService(McpOrganizeToolCatalog catalog,
                                                                          OrganizeRequestInterpreter interpreter) {
@@ -37,38 +43,54 @@ public class OrganizeInterpretationConfig {
     }
 
     @Bean
+    public McpOrganizeToolExecutor organizeToolExecutor(McpOrganizeToolCatalog catalog,
+                                                        OrganizeMcpProperties properties) {
+        var authenticationCheck = new McpAuthenticationCheck(properties.url(), properties.token(), properties.timeout());
+        return new McpOrganizeToolExecutor(catalog, () -> createMcpClient(properties), authenticationCheck);
+    }
+
+    @Bean
     public OrganizeRequestInterpreter organizeRequestInterpreter(OrganizeInterpretationProperties properties,
                                                                ObjectMapper mapper) {
-        OpenAiChatModel model = createChatModel(properties);
-        return new OpenAiOrganizeRequestInterpreter(model, mapper);
+        return new OpenAiOrganizeRequestInterpreter(createChatModel(properties), mapper);
     }
 
     private OpenAiChatModel createChatModel(OrganizeInterpretationProperties properties) {
-        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.timeout()).build();
-        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
-        requestFactory.setReadTimeout(properties.timeout());
-        OpenAiApi api = OpenAiApi.builder()
-            .apiKey(properties.apiKey())
-            .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
-            .build();
         return OpenAiChatModel.builder()
-            .openAiApi(api)
-            .defaultOptions(OpenAiChatOptions.builder().model(properties.model()).maxCompletionTokens(512).build())
+            .openAiApi(createOpenAiApi(properties))
+            .defaultOptions(OpenAiChatOptions.builder()
+                .model(properties.model())
+                .maxCompletionTokens(MAX_COMPLETION_TOKENS)
+                .build())
             .retryTemplate(RetryTemplate.builder().maxAttempts(1).build())
             .build();
     }
 
+    private OpenAiApi createOpenAiApi(OrganizeInterpretationProperties properties) {
+        HttpClient httpClient = HttpClient.newBuilder().connectTimeout(properties.timeout()).build();
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(properties.timeout());
+        return OpenAiApi.builder()
+            .apiKey(properties.apiKey())
+            .restClientBuilder(RestClient.builder().requestFactory(requestFactory))
+            .build();
+    }
+
     private McpSyncClient createMcpClient(OrganizeMcpProperties properties) {
-        String origin = properties.url().getScheme() + "://" + properties.url().getRawAuthority();
-        String path = properties.url().getRawPath();
-        String endpoint = path == null || path.isEmpty() ? "/mcp" : path;
-        HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport.builder(origin)
-            .endpoint(endpoint)
+        URI url = properties.url();
+        HttpClientStreamableHttpTransport transport = HttpClientStreamableHttpTransport
+            .builder(url.getScheme() + "://" + url.getRawAuthority())
+            .endpoint(endpointOf(url))
             .connectTimeout(properties.timeout())
             .openConnectionOnStartup(false)
             .resumableStreams(false)
             .customizeRequest(request -> request.header("Authorization", "Bearer " + properties.token()))
             .build();
         return McpClient.sync(transport).requestTimeout(properties.timeout()).build();
+    }
+
+    private String endpointOf(URI url) {
+        String path = url.getRawPath();
+        return path == null || path.isEmpty() ? DEFAULT_MCP_ENDPOINT : path;
     }
 }
