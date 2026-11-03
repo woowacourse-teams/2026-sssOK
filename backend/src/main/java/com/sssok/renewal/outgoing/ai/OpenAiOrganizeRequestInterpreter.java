@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sssok.renewal.application.organization.interpret.InterpretationException.Reason;
 import com.sssok.renewal.application.organization.interpret.InterpretationException;
+import com.sssok.renewal.application.organization.interpret.InterpretationException.Reason;
 import com.sssok.renewal.application.organization.interpret.OrganizeInterpretation;
 import com.sssok.renewal.application.organization.interpret.OrganizeRequestInterpreter;
 import com.sssok.renewal.application.organization.interpret.OrganizeTool;
@@ -18,13 +18,20 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi.FunctionTool.Function;
 import org.springframework.ai.openai.api.OpenAiApi.FunctionTool;
+import org.springframework.ai.openai.api.OpenAiApi.FunctionTool.Function;
 
 public class OpenAiOrganizeRequestInterpreter implements OrganizeRequestInterpreter {
     public static final String PROMPT_VERSION = "organize-tool-selection-v2";
+
+    private static final String TOOL_ALIAS_PREFIX = "analysis_";
+    private static final String CLARIFY = "clarify";
+    private static final String UNSUPPORTED = "unsupported";
+    private static final Map<String, Object> EMPTY_ARGUMENTS_SCHEMA = Map.of(
+        "type", "object", "properties", Map.of(), "required", List.of(), "additionalProperties", false);
     private static final String SYSTEM_PROMPT = """
         사용자 문장을 사진 정리 기능 하나로 분류한다. 도구는 실행하지 않고 선택만 한다.
         선택 가능한 기능은 전달된 도구 설명을 기준으로 판단한다.
@@ -47,24 +54,83 @@ public class OpenAiOrganizeRequestInterpreter implements OrganizeRequestInterpre
     @Override
     public OrganizeInterpretation interpret(String text, List<OrganizeTool> tools) {
         OrganizeRequestInterpreter.validateText(text);
-        Map<String, OrganizeTool> toolsByAlias = indexTools(tools);
-        Prompt prompt = createPrompt(text, toolsByAlias);
-        ChatResponse response = callModel(prompt);
-        String selectedName = readSelectedToolName(response);
-        return resolveSelection(selectedName, toolsByAlias);
+        Map<String, OrganizeTool> toolsByAlias = aliasTools(tools);
+        ChatResponse response = callModel(createPrompt(text, toolsByAlias));
+        return resolveSelection(readSelectedToolName(response), toolsByAlias);
     }
 
-    private Map<String, OrganizeTool> indexTools(List<OrganizeTool> tools) {
+    private Map<String, OrganizeTool> aliasTools(List<OrganizeTool> tools) {
         List<OrganizeTool> snapshot = List.copyOf(tools);
         if (snapshot.isEmpty()) {
             throw new InterpretationException(Reason.CATALOG_UNAVAILABLE);
         }
-        // 별칭은 이 요청에서만 사용한다. 서로 다른 서버의 같은 도구명도 구분할 수 있다.
         Map<String, OrganizeTool> toolsByAlias = new LinkedHashMap<>();
         for (int index = 0; index < snapshot.size(); index++) {
-            toolsByAlias.put("analysis_" + index, snapshot.get(index));
+            toolsByAlias.put(TOOL_ALIAS_PREFIX + index, snapshot.get(index));
         }
         return toolsByAlias;
+    }
+
+    private Prompt createPrompt(String text, Map<String, OrganizeTool> toolsByAlias) {
+        List<FunctionTool> definitions = new ArrayList<>();
+        toolsByAlias.forEach((alias, tool) -> definitions.add(toolDefinition(alias, tool.description())));
+        definitions.add(toolDefinition(CLARIFY, "원하는 기능이 불명확하거나 여러 도구의 작업을 함께 요청했다."));
+        definitions.add(toolDefinition(UNSUPPORTED, "공개된 도구와 대상 범위로 수행할 수 없는 요청이다."));
+        return new Prompt(List.of(new SystemMessage(SYSTEM_PROMPT), new UserMessage(text)), chatOptions(definitions));
+    }
+
+    private FunctionTool toolDefinition(String name, String description) {
+        return new FunctionTool(new Function(description, name, EMPTY_ARGUMENTS_SCHEMA, true));
+    }
+
+    private OpenAiChatOptions chatOptions(List<FunctionTool> definitions) {
+        return OpenAiChatOptions.builder()
+            .tools(definitions)
+            .toolChoice("required")
+            .parallelToolCalls(false)
+            .internalToolExecutionEnabled(false)
+            .store(false)
+            .build();
+    }
+
+    private ChatResponse callModel(Prompt prompt) {
+        try {
+            return model.call(prompt);
+        } catch (RuntimeException failure) {
+            throw new InterpretationException(Reason.CALL_FAILED);
+        }
+    }
+
+    private String readSelectedToolName(ChatResponse response) {
+        ToolCall selection = singleToolCall(response);
+        if (!"function".equals(selection.type()) || selection.name() == null || selection.arguments() == null) {
+            throw invalidResponse();
+        }
+        requireEmptyArguments(selection.arguments());
+        return selection.name();
+    }
+
+    private ToolCall singleToolCall(ChatResponse response) {
+        if (response == null || response.getResults().size() != 1) {
+            throw invalidResponse();
+        }
+        Generation generation = response.getResult();
+        boolean endedWithToolCall = "tool_calls".equalsIgnoreCase(generation.getMetadata().getFinishReason());
+        if (!endedWithToolCall || generation.getOutput() == null || generation.getOutput().getToolCalls().size() != 1) {
+            throw invalidResponse();
+        }
+        return generation.getOutput().getToolCalls().getFirst();
+    }
+
+    private void requireEmptyArguments(String arguments) {
+        try {
+            JsonNode value = mapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(arguments);
+            if (value == null || !value.isObject() || !value.isEmpty()) {
+                throw invalidResponse();
+            }
+        } catch (JsonProcessingException failure) {
+            throw invalidResponse();
+        }
     }
 
     private OrganizeInterpretation resolveSelection(String selectedName, Map<String, OrganizeTool> toolsByAlias) {
@@ -73,68 +139,13 @@ public class OpenAiOrganizeRequestInterpreter implements OrganizeRequestInterpre
             return new OrganizeInterpretation.ToolSelected(selectedTool);
         }
         return switch (selectedName) {
-            case "clarify" -> new OrganizeInterpretation.NeedsClarification();
-            case "unsupported" -> new OrganizeInterpretation.Unsupported();
-            default -> throw new InterpretationException(Reason.INVALID_RESPONSE);
+            case CLARIFY -> new OrganizeInterpretation.NeedsClarification();
+            case UNSUPPORTED -> new OrganizeInterpretation.Unsupported();
+            default -> throw invalidResponse();
         };
     }
 
-    private Prompt createPrompt(String text, Map<String, OrganizeTool> toolsByAlias) {
-        List<FunctionTool> definitions = new ArrayList<>();
-        toolsByAlias.forEach((alias, candidate) -> definitions.add(createToolDefinition(alias, candidate.description())));
-        definitions.add(createToolDefinition("clarify", "원하는 기능이 불명확하거나 여러 도구의 작업을 함께 요청했다."));
-        definitions.add(createToolDefinition("unsupported", "공개된 도구와 대상 범위로 수행할 수 없는 요청이다."));
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
-            .tools(definitions)
-            .toolChoice("required")
-            .parallelToolCalls(false)
-            .internalToolExecutionEnabled(false)
-            .store(false)
-            .build();
-        return new Prompt(List.of(new SystemMessage(SYSTEM_PROMPT), new UserMessage(text)), options);
-    }
-
-    private ChatResponse callModel(Prompt prompt) {
-        try {
-            return model.call(prompt);
-        } catch (RuntimeException failure) {
-            // 제공자 오류 본문에는 사용자 문장이 포함될 수 있어 상위로 전달하지 않는다.
-            throw new InterpretationException(Reason.CALL_FAILED);
-        }
-    }
-
-    private FunctionTool createToolDefinition(String name, String description) {
-        Map<String, Object> parameters = Map.of(
-            "type", "object", "properties", Map.of(), "required", List.of(), "additionalProperties", false);
-        return new FunctionTool(new Function(description, name, parameters, true));
-    }
-
-    private String readSelectedToolName(ChatResponse response) {
-        if (response == null || response.getResults().size() != 1) {
-            throw new InterpretationException(Reason.INVALID_RESPONSE);
-        }
-        var result = response.getResult();
-        if (!"tool_calls".equalsIgnoreCase(result.getMetadata().getFinishReason())
-            || result.getOutput() == null || result.getOutput().getToolCalls().size() != 1) {
-            throw new InterpretationException(Reason.INVALID_RESPONSE);
-        }
-        ToolCall selection = result.getOutput().getToolCalls().getFirst();
-        if (!"function".equals(selection.type()) || selection.name() == null || selection.arguments() == null) {
-            throw new InterpretationException(Reason.INVALID_RESPONSE);
-        }
-        requireEmptyArguments(selection.arguments());
-        return selection.name();
-    }
-
-    private void requireEmptyArguments(String arguments) {
-        try {
-            JsonNode value = mapper.reader().with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                .readTree(arguments);
-            if (value == null || !value.isObject() || !value.isEmpty()) {
-                throw new InterpretationException(Reason.INVALID_RESPONSE);
-            }
-        } catch (JsonProcessingException failure) {
-            throw new InterpretationException(Reason.INVALID_RESPONSE);
-        }
+    private static InterpretationException invalidResponse() {
+        return new InterpretationException(Reason.INVALID_RESPONSE);
     }
 }
