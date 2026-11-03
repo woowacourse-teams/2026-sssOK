@@ -36,6 +36,7 @@ public enum ErrorCode {
     INVALID_FEEDBACK_ASSIGNEE(400, "올바르지 않은 담당자입니다: %s"),
     INVALID_PUSH_SUBSCRIPTION(400, "%s"),
     INVALID_DEVICE_TOKEN(400, "%s"),
+    INVALID_MEDIA_REPORT_REASON(400, "%s"),
 
     SOCIAL_AUTH_UNAVAILABLE(503, "소셜 인증 제공자에 연결할 수 없습니다. 잠시 후 다시 시도해주세요"),
 
@@ -76,6 +77,7 @@ public enum ErrorCode {
     DUPLICATE_FOLDER_NAME(409, "이미 같은 이름의 폴더가 있습니다"),
     UPLOAD_ALREADY_COMPLETED(409, "이미 업로드가 완료된 파일입니다"),
     DUPLICATE_ADMIN_LOGIN_ID(409, "이미 사용 중인 아이디입니다"),
+    MEDIA_ALREADY_REPORTED(409, "이미 신고한 사진입니다"),
     LAST_SUPER_ADMIN(409, "마지막 슈퍼관리자는 삭제하거나 역할을 바꿀 수 없습니다"),
 
     // 410 Gone
