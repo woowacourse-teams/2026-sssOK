@@ -81,7 +81,7 @@ def create_app(settings=None, service=None):
                             status_code=503 if service.unavailable else 200)
 
     async def ready(request):
-        files = ['yunet.onnx','sface.onnx','ssdlite.pth','osnet.pth']
+        files = ['yunet.onnx','sface.onnx','ssdlite.pth','osnet.pth','dinov2.pt','resnet50.pt']
         available = not service.unavailable and all((settings.assets/name).is_file() for name in files)
         return JSONResponse({'ready':available},status_code=200 if available else 503)
 

@@ -14,5 +14,13 @@
   "osnet.pth": {
     "experimentPath": "models/osnet_x1_0_msmt17_combineall_256x128_amsgrad_ep150_stp60_lr0.0015_b64_fb10_softmax_labelsmooth_flip_jitter.pth",
     "sha256": "48df972f72887b95cf3b43b3a07c3a7d2398381aea0f9cae64a7ef11d512b727"
+  },
+  "dinov2.pt": {
+    "experimentPath": "exported/dinov2.pt",
+    "sha256": "a9a55a752f15d36df294b794bf69fdf6fc57e24d8c1b8c34b88e9b9fbb345ff6"
+  },
+  "resnet50.pt": {
+    "experimentPath": "exported/resnet50.pt",
+    "sha256": "fd79da982dd7dc08552d13e45537e346858e4092b60b956d079ba5b2d84061f9"
   }
 }

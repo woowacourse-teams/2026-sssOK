@@ -15,6 +15,7 @@ from mcp.client.streamable_http import streamablehttp_client
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--endpoint',default='http://127.0.0.1:8818/mcp')
+    parser.add_argument('--kind', choices=['PERSON', 'SIMILAR'], default='PERSON')
     parser.add_argument('--room-id',type=int,default=1)
     parser.add_argument('--photos',type=Path,help='JSON array of mediaId, source, extension objects')
     parser.add_argument('--request-id',default=str(uuid4()))
@@ -46,7 +47,7 @@ async def main():
             if args.execution_id:
                 job = {'executionId':args.execution_id}
             else:
-                job = await call('group_photos_by_person',{'room_id':args.room_id,'job_id':args.job_id,'attempt':args.attempt,'request_id':args.request_id,
+                job = await call('group_similar_photos' if args.kind == 'SIMILAR' else 'group_photos_by_person',{'room_id':args.room_id,'job_id':args.job_id,'attempt':args.attempt,'request_id':args.request_id,
                                                           'photos':json.loads(args.photos.read_text())})
             print('Execution:',job['executionId'])
             deadline = time.monotonic()+args.wait_seconds;prior=None

@@ -49,3 +49,15 @@ class ServerTests(unittest.TestCase):
             body=response.json()['result']
             self.assertEqual(body['structuredContent']['state'],'COMPLETED')
             self.assertEqual(body['structuredContent']['result'],{'groups':[]})
+
+    def test_similar_tool_is_registered_and_records_type(self):
+        with TestClient(create_app(self.settings,self.service)) as client:
+            headers={'Authorization':'Bearer '+self.settings.token,'Accept':'application/json, text/event-stream'}
+            listed=client.post('/mcp',headers=headers,json={'jsonrpc':'2.0','id':1,'method':'tools/list'}).json()
+            self.assertIn('group_similar_photos',{t['name'] for t in listed['result']['tools']})
+            result=client.post('/mcp',headers=headers,json={'jsonrpc':'2.0','id':2,'method':'tools/call',
+                'params':{'name':'group_similar_photos','arguments':{'room_id':1,'job_id':str(uuid4()),
+                    'request_id':self.request_id,'attempt':1,'photos':[self.photo.model_dump()]}}}).json()['result']
+            self.assertFalse(result.get('isError'))
+            self.assertEqual(result['structuredContent']['jobType'],'SIMILAR')
+            self.assertEqual(self.service.store.get(1,self.request_id)['kind'],'SIMILAR')

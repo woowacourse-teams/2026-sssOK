@@ -31,7 +31,7 @@ class PersonGroupingService:
             self.store.recover()
             yield
 
-    def start(self, room_id, request_id, photos: list[Photo], job_id=None, attempt=1):
+    def start(self, room_id, request_id, photos: list[Photo], job_id=None, attempt=1, kind='PERSON'):
         # Coordinate admission with deployment across processes. Queries and the
         # worker remain available while queued work drains.
         with (self.settings.data / 'admission.lock').open('a') as lock:
@@ -40,9 +40,9 @@ class PersonGroupingService:
                 raise ValueError('Analysis service unavailable; retry after restart')
             if (self.settings.data / 'draining').exists():
                 raise ValueError('Server deployment in progress; retry later')
-            return self._start(room_id, request_id, photos, job_id, attempt)
+            return self._start(room_id, request_id, photos, job_id, attempt, kind)
 
-    def _start(self, room_id, request_id, photos, job_id, attempt):
+    def _start(self, room_id, request_id, photos, job_id, attempt, kind):
         if job_id is not None and str(UUID(job_id)) != job_id:
             raise ValueError('Spring job ID must be a canonical UUID')
         if type(attempt) is not int or attempt < 1:
@@ -52,7 +52,7 @@ class PersonGroupingService:
         validate(room_id,request_id,photos,self.settings)
         row,reused = self.store.create(room_id,request_id,fingerprint(photos),
                                        [p.model_dump() for p in photos],self.settings.max_queue,job_id,attempt,
-                                       max_receipts=self.settings.max_receipts)
+                                       max_receipts=self.settings.max_receipts, kind=kind)
         return {**self.view(row),'reused':reused}
 
     def get(self, room_id, job_id):
@@ -68,7 +68,7 @@ class PersonGroupingService:
                             'elapsedSeconds':internal.get('elapsed_seconds',0)}
             except (OSError,KeyError,json.JSONDecodeError):
                 pass
-        return {'jobId':row['business_job_id'],'executionId':row['id'],'attempt':row['attempt'],'roomId':row['room_id'],'state':row['state'],
+        return {'jobType':row['kind'], 'jobId':row['business_job_id'],'executionId':row['id'],'attempt':row['attempt'],'roomId':row['room_id'],'state':row['state'],
                 'progress':progress,'result':json.loads(row['result']) if row['result'] else None,
                 'errorCode':row['error_code'],'createdAt':row['created_at'],'updatedAt':row['updated_at']}
 

@@ -2,9 +2,10 @@
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import fcntl
 from pathlib import Path
 import sqlite3
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -34,6 +35,21 @@ class _CompletedResponse(_ResultModel):
     errors: list[_PhotoError]
 
 
+class _SimilarGroup(_ResultModel):
+    groupId: str = Field(min_length=1)
+    mediaIds: list[Annotated[int, Field(gt=0)]] = Field(min_length=3)
+
+
+class _SimilarResponse(_ResultModel):
+    resultVersion: Literal[1]
+    groups: list[_SimilarGroup]
+    smallGroupMediaIds: list[list[Annotated[int, Field(gt=0)]]]
+    unassignedMediaIds: list[Annotated[int, Field(gt=0)]]
+    counts: dict[str, Annotated[int, Field(ge=0)]]
+    pipelineVersion: str = Field(min_length=1)
+    errors: list[_PhotoError]
+
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -44,10 +60,21 @@ def canonical_id(value):
     return value
 
 
-def validated_result(value, photos):
-    result = _CompletedResponse.model_validate(value)
+def validated_result(value, photos, kind='PERSON'):
+    result = (_SimilarResponse if kind == 'SIMILAR' else _CompletedResponse).model_validate(value)
     allowed = {p['mediaId'] for p in json.loads(photos)}
     referenced = set(result.unassignedMediaIds)
+    if kind == 'SIMILAR':
+        if len({g.groupId for g in result.groups}) != len(result.groups):
+            raise ValueError('Duplicate group IDs')
+        if any(len(g) != 2 for g in result.smallGroupMediaIds):
+            raise ValueError('Small groups must contain two photos')
+        buckets = [g.mediaIds for g in result.groups] + result.smallGroupMediaIds + [result.unassignedMediaIds]
+        ids = [i for bucket in buckets for i in bucket]
+        failed = [e.mediaId for e in result.errors]
+        if None in failed or len(ids + failed) != len(set(ids + failed)) or set(ids + failed) != allowed:
+            raise ValueError('Similar result must partition the complete input snapshot')
+        referenced.update(i for g in result.smallGroupMediaIds for i in g)
     for group in result.groups:
         referenced.update(group.mediaIds)
     referenced.update(e.mediaId for e in result.errors if e.mediaId is not None)
@@ -67,7 +94,7 @@ class Store:
         self.database = self.directory / self.DATABASE
         with self._connection(write=True) as db:
             version = db.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1):
+            if version not in (0, 1, 2):
                 raise RuntimeError('Unsupported execution database version')
             db.execute('''CREATE TABLE IF NOT EXISTS executions (
                 id TEXT PRIMARY KEY, room_id INTEGER NOT NULL CHECK(room_id > 0),
@@ -85,7 +112,15 @@ class Store:
                 ON executions(business_job_id) WHERE state IN ('QUEUED', 'RUNNING')''')
             db.execute('CREATE INDEX IF NOT EXISTS execution_state ON executions(state, created_at, id)')
             db.execute('CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
-            db.execute('PRAGMA user_version=1')
+            if 'kind' not in {r[1] for r in db.execute('PRAGMA table_info(executions)')}:
+                # Migration must not modify the database of a running v1 server.
+                with (self.directory / 'server.lock').open('a') as lock:
+                    try:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    except BlockingIOError as exc:
+                        raise RuntimeError('Stop the previous server before schema migration') from exc
+                    db.execute("ALTER TABLE executions ADD COLUMN kind TEXT NOT NULL DEFAULT 'PERSON' CHECK(kind IN ('PERSON','SIMILAR'))")
+            db.execute('PRAGMA user_version=2')
 
     @contextmanager
     def _connection(self, write=False):
@@ -112,7 +147,9 @@ class Store:
             return [dict(r) for r in db.execute('SELECT * FROM executions ORDER BY id')]
 
     def create(self, room_id, request_id, fingerprint, photos, max_queue,
-               business_job_id=None, attempt=1, max_receipts=1000):
+               business_job_id=None, attempt=1, max_receipts=1000, kind='PERSON'):
+        if kind not in ('PERSON', 'SIMILAR'):
+            raise ValueError('Unknown analysis kind')
         canonical_id(request_id)
         business_job_id = business_job_id or request_id
         canonical_id(business_job_id)
@@ -122,8 +159,8 @@ class Store:
                 raise RuntimeError('Recover legacy JSON receipts before accepting work')
             old = db.execute('SELECT * FROM executions WHERE id=?', (request_id,)).fetchone()
             if old:
-                if (old['room_id'], old['fingerprint'], old['business_job_id'], old['attempt']) != (
-                        room_id, fingerprint, business_job_id, attempt):
+                if (old['room_id'], old['fingerprint'], old['business_job_id'], old['attempt'], old['kind']) != (
+                        room_id, fingerprint, business_job_id, attempt, kind):
                     raise ValueError('Execution ID is already bound to another job or snapshot')
                 return dict(old), True
             if db.execute('SELECT COUNT(*) FROM executions').fetchone()[0] >= max_receipts:
@@ -135,7 +172,7 @@ class Store:
                           (business_job_id,)).fetchone():
                 raise ValueError('This job already has an active execution')
             timestamp = now()
-            row = dict(id=request_id, room_id=room_id, request_id=request_id,
+            row = dict(kind=kind, id=request_id, room_id=room_id, request_id=request_id,
                        business_job_id=business_job_id, attempt=attempt, fingerprint=fingerprint,
                        photos=json.dumps(photos, allow_nan=False), state='QUEUED', result=None,
                        error_code=None, created_at=timestamp, updated_at=timestamp, acknowledged_at=None)
@@ -145,8 +182,8 @@ class Store:
     def _insert(self, db, row, legacy=0):
         columns = ','.join(self.COLUMNS)
         placeholders = ','.join('?' for _ in self.COLUMNS)
-        db.execute(f'INSERT INTO executions ({columns},legacy) VALUES ({placeholders},?)',
-                   (*[row[k] for k in self.COLUMNS], legacy))
+        db.execute(f'INSERT INTO executions ({columns},legacy,kind) VALUES ({placeholders},?,?)',
+                   (*[row[k] for k in self.COLUMNS], legacy, row.get('kind', 'PERSON')))
 
     def get(self, room_id, job_id):
         canonical_id(job_id)
@@ -186,7 +223,7 @@ class Store:
         row = self.get(room_id, job_id)
         if row['state'] != 'RUNNING':
             return False
-        result = validated_result(result, row['photos'])
+        result = validated_result(result, row['photos'], row['kind'])
         return self.finish(job_id, 'COMPLETED', result=result)
 
     def _import_json(self, db):
