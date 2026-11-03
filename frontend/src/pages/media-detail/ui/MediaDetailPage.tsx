@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { HiArrowDownTray, HiArrowLeft, HiCheck, HiOutlineTrash } from "react-icons/hi2";
+import { LuSiren } from "react-icons/lu";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { mediaQueryKey, photosQueryKey, useMediaQuery, type MediaList } from "@/entities/media";
 import { roomQueryKey, useRoomQuery, type Room } from "@/entities/room";
 import { useRoomSession } from "@/entities/member-session";
 import { type AnonymousSession } from "@/entities/session";
+import { ReportMediaModal } from "@/features/report-media";
 import { deleteMedia } from "@/features/delete-media";
 import { usePhotoSelection } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
@@ -80,6 +83,8 @@ const MediaDetailContent = ({
   session: AnonymousSession;
   mediaId: number;
 }) => {
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedPhotoIds, togglePhoto, removePhotos } = usePhotoSelection([mediaId]);
@@ -163,6 +168,14 @@ const MediaDetailContent = ({
         </Metadata>
         <ActionButton
           type="button"
+          aria-label="사진 신고"
+          title="사진 신고"
+          onClick={() => setReportOpen(true)}
+        >
+          <LuSiren size={21} />
+        </ActionButton>
+        <ActionButton
+          type="button"
           $danger
           aria-label="사진 삭제"
           title={media.canDelete === true ? "사진 삭제" : "삭제 권한이 없어요"}
@@ -178,6 +191,18 @@ const MediaDetailContent = ({
           <HiArrowDownTray size={21} />
         </ActionButton>
       </Footer>
+      {reportOpen && (
+        <ReportMediaModal
+          roomId={room.roomId}
+          mediaId={mediaId}
+          onClose={() => setReportOpen(false)}
+          onSubmit={() => {
+            setReportOpen(false);
+            setReportDone(true);
+          }}
+        />
+      )}
+      {reportDone && <Toast message="신고가 완료됐어요." onClose={() => setReportDone(false)} />}
       {deleteMutation.isError && (
         <Toast
           tone="error"

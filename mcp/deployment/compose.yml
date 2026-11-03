@@ -1,0 +1,44 @@
+# EC2 verification deployment. Keep loopback-only until private TLS ingress is verified.
+services:
+  gallery-mcp:
+    image: ${GALLERY_IMAGE:?Set the verified ARM64 image using its sha256 digest}
+    platform: linux/arm64
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8818:8818"
+    environment:
+      GALLERY_TOKEN_FILE: /run/secrets/gallery_token
+      GALLERY_ALLOWED_HOSTS: "127.0.0.1:*,localhost:*"
+      GALLERY_DOWNLOAD_HOSTS: ${GALLERY_DOWNLOAD_HOSTS:?Set exact R2 host names}
+      GALLERY_STANDALONE: ${GALLERY_STANDALONE:-false}
+      GALLERY_BACKEND_URL: ${GALLERY_BACKEND_URL:-}
+      GALLERY_BACKEND_TOKEN_FILE: /run/secrets/backend_token
+      GALLERY_THREADS: "2"
+      GALLERY_MAX_PHOTOS: "100"
+      GALLERY_JOB_TIMEOUT: "600"
+    secrets:
+      - gallery_token
+      - backend_token
+    volumes:
+      - ${GALLERY_DATA_DIR:?Set persistent receipt directory}:/data
+      - ${GALLERY_MODELS_DIR:?Set verified model directory}:/models:ro
+    cpus: 2.0
+    mem_limit: 1400m
+    memswap_limit: 1400m
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    logging:
+      driver: local
+      options:
+        max-size: "10m"
+        max-file: "3"
+secrets:
+  gallery_token:
+    file: ${GALLERY_TOKEN_PATH:?Set absolute token file path}
+  backend_token:
+    file: ${GALLERY_BACKEND_TOKEN_PATH:?Set absolute callback token file path}

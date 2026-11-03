@@ -1,0 +1,10 @@
+{
+  "dinov2.pt": {
+    "experimentPath": "exported/dinov2.pt",
+    "sha256": "a9a55a752f15d36df294b794bf69fdf6fc57e24d8c1b8c34b88e9b9fbb345ff6"
+  },
+  "resnet50.pt": {
+    "experimentPath": "exported/resnet50.pt",
+    "sha256": "fd79da982dd7dc08552d13e45537e346858e4092b60b956d079ba5b2d84061f9"
+  }
+}

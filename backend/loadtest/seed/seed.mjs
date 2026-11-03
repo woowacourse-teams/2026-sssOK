@@ -192,7 +192,7 @@ async function prepareEntrants(room, index, label) {
   const numbers = Array.from({ length: missing }, (_, i) => room.entrants.length + i + 1);
   await mapWithConcurrency(numbers, ACCOUNT_CONCURRENCY, async (entrantNo) => {
     const { data } = await api.createAnonymous(`${nameTag()}r${index + 1}e${entrantNo}`);
-    room.entrants[entrantNo - 1] = { userId: data.userId, nickname: data.nickname, accessToken: data.accessToken, expiresAt: data.expiresAt, joined: false };
+    room.entrants[entrantNo - 1] = { ...accountOf(data), joined: false };
     save();
   });
   log(`${label}: 신규 입장용 미입장 계정 ${unusedEntrants(room).length}개 준비`);
@@ -231,7 +231,14 @@ async function guardAiCost(room) {
 async function createAccount(roomIndex, userNo) {
   const nickname = `${nameTag()}r${roomIndex + 1}u${userNo}`;
   const { data } = await api.createAnonymous(nickname);
-  return { userId: data.userId, nickname: data.nickname, accessToken: data.accessToken, expiresAt: data.expiresAt, joined: false };
+  return { ...accountOf(data), joined: false };
+}
+
+function accountOf(data) {
+  return {
+    userId: data.userId, nickname: data.nickname, accessToken: data.accessToken, expiresAt: data.expiresAt,
+    refreshToken: data.refreshToken, refreshExpiresAt: data.refreshExpiresAt,
+  };
 }
 
 async function uploadPhotos(room, label) {

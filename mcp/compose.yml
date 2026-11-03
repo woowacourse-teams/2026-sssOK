@@ -1,0 +1,33 @@
+services:
+  gallery-mcp:
+    build: ./servers/gallery
+    profiles: [gallery]
+    platform: linux/arm64
+    init: true
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8818:8818"
+    environment:
+      GALLERY_TOKEN: ${GALLERY_TOKEN:?Set a random service token of at least 32 characters}
+      GALLERY_ALLOWED_HOSTS: ${GALLERY_ALLOWED_HOSTS:-127.0.0.1:*,localhost:*}
+      GALLERY_DOWNLOAD_HOSTS: ${GALLERY_DOWNLOAD_HOSTS:-}
+      GALLERY_BACKEND_URL: ${GALLERY_BACKEND_URL:-}
+      GALLERY_BACKEND_TOKEN: ${GALLERY_BACKEND_TOKEN:-}
+      GALLERY_STANDALONE: ${GALLERY_STANDALONE:-false}
+      GALLERY_THREADS: "2"
+      GALLERY_MAX_PHOTOS: "100"
+      GALLERY_JOB_TIMEOUT: "600"
+    volumes:
+      - gallery-data:/data
+      - ${GALLERY_MODELS_DIR:?Set the prepared model directory}:/models:ro
+    cpus: 2.0
+    mem_limit: 1400m
+    memswap_limit: 1400m
+    pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+volumes:
+  gallery-data:
