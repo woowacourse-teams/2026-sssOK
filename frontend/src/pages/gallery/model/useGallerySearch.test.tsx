@@ -183,6 +183,24 @@ describe("useGallerySearch", () => {
       expect(result.current.items).toBe(items);
     });
 
+    it("올린 사람과 사람마다 올린 장수를 모은다", () => {
+      const { result } = renderGallerySearch([item(3, "소이"), item(2, "지우"), item(1, "소이")]);
+
+      expect(result.current.uploaders).toEqual([
+        { name: "소이", count: 2, isMe: false },
+        { name: "지우", count: 1, isMe: false },
+      ]);
+    });
+
+    it("요청 패널에서 고른 사람으로 바로 찾고, 입력창에 남길 글을 만든다", () => {
+      const { result } = renderGallerySearch([item(2, "지우"), item(1, "소이")]);
+
+      act(() => result.current.searchBy("nickname", "소이"));
+
+      expect(result.current.items.map((slot) => slot.mediaId)).toEqual([1]);
+      expect(result.current.appliedText).toBe("소이가 올린 사진");
+    });
+
     it("검색을 닫으면 다음에 열 때 검색어 기준으로 돌아간다", () => {
       const { result } = renderGallerySearch([item(1)]);
 

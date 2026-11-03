@@ -13,6 +13,7 @@ import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
+import { SearchRequestField } from "@/features/search-media";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
@@ -241,22 +242,34 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onAddFolder={() => void handleCreateFolder("menu")}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
-        isSearchOpen={search.isSearchOpen}
-        searchType={search.searchType}
-        onSearchTypeChange={(searchType) => {
-          search.changeSearchType(searchType);
-          clearSelection();
-        }}
-        onOpenSearch={search.openSearch}
-        onSearch={(query) => {
-          selectFolder(null);
-          search.search(query);
-          clearSelection();
-        }}
-        onCloseSearch={() => {
-          search.closeSearch();
-          clearSelection();
-        }}
+        searchField={
+          <SearchRequestField
+            appliedText={search.appliedText}
+            folders={room.folders}
+            uploaders={search.uploaders}
+            myNickname={room.myNickname ?? nickname}
+            onOpen={search.openSearch}
+            onSearchKeyword={(query) => {
+              selectFolder(null);
+              search.searchBy("keyword", query);
+              clearSelection();
+            }}
+            onSearchUploader={(name) => {
+              selectFolder(null);
+              search.searchBy("nickname", name);
+              clearSelection();
+            }}
+            onOpenFolder={(folderId) => {
+              search.closeSearch();
+              selectFolder(folderId);
+              clearSelection();
+            }}
+            onClear={() => {
+              search.closeSearch();
+              clearSelection();
+            }}
+          />
+        }
       />
       <FolderFilter
         totalCount={totalCount}

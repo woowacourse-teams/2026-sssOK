@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { GalleryItem } from "@/entities/media";
-import { type SearchType, useMediaSearchQuery } from "@/features/search-media";
+import { type SearchType, type Uploader, useMediaSearchQuery } from "@/features/search-media";
 import { isApiError } from "@/shared/api";
-import { track } from "@/shared/lib";
+import { track, withSubjectParticle } from "@/shared/lib";
 
 interface UseGallerySearchParams {
   roomId: number;
@@ -27,6 +27,22 @@ const filterByNickname = (items: GalleryItem[], query: string) => {
     (item) =>
       item.type === "server" && (item.media.uploaderName ?? "").toLowerCase().includes(keyword),
   );
+};
+
+// 방에 사진을 올린 사람과 장수 -> 올린 사람으로 찾을 때 고를 수 있는 목록이다.
+const collectUploaders = (items: GalleryItem[], userId: number): Uploader[] => {
+  const uploaders = new Map<string, Uploader>();
+  for (const item of items) {
+    if (item.type !== "server" || !item.media.uploaderName) continue;
+    const { uploaderName: name, uploaderId } = item.media;
+    const current = uploaders.get(name);
+    uploaders.set(name, {
+      name,
+      count: (current?.count ?? 0) + 1,
+      isMe: current?.isMe || uploaderId === userId,
+    });
+  }
+  return [...uploaders.values()];
 };
 
 // 헤더 검색창의 상태와 결과
@@ -94,6 +110,15 @@ export const useGallerySearch = ({
     searchedItems.length,
   ]);
 
+  const uploaders = useMemo(() => collectUploaders(allItems, userId), [allItems, userId]);
+
+  // 결과를 보는 동안 입력창에 남겨 둘 글
+  const appliedText = !isSearching
+    ? null
+    : isKeywordSearch
+      ? query
+      : `${uploaders.find((uploader) => uploader.name === query)?.isMe ? "내가" : withSubjectParticle(query)} 올린 사진`;
+
   const errorMessage =
     isApiError(searchQuery.error) && searchQuery.error.code === "IMAGE_SEARCH_UNAVAILABLE"
       ? "지금은 사진 검색을 쓸 수 없어요."
@@ -107,6 +132,8 @@ export const useGallerySearch = ({
   return {
     isSearchOpen,
     isSearching,
+    appliedText,
+    uploaders,
     searchType,
     query,
     items: searchedItems,
@@ -126,6 +153,23 @@ export const useGallerySearch = ({
       setQuery(nextQuery);
 
       if (!isKeywordSearch) {
+        track("Photo Searched", {
+          search_type: "nickname",
+          query_length: nextQuery.length,
+          result_count: filterByNickname(allItems, nextQuery).length,
+        });
+        return;
+      }
+
+      pendingRef.current = { query: nextQuery, startedAt: performance.now() };
+      setSubmitCount((count) => count + 1);
+    },
+
+    searchBy: (nextSearchType: SearchType, nextQuery: string) => {
+      setSearchType(nextSearchType);
+      setQuery(nextQuery);
+
+      if (nextSearchType === "nickname") {
         track("Photo Searched", {
           search_type: "nickname",
           query_length: nextQuery.length,
