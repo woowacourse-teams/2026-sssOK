@@ -31,6 +31,8 @@ public class MergeAnonymousMemberService {
 
         // 의견은 계정에 연결하되 작성 당시 닉네임·방 이름은 그대로 보존한다.
         memberActivityRepository.transferFeedbackAuthor(anonymousMemberId, registeredMemberId);
+        // 로그인 계정이 이미 신고한 사진의 신고는 지우지 않고 통합된 익명 계정에 남긴다.
+        memberActivityRepository.transferMediaReports(anonymousMemberId, registeredMemberId);
         anonymousMember.markMerged();
         memberRepository.save(anonymousMember);
         sessionTokenProvider.revokeAll(anonymousMemberId);
