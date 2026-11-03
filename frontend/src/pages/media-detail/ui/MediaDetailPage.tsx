@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { HiArrowDownTray, HiArrowLeft, HiCheck, HiOutlineTrash } from "react-icons/hi2";
+import { LuSiren } from "react-icons/lu";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 
 import { mediaQueryKey, photosQueryKey, useMediaQuery, type MediaList } from "@/entities/media";
@@ -161,6 +162,14 @@ const MediaDetailContent = ({
               .join(" · ")}
           </Subtitle>
         </Metadata>
+        <ActionButton
+          type="button"
+          aria-label="사진 신고 (준비 중)"
+          title="사진 신고 준비 중"
+          disabled
+        >
+          <LuSiren size={21} />
+        </ActionButton>
         <ActionButton
           type="button"
           $danger
