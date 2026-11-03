@@ -12,5 +12,5 @@ export type {
 } from "./analyticsEvents";
 export { runWithLimit } from "./runWithLimit";
 export { waitUnlessAborted } from "./waitUnlessAborted";
-export { withDirectionParticle } from "./koreanParticle";
+export { withDirectionParticle, withSubjectParticle } from "./koreanParticle";
 export { isAppWebView } from "./isAppWebView";
