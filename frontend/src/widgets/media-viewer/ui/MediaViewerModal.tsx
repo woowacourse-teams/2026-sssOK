@@ -9,11 +9,14 @@ import {
   HiChevronLeft,
   HiChevronRight,
   HiHeart,
+  HiEllipsisHorizontal,
   HiOutlineHeart,
   HiOutlineTrash,
 } from "react-icons/hi2";
+import { LuSiren } from "react-icons/lu";
 
 import type { GalleryItem } from "@/entities/media";
+import { ReportMediaModal } from "@/features/report-media";
 import { DeleteMediaModal } from "@/features/delete-media";
 import { downloadMedia, savesToPhotoLibrary } from "@/features/download-media";
 import { useMediaLike } from "@/features/toggle-media-like";
@@ -106,6 +109,11 @@ export const MediaViewerModal = ({
         if (deletingMediaId === null) onClose();
       }}
       onKeyDown={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest("dialog") !== event.currentTarget
+        )
+          return;
         if (deletingMediaId !== null) {
           if (event.key === "Escape") event.preventDefault();
           return;
@@ -203,6 +211,7 @@ export const MediaViewerModal = ({
             canDelete={
               item.type === "local" || item.media.uploaderId === userId || hostId === userId
             }
+            container={dialog}
             onDelete={() => setDeletingMediaId(item.mediaId)}
           />
         </>
@@ -308,6 +317,7 @@ const ViewerFooter = ({
   userId,
   token,
   canDelete,
+  container,
   onDelete,
 }: {
   item: GalleryItem;
@@ -315,8 +325,23 @@ const ViewerFooter = ({
   userId: number;
   token: string;
   canDelete: boolean;
+  container?: Element | null;
   onDelete: () => void;
 }) => {
+  const [reportOpen, setReportOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!actionsOpen) return;
+    const closeOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !actionsRef.current?.contains(event.target))
+        setActionsOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    return () => document.removeEventListener("pointerdown", closeOutside);
+  }, [actionsOpen]);
   const media = item.type === "local" ? undefined : item.media;
   const fileName = item.type === "local" ? item.file.name : item.media.fileName;
   const downloadTarget =
@@ -374,29 +399,96 @@ const ViewerFooter = ({
       {item.type === "server" && (
         <ViewerLikeButton item={item} roomId={roomId} userId={userId} token={token} />
       )}
-      <ActionButton
-        type="button"
-        $danger
-        aria-label="사진 삭제"
-        title={canDelete ? "사진 삭제" : "삭제 권한이 없어요"}
-        disabled={!canDelete}
-        onClick={onDelete}
+      <MoreActions
+        ref={actionsRef}
+        onBlur={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget)) setActionsOpen(false);
+        }}
+        onKeyDown={(event) => {
+          if (actionsOpen && event.key === "Escape") {
+            event.preventDefault();
+            event.stopPropagation();
+            setActionsOpen(false);
+            moreButtonRef.current?.focus();
+          }
+          if (actionsOpen && (event.key === "ArrowLeft" || event.key === "ArrowRight"))
+            event.stopPropagation();
+        }}
       >
-        <HiOutlineTrash size={21} />
-      </ActionButton>
-      <ActionButton
-        type="button"
-        aria-label="사진 다운로드"
-        title="사진 다운로드"
-        disabled={download.isPending}
-        aria-busy={download.isPending}
-        onClick={() => download.mutate()}
-      >
-        <HiArrowDownTray size={21} />
-      </ActionButton>
+        <MoreButton
+          ref={moreButtonRef}
+          type="button"
+          aria-label="사진 더보기"
+          aria-expanded={actionsOpen}
+          onClick={() => setActionsOpen((open) => !open)}
+        >
+          <HiEllipsisHorizontal size={24} />
+        </MoreButton>
+        <ActionList $open={actionsOpen}>
+          {item.type === "server" && !isVideoItem(item) && (
+            <MoreActionButton
+              type="button"
+              aria-label="사진 신고"
+              title="사진 신고"
+              onClick={() => {
+                setActionsOpen(false);
+                setReportOpen(true);
+              }}
+            >
+              <LuSiren size={21} />
+              <ActionLabel>사진 신고</ActionLabel>
+            </MoreActionButton>
+          )}
+          <MoreActionButton
+            type="button"
+            $danger
+            aria-label="사진 삭제"
+            title={canDelete ? "사진 삭제" : "삭제 권한이 없어요"}
+            disabled={!canDelete}
+            onClick={() => {
+              setActionsOpen(false);
+              onDelete();
+            }}
+          >
+            <HiOutlineTrash size={21} />
+            <ActionLabel>사진 삭제</ActionLabel>
+          </MoreActionButton>
+          <MoreActionButton
+            type="button"
+            aria-label="사진 다운로드"
+            title="사진 다운로드"
+            disabled={download.isPending}
+            aria-busy={download.isPending}
+            onClick={() => {
+              setActionsOpen(false);
+              download.mutate();
+            }}
+          >
+            <HiArrowDownTray size={21} />
+            <ActionLabel>사진 다운로드</ActionLabel>
+          </MoreActionButton>
+        </ActionList>
+      </MoreActions>
+      {reportOpen && (
+        <ReportMediaModal
+          roomId={roomId}
+          mediaId={item.mediaId}
+          container={container}
+          onClose={() => setReportOpen(false)}
+          onSubmit={() => {
+            setReportOpen(false);
+            setDoneMessage("신고가 완료됐어요.");
+          }}
+        />
+      )}
       {/* 뷰어가 최상위 레이어(dialog)라 그 안에 띄워야 가려지지 않는다. */}
       {doneMessage !== null && (
-        <Toast message={doneMessage} showClose={false} onClose={() => setDoneMessage(null)} />
+        <Toast
+          container={container}
+          message={doneMessage}
+          showClose={false}
+          onClose={() => setDoneMessage(null)}
+        />
       )}
     </Footer>
   );
@@ -645,6 +737,56 @@ const ActionButton = styled.button<{ $danger?: boolean }>`
   &:disabled {
     cursor: default;
     opacity: 0.4;
+  }
+`;
+
+const MoreActions = styled.div`
+  position: relative;
+  flex: none;
+`;
+const MoreButton = styled(ActionButton)`
+  display: none;
+  @media (max-width: 767px) {
+    display: grid;
+  }
+`;
+const ActionList = styled.div<{ $open: boolean }>`
+  display: flex;
+  gap: 12px;
+  @media (max-width: 767px) {
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 8px);
+    z-index: 1;
+    display: ${({ $open }) => ($open ? "flex" : "none")};
+    flex-direction: column;
+    gap: 0;
+    width: 204px;
+    padding: 6px;
+    border: 1px solid #ffffff29;
+    border-radius: 14px;
+    background: #242424;
+    box-shadow: 0 8px 24px #0006;
+  }
+`;
+const MoreActionButton = styled(ActionButton)`
+  @media (max-width: 767px) {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 14px;
+    svg {
+      flex: none;
+    }
+  }
+`;
+const ActionLabel = styled.span`
+  @media (min-width: 768px) {
+    display: none;
   }
 `;
 
