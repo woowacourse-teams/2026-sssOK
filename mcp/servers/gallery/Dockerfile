@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && mkdir /data && chown gallery:gallery /data
 COPY gallery_mcp ./gallery_mcp
 COPY pipeline ./pipeline
+COPY similar-model-checksums.json ./similar-model-checksums.json
 USER 10001:10001
 EXPOSE 8818
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8818/healthz',timeout=2)"

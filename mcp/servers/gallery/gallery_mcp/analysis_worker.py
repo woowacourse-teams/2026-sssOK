@@ -21,20 +21,34 @@ def execute(room_id, job_id, settings):
     with (settings.data / 'analysis.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         stage_photos(photos, directory / 'input', settings)
-        from pipeline.photo_analysis import run
+        if job['kind'] == 'SIMILAR':
+            from pipeline.similar_analysis import run
+        else:
+            from pipeline.photo_analysis import run
         result = run(directory / 'input', directory / 'analysis', settings.assets, settings.threads)
         manifest = json.loads((directory / 'analysis/manifest.json').read_text())
         mapping = {p.filename:p.mediaId for p in photos}
         media_ids = {p['image_id']:mapping[p['source_filename']] for p in manifest['photos']}
-        response = {
-            'groups':[{'groupId':g['group_id'], 'mediaIds':[media_ids[i] for i in g['image_ids']],
-                       'faceMembershipCount':len(g['face_image_ids']), 'bodyAdditionCount':len(g['body_additions'])}
-                      for g in result['groups']],
-            'counts':result['counts'], 'pipelineVersion':result['pipeline_version'],
-            'unassignedMediaIds':[media_ids[i] for i in result['unassigned_image_ids']],
-            'errors':[{'mediaId':media_ids.get(e['image_id']), 'code':e['reason']}
-                      for e in result['errors']],
-        }
+        if job['kind'] == 'SIMILAR':
+            response = {
+                'resultVersion': 1,
+                'groups': [{'groupId': g['group_id'], 'mediaIds': [media_ids[i] for i in g['image_ids']]}
+                           for g in result['groups']],
+                'smallGroupMediaIds': [[media_ids[i] for i in g] for g in result['small_groups']],
+                'counts': result['counts'], 'pipelineVersion': result['pipeline_version'],
+                'unassignedMediaIds': [media_ids[i] for i in result['unassigned_image_ids']],
+                'errors': [{'mediaId': media_ids.get(e['image_id']), 'code': e['reason']} for e in result['errors']],
+            }
+        else:
+            response = {
+                'groups':[{'groupId':g['group_id'], 'mediaIds':[media_ids[i] for i in g['image_ids']],
+                           'faceMembershipCount':len(g['face_image_ids']), 'bodyAdditionCount':len(g['body_additions'])}
+                          for g in result['groups']],
+                'counts':result['counts'], 'pipelineVersion':result['pipeline_version'],
+                'unassignedMediaIds':[media_ids[i] for i in result['unassigned_image_ids']],
+                'errors':[{'mediaId':media_ids.get(e['image_id']), 'code':e['reason']}
+                          for e in result['errors']],
+            }
         # Preparation failures may not appear in the successful-photo manifest.
         inputs = {f'image_{i:06d}':p.mediaId for i,p in enumerate(sorted(photos,key=lambda p:p.filename),1)}
         for error, raw in zip(response['errors'],result['errors']):

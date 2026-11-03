@@ -1,6 +1,8 @@
 """Exercise deployment failures with a fake Docker CLI; no daemon or EC2 needed."""
+from contextlib import closing
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import tempfile
 import unittest
@@ -11,7 +13,7 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 class DeployTests(unittest.TestCase):
     def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None, changed_data=False,
-                   legacy_release=False):
+                   legacy_release=False, v1_release=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
             (root / 'gallery').mkdir()
@@ -29,7 +31,10 @@ class DeployTests(unittest.TestCase):
                 (root / 'current').symlink_to(old)
                 (old / 'settings.env').write_text(f'GALLERY_DATA_DIR={data}\n')
                 if not legacy_release:
-                    (old / 'storage-version').write_text('sqlite-v1\n')
+                    (old / 'storage-version').write_text('sqlite-v1\n' if v1_release else 'sqlite-v2\n')
+                if not legacy_release:
+                    with closing(sqlite3.connect(data / 'executions-v1.sqlite3')) as db:
+                        db.execute(f'PRAGMA user_version={1 if v1_release else 2}')
             if invalid_current == 'broken_link':
                 (root / 'current').symlink_to(root / 'missing')
             elif invalid_current == 'directory':
@@ -41,7 +46,8 @@ class DeployTests(unittest.TestCase):
             binary.mkdir()
             docker = binary / 'docker'
             docker.write_text('''#!/usr/bin/env python3
-import json, os, sys
+from contextlib import closing
+import json, os, sqlite3, sys
 from pathlib import Path
 args = sys.argv[1:]
 if os.environ.get('CHECK_GALLERY_ENV'):
@@ -60,9 +66,18 @@ if failure == 'drain' and 'drain' in args: sys.exit(1)
 if failure == 'up' and 'up' in args and not old: sys.exit(1)
 if failure == 'resume' and 'resume' in args and not old: sys.exit(1)
 if failure == 'sqlite-smoke' and 'up' in args and not old:
-    (root/'data/executions-v1.sqlite3').touch()
+    with closing(sqlite3.connect(root/'data/executions-v1.sqlite3')) as db:
+        db.execute('PRAGMA user_version=2')
 if failure == 'sqlite-smoke' and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
-if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
+if failure in ('corrupt-db', 'unknown-version', 'empty-db', 'missing-db') and 'up' in args and not old:
+    database = root/'data/executions-v1.sqlite3'
+    if failure == 'corrupt-db': database.write_bytes(b'not a database')
+    elif failure == 'missing-db': database.unlink()
+    else:
+        with closing(sqlite3.connect(database)) as db:
+            db.execute('PRAGMA user_version=' + ('0' if failure == 'empty-db' else '99'))
+if failure == 'stop-failure' and 'stop' in args: sys.exit(1)
+if failure in ('smoke', 'stop-failure', 'corrupt-db', 'unknown-version', 'empty-db', 'missing-db') and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
 ''')
             docker.chmod(0o755)
             # The production host has flock. The fake harness is single-process.
@@ -164,7 +179,7 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
     def test_sqlite_upgrade_failure_does_not_restore_json_only_image(self):
         result, calls, old, _ = self.run_deploy('sqlite-smoke', previous=True, legacy_release=True)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('JSON-only rollback refused', result.stderr)
+        self.assertIn('incompatible rollback refused', result.stderr)
         self.assertNotIn('Previous release restored', result.stdout)
         self.assertTrue(old)
         self.assertIn(' stop', calls)
@@ -184,6 +199,49 @@ if failure == 'smoke' and 'exec' in args and args[-1] == '-' and not old: sys.ex
         self.assertFalse(old)
         self.assertIn(' drain', calls)
         self.assertIn(' resume', calls)
+
+    def test_v1_upgrade_allowed_but_failed_v2_cannot_roll_back(self):
+        result,calls,old,_=self.run_deploy(previous=True,v1_release=True)
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertFalse(old)
+        result,calls,old,_=self.run_deploy('sqlite-smoke',previous=True,v1_release=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('incompatible rollback refused',result.stderr)
+        self.assertNotIn('Previous release restored',result.stdout)
+        self.assertNotIn(' resume',calls)
+
+    def test_v1_failure_before_migration_restores_previous(self):
+        for failure in ('up', 'smoke'):
+            with self.subTest(failure=failure):
+                result, calls, old, _ = self.run_deploy(failure, previous=True, v1_release=True)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(old)
+                self.assertIn('Previous release restored and verified', result.stdout)
+                self.assertNotIn('incompatible rollback refused', result.stderr)
+                operations = calls.splitlines()
+                stop = next(i for i, call in enumerate(operations) if call.endswith(' stop'))
+                restore = next(i for i, call in enumerate(operations) if '/old/compose.yml' in call and ' up ' in call)
+                self.assertLess(stop, restore)
+                self.assertIn(' resume', calls)
+
+    def test_uncertain_database_blocks_rollback_and_resume(self):
+        for failure in ('corrupt-db', 'unknown-version', 'empty-db', 'missing-db'):
+            for v1 in (True, False):
+                with self.subTest(failure=failure, v1=v1):
+                    result, calls, _, _ = self.run_deploy(failure, previous=True, v1_release=v1)
+                    self.assertNotEqual(result.returncode, 0)
+                    self.assertIn('incompatible rollback refused', result.stderr)
+                    self.assertNotIn('Previous release restored', result.stdout)
+                    self.assertNotIn(' resume', calls)
+                    self.assertEqual(sum(' up ' in call for call in calls.splitlines()), 1)
+
+    def test_stop_failure_blocks_rollback_and_resume(self):
+        result, calls, _, _ = self.run_deploy('stop-failure', previous=True, v1_release=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('could not be stopped', result.stderr)
+        self.assertNotIn('Previous release restored', result.stdout)
+        self.assertNotIn(' resume', calls)
+        self.assertEqual(sum(' up ' in call for call in calls.splitlines()), 1)
 
 
 if __name__ == '__main__':
