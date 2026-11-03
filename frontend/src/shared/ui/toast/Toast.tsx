@@ -4,6 +4,7 @@ import { HiCheckCircle, HiExclamationCircle } from "react-icons/hi2";
 import { CloseButton, Dock, Frame, StatusIcon, Text } from "./Toast.styles";
 
 export interface ToastProps {
+  container?: Element | null;
   message: string;
   tone?: "success" | "error";
   onClose: () => void;
@@ -17,7 +18,13 @@ export interface ToastProps {
 }
 
 /** 공통 토스트 틀과 표시 위치. 자동 닫힘 시점은 사용하는 쪽에서 관리한다. */
-export const Toast = ({ message, tone = "success", onClose, showClose = true }: ToastProps) => {
+export const Toast = ({
+  message,
+  tone = "success",
+  onClose,
+  showClose = true,
+  container,
+}: ToastProps) => {
   return createPortal(
     <Dock>
       <Frame>
@@ -32,6 +39,6 @@ export const Toast = ({ message, tone = "success", onClose, showClose = true }: 
         )}
       </Frame>
     </Dock>,
-    document.body,
+    container ?? document.body,
   );
 };

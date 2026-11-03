@@ -1,5 +1,6 @@
 package com.sssok.common.monitoring;
 
+import com.sssok.renewal.outgoing.monitoring.DownloadProcessingMetrics;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Result;

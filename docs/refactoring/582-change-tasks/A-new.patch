@@ -1,0 +1,35 @@
+diff --git a/backend/src/main/java/com/sssok/renewal/domain/download/status/QueuedDownloadJobStatus.java b/backend/src/main/java/com/sssok/renewal/domain/download/status/QueuedDownloadJobStatus.java
+index 2c9041c2..bbec95f9 100644
+--- a/backend/src/main/java/com/sssok/renewal/domain/download/status/QueuedDownloadJobStatus.java
++++ b/backend/src/main/java/com/sssok/renewal/domain/download/status/QueuedDownloadJobStatus.java
+@@ -15,4 +15,9 @@ public final class QueuedDownloadJobStatus implements DownloadJobStatus {
+     public DownloadJobStatus run() {
+         return RunningDownloadJobStatus.INSTANCE;
+     }
++
++    @Override
++    public DownloadJobStatus fail() {
++        return FailedDownloadJobStatus.INSTANCE;
++    }
+ }
+diff --git a/backend/src/test/java/com/sssok/renewal/domain/download/DownloadJobTest.java b/backend/src/test/java/com/sssok/renewal/domain/download/DownloadJobTest.java
+index 985350a2..08d50e55 100644
+--- a/backend/src/test/java/com/sssok/renewal/domain/download/DownloadJobTest.java
++++ b/backend/src/test/java/com/sssok/renewal/domain/download/DownloadJobTest.java
+@@ -76,6 +76,16 @@ class DownloadJobTest {
+             assertThat(job.getFailureReason()).isEqualTo("스토리지 업로드 실패");
+         }
+ 
++        @Test
++        void QUEUED에서_바로_FAILED로_전이하면_사유가_채워진다() {
++            DownloadJob job = create();
++
++            job.markFailed("대상 조회 실패");
++
++            assertThat(job.getStatus()).isEqualTo(FailedDownloadJobStatus.INSTANCE);
++            assertThat(job.getFailureReason()).isEqualTo("대상 조회 실패");
++        }
++
+         @Test
+         void READY에서_EXPIRED로_전이한다() {
+             DownloadJob job = create();

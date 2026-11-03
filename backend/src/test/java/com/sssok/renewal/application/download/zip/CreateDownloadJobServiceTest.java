@@ -1,0 +1,242 @@
+package com.sssok.renewal.application.download.zip;
+
+import com.sssok.renewal.application.download.shared.DownloadTargetCommand;
+import com.sssok.renewal.application.download.exception.DownloadRateLimitedException;
+import com.sssok.renewal.outgoing.database.DownloadJobRepository;
+import com.sssok.application.port.out.FileRepository;
+import com.sssok.renewal.domain.download.status.QueuedDownloadJobStatus;
+import com.sssok.renewal.domain.download.status.RunningDownloadJobStatus;
+import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StoredFile;
+import com.sssok.domain.file.UploadStatus;
+import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.application.download.exception.DownloadMediaNotFoundException;
+import com.sssok.renewal.domain.member.Member;
+import com.sssok.renewal.domain.member.Nickname;
+import com.sssok.renewal.outgoing.config.DownloadProperties;
+import com.sssok.renewal.outgoing.database.member.MemberRepository;
+import com.sssok.support.PostgresContainerSupport;
+import com.sssok.support.PostgresIntegrationTest;
+import com.sssok.support.UploadRoomFixtures;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+
+@PostgresIntegrationTest
+@Transactional
+class CreateDownloadJobServiceTest extends PostgresContainerSupport {
+    @BeforeEach
+    void prepareRooms() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 1L, 2L);
+    }
+
+    @Autowired
+    private JdbcTemplate roomFixtureJdbc;
+
+
+    @Autowired
+    CreateDownloadJobService createDownloadJobService;
+
+    @Autowired
+    DownloadProperties downloadProperties;
+
+    @Autowired
+    FileRepository fileRepository;
+
+    @Autowired
+    DownloadJobRepository downloadJobRepository;
+
+    @Autowired
+    MemberRepository memberRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
+
+    private Long committedMediaId;
+    private Long committedRequesterId;
+
+    @MockitoBean
+    DownloadCompressionWorker downloadCompressionWorker;
+
+    @AfterEach
+    void cleanUpCommittedData() {
+        // NOT_SUPPORTED 테스트가 직접 커밋한 데이터만 자식 테이블부터 정리한다.
+        if (committedRequesterId != null) {
+            jdbcTemplate.update("""
+                delete from download_job_media
+                where download_job_id in (select id from download_job where requester_id = ?)
+                """, committedRequesterId);
+            jdbcTemplate.update("delete from download_job where requester_id = ?", committedRequesterId);
+        }
+        if (committedMediaId != null) {
+            jdbcTemplate.update("delete from stored_file where id = ?", committedMediaId);
+        }
+        if (committedRequesterId != null) {
+            jdbcTemplate.update("delete from member where id = ?", committedRequesterId);
+        }
+    }
+
+    private Long member(String nickname) {
+        return memberRepository.save(Member.register(new Nickname(nickname), Instant.now())).getId();
+    }
+
+    private Long media(long roomId, UploadStatus status) {
+        StoredFile file = StoredFile.reserve(roomId, 1L, "test.jpg", "image/jpeg", new FileSize(1024), Instant.now(), SIZE_POLICY);
+        if (status == UploadStatus.PROCESSING || status == UploadStatus.READY) {
+            file.startProcessing();
+        }
+        if (status == UploadStatus.READY) {
+            file.markReady();
+        }
+        return fileRepository.save(file).getId();
+    }
+
+    @Test
+    void QUEUED_상태의_잡을_만들고_대상을_함께_저장한다() {
+        Long media1 = media(1L, UploadStatus.READY);
+        Long media2 = media(1L, UploadStatus.READY);
+        Long requesterId = member("생성요청자");
+
+        CreateDownloadJobResult result =
+            createDownloadJobService.create(new DownloadTargetCommand(
+                1L, requesterId, List.of(media1, media2), null, null));
+
+        assertThat(result.status()).isEqualTo(QueuedDownloadJobStatus.INSTANCE);
+        assertThat(result.mediaCount()).isEqualTo(2);
+        assertThat(result.totalSize()).isEqualTo(2048L);
+        assertThat(result.fileName()).isEqualTo("sssOK_1.zip");
+        assertThat(downloadJobRepository.findMediaIdsByJobId(result.jobId()))
+            .containsExactlyInAnyOrder(media1, media2);
+    }
+
+    // 대상은 잡을 만들 때 job_media 에 고정된다 — 여기서 빠지면 압축 시점에 READY 가 돼도 못 들어간다.
+    @Test
+    void 썸네일이_아직_없는_미디어도_대상에_고정한다() {
+        Long ready = media(1L, UploadStatus.READY);
+        Long processing = media(1L, UploadStatus.PROCESSING);
+        Long requesterId = member("대상요청자");
+
+        CreateDownloadJobResult result =
+            createDownloadJobService.create(new DownloadTargetCommand(
+                1L, requesterId, List.of(ready, processing), null, null));
+
+        assertThat(result.mediaCount()).isEqualTo(2);
+        assertThat(downloadJobRepository.findMediaIdsByJobId(result.jobId()))
+            .containsExactlyInAnyOrder(ready, processing);
+    }
+
+    @Test
+    void 대상이_없으면_리졸버의_예외가_그대로_전파된다() {
+        Long requesterId = member("빈대상요청자");
+
+        assertThatThrownBy(() -> createDownloadJobService.create(new DownloadTargetCommand(
+            1L, requesterId, List.of(999_999L), null, null)))
+            .isInstanceOf(DownloadMediaNotFoundException.class);
+    }
+
+    @Test
+    void 존재하지_않는_요청자는_잡을_생성할_수_없다() {
+        Long media = media(1L, UploadStatus.READY);
+
+        assertThatThrownBy(() -> createDownloadJobService.create(new DownloadTargetCommand(
+            1L, 999_999L, List.of(media), null, null)))
+            .isInstanceOf(UnauthorizedException.class);
+    }
+
+    @Test
+    void 동시_진행_중인_잡이_상한에_도달하면_429() {
+        Long media = media(1L, UploadStatus.READY);
+        Long requesterId = member("제한요청자");
+        int maxJobs = downloadProperties.maxConcurrentJobsPerRequester();
+        for (int i = 0; i < maxJobs; i++) {
+            createDownloadJobService.create(new DownloadTargetCommand(1L, requesterId, List.of(media), null, null));
+        }
+
+        assertThatThrownBy(() -> createDownloadJobService.create(new DownloadTargetCommand(
+            1L, requesterId, List.of(media), null, null)))
+            .isInstanceOf(DownloadRateLimitedException.class);
+    }
+
+    @Test
+    void 다른_요청자의_진행_중인_잡은_카운트에_영향을_주지_않는다() {
+        Long media = media(1L, UploadStatus.READY);
+        Long firstRequesterId = member("첫요청자");
+        Long secondRequesterId = member("둘째요청자");
+        int maxJobs = downloadProperties.maxConcurrentJobsPerRequester();
+        for (int i = 0; i < maxJobs; i++) {
+            createDownloadJobService.create(new DownloadTargetCommand(
+                1L, firstRequesterId, List.of(media), null, null));
+        }
+
+        CreateDownloadJobResult result = createDownloadJobService.create(new DownloadTargetCommand(
+            1L, secondRequesterId, List.of(media), null, null));
+
+        assertThat(result.status()).isEqualTo(QueuedDownloadJobStatus.INSTANCE);
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    void 같은_요청자의_동시_요청도_진행_중인_잡_상한을_넘지_않는다() throws Exception {
+        Long media = committedMediaId = media(1L, UploadStatus.READY);
+        Long requesterId = committedRequesterId = member("동시요청자");
+        // 공통 DB 풀은 2개이므로 10개 요청 중 최대 2개 트랜잭션이 동시에 경합한다.
+        int requestCount = 10;
+        int maxJobs = downloadProperties.maxConcurrentJobsPerRequester();
+        CountDownLatch ready = new CountDownLatch(requestCount);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+
+        try {
+            List<Future<Boolean>> futures = new ArrayList<>();
+            for (int i = 0; i < requestCount; i++) {
+                futures.add(executor.submit(() -> {
+                    ready.countDown();
+                    start.await();
+                    try {
+                        createDownloadJobService.create(new DownloadTargetCommand(
+                            1L, requesterId, List.of(media), null, null));
+                        return true;
+                    } catch (DownloadRateLimitedException exception) {
+                        return false;
+                    }
+                }));
+            }
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+
+            long createdCount = 0;
+            for (Future<Boolean> future : futures) {
+                if (future.get(5, TimeUnit.SECONDS)) {
+                    createdCount++;
+                }
+            }
+
+            assertThat(createdCount).isEqualTo(maxJobs);
+            assertThat(downloadJobRepository.countByRequesterIdAndStatusIn(
+                requesterId, List.of(QueuedDownloadJobStatus.INSTANCE, RunningDownloadJobStatus.INSTANCE)))
+                .isEqualTo(maxJobs);
+        } finally {
+            executor.shutdownNow();
+            // 정리 이후에도 요청 스레드가 데이터를 저장하지 않도록 종료를 기다린다.
+            assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+        }
+    }
+}

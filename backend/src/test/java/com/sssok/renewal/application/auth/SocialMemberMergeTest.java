@@ -1,6 +1,6 @@
 package com.sssok.renewal.application.auth;
 
-import com.sssok.application.port.out.DownloadJobRepository;
+import com.sssok.renewal.outgoing.database.DownloadJobRepository;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.application.room.CreateRoomService;
@@ -61,6 +61,7 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
     Long targetId;
     Long roomId;
     Long fileId;
+    Long onlySourceReportedFileId;
     Long jobId;
     SocialIdentity identity;
     String sourceToken;
@@ -91,6 +92,17 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
             INSERT INTO media_like (media_id, member_id, created_at, updated_at)
             VALUES (?, ?, now(), now()), (?, ?, now(), now())
             """, fileId, sourceId, fileId, targetId);
+        onlySourceReportedFileId = jdbcTemplate.queryForObject("""
+            INSERT INTO stored_file (room_id, uploader_id, original_file_name, media_type, file_size_bytes,
+                storage_key, status, created_at, updated_at, reserved_at, retry_count)
+            VALUES (?, ?, 'b.jpg', 'JPEG', 1024, ?, 'READY', now(), now(), now(), 0) RETURNING id
+            """, Long.class, roomId, sourceId, UUID.randomUUID().toString());
+        // 같은 사진은 양쪽이 모두 신고했고, 다른 사진은 익명 계정만 신고했다.
+        jdbcTemplate.update("""
+            INSERT INTO media_report (room_id, media_id, member_id, reason, reported_at)
+            VALUES (?, ?, ?, 'PRIVACY_VIOLATION', now()), (?, ?, ?, 'HARASSMENT', now()),
+                   (?, ?, ?, 'COPYRIGHT_VIOLATION', now())
+            """, roomId, fileId, sourceId, roomId, fileId, targetId, roomId, onlySourceReportedFileId, sourceId);
         jobId = jdbcTemplate.queryForObject("""
             INSERT INTO download_job (room_id, requester_id, status, media_count, total_size_bytes,
                 file_name, created_at, updated_at)
@@ -126,6 +138,12 @@ class SocialMemberMergeTest extends PostgresContainerSupport {
         assertThat(count("media_like", "member_id", sourceId)).isZero();
         assertThat(count("media_like", "media_id", fileId)).isEqualTo(1);
         assertThat(count("feedback", "member_id", sourceId)).isZero();
+        assertThat(count("media_report", "member_id", targetId)).isEqualTo(2);
+        assertThat(count("media_report", "member_id", sourceId)).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("SELECT reason FROM media_report WHERE media_id = ? AND member_id = ?",
+            String.class, fileId, targetId)).isEqualTo("HARASSMENT");
+        assertThat(jdbcTemplate.queryForObject("SELECT member_id FROM media_report WHERE media_id = ?",
+            Long.class, onlySourceReportedFileId)).isEqualTo(targetId);
         assertThat(jdbcTemplate.queryForObject("SELECT nickname FROM feedback WHERE room_id = ?", String.class, roomId))
             .isEqualTo("작성 당시 닉네임");
         assertThat(count("feedback", "member_id", targetId)).isEqualTo(1);

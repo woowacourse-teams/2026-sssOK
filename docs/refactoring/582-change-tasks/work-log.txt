@@ -1,0 +1,14 @@
+A-old start 23:43:55
+A-old impl-done 23:44:10 files-read: domain/download/DownloadJobStatus, DownloadJob(markFailed 확인), DownloadJobTest
+A-old tests-done 23:44:31
+A-new start 23:44:41
+A-new impl-done 23:44:54 files-read: domain/download/status/QueuedDownloadJobStatus, DownloadJobTest (DownloadJob.markFailed 가 status.fail() 을 부르는 건 이전 작업에서 앎)
+A-new tests-done 23:45:13
+B-new start 23:45:22
+B-new impl-done 23:46:05 files-read: zip/SweepDownloadJobsService, outgoing/database/DownloadJobRepository, outgoing/database/DownloadJobJpaRepository, outgoing/config/DownloadProperties, application.yml, (grep) new DownloadProperties( 사용처 1곳 SweepDownloadJobsServiceFailureTest, SweepDownloadJobsServiceTest(테스트 작성 참고)
+B-new tests-done 23:46:07
+B-new compile-fix 23:46:15 DownloadJobRepository 에 Limit import 누락(1회 재컴파일)
+B-new tests-done 23:46:34
+B-old start 23:46:48
+B-old impl-done 23:47:16 files-read: application/download/SweepDownloadJobsService, application/port/out/DownloadJobRepository(포트), infrastructure/persistence/download/DownloadJobRepositoryAdapter, infrastructure/persistence/download/DownloadJobJpaRepository, outgoing/config/DownloadProperties, application.yml, (grep) findAllExpiredReady 사용처 4곳·new DownloadProperties( 1곳 SweepDownloadJobsServiceFailureTest, SweepDownloadJobsServiceTest(테스트 작성 참고)
+B-old tests-done 23:47:35

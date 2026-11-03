@@ -1,12 +1,13 @@
 package com.sssok.renewal.outgoing.database.member;
 
-import com.sssok.infrastructure.persistence.download.DownloadJobJpaRepository;
+import com.sssok.renewal.outgoing.database.DownloadJobJpaRepository;
 import com.sssok.infrastructure.persistence.feedback.FeedbackJpaRepository;
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.medialike.MediaLikeJpaRepository;
 import com.sssok.infrastructure.persistence.room.RoomJpaRepository;
 import com.sssok.infrastructure.persistence.room.RoomMemberJpaRepository;
 import com.sssok.renewal.outgoing.database.DeviceTokenJpaRepository;
+import com.sssok.renewal.outgoing.database.MediaReportJpaRepository;
 import com.sssok.renewal.outgoing.database.PushSubscriptionJpaRepository;
 import com.sssok.renewal.outgoing.database.RoomNotificationSettingJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class MemberActivityRepository {
     private final StoredFileJpaRepository storedFileJpaRepository;
     private final DownloadJobJpaRepository downloadJobJpaRepository;
     private final FeedbackJpaRepository feedbackJpaRepository;
+    private final MediaReportJpaRepository mediaReportJpaRepository;
     private final PushSubscriptionJpaRepository pushSubscriptionJpaRepository;
     private final DeviceTokenJpaRepository deviceTokenJpaRepository;
     private final RoomNotificationSettingJpaRepository roomNotificationSettingJpaRepository;
@@ -56,6 +58,10 @@ public class MemberActivityRepository {
 
     public void transferFeedbackAuthor(Long sourceMemberId, Long targetMemberId) {
         feedbackJpaRepository.transferMember(sourceMemberId, targetMemberId);
+    }
+
+    public void transferMediaReports(Long sourceMemberId, Long targetMemberId) {
+        mediaReportJpaRepository.transferMember(sourceMemberId, targetMemberId);
     }
 
     public void transferPushSubscriptions(Long sourceMemberId, Long targetMemberId) {
