@@ -57,6 +57,38 @@
 반복 커서·중복 이름을 거절하고 페이지 수를 제한한다.
 현재 설정은 gallery 서버 하나이며, 결과 식별자에는 서버 ID를 포함한다.
 
+## 실행 접수 (tools/call)
+
+`McpOrganizeToolExecutor.execute(OrganizeExecutionRequest)`가 선택된 도구의 분석 실행을 접수한다.
+결과는 기다리지 않는다. Python이 Spring 내부 이벤트 API로 따로 보낸다(#659).
+
+1. MCP 연결 → initialize → `tools/list`로 현재 공개 도구를 다시 읽는다.
+2. 해석 때 고른 도구(서버·이름·설명)와 다르면 호출하지 않는다.
+3. `tools/call`에 작업 관리가 정한 `room_id, job_id, request_id(=executionId), attempt, photos`를 넣는다.
+4. 응답의 jobId·executionId·roomId·attempt가 요청과 같고 상태를 읽을 수 있을 때만 접수로 본다.
+
+`OrganizeExecutionRequest`는 작업 관리(#659)가 DB 저장 후 만든다. 사진은 서로 다른 1~100장이고,
+서명 URL은 문자열 표현에 남기지 않는다.
+
+실패 사유는 "MCP 서버가 접수했을 수 있는가"로 나눈다.
+
+| 사유 | 시점 | 접수 가능성 | 호출자 처리 |
+| --- | --- | --- | --- |
+| NOT_DELIVERED | 연결·목록 조회 실패 | 없음 | 나중에 재시도 |
+| AUTHENTICATION_FAILED | 서비스 토큰 거절 | 없음 | 설정 수정 전까지 재시도 의미 없음 |
+| TOOL_CHANGED | 해석 이후 도구 변경·삭제 | 없음 | 다시 해석 |
+| REJECTED | 서버가 오류 결과(isError) 또는 JSON-RPC 오류 반환 | 없음 | 실패 기록 |
+| OUTCOME_UNKNOWN | tools/call 중 시간 초과·연결 끊김 | 있음 | 같은 executionId로만 재전송 |
+| INVALID_RESPONSE | 응답이 요청과 불일치 | 있음 | OUTCOME_UNKNOWN과 같게 처리 |
+
+같은 executionId 재전송은 Python이 기존 실행으로 받아 `reused=true`를 돌려준다.
+
+MCP Java SDK 0.18.3은 401 응답을 상태 코드 없는 예외로 바꾼다. 그래서 호출 전 단계가 실패했을 때만
+`McpAuthenticationCheck`가 같은 주소로 한 번 더 요청해 401/403이면 인증 실패로 구분한다.
+
+REJECTED는 더 나누지 않는다. Python 오류는 사람이 읽는 영문 메시지뿐이라 대기열 가득 참·배포 중 같은
+일시 거절과 입력 오류를 Java에서 안정적으로 구분할 수 없다. 필요하면 Python에 오류 코드를 추가한다.
+
 ## 실행 설정
 
 Spring Boot 3.5.8에서 Spring AI BOM 1.1.8의 OpenAI·MCP 모듈을 사용한다.
