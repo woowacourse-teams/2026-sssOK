@@ -477,13 +477,18 @@ const ViewerFooter = ({
           onClose={() => setReportOpen(false)}
           onSubmit={() => {
             setReportOpen(false);
-            setDoneMessage("신고가 접수됐어요.");
+            setDoneMessage("신고가 완료됐어요.");
           }}
         />
       )}
       {/* 뷰어가 최상위 레이어(dialog)라 그 안에 띄워야 가려지지 않는다. */}
       {doneMessage !== null && (
-        <Toast message={doneMessage} showClose={false} onClose={() => setDoneMessage(null)} />
+        <Toast
+          container={container}
+          message={doneMessage}
+          showClose={false}
+          onClose={() => setDoneMessage(null)}
+        />
       )}
     </Footer>
   );

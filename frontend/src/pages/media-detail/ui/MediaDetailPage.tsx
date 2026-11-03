@@ -202,7 +202,7 @@ const MediaDetailContent = ({
           }}
         />
       )}
-      {reportDone && <Toast message="신고가 접수됐어요." onClose={() => setReportDone(false)} />}
+      {reportDone && <Toast message="신고가 완료됐어요." onClose={() => setReportDone(false)} />}
       {deleteMutation.isError && (
         <Toast
           tone="error"
