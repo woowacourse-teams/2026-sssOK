@@ -31,7 +31,6 @@ import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.S3Error;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
 // region "auto" 와 path-style 은 R2 의 제약이다. 실제 리전 값을 넣으면 서명 스코프가 어긋나
@@ -48,6 +47,7 @@ public class R2FileStorage implements FileStorage {
     private final R2UploadStrategyResolver uploadStrategies;
 
     private volatile S3Presigner presigner;
+    private volatile R2GetObjectSigner getObjectSigner;
     private volatile S3Client client;
 
     // contentType 을 지정하면 서명 대상에 포함된다. 업로드하는 쪽이 같은 값을 보내지 않으면 403 이다.
@@ -69,22 +69,11 @@ public class R2FileStorage implements FileStorage {
 
     // responseContentDisposition/responseContentType 을 지정하면 스토리지가 원본 메타데이터
     // 대신 이 값으로 응답 헤더를 채운다 — 업로드 당시 파일명을 그대로 내려주는 데 쓴다.
+    // 다건 다운로드가 한 요청에 수백 개를 서명하므로 presigner 를 거치지 않는다 (R2GetObjectSigner).
     @Override
     public String presignGet(StorageKey storageKey, String responseContentDisposition,
                              String responseContentType, Duration ttl) {
-        GetObjectRequest get = GetObjectRequest.builder()
-            .bucket(properties.bucket())
-            .key(storageKey.value())
-            .responseContentDisposition(responseContentDisposition)
-            .responseContentType(responseContentType)
-            .build();
-
-        return presigner().presignGetObject(GetObjectPresignRequest.builder()
-                .signatureDuration(ttl)
-                .getObjectRequest(get)
-                .build())
-            .url()
-            .toString();
+        return getObjectSigner().sign(storageKey, responseContentDisposition, responseContentType, ttl);
     }
 
     @Override
@@ -193,6 +182,20 @@ public class R2FileStorage implements FileStorage {
                         .serviceConfiguration(pathStyle())
                         .build();
                     presigner = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    private R2GetObjectSigner getObjectSigner() {
+        R2GetObjectSigner local = getObjectSigner;
+        if (local == null) {
+            synchronized (this) {
+                local = getObjectSigner;
+                if (local == null) {
+                    local = new R2GetObjectSigner(properties);
+                    getObjectSigner = local;
                 }
             }
         }
