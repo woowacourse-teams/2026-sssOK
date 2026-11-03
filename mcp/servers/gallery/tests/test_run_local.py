@@ -7,8 +7,10 @@ import sys
 import tempfile
 import unittest
 
+from pipeline import run_local
 
-RUNNER = Path(__file__).resolve().parents[1] / 'pipeline' / 'run_local.py'
+
+RUNNER = Path(run_local.__file__).resolve()
 
 
 class RunLocalTests(unittest.TestCase):
