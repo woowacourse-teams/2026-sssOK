@@ -40,6 +40,14 @@ class OrganizeInterpretationConfigTest {
             .run(result -> assertThat(result).hasFailed());
     }
 
+    @Test
+    void 추론_강도는_선택_설정이며_비워도_기동한다() {
+        enabledContext().withPropertyValues("gallery.organization.interpretation.reasoning-effort=")
+            .run(result -> assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class));
+        enabledContext().withPropertyValues("gallery.organization.interpretation.reasoning-effort=none")
+            .run(result -> assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class));
+    }
+
     private ApplicationContextRunner enabledContext() {
         return context.withPropertyValues(
             "gallery.organization.interpretation.enabled=true",

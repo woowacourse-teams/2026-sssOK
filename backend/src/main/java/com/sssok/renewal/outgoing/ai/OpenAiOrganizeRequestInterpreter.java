@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.messages.AssistantMessage.ToolCall;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -24,6 +25,7 @@ import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.ai.openai.api.OpenAiApi.FunctionTool;
 import org.springframework.ai.openai.api.OpenAiApi.FunctionTool.Function;
 
+@Slf4j
 public class OpenAiOrganizeRequestInterpreter implements OrganizeRequestInterpreter {
     public static final String PROMPT_VERSION = "organize-tool-selection-v2";
 
@@ -97,6 +99,8 @@ public class OpenAiOrganizeRequestInterpreter implements OrganizeRequestInterpre
         try {
             return model.call(prompt);
         } catch (RuntimeException failure) {
+            String detail = String.valueOf(failure.getMessage()).replaceAll("sk-[A-Za-z0-9_*-]+", "<key>");
+            log.warn("사진 정리 요청 해석 모델 호출 실패: {}: {}", failure.getClass().getSimpleName(), detail);
             throw new InterpretationException(Reason.CALL_FAILED);
         }
     }

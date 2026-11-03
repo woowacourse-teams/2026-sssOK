@@ -56,12 +56,15 @@ public class OrganizeInterpretationConfig {
     }
 
     private OpenAiChatModel createChatModel(OrganizeInterpretationProperties properties) {
+        OpenAiChatOptions.Builder options = OpenAiChatOptions.builder()
+            .model(properties.model())
+            .maxCompletionTokens(MAX_COMPLETION_TOKENS);
+        if (properties.reasoningEffort() != null) {
+            options.reasoningEffort(properties.reasoningEffort());
+        }
         return OpenAiChatModel.builder()
             .openAiApi(createOpenAiApi(properties))
-            .defaultOptions(OpenAiChatOptions.builder()
-                .model(properties.model())
-                .maxCompletionTokens(MAX_COMPLETION_TOKENS)
-                .build())
+            .defaultOptions(options.build())
             .retryTemplate(RetryTemplate.builder().maxAttempts(1).build())
             .build();
     }

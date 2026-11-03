@@ -259,6 +259,7 @@ gallery:
       enabled: ${GALLERY_ORGANIZATION_INTERPRETATION_ENABLED:false}
       api-key: ${OPENAI_API_KEY:}
       model: ${GALLERY_ORGANIZATION_MODEL:}
+      reasoning-effort: ${GALLERY_ORGANIZATION_REASONING_EFFORT:}
       timeout: 20s
     mcp:
       server-id: gallery
