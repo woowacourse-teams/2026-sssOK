@@ -16,6 +16,7 @@ import {
 import { LuSiren } from "react-icons/lu";
 
 import type { GalleryItem } from "@/entities/media";
+import { ReportMediaModal } from "@/features/report-media";
 import { DeleteMediaModal } from "@/features/delete-media";
 import { downloadMedia, savesToPhotoLibrary } from "@/features/download-media";
 import { useMediaLike } from "@/features/toggle-media-like";
@@ -108,6 +109,11 @@ export const MediaViewerModal = ({
         if (deletingMediaId === null) onClose();
       }}
       onKeyDown={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest("dialog") !== event.currentTarget
+        )
+          return;
         if (deletingMediaId !== null) {
           if (event.key === "Escape") event.preventDefault();
           return;
@@ -205,6 +211,7 @@ export const MediaViewerModal = ({
             canDelete={
               item.type === "local" || item.media.uploaderId === userId || hostId === userId
             }
+            container={dialog}
             onDelete={() => setDeletingMediaId(item.mediaId)}
           />
         </>
@@ -310,6 +317,7 @@ const ViewerFooter = ({
   userId,
   token,
   canDelete,
+  container,
   onDelete,
 }: {
   item: GalleryItem;
@@ -317,15 +325,14 @@ const ViewerFooter = ({
   userId: number;
   token: string;
   canDelete: boolean;
+  container?: Element | null;
   onDelete: () => void;
 }) => {
+  const [reportOpen, setReportOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    setActionsOpen(false);
-  }, [item.mediaId]);
   useEffect(() => {
     if (!actionsOpen) return;
     const closeOutside = (event: PointerEvent) => {
@@ -418,15 +425,18 @@ const ViewerFooter = ({
           <HiEllipsisHorizontal size={24} />
         </MoreButton>
         <ActionList $open={actionsOpen}>
-          {!isVideoItem(item) && (
+          {item.type === "server" && !isVideoItem(item) && (
             <MoreActionButton
               type="button"
-              aria-label="사진 신고 (준비 중)"
-              title="사진 신고 준비 중"
-              disabled
+              aria-label="사진 신고"
+              title="사진 신고"
+              onClick={() => {
+                setActionsOpen(false);
+                setReportOpen(true);
+              }}
             >
               <LuSiren size={21} />
-              <ActionLabel>사진 신고 (준비 중)</ActionLabel>
+              <ActionLabel>사진 신고</ActionLabel>
             </MoreActionButton>
           )}
           <MoreActionButton
@@ -459,6 +469,16 @@ const ViewerFooter = ({
           </MoreActionButton>
         </ActionList>
       </MoreActions>
+      {reportOpen && (
+        <ReportMediaModal
+          container={container}
+          onClose={() => setReportOpen(false)}
+          onSubmit={() => {
+            setReportOpen(false);
+            setDoneMessage("신고 화면 확인을 완료했어요. 실제 신고는 접수되지 않아요.");
+          }}
+        />
+      )}
       {/* 뷰어가 최상위 레이어(dialog)라 그 안에 띄워야 가려지지 않는다. */}
       {doneMessage !== null && (
         <Toast message={doneMessage} showClose={false} onClose={() => setDoneMessage(null)} />

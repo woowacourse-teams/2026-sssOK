@@ -16,9 +16,10 @@ export interface ModalProps {
   showClose?: boolean;
   /**
    * 카드 너비. 기본(`sm`)은 모바일 확인 모달 크기다.
+   * `md` 는 모바일 크기를 유지하고 PC에서 420px로 넓어진다.
    * `lg` 는 관리자 화면처럼 긴 본문과 표를 한 번에 읽어야 하는 자리에 쓴다.
    */
-  size?: "sm" | "lg";
+  size?: "sm" | "md" | "lg";
   /**
    * 넘기면 카드 맨 위에 제목과 X 를 한 줄로 두고, 본문이 길어도 이 줄은 스크롤되지 않는다.
    * 긴 내용을 내려 읽다가도 닫을 곳을 찾으러 다시 올라갈 필요가 없다.
@@ -180,6 +181,11 @@ const Card = styled.div<{ size: NonNullable<ModalProps["size"]> }>`
   color: ${colors.textPrimary};
   border-radius: ${radius[24]};
   box-shadow: ${shadow.modal};
+
+  @media (min-width: 768px) {
+    max-width: ${({ size }) => (size === "md" ? "420px" : size === "lg" ? "560px" : "330px")};
+    padding: ${({ size }) => (size === "md" ? "28px" : size === "lg" ? "28px" : spacing[20])};
+  }
 `;
 
 const Header = styled.div`

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { HiArrowDownTray, HiArrowLeft, HiCheck, HiOutlineTrash } from "react-icons/hi2";
 import { LuSiren } from "react-icons/lu";
@@ -7,6 +8,7 @@ import { mediaQueryKey, photosQueryKey, useMediaQuery, type MediaList } from "@/
 import { roomQueryKey, useRoomQuery, type Room } from "@/entities/room";
 import { useRoomSession } from "@/entities/member-session";
 import { type AnonymousSession } from "@/entities/session";
+import { ReportMediaModal } from "@/features/report-media";
 import { deleteMedia } from "@/features/delete-media";
 import { usePhotoSelection } from "@/features/select-media";
 import { isApiError } from "@/shared/api";
@@ -81,6 +83,8 @@ const MediaDetailContent = ({
   session: AnonymousSession;
   mediaId: number;
 }) => {
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportDone, setReportDone] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedPhotoIds, togglePhoto, removePhotos } = usePhotoSelection([mediaId]);
@@ -164,9 +168,9 @@ const MediaDetailContent = ({
         </Metadata>
         <ActionButton
           type="button"
-          aria-label="사진 신고 (준비 중)"
-          title="사진 신고 준비 중"
-          disabled
+          aria-label="사진 신고"
+          title="사진 신고"
+          onClick={() => setReportOpen(true)}
         >
           <LuSiren size={21} />
         </ActionButton>
@@ -187,6 +191,21 @@ const MediaDetailContent = ({
           <HiArrowDownTray size={21} />
         </ActionButton>
       </Footer>
+      {reportOpen && (
+        <ReportMediaModal
+          onClose={() => setReportOpen(false)}
+          onSubmit={() => {
+            setReportOpen(false);
+            setReportDone(true);
+          }}
+        />
+      )}
+      {reportDone && (
+        <Toast
+          message="신고 화면 확인을 완료했어요. 실제 신고는 접수되지 않아요."
+          onClose={() => setReportDone(false)}
+        />
+      )}
       {deleteMutation.isError && (
         <Toast
           tone="error"
