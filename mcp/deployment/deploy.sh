@@ -20,7 +20,7 @@ if [[ -e "$root/current" || -L "$root/current" ]]; then
   done
 fi
 release=$(mktemp -d "$root/releases/gallery-XXXXXXXX")
-printf 'sqlite-v1\n' > "$release/storage-version"
+printf 'sqlite-v2\n' > "$release/storage-version"
 cp "$source_dir/compose.yml" "$source_dir/smoke.py" "$source_dir/control.py" "$release/"
 cp "$source_dir/../servers/gallery/model-checksums.json" "$release/"
 chmod 644 "$release/model-checksums.json"
@@ -62,22 +62,56 @@ set_current() {
   ln -sfn "$1" "$root/current.next"
   python3 -c 'import os, sys; os.replace(sys.argv[1], sys.argv[2])' "$root/current.next" "$root/current"
 }
+database_version() {
+  python3 - "$1" <<'PYDB'
+from contextlib import closing
+from pathlib import Path
+import sqlite3
+import sys
+
+try:
+    path = Path(sys.argv[1])
+    path.stat()
+except FileNotFoundError:
+    print('absent')
+except OSError:
+    print('unknown')
+else:
+    try:
+        with closing(sqlite3.connect(path.as_uri() + '?mode=ro', uri=True, timeout=5)) as db:
+            print(db.execute('PRAGMA user_version').fetchone()[0])
+    except (OSError, sqlite3.Error):
+        print('unknown')
+PYDB
+}
+rollback_compatible() {
+  local previous_storage database
+  previous_storage=$(cat "$previous/storage-version" 2>/dev/null || true)
+  database=$(database_version "$next_data/executions-v1.sqlite3") || database=unknown
+  case "$previous_storage:$database" in
+    sqlite-v1:1|sqlite-v2:1|sqlite-v2:2|:absent) return 0 ;;
+  esac
+  echo "ERROR: incompatible rollback refused (previous=${previous_storage:-JSON}, database=$database). Keep data and recover with a compatible release manually." >&2
+  return 1
+}
 finish() {
   local result=$?
   trap - EXIT INT TERM
   if [[ "$result" != 0 && "$changed" == true ]]; then
     if [[ -n "$previous" ]]; then
-      if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && -f "$next_data/executions-v1.sqlite3" ]]; then
-        # A JSON-only image cannot see new SQLite receipts. Never silently roll back storage.
-        compose "$release" stop || true
+      # Freeze the failed release before inspecting schema compatibility.
+      if ! compose "$release" stop; then
         drained=false
-        echo 'ERROR: SQLite storage created; JSON-only rollback refused. Keep data and restore a SQLite-compatible release manually.' >&2
+        echo 'ERROR: failed release could not be stopped; automatic rollback refused. Manual recovery required.' >&2
+      elif ! rollback_compatible; then
+        drained=false
       else
         echo 'Deployment failed; restoring previous image and configuration'
         if compose "$previous" up -d --wait --wait-timeout 90 && smoke "$previous"; then
           set_current "$previous" || echo 'ERROR: current link recovery failed'
           echo 'Previous release restored and verified'
         else
+          drained=false
           echo 'ERROR: rollback failed; manual recovery required'
         fi
       fi
@@ -109,7 +143,7 @@ if [[ -n "$previous" ]]; then
     echo 'Persistent data directory changed; deployment refused. Migrate data separately before deploying.' >&2
     exit 1
   }
-  if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && -f "$next_data/executions-v1.sqlite3" ]]; then
+  if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v2 && -f "$next_data/executions-v1.sqlite3" ]]; then
     echo 'SQLite data exists but the previous release is JSON-only; manual recovery required.' >&2
     exit 1
   fi

@@ -22,7 +22,7 @@ async def main():
         async with ClientSession(read, write) as session:
             await session.initialize()
             names = {tool.name for tool in (await session.list_tools()).tools}
-            if not {'group_photos_by_person', 'get_gallery_job'} <= names:
+            if not {'group_photos_by_person', 'group_similar_photos', 'get_gallery_job'} <= names:
                 raise RuntimeError('Required gallery tools are missing')
     print('PASS: health, readiness, authentication, MCP initialize and tools/list')
 

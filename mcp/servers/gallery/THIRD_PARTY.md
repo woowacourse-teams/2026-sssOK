@@ -13,3 +13,10 @@
 OSNet 구현에서 자동 다운로드 코드를 제거하고 모델 생성 기본값을 `pretrained=False`로 변경했다.
 `pretrained=True` 요청은 명시적인 오류로 거부하며, 실행 경로에서는 검증된 로컬 체크포인트만 로드한다.
 따라서 `gdown`은 서비스 의존성에 포함하지 않는다. 모델 파일을 재배포할 때는 각 배포처의 조건을 확인한다.
+
+## Similar-photo models (#661)
+
+- DINOv2 ViT-S/14: Meta, Apache-2.0. https://github.com/facebookresearch/dinov2
+- ResNet50 IMAGENET1K_V2: torchvision, BSD-3-Clause source license. https://github.com/pytorch/vision
+- Exported fixed-input TorchScript artifacts are stored outside Git, verified by both model manifests.
+  Source licenses do not certify training-data rights or accuracy for arbitrary user photos.
