@@ -22,7 +22,8 @@ def register(mcp, service):
     @mcp.tool(structured_output=True)
     def group_similar_photos(room_id: int, job_id: str, request_id: str,
                              attempt: int, photos: list[Photo]) -> dict[str, Any]:
-        """Group a complete room snapshot by similar composition/burst, not identity.
+        """Group photos that look alike: burst shots (연사) and similar composition or scene
+        (비슷한 구도·장면), regardless of who appears in them. Analyze a complete room snapshot.
         Returns groups of at least three, small pairs and unassigned photos.
         Never deletes photos or creates folders. IDs/authorization belong to Spring.
         """
