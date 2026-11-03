@@ -193,6 +193,8 @@ const MediaDetailContent = ({
       </Footer>
       {reportOpen && (
         <ReportMediaModal
+          roomId={room.roomId}
+          mediaId={mediaId}
           onClose={() => setReportOpen(false)}
           onSubmit={() => {
             setReportOpen(false);
@@ -200,12 +202,7 @@ const MediaDetailContent = ({
           }}
         />
       )}
-      {reportDone && (
-        <Toast
-          message="신고 화면 확인을 완료했어요. 실제 신고는 접수되지 않아요."
-          onClose={() => setReportDone(false)}
-        />
-      )}
+      {reportDone && <Toast message="신고가 접수됐어요." onClose={() => setReportDone(false)} />}
       {deleteMutation.isError && (
         <Toast
           tone="error"

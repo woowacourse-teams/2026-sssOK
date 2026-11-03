@@ -1,3 +1,6 @@
+import { isApiError } from "@/shared/api";
+import type { ReportReason } from "../api/reportMedia";
+import { useReportMedia } from "../model/useReportMedia";
 import { useId, useState } from "react";
 import styled from "@emotion/styled";
 
@@ -16,23 +19,30 @@ const reasons = [
 
 export const ReportMediaModal = ({
   container,
+  roomId,
+  mediaId,
   onClose,
   onSubmit,
 }: {
   container?: Element | null;
+  roomId: number;
+  mediaId: number;
   onClose: () => void;
   onSubmit: () => void;
 }) => {
-  const [reason, setReason] = useState<string | null>(null);
+  const [reason, setReason] = useState<ReportReason | null>(null);
   const groupName = useId();
-  const close = onClose;
+  const mutation = useReportMedia({ roomId, mediaId, onSuccess: onSubmit });
+  const close = () => {
+    if (!mutation.isPending) onClose();
+  };
 
   return (
-    <Modal container={container} onClose={close} size="md">
+    <Modal container={container} onClose={close} showClose={!mutation.isPending} size="md">
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (reason !== null) onSubmit();
+          if (reason !== null && mutation.canReport && !mutation.isPending) mutation.mutate(reason);
         }}
       >
         <Stack gap={20}>
@@ -46,20 +56,39 @@ export const ReportMediaModal = ({
                   name={groupName}
                   value={option.value}
                   checked={reason === option.value}
+                  disabled={mutation.isPending}
                   onChange={() => {
                     setReason(option.value);
+                    mutation.reset();
                   }}
                 />
                 <span>{option.label}</span>
               </Option>
             ))}
           </Options>
+          {mutation.sessionError && (
+            <ErrorMessage role="alert">{mutation.sessionError}</ErrorMessage>
+          )}
+          {mutation.isError && (
+            <ErrorMessage role="alert">
+              {isApiError(mutation.error)
+                ? mutation.error.code === "MEDIA_ALREADY_REPORTED"
+                  ? "이미 신고한 사진이에요."
+                  : mutation.error.message
+                : "신고를 접수하지 못했어요. 다시 시도해 주세요."}
+            </ErrorMessage>
+          )}
           <Row gap={12}>
-            <Button variant="default" onClick={close}>
+            <Button variant="default" onClick={close} disabled={mutation.isPending}>
               취소
             </Button>
-            <Button type="submit" variant="danger" disabled={reason === null}>
-              신고
+            <Button
+              type="submit"
+              variant="danger"
+              disabled={reason === null || !mutation.canReport || mutation.isPending}
+              aria-busy={mutation.isPending}
+            >
+              {mutation.isPending ? "신고 중…" : "신고"}
             </Button>
           </Row>
         </Stack>
@@ -125,4 +154,9 @@ const Option = styled.label`
       box-shadow: inset 0 0 0 4px ${colors.backgroundDefault};
     }
   }
+`;
+
+const ErrorMessage = styled.p`
+  color: ${colors.danger};
+  ${typography.caption1}
 `;

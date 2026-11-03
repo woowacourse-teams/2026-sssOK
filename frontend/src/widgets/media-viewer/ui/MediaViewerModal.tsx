@@ -471,11 +471,13 @@ const ViewerFooter = ({
       </MoreActions>
       {reportOpen && (
         <ReportMediaModal
+          roomId={roomId}
+          mediaId={item.mediaId}
           container={container}
           onClose={() => setReportOpen(false)}
           onSubmit={() => {
             setReportOpen(false);
-            setDoneMessage("신고 화면 확인을 완료했어요. 실제 신고는 접수되지 않아요.");
+            setDoneMessage("신고가 접수됐어요.");
           }}
         />
       )}
