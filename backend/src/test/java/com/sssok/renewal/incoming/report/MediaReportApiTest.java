@@ -7,6 +7,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.renewal.application.report.MediaReportedEvent;
+import com.sssok.renewal.domain.report.MediaReport;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
@@ -21,6 +23,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
@@ -30,6 +34,7 @@ import org.springframework.web.context.WebApplicationContext;
 // #670 사진 신고. MediaLikeApiTest 와 같은 설정이라야 테스트 컨텍스트를 재사용한다.
 @AcceptanceTest
 @SpringBootTest(properties = "storage.cleanup.auto-purge=false")
+@RecordApplicationEvents
 class MediaReportApiTest extends PostgresContainerSupport {
 
     private static final AtomicLong MEDIA_ID_SEQUENCE = new AtomicLong(System.currentTimeMillis() + 1_000_000);
@@ -45,6 +50,9 @@ class MediaReportApiTest extends PostgresContainerSupport {
 
     @MockitoBean
     FileStorage fileStorage;
+
+    @Autowired
+    ApplicationEvents events;
 
     MockMvc mockMvc;
 
@@ -72,6 +80,37 @@ class MediaReportApiTest extends PostgresContainerSupport {
         assertThat(saved.get("nickname")).isEqualTo("가현");
         assertThat(saved.get("reason")).isEqualTo("PRIVACY_VIOLATION");
         assertThat(saved.get("reported_at")).isNotNull();
+    }
+
+    // 이벤트가 커밋 뒤 디스코드 알림으로 이어진다 (MediaReportNotificationTrigger).
+    @Test
+    void 신고가_저장되면_알림용_신고_이벤트를_한_번_발행한다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long mediaId = 존재하는_미디어(roomId, "READY");
+
+        신고(token, roomId, mediaId, "{\"reason\":\"HARASSMENT\"}").andExpect(status().isCreated());
+
+        assertThat(events.stream(MediaReportedEvent.class)).singleElement().satisfies(event -> {
+            MediaReport report = event.report();
+            assertThat(report.getId()).isEqualTo(jdbcTemplate.queryForObject(
+                "SELECT id FROM media_report WHERE media_id = ?", Long.class, mediaId));
+            assertThat(report.getRoomName()).isEqualTo("우테코 회식");
+            assertThat(report.getNickname()).isEqualTo("가현");
+        });
+    }
+
+    @Test
+    void 저장되지_않은_중복_신고는_알림용_이벤트를_발행하지_않는다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long mediaId = 존재하는_미디어(roomId, "READY");
+        신고(token, roomId, mediaId, "{\"reason\":\"HARASSMENT\"}").andExpect(status().isCreated());
+        events.clear();
+
+        신고(token, roomId, mediaId, "{\"reason\":\"HARASSMENT\"}").andExpect(status().isConflict());
+
+        assertThat(events.stream(MediaReportedEvent.class)).isEmpty();
     }
 
     @Test
