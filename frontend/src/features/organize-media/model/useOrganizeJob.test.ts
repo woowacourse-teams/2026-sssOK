@@ -302,19 +302,51 @@ describe("useOrganizeJob", () => {
     expect(result.current.notice).toBeNull();
   });
 
-  it("확인하기로 숨기면 결과를 남겨 두어 방은 계속 점유된다", async () => {
-    const { requests } = serve({
+  it("완료된 결과를 검토용으로 들고 있고, 못 읽었으면 다시 읽을 수 있다", async () => {
+    serve({
       current: { roomBusy: true, roomVersion: 2, myJob: jobOf({ status: "READY", jobVersion: 5 }) },
     });
+    let failsLeft = 1;
+    server.use(
+      http.get(`${BASE}/:jobId/result`, () => {
+        if (failsLeft === 0) return undefined;
+        failsLeft -= 1;
+        return HttpResponse.json({ code: "INTERNAL", message: "x" }, { status: 500 });
+      }),
+    );
     const { result } = render();
-    await waitFor(() => expect(result.current.notice?.status).toBe("READY"));
 
-    act(() => result.current.hide());
+    await waitFor(() => expect(result.current.review).toEqual({ state: "failed" }));
 
-    expect(requests).toHaveLength(0);
-    expect(result.current.notice).toBeNull();
+    act(() => result.current.reloadResult());
+
+    await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+    expect(result.current.notice?.peopleCount).toBe(6);
     expect(result.current.blockedReason).toBe("확인하지 않은 정리 결과가 있어요");
   });
+
+  it("검토 화면을 열 때 결과를 새로 받는다", async () => {
+    serve({
+      current: { roomBusy: true, roomVersion: 2, myJob: jobOf({ status: "READY", jobVersion: 5 }) },
+    });
+    let resultCalls = 0;
+    server.use(
+      http.get(`${BASE}/:jobId/result`, () => {
+        resultCalls += 1;
+        return undefined;
+      }),
+    );
+    const { result } = render();
+    await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+    expect(resultCalls).toBe(1);
+
+    act(() => result.current.reloadResult());
+
+    expect(result.current.review).toEqual({ state: "loading" });
+    await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+    expect(resultCalls).toBe(2);
+  });
+
   it("서버가 200장 초과로 거절하면 토스트 대신 모달용 까닭을 남긴다", async () => {
     serve();
     server.use(
