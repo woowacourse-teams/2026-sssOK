@@ -6,8 +6,9 @@ import { Spinner } from "@/shared/ui/spinner";
 import { Stack } from "@/shared/ui/stack";
 import { Toast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
-import type { OrganizeResult } from "../api/types";
+import type { OrganizeApplyGroup, OrganizeResult } from "../api/types";
 import {
+  applyGroupsOf,
   conflictOf,
   createPersonReview,
   footerOf,
@@ -15,7 +16,6 @@ import {
   mergePeople,
   ownerOfName,
   type PersonReview,
-  type ReviewPerson,
   toggleName,
   togglePhoto,
 } from "../model/personReview";
@@ -56,8 +56,13 @@ interface PersonReviewScreenProps {
   folderNames: string[];
   onClose: () => void;
   onRetry: () => void;
-  /** 이름을 고른 사람들로 폴더를 만든다. 반영은 #684 에서 붙인다. */
-  onSubmit: (people: ReviewPerson[]) => void;
+  /** 이름을 고른 사람들로 폴더를 만든다. 뺀 사진은 빠져 있고, 같은 이름은 한 그룹으로 합쳐 있다. */
+  onSubmit: (groups: OrganizeApplyGroup[]) => void;
+  /** 폴더를 만드는 중이면 버튼을 막는다. */
+  isSubmitting?: boolean;
+  /** 폴더를 만들지 못한 까닭. 화면에 남아 다시 누를 수 있다. */
+  submitError?: string | null;
+  onDismissError?: () => void;
 }
 
 const BackHeader = ({ label, onClick }: { label: string; onClick: () => void }) => (
@@ -118,7 +123,17 @@ interface PendingMerge {
   name: string;
 }
 
-const Review = ({ result, myName, memberNames, folderNames, onClose, onSubmit }: ReviewProps) => {
+const Review = ({
+  result,
+  myName,
+  memberNames,
+  folderNames,
+  onClose,
+  onSubmit,
+  isSubmitting = false,
+  submitError = null,
+  onDismissError,
+}: ReviewProps) => {
   const [review, setReview] = useState<PersonReview>(() => createPersonReview(result.groups));
   const [openedId, setOpenedId] = useState<string | null>(null);
   const [pendingMerge, setPendingMerge] = useState<PendingMerge | null>(null);
@@ -207,16 +222,11 @@ const Review = ({ result, myName, memberNames, folderNames, onClose, onSubmit }:
         {footer.hint && <Hint>{footer.hint}</Hint>}
         <Submit
           type="button"
-          disabled={!footer.canSubmit}
-          onClick={() =>
-            onSubmit(
-              review.people
-                .filter((person) => person.name !== null)
-                .map((person) => ({ ...person, photos: includedPhotos(person) })),
-            )
-          }
+          disabled={!footer.canSubmit || isSubmitting}
+          aria-busy={isSubmitting}
+          onClick={() => onSubmit(applyGroupsOf(review.people))}
         >
-          {footer.submit}
+          {isSubmitting ? "폴더를 만드는 중" : footer.submit}
         </Submit>
       </Footer>
 
@@ -227,6 +237,15 @@ const Review = ({ result, myName, memberNames, folderNames, onClose, onSubmit }:
           showClose={false}
           bottom={TOAST_BOTTOM}
           onClose={() => setMergedNotice(null)}
+        />
+      )}
+
+      {submitError && (
+        <Toast
+          tone="error"
+          message={submitError}
+          bottom={TOAST_BOTTOM}
+          onClose={() => onDismissError?.()}
         />
       )}
 
