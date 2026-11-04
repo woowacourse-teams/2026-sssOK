@@ -16,7 +16,8 @@ export const handleCookiePersistence = (data: string): boolean => {
       message === null ||
       !("type" in message) ||
       message.type !== "auth/persist-cookies"
-    ) return false;
+    )
+      return false;
   } catch {
     return false;
   }
