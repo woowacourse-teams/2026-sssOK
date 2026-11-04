@@ -51,6 +51,8 @@ export const Text = styled.span`
   color: ${colors.textStrong};
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
+  /* 문구 안의 \n 을 줄바꿈으로 보여 준다. */
+  white-space: pre-line;
 
   ${typography.caption2}
 `;
