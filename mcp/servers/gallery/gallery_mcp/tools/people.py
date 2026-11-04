@@ -1,6 +1,16 @@
 from typing import Any
 
 from ..inputs import Photo
+from ..rejection import RetryableRejection
+
+
+def _start(service, *args, **kwargs):
+    # A temporary refusal is returned as a structured error result instead of an exception,
+    # so the caller can tell it apart from a permanent one without parsing the message.
+    try:
+        return service.start(*args, **kwargs)
+    except RetryableRejection as rejection:
+        return rejection.as_result()
 
 
 def register(mcp, service):
@@ -12,7 +22,7 @@ def register(mcp, service):
         request_id is a unique execution UUID, reused only for the same attempt.
         Never applies folders. Spring owns authorization and durable job state.
         """
-        return service.start(room_id, request_id, photos, job_id=job_id, attempt=attempt)
+        return _start(service, room_id, request_id, photos, job_id=job_id, attempt=attempt)
 
     @mcp.tool(structured_output=True)
     def get_gallery_job(room_id: int, execution_id: str) -> dict[str, Any]:
@@ -27,4 +37,4 @@ def register(mcp, service):
         Returns groups of at least three, small pairs and unassigned photos.
         Never deletes photos or creates folders. IDs/authorization belong to Spring.
         """
-        return service.start(room_id, request_id, photos, job_id=job_id, attempt=attempt, kind='SIMILAR')
+        return _start(service, room_id, request_id, photos, job_id=job_id, attempt=attempt, kind='SIMILAR')
