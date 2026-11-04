@@ -1,7 +1,7 @@
 import { http, HttpResponse, sse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
-import { hasJoinedRoom, mediaOfRoom } from "./room";
+import { createFolderWithMedia, hasFolderNamed, hasJoinedRoom, mediaOfRoom } from "./room";
 
 /**
  * 사진 정리 작업 목 (2026-11-04 API 명세서).
@@ -9,7 +9,7 @@ import { hasJoinedRoom, mediaOfRoom } from "./room";
  * - POST /organize-jobs, /organize-jobs/by-text → 202 QUEUED Job
  * - GET  /organize-jobs/current → { roomBusy, roomVersion, myJob }
  * - GET  /organize-jobs/:jobId, /:jobId/result
- * - POST /organize-jobs/:jobId/cancel, /:jobId/retry
+ * - POST /organize-jobs/:jobId/cancel, /:jobId/retry, /:jobId/apply
  * - GET  /rooms/:roomId/events → organize.room.changed · organize.job.updated (브라우저만)
  *
  * 결과는 `localStorage["mock-organize-scenario"]` 로 바꿔 본다: ok(기본)·fail·empty.
@@ -36,6 +36,7 @@ interface MockJob {
   attempt: number;
   scenario: Scenario;
   canceledVersion: number | null;
+  appliedVersion: number | null;
 }
 
 const jobs = new Map<string, MockJob>();
@@ -83,6 +84,9 @@ const snapshot = (job: MockJob, now = Date.now()) => {
   if (job.canceledVersion !== null) {
     status = "CANCELED";
     jobVersion = job.canceledVersion;
+  } else if (job.appliedVersion !== null) {
+    status = "APPLIED";
+    jobVersion = job.appliedVersion;
   } else if (elapsed < QUEUE_MS) {
     status = "QUEUED";
     jobVersion = base + 1;
@@ -187,6 +191,7 @@ const startJob = (request: Request, roomId: number, kind: MockJob["kind"]) => {
     attempt: 1,
     scenario: scenarioOf(),
     canceledVersion: null,
+    appliedVersion: null,
   };
   jobs.set(job.jobId, job);
 
@@ -290,6 +295,52 @@ export const organizeHandlers = [
       job.canceledVersion = current.jobVersion + 1;
     }
     return HttpResponse.json({ data: snapshot(job) });
+  }),
+
+  /** 전부 만들거나 하나도 만들지 않는다. 같은 이름 폴더가 이미 있으면 409 다. */
+  http.post(`${BASE}/:jobId/apply`, async ({ request, params }) => {
+    const found = myJobOf(request, Number(params.roomId), String(params.jobId));
+    if ("denied" in found) return found.denied;
+    if (!request.headers.get("Idempotency-Key")) {
+      return error(400, "INVALID_PARAM", "요청 값이 올바르지 않습니다");
+    }
+
+    const { job } = found;
+    const current = snapshot(job);
+    if (current.status === "APPLIED") {
+      return error(409, "ORGANIZE_ALREADY_APPLIED", "이미 폴더에 반영된 작업입니다");
+    }
+    if (current.status !== "READY") {
+      return error(409, "ORGANIZE_JOB_NOT_READY", "아직 검토할 수 있는 결과가 없습니다");
+    }
+
+    const { groups } = (await request.json().catch(() => ({}))) as {
+      groups?: { groupId: string; folderName: string; mediaIds: number[] }[];
+    };
+    if (
+      !groups?.length ||
+      groups.some((group) => !group.folderName?.trim() || !group.mediaIds?.length)
+    ) {
+      return error(400, "INVALID_PARAM", "그룹 ID, 폴더 이름, 사진을 모두 입력해주세요");
+    }
+    const names = groups.map((group) => group.folderName.trim());
+    if (
+      new Set(names).size !== names.length ||
+      names.some((name) => hasFolderNamed(job.roomId, name))
+    ) {
+      return error(
+        409,
+        "ORGANIZE_FOLDER_NAME_CONFLICT",
+        "같은 이름의 폴더가 있습니다. 이름을 변경해주세요",
+      );
+    }
+
+    const folders = groups.map((group) => {
+      const folder = createFolderWithMedia(job.roomId, group.folderName.trim(), group.mediaIds);
+      return { folderId: folder!.id, folderName: folder!.name, mediaIds: group.mediaIds };
+    });
+    job.appliedVersion = current.jobVersion + 1;
+    return HttpResponse.json({ data: { jobId: job.jobId, status: "APPLIED", folders } });
   }),
 
   http.post(`${BASE}/:jobId/retry`, ({ request, params }) => {
