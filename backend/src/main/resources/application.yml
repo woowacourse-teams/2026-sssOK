@@ -32,6 +32,18 @@ spring:
       pool:
         size: 2
 
+  # 종료 순서: SSE 구독 닫기 → 웹 요청 마무리(이 값) → 비동기 작업 비우기(shutdown.task-drain-timeout).
+  # docker 의 stop_grace_period 는 두 값의 합보다 길어야 한다.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  shutdown: graceful
+
+shutdown:
+  # 대기 중이던 비동기 작업을 끝내고 내려가기 위해 기다리는 최대 시간 (TaskExecutorDrainer)
+  task-drain-timeout: 20s
+
 jwt:
   # 시크릿 자체는 실제 값을 커밋하지 않는다 — 로컬은 application-local.yml(gitignored), CI/운영은 환경변수로 공급한다.
   secret: ${JWT_SECRET}
