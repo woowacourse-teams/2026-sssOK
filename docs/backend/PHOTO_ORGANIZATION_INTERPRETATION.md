@@ -77,7 +77,8 @@
 | NOT_DELIVERED | 연결·목록 조회 실패 | 없음 | 나중에 재시도 |
 | AUTHENTICATION_FAILED | 서비스 토큰 거절 | 없음 | 설정 수정 전까지 재시도 의미 없음 |
 | TOOL_CHANGED | 해석 이후 도구 변경·삭제 | 없음 | 다시 해석 |
-| REJECTED | 서버가 오류 결과(isError) 또는 JSON-RPC 오류 반환 | 없음 | 실패 기록 |
+| SERVER_BUSY | 서버가 오류 결과에 `retryable: true`를 실어 돌려줌(대기열·전달 대기 가득 참, 배포 중 등) | 없음 | 같은 executionId로 나중에 재전송 |
+| REJECTED | 서버가 오류 결과(isError, 재시도 표시 없음) 또는 JSON-RPC 오류 반환 | 없음 | 실패 기록 |
 | OUTCOME_UNKNOWN | tools/call 중 시간 초과·연결 끊김 | 있음 | 같은 executionId로만 재전송 |
 | INVALID_RESPONSE | 응답이 요청과 불일치 | 있음 | OUTCOME_UNKNOWN과 같게 처리 |
 
@@ -86,8 +87,10 @@
 MCP Java SDK 0.18.3은 401 응답을 상태 코드 없는 예외로 바꾼다. 그래서 호출 전 단계가 실패했을 때만
 `McpAuthenticationCheck`가 같은 주소로 한 번 더 요청해 401/403이면 인증 실패로 구분한다.
 
-REJECTED는 더 나누지 않는다. Python 오류는 사람이 읽는 영문 메시지뿐이라 대기열 가득 참·배포 중 같은
-일시 거절과 입력 오류를 Java에서 안정적으로 구분할 수 없다. 필요하면 Python에 오류 코드를 추가한다.
+일시 거절과 영구 거절은 메시지 문구가 아니라 오류 결과의 `structuredContent.retryable`로 구분한다.
+Java는 이 값이 불리언 `true`일 때만 SERVER_BUSY로 보고, 없거나 거짓이거나 문자열이면 REJECTED로 둔다.
+표시를 모르는 이전 Python과 함께 써도 지금처럼 REJECTED로 동작하고, 이전 Java와 함께 써도 영문 메시지는 그대로라 호환된다.
+`errorCode`는 현재 Java가 읽지 않고 운영 로그와 후속 분기용이다.
 
 ## 실행 설정
 

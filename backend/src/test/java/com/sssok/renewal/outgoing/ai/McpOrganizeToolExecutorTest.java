@@ -126,6 +126,29 @@ class McpOrganizeToolExecutorTest {
     }
 
     @Test
+    void 서버가_일시적_거절이라고_표시하면_같은_실행으로_재전송할_수_있는_거절로_구분한다() {
+        when(client.callTool(any(CallToolRequest.class))).thenReturn(CallToolResult.builder()
+            .content(List.of(new TextContent("Analysis queue is full; https://r2.test/signed")))
+            .structuredContent(Map.of("errorCode", "QUEUE_FULL", "retryable", true)).isError(true).build());
+
+        assertThatThrownBy(() -> executor.execute(request()))
+            .isInstanceOfSatisfying(OrganizeExecutionException.class,
+                failure -> assertThat(failure.reason()).isEqualTo(Reason.SERVER_BUSY))
+            .hasMessageNotContaining("r2.test");
+    }
+
+    @Test
+    void 재시도_표시가_참이_아니면_접수_거절로_구분한다() {
+        for (Map<String, Object> error : List.<Map<String, Object>>of(Map.of("errorCode", "X", "retryable", false),
+            Map.of("errorCode", "X"), Map.of("retryable", "true"))) {
+            when(client.callTool(any(CallToolRequest.class))).thenReturn(CallToolResult.builder()
+                .content(List.of(new TextContent("rejected"))).structuredContent(error).isError(true).build());
+
+            assertReason(Reason.REJECTED);
+        }
+    }
+
+    @Test
     void 프로토콜_오류_응답은_재전송_대상이_아닌_접수_거절로_구분한다() {
         when(client.callTool(any(CallToolRequest.class)))
             .thenThrow(McpError.builder(-32602).message("Invalid arguments").build());

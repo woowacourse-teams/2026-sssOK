@@ -84,13 +84,18 @@ public class McpOrganizeToolExecutor {
             throw new OrganizeExecutionException(Reason.INVALID_RESPONSE);
         }
         if (Boolean.TRUE.equals(result.isError())) {
-            throw new OrganizeExecutionException(Reason.REJECTED);
+            throw new OrganizeExecutionException(isRetryable(result) ? Reason.SERVER_BUSY : Reason.REJECTED);
         }
         if (!(result.structuredContent() instanceof Map<?, ?> receipt) || !echoesRequest(receipt, request)) {
             throw new OrganizeExecutionException(Reason.INVALID_RESPONSE);
         }
         return new OrganizeExecutionReceipt(request.executionId(), parseState(receipt.get("state")),
             Boolean.TRUE.equals(receipt.get("reused")));
+    }
+
+    // 서버는 실행을 만들기 전에 일시적으로 거절할 때만 structuredContent 의 retryable 을 true 로 준다.
+    private boolean isRetryable(CallToolResult result) {
+        return result.structuredContent() instanceof Map<?, ?> error && Boolean.TRUE.equals(error.get("retryable"));
     }
 
     private boolean echoesRequest(Map<?, ?> receipt, OrganizeExecutionRequest request) {

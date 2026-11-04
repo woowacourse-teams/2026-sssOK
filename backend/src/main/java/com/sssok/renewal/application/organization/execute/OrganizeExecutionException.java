@@ -9,6 +9,7 @@ public class OrganizeExecutionException extends SssOkException {
         AUTHENTICATION_FAILED,
         TOOL_CHANGED,
         REJECTED,
+        SERVER_BUSY,
         OUTCOME_UNKNOWN,
         INVALID_RESPONSE
     }
