@@ -50,6 +50,7 @@ const PLACEHOLDER = "어떤 사진을 찾거나 정리할까요?";
 const SELF_WORDS = ["나", "내"];
 
 export interface Uploader {
+  id: number;
   name: string;
   count: number;
   isMe: boolean;
@@ -73,7 +74,7 @@ interface SearchRequestFieldProps {
   myNickname: string;
   onOpen?: () => void;
   onSearchKeyword: (query: string) => void;
-  onSearchUploader: (name: string) => void;
+  onSearchUploader: (uploader: Uploader) => void;
   onOpenFolder: (folderId: number) => void;
   /** 정리 방식 선택을 연다. 시트가 붙기 전까지는 줄만 보이고 누르면 패널만 닫힌다. */
   onOrganize?: () => void;
@@ -142,11 +143,11 @@ export const SearchRequestField = ({
     },
   ];
   const uploaderAction = (uploader: Uploader, description: string): Action => ({
-    key: `uploader-${uploader.name}`,
+    key: `uploader-${uploader.id}`,
     icon: <HiArrowUpTray />,
     label: uploadedBy(uploader),
     description,
-    run: () => onSearchUploader(uploader.name),
+    run: () => onSearchUploader(uploader),
   });
   const keywordAction = (query: string, description?: string): Action => ({
     key: "keyword",

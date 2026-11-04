@@ -17,8 +17,8 @@ const renderField = (props: Partial<ComponentProps<typeof SearchRequestField>> =
       appliedText={null}
       folders={[{ id: 7, name: "하루" }]}
       uploaders={[
-        { name: "소이", count: 21, isMe: false },
-        { name: "해니", count: 9, isMe: true },
+        { id: 2, name: "소이", count: 21, isMe: false },
+        { id: 1, name: "해니", count: 9, isMe: true },
       ]}
       myNickname="해니"
       {...handlers}
@@ -78,7 +78,7 @@ describe("SearchRequestField", () => {
     await user.type(input(), "소");
     await user.click(screen.getByRole("button", { name: /소이가 올린 사진 찾기/ }));
 
-    expect(onSearchUploader).toHaveBeenCalledWith("소이");
+    expect(onSearchUploader).toHaveBeenCalledWith(expect.objectContaining({ id: 2, name: "소이" }));
   });
 
   it("올린 사람이 없으면 안내 문구를 보여 준다", async () => {

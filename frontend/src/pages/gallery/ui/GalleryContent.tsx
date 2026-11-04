@@ -254,9 +254,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
               search.searchBy("keyword", query);
               clearSelection();
             }}
-            onSearchUploader={(name) => {
+            onSearchUploader={(uploader) => {
               selectFolder(null);
-              search.searchBy("nickname", name);
+              search.searchByUploader(uploader);
               clearSelection();
             }}
             onOpenFolder={(folderId) => {
