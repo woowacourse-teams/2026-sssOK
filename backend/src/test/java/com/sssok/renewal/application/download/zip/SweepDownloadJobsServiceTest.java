@@ -7,13 +7,17 @@ import com.sssok.renewal.outgoing.database.DownloadJobRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.domain.download.DownloadJob;
 import com.sssok.renewal.domain.download.status.ExpiredDownloadJobStatus;
+import com.sssok.renewal.domain.download.status.FailedDownloadJobStatus;
 import com.sssok.renewal.domain.download.status.QueuedDownloadJobStatus;
 import com.sssok.renewal.domain.download.status.ReadyDownloadJobStatus;
+import com.sssok.renewal.domain.download.status.RunningDownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
+import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import com.sssok.support.H2IntegrationTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +34,9 @@ class SweepDownloadJobsServiceTest {
 
     @Autowired
     DownloadJobRepository downloadJobRepository;
+
+    @Autowired
+    JdbcTemplate jdbcTemplate;
 
     @MockitoBean
     FileStorage fileStorage;
@@ -82,5 +89,57 @@ class SweepDownloadJobsServiceTest {
 
         assertThat(sweepDownloadJobsService.sweepExpired(Instant.now())).isEqualTo(1);
         assertThat(sweepDownloadJobsService.sweepExpired(Instant.now())).isZero();
+    }
+
+    @Test
+    void 진행이_멈춘_QUEUED와_RUNNING_잡을_실패로_닫는다() {
+        DownloadJob queued = downloadJobRepository.save(
+            DownloadJob.create(1L, 100L, 1, 1024L, "sssOK_1.zip", Instant.now()));
+        DownloadJob running = DownloadJob.create(1L, 100L, 1, 1024L, "sssOK_1.zip", Instant.now());
+        running.markRunning();
+        running = downloadJobRepository.save(running);
+        lastProgressAt(queued, Instant.now().minus(Duration.ofHours(1)));
+        lastProgressAt(running, Instant.now().minus(Duration.ofHours(1)));
+
+        int failed = sweepDownloadJobsService.failStale(Instant.now());
+
+        assertThat(failed).isEqualTo(2);
+        DownloadJob reloaded = downloadJobRepository.findById(running.getId()).orElseThrow();
+        assertThat(reloaded.getStatus()).isEqualTo(FailedDownloadJobStatus.INSTANCE);
+        assertThat(reloaded.getFailureReason()).isEqualTo(SweepDownloadJobsService.STALE_FAILURE_REASON);
+        assertThat(downloadJobRepository.findById(queued.getId()).orElseThrow().getStatus())
+            .isEqualTo(FailedDownloadJobStatus.INSTANCE);
+    }
+
+    @Test
+    void 최근에_진행한_잡은_닫지_않는다() {
+        DownloadJob running = DownloadJob.create(1L, 100L, 1, 1024L, "sssOK_1.zip", Instant.now());
+        running.markRunning();
+        running = downloadJobRepository.save(running);
+        lastProgressAt(running, Instant.now().minus(Duration.ofMinutes(5)));
+
+        int failed = sweepDownloadJobsService.failStale(Instant.now());
+
+        assertThat(failed).isZero();
+        assertThat(downloadJobRepository.findById(running.getId()).orElseThrow().getStatus())
+            .isEqualTo(RunningDownloadJobStatus.INSTANCE);
+    }
+
+    @Test
+    void 끝난_잡은_오래돼도_닫지_않는다() {
+        DownloadJob ready = readyJobAt(Instant.now());
+        lastProgressAt(ready, Instant.now().minus(Duration.ofHours(1)));
+
+        int failed = sweepDownloadJobsService.failStale(Instant.now());
+
+        assertThat(failed).isZero();
+        assertThat(downloadJobRepository.findById(ready.getId()).orElseThrow().getStatus())
+            .isEqualTo(ReadyDownloadJobStatus.INSTANCE);
+    }
+
+    // updated_at 은 저장할 때 덮어써지므로 행을 직접 고친다.
+    private void lastProgressAt(DownloadJob job, Instant updatedAt) {
+        jdbcTemplate.update("UPDATE download_job SET updated_at = ? WHERE id = ?",
+            Timestamp.from(updatedAt), job.getId());
     }
 }

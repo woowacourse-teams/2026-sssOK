@@ -196,6 +196,8 @@ download:
   retention: 1h
   # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
   sweep-cron: "0 */10 * * * *"
+  # QUEUED·RUNNING 인데 이 시간 동안 진행 기록이 없으면 실패로 닫는다. 파일 하나를 옮기는 시간보다 넉넉하게 둔다.
+  stale-after: 30m
 
 springdoc:
   swagger-ui:

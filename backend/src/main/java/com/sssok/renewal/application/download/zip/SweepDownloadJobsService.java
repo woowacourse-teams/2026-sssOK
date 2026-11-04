@@ -8,11 +8,15 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SweepDownloadJobsService {
+
+    // 압축 도중 서버가 꺼져 멈춘 잡은 사용자당 동시 잡 수에 계속 잡혀 새 다운로드를 막으므로 실패로 닫는다.
+    static final String STALE_FAILURE_REASON = "압축이 중단되었습니다. 다시 요청해주세요";
 
     private final DownloadJobRepository downloadJobRepository;
     private final DownloadJobExpirer downloadJobExpirer;
@@ -33,5 +37,10 @@ public class SweepDownloadJobsService {
             }
         }
         return swept;
+    }
+
+    @Transactional
+    public int failStale(Instant now) {
+        return downloadJobRepository.failStaleActive(now.minus(downloadProperties.staleAfter()), STALE_FAILURE_REASON);
     }
 }
