@@ -54,7 +54,7 @@ class MediaReportApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 사진을_신고하면_201과_함께_대상_사진_사유_접수_시각을_저장한다() throws Exception {
+    void 사진을_신고하면_201과_함께_대상_사진_사유_접수_시각_신고_당시_닉네임과_방_이름을_저장한다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
         long mediaId = 존재하는_미디어(roomId, "READY");
@@ -66,8 +66,10 @@ class MediaReportApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.reportedAt").isNotEmpty());
 
         Map<String, Object> saved = jdbcTemplate.queryForMap(
-            "SELECT room_id, reason, reported_at FROM media_report WHERE media_id = ?", mediaId);
+            "SELECT room_id, room_name, nickname, reason, reported_at FROM media_report WHERE media_id = ?", mediaId);
         assertThat(saved.get("room_id")).isEqualTo(roomId);
+        assertThat(saved.get("room_name")).isEqualTo("우테코 회식");
+        assertThat(saved.get("nickname")).isEqualTo("가현");
         assertThat(saved.get("reason")).isEqualTo("PRIVACY_VIOLATION");
         assertThat(saved.get("reported_at")).isNotNull();
     }
