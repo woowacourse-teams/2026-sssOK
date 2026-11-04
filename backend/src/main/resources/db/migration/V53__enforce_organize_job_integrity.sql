@@ -1,6 +1,6 @@
--- #659 사진 정리 스키마와 엔티티 제약을 맞춘다. 기존 V50은 변경하지 않는다.
+-- #659 사진 정리 스키마와 엔티티 제약을 맞춘다. 기존 V51은 변경하지 않는다.
 -- 회원·방·사진은 삭제 후 이력 ID를 보존하므로 외부 FK를 생략한다.
--- 조건부 만료 인덱스 2개는 V50의 PostgreSQL 전용 정의를 유지한다.
+-- 조건부 만료 인덱스 2개는 V51의 PostgreSQL 전용 정의를 유지한다.
 -- 작업 내부 참조는 NO ACTION: 참조가 남은 작업의 물리 삭제를 거절한다.
 ALTER TABLE organize_job ADD CONSTRAINT ck_organize_job_status CHECK (status IN ('QUEUED','RUNNING','READY','FAILED','CANCELED','APPLIED','EXPIRED'));
 ALTER TABLE organize_job ADD CONSTRAINT ck_organize_job_kind CHECK (kind IN ('PERSON','SIMILAR'));
