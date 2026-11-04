@@ -10,6 +10,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .rejection import RetryableRejection
+
 
 class _ResultModel(BaseModel):
     model_config = ConfigDict(strict=True, extra='forbid')
@@ -164,10 +166,10 @@ class Store:
                     raise ValueError('Execution ID is already bound to another job or snapshot')
                 return dict(old), True
             if db.execute('SELECT COUNT(*) FROM executions').fetchone()[0] >= max_receipts:
-                raise ValueError('Delivery backlog is full; retry after Spring acknowledges results')
+                raise RetryableRejection('BACKLOG_FULL', 'Delivery backlog is full; retry after Spring acknowledges results')
             active = db.execute("SELECT COUNT(*) FROM executions WHERE state IN ('QUEUED', 'RUNNING')").fetchone()[0]
             if active >= max_queue:
-                raise ValueError('Analysis queue is full; retry later')
+                raise RetryableRejection('QUEUE_FULL', 'Analysis queue is full; retry later')
             if db.execute("SELECT 1 FROM executions WHERE business_job_id=? AND state IN ('QUEUED', 'RUNNING')",
                           (business_job_id,)).fetchone():
                 raise ValueError('This job already has an active execution')
