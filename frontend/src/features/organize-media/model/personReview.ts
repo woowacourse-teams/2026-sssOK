@@ -1,5 +1,5 @@
 import type { MediaItem } from "@/entities/media";
-import type { OrganizeGroup } from "../api/types";
+import type { OrganizeApplyGroup, OrganizeGroup } from "../api/types";
 
 /**
  * 사람별 나누기 검토 화면이 들고 있는 한 사람(카드).
@@ -126,3 +126,20 @@ export const footerOf = (review: PersonReview, folderNames: readonly string[] = 
     canSubmit: true,
   };
 };
+
+/**
+ * 반영 요청에 실을 그룹. 이름을 고른 카드 하나가 폴더 하나다.
+ *
+ * - 뺀 사진은 싣지 않는다. 남는 사진이 없는 카드는 만들 폴더가 없어 뺀다.
+ * - 같은 이름으로 합친 카드는 처음 그룹의 ID 로 한 번만 보낸다. 같은 폴더명이 두 번 가면 서버가
+ *   두 번째를 이름 충돌로 거절해 전체가 실패하기 때문이다.
+ * - '나' 칩의 값은 내 닉네임이라, 고른 이름이 그대로 폴더명이 된다.
+ */
+export const applyGroupsOf = (people: readonly ReviewPerson[]): OrganizeApplyGroup[] =>
+  people.flatMap((person) => {
+    const folderName = person.name?.trim();
+    const mediaIds = includedPhotos(person).map((photo) => photo.mediaId);
+    return folderName && mediaIds.length > 0
+      ? [{ groupId: person.groupIds[0], folderName, mediaIds }]
+      : [];
+  });
