@@ -4,6 +4,7 @@ import { downloadHandlers } from "./download";
 import { feedbackHandlers } from "./feedback";
 import { mediaHandlers } from "./media";
 import { myRoomsHandlers } from "./myRooms";
+import { organizeHandlers } from "./organize";
 import { roomHandlers } from "./room";
 import { uploadHandlers } from "./upload";
 
@@ -16,4 +17,5 @@ export const handlers = [
   ...uploadHandlers,
   ...downloadHandlers,
   ...mediaHandlers,
+  ...organizeHandlers,
 ];
