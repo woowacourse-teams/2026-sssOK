@@ -55,6 +55,7 @@ public enum ErrorCode {
     DOWNLOAD_FORBIDDEN(403, "본인이 요청한 다운로드가 아닙니다"),
     ADMIN_FORBIDDEN(403, "권한이 없습니다"),
     SUPER_ADMIN_REQUIRED(403, "슈퍼관리자만 수행할 수 있는 작업입니다"),
+    ORGANIZE_TRIAL_EXHAUSTED(403, "이 방에서 익명 회원의 체험 횟수를 모두 사용했습니다"),
 
     // 404 Not Found
     ROOM_NOT_FOUND(404, "존재하지 않는 방입니다: %s"),
@@ -63,6 +64,7 @@ public enum ErrorCode {
     MEDIA_NOT_FOUND(404, "존재하지 않는 미디어입니다"),
     DOWNLOAD_NOT_FOUND(404, "다운로드 요청을 찾을 수 없습니다"),
     ADMIN_NOT_FOUND(404, "존재하지 않는 관리자입니다"),
+    ORGANIZE_JOB_NOT_FOUND(404, "사진 정리 작업을 찾을 수 없습니다"),
     FEEDBACK_NOT_FOUND(404, "존재하지 않는 의견입니다"),
     API_NOT_FOUND(404, "존재하지 않는 API 경로입니다"),
 
@@ -79,12 +81,28 @@ public enum ErrorCode {
     DUPLICATE_ADMIN_LOGIN_ID(409, "이미 사용 중인 아이디입니다"),
     MEDIA_ALREADY_REPORTED(409, "이미 신고한 사진입니다"),
     LAST_SUPER_ADMIN(409, "마지막 슈퍼관리자는 삭제하거나 역할을 바꿀 수 없습니다"),
+    ORGANIZE_JOB_IN_PROGRESS(409, "이 방에서 이미 사진 정리가 진행 중입니다"),
+    ORGANIZE_JOB_NOT_READY(409, "아직 검토할 수 있는 결과가 없습니다"),
+    ORGANIZE_JOB_NOT_CANCELABLE(409, "이미 반영된 사진 정리는 취소할 수 없습니다"),
+    ORGANIZE_RETRY_NOT_ALLOWED(409, "다시 시도할 수 없는 작업입니다"),
+    ORGANIZE_FOLDER_NAME_CONFLICT(409, "같은 이름의 폴더가 있습니다. 이름을 변경해주세요"),
+    ORGANIZE_TARGET_CHANGED(409, "선택한 사진이 변경되었습니다. 결과를 다시 확인해주세요"),
+    ORGANIZE_ALREADY_APPLIED(409, "이미 폴더에 반영된 작업입니다"),
+    IDEMPOTENCY_KEY_CONFLICT(409, "같은 요청 키에 다른 요청 내용을 사용할 수 없습니다"),
 
     // 410 Gone
     ROOM_EXPIRED(410, "이미 사라진 방입니다"),
     ROOM_ALREADY_DELETED(410, "이미 삭제되었거나 만료된 방입니다"),
     LINK_CODE_EXPIRED(410, "만료된 코드입니다"),
     DOWNLOAD_EXPIRED(410, "다운로드 기한이 지났습니다"),
+    ORGANIZE_REVIEW_EXPIRED(410, "사진 정리 결과의 검토 시간이 만료되었습니다"),
+    ORGANIZE_RESULT_EXPIRED(410, "보관 기간이 지나 사진 정리 결과를 볼 수 없습니다"),
+
+    // 422 Unprocessable Entity
+    ORGANIZE_NEEDS_CLARIFICATION(422, "어떤 정리를 원하는지 더 구체적으로 알려주세요"),
+    ORGANIZE_UNSUPPORTED_REQUEST(422, "지원하지 않는 사진 정리 요청입니다"),
+    ORGANIZE_NO_ANALYZABLE_PHOTOS(422, "정리할 수 있는 사진이 없습니다"),
+    ORGANIZE_TOO_MANY_PHOTOS(422, "정리할 사진이 너무 많습니다. 현재 %d장, 최대 %d장까지 정리할 수 있습니다"),
 
     // 413 Payload Too Large
     FILE_SIZE_EXCEEDED(413, "%s 파일은 최대 %d바이트까지 업로드할 수 있습니다. (요청: %d바이트)"),
@@ -95,6 +113,7 @@ public enum ErrorCode {
     RATE_LIMITED(429, "진행 중인 다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
     ADMIN_LOGIN_RATE_LIMITED(429, "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해주세요"),
     UPLOAD_REQUEST_COOLDOWN(429, "방금 업로드를 요청했어요. 잠시 후 다시 요청해주세요"),
+    ORGANIZE_RATE_LIMITED(429, "사진 정리 요청이 너무 많습니다. 잠시 후 다시 시도해주세요"),
 
     // 415 Unsupported Media Type
     UNSUPPORTED_MEDIA_TYPE(415, "지원하지 않는 요청 형식입니다"),
@@ -103,6 +122,7 @@ public enum ErrorCode {
     INVALID_SEARCH_QUERY(400, "검색어는 공백 정리 후 1~200자여야 합니다"),
     IMAGE_SEARCH_UNAVAILABLE(503, "이미지 검색을 사용할 수 없습니다. 잠시 후 다시 시도해주세요"),
     WEB_PUSH_UNAVAILABLE(503, "알림을 사용할 수 없습니다"),
+    ORGANIZE_UNAVAILABLE(503, "지금은 사진 정리를 사용할 수 없습니다. 잠시 후 다시 시도해주세요"),
 
     // 500 Internal Server Error
     INTERNAL_SERVER_ERROR(500, "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요");

@@ -32,19 +32,21 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
 
     private final Map<Long, List<SseEmitter>> emittersByRoom = new ConcurrentHashMap<>();
     private final Map<SseEmitter, Long> membershipIdByEmitter = new ConcurrentHashMap<>();
+    // 회원 전용 이벤트를 그 회원의 연결에만 보내기 위해 연결마다 회원 ID 를 기억한다.
+    private final Map<SseEmitter, Long> memberIdByEmitter = new ConcurrentHashMap<>();
 
     // room_events 저장 + 브로드캐스트(publish)와, 구독 등록 + replay 조회(subscribe)가
     // 같은 방에 대해 겹치면 같은 이벤트가 두 번 전달되거나 순서가 뒤바뀔 수 있다.
     // 그래서 이 둘을 방 단위로(같은 emitters 리스트 객체에 synchronized) 직렬화해서,
     // "구독 시점 이후에 생긴 이벤트"는 항상 live broadcast로만, "구독 이전 이벤트"는 항상 replay로만 오게 한다.
     @Override
-    public void publish(Long roomId, String eventType, Object payload) {
+    public void publish(Long roomId, String eventType, Object payload, Long recipientMemberId) {
         String json = serialize(payload);
         List<SseEmitter> emitters = getOrCreateEmitters(roomId);
         synchronized (emitters) {
             RoomEventJpaEntity saved = roomEventJpaRepository.save(
-                new RoomEventJpaEntity(roomId, eventType, json, Instant.now()));
-            broadcast(emitters, roomId, saved.getId(), eventType, json);
+                new RoomEventJpaEntity(roomId, eventType, json, Instant.now(), recipientMemberId));
+            broadcast(emitters, roomId, saved.getId(), eventType, json, recipientMemberId);
         }
     }
 
@@ -58,6 +60,7 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
             RoomMember membership = roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)
                 .orElseThrow(RoomMembershipRequiredException::new);
             membershipIdByEmitter.put(emitter, membership.getId());
+            memberIdByEmitter.put(emitter, memberId);
             emitters.add(emitter);
 
             emitter.onCompletion(() -> removeEmitter(roomId, emitter));
@@ -65,7 +68,7 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
             emitter.onError(e -> removeEmitter(roomId, emitter));
 
             if (lastEventId != null) {
-                replayMissedEvents(roomId, lastEventId, emitter);
+                replayMissedEvents(roomId, lastEventId, memberId, emitter);
             }
         }
         return emitter;
@@ -109,17 +112,19 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
         });
     }
 
-    private void replayMissedEvents(Long roomId, Long lastEventId, SseEmitter emitter) {
-        List<RoomEventJpaEntity> missed =
-            roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, lastEventId);
+    private void replayMissedEvents(Long roomId, Long lastEventId, Long memberId, SseEmitter emitter) {
+        List<RoomEventJpaEntity> missed = roomEventJpaRepository.findVisibleAfter(roomId, lastEventId, memberId);
         for (RoomEventJpaEntity event : missed) {
             sendTo(emitter, roomId, event.getId(), event.getEventType(), event.getPayload());
         }
     }
 
-    private void broadcast(List<SseEmitter> emitters, Long roomId, Long eventId, String eventType, String json) {
+    private void broadcast(List<SseEmitter> emitters, Long roomId, Long eventId, String eventType, String json,
+                           Long recipientMemberId) {
         for (SseEmitter emitter : emitters) {
-            sendTo(emitter, roomId, eventId, eventType, json);
+            if (recipientMemberId == null || recipientMemberId.equals(memberIdByEmitter.get(emitter))) {
+                sendTo(emitter, roomId, eventId, eventType, json);
+            }
         }
     }
 
@@ -141,6 +146,7 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
 
     private void removeEmitter(Long roomId, SseEmitter emitter) {
         membershipIdByEmitter.remove(emitter);
+        memberIdByEmitter.remove(emitter);
         List<SseEmitter> emitters = emittersByRoom.get(roomId);
         if (emitters != null) {
             emitters.remove(emitter);
