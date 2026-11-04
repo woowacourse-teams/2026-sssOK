@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isApiError } from "@/shared/api";
 import {
+  applyOrganizeJob,
   cancelOrganizeJob,
   createIdempotencyKey,
   getCurrentOrganizeJob,
@@ -12,6 +13,8 @@ import {
 } from "../api/organizeJobApi";
 import {
   isActiveStatus,
+  type OrganizeApplied,
+  type OrganizeApplyGroup,
   type OrganizeJob,
   type OrganizeJobState,
   type OrganizeKind,
@@ -20,7 +23,13 @@ import {
 } from "../api/types";
 import type { OrganizeLimit } from "./analyzablePhotos";
 import { overallPercentOf } from "./overallProgress";
-import { ORGANIZE_ERROR_CODES, organizeErrorMessage, waitText } from "./organizeErrorMessage";
+import {
+  applyErrorMessage,
+  isApplyClosed,
+  ORGANIZE_ERROR_CODES,
+  organizeErrorMessage,
+  waitText,
+} from "./organizeErrorMessage";
 
 /** 버튼으로 고른 방식이거나, 입력창에 쓴 문장이다. */
 export type OrganizeRequest = { kind: OrganizeKind } | { text: string };
@@ -121,6 +130,11 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
   const [limit, setLimit] = useState<OrganizeLimit | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const isStartingRef = useRef(false);
+  const [isApplying, setIsApplying] = useState(false);
+  const isApplyingRef = useRef(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  /** 같은 내용을 다시 보낼 때는 같은 키를 써서, 응답만 놓친 반영이 두 번 일어나지 않게 한다. */
+  const applyKeyRef = useRef<{ body: string; key: string } | null>(null);
 
   const applyJob = useCallback(
     (next: OrganizeJobState & Partial<Pick<OrganizeJob, "photoCount">>) =>
@@ -304,6 +318,56 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
     setResultAttempt((attempt) => attempt + 1);
   }, []);
 
+  /**
+   * 검토한 그룹을 폴더로 만든다. 성공하면 만든 폴더를, 실패하면 null 을 돌려준다.
+   *
+   * 성공하면 방을 바로 풀어 준다. 서버는 반영과 함께 방 점유를 풀지만 이벤트는 조금 늦게 올 수 있다.
+   * 실패해도 서버는 일부만 반영하지 않으니 검토 화면에 그대로 남아 다시 누르면 된다.
+   * 이미 반영됐거나 기한이 지났으면 다시 눌러도 소용없어 현재 상태를 다시 읽는다.
+   */
+  const apply = useCallback(
+    async (groups: OrganizeApplyGroup[]): Promise<OrganizeApplied | null> => {
+      if (!job || job.status !== "READY" || groups.length === 0 || isApplyingRef.current) {
+        return null;
+      }
+      isApplyingRef.current = true;
+      setIsApplying(true);
+      setApplyError(null);
+
+      const body = JSON.stringify(groups);
+      if (applyKeyRef.current?.body !== body) {
+        applyKeyRef.current = { body, key: createIdempotencyKey() };
+      }
+
+      try {
+        const applied = await applyOrganizeJob({
+          roomId,
+          token,
+          jobId: job.jobId,
+          groups,
+          idempotencyKey: applyKeyRef.current.key,
+        });
+        applyKeyRef.current = null;
+        // 같은 작업의 늦게 온 READY 이벤트가 알림을 되살리지 않게 버전을 하나 올려 둔다.
+        setJob((current) =>
+          current?.jobId === job.jobId
+            ? { ...current, status: "APPLIED", jobVersion: current.jobVersion + 1 }
+            : current,
+        );
+        setRoom((current) => ({ ...current, busy: false }));
+        return applied;
+      } catch (cause) {
+        setApplyError(applyErrorMessage(cause));
+        if (isApplyClosed(cause)) void resync();
+        return null;
+      } finally {
+        isApplyingRef.current = false;
+        setIsApplying(false);
+      }
+    },
+    [job, resync, roomId, token],
+  );
+
   const isMine = job !== null && VISIBLE_STATUSES.includes(job.status);
   const isRunning = job !== null && isActiveStatus(job.status);
   const isAwaitingReview = job?.status === "READY";
@@ -349,6 +413,11 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
           ? ({ state: "failed" } as const)
           : ({ state: "ready", result: readyResult.result } as const),
     reloadResult,
+    apply,
+    isApplying,
+    /** 폴더 반영이 거절된 까닭. 검토 화면 안에서 알린다. */
+    applyError,
+    clearApplyError: () => setApplyError(null),
     error,
     clearError: () => setError(null),
     /** 서버가 장수 때문에 거절한 까닭. 모달로 알린다. */

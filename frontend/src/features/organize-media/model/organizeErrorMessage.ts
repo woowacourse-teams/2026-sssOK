@@ -20,6 +20,12 @@ export const ORGANIZE_ERROR_CODES = {
   needsClarification: "ORGANIZE_NEEDS_CLARIFICATION",
   unsupportedRequest: "ORGANIZE_UNSUPPORTED_REQUEST",
   retryNotAllowed: "ORGANIZE_RETRY_NOT_ALLOWED",
+  folderNameConflict: "ORGANIZE_FOLDER_NAME_CONFLICT",
+  targetChanged: "ORGANIZE_TARGET_CHANGED",
+  alreadyApplied: "ORGANIZE_ALREADY_APPLIED",
+  notReady: "ORGANIZE_JOB_NOT_READY",
+  reviewExpired: "ORGANIZE_REVIEW_EXPIRED",
+  resultExpired: "ORGANIZE_RESULT_EXPIRED",
 } as const;
 
 export const waitText = (seconds: number) => {
@@ -59,5 +65,42 @@ export const organizeErrorMessage = (error: unknown) => {
       return "이 작업은 더 다시 시도할 수 없어요. 새로 정리해 주세요.";
     default:
       return error.status === 0 ? "네트워크 연결을 확인해 주세요." : FALLBACK;
+  }
+};
+
+const APPLY_FALLBACK = "폴더를 만들지 못했어요. 다시 시도해 주세요.";
+
+/**
+ * 반영이 끝난 것으로 봐야 하는 거절. 이미 반영됐거나 검토할 수 없게 돼, 다시 눌러도 같은 답이 온다.
+ * 이때는 화면을 붙잡지 않고 현재 상태를 다시 읽는다.
+ */
+export const isApplyClosed = (error: unknown) =>
+  isApiError(error) &&
+  (
+    [
+      ORGANIZE_ERROR_CODES.alreadyApplied,
+      ORGANIZE_ERROR_CODES.notReady,
+      ORGANIZE_ERROR_CODES.reviewExpired,
+      ORGANIZE_ERROR_CODES.resultExpired,
+    ] as string[]
+  ).includes(error.code);
+
+/** 폴더 반영을 거절당했을 때 검토 화면에 띄울 문구. 서버는 어느 경우에도 일부만 반영하지 않는다. */
+export const applyErrorMessage = (error: unknown) => {
+  if (!isApiError(error)) return APPLY_FALLBACK;
+
+  switch (error.code) {
+    case ORGANIZE_ERROR_CODES.folderNameConflict:
+      return "같은 이름의 폴더가 이미 있어요. 이름을 바꿔 주세요.";
+    case ORGANIZE_ERROR_CODES.targetChanged:
+      return "그사이 지워진 사진이 있어요. 결과를 다시 불러와 주세요.";
+    case ORGANIZE_ERROR_CODES.alreadyApplied:
+      return "이미 폴더로 만든 결과예요.";
+    case ORGANIZE_ERROR_CODES.notReady:
+    case ORGANIZE_ERROR_CODES.reviewExpired:
+    case ORGANIZE_ERROR_CODES.resultExpired:
+      return "확인할 수 있는 시간이 지났어요. 다시 정리해 주세요.";
+    default:
+      return error.status === 0 ? "네트워크 연결을 확인해 주세요." : APPLY_FALLBACK;
   }
 };
