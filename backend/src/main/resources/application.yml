@@ -252,3 +252,20 @@ oauth:
     key-id: ${OAUTH_APPLE_KEY_ID:}
     private-key: ${OAUTH_APPLE_PRIVATE_KEY:}
     redirect-uri: ${OAUTH_APPLE_REDIRECT_URI:}
+
+gallery:
+  organization:
+    interpretation:
+      enabled: ${GALLERY_ORGANIZATION_INTERPRETATION_ENABLED:false}
+      api-key: ${OPENAI_API_KEY:}
+      model: ${GALLERY_ORGANIZATION_MODEL:}
+      reasoning-effort: ${GALLERY_ORGANIZATION_REASONING_EFFORT:}
+      timeout: 20s
+    mcp:
+      server-id: gallery
+      url: ${GALLERY_MCP_URL:http://localhost:8818/mcp}
+      token: ${GALLERY_TOKEN:}
+      exposed-tools:
+        - group_photos_by_person
+        - group_similar_photos
+      timeout: 10s
