@@ -144,4 +144,29 @@ describe("SearchRequestField", () => {
 
     expect(screen.queryByRole("region", { name: "요청 패널" })).not.toBeInTheDocument();
   });
+  it("정리 중이면 자동으로 정리하기를 막고 까닭을 보여 준다", async () => {
+    const user = userEvent.setup();
+    const onOrganize = jest.fn();
+    renderField({ onOrganize, organizeBlockedReason: "하루 님이 정리하고 있어요" });
+
+    await user.click(input());
+    const organize = screen.getByRole("button", { name: /자동으로 정리하기/ });
+
+    expect(organize).toBeDisabled();
+    expect(screen.getByText("하루 님이 정리하고 있어요")).toBeInTheDocument();
+    await user.click(organize);
+    expect(onOrganize).not.toHaveBeenCalled();
+  });
+
+  it("정리를 바라는 문장은 시트를 거치지 않고 그 문장으로 시작한다", async () => {
+    const user = userEvent.setup();
+    const onOrganize = jest.fn();
+    const onOrganizeText = jest.fn();
+    renderField({ onOrganize, onOrganizeText });
+
+    await user.type(input(), "사람별로 나눠 줘{Enter}");
+
+    expect(onOrganizeText).toHaveBeenCalledWith("사람별로 나눠 줘");
+    expect(onOrganize).not.toHaveBeenCalled();
+  });
 });

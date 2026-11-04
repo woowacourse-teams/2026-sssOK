@@ -157,6 +157,17 @@ export const Item = styled.button`
 
     ${typography.caption3}
   }
+
+  /* 정리 중이라 막힌 줄. 까닭(small)은 읽혀야 하므로 줄 전체를 흐리게 하지 않는다. */
+  &:disabled {
+    cursor: not-allowed;
+
+    strong,
+    > span:first-of-type,
+    > span:last-of-type {
+      opacity: 0.45;
+    }
+  }
 `;
 
 export const Glyph = styled.span`
