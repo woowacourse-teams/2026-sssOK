@@ -34,10 +34,20 @@ public class RoomEventJpaEntity extends BaseEntity {
     @Column(name = "payload", nullable = false, columnDefinition = "TEXT")
     private String payload;
 
+    // NULL 이면 방 전체, 값이 있으면 그 회원에게만 보이는 이벤트다.
+    @Column(name = "recipient_member_id")
+    private Long recipientMemberId;
+
     public RoomEventJpaEntity(Long roomId, String eventType, String payload, Instant createdAt) {
+        this(roomId, eventType, payload, createdAt, null);
+    }
+
+    public RoomEventJpaEntity(Long roomId, String eventType, String payload, Instant createdAt,
+                              Long recipientMemberId) {
         super(createdAt);
         this.roomId = roomId;
         this.eventType = eventType;
         this.payload = payload;
+        this.recipientMemberId = recipientMemberId;
     }
 }

@@ -75,6 +75,43 @@ class InMemorySseEventPublisherTest {
         assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L)).isEmpty();
     }
 
+    @Test
+    void 수신자를_지정해_발행하면_그_회원이_기록되고_방_전체_발행은_수신자가_없다() {
+        Long roomId = 16384L;
+
+        sseEventPublisher.publish(roomId, "room.updated", Map.of("name", "전체"));
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("jobId", "x"), 7L);
+
+        List<RoomEventJpaEntity> events = roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L);
+        assertThat(events).extracting(RoomEventJpaEntity::getRecipientMemberId).containsExactly(null, 7L);
+    }
+
+    @Test
+    void 재연결_때_놓친_이벤트는_방_전체_이벤트와_내_전용_이벤트만_받는다() {
+        Long roomId = 32768L;
+        sseEventPublisher.publish(roomId, "room.updated", Map.of("name", "전체"));
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("jobId", "mine"), 7L);
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("jobId", "others"), 8L);
+
+        List<RoomEventJpaEntity> mine = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 7L);
+        List<RoomEventJpaEntity> stranger = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 9L);
+
+        assertThat(mine).extracting(RoomEventJpaEntity::getPayload)
+            .anyMatch(payload -> payload.contains("mine")).noneMatch(payload -> payload.contains("others"))
+            .anyMatch(payload -> payload.contains("전체"));
+        assertThat(stranger).extracting(RoomEventJpaEntity::getEventType).containsExactly("room.updated");
+    }
+
+    @Test
+    void 놓친_이벤트_조회는_lastEventId_이후만_고른다() {
+        Long roomId = 65536L;
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("n", 1), 7L);
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("n", 2), 7L);
+        Long firstId = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 7L).get(0).getId();
+
+        assertThat(roomEventJpaRepository.findVisibleAfter(roomId, firstId, 7L)).hasSize(1);
+    }
+
     // Jackson 기본 설정(FAIL_ON_EMPTY_BEANS)에서, 필드도 getter도 없는 빈은 직렬화할 수 없어 예외가 난다.
     private static final class EmptyPayload {
     }

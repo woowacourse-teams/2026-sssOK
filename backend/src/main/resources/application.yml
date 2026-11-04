@@ -269,3 +269,19 @@ gallery:
         - group_photos_by_person
         - group_similar_photos
       timeout: 10s
+    # 사진 정리 작업(접수·발송·이벤트 수신·조회·검토·반영·취소·재시도). 정책 값(한도·보관·제한)은 여기서 바꾼다.
+    # max-photos 는 분석 서버의 GALLERY_MAX_PHOTOS 와 같은 값이어야 한다.
+    job:
+      enabled: ${GALLERY_ORGANIZATION_JOB_ENABLED:false}
+      max-photos: ${GALLERY_ORGANIZATION_MAX_PHOTOS:200}
+      internal-token: ${GALLERY_BACKEND_TOKEN:}
+      # 결과 본문 보관(분석 완료부터)과 검토 기한(분석 완료부터)은 서로 독립이다.
+      retention: 3d
+      review: 30m
+      # 같은 요청의 재전송을 가려내는 멱등 키 보관 기간. 성공한 요청만 기록한다.
+      idempotency-retention: 24h
+      # OAuth 회원의 새 작업 접수 간격(모든 방 공통). 익명 회원은 방별 1회 체험이라 적용하지 않는다.
+      start-interval: 60s
+      # 새 실행 회차를 만드는 사용자 재시도 상한(작업당).
+      max-user-retries: 3
+      rate-limit-per-minute: 5
