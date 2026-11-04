@@ -3,6 +3,7 @@ package com.sssok.renewal.outgoing.ai;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sssok.renewal.application.organization.interpret.InterpretOrganizeRequestService;
 import com.sssok.renewal.application.organization.interpret.OrganizeRequestInterpreter;
 import com.sssok.renewal.outgoing.config.OrganizeInterpretationConfig;
 import com.sssok.renewal.outgoing.config.OrganizeInterpretationProperties;
@@ -51,6 +52,20 @@ class OrganizeInterpretationConfigTest {
             .run(result -> assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class));
         enabledContext().withPropertyValues("gallery.organization.interpretation.reasoning-effort=none")
             .run(result -> assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class));
+    }
+
+    @Test
+    void 사진_정리_작업만_켜면_모델_없이_MCP_연결만_만든다() {
+        context.withPropertyValues(
+                "gallery.organization.job.enabled=true",
+                "gallery.organization.mcp.url=http://localhost:8818/mcp",
+                "gallery.organization.mcp.token=test-token")
+            .run(result -> {
+                assertThat(result).hasNotFailed().hasSingleBean(McpOrganizeToolCatalog.class);
+                assertThat(result).hasSingleBean(McpOrganizeToolExecutor.class);
+                assertThat(result).doesNotHaveBean(OrganizeRequestInterpreter.class);
+                assertThat(result).doesNotHaveBean(InterpretOrganizeRequestService.class);
+            });
     }
 
     @Test
