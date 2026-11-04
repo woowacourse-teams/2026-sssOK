@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 // 사용자 삭제와 같은 MediaDeleter 로 지운다. 사진이 이미 없어도 실패로 보지 않고 같은 사진의 신고를
 // 처리완료로 맞춘다. 같은 사진을 동시에 지워도 삭제가 한 번만 일어나도록 행을 잠그고 읽는다.
+// 사용자 삭제도 stored_file 을 가장 먼저 잠그므로 두 경로의 잠금 순서가 같다.
 @Service
 @RequiredArgsConstructor
 public class DeleteReportedMediaService {

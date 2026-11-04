@@ -17,6 +17,16 @@ import com.sssok.infrastructure.persistence.admin.AdminJpaRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
 import com.sssok.support.PostgresContainerSupport;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.time.Duration;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +42,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import javax.sql.DataSource;
 
 // MediaReportApiTest 와 같은 설정이라야 테스트 컨텍스트를 재사용한다.
 @AcceptanceTest
@@ -54,6 +65,9 @@ class AdminMediaReportApiTest extends PostgresContainerSupport {
 
     @Autowired
     AdminJpaRepository adminJpaRepository;
+
+    @Autowired
+    DataSource dataSource;
 
     @MockitoBean
     FileStorage fileStorage;
@@ -248,6 +262,67 @@ class AdminMediaReportApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.mediaDeleted").value(true));
     }
 
+    // 관리자 삭제는 stored_file 을 잠근 뒤 folder_media 를 지운다. 사용자 삭제가 folder_media 를 먼저
+    // 지우면 서로의 잠금을 기다리는 교착이 된다. 관리자 쪽 잠금 순서를 그대로 재현해, 사용자 삭제가
+    // stored_file 잠금에서 기다리며 folder_media 를 건드리지 않는지 확인한다.
+    @Test
+    void 관리자_삭제가_사진을_잠근_동안_사용자_삭제는_폴더_연결을_건드리지_않고_기다린다() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(hostToken);
+        long mediaId = 폴더에_담긴_미디어(roomId);
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try (Connection admin = dataSource.getConnection()) {
+            admin.setAutoCommit(false);
+            실행(admin, "SELECT id FROM stored_file WHERE id = ? FOR UPDATE", mediaId);
+
+            Future<Integer> userDelete = executor.submit(() -> 사용자_삭제(hostToken, roomId, mediaId));
+            잠금을_기다릴_때까지_대기(admin);
+
+            // 사용자 삭제가 folder_media 를 먼저 지웠다면 여기서 사용자 트랜잭션을 기다리다 교착이 난다.
+            실행(admin, "SET LOCAL lock_timeout = '3s'");
+            실행(admin, "DELETE FROM folder_media WHERE media_id = ?", mediaId);
+            실행(admin, "DELETE FROM stored_file WHERE id = ?", mediaId);
+            admin.commit();
+
+            assertThat(userDelete.get(10, TimeUnit.SECONDS)).isEqualTo(200);
+        } finally {
+            executor.shutdownNow();
+        }
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM stored_file WHERE id = ?", Long.class, mediaId)).isZero();
+    }
+
+    @Test
+    void 폴더에_담긴_같은_사진을_사용자와_관리자가_동시에_지워도_둘_다_성공한다() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(hostToken);
+        String adminToken = 슈퍼관리자_토큰();
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 10; round++) {
+                long mediaId = 폴더에_담긴_미디어(roomId);
+                long reportId = 신고(hostToken, roomId, mediaId, "HARASSMENT");
+                CountDownLatch start = new CountDownLatch(1);
+
+                Future<Integer> userDelete = executor.submit(동시에(start,
+                    () -> 사용자_삭제(hostToken, roomId, mediaId)));
+                Future<Integer> adminDelete = executor.submit(동시에(start,
+                    () -> 사진_삭제(adminToken, reportId).andReturn().getResponse().getStatus()));
+                start.countDown();
+
+                assertThat(userDelete.get(10, TimeUnit.SECONDS)).isEqualTo(200);
+                assertThat(adminDelete.get(10, TimeUnit.SECONDS)).isEqualTo(200);
+                assertThat(jdbcTemplate.queryForObject(
+                    "SELECT count(*) FROM stored_file WHERE id = ?", Long.class, mediaId)).isZero();
+                assertThat(상태(reportId)).isEqualTo("REFLECTED");
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
     @Test
     void 일반_관리자도_신고를_조회하고_처리할_수_있다() throws Exception {
         String token = 익명_인증("가현");
@@ -274,6 +349,59 @@ class AdminMediaReportApiTest extends PostgresContainerSupport {
 
         assertThat(jdbcTemplate.queryForObject(
             "SELECT count(*) FROM stored_file WHERE id = ?", Long.class, mediaId)).isEqualTo(1);
+    }
+
+    private int 사용자_삭제(String token, long roomId, long mediaId) throws Exception {
+        return mockMvc.perform(delete("/api/v1/rooms/{roomId}/media/{mediaId}", roomId, mediaId)
+                .header("Authorization", "Bearer " + token))
+            .andReturn().getResponse().getStatus();
+    }
+
+    private long 폴더에_담긴_미디어(long roomId) {
+        long mediaId = 존재하는_미디어(roomId);
+        Long folderId = jdbcTemplate.queryForObject("""
+            INSERT INTO folder (room_id, name, created_at, updated_at)
+            VALUES (?, ?, now(), now()) RETURNING id
+            """, Long.class, roomId, "f" + (mediaId % 100_000_000));
+        jdbcTemplate.update("""
+            INSERT INTO folder_media (folder_id, media_id, created_at, updated_at)
+            VALUES (?, ?, now(), now())
+            """, folderId, mediaId);
+        return mediaId;
+    }
+
+    private static <T> Callable<T> 동시에(CountDownLatch start, Callable<T> task) {
+        return () -> {
+            start.await();
+            return task.call();
+        };
+    }
+
+    private void 실행(Connection connection, String sql, Object... params) throws Exception {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) {
+                statement.setObject(i + 1, params[i]);
+            }
+            statement.execute();
+        }
+    }
+
+    // 다른 세션이 행 잠금을 기다리기 시작할 때까지 기다린다. 테스트 커넥션 풀이 작아 이미 쥔
+    // 커넥션으로 확인한다. pg_stat_activity 는 트랜잭션 안에서 값이 고정되므로 pg_locks 를 본다.
+    private void 잠금을_기다릴_때까지_대기(Connection connection) throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
+        while (System.nanoTime() < deadline) {
+            try (PreparedStatement statement = connection.prepareStatement(
+                    "SELECT count(*) FROM pg_locks WHERE NOT granted");
+                 ResultSet result = statement.executeQuery()) {
+                result.next();
+                if (result.getLong(1) > 0) {
+                    return;
+                }
+            }
+            Thread.sleep(20);
+        }
+        throw new AssertionError("사용자 삭제가 잠금을 기다리지 않았다");
     }
 
     private ResultActions 목록_조회(String token, Long cursor, Integer size) throws Exception {
