@@ -1,7 +1,10 @@
 package com.sssok.application.media;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -19,6 +22,7 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.DerivativeImageProperties;
 import java.util.List;
 import java.util.stream.LongStream;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
@@ -45,12 +49,19 @@ class MediaDeleterTest {
             new DerivativeImageProperties.Variant(400, 0.80f),
             new DerivativeImageProperties.Variant(1600, 0.85f)));
 
+    // 기본은 넘긴 사진이 모두 아직 남아 있는 경우다.
+    @BeforeEach
+    void setUp() {
+        when(fileRepository.lockExistingIds(anyList())).thenAnswer(invocation -> invocation.getArgument(0));
+    }
+
     @Test
     void 정리_대상을_남긴_뒤_관계와_행을_삭제하고_이벤트를_발행한다() {
         mediaDeleter.delete(10L, List.of(fileWithThumbnail()));
 
         InOrder order = inOrder(
             orphanObjectCollector, folderMediaRepository, mediaLikeRepository, fileRepository, eventPublisher);
+        order.verify(fileRepository).lockExistingIds(List.of(1L));
         order.verify(orphanObjectCollector).enqueue(ALL_KEYS);
         order.verify(folderMediaRepository).detachFromAllFolders(List.of(1L));
         order.verify(mediaLikeRepository).deleteAllByMediaIds(List.of(1L));
@@ -58,6 +69,30 @@ class MediaDeleterTest {
         order.verify(eventPublisher).publishEvent(new MediaDeletedEvent(10L, List.of(1L)));
         order.verify(eventPublisher)
             .publishEvent(new ObjectsOrphanedEvent(ALL_KEYS));
+    }
+
+    // 관리자 신고 삭제가 먼저 지운 사진이면 잠글 행이 없다. 남은 사진만 지우고 이벤트도 그것만 싣는다.
+    @Test
+    void 잠그는_사이_다른_요청이_지운_사진은_빼고_지운다() {
+        when(fileRepository.lockExistingIds(List.of(1L, 2L))).thenReturn(List.of(2L));
+
+        mediaDeleter.delete(10L, List.of(fileAt(1L), fileAt(2L)));
+
+        verify(folderMediaRepository).detachFromAllFolders(List.of(2L));
+        verify(fileRepository).deleteAllByIdIn(List.of(2L));
+        verify(eventPublisher).publishEvent(new MediaDeletedEvent(10L, List.of(2L)));
+    }
+
+    @Test
+    void 모두_이미_지워졌으면_아무것도_하지_않는다() {
+        when(fileRepository.lockExistingIds(List.of(1L))).thenReturn(List.of());
+
+        mediaDeleter.delete(10L, List.of(fileAt(1L)));
+
+        verify(folderMediaRepository, never()).detachFromAllFolders(anyList());
+        verify(fileRepository, never()).deleteAllByIdIn(anyList());
+        verify(orphanObjectCollector, never()).enqueue(anyList());
+        verify(eventPublisher, never()).publishEvent(any(Object.class));
     }
 
     // 파일 수만큼 왕복하던 것이 실제로 한 번으로 줄었는지. 트랜잭션 안에서 스토리지를 건드리는
