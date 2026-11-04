@@ -85,5 +85,19 @@ export interface OrganizeResult {
   smallGroups?: OrganizeGroup[];
 }
 
+/** 반영 요청의 한 그룹. 폴더 하나가 된다. */
+export interface OrganizeApplyGroup {
+  groupId: string;
+  folderName: string;
+  mediaIds: number[];
+}
+
+/** `POST /{jobId}/apply`. 만든 폴더를 요청한 그룹 순서대로 돌려준다. */
+export interface OrganizeApplied {
+  jobId: string;
+  status: OrganizeJobStatus;
+  folders: { folderId: number; folderName: string; mediaIds: number[] }[];
+}
+
 export const isActiveStatus = (status: OrganizeJobStatus) =>
   status === "QUEUED" || status === "RUNNING";
