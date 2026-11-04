@@ -1,8 +1,11 @@
 package com.sssok.renewal.incoming.report;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -144,14 +147,116 @@ class AdminMediaReportApiTest extends PostgresContainerSupport {
     }
 
     @Test
-    void 일반_관리자도_신고를_조회할_수_있다() throws Exception {
+    void 담당자를_지정하면_조회_결과에_보이고_null로_비울_수_있다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long reportId = 신고(token, roomId, 존재하는_미디어(roomId), "HARASSMENT");
+        String adminToken = 슈퍼관리자_토큰();
+
+        담당자_변경(adminToken, reportId, "\"HAENI\"")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.assignee").value("HAENI"));
+        목록_조회(adminToken, null, null)
+            .andExpect(jsonPath("$.data.reports[0].assignee").value("HAENI"));
+
+        담당자_변경(adminToken, reportId, "null")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.assignee").doesNotExist());
+    }
+
+    @Test
+    void 없는_담당자로_바꾸면_400이다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long reportId = 신고(token, roomId, 존재하는_미디어(roomId), "HARASSMENT");
+
+        담당자_변경(슈퍼관리자_토큰(), reportId, "\"haeni\"").andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void 사진을_지우지_않고_처리_상태를_바꾸면_그_신고만_바뀌고_되돌릴_수도_있다() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(hostToken);
+        String guestToken = 익명_인증("민수");
+        입장(guestToken, roomId);
+        long mediaId = 존재하는_미디어(roomId);
+        long reportId = 신고(hostToken, roomId, mediaId, "HARASSMENT");
+        long sameMediaReportId = 신고(guestToken, roomId, mediaId, "PRIVACY_VIOLATION");
+        String adminToken = 슈퍼관리자_토큰();
+
+        상태_변경(adminToken, reportId, "REFLECTED")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("REFLECTED"))
+            .andExpect(jsonPath("$.data.mediaDeleted").value(false));
+        assertThat(상태(sameMediaReportId)).isEqualTo("UNREFLECTED");
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM stored_file WHERE id = ?", Long.class, mediaId)).isEqualTo(1);
+
+        상태_변경(adminToken, reportId, "UNREFLECTED")
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("UNREFLECTED"));
+    }
+
+    @Test
+    void 없는_처리_상태로_바꾸면_400이다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long reportId = 신고(token, roomId, 존재하는_미디어(roomId), "HARASSMENT");
+
+        상태_변경(슈퍼관리자_토큰(), reportId, "DONE")
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("INVALID_MEDIA_REPORT_STATUS"));
+        assertThat(상태(reportId)).isEqualTo("UNREFLECTED");
+    }
+
+    @Test
+    void 사진을_삭제하면_갤러리에서_사라지고_같은_사진의_신고가_모두_처리완료된다() throws Exception {
+        String hostToken = 익명_인증("가현");
+        long roomId = 방_만들고_입장(hostToken);
+        String guestToken = 익명_인증("민수");
+        입장(guestToken, roomId);
+        long mediaId = 존재하는_미디어(roomId);
+        long otherMediaId = 존재하는_미디어(roomId);
+        long reportId = 신고(hostToken, roomId, mediaId, "HARASSMENT");
+        long sameMediaReportId = 신고(guestToken, roomId, mediaId, "PRIVACY_VIOLATION");
+        long otherReportId = 신고(hostToken, roomId, otherMediaId, "HARASSMENT");
+
+        사진_삭제(슈퍼관리자_토큰(), reportId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("REFLECTED"))
+            .andExpect(jsonPath("$.data.mediaDeleted").value(true))
+            .andExpect(jsonPath("$.data.displayUrl").doesNotExist());
+
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM stored_file WHERE id = ?", Long.class, mediaId)).isZero();
+        assertThat(상태(reportId)).isEqualTo("REFLECTED");
+        assertThat(상태(sameMediaReportId)).isEqualTo("REFLECTED");
+        assertThat(상태(otherReportId)).isEqualTo("UNREFLECTED");
+    }
+
+    @Test
+    void 이미_지워진_사진이어도_삭제_요청은_성공하고_처리완료로_바뀐다() throws Exception {
+        String token = 익명_인증("가현");
+        long roomId = 방_만들고_입장(token);
+        long mediaId = 존재하는_미디어(roomId);
+        long reportId = 신고(token, roomId, mediaId, "HARASSMENT");
+        jdbcTemplate.update("DELETE FROM stored_file WHERE id = ?", mediaId);
+
+        사진_삭제(슈퍼관리자_토큰(), reportId)
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("REFLECTED"))
+            .andExpect(jsonPath("$.data.mediaDeleted").value(true));
+    }
+
+    @Test
+    void 일반_관리자도_신고를_조회하고_처리할_수_있다() throws Exception {
         String token = 익명_인증("가현");
         long roomId = 방_만들고_입장(token);
         long reportId = 신고(token, roomId, 존재하는_미디어(roomId), "HARASSMENT");
         String adminToken = 일반관리자_토큰("reportadmin" + ADMIN_SEQUENCE.getAndIncrement());
 
         목록_조회(adminToken, null, null).andExpect(status().isOk());
-        단건_조회(adminToken, reportId).andExpect(status().isOk());
+        사진_삭제(adminToken, reportId).andExpect(status().isOk());
     }
 
     @Test
@@ -163,6 +268,12 @@ class AdminMediaReportApiTest extends PostgresContainerSupport {
 
         목록_조회(token, null, null).andExpect(status().isUnauthorized());
         단건_조회(token, reportId).andExpect(status().isUnauthorized());
+        담당자_변경(token, reportId, "\"HAENI\"").andExpect(status().isUnauthorized());
+        상태_변경(token, reportId, "REFLECTED").andExpect(status().isUnauthorized());
+        사진_삭제(token, reportId).andExpect(status().isUnauthorized());
+
+        assertThat(jdbcTemplate.queryForObject(
+            "SELECT count(*) FROM stored_file WHERE id = ?", Long.class, mediaId)).isEqualTo(1);
     }
 
     private ResultActions 목록_조회(String token, Long cursor, Integer size) throws Exception {
@@ -179,6 +290,29 @@ class AdminMediaReportApiTest extends PostgresContainerSupport {
     private ResultActions 단건_조회(String token, long reportId) throws Exception {
         return mockMvc.perform(get("/api/v1/admin/media-reports/{reportId}", reportId)
             .header("Authorization", "Bearer " + token));
+    }
+
+    private ResultActions 담당자_변경(String token, long reportId, String assigneeJson) throws Exception {
+        return mockMvc.perform(patch("/api/v1/admin/media-reports/{reportId}/assignee", reportId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"assignee\":" + assigneeJson + "}"));
+    }
+
+    private ResultActions 상태_변경(String token, long reportId, String status) throws Exception {
+        return mockMvc.perform(patch("/api/v1/admin/media-reports/{reportId}/status", reportId)
+            .header("Authorization", "Bearer " + token)
+            .contentType(MediaType.APPLICATION_JSON)
+            .content("{\"status\":\"" + status + "\"}"));
+    }
+
+    private ResultActions 사진_삭제(String token, long reportId) throws Exception {
+        return mockMvc.perform(delete("/api/v1/admin/media-reports/{reportId}/media", reportId)
+            .header("Authorization", "Bearer " + token));
+    }
+
+    private String 상태(long reportId) {
+        return jdbcTemplate.queryForObject("SELECT status FROM media_report WHERE id = ?", String.class, reportId);
     }
 
     private long 신고(String token, long roomId, long mediaId, String reason) throws Exception {

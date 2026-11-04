@@ -36,6 +36,18 @@ public interface MediaReportJpaRepository extends JpaRepository<MediaReportJpaEn
 
     long countByMediaId(Long mediaId);
 
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE media_report SET assignee = :assignee WHERE id = :id", nativeQuery = true)
+    int updateAssignee(@Param("id") Long id, @Param("assignee") String assignee);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE media_report SET status = :status WHERE id = :id", nativeQuery = true)
+    int updateStatus(@Param("id") Long id, @Param("status") String status);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = "UPDATE media_report SET status = 'REFLECTED' WHERE media_id = :mediaId", nativeQuery = true)
+    int reflectAllByMediaId(@Param("mediaId") Long mediaId);
+
     // 익명 계정을 로그인 계정으로 합칠 때 신고자를 옮긴다. 로그인 계정이 이미 신고한 사진은
     // 유니크 제약에 걸리므로 옮기지 않고, 기록을 지우지 않도록 통합된 익명 계정에 그대로 둔다.
     @Modifying(flushAutomatically = true)

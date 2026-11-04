@@ -38,6 +38,22 @@ public class MediaReportRepository {
         return jpaRepository.countByMediaId(mediaId);
     }
 
+    @Transactional
+    public void updateAssignee(MediaReport report) {
+        jpaRepository.updateAssignee(report.getId(),
+            report.getAssignee() == null ? null : report.getAssignee().name());
+    }
+
+    @Transactional
+    public void updateStatus(MediaReport report) {
+        jpaRepository.updateStatus(report.getId(), report.getStatus().name());
+    }
+
+    @Transactional
+    public void reflectAllByMediaId(Long mediaId) {
+        jpaRepository.reflectAllByMediaId(mediaId);
+    }
+
     private List<MediaReport> toDomains(List<MediaReportJpaEntity> entities) {
         return entities.stream().map(MediaReportJpaEntity::toDomain).toList();
     }
