@@ -1,7 +1,9 @@
 package com.sssok.renewal.outgoing.database;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Limit;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +22,19 @@ public interface MediaReportJpaRepository extends JpaRepository<MediaReportJpaEn
                                   @Param("mediaId") Long mediaId, @Param("memberId") Long memberId,
                                   @Param("nickname") String nickname, @Param("reason") String reason,
                                   @Param("reportedAt") Instant reportedAt);
+
+    List<MediaReportJpaEntity> findAllByOrderByReportedAtDescIdDesc(Limit limit);
+
+    @Query("""
+        SELECT r FROM MediaReportJpaEntity r
+        WHERE r.reportedAt < :reportedAt
+           OR (r.reportedAt = :reportedAt AND r.id < :id)
+        ORDER BY r.reportedAt DESC, r.id DESC
+        """)
+    List<MediaReportJpaEntity> findAllBefore(
+        @Param("reportedAt") Instant reportedAt, @Param("id") Long id, Limit limit);
+
+    long countByMediaId(Long mediaId);
 
     // 익명 계정을 로그인 계정으로 합칠 때 신고자를 옮긴다. 로그인 계정이 이미 신고한 사진은
     // 유니크 제약에 걸리므로 옮기지 않고, 기록을 지우지 않도록 통합된 익명 계정에 그대로 둔다.
