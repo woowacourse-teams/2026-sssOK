@@ -161,4 +161,19 @@ describe("OrganizeCancelSheet", () => {
     await userEvent.click(screen.getByRole("button", { name: "멈추기" }));
     expect(onStop).toHaveBeenCalled();
   });
+
+  it("결과를 닫을 때는 결과를 버린다는 문구로 묻는다", async () => {
+    const onStop = jest.fn();
+    const onKeepGoing = jest.fn();
+    render(<OrganizeCancelSheet kind="result" onStop={onStop} onKeepGoing={onKeepGoing} />);
+
+    expect(screen.getByRole("dialog", { name: "정리한 결과를 취소할까요?" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "결과 남겨 두기" }));
+    expect(onKeepGoing).toHaveBeenCalled();
+    expect(onStop).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "취소하기" }));
+    expect(onStop).toHaveBeenCalled();
+  });
 });

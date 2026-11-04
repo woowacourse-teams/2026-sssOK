@@ -113,6 +113,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [isOrganizeSheetOpen, setIsOrganizeSheetOpen] = useState(false);
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
+  const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -443,7 +444,15 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           job={organize.notice}
           onCancel={() => setIsOrganizeCancelOpen(true)}
           onRetry={organize.retry}
-          onDismiss={organize.dismiss}
+          // 찾은 사람이 있는 결과는 닫으면 버려지므로 한 번 더 묻는다. 실패·0명 알림은 버릴 것이 없어 바로 닫는다.
+          onDismiss={() => {
+            const notice = organize.notice;
+            if (notice?.status === "READY" && notice.peopleCount !== 0) {
+              setIsOrganizeResultCloseOpen(true);
+              return;
+            }
+            organize.dismiss();
+          }}
           // 결과 검토 화면이 붙기 전까지는 알림만 숨긴다. 결과는 남겨 두어야 검토 화면에서 이어 볼 수 있다.
           onReview={organize.hide}
         />
@@ -467,6 +476,17 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           onStop={() => {
             setIsOrganizeCancelOpen(false);
             void organize.cancel();
+          }}
+        />
+      )}
+
+      {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
+        <OrganizeCancelSheet
+          kind="result"
+          onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
+          onStop={() => {
+            setIsOrganizeResultCloseOpen(false);
+            organize.dismiss();
           }}
         />
       )}
