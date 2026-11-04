@@ -44,6 +44,18 @@ export const Input = styled.input`
 
   ${typography.body}
 
+  /*
+   * iOS 는 16px 보다 작은 입력창에 포커스하면 화면을 확대하고 되돌리지 않는다.
+   * 그래서 터치 기기에서는 글자를 16px 로 두되, 15/16 으로 줄여 그려 시안(15px)처럼 보이게 한다.
+   * 확대 여부는 계산된 글자 크기(16px)로 정해지므로 줄여 그려도 확대되지 않는다.
+   * 왼쪽 기준으로 줄여서 글자 시작 위치는 그대로고, 오른쪽 끝만 조금 일찍 잘린다. PC 는 15px 그대로다.
+   */
+  @media (pointer: coarse) {
+    font-size: 16px;
+    transform: scale(0.9375);
+    transform-origin: left center;
+  }
+
   &::placeholder {
     color: ${colors.textSecondary};
   }
