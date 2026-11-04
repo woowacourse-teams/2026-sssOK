@@ -4,6 +4,7 @@ import fcntl
 import json
 import logging
 import shutil
+import sqlite3
 from pathlib import Path
 from uuid import UUID
 import sys
@@ -11,6 +12,7 @@ import sys
 from .config import Settings
 from .inputs import Photo, fingerprint, validate
 from .execution_store import Store
+from .rejection import RetryableRejection
 
 
 class PersonGroupingService:
@@ -37,10 +39,15 @@ class PersonGroupingService:
         with (self.settings.data / 'admission.lock').open('a') as lock:
             fcntl.flock(lock, fcntl.LOCK_SH)
             if self.unavailable:
-                raise ValueError('Analysis service unavailable; retry after restart')
+                raise RetryableRejection('UNAVAILABLE', 'Analysis service unavailable; retry after restart')
             if (self.settings.data / 'draining').exists():
-                raise ValueError('Server deployment in progress; retry later')
-            return self._start(room_id, request_id, photos, job_id, attempt, kind)
+                raise RetryableRejection('DEPLOYING', 'Server deployment in progress; retry later')
+            try:
+                return self._start(room_id, request_id, photos, job_id, attempt, kind)
+            except sqlite3.OperationalError as error:
+                if 'locked' not in str(error):
+                    raise
+                raise RetryableRejection('STORAGE_BUSY', 'Analysis storage is busy; retry later') from None
 
     def _start(self, room_id, request_id, photos, job_id, attempt, kind):
         if job_id is not None and str(UUID(job_id)) != job_id:
