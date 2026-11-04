@@ -16,6 +16,10 @@ public record OrganizeMcpProperties(String serverId, URI url, String token, Set<
         serverId = serverId == null ? DEFAULT_SERVER_ID : serverId;
         timeout = timeout == null ? DEFAULT_TIMEOUT : timeout;
         exposedTools = exposedTools == null ? Set.of() : Set.copyOf(exposedTools);
+    }
+
+    // ConfigurationPropertiesScan 이 기능이 꺼져 있어도 이 객체를 만든다. 생성자에서 검증하면 토큰이 없는 기본 환경에서 앱이 뜨지 못한다.
+    public void requireValid() {
         if (serverId.isBlank() || url == null || isBlank(token) || hasBlankName(exposedTools)
             || isInvalidTimeout(timeout)) {
             throw new IllegalArgumentException("사진 정리 MCP 설정을 확인해주세요");

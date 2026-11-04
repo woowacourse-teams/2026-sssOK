@@ -38,6 +38,7 @@ public class OrganizeInterpretationConfig {
 
     @Bean
     public McpOrganizeToolCatalog organizeToolCatalog(OrganizeMcpProperties properties) {
+        properties.requireValid();
         return new McpOrganizeToolCatalog(properties.serverId(), properties.exposedTools(),
             () -> createMcpClient(properties));
     }
@@ -45,6 +46,7 @@ public class OrganizeInterpretationConfig {
     @Bean
     public McpOrganizeToolExecutor organizeToolExecutor(McpOrganizeToolCatalog catalog,
                                                         OrganizeMcpProperties properties) {
+        properties.requireValid();
         var authenticationCheck = new McpAuthenticationCheck(properties.url(), properties.token(), properties.timeout());
         return new McpOrganizeToolExecutor(catalog, () -> createMcpClient(properties), authenticationCheck);
     }
@@ -52,6 +54,7 @@ public class OrganizeInterpretationConfig {
     @Bean
     public OrganizeRequestInterpreter organizeRequestInterpreter(OrganizeInterpretationProperties properties,
                                                                ObjectMapper mapper) {
+        properties.requireValid();
         return new OpenAiOrganizeRequestInterpreter(createChatModel(properties), mapper);
     }
 

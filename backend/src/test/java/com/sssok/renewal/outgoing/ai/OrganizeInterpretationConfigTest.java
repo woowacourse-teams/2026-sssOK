@@ -5,8 +5,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.renewal.application.organization.interpret.OrganizeRequestInterpreter;
 import com.sssok.renewal.outgoing.config.OrganizeInterpretationConfig;
+import com.sssok.renewal.outgoing.config.OrganizeInterpretationProperties;
+import com.sssok.renewal.outgoing.config.OrganizeMcpProperties;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Configuration;
 
 class OrganizeInterpretationConfigTest {
     private final ApplicationContextRunner context = new ApplicationContextRunner()
@@ -46,6 +51,19 @@ class OrganizeInterpretationConfigTest {
             .run(result -> assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class));
         enabledContext().withPropertyValues("gallery.organization.interpretation.reasoning-effort=none")
             .run(result -> assertThat(result).hasNotFailed().hasSingleBean(OrganizeRequestInterpreter.class));
+    }
+
+    @Test
+    void 기능이_꺼진_기본_설정에서도_설정_객체가_바인딩된다() {
+        new ApplicationContextRunner()
+            .withInitializer(new ConfigDataApplicationContextInitializer())
+            .withUserConfiguration(BindOnly.class)
+            .run(result -> assertThat(result).hasNotFailed());
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableConfigurationProperties({OrganizeInterpretationProperties.class, OrganizeMcpProperties.class})
+    static class BindOnly {
     }
 
     private ApplicationContextRunner enabledContext() {

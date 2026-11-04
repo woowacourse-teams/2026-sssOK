@@ -12,6 +12,10 @@ public record OrganizeInterpretationProperties(String apiKey, String model, Dura
     public OrganizeInterpretationProperties {
         timeout = timeout == null ? DEFAULT_TIMEOUT : timeout;
         reasoningEffort = isBlank(reasoningEffort) ? null : reasoningEffort.strip();
+    }
+
+    // ConfigurationPropertiesScan 이 기능이 꺼져 있어도 이 객체를 만든다. 생성자에서 검증하면 키가 없는 기본 환경에서 앱이 뜨지 못한다.
+    public void requireValid() {
         if (isBlank(apiKey) || isBlank(model)) {
             throw new IllegalArgumentException("사진 정리 해석용 API 키와 모델 설정이 필요합니다");
         }
