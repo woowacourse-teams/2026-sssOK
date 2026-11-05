@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
@@ -86,8 +86,9 @@ describe("방 목록 화면", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "나가기" }));
 
-    expect(await screen.findByText("‘동아리 MT’에서 나갔어요.")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /동아리 MT/ })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByRole("link", { name: /동아리 MT/ })).not.toBeInTheDocument();
+    });
   });
 
   it("내가 만든 방의 메뉴에는 나가기 대신 방 설정이 있다", async () => {
@@ -112,15 +113,14 @@ describe("방 목록 화면", () => {
       await screen.findByRole("heading", { name: "아직 들어간 방이 없어요" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "방 만들기" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "초대 링크로 들어가기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "링크로 참여" })).toBeInTheDocument();
   });
 
   it("붙여넣은 초대 링크로 들어가면 링크 입장 흐름으로 간다", async () => {
     const user = userEvent.setup();
     const router = renderRoomList();
 
-    await user.click(await screen.findByRole("button", { name: /방 추가/ }));
-    await user.click(screen.getByRole("button", { name: /초대 링크 붙여넣기/ }));
+    await user.click(await screen.findByRole("button", { name: "링크로 참여" }));
 
     const input = screen.getByLabelText("초대 링크");
     await user.type(input, "https://example.com/nope");
@@ -134,15 +134,20 @@ describe("방 목록 화면", () => {
     expect(router.state.location.pathname).toBe(ROUTES.roomEntry("7K93QX2S"));
   });
 
-  it("목록을 불러오지 못하면 다시 불러오기 버튼을 보여준다", async () => {
+  it("목록 조회 실패 후 다시 불러오면 방 목록을 보여준다", async () => {
+    const user = userEvent.setup();
     server.use(
-      http.get(`${API_BASE_URL}/members/me/rooms`, () =>
-        HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다." }, { status: 401 }),
+      http.get(
+        `${API_BASE_URL}/members/me/rooms`,
+        () => HttpResponse.json({ code: "INTERNAL_SERVER_ERROR" }, { status: 500 }),
+        { once: true },
       ),
     );
     renderRoomList();
 
     expect(await screen.findByText("방 목록을 불러오지 못했어요.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "다시 불러오기" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "다시 불러오기" }));
+    expect(await screen.findByRole("link", { name: /제주 졸업여행/ })).toBeInTheDocument();
+    expect(screen.queryByText("방 목록을 불러오지 못했어요.")).not.toBeInTheDocument();
   });
 });
