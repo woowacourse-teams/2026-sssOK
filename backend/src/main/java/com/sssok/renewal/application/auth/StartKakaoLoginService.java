@@ -15,8 +15,9 @@ public class StartKakaoLoginService {
     private final OAuthLoginAttemptService oauthLoginAttemptService;
     private final KakaoOAuthProperties kakaoOAuthProperties;
 
-    public SocialLoginStartResult start(List<String> anonymousAccessTokens) {
-        OAuthLoginAttemptResult attempt = oauthLoginAttemptService.start(SocialProvider.KAKAO, anonymousAccessTokens);
+    // requestOrigin은 컨트롤러가 Origin·Referer에서 정규화한 값이다. 등록된 콜백은 로그인 시도 생성 단계에서 고른다.
+    public SocialLoginStartResult start(List<String> anonymousAccessTokens, String requestOrigin) {
+        OAuthLoginAttemptResult attempt = oauthLoginAttemptService.start(SocialProvider.KAKAO, anonymousAccessTokens, requestOrigin);
         String authorizationUrl = UriComponentsBuilder.fromUriString(AUTHORIZATION_ENDPOINT)
             .queryParam("response_type", "code")
             .queryParam("client_id", "{clientId}")

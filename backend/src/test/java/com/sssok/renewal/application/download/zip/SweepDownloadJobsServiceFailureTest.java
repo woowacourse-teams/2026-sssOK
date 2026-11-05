@@ -26,7 +26,7 @@ class SweepDownloadJobsServiceFailureTest {
     private final DownloadJobRepository downloadJobRepository = mock(DownloadJobRepository.class);
     private final DownloadJobExpirer downloadJobExpirer = mock(DownloadJobExpirer.class);
     private final DownloadProperties downloadProperties =
-        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1));
+        new DownloadProperties(Duration.ofMinutes(5), 3, Duration.ofHours(1), Duration.ofMinutes(30));
 
     private final SweepDownloadJobsService sweepDownloadJobsService =
         new SweepDownloadJobsService(downloadJobRepository, downloadJobExpirer, downloadProperties);

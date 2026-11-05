@@ -20,9 +20,10 @@ class OrganizeExecutionRequestTest {
     }
 
     @Test
-    void 사진이_100장을_넘으면_호출_전에_거절한다() {
-        assertThat(request(1, photos(100)).photos()).hasSize(100);
-        assertThatThrownBy(() -> request(1, photos(101))).isInstanceOf(IllegalArgumentException.class);
+    void 사진이_안전_상한을_넘으면_호출_전에_거절한다() {
+        assertThat(request(1, photos(300)).photos()).hasSize(300);
+        assertThat(request(1, photos(1000)).photos()).hasSize(1000);
+        assertThatThrownBy(() -> request(1, photos(1001))).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

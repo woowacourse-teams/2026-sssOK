@@ -15,4 +15,8 @@ public class ReportFileRepository {
     public Optional<StoredFile> findById(Long fileId) {
         return storedFileJpaRepository.findById(fileId).map(StoredFileJpaEntity::toDomain);
     }
+
+    public Optional<StoredFile> findByIdForUpdate(Long fileId) {
+        return storedFileJpaRepository.findWithLockById(fileId).map(StoredFileJpaEntity::toDomain);
+    }
 }

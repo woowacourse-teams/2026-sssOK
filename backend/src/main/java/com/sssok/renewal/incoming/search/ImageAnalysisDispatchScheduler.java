@@ -10,7 +10,7 @@ public class ImageAnalysisDispatchScheduler {
     private final ImageAnalysisDispatcher dispatcher;
 
     @Scheduled(fixedDelayString = "${media.search.dispatch-delay:1000}",
-        initialDelayString = "${media.search.dispatch-delay:1000}")
+        initialDelayString = "${media.search.dispatch-initial-delay:${media.search.dispatch-delay:1000}}")
     public void dispatch() {
         dispatcher.dispatch();
     }
