@@ -32,9 +32,19 @@ interface OrganizeStatusBarProps {
 /**
  * 피그마의 "29 / 62" 자리. 서버는 단계마다 0부터 다시 세므로 그 숫자 대신,
  * 전체 진행률만큼 사진을 본 것으로 보고 장수로 바꿔 보여 준다. 그래서 숫자도 앞으로만 간다.
+ * 진행률이 아직 없으면 비워 둔다. "0 / 41" 로 두면 0장째에 멈춘 것처럼 보인다.
  */
 const countOf = ({ photoCount, percent }: MyOrganizeJob) =>
-  photoCount === null ? null : `${Math.floor(((percent ?? 0) / 100) * photoCount)} / ${photoCount}`;
+  photoCount === null || percent === null
+    ? null
+    : `${Math.floor((percent / 100) * photoCount)} / ${photoCount}`;
+
+/**
+ * RUNNING 이어도 분석 서버는 사진을 받아 오고 모델을 불러오는 동안 단계를 주지 않는다.
+ * 그때 진행률이 null 이라 "나누는 중" 대신 준비 중이라고 알린다.
+ */
+const runningLabelOf = (percent: number | null) =>
+  percent === null ? "사진 준비 중..." : `나누는 중... ${percent}%`;
 
 /* 아이콘 조각 위치는 피그마 레이어 그대로다(22px 칸 기준). */
 const SuccessIcon = () => (
@@ -71,10 +81,7 @@ export const OrganizeStatusBar = ({
 }: OrganizeStatusBarProps) => {
   if (job.status === "QUEUED" || job.status === "RUNNING") {
     const percent = job.status === "RUNNING" ? job.percent : null;
-    const label =
-      job.status === "QUEUED"
-        ? "분석 대기 중..."
-        : `나누는 중...${percent !== null ? ` ${percent}%` : ""}`;
+    const label = job.status === "QUEUED" ? "분석 대기 중..." : runningLabelOf(percent);
 
     return (
       <Dock>
