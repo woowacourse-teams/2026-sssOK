@@ -38,12 +38,6 @@ export const Header = styled.header`
   font-size: 13px;
   line-height: 24px;
 
-  > a {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-  }
   @media (max-width: 480px) {
     padding: 16px 20px;
     gap: 12px;

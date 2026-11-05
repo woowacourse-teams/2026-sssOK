@@ -28,10 +28,3 @@ export const TitleArea = styled.div`
   align-items: center;
   min-width: 0;
 `;
-
-export const SearchOverlay = styled.div`
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-`;

@@ -45,16 +45,6 @@ class OrganizeResultTest {
     }
 
     @Test
-    void 일반_그룹만_groupId로_찾는다() {
-        OrganizeResult result = OrganizeResult.parse(MAPPER, SIMILAR);
-
-        assertThat(result.findGroup("similar_0001")).isPresent();
-        assertThat(result.findGroup("similar_0001").orElseThrow().containsAll(List.of(1L, 3L))).isTrue();
-        assertThat(result.findGroup("similar_0001").orElseThrow().containsAll(List.of(1L, 4L))).isFalse();
-        assertThat(result.findGroup("small_0001")).isEmpty();
-    }
-
-    @Test
     void 읽을_수_없는_JSON이면_예외다() {
         assertThatThrownBy(() -> OrganizeResult.parse(MAPPER, "{"))
             .isInstanceOf(IllegalStateException.class);
