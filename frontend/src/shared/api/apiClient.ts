@@ -1,6 +1,7 @@
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
 import { ApiError } from "./ApiError";
+import { recoverAccessToken } from "./authRecovery";
 import { notifyUnauthorized } from "./unauthorized";
 
 type ExceptionLevel = "fatal" | "error" | "warning";
@@ -15,6 +16,7 @@ interface ApiClientOptions extends RequestInit {
   token?: string;
   responseType?: "json" | "empty";
   errorTracking?: ErrorTrackingOptions;
+  skipAuthRecovery?: boolean;
 }
 
 interface ErrorResponse {
@@ -87,7 +89,14 @@ const throwInvalidResponse = (
 /** path 는 접두사를 뺀 경로다 — 접두사는 여기서 한 번만 붙인다. */
 export const apiClient = async <T>(
   path: string,
-  { token, headers, responseType = "json", errorTracking, ...options }: ApiClientOptions = {},
+  {
+    token,
+    headers,
+    responseType = "json",
+    errorTracking,
+    skipAuthRecovery = false,
+    ...options
+  }: ApiClientOptions = {},
 ): Promise<T> => {
   const method = options.method?.toUpperCase() ?? "GET";
   const requestHeaders = new Headers(headers);
@@ -104,9 +113,33 @@ export const apiClient = async <T>(
       headers: requestHeaders,
     });
   } catch {
+    options.signal?.throwIfAborted();
     const error = new ApiError(0, "NETWORK_ERROR", "네트워크 연결을 확인해주세요.");
     reportApiError(error, errorTracking, method);
     throw error;
+  }
+
+  if (
+    response.status === 401 &&
+    token &&
+    !skipAuthRecovery &&
+    !path.startsWith("/admin") &&
+    !["/auth/refresh", "/auth/anonymous", "/auth/link"].includes(path) &&
+    !path.startsWith("/auth/oauth/") &&
+    !(options.body instanceof ReadableStream)
+  ) {
+    options.signal?.throwIfAborted();
+    const renewed = await recoverAccessToken(token);
+    options.signal?.throwIfAborted();
+    if (renewed)
+      return apiClient<T>(path, {
+        ...options,
+        headers,
+        token: renewed,
+        responseType,
+        errorTracking,
+        skipAuthRecovery: true,
+      });
   }
 
   if (!response.ok) {

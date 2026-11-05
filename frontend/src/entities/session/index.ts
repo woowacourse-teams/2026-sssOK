@@ -9,3 +9,5 @@ export {
 export { readValidRoomSession } from "./lib/readValidRoomSession";
 export { RoomSessionBadge } from "./ui/RoomSessionBadge";
 export type { AnonymousSession, CreateAnonymousRequest } from "./model/types";
+
+export { refreshSession } from "./api/refreshSession";

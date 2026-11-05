@@ -1,3 +1,5 @@
+import { rememberTokenReplacement } from "@/shared/api/authRecovery";
+import { notifyUnauthorized } from "@/shared/api/unauthorized";
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { refreshMemberSession } from "../api/refreshMemberSession";
@@ -8,7 +10,19 @@ export const MEMBER_SESSION_QUERY_KEY = ["member-session"] as const;
 export const memberSessionQueryOptions = () =>
   queryOptions({
     queryKey: MEMBER_SESSION_QUERY_KEY,
-    queryFn: refreshMemberSession,
+    queryFn: async ({ client }) => {
+      const previous =
+        client.getQueryData<Awaited<ReturnType<typeof refreshMemberSession>>>(
+          MEMBER_SESSION_QUERY_KEY,
+        );
+      const session = await refreshMemberSession();
+      if (previous && (!session || session.userId !== previous.userId)) {
+        notifyUnauthorized(previous.accessToken);
+        return null;
+      }
+      if (previous && session) rememberTokenReplacement(previous.accessToken, session.accessToken);
+      return session;
+    },
     // 일회용 refresh 토큰을 자동 재시도하지 않는다. 동일 Query의 동시 호출은 합쳐진다.
     retry: false,
     staleTime: (query) => {

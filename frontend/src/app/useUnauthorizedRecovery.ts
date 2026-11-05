@@ -1,36 +1,89 @@
 import { useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 
-import { findRoomCodeByToken, removeRoomSession } from "@/entities/session";
-import { setUnauthorizedHandler } from "@/shared/api";
+import { MEMBER_SESSION_QUERY_KEY, type MemberSession } from "@/entities/member-session";
+import {
+  findRoomCodeByToken,
+  getRoomSession,
+  refreshSession,
+  removeRoomSession,
+} from "@/entities/session";
+import { ApiError, setUnauthorizedHandler } from "@/shared/api";
+import { getTokenReplacement, setAuthRecovery } from "@/shared/api/authRecovery";
 import { ROUTES } from "@/shared/config";
 
-/**
- * 401 을 만나면 그 방 세션을 버리고 입장 화면으로 되돌린다 (#149).
- *
- * **한 곳에서만 한다.** 화면마다 401 을 알아보게 두면 하나씩 빠뜨리고, 빠뜨린 화면은
- * 무효한 토큰을 들고 그 자리에 갇힌다 — 다음 요청도 같은 토큰으로 나가 401 만 되풀이한다.
- * 그래서 판단은 `apiClient` 가 하고(모든 요청이 지나는 길목이다) 뒷정리만 여기서 받는다.
- *
- * 세션을 지우는 것까지가 반이다. 지우기만 하면 사용자는 공유 링크를 스스로 다시
- * 찾아야 해서, 이름만 다시 받으면 이어갈 수 있는 입장 화면까지 데려다준다.
- */
+/** 공통 인증 복구에 세션 저장소와 플랫폼별 화면 이동을 연결한다. */
 export const useUnauthorizedRecovery = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
-  useEffect(
-    () =>
-      setUnauthorizedHandler((token) => {
-        const roomCode = findRoomCodeByToken(token);
-
-        // 이미 지운 세션의 토큰이다. 같이 나갔던 다른 요청이 뒤늦게 401 로 돌아온 것이라
-        // 다시 옮길 화면이 없다 — 여기서 또 이동하면 사용자가 방금 연 화면을 밀어낸다.
-        if (roomCode === null) return;
-
-        removeRoomSession(roomCode);
-        // 되돌아갈 자리가 아니다. 뒤로 가기로 다시 들어와도 세션이 없어 그대로 튕긴다.
-        navigate(ROUTES.roomEntry(roomCode), { replace: true });
-      }),
-    [navigate],
-  );
+  useEffect(() => {
+    let active = true;
+    const replacements = new Map<string, string>();
+    const current = (token: string) => {
+      const member = queryClient.getQueryData<MemberSession | null>(MEMBER_SESSION_QUERY_KEY);
+      if (member?.accessToken === token) return { session: member, roomCode: null };
+      const roomCode = findRoomCodeByToken(token);
+      const session = roomCode === null ? null : getRoomSession(roomCode);
+      return session ? { session, roomCode } : null;
+    };
+    const fail = (token: string) => {
+      if (!active) return;
+      const context = current(token);
+      if (!context) return;
+      if (context.roomCode !== null) removeRoomSession(context.roomCode);
+      navigate(window.ReactNativeWebView ? ROUTES.login : ROUTES.home, {
+        replace: true,
+        flushSync: true,
+      });
+      // 진행 중인 요청도 취소해 이전 계정의 데이터가 다시 캐시에 들어오지 않게 한다.
+      void queryClient.cancelQueries();
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "member-session" });
+      queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, null);
+      replacements.clear();
+    };
+    const disposeFailure = setUnauthorizedHandler(fail);
+    const disposeRecovery = setAuthRecovery(async (token) => {
+      const replacement = replacements.get(token) ?? getTokenReplacement(token);
+      if (replacement && current(replacement)) return replacement;
+      const context = current(token);
+      if (!context) return null;
+      try {
+        const session = await refreshSession();
+        if (!active) return null;
+        const updated = replacements.get(token);
+        if (updated && current(updated)) return updated;
+        // 익명 저장소는 refreshSession에서 갱신된다. 로그아웃/전환과 구분한다.
+        const stillCurrent =
+          context.roomCode === null
+            ? current(token) !== null
+            : getRoomSession(context.roomCode)?.accessToken === session.accessToken;
+        if (!stillCurrent) return null;
+        if (
+          session.userId !== context.session.userId ||
+          (context.roomCode === null && session.memberStatus !== "REGISTERED") ||
+          (context.roomCode !== null && session.memberStatus !== "ANONYMOUS")
+        ) {
+          fail(token);
+          return null;
+        }
+        if (context.roomCode === null) queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, session);
+        replacements.set(token, session.accessToken);
+        if (replacements.size > 64) replacements.delete(replacements.keys().next().value!);
+        return session.accessToken;
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) {
+          fail(token);
+          return null;
+        }
+        throw error;
+      }
+    });
+    return () => {
+      active = false;
+      disposeFailure();
+      disposeRecovery();
+    };
+  }, [navigate, queryClient]);
 };
