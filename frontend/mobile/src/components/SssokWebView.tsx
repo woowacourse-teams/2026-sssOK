@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import {
   DOWNLOAD_BRIDGE_VERSION,
   type BridgeEvent,
 } from "../bridge/downloadBridge";
+import { usePushNotifications, type PushEvent } from "../bridge/usePushNotifications";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 
 /** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장을 앱에 맡긴다. */
@@ -54,6 +55,45 @@ export function SssokWebView() {
   const [failed, setFailed] = useState(false);
   const lastInternalUrl = useRef(WEB_URL);
   const [sourceUrl, setSourceUrl] = useState(WEB_URL);
+  const loadedUrl = useRef<string | null>(null);
+  const currentRoomCode = useRef<string | null>(null);
+  const readCurrentRoom = useCallback(() => currentRoomCode.current, []);
+
+  const emitPush = useCallback((event: PushEvent) => {
+    webView.current?.injectJavaScript(
+      `if (location.origin === ${JSON.stringify(WEB_ORIGIN)}) {
+        window.dispatchEvent(new CustomEvent("sssok:push", { detail: ${JSON.stringify(event)} }));
+      } true;`,
+    );
+  }, []);
+
+  const openPushRoom = useCallback((notificationUrl: string) => {
+    let target: URL;
+    try {
+      target = new URL(notificationUrl, WEB_ORIGIN);
+    } catch {
+      return;
+    }
+    if (
+      target.origin !== WEB_ORIGIN ||
+      target.username ||
+      target.password ||
+      !/^\/rooms\/[A-Z2-9]{8}\/gallery$/.test(target.pathname)
+    )
+      return;
+    const url = target.href;
+    if (webView.current && loadedUrl.current && isWebOrigin(loadedUrl.current)) {
+      webView.current.injectJavaScript(
+        `if (location.origin === ${JSON.stringify(WEB_ORIGIN)} && location.href !== ${JSON.stringify(url)}) {
+          location.assign(${JSON.stringify(url)});
+        } true;`,
+      );
+    } else {
+      setFailed(false);
+      setSourceUrl(url);
+    }
+  }, []);
+  const requestPushToken = usePushNotifications(emitPush, openPushRoom, readCurrentRoom);
 
   const rememberInternalUrl = (url: string) => {
     try {
@@ -66,6 +106,7 @@ export function SssokWebView() {
   const showError = (url?: string) => {
     if (url) rememberInternalUrl(url);
     canGoBack.current = false;
+    loadedUrl.current = null;
     // 답을 받을 페이지가 사라졌다. 받던 것을 이어 가봐야 결과를 알릴 곳이 없다.
     downloadBridge.current?.cancelAll();
     setFailed(true);
@@ -146,7 +187,30 @@ export function SssokWebView() {
           onMessage={({ nativeEvent }) => {
             // 서비스 페이지가 보낸 것만 받는다. 다른 주소의 페이지가 저장을 시키지 못하게 한다.
             if (!isWebOrigin(nativeEvent.url)) return;
+            try {
+              const message = JSON.parse(nativeEvent.data);
+              if (message?.type === "push/current-room") {
+                currentRoomCode.current =
+                  typeof message.roomCode === "string" && /^[A-Z2-9]{8}$/.test(message.roomCode)
+                    ? message.roomCode
+                    : null;
+                return;
+              }
+            } catch {
+              // 다른 브릿지의 형식 검증은 각 핸들러에서 수행한다.
+            }
+            if (nativeEvent.data === '{"type":"push/request-token"}') {
+              requestPushToken();
+              return;
+            }
             downloadBridge.current?.handle(nativeEvent.data);
+          }}
+          onLoadStart={() => {
+            loadedUrl.current = null;
+            currentRoomCode.current = null;
+          }}
+          onLoad={({ nativeEvent }) => {
+            loadedUrl.current = nativeEvent.url;
           }}
           onNavigationStateChange={(state) => {
             rememberInternalUrl(state.url);

@@ -72,3 +72,19 @@ Google Play에 이미 등록된 앱이면 기존 패키지명과 업로드 키�
 기존 앱을 EAS 원격 버전 관리로 처음 전환할 때는 빌드 전에 `npx eas-cli@latest build:version:set`을 실행하고, Android의 원격 versionCode를 Play Console에 이미 업로드한 가장 높은 값으로 맞춘다. 다음 production 빌드에서 이 값이 자동 증가한다. 이미 동기화된 프로젝트는 다시 설정할 필요가 없다.
 빌드 완료 후 EAS 빌드 페이지에서 AAB를 내려받아 Play Console 비공개 테스트 트랙에 올린다.
 원격 versionCode를 자동 증가시키므로 후속 빌드도 같은 프로필을 사용한다.
+
+## 방 알림 개발 빌드
+
+앱 푸시는 Firebase Cloud Messaging을 사용합니다. Expo Go에는 Firebase 네이티브 모듈이 없으므로 실기기 개발 빌드에서 확인합니다.
+
+1. 개발 Firebase 프로젝트에서 `com.ssssok.app`에 해당하는 iOS·Android 앱 설정 파일을 받습니다. iOS에는 Firebase 콘솔의 APNs 인증 키도 설정되어 있어야 합니다.
+2. Firebase 앱 설정 파일 4개를 `firebase/`에 둡니다. `app.config.js`가 기본 및 development 빌드에서는 dev 파일, production 빌드에서는 prod 파일을 선택합니다. `APP_ENV=production`으로 로컬에서도 운영 설정을 선택할 수 있습니다. 파일은 Git에서 제외하고 저장소 루트의 `.easignore`에서 EAS 빌드 업로드에 포함합니다. 다른 팀원이 빌드할 때는 파일 4개를 별도로 받아야 합니다. EAS File 환경 변수 `GOOGLE_SERVICES_INFO_PLIST`, `GOOGLE_SERVICES_JSON`을 지정하면 해당 경로가 우선합니다. 운영·개발 앱 파일은 웹의 API 서버 FCM 프로젝트와 일치해야 합니다. 서버 서비스 계정 키는 앱 빌드에 넣지 않습니다.
+3. `npx eas-cli@latest build --profile development --platform ios` 또는 `--platform android`로 빌드합니다. 개발 빌드를 설치한 뒤 `npx expo start --dev-client`로 실행합니다. 서버가 dev 웹에 이 브랜치의 웹 코드를 제공하거나, 로컬 웹을 실기기에서 접속할 수 있게 `EXPO_PUBLIC_WEB_URL`을 맞춰야 합니다.
+
+회원 로그인 후 기기 알림 권한을 허용하고 같은 방에 두 계정으로 들어갑니다. 방 설정에서 사진을 요청하거나 사진을 올립니다. 받는 앱이 방을 보고 있으면 사진은 기존 실시간 갱신으로 보이고, 사진 요청은 앱 안에 안내가 뜹니다. 받는 앱이 백그라운드에 있으면 시스템 알림을 눌러 해당 방으로 이동할 수 있습니다. 방 알림을 끄거나 로그아웃한 기기에는 이후 알림이 오지 않는지 확인합니다.
+
+### 현재 방에 따른 알림 표시
+
+웹 라우터가 보고 있는 방 코드를 WebView 브릿지로 앱에 전달합니다. 앱이 같은 방을 보고 있으면 기존 화면 내 안내를 사용하고, 다른 방·방 목록·홈을 보고 있으면 Notifee로 시스템 알림을 표시합니다. 백그라운드에서는 기존 FCM 알림을 그대로 사용합니다. 알림을 누르면 서버의 data.url을 검증한 뒤 해당 방으로 이동합니다.
+
+Notifee가 포함되지 않은 기존 APK에서는 다른 방의 요청도 기존 화면 안내로 표시합니다. 이 분기를 시스템 알림으로 확인하려면 development APK를 한 번 다시 빌드·설치해야 합니다.

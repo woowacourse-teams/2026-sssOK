@@ -5,8 +5,10 @@ import { HiArrowLeft, HiChevronRight } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
 import { MEMBER_SESSION_QUERY_KEY, useMemberSessionQuery } from "@/entities/member-session";
+import { endPushSession } from "@/features/app-push";
 import { manageAccount } from "@/features/manage-account";
 import { ROUTES } from "@/shared/config";
+import { isAppWebView } from "@/shared/lib";
 import { colors, typography } from "@/shared/styles/tokens";
 import { Button } from "@/shared/ui/button";
 import { IconButton } from "@/shared/ui/icon-button";
@@ -24,7 +26,8 @@ export const AccountSettingsPage = () => {
   const mutation = useMutation({
     mutationFn: (selected: Action) => {
       if (!session) throw new Error("로그인 정보를 확인해 주세요.");
-      return manageAccount(selected, session.accessToken);
+      const endSession = () => manageAccount(selected, session.accessToken);
+      return isAppWebView() ? endPushSession(session.accessToken, endSession) : endSession();
     },
     onSuccess: async () => {
       await queryClient.cancelQueries();
