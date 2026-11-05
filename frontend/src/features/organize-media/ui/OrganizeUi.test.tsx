@@ -97,19 +97,21 @@ describe("OrganizeStatusBar", () => {
     expect(handlers.onCancel).toHaveBeenCalled();
   });
 
-  it("진행 정보를 아직 못 받았으면 0장째로 보여 준다", () => {
+  it("진행 정보를 아직 못 받았으면 준비 중으로 보이고 장수를 비워 둔다", () => {
     render(<OrganizeStatusBar job={jobOf({ percent: null })} {...barHandlers()} />);
 
-    expect(screen.getByText("나누는 중...")).toBeInTheDocument();
-    expect(screen.getByText("0 / 40")).toBeInTheDocument();
+    expect(screen.getByText("사진 준비 중...")).toBeInTheDocument();
+    expect(screen.queryByText(/나누는 중/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/ 40/)).not.toBeInTheDocument();
   });
 
-  it("접수만 된 상태는 분석 대기로 보여 준다", () => {
+  it("접수만 된 상태는 분석 대기로 보이고 장수를 비워 둔다", () => {
     render(
       <OrganizeStatusBar job={jobOf({ status: "QUEUED", percent: null })} {...barHandlers()} />,
     );
 
     expect(screen.getByText(/분석 대기 중/)).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 40/)).not.toBeInTheDocument();
   });
 
   it("완료되면 찾은 사람 수와 확인하기를 보여 준다", async () => {
