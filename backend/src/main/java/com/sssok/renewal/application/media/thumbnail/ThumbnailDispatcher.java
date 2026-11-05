@@ -9,6 +9,8 @@ import java.util.Optional;
 import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.stereotype.Component;
@@ -25,6 +27,7 @@ public class ThumbnailDispatcher {
     private final Semaphore availableVideoWorkerSlots;
     private final ThumbnailHeartbeat thumbnailHeartbeat;
     private final MediaProcessingMetrics metrics;
+    private volatile boolean stopped;
 
     public ThumbnailDispatcher(
             ThumbnailJobService thumbnailJobService,
@@ -47,6 +50,12 @@ public class ThumbnailDispatcher {
         availableVideoWorkerSlots = new Semaphore(properties.videoWorkers());
     }
 
+    // 남은 대기 작업은 DB 에 두고 다음에 뜨는 앱이 가져간다.
+    @EventListener(ContextClosedEvent.class)
+    public void stopClaiming() {
+        stopped = true;
+    }
+
     public void dispatchPendingJobs() {
         submitAvailableWorkers(ThumbnailKind.IMAGE, availableImageWorkerSlots, imageThumbnailExecutor);
         submitAvailableWorkers(ThumbnailKind.VIDEO, availableVideoWorkerSlots, videoThumbnailExecutor);
@@ -55,7 +64,7 @@ public class ThumbnailDispatcher {
     private void submitAvailableWorkers(ThumbnailKind kind, Semaphore workerSlots, AsyncTaskExecutor thumbnailExecutor) {
         // 시작 시점의 빈 슬롯까지만 고른다. 빠르게 끝나더라도 한 주기의 DB 조회량은 제한한다.
         int availableWorkerCount = workerSlots.availablePermits();
-        for (int i = 0; i < availableWorkerCount && workerSlots.tryAcquire(); i++) {
+        for (int i = 0; i < availableWorkerCount && !stopped && workerSlots.tryAcquire(); i++) {
             // 제출 전에는 이 메서드가, 제출 후에는 워커가 슬롯을 반환한다.
             boolean submittedToWorker = false;
             try {
@@ -90,7 +99,7 @@ public class ThumbnailDispatcher {
             ThumbnailClaim claimedJob = firstClaimedJob;
             while (true) {
                 generateWithHeartbeat(claimedJob, processingSource(claimedJob));
-                if (Thread.currentThread().isInterrupted()) {
+                if (stopped || Thread.currentThread().isInterrupted()) {
                     return;
                 }
                 Optional<ThumbnailClaim> nextClaimedJob = thumbnailJobService.claimNext(firstClaimedJob.kind());

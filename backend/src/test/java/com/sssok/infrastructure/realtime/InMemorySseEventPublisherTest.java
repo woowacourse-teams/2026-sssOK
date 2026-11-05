@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 // publish()가 실제 Repository 빈을 통해 room_events에 기록하는지 확인하는 통합 테스트.
 // 실시간 전달(SseEmitter.send)은 실제 HTTP 연결이 있어야 검증 가능해 API 인수 테스트가 담당한다.
@@ -110,6 +111,21 @@ class InMemorySseEventPublisherTest {
         Long firstId = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 7L).get(0).getId();
 
         assertThat(roomEventJpaRepository.findVisibleAfter(roomId, firstId, 7L)).hasSize(1);
+    }
+
+    @Test
+    void 앱이_종료되면_모든_방의_구독을_닫는다() {
+        Long firstRoomId = 131072L;
+        Long secondRoomId = 131073L;
+        memberships.save(RoomMember.join(firstRoomId, 1L, Instant.now(), new Nickname("참여자")));
+        memberships.save(RoomMember.join(secondRoomId, 1L, Instant.now(), new Nickname("참여자")));
+        SseEmitter first = sseEventPublisher.subscribe(firstRoomId, 1L, null);
+        SseEmitter second = sseEventPublisher.subscribe(secondRoomId, 1L, null);
+
+        sseEventPublisher.completeAllOnShutdown();
+
+        assertThatThrownBy(() -> first.send("after-shutdown")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> second.send("after-shutdown")).isInstanceOf(IllegalStateException.class);
     }
 
     // Jackson 기본 설정(FAIL_ON_EMPTY_BEANS)에서, 필드도 getter도 없는 빈은 직렬화할 수 없어 예외가 난다.

@@ -85,13 +85,12 @@ class OrganizeApplyServiceTest extends OrganizeServiceTestSupport {
     }
 
     @Test
-    void 일반_그룹이_아니거나_그룹에_없는_사진은_선택할_수_없다() {
+    void 이번_결과에_없는_사진은_선택할_수_없다() {
+        Long outside = jpegs(room, host, 1).get(0);
         assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(),
-            List.of(new GroupRequest("unassigned", "미분류", List.of(ids.get(3)))), key())))
-            .isEqualTo(ErrorCode.INVALID_PARAM);
-        assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(), person("민찬", List.of(ids.get(3))), key())))
-            .isEqualTo(ErrorCode.INVALID_PARAM);
+            person("민찬", List.of(outside)), key()))).isEqualTo(ErrorCode.INVALID_PARAM);
         assertThat(reload(job).status()).isEqualTo(OrganizeJobStatus.READY);
+        assertThat(folders()).isZero();
     }
 
     @Test
@@ -105,8 +104,7 @@ class OrganizeApplyServiceTest extends OrganizeServiceTestSupport {
         assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(),
             person("민찬", List.of(ids.get(0), ids.get(0))), key()))).isEqualTo(ErrorCode.INVALID_PARAM);
         assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(), List.of(
-            new GroupRequest("person_0001", "A", List.of(ids.get(0))),
-            new GroupRequest("person_0001", "B", List.of(ids.get(1)))), key()))).isEqualTo(ErrorCode.INVALID_PARAM);
+            new GroupRequest(null, "A", List.of())), key()))).isEqualTo(ErrorCode.INVALID_PARAM);
         assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(), person("민찬", ids.subList(0, 1)), null)))
             .isEqualTo(ErrorCode.INVALID_PARAM);
     }
