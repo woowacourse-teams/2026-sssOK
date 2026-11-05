@@ -56,11 +56,12 @@ interface UseOrganizeJobParams {
 }
 
 /**
- * 서버가 장수 때문에 거절했으면 모달로 알릴 까닭을 돌려준다.
+ * 서버가 장수나 체험 소진 때문에 거절했으면 모달로 알릴 까닭을 돌려준다.
  * 200장 초과 메시지("현재 N장, 최대 200장…")에서 장수를 읽고, 못 읽으면 장수 없이 알린다.
  */
 const limitOf = (cause: unknown): OrganizeLimit | null => {
   if (!isApiError(cause)) return null;
+  if (cause.code === ORGANIZE_ERROR_CODES.trialExhausted) return { reason: "trialExhausted" };
   if (cause.code === ORGANIZE_ERROR_CODES.noAnalyzablePhotos) return { reason: "empty" };
   if (cause.code !== ORGANIZE_ERROR_CODES.tooManyPhotos) return null;
   const matched = /현재\s*(\d+)\s*장/.exec(cause.message);

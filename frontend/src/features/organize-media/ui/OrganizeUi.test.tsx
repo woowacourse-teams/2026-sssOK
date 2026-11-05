@@ -82,6 +82,26 @@ describe("OrganizeLimitModal", () => {
 
     expect(screen.getByRole("heading", { name: "나눌 사진이 없어요" })).toBeInTheDocument();
   });
+
+  it("체험을 다 쓰면 앱 설치 대신 로그인을 권한다", async () => {
+    const onClose = jest.fn();
+    const onLogin = jest.fn();
+    render(
+      <OrganizeLimitModal
+        limit={{ reason: "trialExhausted" }}
+        onClose={onClose}
+        onLogin={onLogin}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "AI 정리를 다 썼어요" })).toBeInTheDocument();
+    expect(screen.queryByText(/앱을 설치/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "로그인하기" }));
+    expect(onLogin).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "다음에 할게요" }));
+    expect(onClose).toHaveBeenCalled();
+  });
 });
 
 describe("OrganizeStatusBar", () => {

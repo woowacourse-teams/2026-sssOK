@@ -34,15 +34,10 @@ describe("organizeErrorMessage", () => {
     );
   });
 
-  it("체험을 다 쓰면 앱 안에서는 그 자리에서 로그인을 권한다", () => {
-    window.ReactNativeWebView = { postMessage: jest.fn() };
-    try {
-      expect(organizeErrorMessage(new ApiError(403, "ORGANIZE_TRIAL_EXHAUSTED", ""))).toBe(
-        "로그인하지 않으면 더 이상 AI 정리를 쓸 수 없어요.\n로그인해 주세요.",
-      );
-    } finally {
-      delete window.ReactNativeWebView;
-    }
+  it("체험을 다 쓰면 웹·앱 모두 앱 설치 없이 로그인을 권한다", () => {
+    expect(organizeErrorMessage(new ApiError(403, "ORGANIZE_TRIAL_EXHAUSTED", ""))).toBe(
+      "로그인하면 AI 정리를 계속 쓸 수 있어요.",
+    );
   });
 
   it("모르는 실패는 다시 시도를 권한다", () => {
