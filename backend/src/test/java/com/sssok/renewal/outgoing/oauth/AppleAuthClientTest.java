@@ -107,6 +107,7 @@ class AppleAuthClientTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
             .andExpect(content().string(Matchers.containsString("grant_type=authorization_code")))
             .andExpect(content().string(Matchers.containsString("client_id=client")))
+            .andExpect(content().string(Matchers.containsString("redirect_uri=https%3A%2F%2Fexample.com%2Fcallback")))
             .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
     }
 

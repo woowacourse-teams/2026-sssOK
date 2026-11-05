@@ -136,12 +136,13 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 
-    @Test
-    void 저장된_리다이렉트가_현재_설정과_다르면_거부한다() {
+    @ParameterizedTest
+    @ValueSource(strings = {"https://other.example/callback", "https://example.com/other", "https://example.com/kakao/callback?x=1"})
+    void 저장된_리다이렉트가_현재_설정과_다르면_거부한다(String redirectUri) {
         OAuthLoginAttemptResult started = startKakao(List.of());
         OAuthLoginAttempt saved = storedAttempt(started);
         oauthLoginAttemptRepository.save(new OAuthLoginAttempt(saved.stateHash(), saved.loginVerifierHash(), saved.provider(),
-            "https://other.example/callback", saved.nonce(), saved.anonymousMemberIds(), saved.createdAt(), saved.expiresAt()));
+            redirectUri, saved.nonce(), saved.anonymousMemberIds(), saved.createdAt(), saved.expiresAt()));
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 

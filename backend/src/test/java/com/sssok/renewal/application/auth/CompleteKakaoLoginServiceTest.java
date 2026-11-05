@@ -1,6 +1,8 @@
 package com.sssok.renewal.application.auth;
 
 import com.sssok.common.exception.ErrorCode;
+import com.sssok.renewal.outgoing.cache.auth.OAuthLoginAttemptRepository;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import com.sssok.renewal.application.auth.exception.LinkCodeNotFoundException;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
@@ -55,6 +57,7 @@ class CompleteKakaoLoginServiceTest extends PostgresContainerSupport {
     @Autowired LinkLoginService linkLoginService;
     @Autowired PlatformTransactionManager transactionManager;
     @MockitoBean KakaoAuthClient kakaoClient;
+    @MockitoSpyBean OAuthLoginAttemptRepository oauthLoginAttemptRepository;
     SocialIdentity identity;
 
     @BeforeEach
@@ -200,6 +203,7 @@ class CompleteKakaoLoginServiceTest extends PostgresContainerSupport {
     void 등록되지_않은_출처는_로그인_시도를_만들지_않는다() {
         assertThatThrownBy(() -> startKakaoLoginService.start(List.of(), "http://localhost:3001")).isInstanceOf(SocialAuthException.class);
         verify(kakaoClient, never()).authenticate(anyString(), any(), anyString());
+        verify(oauthLoginAttemptRepository, never()).save(any());
     }
 
     private AuthResult completeOrConflict(SocialLoginStartResult start) {
