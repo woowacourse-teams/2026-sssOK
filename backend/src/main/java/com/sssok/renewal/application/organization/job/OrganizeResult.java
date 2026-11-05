@@ -3,10 +3,8 @@ package com.sssok.renewal.application.organization.job;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 // 검증을 통과해 저장된 분석 결과. 저장된 JSON 을 한 번 읽어 그룹 단위로 다룬다.
@@ -28,9 +26,6 @@ public record OrganizeResult(List<Group> groups, List<List<Long>> smallGroupMedi
             mediaIds = mediaIds == null ? List.of() : mediaIds;
         }
 
-        public boolean containsAll(List<Long> ids) {
-            return new HashSet<>(mediaIds).containsAll(ids);
-        }
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -52,10 +47,5 @@ public record OrganizeResult(List<Group> groups, List<List<Long>> smallGroupMedi
         smallGroupMediaIds.forEach(ids::addAll);
         ids.addAll(unassignedMediaIds);
         return ids;
-    }
-
-    // groupId 가 있는 일반 그룹만 찾는다. 소그룹과 미분류에는 groupId 가 없다.
-    public Optional<Group> findGroup(String groupId) {
-        return groups.stream().filter(group -> group.groupId().equals(groupId)).findFirst();
     }
 }
