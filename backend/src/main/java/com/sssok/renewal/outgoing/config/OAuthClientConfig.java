@@ -42,9 +42,14 @@ public class OAuthClientConfig {
         AppleClientSecretGenerator clientSecretGenerator = new AppleClientSecretGenerator(
             properties.clientId(), properties.teamId(), properties.keyId(), properties.privateKey()
         );
+        AppleClientSecretGenerator nativeClientSecretGenerator = properties.nativeLoginConfigured()
+            ? new AppleClientSecretGenerator(
+                properties.nativeClientId(), properties.teamId(), properties.keyId(), properties.privateKey())
+            : null;
         return new AppleAuthClient(
             httpClient, new AppleSigningKeyProvider(httpClient), clientSecretGenerator,
-            properties.clientId(), properties.redirectUri()
+            properties.clientId(), properties.redirectUri(),
+            properties.nativeLoginConfigured() ? properties.nativeClientId() : null, nativeClientSecretGenerator
         );
     }
 
