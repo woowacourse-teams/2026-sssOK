@@ -1,7 +1,11 @@
 package com.sssok.renewal.application.auth;
 
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
+import com.sssok.renewal.domain.auth.OAuthClientType;
+import com.sssok.renewal.domain.auth.OAuthLoginAttempt;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
+import com.sssok.renewal.domain.member.SocialProvider;
+import com.sssok.renewal.outgoing.oauth.AppleAuthClient;
 import com.sssok.renewal.outgoing.oauth.KakaoAuthClient;
 import com.sssok.renewal.outgoing.oauth.SocialAuthentication;
 import java.util.List;
@@ -16,13 +20,35 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class NativeSocialLoginService {
 
+    private static final int MAX_CODE_LENGTH = 2048;
+
+    private final OAuthLoginAttemptService oauthLoginAttemptService;
     private final CompleteSocialLoginService completeSocialLoginService;
     private final Optional<KakaoAuthClient> kakaoClient;
+    private final Optional<AppleAuthClient> appleClient;
 
     // 카카오는 시작 단계 없이 SDK access token을 서버가 직접 확인한다. 제공자 HTTP 호출 동안 DB 트랜잭션을 유지하지 않는다.
     public AuthResult loginWithKakao(String kakaoAccessToken, RefreshTokenDelivery delivery) {
         KakaoAuthClient client = kakaoClient.orElseThrow(SocialAuthException::unavailable);
         SocialAuthentication authentication = client.authenticateAccessToken(kakaoAccessToken);
         return completeSocialLoginService.loginVerified(authentication, List.of(), delivery);
+    }
+
+    // 애플은 SDK 인증 전에 서버가 로그인 시도(state·loginVerifier·nonce)를 만든다. 웹 로그인 URL은 만들지 않는다.
+    public OAuthLoginAttemptResult startApple() {
+        return oauthLoginAttemptService.startAppleNative();
+    }
+
+    // 시도는 외부 교환 전에 원자적으로 소비한다. 교환이 실패해도 복원하거나 같은 코드를 재시도하지 않으며,
+    // 새 시작 단계부터 다시 로그인해야 한다.
+    public AuthResult loginWithApple(String code, String state, String loginVerifier, RefreshTokenDelivery delivery) {
+        if (code == null || code.isBlank() || code.length() > MAX_CODE_LENGTH) {
+            throw SocialAuthException.invalid();
+        }
+        OAuthLoginAttempt attempt = oauthLoginAttemptService.consume(
+            SocialProvider.APPLE, state, loginVerifier, OAuthClientType.NATIVE);
+        AppleAuthClient client = appleClient.orElseThrow(SocialAuthException::unavailable);
+        SocialAuthentication authentication = client.authenticateNative(code, attempt.nonce());
+        return completeSocialLoginService.loginVerified(authentication, attempt.anonymousMemberIds(), delivery);
     }
 }

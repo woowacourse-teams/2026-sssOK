@@ -116,6 +116,27 @@ public class AuthController {
         return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
     }
 
+    @Operation(summary = "애플 앱 SDK 로그인 준비", description = "앱 SDK 인증에 쓸 로그인 시도를 서버가 만들어 state·loginVerifier·nonce를 발급한다. "
+        + "웹 로그인 URL은 만들지 않는다. nonce는 애플 SDK 인증 요청에 변환 없이 그대로 넣고, loginVerifier는 웹뷰가 보관했다가 "
+        + "완료 API에만 전달한다. 로그인 시도는 5분 뒤 만료되며 일회용이다.")
+    @PostMapping("/oauth/apple/native/start")
+    public ResponseEntity<ApiResponse<AppleNativeStartResponse>> startAppleNativeLogin() {
+        AppleNativeStartResponse response = AppleNativeStartResponse.from(nativeSocialLoginService.startApple());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
+    }
+
+    @Operation(summary = "애플 앱 SDK 가입 또는 로그인", description = "준비 API의 state·loginVerifier와 애플 SDK가 반환한 authorizationCode로 인증한다. "
+        + "서버가 저장한 nonce와 앱용 client 설정으로 ID 토큰을 검증한다. 시도는 외부 교환 전에 소비되므로 실패하거나 응답을 잃어도 "
+        + "같은 코드를 재시도하지 말고 준비 API부터 다시 시작한다. 이 요청으로는 익명 활동을 통합하지 않는다.")
+    @PostMapping("/oauth/apple/native/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithAppleNative(@Valid @RequestBody SocialLoginRequest request,
+        HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = nativeSocialLoginService.loginWithApple(
+            request.code(), request.state(), request.loginVerifier(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
+    }
+
     @Operation(summary = "회원 탈퇴", description = "서비스 탈퇴와 전체 인증 무효화를 완료한다. "
         + "소셜 연결 해제는 커밋 후 한 번 시도하며, 실패해도 서비스 탈퇴는 완료된다.")
     @DeleteMapping("/account")

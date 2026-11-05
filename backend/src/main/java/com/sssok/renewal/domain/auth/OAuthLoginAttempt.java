@@ -14,14 +14,15 @@ public record OAuthLoginAttempt(
     String nonce,
     List<Long> anonymousMemberIds,
     Instant createdAt,
-    Instant expiresAt
+    Instant expiresAt,
+    OAuthClientType clientType
 ) {
     public OAuthLoginAttempt {
         anonymousMemberIds = List.copyOf(anonymousMemberIds);
+        Objects.requireNonNull(clientType);
         requireHash(stateHash);
         requireHash(loginVerifierHash);
         Objects.requireNonNull(provider);
-        Objects.requireNonNull(redirectUri);
         Objects.requireNonNull(createdAt);
         Objects.requireNonNull(expiresAt);
         if (!expiresAt.isAfter(createdAt)) {
@@ -32,6 +33,13 @@ public record OAuthLoginAttempt(
         }
         if (provider == SocialProvider.APPLE && (nonce == null || !nonce.matches("[A-Za-z0-9_-]{43}"))) {
             throw new IllegalArgumentException("애플 로그인에는 서버에서 생성한 nonce가 필요합니다");
+        }
+        // 앱 SDK 시도는 서버가 만든 웹 주소가 없다. 가짜 주소를 넣지 않고, 웹 시도와 서로의 완료 API에서 쓰지 못하게 구분한다.
+        if (clientType == OAuthClientType.WEB && redirectUri == null) {
+            throw new IllegalArgumentException("웹 로그인에는 콜백 주소가 필요합니다");
+        }
+        if (clientType == OAuthClientType.NATIVE && (provider != SocialProvider.APPLE || redirectUri != null)) {
+            throw new IllegalArgumentException("앱 SDK 로그인은 애플만 지원하며 콜백 주소를 사용하지 않습니다");
         }
         if (provider == SocialProvider.KAKAO && nonce != null) {
             throw new IllegalArgumentException("카카오 사용자 정보 조회 방식은 nonce를 사용하지 않습니다");

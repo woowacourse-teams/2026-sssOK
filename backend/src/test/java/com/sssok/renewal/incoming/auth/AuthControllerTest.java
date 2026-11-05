@@ -6,6 +6,7 @@ import com.sssok.application.port.out.RoomRepository;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.application.auth.NativeSocialLoginService;
+import com.sssok.renewal.application.auth.OAuthLoginAttemptResult;
 import com.sssok.renewal.application.auth.CompleteSocialLoginService;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
@@ -312,6 +313,88 @@ class AuthControllerTest {
         given(nativeSocialLoginService.loginWithKakao("sdk-token", RefreshTokenDelivery.COOKIE)).willThrow(error);
         mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login").header("X-CSRF-Protection", "1")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"kakaoAccessToken\":\"sdk-token\"}"))
+            .andExpect(status().is(statusCode));
+    }
+
+    @Test
+    void 애플_앱_준비는_웹_URL없이_시도_정보와_nonce를_캐시없이_반환한다() throws Exception {
+        given(nativeSocialLoginService.startApple()).willReturn(new OAuthLoginAttemptResult(
+            SocialProvider.APPLE, "s".repeat(43), "v".repeat(43), "n".repeat(43), null, Instant.parse("2026-11-05T12:05:00Z")));
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/start"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.state").value("s".repeat(43)))
+            .andExpect(jsonPath("$.data.loginVerifier").value("v".repeat(43)))
+            .andExpect(jsonPath("$.data.nonce").value("n".repeat(43)))
+            .andExpect(jsonPath("$.data.expiresAt").value("2026-11-05T12:05:00Z"))
+            .andExpect(jsonPath("$.data.authorizationUrl").doesNotExist())
+            .andExpect(jsonPath("$.data.redirectUri").doesNotExist());
+    }
+
+    @Test
+    void 애플_앱_준비는_앱_설정이_없으면_503이다() throws Exception {
+        given(nativeSocialLoginService.startApple()).willThrow(SocialAuthException.unavailable());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/start")).andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void 애플_앱_로그인은_기본값_쿠키로_토큰을_캐시없이_반환한다() throws Exception {
+        given(nativeSocialLoginService.loginWithApple("sdk-code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE))
+            .willReturn(nativeAuthResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}".formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().string("Set-Cookie", Matchers.allOf(
+                Matchers.containsString("sssok_refresh=service-refresh"), Matchers.containsString("HttpOnly"))))
+            .andExpect(jsonPath("$.data.accessToken").value("service-token"))
+            .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void 애플_앱_로그인은_BODY_전달을_요청하면_본문으로_refresh를_준다() throws Exception {
+        given(nativeSocialLoginService.loginWithApple("sdk-code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.BODY))
+            .willReturn(nativeAuthResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\",\"refreshTokenDelivery\":\"BODY\"}"
+                    .formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isOk())
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.refreshToken").value("service-refresh"));
+    }
+
+    @Test
+    void 애플_앱_로그인은_쿠키_요청의_CSRF_헤더가_없으면_거부한다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}".formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"code\":\"code\"}", "{\"code\":\"code\",\"state\":\"bad\",\"loginVerifier\":\"bad\"}"})
+    void 애플_앱_로그인은_잘못된_요청을_인증_전에_거부한다(String body) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 409, 503})
+    void 애플_앱_로그인_실패의_상태코드를_유지한다(int statusCode) throws Exception {
+        SocialAuthException error = switch (statusCode) {
+            case 401 -> SocialAuthException.invalid();
+            case 409 -> SocialAuthException.conflict();
+            default -> SocialAuthException.unavailable();
+        };
+        given(nativeSocialLoginService.loginWithApple("sdk-code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE)).willThrow(error);
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}".formatted("s".repeat(43), "v".repeat(43))))
             .andExpect(status().is(statusCode));
     }
 
