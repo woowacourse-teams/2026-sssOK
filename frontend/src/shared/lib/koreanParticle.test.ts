@@ -1,4 +1,4 @@
-import { withDirectionParticle } from "./koreanParticle";
+import { withDirectionParticle, withSubjectParticle } from "./koreanParticle";
 
 describe("withDirectionParticle", () => {
   it("받침이 있으면 '으로' 를 붙인다", () => {
@@ -18,5 +18,16 @@ describe("withDirectionParticle", () => {
   it("한글로 끝나지 않으면 '(으)로' 를 붙인다", () => {
     expect(withDirectionParticle("ON_HOLD")).toBe("ON_HOLD(으)로");
     expect(withDirectionParticle("")).toBe("(으)로");
+  });
+});
+
+describe("withSubjectParticle", () => {
+  it("받침이 있으면 '이', 없으면 '가' 를 붙인다", () => {
+    expect(withSubjectParticle("소이")).toBe("소이가");
+    expect(withSubjectParticle("민찬")).toBe("민찬이");
+  });
+
+  it("한글로 끝나지 않으면 '(이)가' 를 붙인다", () => {
+    expect(withSubjectParticle("Rosie")).toBe("Rosie(이)가");
   });
 });
