@@ -297,18 +297,6 @@ export const EmptyBody = styled.div`
   }
 `;
 
-/** 좁은 화면은 화면 아래에 꽉 차게 쌓고, 넓은 화면은 글 아래에 나란히 둔다. */
-export const EmptyActions = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding-top: ${spacing[12]};
-
-  ${DESKTOP} {
-    display: none;
-  }
-`;
-
 export const ErrorBox = styled.section`
   display: flex;
   flex: 1;
@@ -320,54 +308,4 @@ export const ErrorBox = styled.section`
   text-align: center;
 
   ${typography.body}
-`;
-
-export const SheetMenuItem = styled.button<{ $tone?: "danger" }>`
-  display: flex;
-  align-items: center;
-  gap: ${spacing[12]};
-  width: 100%;
-  height: 56px;
-  padding: 0 ${spacing[4]};
-  color: ${({ $tone }) => ($tone === "danger" ? colors.danger : colors.textStrong)};
-  font-size: 16px;
-  font-weight: 600;
-  text-align: left;
-
-  & + & {
-    border-top: 1px solid ${colors.backgroundSubtle};
-  }
-
-  svg {
-    flex: none;
-    width: 18px;
-    height: 18px;
-  }
-`;
-
-export const Fab = styled.button`
-  position: fixed;
-  right: max(${spacing[20]}, calc((100vw - 480px) / 2 + ${spacing[20]}));
-  bottom: calc(34px + env(safe-area-inset-bottom));
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 56px;
-  padding: 0 22px 0 18px;
-  border-radius: ${radius.full};
-  background: ${colors.primary};
-  color: ${colors.textInverse};
-  box-shadow: 0 8px 20px color-mix(in srgb, ${colors.primary} 35%, transparent);
-
-  ${typography.label2}
-
-  svg {
-    width: 22px;
-    height: 22px;
-  }
-
-  ${DESKTOP} {
-    display: none;
-  }
 `;
