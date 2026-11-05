@@ -44,7 +44,7 @@ public class AppleAuthClient implements SocialAuthClient {
     }
 
     @Override
-    public SocialAuthentication authenticate(String authorizationCode, String expectedNonce) {
+    public SocialAuthentication authenticate(String authorizationCode, String expectedNonce, String ignoredStoredRedirectUri) {
         validateAuthenticationRequest(authorizationCode, expectedNonce);
 
         JsonNode tokenResponse = exchangeAuthorizationCode(authorizationCode);

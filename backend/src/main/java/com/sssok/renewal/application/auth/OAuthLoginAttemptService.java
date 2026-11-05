@@ -41,10 +41,17 @@ public class OAuthLoginAttemptService {
     // 익명 회원 ID는 전달받은 서비스 인증 토큰으로 확인한다. 인증이 없으면 빈 목록을 받는다.
     @Transactional(readOnly = true)
     public OAuthLoginAttemptResult start(SocialProvider provider, List<String> anonymousAccessTokens) {
+        return start(provider, anonymousAccessTokens, null);
+    }
+
+    // requestOrigin은 카카오 콜백 선택에만 쓰며, 선택한 주소를 로그인 시도에 저장해 토큰 교환까지 같은 값을 쓴다.
+    @Transactional(readOnly = true)
+    public OAuthLoginAttemptResult start(SocialProvider provider, List<String> anonymousAccessTokens, String requestOrigin) {
         if (anonymousAccessTokens.size() > 100) {
             throw SocialAuthException.invalid();
         }
-        String redirectUri = requireEnabledRedirectUri(provider);
+        requireAvailable(provider);
+        String redirectUri = selectRedirectUri(provider, requestOrigin);
         List<Long> anonymousMemberIds = anonymousAccessTokens.stream()
             .map(this::resolveAnonymousMemberId).distinct().sorted().toList();
         String state = generateRandomToken();
@@ -64,13 +71,13 @@ public class OAuthLoginAttemptService {
     // 제공자 호출은 이 메서드가 반환된 뒤 트랜잭션 밖에서 수행한다.
     @Transactional(readOnly = true)
     public OAuthLoginAttempt consume(SocialProvider provider, String state, String loginVerifier) {
-        String redirectUri = requireEnabledRedirectUri(provider);
+        requireAvailable(provider);
         String stateHash = hashToken(state);
         String loginVerifierHash = hashToken(loginVerifier);
         OAuthLoginAttempt attempt = oauthLoginAttemptRepository.findByStateHash(stateHash)
             .orElseThrow(SocialAuthException::invalid);
 
-        validateAttempt(attempt, provider, loginVerifierHash, redirectUri);
+        validateAttempt(attempt, provider, loginVerifierHash);
         attempt.anonymousMemberIds().forEach(this::requireAnonymousMember);
         if (!oauthLoginAttemptRepository.consume(stateHash, loginVerifierHash, provider, Instant.now())) {
             throw SocialAuthException.invalid();
@@ -79,10 +86,10 @@ public class OAuthLoginAttemptService {
     }
 
     private void validateAttempt(
-        OAuthLoginAttempt attempt, SocialProvider provider, String loginVerifierHash, String redirectUri
+        OAuthLoginAttempt attempt, SocialProvider provider, String loginVerifierHash
     ) {
         if (attempt.provider() != provider || !attempt.loginVerifierHash().equals(loginVerifierHash)
-            || !attempt.redirectUri().equals(redirectUri) || attempt.isExpiredAt(Instant.now())) {
+            || !isAllowedRedirectUri(provider, attempt.redirectUri()) || attempt.isExpiredAt(Instant.now())) {
             throw SocialAuthException.invalid();
         }
     }
@@ -100,13 +107,25 @@ public class OAuthLoginAttemptService {
         }
     }
 
-    private String requireEnabledRedirectUri(SocialProvider provider) {
+    private void requireAvailable(SocialProvider provider) {
         if (provider == null || socialAuthClients.stream().noneMatch(client -> client.provider() == provider)) {
             throw SocialAuthException.unavailable();
         }
+    }
+
+    // 카카오는 요청 출처에 등록된 콜백만, 애플은 기존 고정 주소만 사용한다. 출처를 못 찾아도 다른 주소로 대체하지 않는다.
+    private String selectRedirectUri(SocialProvider provider, String requestOrigin) {
         return switch (provider) {
-            case KAKAO -> kakaoOAuthProperties.redirectUri();
+            case KAKAO -> kakaoOAuthProperties.callbackFor(requestOrigin).orElseThrow(SocialAuthException::invalid);
             case APPLE -> appleOAuthProperties.redirectUri();
+        };
+    }
+
+    // 저장된 주소가 지금도 허용 목록에 있어야 한다. 설정에서 빠진 주소로 시작된 시도는 거절한다.
+    private boolean isAllowedRedirectUri(SocialProvider provider, String redirectUri) {
+        return switch (provider) {
+            case KAKAO -> kakaoOAuthProperties.isAllowedCallback(redirectUri);
+            case APPLE -> appleOAuthProperties.redirectUri().equals(redirectUri);
         };
     }
 

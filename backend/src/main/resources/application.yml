@@ -244,7 +244,8 @@ oauth:
     client-id: ${OAUTH_KAKAO_CLIENT_ID:}
     client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
     admin-key: ${OAUTH_KAKAO_ADMIN_KEY:}
-    redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI:}
+    # 허용할 카카오 콜백 전체 주소를 쉼표로 구분한다. 각 주소의 출처가 로그인을 시작한 웹의 출처와 일치해야 선택된다.
+    redirect-uris: ${OAUTH_KAKAO_REDIRECT_URIS:}
   apple:
     enabled: ${OAUTH_APPLE_ENABLED:false}
     client-id: ${OAUTH_APPLE_CLIENT_ID:}
