@@ -117,8 +117,10 @@ public class OrganizeJobController {
         return ApiResponse.of(OrganizeResultResponse.from(resultService.get(roomId, memberId, jobId)));
     }
 
-    @Operation(summary = "선택한 그룹을 폴더로 반영",
-        description = "검토 기한 안의 READY 작업에서 일반 그룹(groupId 가 있는 그룹)만 새 폴더로 만든다. 소그룹·미분류는 반영할 수 없다(400). "
+    @Operation(summary = "검토한 결과를 폴더로 반영",
+        description = "검토 기한 안의 READY 작업에서 최종 폴더 목록(폴더 이름·사진)을 새 폴더로 만든다. 이번 결과의 일반 그룹·소그룹·"
+            + "미분류 사진을 합치거나 나누거나 일부만 골라도 된다. 결과 밖 사진·오류 항목에만 있는 사진·빈 폴더·한 폴더 안의 중복 "
+            + "사진은 400이고, 여러 폴더에 같은 사진을 담는 것은 허용한다. groupId 는 선택값이며 검증에 쓰지 않는다. "
             + "Idempotency-Key 필수. 같은 이름의 폴더가 있으면 409 ORGANIZE_FOLDER_NAME_CONFLICT, 선택한 사진이 사라졌으면 409 "
             + "ORGANIZE_TARGET_CHANGED, 이미 반영했으면 409 ORGANIZE_ALREADY_APPLIED, 검토가 만료됐으면 410이며 어느 경우에도 "
             + "일부만 반영하지 않는다. 덮어쓰기·병합은 하지 않는다.")
