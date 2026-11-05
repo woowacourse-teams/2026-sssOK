@@ -39,7 +39,7 @@ scrape_configs:
         labels:
           environment: dev
           server: dev
-      - targets: [10.0.20.127:19100]
+      - targets: [10.0.20.161:19100]
         labels:
           environment: prod
           server: prod
@@ -54,7 +54,7 @@ scrape_configs:
         labels:
           environment: dev
           server: dev
-      - targets: [10.0.20.127:19100]
+      - targets: [10.0.20.161:19100]
         labels:
           environment: prod
           server: prod
@@ -65,7 +65,7 @@ scrape_configs:
         labels:
           environment: dev
           server: dev
-      - targets: [10.0.20.127:19100]
+      - targets: [10.0.20.161:19100]
         labels:
           environment: prod
           server: prod

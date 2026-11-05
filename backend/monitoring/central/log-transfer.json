@@ -551,7 +551,7 @@
         "name": "destination",
         "label": "목적지",
         "type": "custom",
-        "query": "10.0.20.46:13100,loki:3100",
+        "query": "10.0.20.204:13100,loki:3100",
         "multi": false,
         "includeAll": true,
         "allValue": ".*",
@@ -566,8 +566,8 @@
             "selected": true
           },
           {
-            "text": "10.0.20.46:13100",
-            "value": "10.0.20.46:13100",
+            "text": "10.0.20.204:13100",
+            "value": "10.0.20.204:13100",
             "selected": false
           },
           {

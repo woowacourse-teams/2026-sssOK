@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
     mem_limit: 64m
     environment:
-      CENTRAL_PRIVATE_IP: ${CENTRAL_PRIVATE_IP:-10.0.20.46}
+      CENTRAL_PRIVATE_IP: ${CENTRAL_PRIVATE_IP:-10.0.20.204}
       NGINX_ENVSUBST_FILTER: ^CENTRAL_PRIVATE_IP$$
     ports:
     - ${MONITORING_PRIVATE_IP:?MCP private IP required}:19100:19100
@@ -33,7 +33,7 @@ services:
     environment:
       SSSOK_ENVIRONMENT: mcp
       SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
-      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.204:13100/loki/api/v1/push}
       GOMEMLIMIT: 200MiB
     mem_limit: 256m
     volumes:

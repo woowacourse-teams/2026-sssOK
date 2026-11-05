@@ -102,6 +102,6 @@ jobs:
           RELEASE_PATH: ${{ runner.temp }}/central-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           set -euo pipefail
-          test "$DEPLOY_PATH" = '/home/ubuntu/monitoring'
+          test "$DEPLOY_PATH" = "$HOME/monitoring"
           python3 "$RELEASE_PATH/deploy.py" \
             --source "$RELEASE_PATH" --target "$DEPLOY_PATH" --commit "$DEPLOY_COMMIT"
