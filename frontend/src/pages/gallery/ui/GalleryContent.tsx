@@ -13,6 +13,16 @@ import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
+import {
+  countAnalyzablePhotos,
+  OrganizeCancelSheet,
+  OrganizeKindSheet,
+  type OrganizeLimit,
+  OrganizeLimitModal,
+  organizeLimitOf,
+  OrganizeStatusBar,
+  useOrganizeJob,
+} from "@/features/organize-media";
 import { SearchRequestField } from "@/features/search-media";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
@@ -100,6 +110,10 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [isFeedbackSuccess, setIsFeedbackSuccess] = useState(false);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
   const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
+  const [isOrganizeSheetOpen, setIsOrganizeSheetOpen] = useState(false);
+  const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
+  const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
+  const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -165,6 +179,24 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     removePendingMedia(completedUploadIds);
   }, [completedUploadIds, removePendingMedia]);
 
+  // 사진 정리
+  const organize = useOrganizeJob({ roomId: room.roomId, token: accessToken });
+  // 시트를 열어 둔 채 작업이 끝나면 닫는다. 다음 작업에서 누르지 않은 시트가 저절로 뜨지 않게 한다.
+  if (isOrganizeCancelOpen && !organize.isRunning) setIsOrganizeCancelOpen(false);
+  if (isOrganizeResultCloseOpen && organize.notice?.status !== "READY") {
+    setIsOrganizeResultCloseOpen(false);
+  }
+  /**
+   * 정리를 시작하기 전에 장수 한도를 먼저 본다. 시트에서 방식까지 고른 뒤에 막히면 헛걸음이라서다.
+   * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
+   */
+  const beginOrganize = (open: () => void) => {
+    const limit =
+      isPending || isError ? null : organizeLimitOf(countAnalyzablePhotos(allGalleryItems));
+    if (limit) setOrganizeLimit(limit);
+    else open();
+  };
+
   const folders = room.folders.map((folder) => ({
     ...folder,
     photoCount: folderCounts.get(folder.id) ?? 0,
@@ -181,6 +213,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     toggleAllPhotos,
     clearSelection,
   } = usePhotoSelection(photoIds);
+
+  const isOrganizeBarVisible = organize.notice !== null && selectedPhotoIds.length === 0;
 
   useRoomEvents({
     roomId: room.roomId,
@@ -204,6 +238,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     onMediaFoldersUpdated: () => {
       void Promise.all([refreshRoom(), refreshPhotos()]);
     },
+    onOrganizeRoomChanged: organize.applyRoomChange,
+    onOrganizeJobUpdated: organize.applyJobUpdate,
+    onReconnected: () => void organize.resync(),
   });
 
   // 폴더 생성 흐름
@@ -259,6 +296,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
               search.searchByUploader(uploader);
               clearSelection();
             }}
+            organizeBlockedReason={organize.blockedReason}
+            onOrganize={() => beginOrganize(() => setIsOrganizeSheetOpen(true))}
+            onOrganizeText={(text) => beginOrganize(() => void organize.start({ text }))}
             onOpenFolder={(folderId) => {
               search.closeSearch();
               selectFolder(folderId);
@@ -304,7 +344,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onToggleAll={toggleAllPhotos}
       />
       <FeedbackButton
-        hidden={selectedPhotoIds.length > 0}
+        hidden={selectedPhotoIds.length > 0 || isOrganizeBarVisible}
         onClick={() => setIsFeedbackOpen(true)}
       />
       <MediaUploader
@@ -313,7 +353,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         // 방장만 올리는 방의 참여자에게는 버튼을 아예 내주지 않는다. 서버가 발급에서
         // 403 으로 막는 것을, 누르기 전에 화면이 먼저 말해주는 셈이다.
         canUpload={canUploadTo(room, userId)}
-        hideButton={selectedPhotoIds.length > 0}
+        hideButton={selectedPhotoIds.length > 0 || isOrganizeBarVisible}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         onPreviewReady={addPendingMedia}
         onRegistered={() => refreshRoom()}
@@ -403,6 +443,72 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}
         onMoveSelection={() => setIsMoveSelectionOpen(true)}
       />
+
+      {isOrganizeBarVisible && organize.notice && (
+        <OrganizeStatusBar
+          job={organize.notice}
+          onCancel={() => setIsOrganizeCancelOpen(true)}
+          onRetry={organize.retry}
+          // 찾은 사람이 있는 결과는 닫으면 버려지므로 한 번 더 묻는다. 실패·0명 알림은 버릴 것이 없어 바로 닫는다.
+          onDismiss={() => {
+            const notice = organize.notice;
+            if (notice?.status === "READY" && notice.peopleCount !== 0) {
+              setIsOrganizeResultCloseOpen(true);
+              return;
+            }
+            organize.dismiss();
+          }}
+          // 결과 검토 화면이 붙기 전까지는 알림만 숨긴다. 결과는 남겨 두어야 검토 화면에서 이어 볼 수 있다.
+          onReview={organize.hide}
+        />
+      )}
+
+      {isOrganizeSheetOpen && (
+        <OrganizeKindSheet
+          isGuest={!memberSession.data}
+          isStarting={organize.isStarting}
+          onClose={() => setIsOrganizeSheetOpen(false)}
+          onStart={(kind) => {
+            setIsOrganizeSheetOpen(false);
+            void organize.start({ kind });
+          }}
+        />
+      )}
+
+      {isOrganizeCancelOpen && organize.isRunning && (
+        <OrganizeCancelSheet
+          onKeepGoing={() => setIsOrganizeCancelOpen(false)}
+          onStop={() => {
+            setIsOrganizeCancelOpen(false);
+            void organize.cancel();
+          }}
+        />
+      )}
+
+      {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
+        <OrganizeCancelSheet
+          kind="result"
+          onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
+          onStop={() => {
+            setIsOrganizeResultCloseOpen(false);
+            organize.dismiss();
+          }}
+        />
+      )}
+
+      {(organizeLimit ?? organize.limit) && (
+        <OrganizeLimitModal
+          limit={(organizeLimit ?? organize.limit)!}
+          onClose={() => {
+            setOrganizeLimit(null);
+            organize.clearLimit();
+          }}
+        />
+      )}
+
+      {organize.error && (
+        <Toast tone="error" message={organize.error} onClose={organize.clearError} />
+      )}
 
       {isDeleteSelectionOpen && (
         <DeleteSelectedMediaModal

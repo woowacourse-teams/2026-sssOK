@@ -64,6 +64,7 @@ interface Action {
   run: () => void;
   /** 찾는 방법을 고르는 줄처럼 누른 뒤에도 패널을 열어 두는 줄. */
   keepOpen?: boolean;
+  disabled?: boolean;
 }
 
 interface SearchRequestFieldProps {
@@ -76,8 +77,12 @@ interface SearchRequestFieldProps {
   onSearchKeyword: (query: string) => void;
   onSearchUploader: (uploader: Uploader) => void;
   onOpenFolder: (folderId: number) => void;
-  /** 정리 방식 선택을 연다. 시트가 붙기 전까지는 줄만 보이고 누르면 패널만 닫힌다. */
+  /** 정리 방식 선택을 연다. */
   onOrganize?: () => void;
+  /** 정리를 바라는 문장을 그대로 넘겨 바로 시작한다. 없으면 정리 방식 선택을 연다. */
+  onOrganizeText?: (text: string) => void;
+  /** 정리 중이라 새로 시작할 수 없는 까닭. 있으면 '자동으로 정리하기' 를 막고 이 글을 보여 준다. */
+  organizeBlockedReason?: string | null;
   onClear: () => void;
 }
 
@@ -92,6 +97,8 @@ export const SearchRequestField = ({
   onSearchUploader,
   onOpenFolder,
   onOrganize,
+  onOrganizeText,
+  organizeBlockedReason = null,
   onClear,
 }: SearchRequestFieldProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -139,6 +146,8 @@ export const SearchRequestField = ({
       key: "organize",
       icon: <HiSparkles />,
       label: "자동으로 정리하기",
+      description: organizeBlockedReason ?? undefined,
+      disabled: organizeBlockedReason !== null,
       run: () => onOrganize?.(),
     },
   ];
@@ -202,7 +211,16 @@ export const SearchRequestField = ({
 
     switch (request.type) {
       case "organize":
-        return { actions: organizeAction };
+        // 정리를 바라는 문장이면 시트를 거치지 않고 그 문장으로 바로 시작한다.
+        return onOrganizeText
+          ? {
+              actions: organizeAction.map((action) => ({
+                ...action,
+                description: action.description ?? "요청한 대로 바로 시작",
+                run: () => onOrganizeText(text),
+              })),
+            }
+          : { actions: organizeAction };
       case "unsupported":
         return { note: "이 요청은 아직 못 해요.", actions: organizeAction };
       case "person": {
@@ -247,7 +265,8 @@ export const SearchRequestField = ({
           // 입력한 글에 맞는 줄이 바로 있을 때만 첫 줄을 실행한다.
           // 안내 문구 아래 줄은 다른 길을 권하는 것이라 Enter 로 실행하지 않는다.
           const [first] = content.actions;
-          if (normalizeSearchQuery(draft) && !content.note && first) runAndClose(first.run)();
+          if (normalizeSearchQuery(draft) && !content.note && first && !first.disabled)
+            runAndClose(first.run)();
         }}
       >
         <BarIcon $active={isActive} aria-hidden="true">
@@ -311,6 +330,7 @@ export const SearchRequestField = ({
             <Item
               key={action.key}
               type="button"
+              disabled={action.disabled}
               onClick={action.keepOpen ? action.run : runAndClose(action.run)}
             >
               <Glyph aria-hidden="true">{action.icon}</Glyph>

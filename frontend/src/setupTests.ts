@@ -5,6 +5,7 @@ import { resetNicknames } from "./mocks/handlers/auth";
 import { resetDownloadJobs } from "./mocks/handlers/download";
 import { resetFeedbacks } from "./mocks/handlers/feedback";
 import { resetMyRooms } from "./mocks/handlers/myRooms";
+import { resetOrganizeJobs } from "./mocks/handlers/organize";
 import { resetRoomHandlers } from "./mocks/handlers/room";
 import { resetUploads } from "./mocks/handlers/upload";
 import {
@@ -54,6 +55,7 @@ afterEach(() => {
   resetFeedbacks();
   // 앞 테스트에서 나간 방이 목록에서 빠진 채로 남으면 안 된다
   resetMyRooms();
+  resetOrganizeJobs();
   // 앞 테스트가 남긴 관찰자가 남아 있으면 엉뚱한 곳에서 다음 페이지를 부른다
   resetIntersectionObservers();
 });
