@@ -113,7 +113,26 @@ Spring Boot 3.5.8에서 Spring AI BOM 1.1.8의 OpenAI·MCP 모듈을 사용한�
 모델 호출 실패 시 예외 종류와 OpenAI 오류 메시지를 경고 로그에 남긴다. 사용자 문장은 남기지 않는다.
 입력은 공백만으로 이루어지지 않은 1~1000자(Java 문자열 길이 기준), 출력 한도는 512 completion tokens다.
 OpenAI 연결·응답 읽기 제한은 각각 기본 20초, MCP 요청 제한은 기본 10초다. 전체 작업 기한과 다르다.
-모델 자동 재시도와 내부 도구 실행을 끈다. 회원별 호출량 제한은 작업 접수 단계에서 구현한다.
+모델 자동 재시도와 내부 도구 실행을 끈다. 회원별 호출량 제한(분당 5회)은 작업 접수 단계의 `OrganizeRateLimiter`가 맡는다.
+
+## 작업 API 켜기 (#659·#660)
+
+사진 정리 작업 API(접수·진행·검토·반영·취소·재시도)는 기본 비활성화다. 정책은 [ORGANIZE_JOB_POLICY.md](ORGANIZE_JOB_POLICY.md)를 따른다.
+
+| 환경 변수 | 기본값 | 설명 |
+| --- | --- | --- |
+| `GALLERY_ORGANIZATION_JOB_ENABLED` | `false` | `true`면 작업 API·스위퍼·내부 이벤트 수신이 켜진다 |
+| `GALLERY_BACKEND_TOKEN` | 없음 | Python이 이벤트를 보낼 때 쓰는 Bearer 토큰. **Python의 `GALLERY_BACKEND_TOKEN`과 같은 값**, 32자 이상 |
+| `GALLERY_ORGANIZATION_MAX_PHOTOS` | `200` | 한 작업에서 분석할 최대 사진 수. Python의 `GALLERY_MAX_PHOTOS`와 같아야 한다 |
+| `GALLERY_MCP_URL`, `GALLERY_TOKEN` | 위 "실행 설정" 참고 | 켜면 MCP 연결(도구 목록·실행)이 필요하다 |
+
+켤 때 확인할 것:
+
+- 스위치를 켰는데 `GALLERY_BACKEND_TOKEN`이 비어 있거나 MCP URL·토큰이 올바르지 않으면 애플리케이션이 **기동에 실패**한다. 꺼 두면 검사하지 않는다.
+- 버튼으로 시작(`POST /organize-jobs`)은 모델 없이 MCP만 쓴다. 문장으로 시작(`/by-text`)을 쓰려면 위 `GALLERY_ORGANIZATION_INTERPRETATION_ENABLED=true`와 OpenAI 설정도 필요하고, 없으면 503이다.
+- Python 쪽 `GALLERY_BACKEND_URL`은 Spring의 `https://<호스트>/internal/gallery-analysis/events`를 가리킨다. Python은 HTTPS만 허용한다(로컬 loopback 제외).
+- `/internal/gallery-analysis/events`는 회원 인증이 아닌 위 Bearer 토큰으로만 보호된다. 토큰이 비어 있으면 모든 요청을 거절한다. 공개 경로로 열지 내부 경로로 제한할지는 배포 환경에서 정한다.
+- 정책 값(검토 30분, 결과 보관 3일, 접수 간격 60초, 재시도 3회 등)은 `application.yml`의 `gallery.organization.job.*`에서 바꾼다.
 
 ## 검증
 
