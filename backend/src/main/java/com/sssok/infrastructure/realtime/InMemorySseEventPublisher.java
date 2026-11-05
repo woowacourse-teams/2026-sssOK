@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -90,13 +92,18 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
         return emittersByRoom.computeIfAbsent(roomId, id -> new CopyOnWriteArrayList<>());
     }
 
-    // 테스트 전용: 열어둔 SSE 스트림은 타임아웃이 없어(-1) 저절로 끝나지 않으므로,
-    // 테스트가 남겨둔 emitter를 명시적으로 완료 처리해 다음 테스트로 새지 않게 한다.
+    // 타임아웃 없는(-1) 스트림은 저절로 끝나지 않아 종료·테스트 정리 시 직접 닫는다.
     public void completeAll(Long roomId) {
         List<SseEmitter> emitters = emittersByRoom.getOrDefault(roomId, List.of());
         for (SseEmitter emitter : new ArrayList<>(emitters)) {
             completeEmitter(roomId, emitter);
         }
+    }
+
+    // 브라우저는 Last-Event-ID 로 재구독해 놓친 이벤트를 replay 로 받는다.
+    @EventListener(ContextClosedEvent.class)
+    public void completeAllOnShutdown() {
+        emittersByRoom.keySet().forEach(this::completeAll);
     }
 
     @Scheduled(fixedRate = 15_000)
