@@ -1,0 +1,25 @@
+geo $realip_remote_addr $central_allowed {
+    default 0;
+    ${CENTRAL_PRIVATE_IP} 1;
+}
+server {
+    listen 19100;
+    server_name _;
+    access_log off;
+    resolver 127.0.0.11 valid=10s ipv6=off;
+    location = /metrics {
+        if ($central_allowed = 0) { return 403; }
+        set $node node-exporter:9100;
+        proxy_pass http://$node/metrics;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+    location = /alloy-metrics {
+        if ($central_allowed = 0) { return 403; }
+        set $alloy alloy:12345;
+        proxy_pass http://$alloy/metrics;
+        proxy_connect_timeout 3s;
+        proxy_read_timeout 10s;
+    }
+    location / { return 404; }
+}

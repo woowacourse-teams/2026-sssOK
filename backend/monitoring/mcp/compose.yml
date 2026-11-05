@@ -1,0 +1,107 @@
+# MCP 앱과 독립된 호스트 지표·선택한 Docker 로그 수집 스택.
+name: sssok-mcp-monitoring
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: sssok-mcp-metrics
+    restart: unless-stopped
+    mem_limit: 64m
+    environment:
+      CENTRAL_PRIVATE_IP: ${CENTRAL_PRIVATE_IP:-10.0.20.46}
+      NGINX_ENVSUBST_FILTER: ^CENTRAL_PRIVATE_IP$$
+    ports:
+    - ${MONITORING_PRIVATE_IP:?MCP private IP required}:19100:19100
+    volumes:
+    - ./nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+    - metrics
+  alloy:
+    image: grafana/alloy:v1.20.1
+    container_name: sssok-mcp-alloy
+    restart: unless-stopped
+    command:
+    - run
+    - --storage.path=/var/lib/alloy/data
+    - --server.http.listen-addr=0.0.0.0:12345
+    - --disable-reporting
+    - /etc/alloy/config
+    environment:
+      SSSOK_ENVIRONMENT: mcp
+      SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
+      GOMEMLIMIT: 200MiB
+    mem_limit: 256m
+    volumes:
+    - ../alloy/config.alloy:/etc/alloy/config/config.alloy:ro
+    - ../alloy/write.central.alloy:/etc/alloy/config/write.alloy:ro
+    - alloy-data:/var/lib/alloy/data
+    depends_on:
+    - docker-socket-proxy
+    expose:
+    - '12345'
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+    - metrics
+    - docker-api
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.5.0
+    container_name: sssok-mcp-docker-socket-proxy
+    restart: unless-stopped
+    environment:
+      CONTAINERS: 1
+      NETWORKS: 1
+      POST: 0
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    mem_limit: 64m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+    - docker-api
+  node-exporter:
+    image: prom/node-exporter:v1.12.1
+    container_name: sssok-mcp-node-exporter
+    restart: unless-stopped
+    pid: host
+    command:
+    - --path.rootfs=/host
+    - --path.procfs=/host/proc
+    - --path.sysfs=/host/sys
+    - --collector.disable-defaults
+    - --collector.cpu
+    - --collector.meminfo
+    - --collector.vmstat
+    - --collector.loadavg
+    - --collector.filesystem
+    - --collector.filesystem.mount-points-exclude=^/(dev|proc|sys|run|var/lib/docker/.+|var/lib/containerd/.+)($$|/)
+    - --collector.filesystem.fs-types-exclude=^(autofs|binfmt_misc|cgroup2?|configfs|debugfs|devpts|devtmpfs|fusectl|hugetlbfs|mqueue|nsfs|overlay|proc|pstore|securityfs|squashfs|sysfs|tmpfs|tracefs)$$
+    volumes:
+    - /:/host:ro,rslave
+    mem_limit: 64m
+    expose:
+    - '9100'
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    networks:
+    - metrics
+networks:
+  metrics: null
+  docker-api:
+    internal: true
+volumes:
+  alloy-data: null

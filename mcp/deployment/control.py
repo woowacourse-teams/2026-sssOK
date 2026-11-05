@@ -14,7 +14,7 @@ def has_active_work(data):
     if database.exists():
         connection = sqlite3.connect(database.resolve().as_uri() + '?mode=ro', uri=True, timeout=5)
         try:
-            if connection.execute('PRAGMA user_version').fetchone()[0] not in (1, 2):
+            if connection.execute('PRAGMA user_version').fetchone()[0] not in (1, 2, 3):
                 raise RuntimeError('Unsupported execution database version')
             if connection.execute("SELECT 1 FROM executions WHERE state IN ('QUEUED','RUNNING') LIMIT 1").fetchone():
                 return True

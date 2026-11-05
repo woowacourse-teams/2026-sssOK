@@ -18,9 +18,7 @@ import sys
 services = json.load(open(sys.argv[1]))['services']
 node = services['node-exporter']
 assert node['pid'] == 'host', '호스트 PID 설정 누락'
-assert any(p.get('host_ip') == '127.0.0.1' and str(p.get('published')) == '9100'
-           and p['target'] == 9100 for p in node['ports']), 'loopback 9100 연결 누락'
-assert all(p.get('host_ip') == '127.0.0.1' for p in node['ports']), '수집기 외부 포트 공개'
+assert not node.get('ports'), '수집기 호스트 포트 게시 금지 (AMI 기본 수집기와 충돌)'
 assert any(v['source'] == '/' and v['target'] == '/host' and v.get('read_only')
            and v.get('bind', {}).get('propagation') == 'rslave'
            for v in node['volumes']), '호스트 읽기 전용 마운트 누락'

@@ -516,7 +516,7 @@
         "name": "environment",
         "label": "발신 환경",
         "type": "custom",
-        "query": "dev,prod",
+        "query": "dev,prod,mcp",
         "multi": false,
         "includeAll": true,
         "allValue": ".*",
@@ -539,6 +539,11 @@
             "text": "prod",
             "value": "prod",
             "selected": false
+          },
+          {
+            "selected": false,
+            "text": "mcp",
+            "value": "mcp"
           }
         ]
       },

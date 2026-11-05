@@ -168,8 +168,7 @@ services:
     volumes:
       - /:/host:ro,rslave
     mem_limit: 64m
-    ports:
-      - "127.0.0.1:9100:9100"
+    # AMI 기본 수집기의 호스트 9100과 충돌하지 않도록 내부 네트워크로만 접근한다.
     expose:
       - "9100"
     logging:
