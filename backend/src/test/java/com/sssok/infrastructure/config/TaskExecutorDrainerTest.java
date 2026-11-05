@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.support.StaticApplicationContext;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 class TaskExecutorDrainerTest {
@@ -40,6 +42,54 @@ class TaskExecutorDrainerTest {
         }
 
         assertThat(done).hasValue(5);
+    }
+
+    @Test
+    void 컨텍스트를_닫을_때_앞_풀_작업이_넘긴_후속_작업도_거절되지_않는다() {
+        AtomicInteger notified = new AtomicInteger();
+        AtomicInteger rejected = new AtomicInteger();
+        try (AnnotationConfigApplicationContext app = startContext(Duration.ofSeconds(5),
+            "imageThumbnailTaskExecutor", "roomNotificationTaskExecutor")) {
+            ThreadPoolTaskExecutor thumbnail = app.getBean("imageThumbnailTaskExecutor", ThreadPoolTaskExecutor.class);
+            ThreadPoolTaskExecutor notification =
+                app.getBean("roomNotificationTaskExecutor", ThreadPoolTaskExecutor.class);
+            thumbnail.execute(() -> {
+                sleep(100);
+                try {
+                    notification.execute(notified::incrementAndGet);
+                } catch (TaskRejectedException e) {
+                    rejected.incrementAndGet();
+                }
+            });
+        }
+
+        assertThat(rejected).hasValue(0);
+        assertThat(notified).hasValue(1);
+    }
+
+    @Test
+    void 컨텍스트를_닫을_때_오래_걸리는_작업이_있어도_대기_상한_안에_종료되고_작업은_중단된다() throws InterruptedException {
+        AtomicBoolean interrupted = new AtomicBoolean();
+        CountDownLatch started = new CountDownLatch(1);
+        AnnotationConfigApplicationContext app = startContext(Duration.ofMillis(300), "applicationTaskExecutor");
+        ThreadPoolTaskExecutor worker = app.getBean("applicationTaskExecutor", ThreadPoolTaskExecutor.class);
+        worker.execute(() -> {
+            started.countDown();
+            try {
+                release.await(10, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                interrupted.set(true);
+            }
+        });
+        awaitQuietly(started);
+
+        long begin = System.nanoTime();
+        app.close();
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - begin);
+
+        assertThat(elapsedMillis).isLessThan(2_000);
+        assertThat(worker.getThreadPoolExecutor().awaitTermination(1, TimeUnit.SECONDS)).isTrue();
+        assertThat(interrupted).isTrue();
     }
 
     @Test
@@ -95,6 +145,22 @@ class TaskExecutorDrainerTest {
         assertThat(worker.getThreadPoolExecutor().isShutdown()).isTrue();
     }
 
+    private AnnotationConfigApplicationContext startContext(Duration drainTimeout, String... executorNames) {
+        AnnotationConfigApplicationContext app = new AnnotationConfigApplicationContext();
+        for (String name : executorNames) {
+            app.registerBean(name, ThreadPoolTaskExecutor.class, () -> {
+                ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+                executor.setCorePoolSize(1);
+                executor.setMaxPoolSize(1);
+                executor.setQueueCapacity(10);
+                return executor;
+            });
+        }
+        app.registerBean(TaskExecutorDrainer.class, () -> new TaskExecutorDrainer(app, drainTimeout));
+        app.refresh();
+        return app;
+    }
+
     private TaskExecutorDrainer drainer(Duration timeout) {
         context.refresh();
         TaskExecutorDrainer drainer = new TaskExecutorDrainer(context, timeout);
@@ -133,6 +199,14 @@ class TaskExecutorDrainerTest {
     private void awaitRelease() {
         try {
             release.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

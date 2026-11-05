@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class SweepDownloadJobsService {
 
-    // 압축 도중 서버가 꺼져 멈춘 잡은 사용자당 동시 잡 수에 계속 잡혀 새 다운로드를 막으므로 실패로 닫는다.
+    // 멈춘 잡도 사용자당 동시 잡 수에 포함돼 새 다운로드를 막는다.
     static final String STALE_FAILURE_REASON = "압축이 중단되었습니다. 다시 요청해주세요";
 
     private final DownloadJobRepository downloadJobRepository;

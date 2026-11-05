@@ -92,8 +92,7 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
         return emittersByRoom.computeIfAbsent(roomId, id -> new CopyOnWriteArrayList<>());
     }
 
-    // 열어둔 SSE 스트림은 타임아웃이 없어(-1) 저절로 끝나지 않으므로, 앱 종료 시와 테스트 정리 시
-    // 남은 emitter를 명시적으로 완료 처리한다.
+    // 타임아웃 없는(-1) 스트림은 저절로 끝나지 않아 종료·테스트 정리 시 직접 닫는다.
     public void completeAll(Long roomId) {
         List<SseEmitter> emitters = emittersByRoom.getOrDefault(roomId, List.of());
         for (SseEmitter emitter : new ArrayList<>(emitters)) {
@@ -101,8 +100,7 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
         }
     }
 
-    // 타임아웃 없는 연결이 웹 graceful 종료를 끝까지 붙잡지 않도록 종료가 시작되면 먼저 닫는다.
-    // 브라우저는 Last-Event-ID 로 다시 구독해 그 사이 이벤트를 replay 로 받는다.
+    // 브라우저는 Last-Event-ID 로 재구독해 놓친 이벤트를 replay 로 받는다.
     @EventListener(ContextClosedEvent.class)
     public void completeAllOnShutdown() {
         emittersByRoom.keySet().forEach(this::completeAll);

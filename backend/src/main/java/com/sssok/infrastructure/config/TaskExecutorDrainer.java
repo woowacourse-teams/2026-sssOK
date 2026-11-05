@@ -16,14 +16,13 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.stereotype.Component;
 
 /**
- * 앱이 꺼질 때 비동기 작업 풀의 대기열까지 비우고 나서 다음 종료 단계로 넘긴다.
+ * 앱이 꺼질 때 비동기 작업 풀의 대기열까지 비운다.
  *
- * <p>Spring 기본 동작은 실행 중인 작업만 기다리고 대기열은 버린다. 실행기마다
- * {@code waitForTasksToCompleteOnShutdown} 을 켜면 대기가 빈 정리 단계에서 일어나, DB 커넥션 풀이나
- * R2 클라이언트가 먼저 닫힌 뒤에 작업이 돌 수 있다. 그래서 빈 정리 전인 생명주기 종료 단계에서 비운다.
+ * <p>Spring 기본 종료는 대기열을 버리고, {@code waitForTasksToCompleteOnShutdown} 은 DB·R2 가 닫히는 빈 정리
+ * 단계에서 기다린다. 그래서 그보다 앞선 생명주기 종료 단계에서 비운다.
  *
- * <p>docker 의 stop_grace_period 는 웹 graceful 대기(spring.lifecycle.timeout-per-shutdown-phase)와
- * {@code shutdown.task-drain-timeout} 을 합친 것보다 길어야 한다.
+ * <p>실행기 일시정지 단계의 추가 대기를 없애려고 {@code acceptTasksAfterContextClose} 를 켠다. 대기 상한을 넘긴
+ * 작업은 빈 정리 단계의 {@code shutdownNow} 가 중단한다.
  */
 @Slf4j
 @Component
@@ -51,6 +50,9 @@ public class TaskExecutorDrainer implements SmartLifecycle {
 
     @Override
     public void start() {
+        applicationContext.getBeansOfType(ThreadPoolTaskExecutor.class, false, false)
+            .values()
+            .forEach(executor -> executor.setAcceptTasksAfterContextClose(true));
         running = true;
     }
 
@@ -83,7 +85,7 @@ public class TaskExecutorDrainer implements SmartLifecycle {
         return executor.getQueue().size() + executor.getActiveCount();
     }
 
-    // 선언 타입이 AsyncTaskExecutor 인 빈도 있어, 모든 싱글턴이 만들어진 종료 시점에 실제 타입으로 찾는다.
+    // 선언 타입이 AsyncTaskExecutor 인 빈도 있어 생성된 싱글턴을 실제 타입으로 찾는다.
     private Map<String, ThreadPoolExecutor> executorsInDrainOrder() {
         Map<String, ThreadPoolTaskExecutor> found =
             applicationContext.getBeansOfType(ThreadPoolTaskExecutor.class, false, false);

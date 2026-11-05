@@ -5,6 +5,8 @@ import com.sssok.renewal.outgoing.database.MediaSearchDocumentRepository;
 import java.time.Clock;
 import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.task.AsyncTaskExecutor;
 import org.springframework.core.task.TaskRejectedException;
 
@@ -17,6 +19,7 @@ public class ImageAnalysisDispatcher {
     private final ImageSearchProperties properties;
     private final Clock clock;
     private final Semaphore slots;
+    private volatile boolean stopped;
 
     public ImageAnalysisDispatcher(AsyncTaskExecutor executor, AnalyzeImageService analyzer,
         MediaSearchDocumentRepository documents, ImageSearchProperties properties, Clock clock) {
@@ -28,9 +31,15 @@ public class ImageAnalysisDispatcher {
         this.slots = new Semaphore(properties.concurrency());
     }
 
+    // 남은 대기 작업은 DB 에 두고 다음에 뜨는 앱이 가져간다.
+    @EventListener(ContextClosedEvent.class)
+    public void stopClaiming() {
+        stopped = true;
+    }
+
     public void dispatch() {
         int budget = slots.availablePermits();
-        for (int i = 0; i < budget && slots.tryAcquire(); i++) {
+        for (int i = 0; i < budget && !stopped && slots.tryAcquire(); i++) {
             boolean submitted = false;
             try {
                 executor.execute(this::drain);
@@ -47,7 +56,7 @@ public class ImageAnalysisDispatcher {
 
     private void drain() {
         try {
-            while (!Thread.currentThread().isInterrupted()) {
+            while (!stopped && !Thread.currentThread().isInterrupted()) {
                 var attempt = documents.claimNextPendingAnalysis(clock.instant(), properties.maxAttempts());
                 if (attempt.isEmpty()) { return; }
                 analyzer.analyze(attempt.get());

@@ -32,8 +32,7 @@ spring:
       pool:
         size: 2
 
-  # 종료 순서: SSE 구독 닫기 → 웹 요청 마무리(이 값) → 비동기 작업 비우기(shutdown.task-drain-timeout).
-  # docker 의 stop_grace_period 는 두 값의 합보다 길어야 한다.
+  # 종료 시간 상한은 이 값 + shutdown.task-drain-timeout 이다. docker stop_grace_period 는 이보다 길어야 한다.
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
@@ -41,7 +40,7 @@ server:
   shutdown: graceful
 
 shutdown:
-  # 대기 중이던 비동기 작업을 끝내고 내려가기 위해 기다리는 최대 시간 (TaskExecutorDrainer)
+  # TaskExecutorDrainer 가 비동기 작업 대기열을 비우며 기다리는 최대 시간
   task-drain-timeout: 20s
 
 jwt:
@@ -208,7 +207,7 @@ download:
   retention: 1h
   # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
   sweep-cron: "0 */10 * * * *"
-  # QUEUED·RUNNING 인데 이 시간 동안 진행 기록이 없으면 실패로 닫는다. 파일 하나를 옮기는 시간보다 넉넉하게 둔다.
+  # QUEUED·RUNNING 인데 이 시간 동안 진행 기록이 없으면 실패로 닫는다.
   stale-after: 30m
 
 springdoc:
