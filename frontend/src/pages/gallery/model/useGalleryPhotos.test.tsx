@@ -161,4 +161,42 @@ describe("useGalleryPhotos", () => {
     expect(result.current.completedUploadIds).toEqual([]);
     expect(result.current.galleryItems.map((item) => item.mediaId)).toEqual([uploadedMediaId]);
   });
+  it("방 사진이 모두 READY 면 처리 중인 사진이 없다", async () => {
+    const { result } = renderGalleryPhotos({ selectedFolderId: null, selectedOption: "all" });
+
+    await waitFor(() => expect(result.current.galleryItems).toHaveLength(33));
+    expect(result.current.isProcessingPhotos).toBe(false);
+  });
+
+  it("썸네일이 없어 갤러리에 안 그려진 처리 중 사진도 처리 중으로 센다", async () => {
+    const processing = {
+      mediaId: 5007,
+      folderIds: [],
+      uploaderId: HOST_ID,
+      uploaderName: "사용자",
+      type: "IMAGE",
+      fileName: "photo.jpg",
+      mimeType: "image/jpeg",
+      size: 100,
+      thumbnailUrl: null,
+      displayUrl: null,
+      width: null,
+      height: null,
+      duration: null,
+      status: "PROCESSING",
+      uploadedAt: "2026-09-28T00:00:00Z",
+      likeCount: 0,
+      likedByMe: false,
+    };
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, () =>
+        HttpResponse.json({ data: { items: [processing] } }),
+      ),
+    );
+    const { result } = renderGalleryPhotos({ selectedFolderId: null, selectedOption: "all" });
+
+    await waitFor(() => expect(result.current.isPending).toBe(false));
+    expect(result.current.galleryItems).toEqual([]);
+    expect(result.current.isProcessingPhotos).toBe(true);
+  });
 });
