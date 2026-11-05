@@ -41,6 +41,14 @@ public class FileRepositoryAdapter implements FileRepository {
     }
 
     @Override
+    public List<Long> lockExistingIds(List<Long> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jpaRepository.lockIdsInOrder(ids);
+    }
+
+    @Override
     public List<StoredFile> findAllByIdIn(List<Long> ids) {
         if (ids.isEmpty()) {
             return List.of();

@@ -15,7 +15,7 @@ services:
       GALLERY_BACKEND_URL: ${GALLERY_BACKEND_URL:-}
       GALLERY_BACKEND_TOKEN_FILE: /run/secrets/backend_token
       GALLERY_THREADS: "2"
-      GALLERY_MAX_PHOTOS: "100"
+      GALLERY_MAX_PHOTOS: "200"
       GALLERY_JOB_TIMEOUT: "600"
     secrets:
       - gallery_token

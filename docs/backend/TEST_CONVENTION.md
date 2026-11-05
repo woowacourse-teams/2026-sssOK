@@ -45,6 +45,7 @@ DB나 전체 Spring Context를 띄우지 않아 실행이 빠르다. Service 내
 - **Auth(익명 인증) 기능**은 3단계 구조를 모두 적용했다: `AnonymousAuthServiceTest`(Repository+Service, H2) / `AuthControllerTest`(Controller 슬라이스) / `AuthApiTest`(API 인수 테스트, Testcontainers)
 - **Room 기능**도 3단계 구조를 모두 적용했다: `UpdateRoomServiceTest`·`DeleteRoomServiceTest`(Repository+Service, H2) / `RoomControllerTest`(Controller 슬라이스) / `RoomApiTest`(API 인수 테스트, Testcontainers)
 - **입장(`RoomMembershipServiceTest`·`JoinRoomConcurrencyTest`)만 예외적으로 Testcontainers를 쓴다** — 입장 멱등성을 `ON CONFLICT DO NOTHING`(PostgreSQL 전용 네이티브 쿼리)으로 보장하므로 H2로는 검증할 수 없다. 위 "1. Repository + Service" 절의 *DB 종속 기능은 Testcontainers* 규칙을 그대로 적용한 사례다.
+- **사진 정리(organize) 기능**도 3단계 구조를 적용했다: 서비스·저장소 통합 테스트(`renewal/application/organization`의 `@OrganizeH2Test`, 폴더 담기처럼 PostgreSQL 전용 쿼리를 거치는 경로만 `@OrganizePostgresTest`) / 저장소 테스트(`OrganizeJobRepositoryTest`) / 컨트롤러 슬라이스(`OrganizeJobControllerTest`, `GalleryAnalysisEventControllerTest`) / API 인수 테스트(`OrganizeJobApiTest`, 대표 흐름만). 만료·간격·재시도 대기처럼 시간에 따라 바뀌는 규칙은 `organizeClock` 빈을 `MutableClock`으로 바꿔 시계를 움직여 검증하고, SQL 로 시간을 고치지 않는다. 같은 설정의 테스트는 Spring 컨텍스트를 함께 쓰므로 `@MockitoBean`은 공통 베이스(`OrganizeServiceTestSupport`)에만 둔다.
 - **Folder 기능**은 아직 도메인 단위 테스트만 있다 — 서비스·API가 생기면 이 구조로 맞춰 나간다
 - H2 의존성(`com.h2database:h2`)은 `backend/build.gradle`에 추가되어 있다
 

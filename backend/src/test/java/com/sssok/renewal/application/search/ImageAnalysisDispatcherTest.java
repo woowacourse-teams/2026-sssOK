@@ -67,6 +67,25 @@ class ImageAnalysisDispatcherTest {
     }
 
     @Test
+    void 종료가_시작되면_진행_중인_분석만_마치고_다음_작업은_선점하지_않는다() {
+        var executor = mock(AsyncTaskExecutor.class);
+        doAnswer(call -> { ((Runnable) call.getArgument(0)).run(); return null; })
+            .when(executor).execute(any(Runnable.class));
+        when(documents.claimNextPendingAnalysis(any(), anyInt()))
+            .thenReturn(Optional.of(new AnalysisAttempt(1L, 1)), Optional.of(new AnalysisAttempt(2L, 1)));
+        var dispatcher = new ImageAnalysisDispatcher(executor, analyzer, documents, properties, Clock.systemUTC());
+        doAnswer(call -> { dispatcher.stopClaiming(); return null; })
+            .when(analyzer).analyze(any(AnalysisAttempt.class));
+
+        dispatcher.dispatch();
+
+        verify(analyzer, times(1)).analyze(any(AnalysisAttempt.class));
+        verify(documents, times(1)).claimNextPendingAnalysis(any(), anyInt());
+        dispatcher.dispatch();
+        verify(executor, times(1)).execute(any(Runnable.class));
+    }
+
+    @Test
     void 제출_거절은_DB를_선점하지_않고_슬롯을_반환한다() {
         var executor = mock(AsyncTaskExecutor.class);
         doThrow(new TaskRejectedException("shutdown")).when(executor).execute(any(Runnable.class));

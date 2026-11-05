@@ -3,6 +3,7 @@ package com.sssok.renewal.outgoing.database;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.renewal.domain.download.DownloadJob;
 import com.sssok.renewal.domain.download.status.DownloadJobStatus;
+import com.sssok.renewal.domain.download.status.FailedDownloadJobStatus;
 import com.sssok.renewal.domain.download.status.ReadyDownloadJobStatus;
 import java.time.Instant;
 import java.util.List;
@@ -48,6 +49,11 @@ public class DownloadJobRepository {
         return jpaRepository.findAllByStatusAndReadyAtBefore(ready, threshold).stream()
             .map(this::toDomain)
             .toList();
+    }
+
+    public int failStaleActive(Instant threshold, String reason) {
+        List<String> active = DownloadJobStatus.active().stream().map(DownloadJobStatus::name).toList();
+        return jpaRepository.failStaleActive(active, FailedDownloadJobStatus.INSTANCE.name(), reason, threshold);
     }
 
     private DownloadJobJpaEntity toEntity(DownloadJob job) {

@@ -27,4 +27,11 @@ class DownloadJobSweepBatchTest {
 
         then(sweepDownloadJobsService).should().sweepExpired(any());
     }
+
+    @Test
+    void 배치가_돌면_멈춘_잡_정리도_위임한다() {
+        downloadJobSweepBatch.sweep();
+
+        then(sweepDownloadJobsService).should().failStale(any());
+    }
 }

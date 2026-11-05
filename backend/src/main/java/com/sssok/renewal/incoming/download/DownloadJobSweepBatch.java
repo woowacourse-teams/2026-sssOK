@@ -21,5 +21,9 @@ public class DownloadJobSweepBatch {
         if (swept > 0) {
             log.info("보관 기간이 지난 다운로드 zip {}개를 정리했습니다", swept);
         }
+        int failed = sweepDownloadJobsService.failStale(Instant.now());
+        if (failed > 0) {
+            log.warn("진행이 멈춘 다운로드 잡 {}개를 실패로 닫았습니다", failed);
+        }
     }
 }
