@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 public class ThumbnailDispatchScheduler {
     private final ThumbnailDispatcher thumbnailDispatcher;
 
-    @Scheduled(fixedDelayString = "${media.thumbnail.queue.dispatch-interval:1s}")
+    @Scheduled(fixedDelayString = "${media.thumbnail.queue.dispatch-interval:1s}",
+        initialDelayString = "${media.thumbnail.queue.dispatch-initial-delay:0s}")
     public void dispatchPendingJobs() {
         thumbnailDispatcher.dispatchPendingJobs();
     }
