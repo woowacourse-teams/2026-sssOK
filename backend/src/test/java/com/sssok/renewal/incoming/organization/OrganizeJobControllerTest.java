@@ -383,6 +383,23 @@ class OrganizeJobControllerTest {
         }
 
         @Test
+        void groupId_없이_최종_폴더_구성을_전달한다() throws Exception {
+            given(applyService.apply(eq(ROOM_ID), eq(MEMBER_ID), eq(JOB_ID), anyList(), eq(KEY))).willReturn(
+                new OrganizeApplyService.Applied(job(OrganizeJobStatus.APPLIED),
+                    List.of(new OrganizeApplyService.AppliedFolder(201L, "민찬", List.of(101L, 102L)))));
+
+            apply("{\"groups\":[{\"folderName\":\"민찬\",\"mediaIds\":[101,102]}]}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobId").value(JOB_ID.toString()))
+                .andExpect(jsonPath("$.data.status").value("APPLIED"))
+                .andExpect(jsonPath("$.data.folders[0].folderId").value(201))
+                .andExpect(jsonPath("$.data.folders[0].folderName").value("민찬"))
+                .andExpect(jsonPath("$.data.folders[0].mediaIds[1]").value(102));
+            verify(applyService).apply(ROOM_ID, MEMBER_ID, JOB_ID,
+                List.of(new OrganizeApplyService.GroupRequest(null, "민찬", List.of(101L, 102L))), KEY);
+        }
+
+        @Test
         void 본문이_깨졌으면_400이다() throws Exception {
             apply("{not json").andExpect(status().isBadRequest());
         }
