@@ -16,8 +16,12 @@ export const countAnalyzablePhotos = (items: GalleryItem[]) =>
       item.media.mimeType !== "image/gif",
   ).length;
 
-/** 정리를 시작할 수 없는 장수 문제. 시작 전에 모달로 알린다. */
-export type OrganizeLimit = { reason: "tooMany"; count: number | null } | { reason: "empty" };
+/**
+ * 정리를 시작할 수 없는 까닭. 모달로 알린다.
+ * 장수 문제는 시작 전에 막고, 체험 소진(`trialExhausted`)은 서버가 거절했을 때만 온다.
+ */
+export type OrganizeLimit =
+  { reason: "tooMany"; count: number | null } | { reason: "empty" } | { reason: "trialExhausted" };
 
 /** 시작 전에 막아야 하면 그 까닭을, 아니면 null 을 돌려준다. */
 export const organizeLimitOf = (photoCount: number): OrganizeLimit | null => {

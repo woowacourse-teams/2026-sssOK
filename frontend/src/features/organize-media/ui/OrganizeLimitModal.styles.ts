@@ -15,6 +15,14 @@ export const Content = styled.div`
   }
 `;
 
+export const Actions = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${spacing[8]};
+  width: 100%;
+  margin-top: ${spacing[4]};
+`;
+
 export const Mascot = styled.img`
   width: 106px;
   height: auto;

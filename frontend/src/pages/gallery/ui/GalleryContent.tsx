@@ -28,7 +28,7 @@ import { SearchRequestField } from "@/features/search-media";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
-import { isAppWebView, track } from "@/shared/lib";
+import { isAppWebView, rememberLoginReturn, track } from "@/shared/lib";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -554,6 +554,11 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           onClose={() => {
             setOrganizeLimit(null);
             organize.clearLimit();
+          }}
+          onLogin={() => {
+            organize.clearLimit();
+            rememberLoginReturn(location.pathname);
+            navigate(ROUTES.login);
           }}
         />
       )}

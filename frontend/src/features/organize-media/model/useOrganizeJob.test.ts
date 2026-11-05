@@ -201,7 +201,7 @@ describe("useOrganizeJob", () => {
     expect(result.current.notice).toBeNull();
   });
 
-  it("체험을 다 쓴 익명 회원에게 웹에서는 앱에서 로그인하라고 안내한다", async () => {
+  it("체험을 다 쓴 익명 사용자에게는 로그인을 권하는 모달을 띄운다", async () => {
     serve();
     server.use(
       http.post(BASE, () =>
@@ -214,9 +214,8 @@ describe("useOrganizeJob", () => {
     await act(() => result.current.start({ kind: "PERSON" }));
 
     expect(result.current.notice).toBeNull();
-    expect(result.current.error).toBe(
-      "이제 AI 정리는 앱에서 이어서 쓸 수 있어요.\n앱을 설치하고 로그인해 주세요.",
-    );
+    expect(result.current.limit).toEqual({ reason: "trialExhausted" });
+    expect(result.current.error).toBeNull();
   });
 
   it("실패한 작업은 retry API 로 같은 작업을 다시 돌린다", async () => {

@@ -1,5 +1,4 @@
 import { isApiError } from "@/shared/api";
-import { isAppWebView } from "@/shared/lib";
 import { ORGANIZE_PHOTO_LIMIT } from "../config";
 
 /**
@@ -41,10 +40,8 @@ export const organizeErrorMessage = (error: unknown) => {
 
   switch (error.code) {
     case ORGANIZE_ERROR_CODES.trialExhausted:
-      // 웹에서는 로그인할 곳이 앱이라 앱으로 보내고, 앱 안에서는 로그인만 권한다.
-      return isAppWebView()
-        ? "로그인하지 않으면 더 이상 AI 정리를 쓸 수 없어요.\n로그인해 주세요."
-        : "이제 AI 정리는 앱에서 이어서 쓸 수 있어요.\n앱을 설치하고 로그인해 주세요.";
+      // 접수 거절은 로그인 버튼이 있는 모달로 알린다. 이 문구는 그 밖의 자리(다시 시도 등)에서 쓴다.
+      return "로그인하면 AI 정리를 계속 쓸 수 있어요.";
     case ORGANIZE_ERROR_CODES.rateLimited:
       return error.retryAfterSeconds === undefined
         ? "조금 뒤에 다시 정리할 수 있어요."
