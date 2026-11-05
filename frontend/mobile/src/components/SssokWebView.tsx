@@ -17,6 +17,11 @@ import {
   type BridgeEvent,
 } from "../bridge/downloadBridge";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
+import {
+  canPersistCookies,
+  COOKIE_PERSISTENCE_SCRIPT,
+  handleCookiePersistence,
+} from "../bridge/cookiePersistence";
 
 /** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장을 앱에 맡긴다. */
 const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION} }; true;`;
@@ -142,10 +147,15 @@ export function SssokWebView() {
             }
             openExternal(nativeEvent.targetUrl);
           }}
-          injectedJavaScriptBeforeContentLoaded={BRIDGE_FLAG_SCRIPT}
+          injectedJavaScriptBeforeContentLoaded={
+            BRIDGE_FLAG_SCRIPT + (canPersistCookies ? COOKIE_PERSISTENCE_SCRIPT : "")
+          }
+          // Android에서는 로딩 전 주입이 누락될 수 있어 로딩 후에도 설치한다.
+          injectedJavaScript={canPersistCookies ? COOKIE_PERSISTENCE_SCRIPT : undefined}
           onMessage={({ nativeEvent }) => {
             // 서비스 페이지가 보낸 것만 받는다. 다른 주소의 페이지가 저장을 시키지 못하게 한다.
             if (!isWebOrigin(nativeEvent.url)) return;
+            if (handleCookiePersistence(nativeEvent.data)) return;
             downloadBridge.current?.handle(nativeEvent.data);
           }}
           onNavigationStateChange={(state) => {
