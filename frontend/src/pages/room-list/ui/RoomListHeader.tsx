@@ -1,9 +1,9 @@
-import { HiOutlineBell, HiOutlineCog6Tooth } from "react-icons/hi2";
+import { HiOutlineCog6Tooth } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
 import { ROUTES } from "@/shared/config";
 import { IconButton } from "@/shared/ui/icon-button";
-import { AccountSlots, BellSlot, Logo, Nav, NavInner } from "./RoomListPage.styles";
+import { AccountSlots, Logo, Nav, NavInner } from "./RoomListPage.styles";
 
 export const RoomListHeader = () => (
   <Nav>
@@ -20,9 +20,6 @@ const AccountActions = () => {
   const navigate = useNavigate();
   return (
     <AccountSlots>
-      <BellSlot aria-hidden="true">
-        <HiOutlineBell />
-      </BellSlot>
       <IconButton aria-label="설정" onClick={() => navigate(ROUTES.accountSettings)}>
         <HiOutlineCog6Tooth aria-hidden="true" />
       </IconButton>
