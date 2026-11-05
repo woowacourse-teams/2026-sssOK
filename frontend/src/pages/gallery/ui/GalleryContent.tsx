@@ -52,6 +52,8 @@ import {
 } from "./GalleryPage.styles";
 
 const CREATED_FOLDER_TOAST_MS = 2500;
+/** 정리 알림(바닥 36px + 높이 76px) 위. 같은 자리에 띄우면 알림의 X 를 가린다. */
+const ABOVE_ORGANIZE_BAR = "calc(120px + env(safe-area-inset-bottom, 0px))";
 
 interface GalleryContentProps {
   room: Room;
@@ -563,7 +565,12 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       )}
 
       {organize.error && (
-        <Toast tone="error" message={organize.error} onClose={organize.clearError} />
+        <Toast
+          tone="error"
+          message={organize.error}
+          onClose={organize.clearError}
+          bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
+        />
       )}
 
       {isDeleteSelectionOpen && (
