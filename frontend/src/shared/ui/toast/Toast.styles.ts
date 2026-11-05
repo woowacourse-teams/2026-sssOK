@@ -3,9 +3,10 @@ import styled from "@emotion/styled";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 
-export const Dock = styled.div`
+/** `$bottom` 을 주면 그만큼 띄운다. 화면 아래에 버튼이 있어 그 위에 띄워야 할 때 쓴다. */
+export const Dock = styled.div<{ $bottom?: string }>`
   position: fixed;
-  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  bottom: ${({ $bottom }) => $bottom ?? "calc(36px + env(safe-area-inset-bottom, 0px))"};
   left: 50%;
   transform: translateX(-50%);
   z-index: 1100;
@@ -51,6 +52,8 @@ export const Text = styled.span`
   color: ${colors.textStrong};
   letter-spacing: -0.01em;
   overflow-wrap: anywhere;
+  /* 문구 안의 \n 을 줄바꿈으로 보여 준다. */
+  white-space: pre-line;
 
   ${typography.caption2}
 `;

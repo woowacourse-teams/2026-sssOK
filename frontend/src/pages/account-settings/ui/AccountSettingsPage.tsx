@@ -53,11 +53,11 @@ export const AccountSettingsPage = () => {
         <Section aria-labelledby="legal-title">
           <SectionTitle id="legal-title">약관</SectionTitle>
           <ItemList>
-            <Item type="button" disabled>
+            <Item type="button" onClick={() => navigate(ROUTES.terms)}>
               이용약관
               <HiChevronRight aria-hidden="true" />
             </Item>
-            <Item type="button" disabled>
+            <Item type="button" onClick={() => navigate(ROUTES.privacy)}>
               개인정보처리방침
               <HiChevronRight aria-hidden="true" />
             </Item>

@@ -72,3 +72,15 @@ Google Play에 이미 등록된 앱이면 기존 패키지명과 업로드 키�
 기존 앱을 EAS 원격 버전 관리로 처음 전환할 때는 빌드 전에 `npx eas-cli@latest build:version:set`을 실행하고, Android의 원격 versionCode를 Play Console에 이미 업로드한 가장 높은 값으로 맞춘다. 다음 production 빌드에서 이 값이 자동 증가한다. 이미 동기화된 프로젝트는 다시 설정할 필요가 없다.
 빌드 완료 후 EAS 빌드 페이지에서 AAB를 내려받아 Play Console 비공개 테스트 트랙에 올린다.
 원격 versionCode를 자동 증가시키므로 후속 빌드도 같은 프로필을 사용한다.
+
+### Android 인증 쿠키 영속 저장
+
+`modules/cookie-persistence`의 로컬 Expo 모듈이 `CookieManager.flush()`를 수행한다.
+WebView에 주입한 fetch 래퍼는 `/api/v1/auth/**` 성공 응답 이후 `auth/persist-cookies`
+신호를 보낸다. 앱은 서비스 origin에서 온 메시지만 처리하며 토큰 값은 브릿지로 넘기지 않는다.
+페이지 로딩 완료 이후 수신한 인증 쿠키도 디스크에 반영하기 위한 처리다.
+
+네이티브 모듈 추가이므로 Android 앱을 새로 빌드해야 한다. Expo Go에는 이 모듈이 없어서
+저장 브릿지가 활성화되지 않는다. 기존 로그인 → 앱 완전 종료 → 재실행 → `/rooms` 유지와,
+로그아웃 → 완전 종료 → 재실행 → 로그인 화면을 실제 기기에서 확인한다.
+쿠키가 거절되거나 서버에서 refresh token이 무효화된 경우는 이 처리로 해결되지 않는다.

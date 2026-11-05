@@ -17,7 +17,9 @@ jest.mock("@/shared/lib/analytics", () => ({
 
 const HOST_ID = 10234;
 
-const media = (mediaId: number, uploaderName = "해니") => ({ mediaId, uploaderName }) as MediaItem;
+const UPLOADER_IDS: Record<string, number> = { 해니: 1, 소이: 2, 소이2: 3, 지우: 4, 민수: 5 };
+const media = (mediaId: number, uploaderName = "해니") =>
+  ({ mediaId, uploaderName, uploaderId: UPLOADER_IDS[uploaderName] }) as MediaItem;
 const item = (mediaId: number, uploaderName?: string): GalleryItem => ({
   mediaId,
   type: "server",
@@ -181,6 +183,32 @@ describe("useGallerySearch", () => {
 
       expect(result.current.query).toBe("");
       expect(result.current.items).toBe(items);
+    });
+
+    it("올린 사람과 사람마다 올린 장수를 모은다", () => {
+      const { result } = renderGallerySearch([item(3, "소이"), item(2, "지우"), item(1, "소이")]);
+
+      expect(result.current.uploaders).toEqual([
+        { id: 2, name: "소이", count: 2, isMe: false },
+        { id: 4, name: "지우", count: 1, isMe: false },
+      ]);
+    });
+
+    it("요청 패널에서 고른 사람으로 바로 찾고, 입력창에는 그 이름을 남긴다", () => {
+      const { result } = renderGallerySearch([item(2, "지우"), item(1, "소이")]);
+
+      act(() => result.current.searchByUploader({ id: 2, name: "소이" }));
+
+      expect(result.current.items.map((slot) => slot.mediaId)).toEqual([1]);
+      expect(result.current.appliedText).toBe("소이");
+    });
+
+    it("요청 패널에서 고른 사람은 이름이 겹치는 다른 사람 사진을 섞지 않는다", () => {
+      const { result } = renderGallerySearch([item(3, "소이2"), item(2, "지우"), item(1, "소이")]);
+
+      act(() => result.current.searchByUploader({ id: 2, name: "소이" }));
+
+      expect(result.current.items.map((slot) => slot.mediaId)).toEqual([1]);
     });
 
     it("검색을 닫으면 다음에 열 때 검색어 기준으로 돌아간다", () => {
