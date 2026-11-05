@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -36,9 +37,13 @@ public class OrganizeIdempotency {
     }
 
     // 이미 처리한 요청이면 기록을 돌려주고, 같은 키에 다른 입력이면 409 로 거절한다.
-    public Optional<Replay> find(Long memberId, Long roomId, String operation, String key, String requestHash) {
+    // compatibleHashes 는 이전 형식으로 저장된 같은 요청의 해시다(null 은 무시된다).
+    public Optional<Replay> find(Long memberId, Long roomId, String operation, String key, String requestHash,
+                                 String... compatibleHashes) {
         return repository.findIdempotency(memberId, roomId, operation, key).map(record -> {
-            if (!record.requestHash().equals(requestHash)) {
+            boolean same = record.requestHash().equals(requestHash)
+                || Arrays.asList(compatibleHashes).contains(record.requestHash());
+            if (!same) {
                 throw new OrganizeJobException(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
             }
             return new Replay(record.jobId(), record.response());
