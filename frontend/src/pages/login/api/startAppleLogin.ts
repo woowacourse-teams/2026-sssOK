@@ -1,4 +1,5 @@
-import { apiClient, ApiError } from "@/shared/api";
+import { ApiError } from "@/shared/api";
+import { requestLoginStart } from "./requestLoginStart";
 
 interface AppleLoginStart {
   authorizationUrl: string;
@@ -10,10 +11,7 @@ interface AppleLoginStart {
 /** 콜백에서 사용할 확인값을 같은 탭에 보관하고 Apple 인증 주소를 반환한다. */
 export const startAppleLogin = async (): Promise<string> => {
   sessionStorage.removeItem("sssok.oauth.apple");
-  const result = await apiClient<AppleLoginStart>("/auth/oauth/apple/start", {
-    method: "POST",
-    credentials: "omit",
-  });
+  const result = await requestLoginStart<AppleLoginStart>("/auth/oauth/apple/start");
   let url: URL;
   try {
     url = new URL(result.authorizationUrl);

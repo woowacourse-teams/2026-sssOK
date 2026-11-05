@@ -7,6 +7,7 @@ import { http, HttpResponse } from "msw";
 import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
+import { rememberLoginReturn } from "@/shared/lib";
 import { captureLoginCallback } from "../api/completeLogin";
 import { LoginCallbackPage } from "./LoginCallbackPage";
 
@@ -30,6 +31,7 @@ const setup = (provider = "kakao", query = `code=provider-code&state=${state}`) 
     [
       { path: "/app/auth/callback/:provider", element: <LoginCallbackPage /> },
       { path: ROUTES.rooms, element: <p>방 목록 도착</p> },
+      { path: ROUTES.gallery(":code"), element: <p>방 갤러리 도착</p> },
     ],
     { initialEntries: [path] },
   );
@@ -94,6 +96,20 @@ it.each(["kakao", "apple"])(
     expect(calls).toBe(1);
   },
 );
+
+it("방에서 로그인하러 왔으면 로그인 뒤 그 방으로 돌아간다", async () => {
+  server.use(
+    http.post(`${API_BASE_URL}/auth/oauth/kakao/login`, () =>
+      HttpResponse.json({ data: member() }),
+    ),
+  );
+  rememberLoginReturn(ROUTES.gallery("ROOM1"));
+  const { router } = setup("kakao");
+
+  expect(await screen.findByText("방 갤러리 도착")).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe(ROUTES.gallery("ROOM1"));
+  expect(sessionStorage.getItem("sssok.login-return")).toBeNull();
+});
 
 it.each([
   `error=access_denied&state=${state}`,
