@@ -55,6 +55,8 @@ public class WebConfig implements WebMvcConfigurer {
                 API_PREFIX + "/rooms/*/downloads/**",
                 API_PREFIX + "/rooms/*/notification-setting",
                 API_PREFIX + "/rooms/*/upload-requests",
+                API_PREFIX + "/rooms/*/organize-jobs",
+                API_PREFIX + "/rooms/*/organize-jobs/**",
                 API_PREFIX + "/rooms/*/feedbacks");
     }
 
@@ -71,7 +73,7 @@ public class WebConfig implements WebMvcConfigurer {
             .allowCredentials(true)
             .allowedMethods("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS")
             .allowedHeaders("*")
-            .exposedHeaders(RequestLoggingFilter.REQUEST_ID_HEADER)
+            .exposedHeaders(RequestLoggingFilter.REQUEST_ID_HEADER, "Retry-After")
             .maxAge(3600);
     }
 }

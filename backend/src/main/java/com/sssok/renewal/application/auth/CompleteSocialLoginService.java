@@ -31,7 +31,7 @@ public class CompleteSocialLoginService {
         }
         OAuthLoginAttempt attempt = oauthLoginAttemptService.consume(provider, state, loginVerifier);
         SocialAuthClient socialAuthClient = findSocialAuthClient(provider);
-        SocialAuthentication authentication = socialAuthClient.authenticate(code, attempt.nonce());
+        SocialAuthentication authentication = socialAuthClient.authenticate(code, attempt.nonce(), attempt.redirectUri());
         if (authentication.identity().provider() != provider) {
             throw SocialAuthException.invalid();
         }
