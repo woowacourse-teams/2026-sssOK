@@ -68,6 +68,10 @@ export const organizeErrorMessage = (error: unknown) => {
   }
 };
 
+/** 작업을 멈추거나 결과를 취소하지 못했을 때 보여 줄 문구. 네트워크 탓이면 연결을 먼저 확인하게 한다. */
+export const cancelErrorMessage = (error: unknown, fallback: string) =>
+  isApiError(error) && error.status === 0 ? "네트워크 연결을 확인해 주세요." : fallback;
+
 const APPLY_FALLBACK = "폴더를 만들지 못했어요. 다시 시도해 주세요.";
 
 /**
