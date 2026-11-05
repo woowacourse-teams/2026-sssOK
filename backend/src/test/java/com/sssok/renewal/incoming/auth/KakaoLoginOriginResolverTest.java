@@ -25,6 +25,13 @@ class KakaoLoginOriginResolverTest {
     }
 
     @Test
+    void IPv6_축약과_확장_표기를_같은_출처로_비교한다() {
+        MockHttpServletRequest request = request("Origin", "https://[::1]");
+        request.addHeader("Referer", "https://[0:0:0:0:0:0:0:1]/app/login");
+        assertThat(KakaoLoginOriginResolver.resolve(request)).isEqualTo("https://[0:0:0:0:0:0:0:1]");
+    }
+
+    @Test
     void Origin과_Referer_출처가_같으면_통과한다() {
         MockHttpServletRequest request = request("Origin", "http://localhost:3000");
         request.addHeader("Referer", "http://localhost:3000/app/login");
@@ -60,7 +67,7 @@ class KakaoLoginOriginResolverTest {
     @ParameterizedTest
     @ValueSource(strings = {
         "", " ", "null", "NULL", "*", "localhost:3000", "ftp://localhost:3000", "http://localhost:3000/", "http://localhost:3000/path",
-        "http://localhost:3000?x=1", "http://localhost:3000#f", "http://user@localhost:3000", "http://localhost:abc",
+        "http://localhost:3000?x=1", "http://localhost:3000#f", "http://user@localhost:3000", "http://localhost:abc", "https://dev.ssssok.com:",
         "http://localhost:3000.evil.com", "http://localhost:0", "http://localhost:99999", "http://",
         "https://a.example.com, https://b.example.com"
     })
@@ -69,7 +76,7 @@ class KakaoLoginOriginResolverTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"", "null", "/relative/path", "https://user:pw@dev.ssssok.com/", "https://dev.ssssok.com/#frag", "mailto:a@b.c"})
+    @ValueSource(strings = {"", "null", "/relative/path", "https://user:pw@dev.ssssok.com/", "https://dev.ssssok.com/#frag", "mailto:a@b.c", "https://dev.ssssok.com:/app/login"})
     void Origin이_없을_때_잘못된_Referer는_거절한다(String referer) {
         assertInvalid(request("Referer", referer));
     }

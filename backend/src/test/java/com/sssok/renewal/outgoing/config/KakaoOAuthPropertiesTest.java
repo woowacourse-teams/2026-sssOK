@@ -3,6 +3,7 @@ package com.sssok.renewal.outgoing.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.sssok.renewal.domain.auth.WebOrigin;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,14 @@ class KakaoOAuthPropertiesTest {
         assertThat(properties.callbackFor("https://localhost:3000")).isEmpty();
         assertThat(properties.callbackFor("https://www.ssssok.com")).isEmpty();
         assertThat(properties.callbackFor(null)).isEmpty();
+    }
+
+    @Test
+    void IPv6_표기가_달라도_등록한_전체_콜백을_선택하고_중복_출처는_거절한다() {
+        String callback = "https://[0:0:0:0:0:0:0:1]/cb";
+        assertThat(properties(callback).callbackFor(WebOrigin.parseOrigin("https://[::1]"))).contains(callback);
+        assertThatThrownBy(() -> properties(callback, "https://[::1]/other").validate())
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -59,7 +68,7 @@ class KakaoOAuthPropertiesTest {
     @ValueSource(strings = {
         "http://example.com/cb", "http://localhost.evil.com/cb", "http://127.0.0.1:3000/cb", "http://[::1]:3000/cb",
         "https://user@example.com/cb", "https://example.com/cb#frag", "https://example.com", "ftp://example.com/cb",
-        "/relative", "https://*.example.com/cb", "https://example.com:99999/cb"
+        "/relative", "https://*.example.com/cb", "https://example.com:99999/cb", "https://example.com:/cb", "https://[fe80::1%25en0]/cb"
     })
     void 허용하지_않는_콜백_주소는_검증에_실패한다(String uri) {
         assertThatThrownBy(() -> properties(uri).validate()).isInstanceOf(IllegalArgumentException.class);

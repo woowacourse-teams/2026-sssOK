@@ -1,7 +1,9 @@
 package com.sssok.renewal.domain.auth;
 
+import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
 import java.util.Locale;
 
 // 웹 출처(scheme://host[:port])를 비교 가능한 한 가지 문자열로 정규화한다. 형식이 잘못되면 IllegalArgumentException을 던진다.
@@ -34,6 +36,8 @@ public final class WebOrigin {
             if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))
                 || uri.getHost() == null || uri.getHost().isEmpty()
                 || uri.getUserInfo() != null || uri.getRawFragment() != null
+                || uri.getRawAuthority().endsWith(":")
+                || uri.getHost().contains("%")
                 || uri.getPort() == 0 || uri.getPort() > 65535) {
                 throw new IllegalArgumentException("http 또는 https 출처가 필요합니다");
             }
@@ -43,10 +47,23 @@ public final class WebOrigin {
         }
     }
 
+    /** IPv6 리터럴만 파싱하므로 DNS 조회 없이 축약·확장 표기를 같은 출처 키로 만든다. */
+    private static String normalizeHost(URI uri) {
+        String host = uri.getHost().toLowerCase(Locale.ROOT);
+        if (!host.startsWith("[")) {
+            return host;
+        }
+        try {
+            return "[" + InetAddress.getByName(host).getHostAddress() + "]";
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException("IPv6 출처 형식이 올바르지 않습니다", e);
+        }
+    }
+
     private static String normalize(URI uri) {
         String scheme = uri.getScheme().toLowerCase(Locale.ROOT);
         int port = uri.getPort();
         boolean defaultPort = port == -1 || (scheme.equals("http") && port == 80) || (scheme.equals("https") && port == 443);
-        return scheme + "://" + uri.getHost().toLowerCase(Locale.ROOT) + (defaultPort ? "" : ":" + port);
+        return scheme + "://" + normalizeHost(uri) + (defaultPort ? "" : ":" + port);
     }
 }
