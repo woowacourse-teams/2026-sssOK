@@ -65,6 +65,18 @@ class OAuthClientConfigTest {
     }
 
     @Test
+    void 카카오_앱_ID가_숫자가_아니면_시작하지_않고_없으면_웹만_활성화된다() {
+        String[] kakao = {"oauth.kakao.enabled=true", "oauth.kakao.client-id=client", "oauth.kakao.client-secret=secret",
+            "oauth.kakao.redirect-uris=https://example.com/callback", "oauth.kakao.admin-key=admin-secret",
+            "oauth.token-encryption-key=" + Base64.getEncoder().encodeToString(new byte[32])};
+        runner.withPropertyValues(kakao).withPropertyValues("oauth.kakao.app-id=not-a-number")
+            .run(context -> assertThat(context).hasFailed());
+        runner.withPropertyValues(kakao).run(context -> assertThat(context).hasSingleBean(KakaoAuthClient.class));
+        runner.withPropertyValues(kakao).withPropertyValues("oauth.kakao.app-id=123456")
+            .run(context -> assertThat(context).hasSingleBean(KakaoAuthClient.class));
+    }
+
+    @Test
     void 환경별_여러_콜백을_쉼표로_등록할_수_있다() {
         runner.withPropertyValues("oauth.kakao.enabled=true", "oauth.kakao.client-id=client", "oauth.kakao.client-secret=secret",
             "oauth.kakao.redirect-uris=https://dev.example.com/cb, http://localhost:3000/cb", "oauth.kakao.admin-key=admin-secret",
@@ -101,7 +113,7 @@ class OAuthClientConfigTest {
 
     @Test
     void 설정_객체_출력에_비밀값을_노출하지_않는다() {
-        assertThat(new KakaoOAuthProperties("client", "sensitive-value", List.of("https://example.com/cb"), "admin-secret").toString()).doesNotContain("sensitive-value", "admin-secret");
+        assertThat(new KakaoOAuthProperties("client", "sensitive-value", List.of("https://example.com/cb"), "admin-secret", null).toString()).doesNotContain("sensitive-value", "admin-secret");
         assertThat(new AppleOAuthProperties("client", "team", "key", "private-key", "https://example.com", "native.id").toString())
             .doesNotContain("private-key", "native.id");
     }

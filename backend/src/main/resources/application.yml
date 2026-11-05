@@ -257,6 +257,8 @@ oauth:
     client-id: ${OAUTH_KAKAO_CLIENT_ID:}
     client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
     admin-key: ${OAUTH_KAKAO_ADMIN_KEY:}
+    # 앱 SDK 로그인용 숫자 앱 ID(REST API 키와 다름). 비어 있으면 앱 SDK 로그인만 비활성이다.
+    app-id: ${OAUTH_KAKAO_APP_ID:}
     # 허용할 카카오 콜백 전체 주소를 쉼표로 구분한다. 각 주소의 출처가 로그인을 시작한 웹의 출처와 일치해야 선택된다.
     redirect-uris: ${OAUTH_KAKAO_REDIRECT_URIS:}
   apple:
