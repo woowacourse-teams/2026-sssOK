@@ -181,6 +181,11 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 사진 정리
   const organize = useOrganizeJob({ roomId: room.roomId, token: accessToken });
+  // 시트를 열어 둔 채 작업이 끝나면 닫는다. 다음 작업에서 누르지 않은 시트가 저절로 뜨지 않게 한다.
+  if (isOrganizeCancelOpen && !organize.isRunning) setIsOrganizeCancelOpen(false);
+  if (isOrganizeResultCloseOpen && organize.notice?.status !== "READY") {
+    setIsOrganizeResultCloseOpen(false);
+  }
   /**
    * 정리를 시작하기 전에 장수 한도를 먼저 본다. 시트에서 방식까지 고른 뒤에 막히면 헛걸음이라서다.
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
