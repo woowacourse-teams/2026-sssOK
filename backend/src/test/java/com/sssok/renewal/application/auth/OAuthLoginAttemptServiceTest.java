@@ -1,5 +1,6 @@
 package com.sssok.renewal.application.auth;
 
+import com.sssok.common.exception.ErrorCode;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.renewal.domain.auth.OAuthLoginAttempt;
@@ -43,10 +44,11 @@ import static org.mockito.Mockito.when;
 @PostgresIntegrationTest
 @TestPropertySource(properties = {
     "oauth.kakao.client-id=test-client",
-    "oauth.kakao.redirect-uri=https://example.com/kakao/callback",
+    "oauth.kakao.redirect-uris=https://example.com/kakao/callback,http://localhost:3000/app/auth/callback/kakao",
     "oauth.apple.redirect-uri=https://example.com/apple/callback"
 })
 class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
+    private static final String ORIGIN = "https://example.com";
     @Autowired OAuthLoginAttemptService oauthLoginAttemptService;
     @Autowired StartKakaoLoginService startKakaoLoginService;
     @Autowired MemberRepository memberRepository;
@@ -67,7 +69,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
     void 카카오_시작_결과가_실제로_소비할_수_있는_익명_회원_요청과_연결된다() {
         Member member = anonymousMember();
         String token = sessionTokenProvider.issue(member.getId(), Instant.now()).value();
-        SocialLoginStartResult result = startKakaoLoginService.start(List.of(token));
+        SocialLoginStartResult result = startKakaoLoginService.start(List.of(token), ORIGIN);
         OAuthLoginAttempt attempt = oauthLoginAttemptService.consume(SocialProvider.KAKAO, result.state(), result.loginVerifier());
         assertThat(attempt.anonymousMemberIds()).containsExactly(member.getId());
         assertThat(result.authorizationUrl()).contains("client_id=test-client", "state=" + result.state());
@@ -80,7 +82,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         Member member = anonymousMember();
         String token = sessionTokenProvider.issue(member.getId(), Instant.now()).value();
 
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(token));
+        OAuthLoginAttemptResult started = startKakao(List.of(token));
         OAuthLoginAttempt consumed = consume(started);
 
         assertThat(consumed.anonymousMemberIds()).containsExactly(member.getId());
@@ -107,8 +109,8 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
 
     @Test
     void 잘못된_확인값이나_제공자는_거부하되_정상_요청을_소비하지_않는다() {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
-        OAuthLoginAttemptResult otherBrowser = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
+        OAuthLoginAttemptResult otherBrowser = startKakao(List.of());
 
         assertThatThrownBy(() -> oauthLoginAttemptService.consume(SocialProvider.KAKAO, started.state(), otherBrowser.loginVerifier()))
             .isInstanceOf(SocialAuthException.class);
@@ -119,14 +121,14 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
 
     @Test
     void 소비된_state는_다시_사용할_수_없다() {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
         consume(started);
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 
     @Test
     void 만료된_로그인_시도는_거부한다() {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
         OAuthLoginAttempt saved = storedAttempt(started);
         oauthLoginAttemptRepository.save(new OAuthLoginAttempt(saved.stateHash(), saved.loginVerifierHash(), saved.provider(),
             saved.redirectUri(), saved.nonce(), saved.anonymousMemberIds(),
@@ -134,18 +136,40 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 
-    @Test
-    void 저장된_리다이렉트가_현재_설정과_다르면_거부한다() {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+    @ParameterizedTest
+    @ValueSource(strings = {"https://other.example/callback", "https://example.com/other", "https://example.com/kakao/callback?x=1"})
+    void 저장된_리다이렉트가_현재_설정과_다르면_거부한다(String redirectUri) {
+        OAuthLoginAttemptResult started = startKakao(List.of());
         OAuthLoginAttempt saved = storedAttempt(started);
         oauthLoginAttemptRepository.save(new OAuthLoginAttempt(saved.stateHash(), saved.loginVerifierHash(), saved.provider(),
-            "https://other.example/callback", saved.nonce(), saved.anonymousMemberIds(), saved.createdAt(), saved.expiresAt()));
+            redirectUri, saved.nonce(), saved.anonymousMemberIds(), saved.createdAt(), saved.expiresAt()));
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 
     @Test
+    void 요청_출처에_등록된_콜백을_저장하고_소비할_때_돌려준다() {
+        OAuthLoginAttemptResult local = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(), "http://localhost:3000");
+        assertThat(local.redirectUri()).isEqualTo("http://localhost:3000/app/auth/callback/kakao");
+        assertThat(consume(local).redirectUri()).isEqualTo("http://localhost:3000/app/auth/callback/kakao");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"http://localhost:3001", "https://localhost:3000", "http://localhost", "https://evil.example", "null"})
+    void 등록되지_않은_출처로는_카카오_로그인을_시작할_수_없다(String origin) {
+        assertThatThrownBy(() -> oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(), origin))
+            .isInstanceOfSatisfying(SocialAuthException.class, e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_SOCIAL_AUTH));
+    }
+
+    @Test
+    void 애플은_요청_출처와_상관없이_고정_콜백을_사용한다() {
+        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.APPLE, List.of(), "http://localhost:3000");
+        assertThat(started.redirectUri()).isEqualTo("https://example.com/apple/callback");
+    }
+
+    @Test
     void 외부_서비스_실패로_상위_트랜잭션이_롤백되어도_소비는_유지한다() {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
         TransactionTemplate outerTransaction = new TransactionTemplate(transactionManager);
         outerTransaction.executeWithoutResult(status -> {
             consume(started);
@@ -156,7 +180,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
 
     @Test
     void 동시에_소비해도_하나의_요청만_성공한다() throws Exception {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
         CountDownLatch ready = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);
         try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
@@ -175,7 +199,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
     void 로그인_도중_통합된_익명_회원은_활동_연결에_사용할_수_없다() {
         Member member = anonymousMember();
         String token = sessionTokenProvider.issue(member.getId(), Instant.now()).value();
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(token));
+        OAuthLoginAttemptResult started = startKakao(List.of(token));
         member.markMerged();
         memberRepository.save(member);
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
@@ -187,26 +211,26 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         member.completeRegistration();
         memberRepository.save(member);
         String token = sessionTokenProvider.issue(member.getId(), Instant.now()).value();
-        assertThatThrownBy(() -> oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(token))).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> startKakao(List.of(token))).isInstanceOf(SocialAuthException.class);
     }
 
     @Test
     void 잘못된_인증을_인증_없는_시도로_취급하지_않는다() {
-        assertThatThrownBy(() -> oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of("invalid")))
+        assertThatThrownBy(() -> startKakao(List.of("invalid")))
             .isInstanceOf(UnauthorizedException.class);
     }
 
     @Test
     void 비활성_제공자로는_로그인을_시작할_수_없다() {
         when(kakaoClient.provider()).thenReturn(null);
-        assertThatThrownBy(() -> oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of())).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> startKakao(List.of())).isInstanceOf(SocialAuthException.class);
     }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "short", "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"})
     void 잘못된_state_형식은_거부한다(String state) {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
         assertThatThrownBy(() -> oauthLoginAttemptService.consume(SocialProvider.KAKAO, state, started.loginVerifier()))
             .isInstanceOf(SocialAuthException.class);
     }
@@ -221,7 +245,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
     @Test
     void 회원이_물리_삭제되면_남아있는_로그인_시도로_인증할_수_없다() {
         Member member = anonymousMember();
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(sessionTokenProvider.issue(member.getId(), Instant.now()).value()));
+        OAuthLoginAttemptResult started = startKakao(List.of(sessionTokenProvider.issue(member.getId(), Instant.now()).value()));
         jdbcTemplate.update("DELETE FROM member WHERE id = ?", member.getId());
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
@@ -234,7 +258,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
 
     @Test
     void 로그인_확인값이_없으면_state만으로_소비할_수_없다() {
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of());
+        OAuthLoginAttemptResult started = startKakao(List.of());
         assertThatThrownBy(() -> oauthLoginAttemptService.consume(started.provider(), started.state(), null))
             .isInstanceOf(SocialAuthException.class);
         assertThat(consume(started)).isNotNull();
@@ -245,7 +269,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         Member member = anonymousMember();
         String token = sessionTokenProvider.issue(member.getId(), Instant.now()).value();
         sessionTokenProvider.logout(token);
-        assertThatThrownBy(() -> oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(token)))
+        assertThatThrownBy(() -> startKakao(List.of(token)))
             .isInstanceOf(UnauthorizedException.class);
     }
 
@@ -256,7 +280,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         String firstToken = sessionTokenProvider.issue(first.getId(), Instant.now()).value();
         String secondToken = sessionTokenProvider.issue(second.getId(), Instant.now()).value();
 
-        OAuthLoginAttemptResult started = oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(secondToken, firstToken, secondToken));
+        OAuthLoginAttemptResult started = startKakao(List.of(secondToken, firstToken, secondToken));
 
         assertThat(consume(started).anonymousMemberIds()).containsExactly(first.getId(), second.getId());
     }
@@ -265,8 +289,12 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
     void 여러_익명_토큰_중_하나라도_잘못되면_로그인을_시작하지_않는다() {
         String token = sessionTokenProvider.issue(anonymousMember().getId(), Instant.now()).value();
 
-        assertThatThrownBy(() -> oauthLoginAttemptService.start(SocialProvider.KAKAO, List.of(token, "invalid")))
+        assertThatThrownBy(() -> startKakao(List.of(token, "invalid")))
             .isInstanceOf(UnauthorizedException.class);
+    }
+
+    private OAuthLoginAttemptResult startKakao(List<String> tokens) {
+        return oauthLoginAttemptService.start(SocialProvider.KAKAO, tokens, ORIGIN);
     }
 
     private OAuthLoginAttempt storedAttempt(OAuthLoginAttemptResult started) {

@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "notification.discord")
 public record DiscordNotificationProperties(
-    // 새 의견을 받을 채널의 웹훅 URL. 비어 있으면 알림을 건너뛴다 — 로컬·테스트처럼 채널이 없는
+    // 새 의견·사진 신고를 받을 채널의 웹훅 URL. 비어 있으면 알림을 건너뛴다 — 로컬·테스트처럼 채널이 없는
     // 환경에서도 기동과 의견 등록이 그대로 돼야 한다.
     String feedbackWebhookUrl,
     Duration connectTimeout,

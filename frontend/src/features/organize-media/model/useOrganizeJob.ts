@@ -25,6 +25,7 @@ import type { OrganizeLimit } from "./analyzablePhotos";
 import { overallPercentOf } from "./overallProgress";
 import {
   applyErrorMessage,
+  cancelErrorMessage,
   isApplyClosed,
   ORGANIZE_ERROR_CODES,
   organizeErrorMessage,
@@ -277,11 +278,12 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
       const { jobId } = job;
       setJob(null);
       setRoom((current) => ({ ...current, busy: false }));
+      setError(null);
 
       try {
         applyJob(await cancelOrganizeJob({ roomId, token, jobId }));
-      } catch {
-        setError(failureMessage);
+      } catch (cause) {
+        setError(cancelErrorMessage(cause, failureMessage));
         void resync();
       }
     },
@@ -295,18 +297,20 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
   );
 
   /**
-   * 결과 알림을 닫는다. 다시 들어와도 같은 알림을 띄우지 않는다.
+   * 결과 알림을 닫는다.
    *
    * 완료(READY)된 결과는 검토 기한(30분) 동안 방을 점유한다. 닫기만 하면 그동안 나도 다른 멤버도
-   * 새로 정리할 수 없고 알림을 다시 열 길도 없어서, 닫기를 **검토 포기**로 보고 방을 풀어 준다.
+   * 새로 정리할 수 없어서, 닫기를 **검토 포기**로 보고 방을 풀어 준다.
    * 찾은 사람이 없는 결과도 반영할 그룹이 없으니 같은 방법으로 닫는다.
+   * 취소에 실패하면 알림이 돌아와 다시 누를 수 있도록, 숨김 기록은 실패 알림에만 남긴다.
    */
   const dismiss = useCallback(() => {
     if (!job) return;
-    hideNotice(job.jobId);
     if (job.status === "READY") {
-      void release("결과를 닫지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      void release("결과를 취소하지 못했어요. 다시 시도해 주세요.");
+      return;
     }
+    hideNotice(job.jobId);
   }, [hideNotice, job, release]);
 
   /**
@@ -375,8 +379,9 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
 
   const readyResult = loaded !== null && loaded.jobId === readyJobId ? loaded : null;
 
+  // READY 는 방을 점유하므로 숨기지 않는다. 숨기면 방을 풀어 줄 X 까지 사라진다.
   const notice: MyOrganizeJob | null =
-    job && isMine && (isRunning || job.jobId !== dismissedJobId)
+    job && isMine && (isRunning || isAwaitingReview || job.jobId !== dismissedJobId)
       ? {
           jobId: job.jobId,
           status: job.status as MyOrganizeJob["status"],

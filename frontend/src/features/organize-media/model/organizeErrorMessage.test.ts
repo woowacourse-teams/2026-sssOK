@@ -1,5 +1,19 @@
 import { ApiError } from "@/shared/api";
-import { organizeErrorMessage } from "./organizeErrorMessage";
+import { cancelErrorMessage, organizeErrorMessage } from "./organizeErrorMessage";
+
+describe("cancelErrorMessage", () => {
+  it("네트워크 실패면 연결을 확인하라고 알린다", () => {
+    expect(cancelErrorMessage(new ApiError(0, "NETWORK_ERROR", ""), "취소 실패")).toBe(
+      "네트워크 연결을 확인해 주세요.",
+    );
+  });
+
+  it("그 밖의 실패는 부르는 쪽 문구를 쓴다", () => {
+    expect(cancelErrorMessage(new ApiError(500, "INTERNAL_ERROR", ""), "취소 실패")).toBe(
+      "취소 실패",
+    );
+  });
+});
 
 describe("organizeErrorMessage", () => {
   it("회원의 시간 제한은 남은 시간을 알려 준다", () => {

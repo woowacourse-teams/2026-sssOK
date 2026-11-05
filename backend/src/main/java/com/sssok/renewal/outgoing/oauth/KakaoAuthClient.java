@@ -13,14 +13,12 @@ public class KakaoAuthClient implements SocialAuthClient {
     private final OAuthHttpClient oauthHttpClient;
     private final String clientId;
     private final String clientSecret;
-    private final String redirectUri;
     private final String adminKey;
 
-    public KakaoAuthClient(OAuthHttpClient oauthHttpClient, String clientId, String clientSecret, String redirectUri, String adminKey) {
+    public KakaoAuthClient(OAuthHttpClient oauthHttpClient, String clientId, String clientSecret, String adminKey) {
         this.oauthHttpClient = oauthHttpClient;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
-        this.redirectUri = redirectUri;
         this.adminKey = adminKey;
     }
 
@@ -30,10 +28,11 @@ public class KakaoAuthClient implements SocialAuthClient {
     }
 
     @Override
-    public SocialAuthentication authenticate(String authorizationCode, String expectedNonce) {
+    public SocialAuthentication authenticate(String authorizationCode, String expectedNonce, String redirectUri) {
         validateAuthorizationCode(authorizationCode);
+        validateRedirectUri(redirectUri);
 
-        JsonNode tokenResponse = exchangeAuthorizationCode(authorizationCode);
+        JsonNode tokenResponse = exchangeAuthorizationCode(authorizationCode, redirectUri);
         String accessToken = OAuthHttpClient.readRequiredText(tokenResponse, "access_token");
         SocialIdentity identity = fetchUserIdentity(accessToken);
 
@@ -62,7 +61,13 @@ public class KakaoAuthClient implements SocialAuthClient {
         }
     }
 
-    private JsonNode exchangeAuthorizationCode(String authorizationCode) {
+    private void validateRedirectUri(String redirectUri) {
+        if (redirectUri == null || redirectUri.isBlank()) {
+            throw SocialAuthException.invalid();
+        }
+    }
+
+    private JsonNode exchangeAuthorizationCode(String authorizationCode, String redirectUri) {
         LinkedMultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "authorization_code");
         form.add("client_id", clientId);

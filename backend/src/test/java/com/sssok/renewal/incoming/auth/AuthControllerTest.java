@@ -54,6 +54,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(AuthTokenHttpSupport.class)
 @WebMvcTest(AuthController.class)
 class AuthControllerTest {
+    private static final String KAKAO_ORIGIN = "http://localhost:3000";
 
     @Autowired
     MockMvc mockMvc;
@@ -238,8 +239,8 @@ class AuthControllerTest {
 
     @Test
     void 인증_없이_카카오_로그인을_시작하고_쿠키_없이_확인값을_반환한다() throws Exception {
-        given(startKakaoLoginService.start(List.of())).willReturn(kakaoStartResult());
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+        given(startKakaoLoginService.start(List.of(), KAKAO_ORIGIN)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN))
             .andExpect(status().isOk())
             .andExpect(header().string("Cache-Control", "no-store"))
             .andExpect(header().doesNotExist("Set-Cookie"))
@@ -253,32 +254,59 @@ class AuthControllerTest {
 
     @Test
     void 헤더의_익명_토큰을_로그인_시작에_전달한다() throws Exception {
-        given(startKakaoLoginService.start(List.of("anonymous-token"))).willReturn(kakaoStartResult());
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
+        given(startKakaoLoginService.start(List.of("anonymous-token"), KAKAO_ORIGIN)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN)
                 .header("Authorization", "Bearer anonymous-token"))
             .andExpect(status().isOk());
-        verify(startKakaoLoginService).start(List.of("anonymous-token"));
+        verify(startKakaoLoginService).start(List.of("anonymous-token"), KAKAO_ORIGIN);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "Basic token", "Bearer ", "Bearer two tokens"})
     void 잘못된_인증_헤더를_인증_없는_요청으로_취급하지_않는다(String authorization) throws Exception {
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", authorization))
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN).header("Authorization", authorization))
             .andExpect(status().isUnauthorized());
         verifyNoInteractions(startKakaoLoginService);
     }
 
     @Test
     void 카카오_시작에서_만료된_익명_토큰은_401로_반환한다() throws Exception {
-        given(startKakaoLoginService.start(List.of("expired"))).willThrow(new UnauthorizedException("다시 접속해주세요"));
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", "Bearer expired"))
+        given(startKakaoLoginService.start(List.of("expired"), KAKAO_ORIGIN)).willThrow(new UnauthorizedException("다시 접속해주세요"));
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN).header("Authorization", "Bearer expired"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void Origin이_없고_Referer_출처가_있으면_Referer로_카카오_로그인을_시작한다() throws Exception {
+        given(startKakaoLoginService.start(List.of(), KAKAO_ORIGIN)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Referer", KAKAO_ORIGIN + "/login?next=/rooms"))
+            .andExpect(status().isOk());
+        verify(startKakaoLoginService).start(List.of(), KAKAO_ORIGIN);
+    }
+
+    @Test
+    void 출처를_판별할_수_없는_카카오_시작_요청은_401로_거절하고_서비스를_호출하지_않는다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("INVALID_SOCIAL_AUTH"));
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Referer", "not a url"))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN).header("Referer", "https://other.example/"))
+            .andExpect(status().isUnauthorized());
+        verifyNoInteractions(startKakaoLoginService);
+    }
+
+    @Test
+    void 등록되지_않은_출처는_서비스에서_거절한_401을_그대로_반환한다() throws Exception {
+        given(startKakaoLoginService.start(List.of(), "http://localhost:9999")).willThrow(SocialAuthException.invalid());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Referer", "http://localhost:9999/login"))
             .andExpect(status().isUnauthorized());
     }
 
     @Test
     void 카카오가_비활성이면_503을_반환한다() throws Exception {
-        given(startKakaoLoginService.start(List.of())).willThrow(SocialAuthException.unavailable());
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+        given(startKakaoLoginService.start(List.of(), KAKAO_ORIGIN)).willThrow(SocialAuthException.unavailable());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("SOCIAL_AUTH_UNAVAILABLE"));
     }
@@ -291,14 +319,14 @@ class AuthControllerTest {
     @Test
     void 카카오_시작은_본문의_복수_익명_토큰도_같은_목록으로_전달한다() throws Exception {
         List<String> tokens = List.of("first-token", "second-token");
-        given(startKakaoLoginService.start(tokens)).willReturn(kakaoStartResult());
+        given(startKakaoLoginService.start(tokens, KAKAO_ORIGIN)).willReturn(kakaoStartResult());
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"anonymousAccessTokens\":[\"first-token\",\"second-token\"]}"))
             .andExpect(status().isOk());
 
-        verify(startKakaoLoginService).start(tokens);
+        verify(startKakaoLoginService).start(tokens, KAKAO_ORIGIN);
     }
 
     @Test

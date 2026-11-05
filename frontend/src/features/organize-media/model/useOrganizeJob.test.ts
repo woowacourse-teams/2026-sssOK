@@ -188,7 +188,7 @@ describe("useOrganizeJob", () => {
     expect(result.current.blockedReason).toBe("지금 나누고 있어요");
   });
 
-  it("닫은 결과 알림은 다시 띄우지 않지만, 검토 기한 동안 새 정리는 막는다", async () => {
+  it("숨김 기록이 남아 있어도 방을 점유한 결과의 알림은 보여 준다", async () => {
     sessionStorage.setItem(`organize-dismissed:${ROOM_ID}`, JOB_ID);
     serve({
       current: { roomBusy: true, roomVersion: 2, myJob: jobOf({ status: "READY", jobVersion: 5 }) },
@@ -198,6 +198,22 @@ describe("useOrganizeJob", () => {
     await waitFor(() =>
       expect(result.current.blockedReason).toBe("확인하지 않은 정리 결과가 있어요"),
     );
+    expect(result.current.notice?.status).toBe("READY");
+  });
+
+  it("닫은 실패 알림은 다시 들어와도 띄우지 않는다", async () => {
+    sessionStorage.setItem(`organize-dismissed:${ROOM_ID}`, JOB_ID);
+    serve({
+      current: {
+        roomBusy: false,
+        roomVersion: 2,
+        myJob: jobOf({ status: "FAILED", jobVersion: 8 }),
+      },
+    });
+    const { result } = render();
+    await settle();
+
+    await waitFor(() => expect(result.current.blockedReason).toBeNull());
     expect(result.current.notice).toBeNull();
   });
 
@@ -330,7 +346,51 @@ describe("useOrganizeJob", () => {
     );
     expect(result.current.notice).toBeNull();
     expect(result.current.blockedReason).toBeNull();
-    expect(sessionStorage.getItem(`organize-dismissed:${ROOM_ID}`)).toBe(JOB_ID);
+    expect(sessionStorage.getItem(`organize-dismissed:${ROOM_ID}`)).toBeNull();
+  });
+
+  describe("결과 취소에 실패하면", () => {
+    const readyJob = jobOf({ status: "READY", jobVersion: 5 });
+
+    it("알림이 돌아와 다시 누를 수 있고, 성공하면 방이 풀린다", async () => {
+      const { requests } = serve({
+        current: { roomBusy: true, roomVersion: 2, myJob: readyJob },
+      });
+      server.use(
+        http.post(
+          `${BASE}/:jobId/cancel`,
+          () => HttpResponse.json({ code: "INTERNAL_ERROR", message: "" }, { status: 500 }),
+          { once: true },
+        ),
+      );
+      const { result } = render();
+      await waitFor(() => expect(result.current.notice?.status).toBe("READY"));
+
+      await act(async () => result.current.dismiss());
+
+      await waitFor(() => expect(result.current.notice?.status).toBe("READY"));
+      expect(result.current.error).toBe("결과를 취소하지 못했어요. 다시 시도해 주세요.");
+      expect(result.current.blockedReason).toBe("확인하지 않은 정리 결과가 있어요");
+
+      await act(async () => result.current.dismiss());
+
+      expect(requests.map((request) => request.path)).toEqual([`/${JOB_ID}/cancel`]);
+      await waitFor(() => expect(result.current.notice).toBeNull());
+      expect(result.current.blockedReason).toBeNull();
+      expect(result.current.error).toBeNull();
+    });
+
+    it("네트워크 탓이면 연결을 확인하라고 알린다", async () => {
+      serve({ current: { roomBusy: true, roomVersion: 2, myJob: readyJob } });
+      server.use(http.post(`${BASE}/:jobId/cancel`, () => HttpResponse.error(), { once: true }));
+      const { result } = render();
+      await waitFor(() => expect(result.current.notice?.status).toBe("READY"));
+
+      await act(async () => result.current.dismiss());
+
+      await waitFor(() => expect(result.current.error).toBe("네트워크 연결을 확인해 주세요."));
+      await waitFor(() => expect(result.current.notice?.status).toBe("READY"));
+    });
   });
 
   it("실패 알림을 닫으면 cancel 없이 숨기기만 한다", async () => {
