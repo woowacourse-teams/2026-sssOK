@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
-import {
-  HiArrowRightOnRectangle,
-  HiLink,
-  HiOutlineBell,
-  HiOutlineCog6Tooth,
-  HiPlus,
-} from "react-icons/hi2";
+import { HiArrowRightOnRectangle, HiLink, HiOutlineCog6Tooth, HiPlus } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 
 import { useMemberSessionQuery } from "@/entities/member-session";
@@ -25,7 +19,6 @@ import { JoinByLinkModal } from "./JoinByLinkModal";
 import { RoomCard } from "./RoomCard";
 import {
   AccountSlots,
-  BellSlot,
   Body,
   Chip,
   Chips,
@@ -61,9 +54,6 @@ const AccountActions = () => {
   const navigate = useNavigate();
   return (
     <AccountSlots>
-      <BellSlot aria-hidden="true">
-        <HiOutlineBell />
-      </BellSlot>
       <IconButton aria-label="설정" onClick={() => navigate(ROUTES.accountSettings)}>
         <HiOutlineCog6Tooth aria-hidden="true" />
       </IconButton>

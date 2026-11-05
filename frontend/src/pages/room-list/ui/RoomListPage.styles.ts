@@ -49,7 +49,7 @@ export const Logo = styled.span`
   }
 `;
 
-/** 좁은 화면은 맨 위 막대가 없어 알림·프로필 자리를 제목 줄 오른쪽에 둔다. */
+/** 좁은 화면은 맨 위 막대가 없어 설정 버튼을 제목 줄 오른쪽에 둔다. */
 export const MobileOnly = styled.div`
   ${DESKTOP} {
     display: none;
@@ -64,22 +64,6 @@ export const AccountSlots = styled.div`
 
   ${DESKTOP} {
     gap: ${spacing[12]};
-  }
-`;
-
-export const BellSlot = styled.span`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  color: ${colors.textStrong};
-
-  svg {
-    width: 24px;
-    height: 24px;
-    /* 굵은 제목 옆에서 얇은 선이 떠 보이지 않게 굵기를 올린다. */
-    stroke-width: 2;
   }
 `;
 
