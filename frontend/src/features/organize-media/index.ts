@@ -7,6 +7,7 @@ export type {
 export { ORGANIZE_PHOTO_LIMIT } from "./config";
 export {
   countAnalyzablePhotos,
+  hasProcessingPhotos,
   type OrganizeLimit,
   organizeLimitOf,
 } from "./model/analyzablePhotos";

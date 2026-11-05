@@ -137,6 +137,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     galleryItems: filteredItems,
     allGalleryItems,
     completedUploadIds,
+    isProcessingPhotos,
     totalCount,
     folderCounts,
     isPending,
@@ -193,6 +194,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 사진 정리
   const organize = useOrganizeJob({ roomId: room.roomId, token: accessToken });
+  /** 사진 처리가 다 끝나야 정리할 수 있다. 진행 중인 정리 같은 다른 사유가 있으면 그쪽을 먼저 보인다. */
+  const organizeBlockedReason =
+    organize.blockedReason ?? (isProcessingPhotos ? "사진을 처리하고 있어요" : null);
   /**
    * 정리를 시작하기 전에 장수 한도를 먼저 본다. 시트에서 방식까지 고른 뒤에 막히면 헛걸음이라서다.
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
@@ -318,7 +322,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
               search.searchByUploader(uploader);
               clearSelection();
             }}
-            organizeBlockedReason={organize.blockedReason}
+            organizeBlockedReason={organizeBlockedReason}
             onOrganize={() => beginOrganize(() => setIsOrganizeSheetOpen(true))}
             onOrganizeText={(text) => beginOrganize(() => void organize.start({ text }))}
             onOpenFolder={(folderId) => {
