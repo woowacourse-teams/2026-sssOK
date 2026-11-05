@@ -216,22 +216,22 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
           "kind" in request
             ? await startOrganizeJob({ roomId, token, kind: request.kind, idempotencyKey })
             : await startOrganizeJobByText({ roomId, token, text: request.text, idempotencyKey });
+        // 방 점유는 건드리지 않는다. 내 작업이 도는 동안은 isRunning 으로 막히고,
+        // 버전 없이 바꾸면 응답보다 먼저 온 점유 해제 이벤트를 덮어쓴다.
         applyJob(accepted);
-        // 방 점유 이벤트보다 응답이 먼저 올 수 있다. 버전은 이벤트가 오면 그때 맞춘다.
-        setRoom((current) => ({ ...current, busy: true }));
       } catch (cause) {
         const rejectedBy = limitOf(cause);
         if (rejectedBy) setLimit(rejectedBy);
         else setError(organizeErrorMessage(cause));
         if (isApiError(cause) && cause.code === ORGANIZE_ERROR_CODES.inProgress) {
-          setRoom((current) => ({ ...current, busy: true }));
+          void resync();
         }
       } finally {
         isStartingRef.current = false;
         setIsStarting(false);
       }
     },
-    [applyJob, roomId, token],
+    [applyJob, resync, roomId, token],
   );
 
   /** 실패한 작업을 같은 jobId 로 다시 돌린다. 기다려야 하면 남은 시간을 알린다. */
