@@ -168,7 +168,7 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 | 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URIS / ADMIN_KEY |
 | 애플 | code → ID 토큰 서명·issuer·audience·expiration·issued-at·nonce 검증 → sub | OAUTH_APPLE_ENABLED / CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY / REDIRECT_URI |
 
-표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 웹 리다이렉트는 HTTPS만 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다.
+표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 웹 리다이렉트는 HTTPS를 기본으로 허용하며, 카카오의 명시적으로 등록한 HTTP localhost 콜백만 예외로 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다.
 
 ### 카카오 콜백 설정 (`OAUTH_KAKAO_REDIRECT_URIS`)
 
@@ -187,7 +187,7 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 **전환 순서** (이전 코드는 새 키를, 새 코드는 옛 키를 읽지 않으므로 이 순서면 중단 없이 바꿀 수 있다)
 
 1. 카카오 콘솔에 localhost 콜백을 추가한다. 기존 dev·운영 주소는 유지한다.
-2. 서버 환경변수에 `OAUTH_KAKAO_REDIRECT_URIS`를 추가한다. 옛 `OAUTH_KAKAO_REDIRECT_URI`는 아직 지운다.
+2. 서버 환경변수에 `OAUTH_KAKAO_REDIRECT_URIS`를 추가한다. 옛 `OAUTH_KAKAO_REDIRECT_URI`는 이전 코드 실행과 롤백을 위해 아직 유지한다.
 3. 이 변경을 배포한다. 새 설정이 잘못되면 기동 단계에서 실패하므로 헬스체크로 확인한다.
 4. 배포가 안정되면 `OAUTH_KAKAO_REDIRECT_URI`를 제거한다.
 
