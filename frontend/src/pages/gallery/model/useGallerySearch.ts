@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { GalleryItem } from "@/entities/media";
-import { type SearchType, useMediaSearchQuery } from "@/features/search-media";
+import { type SearchType, type Uploader, useMediaSearchQuery } from "@/features/search-media";
 import { isApiError } from "@/shared/api";
 import { track } from "@/shared/lib";
 
@@ -29,6 +29,26 @@ const filterByNickname = (items: GalleryItem[], query: string) => {
   );
 };
 
+// 목록에서 고른 사람은 이름이 겹쳐도 그 사람 사진만 보여야 해서 id 로 거른다.
+const filterByUploaderId = (items: GalleryItem[], uploaderId: number) =>
+  items.filter((item) => item.type === "server" && item.media.uploaderId === uploaderId);
+
+// 방에 사진을 올린 사람과 장수 -> 올린 사람으로 찾을 때 고를 수 있는 목록이다.
+const collectUploaders = (items: GalleryItem[], userId: number): Uploader[] => {
+  const uploaders = new Map<number, Uploader>();
+  for (const item of items) {
+    if (item.type !== "server" || !item.media.uploaderName) continue;
+    const { uploaderName: name, uploaderId: id } = item.media;
+    uploaders.set(id, {
+      id,
+      name,
+      count: (uploaders.get(id)?.count ?? 0) + 1,
+      isMe: id === userId,
+    });
+  }
+  return [...uploaders.values()];
+};
+
 // 헤더 검색창의 상태와 결과
 export const useGallerySearch = ({
   roomId,
@@ -40,6 +60,8 @@ export const useGallerySearch = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchType, setSearchType] = useState<SearchType>("keyword");
   const [query, setQuery] = useState("");
+  // 요청 패널에서 고른 올린 사람. 이름을 직접 입력해 찾을 때는 null 이다.
+  const [uploaderId, setUploaderId] = useState<number | null>(null);
   const [submitCount, setSubmitCount] = useState(0);
   const pendingRef = useRef<PendingSubmission | null>(null);
   const isKeywordSearch = searchType === "keyword";
@@ -56,7 +78,11 @@ export const useGallerySearch = ({
 
   const searchedItems = useMemo(() => {
     if (!isSearching) return items;
-    if (!isKeywordSearch) return filterByNickname(allItems, query);
+    if (!isKeywordSearch) {
+      return uploaderId === null
+        ? filterByNickname(allItems, query)
+        : filterByUploaderId(allItems, uploaderId);
+    }
     if (!searchQuery.data) return [];
 
     // 서버가 유사도 높은 순으로 내려주므로 응답 순서가 곧 순위다.
@@ -65,7 +91,7 @@ export const useGallerySearch = ({
     return allItems
       .filter((item) => rankById.has(item.mediaId))
       .sort((a, b) => (rankById.get(a.mediaId) ?? 0) - (rankById.get(b.mediaId) ?? 0));
-  }, [isSearching, isKeywordSearch, query, items, allItems, searchQuery.data]);
+  }, [isSearching, isKeywordSearch, query, uploaderId, items, allItems, searchQuery.data]);
 
   useEffect(() => {
     const pending = pendingRef.current;
@@ -94,6 +120,11 @@ export const useGallerySearch = ({
     searchedItems.length,
   ]);
 
+  const uploaders = useMemo(() => collectUploaders(allItems, userId), [allItems, userId]);
+
+  // 결과를 보는 동안 입력창에 남겨 둘 글
+  const appliedText = isSearching ? query : null;
+
   const errorMessage =
     isApiError(searchQuery.error) && searchQuery.error.code === "IMAGE_SEARCH_UNAVAILABLE"
       ? "지금은 사진 검색을 쓸 수 없어요."
@@ -102,11 +133,14 @@ export const useGallerySearch = ({
   const resetQuery = () => {
     pendingRef.current = null;
     setQuery("");
+    setUploaderId(null);
   };
 
   return {
     isSearchOpen,
     isSearching,
+    appliedText,
+    uploaders,
     searchType,
     query,
     items: searchedItems,
@@ -124,6 +158,7 @@ export const useGallerySearch = ({
     },
     search: (nextQuery: string) => {
       setQuery(nextQuery);
+      setUploaderId(null);
 
       if (!isKeywordSearch) {
         track("Photo Searched", {
@@ -136,6 +171,36 @@ export const useGallerySearch = ({
 
       pendingRef.current = { query: nextQuery, startedAt: performance.now() };
       setSubmitCount((count) => count + 1);
+    },
+
+    searchBy: (nextSearchType: SearchType, nextQuery: string) => {
+      setSearchType(nextSearchType);
+      setQuery(nextQuery);
+      setUploaderId(null);
+
+      if (nextSearchType === "nickname") {
+        track("Photo Searched", {
+          search_type: "nickname",
+          query_length: nextQuery.length,
+          result_count: filterByNickname(allItems, nextQuery).length,
+        });
+        return;
+      }
+
+      pendingRef.current = { query: nextQuery, startedAt: performance.now() };
+      setSubmitCount((count) => count + 1);
+    },
+    /** 요청 패널에서 고른 사람이 올린 사진만 찾는다. 입력창에는 그 사람 이름을 남긴다. */
+    searchByUploader: (uploader: Pick<Uploader, "id" | "name">) => {
+      pendingRef.current = null;
+      setSearchType("nickname");
+      setQuery(uploader.name);
+      setUploaderId(uploader.id);
+      track("Photo Searched", {
+        search_type: "nickname",
+        query_length: uploader.name.length,
+        result_count: filterByUploaderId(allItems, uploader.id).length,
+      });
     },
     closeSearch: () => {
       setIsSearchOpen(false);

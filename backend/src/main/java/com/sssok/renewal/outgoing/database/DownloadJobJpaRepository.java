@@ -13,6 +13,20 @@ public interface DownloadJobJpaRepository extends JpaRepository<DownloadJobJpaEn
 
     List<DownloadJobJpaEntity> findAllByStatusAndReadyAtBefore(String status, Instant threshold);
 
+    // 진행률을 남기면 updated_at 이 갱신되므로, 살아 있는 압축은 조건에서 빠진다.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+        UPDATE download_job
+        SET status = :failed, failure_reason = :reason, updated_at = now()
+        WHERE status IN (:activeStatuses) AND updated_at < :threshold
+        """, nativeQuery = true)
+    int failStaleActive(
+        @Param("activeStatuses") List<String> activeStatuses,
+        @Param("failed") String failed,
+        @Param("reason") String reason,
+        @Param("threshold") Instant threshold
+    );
+
     @Modifying(flushAutomatically = true)
     @Query(value = """
         UPDATE download_job

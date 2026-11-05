@@ -56,7 +56,14 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 
 - 요청 본문은 선택 사항이다. 익명 활동 연결 시 `Authorization: Bearer {anonymousAccessToken}`을 전달하거나, 본문의 `anonymousAccessTokens` 배열로 여러 익명 access token을 전달한다. 각 토큰을 검증하고 회원 중복을 제거하며, 최대 100개까지 받는다. 헤더와 본문을 함께 보내면 합쳐서 처리한다.
 - 잘못된 인증 헤더를 인증 없는 요청으로 낮춰 처리하지 않는다.
-- memberId, redirectUri, clientId는 요청에서 받지 않는다. 현재 웹 계약은 서버 설정의 리다이렉트만 사용한다.
+- memberId, redirectUri, clientId는 요청에서 받지 않는다. 요청·응답 본문은 그대로이며, 콜백은 아래 규칙으로 서버가 고른다.
+- 콜백 선택: 요청의 `Origin` 헤더(없을 때만 `Referer`의 scheme·host·port)로 로그인을 시작한 웹 출처를 판별하고, 서버에 등록된 그 출처의 전체 콜백 주소를 `redirect_uri`로 쓴다. 요청 값으로 주소를 조합하지 않는다.
+  - `Origin`이 있으면 그 값만 기준이다. 빈 값·문자열 `null`·형식 오류·미등록 출처는 `Referer`로 우회하지 않고 거절한다.
+  - 두 헤더가 모두 있으면 `Referer`도 검증하며 출처가 다르면 거절한다.
+  - 둘 다 없거나, 헤더가 중복되거나, 경로·사용자 정보·fragment가 섞인 `Origin`이면 거절한다. 기존 고정 주소로 되돌리는 fallback은 없다.
+  - 거절은 기존 소셜 인증 오류 계약인 `401 INVALID_SOCIAL_AUTH`다. 단, 허용 목록(CORS)에 없는 `Origin`은 CORS 단계에서 먼저 `403`으로 막힌다.
+  - 이 헤더는 콜백 선택 정보일 뿐이며 사용자 인증이나 state·loginVerifier 검증을 대신하지 않는다.
+- 선택한 콜백은 로그인 시도에 저장하고 인가 URL, 완료 시 허용 목록 재검증, 카카오 토큰 교환의 `redirect_uri`까지 같은 값을 쓴다. 로그인 완료 요청은 주소를 받지 않고 헤더로 다시 고르지도 않는다. 저장된 주소가 설정에서 빠졌으면 완료를 거절한다.
 - 성공: `200 OK`, `Cache-Control: no-store`.
 
 ```json
@@ -158,10 +165,39 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 
 | 제공자 | 확인 절차 | 설정 |
 | --- | --- | --- |
-| 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URI / ADMIN_KEY |
+| 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URIS / ADMIN_KEY |
 | 애플 | code → ID 토큰 서명·issuer·audience·expiration·issued-at·nonce 검증 → sub | OAUTH_APPLE_ENABLED / CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY / REDIRECT_URI |
 
-표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 현재 웹 리다이렉트는 HTTPS만 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다.
+표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 웹 리다이렉트는 HTTPS를 기본으로 허용하며, 카카오의 명시적으로 등록한 HTTP localhost 콜백만 예외로 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다.
+
+### 카카오 콜백 설정 (`OAUTH_KAKAO_REDIRECT_URIS`)
+
+기존 단일 `OAUTH_KAKAO_REDIRECT_URI`를 대체한다. 허용할 콜백의 전체 주소를 쉼표로 나열하며, 각 주소의 출처(scheme://host[:port])가 요청 출처와 정확히 비교되는 매핑 키가 된다. 키와 콜백의 출처는 같은 주소에서 만들어지므로 항상 일치한다.
+
+| 백엔드 환경 | 설정 값 |
+| --- | --- |
+| dev | `https://dev.ssssok.com/app/auth/callback/kakao,http://localhost:3000/app/auth/callback/kakao` |
+| 운영 | `https://www.ssssok.com/app/auth/callback/kakao` |
+
+- 카카오 활성화 시 기동 단계에서 검증하며 하나라도 어긋나면 서버가 시작하지 않는다. 목록이 비어 있거나, HTTPS가 아닌 주소(예외: 정확히 `localhost` 호스트의 HTTP), 사용자 정보·fragment가 있는 주소, 경로가 없는 주소, 같은 출처의 중복을 거절한다. `127.0.0.1`, `localhost.example.com`, 임의 포트·서브도메인 와일드카드는 허용하지 않는다.
+- 추가 로컬 포트가 필요하면 이 목록과 카카오 콘솔에 전체 주소를 명시적으로 추가한다. 운영에는 localhost를 등록하지 않는다.
+- 애플은 기존 `OAUTH_APPLE_REDIRECT_URI` 단일 주소와 HTTPS 검증을 그대로 쓴다.
+- 백엔드 매핑과 카카오 콘솔 Redirect URI는 별개 허용 설정이며 전체 주소가 정확히 일치해야 한다. CORS 허용 출처(`CORS_ALLOWED_ORIGINS`)도 각 출처를 포함해야 하지만 콜백 선택을 대신하지 않는다.
+
+**전환 순서** (이전 코드는 새 키를, 새 코드는 옛 키를 읽지 않으므로 이 순서면 중단 없이 바꿀 수 있다)
+
+1. 카카오 콘솔에 localhost 콜백을 추가한다. 기존 dev·운영 주소는 유지한다.
+2. 서버 환경변수에 `OAUTH_KAKAO_REDIRECT_URIS`를 추가한다. 옛 `OAUTH_KAKAO_REDIRECT_URI`는 이전 코드 실행과 롤백을 위해 아직 유지한다.
+3. 이 변경을 배포한다. 새 설정이 잘못되면 기동 단계에서 실패하므로 헬스체크로 확인한다.
+4. 배포가 안정되면 `OAUTH_KAKAO_REDIRECT_URI`를 제거한다.
+
+### 요청 헤더 지원 범위
+
+브라우저는 교차 출처 `fetch`/XHR POST에 `Origin`을 보내고, 기본 `Referrer-Policy`(`strict-origin-when-cross-origin`)에서는 교차 출처에 출처만 담은 `Referer`도 보낸다. 따라서 dev 웹과 localhost에서 백엔드를 직접 호출하면 `Origin`으로 구분된다.
+
+`frontend/webpack.config.js`의 `API_PROXY=1` 개발 프록시는 `Origin`을 제거한다. `Referer`는 코드상 제거하지 않지만 프록시를 거쳐 실제로 도착하는지는 서버에서 확인해야 한다. 프록시에서 두 헤더가 모두 사라지면 백엔드만으로 출처를 구분할 수 없어 시작 요청이 거절되며, 이 경우 지원하지 않는다. 프론트 코드와 프록시 설정은 이 작업에서 바꾸지 않는다.
+
+> 실제 dev 서버·카카오 콘솔 설정 적용 후 (1) dev 웹, (2) localhost 직접 호출, (3) localhost 프록시 호출에서 도착한 `Origin`·`Referer`와 로그인 완료·refresh 결과를 이 절에 기록한다. 아직 확인하지 않았다.
 
 애플 서명 검증 공개키는 고정된 Apple 키 주소에서 조회하고 1시간 캐시한다. 알 수 없는 kid에 대한 재조회는 1분 간격으로 제한한다. client secret은 설정된 PKCS#8 EC 개인키로 5분 유효한 ES256 JWT를 생성한다. 비밀 설정은 저장소에 커밋하지 않는다.
 

@@ -4,6 +4,8 @@ import com.sssok.application.admin.exception.AdminLoginRateLimitedException;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
 import com.sssok.common.logging.LogContext;
+import com.sssok.renewal.application.organization.job.OrganizeJobInProgressException;
+import com.sssok.renewal.application.organization.job.OrganizeRateLimitedException;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -36,6 +38,25 @@ public class GlobalExceptionHandler {
         return errorResponse(errorCode)
             .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
             .body(new ErrorResponse(errorCode.name(), e.getMessage()));
+    }
+
+    @ExceptionHandler(OrganizeRateLimitedException.class)
+    public ResponseEntity<ErrorResponse> handleOrganizeRateLimited(OrganizeRateLimitedException e) {
+        ErrorCode errorCode = e.errorCode();
+        record(errorCode, e);
+        return errorResponse(errorCode)
+            .header(HttpHeaders.RETRY_AFTER, String.valueOf(e.retryAfterSeconds()))
+            .body(new ErrorResponse(errorCode.name(), e.getMessage()));
+    }
+
+    // 진행 중인 작업이 요청자 본인의 것이면 그 ID 를 함께 내려 진행 화면으로 보낼 수 있게 한다.
+    @ExceptionHandler(OrganizeJobInProgressException.class)
+    public ResponseEntity<OrganizeInProgressErrorResponse> handleOrganizeInProgress(
+        OrganizeJobInProgressException e) {
+        ErrorCode errorCode = e.errorCode();
+        record(errorCode, e);
+        return errorResponse(errorCode)
+            .body(new OrganizeInProgressErrorResponse(errorCode.name(), e.getMessage(), e.activeJobId()));
     }
 
     // 메시지는 예외를 만들 때 이미 완성돼 있어 ErrorCode 가 아닌 예외에서 꺼낸다.

@@ -14,7 +14,7 @@ class Settings:
     input_root: Path | None = None
     download_hosts: tuple[str, ...] = ()
     allowed_hosts: tuple[str, ...] = ('127.0.0.1:*', 'localhost:*')
-    max_photos: int = 100
+    max_photos: int = 200
     max_queue: int = 8
     max_photo_bytes: int = 30 * 1024 * 1024
     max_job_bytes: int = 300 * 1024 * 1024
@@ -70,7 +70,7 @@ class Settings:
             token=token, input_root=Path(input_path).resolve() if input_path else None,
             download_hosts=csv('GALLERY_DOWNLOAD_HOSTS'),
             allowed_hosts=csv('GALLERY_ALLOWED_HOSTS', '127.0.0.1:*,localhost:*'),
-            max_photos=int(os.environ.get('GALLERY_MAX_PHOTOS', '100')),
+            max_photos=int(os.environ.get('GALLERY_MAX_PHOTOS', '200')),
             timeout=int(os.environ.get('GALLERY_JOB_TIMEOUT', '600')),
             threads=int(os.environ.get('GALLERY_THREADS', '2')),
             backend_url=os.environ.get('GALLERY_BACKEND_URL') or None,

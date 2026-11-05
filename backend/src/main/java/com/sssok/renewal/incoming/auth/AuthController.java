@@ -52,15 +52,20 @@ public class AuthController {
     private final CompleteSocialLoginService completeSocialLoginService;
 
     @Operation(summary = "카카오 로그인 시작", description = "카카오 로그인 URL과 일회용 확인값을 발급한다. "
+        + "요청의 Origin 헤더(없을 때만 Referer)로 로그인을 시작한 웹 출처를 판별해, 서버에 등록된 그 출처의 카카오 콜백으로 돌아오는 URL을 만든다. "
+        + "등록되지 않았거나 판별할 수 없는 출처, 두 헤더가 서로 다른 출처이거나 중복·형식 오류인 요청, 두 헤더가 모두 없는 요청은 401로 거절한다. "
+        + "단, CORS_ALLOWED_ORIGINS에 없는 Origin은 컨트롤러 실행 전 CORS 단계에서 403으로 거절된다. "
         + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다. "
         + "헤더와 본문의 익명 토큰 목록을 생략하면 익명 활동을 연결하지 않는다. 이 API만으로 가입이나 로그인이 완료되지는 않는다.")
     @PostMapping("/oauth/kakao/start")
     public ResponseEntity<ApiResponse<SocialLoginStartResponse>> startKakaoLogin(
         @RequestHeader(value = "Authorization", required = false) String authorization,
-        @Valid @RequestBody(required = false) SocialLoginStartRequest request
+        @Valid @RequestBody(required = false) SocialLoginStartRequest request,
+        HttpServletRequest httpRequest
     ) {
+        String requestOrigin = KakaoLoginOriginResolver.resolve(httpRequest);
         List<String> tokens = anonymousTokens(authorization, request);
-        SocialLoginStartResponse response = SocialLoginStartResponse.from(startKakaoLoginService.start(tokens));
+        SocialLoginStartResponse response = SocialLoginStartResponse.from(startKakaoLoginService.start(tokens, requestOrigin));
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
     }
 

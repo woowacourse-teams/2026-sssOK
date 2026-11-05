@@ -3,6 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import { photosQueryKey, type Media, type MediaList } from "@/entities/media";
+import type { OrganizeJobUpdatedEvent, OrganizeRoomChangedEvent } from "./roomEventTypes";
 import { useRoomEvents } from "./useRoomEvents";
 
 class FakeEventSource {
@@ -24,13 +25,16 @@ class FakeEventSource {
 
   close() {}
 
-  emit(type: string, data: unknown) {
+  emit(type: string, data?: unknown) {
     const event = new MessageEvent(type, { data: JSON.stringify(data) });
     this.listeners.get(type)?.forEach((listener) => listener(event));
   }
 }
 
 const renderRoomEvents = (callbacks: {
+  onOrganizeRoomChanged?: (event: OrganizeRoomChangedEvent) => void;
+  onOrganizeJobUpdated?: (event: OrganizeJobUpdatedEvent) => void;
+  onReconnected?: () => void;
   onMediaCreated?: (media: Media) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
@@ -147,5 +151,35 @@ describe("useRoomEvents 좋아요 이벤트", () => {
       likeCount: 4,
       likedByMe: true,
     });
+  });
+});
+
+describe("useRoomEvents 사진 정리 이벤트", () => {
+  it("방 점유와 내 작업 이벤트를 받은 그대로 넘긴다", () => {
+    const onOrganizeRoomChanged = jest.fn();
+    const onOrganizeJobUpdated = jest.fn();
+    const { source } = renderRoomEvents({ onOrganizeRoomChanged, onOrganizeJobUpdated });
+
+    source.emit("organize.room.changed", { roomId: 1, roomVersion: 8, busy: true });
+    source.emit("organize.job.updated", { jobId: "job", jobVersion: 3, status: "RUNNING" });
+
+    expect(onOrganizeRoomChanged).toHaveBeenCalledWith({ roomId: 1, roomVersion: 8, busy: true });
+    expect(onOrganizeJobUpdated).toHaveBeenCalledWith({
+      jobId: "job",
+      jobVersion: 3,
+      status: "RUNNING",
+    });
+  });
+
+  it("끊겼다 다시 붙었을 때만 재연결을 알린다", () => {
+    const onReconnected = jest.fn();
+    const { source } = renderRoomEvents({ onReconnected });
+
+    source.emit("open");
+    expect(onReconnected).not.toHaveBeenCalled();
+
+    source.emit("error");
+    source.emit("open");
+    expect(onReconnected).toHaveBeenCalledTimes(1);
   });
 });

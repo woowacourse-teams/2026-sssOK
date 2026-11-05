@@ -9,6 +9,7 @@ import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.infrastructure.config.DerivativeImageProperties;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -38,11 +39,25 @@ public class MediaDeleter {
 
     // 행을 먼저 지우고 스토리지를 정리한다. 순서를 뒤집으면 스토리지를 치운 뒤 행이 지워지기
     // 전에 워커가 썸네일을 올려 고아 객체가 남는다.
+    //
+    // folder_media·media_like 보다 stored_file 을 먼저 id 순으로 잠근다. 관리자 신고 삭제와
+    // 썸네일 워커도 stored_file 부터 잠그므로, 순서를 맞추지 않으면 폴더에 담긴 같은 사진을
+    // 동시에 지울 때 서로의 잠금을 기다리다 교착으로 한쪽이 실패한다. 잠그는 사이 다른 요청이
+    // 먼저 지운 사진은 빼고 남은 것만 지운다.
     @Transactional
     public void delete(Long roomId, List<StoredFile> files) {
-        List<StorageKey> orphaned = orphanedKeysOf(files);
+        Set<Long> lockedIds = new HashSet<>(
+            fileRepository.lockExistingIds(files.stream().map(StoredFile::getId).toList()));
+        List<StoredFile> existing = files.stream()
+            .filter(file -> lockedIds.contains(file.getId()))
+            .toList();
+        if (existing.isEmpty()) {
+            return;
+        }
+
+        List<StorageKey> orphaned = orphanedKeysOf(existing);
         orphanObjectCollector.enqueue(orphaned);
-        List<Long> mediaIds = files.stream().map(StoredFile::getId).toList();
+        List<Long> mediaIds = existing.stream().map(StoredFile::getId).toList();
         folderMediaRepository.detachFromAllFolders(mediaIds);
         mediaLikeRepository.deleteAllByMediaIds(mediaIds);
         fileRepository.deleteAllByIdIn(mediaIds);

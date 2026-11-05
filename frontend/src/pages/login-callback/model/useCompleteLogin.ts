@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
 import { myRoomsQueryKey } from "@/entities/room";
 import { removeRoomSession } from "@/entities/session";
+import { takeLoginReturn } from "@/shared/lib";
 import { captureLoginCallback, completeLogin } from "../api/completeLogin";
 
 export const useCompleteLogin = () => {
   const client = useQueryClient();
   const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
   const [error, setError] = useState("");
+  /** 로그인을 시작한 방. 렌더마다 꺼내면 두 번째 렌더에서 사라지므로 완료할 때 한 번만 꺼낸다. */
+  const [returnTo, setReturnTo] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -28,6 +31,7 @@ export const useCompleteLogin = () => {
         } catch {
           // 저장소가 차단돼도 서버에서 완료된 회원 로그인을 실패로 되돌리지 않는다.
         }
+        setReturnTo(takeLoginReturn());
         setStatus("success");
       })
       .catch((error: unknown) => {
@@ -40,5 +44,5 @@ export const useCompleteLogin = () => {
     };
   }, [client]);
 
-  return { status, error };
+  return { status, error, returnTo };
 };

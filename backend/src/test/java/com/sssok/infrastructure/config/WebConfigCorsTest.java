@@ -106,13 +106,14 @@ class WebConfigCorsTest {
     }
 
     @Test
-    void 요청_ID_헤더는_교차_오리진_응답에서도_읽을_수_있게_노출된다() throws Exception {
+    void 요청_ID와_재시도_대기_헤더는_교차_오리진_응답에서도_읽을_수_있게_노출된다() throws Exception {
         given(getRoomService.getByCode(eq(new RoomCode(CODE)), isNull())).willReturn(roomDetail());
 
         mockMvc.perform(get("/api/v1/rooms/{code}", CODE)
                 .header("Origin", ALLOWED_ORIGIN))
             .andExpect(status().isOk())
-            .andExpect(header().string("Access-Control-Expose-Headers", RequestLoggingFilter.REQUEST_ID_HEADER));
+            .andExpect(header().string("Access-Control-Expose-Headers",
+                RequestLoggingFilter.REQUEST_ID_HEADER + ", Retry-After"));
     }
 
     private RoomDetail roomDetail() {

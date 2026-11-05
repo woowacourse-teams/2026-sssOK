@@ -87,6 +87,29 @@ class ThumbnailDispatcherTest {
     }
 
     @Test
+    void 종료가_시작되면_선점한_사진만_마치고_다음_작업은_선점하지_않는다() {
+        ThumbnailClaim first = claim(ThumbnailKind.IMAGE);
+        ThumbnailClaim second = claim(ThumbnailKind.IMAGE);
+        when(thumbnailJobService.claimNext(ThumbnailKind.IMAGE)).thenReturn(Optional.of(first), Optional.of(second));
+        when(thumbnailJobService.claimNext(ThumbnailKind.VIDEO)).thenReturn(Optional.empty());
+        List<Runnable> tasks = new ArrayList<>();
+        doAnswer(invocation -> { tasks.add(invocation.getArgument(0)); return null; })
+            .when(images).execute(any(Runnable.class));
+        doAnswer(invocation -> { dispatcher.stopClaiming(); return null; })
+            .when(generator).generate(first, Source.INITIAL);
+        dispatcher.dispatchPendingJobs();
+
+        tasks.getFirst().run();
+
+        verify(generator).generate(first, Source.INITIAL);
+        verify(generator, never()).generate(second, Source.INITIAL);
+        verify(thumbnailJobService, times(1)).claimNext(ThumbnailKind.IMAGE);
+        dispatcher.dispatchPendingJobs();
+        verify(thumbnailJobService, times(1)).claimNext(ThumbnailKind.IMAGE);
+        verify(images, times(1)).execute(any(Runnable.class));
+    }
+
+    @Test
     void 연속처리중_선점오류가_나도_슬롯을_반환한다() {
         ThumbnailClaim first = claim(ThumbnailKind.IMAGE);
         when(thumbnailJobService.claimNext(ThumbnailKind.IMAGE)).thenReturn(Optional.of(first))
