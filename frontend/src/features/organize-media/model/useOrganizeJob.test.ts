@@ -396,6 +396,141 @@ describe("useOrganizeJob", () => {
     expect(resultCalls).toBe(2);
   });
 
+  describe("apply", () => {
+    const GROUPS = [{ groupId: "person_0", folderName: "하루", mediaIds: [1, 2] }];
+    const readyCurrent: OrganizeCurrent = {
+      roomBusy: true,
+      roomVersion: 2,
+      myJob: jobOf({ status: "READY", jobVersion: 5 }),
+    };
+
+    const serveApply = (respond: () => Response) => {
+      const applies: { body: unknown; key: string | null }[] = [];
+      server.use(
+        http.post(`${BASE}/:jobId/apply`, async ({ request }) => {
+          applies.push({
+            body: await request.json(),
+            key: request.headers.get("Idempotency-Key"),
+          });
+          return respond();
+        }),
+      );
+      return applies;
+    };
+
+    it("고른 그룹을 보내고, 성공하면 만든 폴더를 돌려주며 알림을 닫고 방을 풀어 준다", async () => {
+      serve({ current: readyCurrent });
+      const applies = serveApply(() =>
+        HttpResponse.json({
+          data: {
+            jobId: JOB_ID,
+            status: "APPLIED",
+            folders: [{ folderId: 77, folderName: "하루", mediaIds: [1, 2] }],
+          },
+        }),
+      );
+      const { result } = render();
+      await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+
+      let applied: Awaited<ReturnType<typeof result.current.apply>> = null;
+      await act(async () => {
+        applied = await result.current.apply(GROUPS);
+      });
+
+      expect(applies).toEqual([{ body: { groups: GROUPS }, key: expect.any(String) }]);
+      expect(applied).toMatchObject({ folders: [{ folderId: 77, folderName: "하루" }] });
+      expect(result.current.notice).toBeNull();
+      expect(result.current.review).toBeNull();
+      expect(result.current.blockedReason).toBeNull();
+
+      // 반영 전 READY 이벤트가 늦게 와도 알림을 되살리지 않는다.
+      act(() => result.current.applyJobUpdate({ ...readyCurrent.myJob!, jobVersion: 5 }));
+      expect(result.current.notice).toBeNull();
+    });
+
+    it("실패하면 검토 상태에 남아 까닭을 알리고, 같은 내용으로 다시 보낼 때 같은 키를 쓴다", async () => {
+      serve({ current: readyCurrent });
+      let failsLeft = 1;
+      const applies = serveApply(() => {
+        if (failsLeft > 0) {
+          failsLeft -= 1;
+          return HttpResponse.json(
+            { code: "ORGANIZE_FOLDER_NAME_CONFLICT", message: "x" },
+            { status: 409 },
+          );
+        }
+        return HttpResponse.json({ data: { jobId: JOB_ID, status: "APPLIED", folders: [] } });
+      });
+      const { result } = render();
+      await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+
+      await act(async () => {
+        await result.current.apply(GROUPS);
+      });
+
+      expect(result.current.applyError).toBe("같은 이름의 폴더가 이미 있어요. 이름을 바꿔 주세요.");
+      expect(result.current.review?.state).toBe("ready");
+      expect(result.current.isApplying).toBe(false);
+
+      await act(async () => {
+        await result.current.apply(GROUPS);
+      });
+
+      expect(applies).toHaveLength(2);
+      expect(applies[1].key).toBe(applies[0].key);
+    });
+
+    it("내용이 바뀌면 새 키로 보낸다", async () => {
+      serve({ current: readyCurrent });
+      const applies = serveApply(() =>
+        HttpResponse.json({ code: "INTERNAL", message: "x" }, { status: 500 }),
+      );
+      const { result } = render();
+      await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+
+      await act(async () => {
+        await result.current.apply(GROUPS);
+      });
+      await act(async () => {
+        await result.current.apply([{ ...GROUPS[0], mediaIds: [1] }]);
+      });
+
+      expect(applies[1].key).not.toBe(applies[0].key);
+    });
+
+    it("검토 기한이 지났으면 현재 상태를 다시 읽는다", async () => {
+      let currentCalls = 0;
+      serve({ current: readyCurrent });
+      server.use(
+        http.get(`${BASE}/current`, () => {
+          currentCalls += 1;
+          return HttpResponse.json({
+            data:
+              currentCalls === 1
+                ? readyCurrent
+                : {
+                    roomBusy: false,
+                    roomVersion: 3,
+                    myJob: jobOf({ status: "EXPIRED", jobVersion: 6 }),
+                  },
+          });
+        }),
+      );
+      serveApply(() =>
+        HttpResponse.json({ code: "ORGANIZE_REVIEW_EXPIRED", message: "x" }, { status: 410 }),
+      );
+      const { result } = render();
+      await waitFor(() => expect(result.current.review?.state).toBe("ready"));
+
+      await act(async () => {
+        await result.current.apply(GROUPS);
+      });
+
+      expect(result.current.applyError).toBe("확인할 수 있는 시간이 지났어요. 다시 정리해 주세요.");
+      await waitFor(() => expect(result.current.review).toBeNull());
+    });
+  });
+
   it("서버가 200장 초과로 거절하면 토스트 대신 모달용 까닭을 남긴다", async () => {
     serve();
     server.use(

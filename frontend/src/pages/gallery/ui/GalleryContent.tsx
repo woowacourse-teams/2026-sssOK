@@ -51,6 +51,8 @@ import {
   Page,
 } from "./GalleryPage.styles";
 
+const CREATED_FOLDER_TOAST_MS = 2500;
+
 interface GalleryContentProps {
   room: Room;
   accessToken: string;
@@ -116,6 +118,14 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
   const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
+  const [createdFolderCount, setCreatedFolderCount] = useState<number | null>(null);
+
+  // 폴더를 만들었다는 알림은 잠깐 보여 주고 스스로 닫는다. 닫기 버튼은 두지 않는다.
+  useEffect(() => {
+    if (createdFolderCount === null) return;
+    const timer = window.setTimeout(() => setCreatedFolderCount(null), CREATED_FOLDER_TOAST_MS);
+    return () => window.clearTimeout(timer);
+  }, [createdFolderCount]);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -492,8 +502,21 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           folderNames={room.folders.map((folder) => folder.name)}
           onClose={() => setIsPersonReviewOpen(false)}
           onRetry={organize.reloadResult}
-          // 폴더 반영은 #684 에서 붙인다.
-          onSubmit={() => undefined}
+          isSubmitting={organize.isApplying}
+          submitError={organize.applyError}
+          onDismissError={organize.clearApplyError}
+          // 반영이 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다.
+          onSubmit={async (groups) => {
+            const applied = await organize.apply(groups);
+            if (!applied) return;
+            setIsPersonReviewOpen(false);
+            search.closeSearch();
+            clearSelection();
+            await Promise.all([refreshRoom(), refreshPhotos()]);
+            const [first] = applied.folders;
+            if (first) selectFolder(first.folderId);
+            setCreatedFolderCount(applied.folders.length);
+          }}
         />
       )}
 
@@ -653,6 +676,14 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           tone="error"
           message={`‘${failedFolderName}’ 폴더를 삭제하지 못했어요.`}
           onClose={() => setFailedFolderName(null)}
+        />
+      )}
+
+      {createdFolderCount !== null && (
+        <Toast
+          message={`폴더 ${createdFolderCount}개를 만들었어요`}
+          showClose={false}
+          onClose={() => setCreatedFolderCount(null)}
         />
       )}
 

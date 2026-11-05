@@ -1,6 +1,7 @@
 import type { MediaItem } from "@/entities/media";
 import type { OrganizeGroup } from "../api/types";
 import {
+  applyGroupsOf,
   createPersonReview,
   footerOf,
   includedPhotos,
@@ -85,5 +86,41 @@ describe("personReview", () => {
 
     const all = toggleName(toggleName(one, "p2", "윤돌"), "p3", "민찬");
     expect(footerOf(all)).toEqual({ hint: null, submit: "3명의 폴더 만들기", canSubmit: true });
+  });
+
+  describe("applyGroupsOf", () => {
+    it("이름을 고른 카드만, 뺀 사진을 빼고 보낸다", () => {
+      let review = toggleName(reviewOf(), "p1", "하루");
+      review = togglePhoto(review, "p1", 2);
+
+      expect(applyGroupsOf(review.people)).toEqual([
+        { groupId: "p1", folderName: "하루", mediaIds: [1] },
+      ]);
+    });
+
+    it("같은 이름으로 합친 카드는 한 그룹으로 보내 폴더명이 겹치지 않는다", () => {
+      let review = toggleName(reviewOf(), "p1", "하루");
+      review = mergePeople(review, "p1", "p3");
+
+      const groups = applyGroupsOf(review.people);
+
+      expect(groups).toEqual([{ groupId: "p1", folderName: "하루", mediaIds: [1, 2, 4, 5] }]);
+      expect(new Set(groups.map((item) => item.folderName)).size).toBe(groups.length);
+    });
+
+    it("'나' 를 고르면 칩 값인 내 닉네임으로 폴더를 만든다", () => {
+      const review = toggleName(reviewOf(), "p2", "해니");
+
+      expect(applyGroupsOf(review.people)).toEqual([
+        { groupId: "p2", folderName: "해니", mediaIds: [3] },
+      ]);
+    });
+
+    it("사진을 모두 뺀 카드는 만들 폴더가 없어 보내지 않는다", () => {
+      let review = toggleName(reviewOf(), "p2", "하루");
+      review = togglePhoto(review, "p2", 3);
+
+      expect(applyGroupsOf(review.people)).toEqual([]);
+    });
   });
 });

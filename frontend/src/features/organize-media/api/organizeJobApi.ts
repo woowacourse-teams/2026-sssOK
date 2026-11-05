@@ -1,5 +1,12 @@
 import { apiClient } from "@/shared/api";
-import type { OrganizeCurrent, OrganizeJob, OrganizeKind, OrganizeResult } from "./types";
+import type {
+  OrganizeApplied,
+  OrganizeApplyGroup,
+  OrganizeCurrent,
+  OrganizeJob,
+  OrganizeKind,
+  OrganizeResult,
+} from "./types";
 
 const ROUTE = "/rooms/:roomId/organize-jobs";
 const basePath = (roomId: number) => `/rooms/${roomId}/organize-jobs`;
@@ -78,6 +85,25 @@ export const getOrganizeResult = ({ roomId, token, jobId }: JobParams) =>
       operation: "organize.result",
       route: `${ROUTE}/:jobId/result`,
     },
+  });
+
+/**
+ * 검토한 그룹을 폴더로 만든다. 전부 만들거나 하나도 만들지 않는다.
+ * 같은 이름의 폴더가 있으면 409 ORGANIZE_FOLDER_NAME_CONFLICT, 검토 기한이 지났으면 410 이다.
+ */
+export const applyOrganizeJob = ({
+  roomId,
+  token,
+  jobId,
+  groups,
+  idempotencyKey,
+}: JobParams & { groups: OrganizeApplyGroup[]; idempotencyKey: string }) =>
+  apiClient<OrganizeApplied>(`${basePath(roomId)}/${jobId}/apply`, {
+    method: "POST",
+    token,
+    headers: jsonHeaders(idempotencyKey),
+    body: JSON.stringify({ groups }),
+    errorTracking: { level: "error", operation: "organize.apply", route: `${ROUTE}/:jobId/apply` },
   });
 
 /** 분석을 멈추거나 완료된 결과의 검토를 포기한다. 이미 끝난 작업이면 그 상태를 그대로 돌려준다. */

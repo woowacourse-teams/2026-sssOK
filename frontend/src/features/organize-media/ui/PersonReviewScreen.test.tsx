@@ -26,8 +26,14 @@ const resultOf = (sizes: number[]): OrganizeResult => {
   };
 };
 
-const renderScreen = ({ sizes = [22, 3, 2], folderNames = [] as string[] } = {}) => {
+const renderScreen = ({
+  sizes = [22, 3, 2],
+  folderNames = [] as string[],
+  isSubmitting = false,
+  submitError = null as string | null,
+} = {}) => {
   const onSubmit = jest.fn();
+  const onDismissError = jest.fn();
   render(
     <PersonReviewScreen
       source={{ state: "ready", result: resultOf(sizes) }}
@@ -37,9 +43,12 @@ const renderScreen = ({ sizes = [22, 3, 2], folderNames = [] as string[] } = {})
       onClose={jest.fn()}
       onRetry={jest.fn()}
       onSubmit={onSubmit}
+      isSubmitting={isSubmitting}
+      submitError={submitError}
+      onDismissError={onDismissError}
     />,
   );
-  return { onSubmit };
+  return { onSubmit, onDismissError };
 };
 
 const cards = () => screen.getAllByRole("listitem");
@@ -92,7 +101,11 @@ describe("PersonReviewScreen", () => {
     expect(screen.getByRole("status")).toHaveTextContent("하루 님 사진을 합쳤어요 (25장)");
     await userEvent.click(screen.getByRole("button", { name: "1명의 폴더 만들기" }));
     expect(onSubmit).toHaveBeenCalledWith([
-      expect.objectContaining({ name: "하루", groupIds: ["p1", "p2"] }),
+      {
+        groupId: "p1",
+        folderName: "하루",
+        mediaIds: Array.from({ length: 25 }, (_, index) => index + 1),
+      },
     ]);
   });
 
@@ -154,6 +167,36 @@ describe("PersonReviewScreen", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: "사진 2" }));
     await userEvent.click(screen.getByRole("button", { name: "완료" }));
     expect(within(cards()[0]).getByText("+17")).toBeInTheDocument();
+  });
+
+  it("'나' 를 고르면 내 닉네임으로 폴더를 만든다", async () => {
+    const { onSubmit } = renderScreen({ sizes: [2] });
+
+    await userEvent.click(within(cards()[0]).getByRole("button", { name: "나" }));
+    await userEvent.click(screen.getByRole("button", { name: "1명의 폴더 만들기" }));
+
+    expect(onSubmit).toHaveBeenCalledWith([
+      { groupId: "p1", folderName: "소이", mediaIds: [1, 2] },
+    ]);
+  });
+
+  it("폴더를 만드는 동안 버튼을 막는다", () => {
+    renderScreen({ isSubmitting: true });
+
+    expect(screen.getByRole("button", { name: "폴더를 만드는 중" })).toBeDisabled();
+  });
+
+  it("폴더를 만들지 못했으면 검토 화면에 남아 까닭을 알린다", async () => {
+    const { onDismissError } = renderScreen({
+      submitError: "폴더를 만들지 못했어요. 다시 시도해 주세요.",
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "폴더를 만들지 못했어요. 다시 시도해 주세요.",
+    );
+    expect(screen.getByText("3명을 찾았어요.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "알림 닫기" }));
+    expect(onDismissError).toHaveBeenCalled();
   });
 
   it("결과를 못 읽었으면 다시 불러오게 한다", async () => {
