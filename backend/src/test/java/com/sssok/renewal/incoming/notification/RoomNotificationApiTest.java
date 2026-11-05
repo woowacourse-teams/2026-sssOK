@@ -358,7 +358,7 @@ class RoomNotificationApiTest extends PostgresContainerSupport {
 
             JsonNode payload = sentPayload(host);
             assertThat(payload.get("type").asText()).isEqualTo("MEDIA_UPLOADED");
-            assertThat(payload.get("body").asText()).isEqualTo("민수님이 사진 3장을 올렸어요");
+            assertThat(payload.get("body").asText()).isEqualTo("민수님이 사진을 올리기 시작했어요!");
             assertThat(payload.get("roomId").asLong()).isEqualTo(room.getId());
             verify(webPushClient, after(300).times(1)).send(sentTo(host), anyString());
             verify(webPushClient, times(1)).send(sentTo(otherGuest), anyString());
