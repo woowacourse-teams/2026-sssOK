@@ -177,6 +177,35 @@ class OrganizeApplyServicePostgresTest extends PostgresContainerSupport {
         assertThat(jdbc.queryForObject("SELECT status FROM organize_job WHERE id = ?", String.class, multi.id()))
             .isEqualTo("READY");
     }
+
+    @Test
+    void 요청_안에서_폴더_이름이_겹치면_앞_폴더도_남기지_않고_되돌린다() {
+        assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(), List.of(
+            new GroupRequest(null, "같은 이름", ids.subList(0, 2)),
+            new GroupRequest(null, "같은 이름", ids.subList(2, 4))), fixtures.key())))
+            .isEqualTo(ErrorCode.ORGANIZE_FOLDER_NAME_CONFLICT);
+
+        assertThat(folders()).isZero();
+        assertThat(links()).isZero();
+        assertThat(repository.findById(job.id()).orElseThrow().status()).isEqualTo(OrganizeJobStatus.READY);
+    }
+
+    @Test
+    void 소그룹과_미분류_사진도_다른_그룹과_합쳐_반영한다() {
+        jdbc.update("UPDATE organize_job SET result = ? WHERE id = ?", objectMapper.valueToTree(Map.of(
+            "groups", List.of(Map.of("groupId", "similar_0001", "mediaIds", List.of(ids.get(0), ids.get(1)))),
+            "smallGroupMediaIds", List.of(List.of(ids.get(2))),
+            "unassignedMediaIds", List.of(ids.get(3)), "errors", List.of())).toString(), job.id());
+
+        var applied = applyService.apply(room, host, job.publicId(), List.of(
+            new GroupRequest(null, "소그룹+미분류", List.of(ids.get(2), ids.get(3))),
+            new GroupRequest(null, "그룹+소그룹", List.of(ids.get(0), ids.get(2)))), fixtures.key());
+
+        assertThat(applied.folders()).hasSize(2);
+        assertThat(links()).isEqualTo(4);
+        assertThat(repository.findById(job.id()).orElseThrow().status()).isEqualTo(OrganizeJobStatus.APPLIED);
+    }
+
     @Test
     void 같은_키와_선택이라도_다른_작업에_사용하면_충돌이다() {
         String key = fixtures.key();
@@ -204,6 +233,64 @@ class OrganizeApplyServicePostgresTest extends PostgresContainerSupport {
         assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(),
             List.of(new GroupRequest("a", "b|c", ids)), key))).isEqualTo(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
         assertThat(folders()).isEqualTo(1);
+    }
+
+    @Test
+    void 결과_전체를_합치고_분리하며_순서와_groupId가_달라도_재전송한다() {
+        jdbc.update("UPDATE organize_job SET result = ? WHERE id = ?", objectMapper.valueToTree(Map.of(
+            "groups", List.of(Map.of("groupId", "a", "mediaIds", List.of(ids.get(0))),
+                Map.of("groupId", "b", "mediaIds", List.of(ids.get(1)))),
+            "smallGroupMediaIds", List.of(List.of(ids.get(2))),
+            "unassignedMediaIds", List.of(ids.get(3)), "errors", List.of())).toString(), job.id());
+        String key = fixtures.key();
+        var first = applyService.apply(room, host, job.publicId(), List.of(
+            new GroupRequest(null, "합치기", ids),
+            new GroupRequest(null, "일부 선택", List.of(ids.get(0), ids.get(2)))), key);
+        assertThat(first.folders()).extracting(OrganizeApplyService.AppliedFolder::mediaIds)
+            .containsExactly(ids, List.of(ids.get(0), ids.get(2)));
+        var replay = applyService.apply(room, host, job.publicId(), List.of(
+            new GroupRequest("edited", "일부 선택", List.of(ids.get(2), ids.get(0))),
+            new GroupRequest("edited", "합치기", ids.reversed())), key);
+        assertThat(replay.folders()).isEqualTo(first.folders());
+        assertThat(links()).isEqualTo(6);
+        assertThat(folders()).isEqualTo(2);
+    }
+
+    @Test
+    void 같은_원본_그룹을_여러_폴더로_나눌_수_있다() {
+        var applied = applyService.apply(room, host, job.publicId(), List.of(
+            new GroupRequest("person_0001", "A", ids.subList(0, 2)),
+            new GroupRequest("person_0001", "B", List.of(ids.get(2)))), fixtures.key());
+        assertThat(applied.folders()).hasSize(2);
+        assertThat(links()).isEqualTo(3);
+    }
+
+    @Test
+    void 배포_전_해시의_기존_요청도_재전송할_수_있다() throws Exception {
+        String key = fixtures.key();
+        var selected = person("민찬", ids.subList(0, 2));
+        String legacyHash = OrganizeIdempotency.hash("APPLY:" + job.publicId() + ":"
+            + objectMapper.writeValueAsString(selected));
+        var response = List.of(new OrganizeApplyService.AppliedFolder(999L, "민찬", ids.subList(0, 2)));
+        repository.saveIdempotency(host, room, OrganizeIdempotency.APPLY, key, legacyHash, job.id(),
+            objectMapper.writeValueAsString(response), clock.instant());
+        assertThat(applyService.apply(room, host, job.publicId(),
+            person("민찬", List.of(ids.get(1), ids.get(0))), key).folders()).isEqualTo(response);
+        assertThat(folders()).isZero();
+        assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(),
+            person("변경", ids.subList(0, 2)), key))).isEqualTo(ErrorCode.IDEMPOTENCY_KEY_CONFLICT);
+    }
+
+    @Test
+    void 오류_항목에만_있는_사진은_반영할_수_없다() {
+        jdbc.update("UPDATE organize_job SET result = ? WHERE id = ?", objectMapper.valueToTree(Map.of(
+            "groups", List.of(), "unassignedMediaIds", List.of(),
+            "errors", List.of(Map.of("mediaId", ids.get(0), "code", "FAILED")))).toString(), job.id());
+        assertThat(errorOf(() -> applyService.apply(room, host, job.publicId(),
+            List.of(new GroupRequest(null, "오류", List.of(ids.get(0)))), fixtures.key())))
+            .isEqualTo(ErrorCode.INVALID_PARAM);
+        assertThat(folders()).isZero();
+        assertThat(repository.findById(job.id()).orElseThrow().status()).isEqualTo(OrganizeJobStatus.READY);
     }
 
 }

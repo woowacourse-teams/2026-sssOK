@@ -229,6 +229,42 @@ class OrganizeJobApiTest extends OrganizeJobApiSupport {
     }
 
     @Test
+    void groupId_없이_그룹과_미분류를_합친_폴더를_반영한다() throws Exception {
+        List<Long> ids = jpegs(4);
+        String jobId = startPerson();
+        awaitStatus(jobId, "RUNNING");
+        complete(jobId, personResult(ids.subList(0, 3), List.of(ids.get(3)))).andExpect(status().isOk());
+
+        apply(hostToken, jobId, Map.of("groups", List.of(
+            Map.of("folderName", "합치기", "mediaIds", List.of(ids.get(0), ids.get(3))),
+            Map.of("folderName", "따로", "mediaIds", List.of(ids.get(0))))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.status").value("APPLIED"))
+            .andExpect(jsonPath("$.data.folders.length()").value(2))
+            .andExpect(jsonPath("$.data.folders[0].folderName").value("합치기"));
+
+        assertThat(statusOf(jobId)).isEqualTo("APPLIED");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM folder_media WHERE folder_id IN "
+            + "(SELECT id FROM folder WHERE room_id = ?)", Long.class, roomId)).isEqualTo(3);
+    }
+
+    @Test
+    void 결과_밖_사진을_반영하면_400이고_폴더를_만들지_않는다() throws Exception {
+        List<Long> ids = jpegs(4);
+        String jobId = startPerson();
+        awaitStatus(jobId, "RUNNING");
+        complete(jobId, personResult(ids.subList(0, 3), List.of(ids.get(3)))).andExpect(status().isOk());
+
+        apply(hostToken, jobId, Map.of("groups", List.of(
+            Map.of("folderName", "밖", "mediaIds", List.of(ids.get(0), 999_999L)))))
+            .andExpect(status().isBadRequest());
+
+        assertThat(statusOf(jobId)).isEqualTo("READY");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM folder WHERE room_id = ? AND name = '밖'", Long.class,
+            roomId)).isZero();
+    }
+
+    @Test
     void 분석할_사진이_없으면_422다() throws Exception {
         startByKind(hostToken, "PERSON").andExpect(status().isUnprocessableEntity())
             .andExpect(jsonPath("$.code").value("ORGANIZE_NO_ANALYZABLE_PHOTOS"));
