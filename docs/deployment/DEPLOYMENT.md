@@ -19,14 +19,15 @@ flowchart LR
 - dev와 prod는 다른 EC2·runner·Compose·`.env`를 사용한다. 현재는 같은 RDS 인스턴스 안에서
   `sssok_dev`와 `sssok` 데이터베이스를 분리한다.
 - 이미지 태그는 커밋 SHA를 사용한다. dev 이미지는 `dev-<커밋 SHA>`로, prod 이미지는 `<커밋 SHA>`로
-  식별한다. 롤백은 직전 태그로 되돌리는 것으로 끝난다. prod 이미지에는 운영 헬스체크가 성공한
+  식별한다. prod 이미지에는 운영 헬스체크가 성공한
   뒤에 사람이 읽기 위한 `backend-vX.Y.Z`·`release-vX.Y.Z`·`latest` 별칭 태그가 추가로 붙지만,
   배포·롤백에는 쓰지 않는다 (별칭은 다음 릴리스에서 다른 이미지로 옮겨간다 —
   [버전과 릴리스 태그](#버전과-릴리스-태그) 참고).
-- Compose 반영 후 컨테이너 안에서 `nginx -t`로 새 설정을 검사하고, 성공한 경우에만 Nginx를
-  reload한다. 문법 검사나 reload가 실패하면 배포 잡도 실패한다.
-- 배포 후 `/health`와 `monitor.ssssok.com` 호스트 기반 Grafana 라우팅을 최대 150초간 폴링하고,
-  실패하면 자동으로 직전 이미지로 롤백한다.
+- prod 는 **블루-그린 무중단 배포**다. 새 이미지를 쉬는 칸(`app-blue`/`app-green`)에 띄워 readiness 를
+  확인한 뒤 nginx 가 가리키는 칸만 바꾸고, 기존 칸은 하던 일을 마친 뒤 끈다. 어느 단계에서 실패해도
+  트래픽은 기존 칸에 남는다 — [운영 블루-그린 배포](#운영-블루-그린-배포) 참고.
+- dev 는 기존처럼 앱 컨테이너를 교체한다. Compose 반영 후 `nginx -t` 로 새 설정을 검사하고, 헬스체크가
+  실패하면 직전 이미지로 롤백한다.
 - 위 그림은 백엔드 경로다. 프론트엔드는 GitHub Actions 를 거치지 않고 AWS CodePipeline 이
   `deploy` 브랜치를 받아 S3 에 올린다 — [프론트엔드 배포](#프론트엔드-배포) 참고.
 
@@ -40,10 +41,15 @@ flowchart LR
 | 파일 | 만드는 주체 | 설명 |
 | --- | --- | --- |
 | `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정, 방 알림 키(Web Push·FCM) |
-| `image.env` | CI가 배포마다 덮어씀 | `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
-| `image.env.prev` | CI가 자동 생성 | 롤백용 직전 이미지·버전 |
+| `image.env` | dev CI가 배포마다 덮어씀 | (dev 전용) `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
+| `image.env.prev` | dev CI가 자동 생성 | (dev 전용) 롤백용 직전 이미지·버전 |
+| `blue.env`, `green.env` | prod 배포 스크립트 | 각 칸에 띄운 이미지·버전 (`BLUE_IMAGE`·`BLUE_GIT_SHA` 등). 쉬는 칸의 값이 곧 롤백 대상이다 |
+| `nginx/default.conf` | prod CI가 배포마다 전송 | 저장소 `backend/nginx.conf` 복사본. `nginx/` 디렉터리가 컨테이너 `conf.d` 로 마운트된다 |
+| `nginx/upstream.conf` | prod 배포 스크립트 | **활성 칸의 기준.** nginx 가 트래픽을 보내는 칸(`app-blue`/`app-green`). 직접 고치지 않는다 |
+| `deploy/blue-green.sh` | prod CI가 배포마다 전송 | 배포·롤백·상태 확인 스크립트 |
+| `active-color` | prod 배포 스크립트 | 마지막 배포 결과 기록용. 판단은 `nginx/upstream.conf` 로 한다 |
 | `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱·모니터링 컨테이너 정의 (`8080` 직접 노출 — 호스트에 설치된 Nginx가 `80`에서 받아 넘긴다, Actuator `8081`은 내부 전용) |
-| `docker-compose.prod.yml`, `nginx.conf` | prod CI가 배포마다 전송 | prod 앱·Nginx·모니터링 컨테이너 정의 (`80`은 호스트별 앱·Grafana 프록시, `3000`과 Actuator `8081`은 외부 비공개) |
+| `docker-compose.prod.yml` | prod CI가 배포마다 전송 | prod 앱(blue·green 두 칸)·Nginx·모니터링 컨테이너 정의 (`80`은 앱 프록시, Actuator `8081`은 외부 비공개) |
 | `monitoring/` | 두 CI 모두 배포마다 전송 | Prometheus·Alertmanager·Grafana·Loki·Alloy 설정. 로그 수집은 [monitoring/README.md](../../backend/monitoring/README.md#로그-수집과-조회) 참고 |
 
 ## 최초 세팅 (1회만)
@@ -353,6 +359,69 @@ gh pr create --base deploy --head main --title "deploy: 운영 배포" --body "m
 승격 PR을 만들기 전에 릴리스 준비 PR에서 통합 릴리스와 필요한 서비스 버전을 올린다. 백엔드
 버전은 작업 PR에서 누적한 버전 의도를 집계해 한 번 반영한다 — 자세한 기준은 아래에 정리돼 있다.
 
+## 운영 블루-그린 배포
+
+운영 EC2(t4g.small) 한 대 안에서 앱 컨테이너 두 칸(`app-blue`, `app-green`)을 번갈아 쓴다. ALB·Target
+Group·nginx 는 그대로 두고, nginx 가 가리키는 칸만 바꾼다. 배포 스크립트는 `backend/deploy/blue-green.sh` 다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CI as 배포 잡
+    participant N as nginx
+    participant Old as 활성 칸 (예: blue)
+    participant New as 쉬는 칸 (예: green)
+    CI->>CI: 활성 칸 확인 (nginx/upstream.conf)
+    CI->>CI: 가용 메모리 600MiB 이상인지 확인 (부족하면 중단)
+    CI->>New: 새 이미지로 기동
+    CI->>New: readiness(DB 포함) 확인 · 커밋(APP_GIT_SHA) 확인
+    CI->>N: upstream.conf 를 green 으로 바꾸고 nginx -t → reload
+    CI->>N: nginx 경유 /health 3회 연속 성공 확인
+    CI->>Old: 종료 (하던 요청·비동기 작업을 마친 뒤, 최대 50s)
+    Note over Old: 지우지 않고 남겨 다음 롤백 대상이 된다
+```
+
+| 실패 지점 | 결과 |
+| --- | --- |
+| 메모리 부족 | 아무것도 바꾸지 않고 잡 실패. 트래픽은 기존 칸 |
+| 새 칸 기동·readiness 실패, 재시작 반복, 커밋 불일치 | 새 칸 컨테이너를 지우고 잡 실패. 트래픽은 기존 칸 |
+| nginx 설정 검사 실패 | upstream.conf 를 되돌리고 잡 실패. 트래픽은 기존 칸 |
+| 전환 후 nginx 경유 헬스체크 실패 | upstream.conf 를 되돌려 reload 하고 잡 실패. 트래픽은 기존 칸 |
+| 잡이 중간에 끊김 | 다시 실행하면 upstream.conf 와 실행 중인 컨테이너를 보고 한 칸으로 맞춘다 |
+| 활성 칸 컨테이너가 꺼져 있음(서버 재시작 등) | 다른 칸이 떠 있으면 그쪽으로 먼저 트래픽을 맞춘 뒤 배포한다 |
+
+nginx 의 upstream 은 `resolve` 로 컨테이너 이름을 주기적으로 다시 찾는다. 가리키는 칸이 꺼진 채로 nginx 가
+재시작돼도 nginx 는 뜨고(그동안 502), 칸이 다시 뜨면 reload 없이 복구된다.
+
+### 두 칸이 겹치는 동안 지켜야 할 것
+
+- **마이그레이션 호환**: 새 칸이 Flyway 로 스키마를 바꾸는 동안 기존 칸이 요청을 받는다. 아래
+  [DB 마이그레이션](#db-마이그레이션)의 호환 규칙을 지킨다.
+- **메모리**: 운영 서버 RAM 이 1.8GiB 라 두 앱이 동시에 뜰 여유가 크지 않다. 배포 전 가용 메모리를 확인하고,
+  운영에서는 새 칸의 썸네일·분석 배치를 기동 60초 뒤에 시작한다(`application-prod.yml`).
+- **nginx 서비스 정의 변경**: 배포 스크립트는 nginx 를 다시 만들지 않고 reload 만 한다. `docker-compose.prod.yml`
+  의 nginx 서비스(이미지·포트·마운트)를 바꿨다면 사용자가 적은 시간에 아래로 반영한다. 1~2초 끊긴다.
+
+  ```bash
+  $COMPOSE up -d --no-deps --force-recreate nginx
+  ```
+
+### 기존 단일 앱에서 처음 넘어갈 때 (1회)
+
+블루-그린이 들어간 첫 운영 배포는 기존 `sssok-app` 을 활성으로 보고 `app-blue` 로 넘어간다. 이때 nginx 를
+`nginx/` 디렉터리 마운트로 한 번 다시 만들어서 **약 1~2초 끊긴다** (로컬 리허설에서 실패 요청 1건). 그 뒤
+배포부터는 끊기지 않는다. 사용자가 적은 시간에 승격하고, 배포 잡을 지켜본 뒤 아래를 확인한다.
+
+```bash
+cd ~/app
+bash deploy/blue-green.sh status   # 활성 칸: blue, sssok-app 은 목록에서 사라져야 한다
+curl -i http://localhost/health
+```
+
+첫 전환 중 어느 단계에서 실패해도 트래픽은 기존 `sssok-app` 에 남는다(`nginx/upstream.conf` 가 `server app:8080`).
+원인을 고친 뒤 배포를 다시 실행하면 이어서 진행한다. nginx 를 다시 만들기 전에 기존 앱과 compose 프로젝트 이름이
+같은지 검사해서, 다르면(다시 만든 nginx 가 기존 앱에 닿지 못하는 경우) 아무것도 바꾸지 않고 멈춘다.
+
 ## 버전과 릴리스 태그
 
 버전 체계 자체(두 종류의 버전, 기준 파일, MAJOR/MINOR/PATCH 기준, hotfix 규칙)는
@@ -374,13 +443,12 @@ gh pr create --base deploy --head main --title "deploy: 운영 배포" --body "m
 - **이미지 빌드 인자 → OCI 라벨** — `org.opencontainers.image.version`(백엔드 버전),
   `.revision`(커밋 SHA), `.source`(저장소 URL), `com.sssok.release.version`(통합 릴리스 버전).
   `docker image inspect <이미지> --format '{{json .Config.Labels}}'` 로 확인한다.
-- **`image.env` → compose → 컨테이너 환경변수** — 배포 스텝이 `image.env` 에
-  `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` 를 `BACKEND_IMAGE` 와 함께 쓰고,
-  `docker-compose.{dev,prod}.yml` 이 그대로 컨테이너에 넘긴다. 앱은 기동 로그와 `/version` 으로 알린다.
+- **env 파일 → compose → 컨테이너 환경변수** — 배포 스텝이 이미지와 함께
+  `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` 를 쓰고(dev `image.env`, prod 는 띄우는 칸의
+  `blue.env`·`green.env`), compose 가 그대로 컨테이너에 넘긴다. 앱은 기동 로그와 `/version` 으로 알린다.
 
-런타임 값을 이미지 `ENV` 에 굽지 않고 `image.env` 에 두는 이유는 **롤백** 때문이다. 롤백은
-`image.env.prev` 를 되돌리는 방식이라, 이미지와 버전 정보가 같은 파일에 있어야 직전 배포의 조합이
-통째로 복원된다.
+런타임 값을 이미지 `ENV` 에 굽지 않고 env 파일에 두는 이유는 **롤백** 때문이다. 이미지와 버전 정보가
+같은 파일에 있어야 직전 배포의 조합이 통째로 복원된다. prod 는 쉬는 칸이 직전 조합을 그대로 들고 있다.
 
 백엔드 버전은 두 경로 모두로 온다. 앱은 **JAR 안의 `META-INF/build-info.properties` 를 1순위로**
 쓰고(`springBoot { buildInfo() }` 가 생성), 그게 없을 때만 `APP_BACKEND_VERSION` 을 쓴다.
@@ -443,7 +511,7 @@ curl -s http://localhost/version
 
 ### 배포 실패·롤백 시
 
-- **헬스체크 실패로 자동 롤백된 경우**: 태그가 만들어지지 않았으므로 버전은 그대로 둔다.
+- **배포가 실패한 경우**(prod 는 트래픽이 기존 칸에 남음, dev 는 자동 롤백): 태그가 만들어지지 않았으므로 버전은 그대로 둔다.
   원인을 고친 커밋을 올려 같은 버전으로 다시 배포한다.
 - **태그까지 만들어진 뒤 문제를 발견해 수동 롤백한 경우**: 이미 찍힌 태그는 지우지 않는다
   (배포된 사실 자체는 남기는 게 이력상 정확하다). 수정은 새 `PATCH` 버전으로 다시 올린다.
@@ -455,14 +523,16 @@ curl -s http://localhost/version
 
 ```bash
 cd ~/app
-export COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml"
+export COMPOSE="docker compose --env-file .env --env-file blue.env --env-file green.env -f docker-compose.prod.yml"
 ```
+
+`$COMPOSE up -d` 처럼 서비스를 지정하지 않은 기동은 두 칸을 모두 띄우므로 쓰지 않는다.
 
 | 목적 | 명령 |
 | --- | --- |
-| 상태 확인 | `$COMPOSE ps` |
-| 앱 로그 | `$COMPOSE logs -f app` |
-| 재시작 | `$COMPOSE restart app` |
+| 활성 칸·컨테이너 상태 | `bash deploy/blue-green.sh status` |
+| 앱 로그 | `$COMPOSE logs -f app-blue` (활성 칸 이름으로) |
+| 직전 칸으로 롤백 | `bash deploy/blue-green.sh rollback` |
 | 전체 내리기 | `$COMPOSE down` |
 | 헬스체크 | `curl -i http://localhost/health` |
 | Grafana 호스트 라우팅 확인 | `curl -i -H 'Host: monitor.ssssok.com' http://localhost/api/health` |
@@ -472,11 +542,11 @@ export COMPOSE="docker compose --env-file .env --env-file image.env -f docker-co
 
 ### Nginx 설정 반영 실패 확인
 
-운영 배포는 `nginx.conf`를 배포 경로에 복사한 뒤, 실행 중인 컨테이너에서 문법 검사와 reload를
-순서대로 수행한다. `nginx -t`가 실패하면 reload하지 않고 배포 잡을 실패시켜 기존 Nginx 프로세스가
+운영 배포는 `nginx.conf`를 배포 경로의 `nginx/default.conf` 로 복사한 뒤, 배포 스크립트가 실행 중인
+컨테이너에서 문법 검사와 reload를 순서대로 수행한다. `nginx -t`가 실패하면 reload하지 않고 배포 잡을 실패시켜 기존 Nginx 프로세스가
 마지막 정상 설정으로 계속 응답하게 한다. 애플리케이션 컨테이너는 Nginx reload 때문에 재시작되지 않는다.
 
-실패한 경우 Actions의 `Nginx 설정 검사 및 리로드` 로그에서 파일명과 줄 번호를 확인한다. 서버에서
+실패한 경우 Actions의 `블루-그린 배포` 로그에서 파일명과 줄 번호를 확인한다. 서버에서
 추가 확인이 필요하면 배포 디렉터리에서 다음 명령을 실행한다.
 
 ```bash
@@ -492,22 +562,20 @@ reload 단계만 실패했다면 Nginx 로그와 컨테이너 상태를 확인�
 
 ### 수동 롤백
 
+직전 배포로 되돌릴 때는 꺼져 있는 직전 칸을 다시 띄워 트래픽을 넘긴다. 무중단으로 진행된다.
+
 ```bash
 cd ~/app
-cat image.env.prev > image.env
-docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml up -d
+bash deploy/blue-green.sh rollback
 ```
 
-특정 커밋으로 되돌리려면 `image.env` 의 태그를 직접 바꾼다. 이때 `APP_*` 값도 그 커밋의 것으로
-같이 고쳐야 `/version` 이 실제로 떠 있는 것과 어긋나지 않는다.
+특정 커밋으로 되돌리려면 그 커밋 이미지로 배포 스크립트를 실행한다. `APP_*` 값도 그 커밋의 것으로 줘야
+`/version` 이 실제로 떠 있는 것과 어긋나지 않는다. GHCR 로그인이 필요하다.
 
 ```bash
-cat > image.env <<'EOF'
-BACKEND_IMAGE=ghcr.io/woowacourse-teams/2026-sssok/backend:<커밋SHA>
-APP_RELEASE_VERSION=<그 커밋의 통합 릴리스 버전>
-APP_BACKEND_VERSION=<그 커밋의 백엔드 버전>
-APP_GIT_SHA=<커밋SHA>
-EOF
+NEW_IMAGE=ghcr.io/woowacourse-teams/2026-sssok/backend:<커밋SHA> \
+APP_RELEASE_VERSION=<그 커밋의 통합 릴리스 버전> APP_BACKEND_VERSION=<그 커밋의 백엔드 버전> \
+APP_GIT_SHA=<커밋SHA> bash deploy/blue-green.sh deploy
 ```
 
 ## 프론트엔드 배포
@@ -645,15 +713,30 @@ backend/src/main/resources/db/migration/
 - 파일명: `V{번호}__{설명}.sql`
 - 이미 배포된 마이그레이션 파일은 **절대 수정하지 않는다** (체크섬 불일치로 기동 실패). 수정이 필요하면 새 버전을 추가한다.
 
+### 블루-그린 호환 규칙
+
+운영은 새 칸이 스키마를 바꾸는 동안 기존 칸이 이전 코드로 요청을 받는다. 롤백하면 이전 코드가 새 스키마
+위에서 다시 돈다. 그래서 한 릴리스의 마이그레이션은 **직전 버전 코드와도 호환**되어야 한다.
+
+- 컬럼·테이블 삭제와 이름 변경은 한 릴리스에서 하지 않는다. "새 구조 추가 → 코드 전환 → 다음 릴리스에서
+  이전 구조 삭제" 로 나눈다. (예: V41 `DROP TABLE oauth_login_attempt` 는 블루-그린 이후라면 나눠야 했다)
+- `NOT NULL` 컬럼을 추가할 때는 기본값을 함께 준다.
+- 기존 테이블의 인덱스는 `CREATE INDEX CONCURRENTLY` 로 만든다. 그렇지 않으면 생성 동안 쓰기가 막혀 기존
+  칸의 요청이 멈춘다. `CONCURRENTLY` 는 트랜잭션 안에서 실행할 수 없으므로 그 스크립트만 트랜잭션 밖에서
+  실행되도록 설정한다.
+- 승격(`develop → main`) 전에 이번 릴리스의 마이그레이션에 위 항목이 있는지 확인한다.
+
 ## 트러블슈팅
 
 | 증상 | 원인과 조치 |
 | --- | --- |
 | `permission denied ... docker.sock` | 서버에서 `usermod -aG docker` 후 재접속하지 않음 |
 | `denied: installation not allowed to Create organization package` | 워크플로의 `permissions: packages: write` 누락 또는 org 패키지 정책 |
-| 헬스체크 실패 후 롤백됨 | `$COMPOSE logs app` 확인. 대부분 `.env` 값 누락 또는 Flyway 마이그레이션 오류 |
+| 헬스체크·readiness 실패로 배포 실패 | 배포 잡 로그의 새 칸 로그(마지막 100줄) 확인. 대부분 `.env` 값 누락 또는 Flyway 마이그레이션 오류 |
+| `가용 메모리 ... 보다 적다` (prod) | 업로드가 몰린 시간이다. 잠시 뒤 다시 실행한다. 기존 칸은 그대로다 |
+| `sssok-app 의 compose 프로젝트(...)가 배포 경로의 프로젝트(...)와 다르다` (prod 첫 전환) | 기존 앱이 다른 프로젝트 이름으로 떠 있어, nginx 를 다시 만들면 기존 앱에 닿지 못한다. 아무것도 바뀌지 않았다. 서버 `.env` 에 `COMPOSE_PROJECT_NAME=<메시지의 기존 프로젝트 이름>` 을 넣고 배포를 다시 실행한다 |
 | `Schema-validation: missing table` | 엔티티에 대응하는 마이그레이션 SQL 미작성 |
-| compose 가 `BACKEND_IMAGE` 를 못 찾음 | `image.env` 부재. 최초 배포 전이거나 경로가 틀림 |
+| compose 가 `BACKEND_IMAGE` 를 못 찾음 (dev) | `image.env` 부재. 최초 배포 전이거나 경로가 틀림 |
 | DB 연결 타임아웃 (`Connection refused`, `timeout`) | RDS 보안 그룹에 EC2 보안 그룹발 5432 인바운드가 없거나, `.env`의 `DB_URL`이 RDS 엔드포인트를 가리키지 않음 |
 | `database "sssok-dev" does not exist` | DB 이름의 하이픈/언더스코어가 불일치한 경우다. dev `.env`의 `DB_URL`을 실제 생성한 `sssok_dev`와 일치시킨다. |
 | `버전이 SemVer 형식이 아니다` / `버전이 올라가지 않았다` (Release Check) | 릴리스 PR에서 기준 파일의 버전을 안 올렸거나 형식이 틀렸다. `VERSION`, `backend/gradle.properties`, `frontend/package.json` 을 확인한다 |

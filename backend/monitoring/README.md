@@ -143,7 +143,7 @@ Loki 스트림 라벨은 네 개만 쓴다.
 | --- | --- | --- |
 | `service` | `sssok-backend`, `sssok-nginx` | 컨테이너 라벨 `com.sssok.log.service`, 호스트 Nginx 는 Alloy 설정 |
 | `environment` | `dev`, `prod`, `local` | Alloy 의 `SSSOK_ENVIRONMENT` |
-| `container` | `sssok-app-dev`, `nginx-host`(dev Nginx), `sssok-app`, `sssok-nginx` | 컨테이너 이름, 호스트 Nginx 는 고정값 |
+| `container` | `sssok-app-dev`, `nginx-host`(dev Nginx), `sssok-app-blue`·`sssok-app-green`, `sssok-nginx` | 컨테이너 이름, 호스트 Nginx 는 고정값 |
 | `level` | `DEBUG` `INFO` `WARN` `ERROR` | 로그 본문. Nginx 접근 로그는 상태 코드로 정한다 (5xx `ERROR`, 4xx `WARN`) |
 
 `requestId`·`roomId`·`memberId`·`mediaId`·예외 메시지·전체 URL 은 라벨로 만들지 않는다. 요청마다
@@ -176,7 +176,7 @@ Loki 스트림 라벨은 네 개만 쓴다.
 {environment="dev", service="sssok-backend"} | json | __error__="" | exception != ""
 ```
 
-prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app`·`sssok-nginx` 다.
+prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app-blue`·`sssok-app-green`(블루-그린 두 칸)·`sssok-nginx` 다. 칸과 상관없이 보려면 `service="sssok-backend"` 로 조회한다.
 
 `| json` 뒤의 `__error__=""` 는 JSON 이 아닌 줄(Nginx 에러 로그, JVM 기동 실패 출력)을 뺀다. 빼지 않으면 숫자
 비교에 실패한 줄이 걸러지지 않고 그대로 섞여 나온다.
