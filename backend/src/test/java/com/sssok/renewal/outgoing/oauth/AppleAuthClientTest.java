@@ -45,7 +45,7 @@ class AppleAuthClientTest {
     void 검증된_sub만_사용자_식별자로_사용한다() throws Exception {
         expectToken(token("valid"));
         expectKeys();
-        SocialAuthentication result = appleAuthClient.authenticate("code", "server-nonce");
+        SocialAuthentication result = appleAuthClient.authenticate("code", "server-nonce", "https://stored.example/callback");
         assertThat(result.identity().provider()).isEqualTo(SocialProvider.APPLE);
         assertThat(result.identity().providerUserId()).isEqualTo("apple-user");
         assertThat(result.refreshToken()).isEqualTo("refresh");
@@ -57,7 +57,7 @@ class AppleAuthClientTest {
     void 변조되거나_로그인_시도와_다른_ID_토큰을_거부한다(String invalid) throws Exception {
         expectToken(token(invalid));
         expectKeys();
-        assertThatThrownBy(() -> appleAuthClient.authenticate("code", "server-nonce")).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> appleAuthClient.authenticate("code", "server-nonce", "https://stored.example/callback")).isInstanceOf(SocialAuthException.class);
         server.verify();
     }
 
@@ -85,7 +85,7 @@ class AppleAuthClientTest {
 
     @Test
     void 서버_nonce가_없으면_코드_교환_전에_거부한다() {
-        assertThatThrownBy(() -> appleAuthClient.authenticate("code", null)).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> appleAuthClient.authenticate("code", null, "https://stored.example/callback")).isInstanceOf(SocialAuthException.class);
         server.verify();
     }
 
@@ -107,6 +107,7 @@ class AppleAuthClientTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
             .andExpect(content().string(Matchers.containsString("grant_type=authorization_code")))
             .andExpect(content().string(Matchers.containsString("client_id=client")))
+            .andExpect(content().string(Matchers.containsString("redirect_uri=https%3A%2F%2Fexample.com%2Fcallback")))
             .andRespond(withSuccess(json, MediaType.APPLICATION_JSON));
     }
 

@@ -22,12 +22,12 @@ class StartKakaoLoginServiceTest {
     void 설정값과_저장된_state로_URL을_만들고_확인값과_비밀키는_포함하지_않는다() {
         OAuthLoginAttemptService attempts = mock(OAuthLoginAttemptService.class);
         String redirectUri = "https://example.com/auth/callback/kakao?next=/rooms&label=한글+값";
-        KakaoOAuthProperties properties = new KakaoOAuthProperties("client+id", "secret-value", redirectUri, "admin-key");
+        KakaoOAuthProperties properties = new KakaoOAuthProperties("client+id", "secret-value", List.of(redirectUri), "admin-key");
         Instant expiresAt = Instant.parse("2026-10-25T12:05:00Z");
-        when(attempts.start(SocialProvider.KAKAO, List.of("anonymous-token"))).thenReturn(
+        when(attempts.start(SocialProvider.KAKAO, List.of("anonymous-token"), "https://example.com")).thenReturn(
             new OAuthLoginAttemptResult(SocialProvider.KAKAO, "server-state", "private-verifier", null, redirectUri, expiresAt));
 
-        SocialLoginStartResult result = new StartKakaoLoginService(attempts, properties).start(List.of("anonymous-token"));
+        SocialLoginStartResult result = new StartKakaoLoginService(attempts, properties).start(List.of("anonymous-token"), "https://example.com");
         URI url = URI.create(result.authorizationUrl());
         Map<String, String> parameters = Arrays.stream(url.getRawQuery().split("&"))
             .map(part -> part.split("=", 2))

@@ -20,6 +20,9 @@ public interface FileRepository {
     // 삭제 트랜잭션과 순서를 강제하는 잠금 조회. 썸네일 워커가 완료를 반영하기 직전에 쓴다.
     Optional<StoredFile> findByIdForUpdate(Long id);
 
+    // 삭제 경로가 다른 행보다 먼저 stored_file 을 id 순으로 잠그는 데 쓴다. 이미 지워진 id 는 빠진다.
+    List<Long> lockExistingIds(List<Long> ids);
+
     List<StoredFile> findAllByIdIn(List<Long> ids);
 
     // 담기/꺼내기에서 어떤 mediaId가 실제로 존재하는지 확인하는 용도.
