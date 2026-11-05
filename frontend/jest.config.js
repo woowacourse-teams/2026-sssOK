@@ -8,7 +8,7 @@ module.exports = {
     "^.+\\.[cm]?[jt]sx?$": "babel-jest",
   },
   transformIgnorePatterns: [
-    "<rootDir>/node_modules/.pnpm/(?!(rettime|until-async|@open-draft\\+deferred-promise)@)",
+    "<rootDir>/node_modules/.pnpm/(?!(react-error-boundary|rettime|until-async|@open-draft\\+deferred-promise)@)",
   ],
   setupFiles: ["<rootDir>/test/setupEnv.js"],
   moduleNameMapper: {

@@ -1,6 +1,6 @@
 {
   "name": "sssok-mobile",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "index.ts",
   "dependencies": {
     "expo": "~58.0.19",

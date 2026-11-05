@@ -41,7 +41,7 @@ it.each([
   request.mockResolvedValueOnce(undefined);
   const { client, user } = setup();
   expect(screen.queryByText("로그인 수단")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /이용약관/ })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /이용약관/ })).toBeEnabled();
   await user.click(screen.getByRole("button", { name: label }));
   expect(request).not.toHaveBeenCalled();
   const dialog = screen.getByRole("dialog");
