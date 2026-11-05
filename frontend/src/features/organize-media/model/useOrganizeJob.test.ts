@@ -217,6 +217,53 @@ describe("useOrganizeJob", () => {
     expect(result.current.notice).toBeNull();
   });
 
+  it("접수 응답은 방 점유를 바꾸지 않아, 작업이 바로 실패해도 막히지 않는다", async () => {
+    serve();
+    const { result } = render();
+    await settle();
+
+    await act(() => result.current.start({ kind: "PERSON" }));
+    act(() =>
+      result.current.applyJobUpdate(
+        jobOf({
+          status: "FAILED",
+          jobVersion: 2,
+          retryable: true,
+        }),
+      ),
+    );
+
+    expect(result.current.blockedReason).toBeNull();
+  });
+
+  it.each([
+    { roomBusy: true, expected: "다른 사람이 정리하고 있어요" },
+    { roomBusy: false, expected: null },
+  ])(
+    "이미 진행 중이라고 거절되면 현재 상태를 다시 읽어 방 점유를 맞춘다 (점유: $roomBusy)",
+    async ({ roomBusy, expected }) => {
+      serve();
+      server.use(
+        http.post(BASE, () =>
+          HttpResponse.json({ code: "ORGANIZE_JOB_IN_PROGRESS", message: "" }, { status: 409 }),
+        ),
+      );
+      const { result } = render();
+      await settle();
+      server.use(
+        http.get(`${BASE}/current`, () =>
+          HttpResponse.json({ data: { roomBusy, roomVersion: 2, myJob: null } }),
+        ),
+      );
+
+      await act(() => result.current.start({ kind: "PERSON" }));
+
+      await waitFor(() => expect(result.current.blockedReason).toBe(expected));
+      await settle();
+      expect(result.current.blockedReason).toBe(expected);
+    },
+  );
+
   it("체험을 다 쓴 익명 회원에게 웹에서는 앱에서 로그인하라고 안내한다", async () => {
     serve();
     server.use(
@@ -295,7 +342,9 @@ describe("useOrganizeJob", () => {
 
     await act(async () => result.current.dismiss());
 
-    expect(requests.map((request) => request.path)).toEqual([`/${JOB_ID}/cancel`]);
+    await waitFor(() =>
+      expect(requests.map((request) => request.path)).toEqual([`/${JOB_ID}/cancel`]),
+    );
     expect(result.current.notice).toBeNull();
     expect(result.current.blockedReason).toBeNull();
     expect(sessionStorage.getItem(`organize-dismissed:${ROOM_ID}`)).toBeNull();
