@@ -21,6 +21,7 @@ import {
   OrganizeLimitModal,
   organizeLimitOf,
   OrganizeStatusBar,
+  PersonReviewScreen,
   useOrganizeJob,
 } from "@/features/organize-media";
 import { SearchRequestField } from "@/features/search-media";
@@ -114,6 +115,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
+  const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -196,6 +198,21 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     if (limit) setOrganizeLimit(limit);
     else open();
   };
+
+  /**
+   * 검토 화면의 이름 칩. 방 멤버 목록 API 가 없어서 사진을 올린 사람 이름으로 대신한다.
+   * 내 이름은 "나" 칩으로 따로 보인다.
+   */
+  const myName = room.myNickname ?? nickname;
+  const reviewMemberNames = [
+    ...new Set(
+      allGalleryItems.flatMap((item) => (item.type === "server" ? [item.media.uploaderName] : [])),
+    ),
+  ].filter((name) => name.trim() !== "" && name !== myName);
+
+  // 결과가 취소·만료돼 검토할 것이 없어지면 검토 화면도 닫는다. 다음 결과에서 저절로 열리지 않게 한다.
+  const hasReview = organize.review !== null;
+  if (isPersonReviewOpen && !hasReview) setIsPersonReviewOpen(false);
 
   const folders = room.folders.map((folder) => ({
     ...folder,
@@ -458,8 +475,25 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             }
             organize.dismiss();
           }}
-          // 결과 검토 화면이 붙기 전까지는 알림만 숨긴다. 결과는 남겨 두어야 검토 화면에서 이어 볼 수 있다.
-          onReview={organize.hide}
+          // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
+          // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
+          onReview={() => {
+            organize.reloadResult();
+            setIsPersonReviewOpen(true);
+          }}
+        />
+      )}
+
+      {isPersonReviewOpen && organize.review && (
+        <PersonReviewScreen
+          source={organize.review}
+          myName={myName}
+          memberNames={reviewMemberNames}
+          folderNames={room.folders.map((folder) => folder.name)}
+          onClose={() => setIsPersonReviewOpen(false)}
+          onRetry={organize.reloadResult}
+          // 폴더 반영은 #684 에서 붙인다.
+          onSubmit={() => undefined}
         />
       )}
 

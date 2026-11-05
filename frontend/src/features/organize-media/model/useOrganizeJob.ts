@@ -15,6 +15,7 @@ import {
   type OrganizeJob,
   type OrganizeJobState,
   type OrganizeKind,
+  type OrganizeResult,
   type OrganizeRoomChangedEvent,
 } from "../api/types";
 import type { OrganizeLimit } from "./analyzablePhotos";
@@ -110,9 +111,11 @@ const mergeJob = (
 export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
   const [job, setJob] = useState<TrackedJob | null>(null);
   const [room, setRoom] = useState({ busy: false, version: -1 });
-  const [peopleCount, setPeopleCount] = useState<{ jobId: string; count: number | null } | null>(
+  /** READY 작업의 검토용 결과. 읽지 못했으면 `result` 가 null 이다. */
+  const [loaded, setLoaded] = useState<{ jobId: string; result: OrganizeResult | null } | null>(
     null,
   );
+  const [resultAttempt, setResultAttempt] = useState(0);
   const [dismissedJobId, setDismissedJobId] = useState(() => readDismissed(roomId));
   const [error, setError] = useState<string | null>(null);
   const [limit, setLimit] = useState<OrganizeLimit | null>(null);
@@ -168,22 +171,23 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
     };
   }, [readCurrent]);
 
-  // 분석이 끝나면 결과에서 찾은 사람 수(그룹 수)를 읽는다. 0이면 "사람 없음" 알림이다.
+  // 분석이 끝나면 결과를 읽는다. 찾은 사람 수(그룹 수)가 0이면 "사람 없음" 알림이고,
+  // 아니면 같은 결과로 검토 화면을 그린다.
   const readyJobId = job?.status === "READY" ? job.jobId : null;
   useEffect(() => {
     if (!readyJobId) return;
     let isCancelled = false;
     getOrganizeResult({ roomId, token, jobId: readyJobId })
       .then((result) => {
-        if (!isCancelled) setPeopleCount({ jobId: readyJobId, count: result.groups.length });
+        if (!isCancelled) setLoaded({ jobId: readyJobId, result });
       })
       .catch(() => {
-        if (!isCancelled) setPeopleCount({ jobId: readyJobId, count: null });
+        if (!isCancelled) setLoaded({ jobId: readyJobId, result: null });
       });
     return () => {
       isCancelled = true;
     };
-  }, [readyJobId, roomId, token]);
+  }, [readyJobId, resultAttempt, roomId, token]);
 
   const start = useCallback(
     async (request: OrganizeRequest) => {
@@ -291,16 +295,20 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
   }, [hideNotice, job, release]);
 
   /**
-   * 알림만 숨긴다. 결과는 그대로 두므로 검토 기한 동안 방은 계속 점유된다.
-   * '확인하기' 로 결과 검토 화면에 넘어갈 때 쓴다.
+   * 결과를 새로 읽는다. 검토 화면을 열 때('확인하기')와, 읽지 못해 다시 시도할 때 쓴다.
+   * 완료 때 읽어 둔 결과는 알림의 사람 수용이다. 그 뒤 시간이 지나면 사진 주소(서명 URL)가 만료되거나
+   * 그사이 지워진 사진이 남아 있을 수 있어, 화면을 열 때 한 번 더 받는다.
    */
-  const hide = useCallback(() => {
-    if (job) hideNotice(job.jobId);
-  }, [hideNotice, job]);
+  const reloadResult = useCallback(() => {
+    setLoaded(null);
+    setResultAttempt((attempt) => attempt + 1);
+  }, []);
 
   const isMine = job !== null && VISIBLE_STATUSES.includes(job.status);
   const isRunning = job !== null && isActiveStatus(job.status);
   const isAwaitingReview = job?.status === "READY";
+
+  const readyResult = loaded !== null && loaded.jobId === readyJobId ? loaded : null;
 
   const notice: MyOrganizeJob | null =
     job && isMine && (isRunning || job.jobId !== dismissedJobId)
@@ -310,7 +318,7 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
           percent: job.percent,
           photoCount: job.photoCount,
           retryable: job.retryable,
-          peopleCount: peopleCount?.jobId === job.jobId ? peopleCount.count : null,
+          peopleCount: readyResult?.result ? readyResult.result.groups.length : null,
         }
       : null;
 
@@ -328,7 +336,19 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
     isRunning,
     isStarting,
     blockedReason,
-    isPeopleCountLoading: notice?.status === "READY" && peopleCount?.jobId !== notice.jobId,
+    isPeopleCountLoading: notice?.status === "READY" && readyResult === null,
+    /**
+     * 검토할 결과. 아직 읽는 중이면 `loading`, 읽지 못했으면 `failed` 다.
+     * 완료(READY)된 내 작업이 없으면 null 이다.
+     */
+    review: !readyJobId
+      ? null
+      : readyResult === null
+        ? ({ state: "loading" } as const)
+        : readyResult.result === null
+          ? ({ state: "failed" } as const)
+          : ({ state: "ready", result: readyResult.result } as const),
+    reloadResult,
     error,
     clearError: () => setError(null),
     /** 서버가 장수 때문에 거절한 까닭. 모달로 알린다. */
@@ -338,7 +358,6 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
     retry,
     cancel,
     dismiss,
-    hide,
     resync,
     applyJobUpdate,
     applyRoomChange,
