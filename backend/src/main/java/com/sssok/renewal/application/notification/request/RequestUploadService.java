@@ -7,6 +7,7 @@ import com.sssok.renewal.domain.notification.RoomNotification;
 import com.sssok.renewal.outgoing.database.NotificationMemberRepository;
 import com.sssok.renewal.outgoing.database.NotificationRoomRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -16,12 +17,15 @@ public class RequestUploadService {
     private final NotificationMemberRepository memberRepository;
     private final UploadRequestCooldown cooldown;
     private final RoomNotifier roomNotifier;
+    private final ApplicationEventPublisher eventPublisher;
 
     public void request(Long roomId, Long requesterId) {
         Room room = roomRepository.findById(roomId).orElseThrow(() -> new RoomNotFoundException(roomId));
         cooldown.acquire(roomId, requesterId);
         String requesterName = memberRepository.findNickname(requesterId).orElse(null);
-        roomNotifier.notifyMembers(roomId, requesterId, RoomNotification.uploadRequested(
-            roomId, room.getCode().value(), requesterName));
+        RoomNotification notification = RoomNotification.uploadRequested(roomId, room.getCode().value(), requesterName);
+        roomNotifier.notifyMembers(roomId, requesterId, notification);
+        eventPublisher.publishEvent(new UploadRequestedEvent(
+            roomId, notification.roomCode(), requesterId, notification.title(), notification.body()));
     }
 }

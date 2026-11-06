@@ -1,15 +1,19 @@
 import type { OrganizeKind, OrganizeProgress } from "../api/types";
 
 /**
- * 분석 서버가 지나가는 단계 순서. 사람별은 `mcp/servers/gallery/pipeline/photo_analysis.py`,
- * 비슷한 사진은 진행 정보 계약(`docs/backend/ORGANIZE_PROGRESS_CONTRACT.md`)을 따른다.
+ * 분석 서버가 지나가는 단계 순서. 둘 다 진행 정보 계약(`docs/backend/ORGANIZE_PROGRESS_CONTRACT.md`)을 따른다.
+ * 사람별은 계약 §3(#704)의 11단계이고, 계약 이전 분석 서버가 보내는 여덟 단계도 같은 순서로 들어 있어
+ * 어느 서버에서든 앞으로만 간다.
  *
  * 서버가 주는 `processed / total` 은 **단계마다 0부터 다시 센다.** 단계가 바뀌면 숫자가 되돌아가고,
  * 숫자를 주지 않는 단계(묶기·내보내기)도 있다. 그대로 그리면 진행 바가 앞뒤로 튀거나 비어 보여서,
  * 단계 순서와 단계 안 처리 비율로 전체 진행률을 하나로 만든다. 단계는 같은 몫으로 나눈다.
  */
 export const PERSON_STAGES = [
+  "waiting",
+  "downloading_photos",
   "initializing",
+  "loading_models",
   "preparing",
   "detecting_faces",
   "grouping_faces",

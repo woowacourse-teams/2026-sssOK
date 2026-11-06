@@ -12,6 +12,7 @@ const jobOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob => ({
   kind: "PERSON",
   status: "RUNNING",
   percent: 45,
+  isWaiting: false,
   photoCount: 40,
   retryable: true,
   groupCount: null,
@@ -137,10 +138,26 @@ describe("OrganizeStatusBar", () => {
 
   it("접수만 된 상태는 분석 대기로 보이고 장수를 비워 둔다", () => {
     render(
-      <OrganizeStatusBar job={jobOf({ status: "QUEUED", percent: null })} {...barHandlers()} />,
+      <OrganizeStatusBar
+        job={jobOf({ status: "QUEUED", percent: null, isWaiting: true })}
+        {...barHandlers()}
+      />,
     );
 
     expect(screen.getByText(/분석 대기 중/)).toBeInTheDocument();
+    expect(screen.queryByText(/\/ 40/)).not.toBeInTheDocument();
+  });
+
+  it("분석 서버에서 차례를 기다리는 동안은 진행 중이어도 대기로 보이고 장수를 비워 둔다", () => {
+    render(
+      <OrganizeStatusBar
+        job={jobOf({ status: "RUNNING", percent: 0, isWaiting: true })}
+        {...barHandlers()}
+      />,
+    );
+
+    expect(screen.getByText("분석 대기 중...")).toBeInTheDocument();
+    expect(screen.queryByText(/나누는 중/)).not.toBeInTheDocument();
     expect(screen.queryByText(/\/ 40/)).not.toBeInTheDocument();
   });
 

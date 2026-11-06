@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Spinner } from "@/shared/ui/spinner";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
 import type { OrganizeResult } from "../api/types";
 import {
@@ -41,9 +41,6 @@ import { SimilarCard } from "./SimilarCard";
 import { SimilarMergeSheet } from "./SimilarMergeSheet";
 
 const SCREEN_TITLE = "비슷한 사진 나누기";
-/** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 띄운다. 합친 결과(AI-S3c)도 같은 자리다. */
-const TOAST_BOTTOM = "calc(112px + env(safe-area-inset-bottom, 0px))";
-const TOAST_MS = 2500;
 
 interface SimilarReviewScreenProps {
   source: PersonReviewSource;
@@ -118,22 +115,8 @@ interface PendingMerge {
 const Review = ({ result, folderNames, onClose }: ReviewProps) => {
   const [review, setReview] = useState<PersonReview>(() => createPersonReview(result.groups));
   const [openedId, setOpenedId] = useState<string | null>(null);
-  /** 폴더로 반영하는 건 아직 없다(#728). 버튼을 누르면 준비 중이라고만 알린다. */
-  const [isSubmitPending, setIsSubmitPending] = useState(false);
   const [pendingMerge, setPendingMerge] = useState<PendingMerge | null>(null);
-  const [mergedNotice, setMergedNotice] = useState<{ key: number; message: string } | null>(null);
-
-  useEffect(() => {
-    if (!isSubmitPending) return;
-    const timer = window.setTimeout(() => setIsSubmitPending(false), TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [isSubmitPending]);
-
-  useEffect(() => {
-    if (!mergedNotice) return;
-    const timer = window.setTimeout(() => setMergedNotice(null), TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [mergedNotice]);
+  const { showToast } = useToast();
 
   const opened = review.people.find((card) => card.id === openedId) ?? null;
   const footer = similarFooterOf(review, folderNames);
@@ -152,10 +135,10 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
     setReview(next);
     setPendingMerge(null);
     if (owner) {
-      setMergedNotice((current) => ({
-        key: (current?.key ?? 0) + 1,
+      showToast({
         message: `${name} 사진을 합쳤어요 (${includedPhotos(owner).length}장)`,
-      }));
+        showClose: false,
+      });
     }
   };
 
@@ -200,29 +183,17 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
       </Scroll>
       <Footer>
         {footer.hint && <Hint>{footer.hint}</Hint>}
-        <Submit type="button" disabled={!footer.canSubmit} onClick={() => setIsSubmitPending(true)}>
+        <Submit
+          type="button"
+          disabled={!footer.canSubmit}
+          onClick={() =>
+            // 폴더로 반영하는 건 아직 없다(#728). 누르면 준비 중이라고만 알린다.
+            showToast({ message: "폴더 만들기는 곧 열려요.", showClose: false })
+          }
+        >
           {footer.submit}
         </Submit>
       </Footer>
-
-      {isSubmitPending && (
-        <Toast
-          message="폴더 만들기는 곧 열려요."
-          showClose={false}
-          bottom={TOAST_BOTTOM}
-          onClose={() => setIsSubmitPending(false)}
-        />
-      )}
-
-      {mergedNotice && (
-        <Toast
-          key={mergedNotice.key}
-          message={mergedNotice.message}
-          showClose={false}
-          bottom={TOAST_BOTTOM}
-          onClose={() => setMergedNotice(null)}
-        />
-      )}
 
       {pendingMerge && (
         <SimilarMergeSheet

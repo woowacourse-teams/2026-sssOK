@@ -36,7 +36,7 @@ interface OrganizeStatusBarProps {
  * 전체 진행률만큼 사진을 본 것으로 보고 장수로 바꿔 보여 준다. 그래서 숫자도 앞으로만 간다.
  * 진행률이 아직 없으면 비워 둔다. "0 / 41" 로 두면 0장째에 멈춘 것처럼 보인다.
  */
-const countOf = ({ photoCount, percent }: MyOrganizeJob) =>
+const countOf = (photoCount: number | null, percent: number | null) =>
   photoCount === null || percent === null
     ? null
     : `${Math.floor((percent / 100) * photoCount)} / ${photoCount}`;
@@ -73,8 +73,8 @@ const COPY: Record<
 };
 
 /**
- * RUNNING 이어도 분석 서버는 사진을 받아 오고 모델을 불러오는 동안 단계를 주지 않는다.
- * 그때 진행률이 null 이라 "나누는 중" 대신 준비 중이라고 알린다.
+ * RUNNING 인데 아직 아는 단계를 받지 못했으면 진행률이 null 이다.
+ * 그때는 "나누는 중" 대신 준비 중이라고 알린다.
  */
 const runningLabelOf = (kind: OrganizeKind, percent: number | null) =>
   percent === null ? "사진 준비 중..." : COPY[kind].running(percent);
@@ -115,13 +115,14 @@ export const OrganizeStatusBar = ({
   const copy = COPY[job.kind];
 
   if (job.status === "QUEUED" || job.status === "RUNNING") {
-    const percent = job.status === "RUNNING" ? job.percent : null;
-    const label = job.status === "QUEUED" ? "분석 대기 중..." : runningLabelOf(job.kind, percent);
+    // 차례를 기다리는 동안은 진행률·장수를 비워 둔다. "0%" 로 두면 분석이 멈춘 것처럼 보인다.
+    const percent = job.isWaiting ? null : job.percent;
+    const label = job.isWaiting ? "분석 대기 중..." : runningLabelOf(job.kind, percent);
 
     return (
       <Dock>
         <FloatingBar>
-          <Count>{countOf(job)}</Count>
+          <Count>{countOf(job.photoCount, percent)}</Count>
           <Status
             variant="soft"
             role="progressbar"

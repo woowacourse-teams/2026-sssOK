@@ -33,7 +33,7 @@ public class SocialAccountRepository {
     }
     public void updateTokens(SocialIdentity identity, EncryptedSocialTokens tokens) {
         if (jpaRepository.updateTokens(identity.provider().name(), identity.providerUserId(),
-            tokens.accessToken(), tokens.refreshToken()) != 1) {
+            tokens.accessToken(), tokens.refreshToken(), tokens.clientType().name()) != 1) {
             throw new IllegalStateException("토큰을 저장할 소셜 계정을 찾을 수 없습니다");
         }
     }

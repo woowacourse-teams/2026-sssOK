@@ -38,7 +38,7 @@ class OrganizeJobEventListenerTest {
     private OrganizeJob job(OrganizeJobStatus status, String failureCode, int retryCount) {
         return new OrganizeJob(1L, UUID.randomUUID(), ROOM_ID, REQUESTER_ID, OrganizeKind.PERSON,
             OrganizeTrigger.BUTTON, status, null, "gallery", "tool", "설명", 5, 0, 4, retryCount, failureCode, null,
-            null, null, "analyzing", 18, 40, null, null, T0, T0, T0);
+            null, null, "analyzing", 18, 40, "PHOTO", null, null, T0, T0, T0);
     }
 
     @Test
@@ -54,7 +54,7 @@ class OrganizeJobEventListenerTest {
         assertThat(updated.status()).isEqualTo("RUNNING");
         assertThat(updated.jobVersion()).isEqualTo(4);
         assertThat(updated.attempt()).isEqualTo(1);
-        assertThat(updated.progress()).isEqualTo(new OrganizeJobResponse.Progress("analyzing", 18, 40));
+        assertThat(updated.progress()).isEqualTo(new OrganizeJobResponse.Progress("analyzing", 18, 40, "PHOTO"));
         assertThat(updated.retryable()).isFalse();
     }
 

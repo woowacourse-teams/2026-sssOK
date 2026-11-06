@@ -3,6 +3,7 @@ package com.sssok.renewal.application.auth;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.domain.auth.EncryptedSocialTokens;
+import com.sssok.renewal.domain.auth.OAuthClientType;
 import com.sssok.renewal.domain.auth.RefreshTokenDelivery;
 import com.sssok.renewal.domain.member.SocialIdentity;
 import com.sssok.renewal.domain.member.SocialProvider;
@@ -71,6 +72,37 @@ class UnlinkSocialAccountServiceTest extends PostgresContainerSupport {
         verify(client).unlink(unlinkAuthentication);
         assertThat(socialAccountRepository.findTokens(identity).orElseThrow()).isEqualTo(stored);
         assertThat(sessionTokenProvider.parse(registered.accessToken())).isEqualTo(registered.userId());
+    }
+
+    @Test
+    void 앱으로_로그인한_애플_토큰은_앱_client_설정으로_해제한다() {
+        SocialIdentity identity = identity(SocialProvider.APPLE);
+        login(identity, "web-access", "web-refresh", OAuthClientType.WEB);
+        login(identity, "native-access", "native-refresh", OAuthClientType.NATIVE);
+        unlinkSocialAccountService.unlink(identity);
+        verify(apple).unlink(new SocialAuthentication(identity, "native-access", "native-refresh", OAuthClientType.NATIVE));
+    }
+
+    @Test
+    void 앱에서_웹으로_재로그인한_뒤에는_웹_토큰과_웹_설정으로_해제한다() {
+        SocialIdentity identity = identity(SocialProvider.APPLE);
+        login(identity, "native-access", "native-refresh", OAuthClientType.NATIVE);
+        login(identity, "web-access", "web-refresh", OAuthClientType.WEB);
+        unlinkSocialAccountService.unlink(identity);
+        verify(apple).unlink(new SocialAuthentication(identity, "web-access", "web-refresh", OAuthClientType.WEB));
+    }
+
+    @Test
+    void 발급_client_정보가_없는_기존_애플_토큰은_웹_설정으로_해제한다() {
+        SocialIdentity identity = identity(SocialProvider.APPLE);
+        login(identity, "access", "refresh", OAuthClientType.NATIVE);
+        jdbcTemplate.update("UPDATE social_account SET token_client_type = NULL WHERE provider_user_id = ?", identity.providerUserId());
+        unlinkSocialAccountService.unlink(identity);
+        verify(apple).unlink(new SocialAuthentication(identity, "access", "refresh", OAuthClientType.WEB));
+    }
+
+    private void login(SocialIdentity identity, String access, String refresh, OAuthClientType clientType) {
+        socialMemberLoginService.login(new SocialAuthentication(identity, access, refresh, clientType), List.of(), RefreshTokenDelivery.COOKIE);
     }
 
     @Test

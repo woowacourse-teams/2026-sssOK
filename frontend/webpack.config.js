@@ -183,6 +183,8 @@ module.exports = {
     }),
   ],
   devServer: {
+    // 압축 스트림은 작은 SSE 이벤트를 버퍼링한다. 앱 테스트 프록시에서는 즉시 전달한다.
+    compress: !useApiProxy,
     static: {
       directory: path.join(__dirname, "public"),
     },

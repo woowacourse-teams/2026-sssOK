@@ -60,23 +60,27 @@ const scenarioOf = (): Scenario => {
   }
 };
 
-/** 앞 절반·뒤 절반에 해당하는 분석 서버 단계. 비슷한 사진은 장면 특징을 뽑은 뒤 서로 비교한다. */
-const STAGES: Record<MockJob["kind"], [string, string]> = {
-  PERSON: ["detecting_faces", "detecting_bodies"],
-  SIMILAR: ["extracting_scene_features", "matching_similar_photos"],
-};
-
 /**
- * 실제 분석 서버처럼 단계마다 0부터 다시 센다. 사람별은 앞 절반이 얼굴 찾기, 뒤 절반이 사람(몸) 찾기다.
+ * 실제 분석 서버처럼 단계마다 0부터 다시 센다(진행 정보 계약 #704).
+ * 처음 3분의 1은 사진 내려받기다. 사람별은 다음이 얼굴 찾기, 마지막이 사람(몸) 찾기이고,
+ * 비슷한 사진은 장면 특징을 뽑은 뒤 서로 비교한다.
  * 진행 바가 이 숫자를 그대로 쓰지 않고 전체 진행률로 바꾸는지 손으로 확인할 수 있다.
  */
-const progressOf = (kind: MockJob["kind"], processed: number, total: number) => {
-  const half = Math.ceil(total / 2);
-  const [first, second] = STAGES[kind];
-  return processed < half
-    ? { stage: first, processed: processed * 2, total }
-    : { stage: second, processed: (processed - half) * 2, total };
+const STAGES: Record<MockJob["kind"], readonly string[]> = {
+  PERSON: ["downloading_photos", "detecting_faces", "detecting_bodies"],
+  SIMILAR: ["downloading_photos", "extracting_scene_features", "matching_similar_photos"],
 };
+
+const progressOf = (kind: MockJob["kind"], processed: number, total: number) => {
+  const stages = STAGES[kind];
+  const size = Math.ceil(total / stages.length);
+  const index = Math.min(stages.length - 1, Math.floor(processed / size));
+  const inStage = Math.min(total, (processed - index * size) * stages.length);
+  return { stage: stages[index], processed: inStage, total, unit: "PHOTO" };
+};
+
+/** 분석 서버에 넘어갔지만 아직 차례가 오지 않은 상태. 접수 대기 시간의 뒤 절반이다. */
+const WAITING = { stage: "waiting", processed: null, total: null, unit: null };
 
 /** 지금 시각의 작업 상태. 버전은 상태·처리 수가 바뀔 때마다 커지도록 계산한다. */
 const snapshot = (job: MockJob, now = Date.now()) => {
@@ -94,16 +98,20 @@ const snapshot = (job: MockJob, now = Date.now()) => {
   } else if (job.appliedVersion !== null) {
     status = "APPLIED";
     jobVersion = job.appliedVersion;
-  } else if (elapsed < QUEUE_MS) {
+  } else if (elapsed < QUEUE_MS / 2) {
     status = "QUEUED";
     jobVersion = base + 1;
+  } else if (elapsed < QUEUE_MS) {
+    status = "RUNNING";
+    jobVersion = base + 2;
   } else if (processed < stopAt) {
     status = "RUNNING";
-    jobVersion = base + 2 + processed;
+    jobVersion = base + 3 + processed;
   } else {
     status = job.scenario === "fail" ? "FAILED" : "READY";
-    jobVersion = base + 3 + total;
+    jobVersion = base + 4 + total;
   }
+  const isWaiting = status === "RUNNING" && elapsed < QUEUE_MS;
 
   const finishedAt = job.startedAt + QUEUE_MS + stopAt * PER_PHOTO_MS;
   const isReady = status === "READY";
@@ -116,7 +124,9 @@ const snapshot = (job: MockJob, now = Date.now()) => {
     excludedCount: 0,
     attempt: job.attempt,
     jobVersion,
-    ...(status === "RUNNING" ? { progress: progressOf(job.kind, processed, total) } : {}),
+    ...(status === "RUNNING"
+      ? { progress: isWaiting ? WAITING : progressOf(job.kind, processed, total) }
+      : {}),
     ...(status === "FAILED" ? { failureCode: "ANALYSIS_FAILED" } : {}),
     retryable: status === "FAILED" && job.attempt <= MAX_RETRIES,
     retryAvailableAt: null,

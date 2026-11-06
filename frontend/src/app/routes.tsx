@@ -1,4 +1,4 @@
-import { Navigate, type RouteObject } from "react-router-dom";
+import { Navigate, Outlet, type RouteObject } from "react-router-dom";
 
 import { AccountSettingsPage } from "@/pages/account-settings";
 import { AdminAccountsPage } from "@/pages/admin-accounts";
@@ -21,8 +21,9 @@ import { RedirectIfMember } from "./RedirectIfMember";
 import { RequireMember } from "./RequireMember";
 import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
+import { useUnauthorizedRecovery } from "./useUnauthorizedRecovery";
 
-export const routes: RouteObject[] = [
+const pageRoutes: RouteObject[] = [
   { path: ROUTE_PATTERNS.privacy, element: <PrivacyPolicyPage /> },
   { path: ROUTE_PATTERNS.terms, element: <TermsOfServicePage /> },
   { path: ROUTE_PATTERNS.loginCallback, element: <LoginCallbackPage /> },
@@ -63,4 +64,25 @@ export const routes: RouteObject[] = [
   },
   // 알 수 없는 주소는 홈으로 안내한다 (screens/001-home.md)
   { path: "*", element: <Navigate to={ROUTES.home} replace /> },
+];
+
+const AuthRecoveryLayout = () => {
+  useUnauthorizedRecovery();
+  return <Outlet />;
+};
+
+export const routes: RouteObject[] = [
+  ...pageRoutes.filter(
+    (route) =>
+      route.path === ROUTE_PATTERNS.adminLogin ||
+      route.children?.some((child) => child.path === ROUTE_PATTERNS.admin),
+  ),
+  {
+    element: <AuthRecoveryLayout />,
+    children: pageRoutes.filter(
+      (route) =>
+        route.path !== ROUTE_PATTERNS.adminLogin &&
+        !route.children?.some((child) => child.path === ROUTE_PATTERNS.admin),
+    ),
+  },
 ];

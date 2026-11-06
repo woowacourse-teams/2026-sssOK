@@ -170,11 +170,15 @@ jobs:
             docker image prune -f > /dev/null 2>&1 || true
           }
 
+          # 신규 러너의 기본 credential helper 대신 이 배포에만 사용하는 설정에 로그인한다.
+          DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/ghcr.XXXXXXXX")"
+          export DOCKER_CONFIG
           finish() {
+            rm -rf -- "$DOCKER_CONFIG"
             cleanup_old_images
-            docker logout ghcr.io > /dev/null 2>&1 || true
           }
           trap finish EXIT
+          printf '%s\n' '{"auths":{"ghcr.io":{}}}' > "$DOCKER_CONFIG/config.json"
 
           # pull 전에 공간을 확보해 디스크 부족으로 배포가 시작조차 못 하는 상황을 막는다.
           cleanup_old_images

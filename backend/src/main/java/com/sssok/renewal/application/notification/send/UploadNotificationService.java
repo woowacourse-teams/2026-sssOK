@@ -11,8 +11,8 @@ public class UploadNotificationService {
     private final NotificationRoomRepository roomRepository;
     private final RoomNotifier roomNotifier;
 
-    public void notifyUploaded(Long roomId, Long uploaderId, String uploaderName, int count) {
+    public void notifyUploaded(Long roomId, Long uploaderId, String uploaderName) {
         roomRepository.findById(roomId).ifPresent(room -> roomNotifier.notifyMembers(roomId, uploaderId,
-            RoomNotification.mediaUploaded(roomId, room.getCode().value(), room.getName().value(), uploaderName, count)));
+            RoomNotification.mediaUploaded(roomId, room.getCode().value(), room.getName().value(), uploaderName)));
     }
 }
