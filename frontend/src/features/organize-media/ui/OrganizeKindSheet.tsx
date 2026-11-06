@@ -8,7 +8,10 @@ import avatar1 from "../assets/avatar-1.svg";
 import avatar2 from "../assets/avatar-2.svg";
 import avatar3 from "../assets/avatar-3.svg";
 import checkIcon from "../assets/check.svg";
-import similarSample from "../assets/similar-sample.jpg";
+import similarCard from "../assets/similar-card.svg";
+import similarSceneCenter from "../assets/similar-scene-center.svg";
+import similarSceneLeft from "../assets/similar-scene-left.svg";
+import similarSceneRight from "../assets/similar-scene-right.svg";
 import {
   Avatar,
   CheckMark,
@@ -17,8 +20,8 @@ import {
   Notice,
   Option,
   Options,
+  SceneCard,
   Soon,
-  StackPhoto,
   Thumb,
   ThumbArt,
   ThumbFrame,
@@ -34,8 +37,18 @@ interface KindOption {
 
 const KINDS: KindOption[] = [
   { kind: "PERSON", label: "사람별로", cta: "얼굴 분석해서 정리하기", ready: true },
-  { kind: "SIMILAR", label: "비슷한 사진", cta: "비슷한 사진 묶기", ready: false },
+  { kind: "SIMILAR", label: "비슷한 사진", cta: "비슷한 사진 묶기", ready: true },
 ];
+
+/**
+ * 조금씩 다른 풍경 카드 세 장(피그마 661:2754). 좌우 카드가 ±8° 기울고 가운데 카드가 맨 위다.
+ * 그리는 순서가 겹치는 순서라 왼쪽·오른쪽·가운데 순으로 둔다.
+ */
+const SIMILAR_SCENES = [
+  { src: similarSceneLeft, offset: -1 },
+  { src: similarSceneRight, offset: 1 },
+  { src: similarSceneCenter, offset: 0 },
+] as const;
 
 /** 시트는 분석 전에 뜨므로 방의 사진을 쓰지 않는다. 어느 방에서나 같은 예시 그림을 보여 준다. */
 const KindThumb = ({ kind }: { kind: OrganizeKind }) =>
@@ -49,9 +62,12 @@ const KindThumb = ({ kind }: { kind: OrganizeKind }) =>
     </Crowd>
   ) : (
     <>
-      <StackPhoto src={similarSample} alt="" $offset={-1} />
-      <StackPhoto src={similarSample} alt="" $offset={1} />
-      <StackPhoto src={similarSample} alt="" $offset={0} />
+      {SIMILAR_SCENES.map(({ src, offset }) => (
+        <SceneCard key={src} $offset={offset}>
+          <img src={similarCard} alt="" width={66} height={58} />
+          <img src={src} alt="" width={62} height={54} />
+        </SceneCard>
+      ))}
     </>
   );
 
@@ -63,7 +79,7 @@ interface OrganizeKindSheetProps {
   onClose: () => void;
 }
 
-/** '자동으로 정리하기' 를 누르면 뜨는 정리 방식 선택 시트. 지금은 '사람별로' 만 고를 수 있다. */
+/** '자동으로 정리하기' 를 누르면 뜨는 정리 방식 선택 시트. '사람별로' 와 '비슷한 사진' 중에 고른다. */
 export const OrganizeKindSheet = ({
   isGuest,
   isStarting = false,

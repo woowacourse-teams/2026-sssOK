@@ -2,6 +2,8 @@ import styled from "@emotion/styled";
 
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
+import similarCardMask from "../assets/similar-card-mask.svg";
+
 /* 정리 방식 선택 시트(558:5390)의 카드·썸네일. 시트 틀은 `OrganizeSheet.styles` 에 있다. */
 
 export const Options = styled.div`
@@ -101,17 +103,33 @@ export const Avatar = styled.span`
   }
 `;
 
-/** 겹친 사진 세 장. 가운데 사진 중심 기준으로 좌우 사진이 48px 떨어져 ±8° 기울어 있다. */
-export const StackPhoto = styled.img<{ $offset: -1 | 0 | 1 }>`
+/**
+ * 풍경 카드 한 장. 흰 카드(66×58) 안에 2px 안쪽으로 풍경(62×54)을 둥근 모서리 마스크로 잘라 얹는다.
+ * 가운데 카드 기준으로 좌우 카드가 24px 떨어져 ±8° 기울어 있다.
+ */
+export const SceneCard = styled.span<{ $offset: -1 | 0 | 1 }>`
   position: absolute;
-  top: 9px;
-  left: calc(50% - 31px + ${({ $offset }) => $offset * 24}px);
-  width: 62px;
-  height: 54px;
-  object-fit: cover;
-  border: 2px solid ${colors.backgroundDefault};
-  border-radius: 7px;
+  top: 5px;
+  left: calc(50% - 33px + ${({ $offset }) => $offset * 24}px);
+  width: 66px;
+  height: 58px;
   transform: rotate(${({ $offset }) => $offset * 8}deg);
+
+  img {
+    position: absolute;
+    display: block;
+    max-width: none;
+  }
+
+  img:first-of-type {
+    inset: 0;
+  }
+
+  img:last-of-type {
+    top: 2px;
+    left: 2px;
+    mask: url(${similarCardMask}) no-repeat 0 0 / 62px 54px;
+  }
 `;
 
 export const CheckMark = styled.span`

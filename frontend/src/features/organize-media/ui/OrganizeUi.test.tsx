@@ -26,15 +26,24 @@ const barHandlers = () => ({
 });
 
 describe("OrganizeKindSheet", () => {
-  it("사람별로만 고를 수 있고 비슷한 사진은 준비 중이다", async () => {
+  it("처음에는 사람별로가 골라져 있다", async () => {
     const onStart = jest.fn();
     render(<OrganizeKindSheet isGuest={false} onStart={onStart} onClose={jest.fn()} />);
 
-    expect(screen.getByRole("radio", { name: /비슷한 사진/ })).toBeDisabled();
-    expect(screen.getByText("준비 중")).toBeInTheDocument();
-
+    expect(screen.queryByText("준비 중")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "얼굴 분석해서 정리하기" }));
     expect(onStart).toHaveBeenCalledWith("PERSON");
+  });
+
+  it("비슷한 사진을 고르면 '비슷한 사진 묶기' 로 SIMILAR 를 시작한다", async () => {
+    const onStart = jest.fn();
+    render(<OrganizeKindSheet isGuest={false} onStart={onStart} onClose={jest.fn()} />);
+
+    await userEvent.click(screen.getByRole("radio", { name: "비슷한 사진 묶기" }));
+    expect(screen.getByRole("radio", { name: "비슷한 사진 묶기" })).toBeChecked();
+
+    await userEvent.click(screen.getByRole("button", { name: "비슷한 사진 묶기" }));
+    expect(onStart).toHaveBeenCalledWith("SIMILAR");
   });
 
   it("로그인하지 않았으면 웹에서는 앱을 설치하지 않으면 한 번만 체험할 수 있다고 알린다", () => {
