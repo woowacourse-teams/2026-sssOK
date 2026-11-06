@@ -37,6 +37,7 @@ import {
   Submit,
   Subtitle,
   Title,
+  TOAST_ABOVE_HINT,
 } from "./PersonReview.styles";
 
 export type PersonReviewSource =
@@ -137,7 +138,7 @@ const Review = ({
   const { showToast } = useToast();
   useEffect(() => {
     if (!submitError) return;
-    showToast({ message: submitError, tone: "error" });
+    showToast({ message: submitError, tone: "error", bottom: TOAST_ABOVE_HINT });
     onDismissError?.();
   }, [submitError, onDismissError, showToast]);
 
@@ -177,6 +178,7 @@ const Review = ({
       showToast({
         message: `${name} 님 사진을 합쳤어요 (${includedPhotos(owner).length}장)`,
         showClose: false,
+        bottom: TOAST_ABOVE_HINT,
       });
     }
   };

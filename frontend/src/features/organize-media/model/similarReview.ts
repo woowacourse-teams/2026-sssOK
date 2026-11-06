@@ -17,6 +17,14 @@ export const renameCard = (review: PersonReview, cardId: string, value: string):
   ),
 });
 
+/** 이 모음과 같은 이름을 먼저 쓴 다른 모음. 없으면 null 이다. 이름을 다 쓴 뒤 합칠지 물을 때 쓴다 (AI-S3b). */
+export const similarOwnerOf = ({ people }: PersonReview, cardId: string) => {
+  const self = people.find((card) => card.id === cardId);
+  const folderName = self ? folderNameOf(self) : null;
+  if (folderName === null) return null;
+  return people.find((card) => card.id !== cardId && folderNameOf(card) === folderName) ?? null;
+};
+
 /** 방에 이미 같은 이름의 폴더가 있는 모음. 없으면 null 이다. */
 export const similarConflictOf = ({ people }: PersonReview, folderNames: readonly string[]) =>
   people.find((card) => {
@@ -48,7 +56,7 @@ export const similarApplyGroupsOf = (people: readonly ReviewPerson[]): OrganizeA
 
 /**
  * 하단 안내와 버튼 문구 (AI-S2·S3).
- * - 이미 있는 폴더 이름을 씀: 이름을 바꾸라고 알리고 버튼은 비활성
+ * - 이미 있는 폴더 이름을 씀: 이름을 바꿔야 한다고 알리고 버튼은 비활성 (AI-S3d)
  * - 아무 모음에도 이름이 없음: 안내만 있고 버튼은 비활성
  * - 일부만 이름을 붙임: 남는 모음 수를 알리고, 만들 폴더 수를 버튼에 적는다
  * - 모두 이름을 붙임: 안내 없이 폴더를 만든다
@@ -57,7 +65,7 @@ export const similarFooterOf = (review: PersonReview, folderNames: readonly stri
   const conflict = similarConflictOf(review, folderNames);
   if (conflict) {
     return {
-      hint: `‘${folderNameOf(conflict)}’ 폴더가 이미 있어요. 다른 이름을 붙여 주세요`,
+      hint: `‘${folderNameOf(conflict)}’ 폴더는 이름을 바꿔야 만들 수 있어요`,
       submit: "폴더 만들기",
       canSubmit: false,
     };
