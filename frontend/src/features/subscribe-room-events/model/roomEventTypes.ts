@@ -30,3 +30,11 @@ export interface OrganizeJobUpdatedEvent {
   status: string;
   [field: string]: unknown;
 }
+
+export interface UploadRequestedEvent {
+  roomId: number;
+  roomCode: string;
+  requesterId: number;
+  title: string;
+  body: string;
+}

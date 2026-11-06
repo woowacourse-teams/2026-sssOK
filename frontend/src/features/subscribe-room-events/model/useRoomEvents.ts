@@ -5,6 +5,7 @@ import { photosQueryKey, type Media, type MediaItem, type MediaList } from "@/en
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
 import type {
+  UploadRequestedEvent,
   MediaFoldersUpdatedEvent,
   MediaLikesUpdatedEvent,
   OrganizeJobUpdatedEvent,
@@ -15,8 +16,10 @@ import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
 interface UseRoomEventsParams {
   roomId: number;
+  roomCode?: string;
   userId: number;
   token: string;
+  onUploadRequested?: (event: UploadRequestedEvent) => void;
   onMediaCreated?: (media: Media) => void;
   onMediaDeleted?: (mediaIds: number[]) => void;
   onFoldersChanged?: () => void;
@@ -32,8 +35,10 @@ const FOLDER_CHANGE_EVENTS = ["folder.created", "folder.renamed", "folder.delete
 
 export const useRoomEvents = ({
   roomId,
+  roomCode,
   userId,
   token,
+  onUploadRequested,
   onMediaCreated,
   onMediaDeleted,
   onFoldersChanged,
@@ -44,6 +49,10 @@ export const useRoomEvents = ({
   onReconnected,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
+  const onUploadRequestedRef = useRef(onUploadRequested);
+  useEffect(() => {
+    onUploadRequestedRef.current = onUploadRequested;
+  }, [onUploadRequested]);
   const onMediaCreatedRef = useRef(onMediaCreated);
   const onMediaDeletedRef = useRef(onMediaDeleted);
   const onFoldersChangedRef = useRef(onFoldersChanged);
@@ -91,16 +100,22 @@ export const useRoomEvents = ({
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
+    const reportRoom = (code: string | null) =>
+      window.ReactNativeWebView?.postMessage(
+        JSON.stringify({ type: "push/current-room", roomCode: code }),
+      );
     let hasReportedConnectionError = false;
     let hasDisconnected = false;
 
     const handleOpen = () => {
+      if (roomCode) reportRoom(roomCode);
       if (!hasDisconnected) return;
       hasDisconnected = false;
       onReconnectedRef.current?.();
     };
 
     const handleConnectionError = () => {
+      if (roomCode) reportRoom(null);
       hasDisconnected = true;
       if (hasReportedConnectionError) return;
 
@@ -112,6 +127,12 @@ export const useRoomEvents = ({
         route: "/rooms/:roomId/events",
         code: "EVENT_SOURCE_ERROR",
       });
+    };
+
+    const handleUploadRequested = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as UploadRequestedEvent;
+      if (payload.roomId === roomId && payload.requesterId !== userId)
+        onUploadRequestedRef.current?.(payload);
     };
 
     const handleMediaCreated = (event: MessageEvent<string>) => {
@@ -177,6 +198,7 @@ export const useRoomEvents = ({
       onOrganizeJobUpdatedRef.current?.(JSON.parse(event.data) as OrganizeJobUpdatedEvent);
     };
 
+    eventSource.addEventListener("upload.requested", handleUploadRequested);
     eventSource.addEventListener("open", handleOpen);
     eventSource.addEventListener("organize.room.changed", handleOrganizeRoomChanged);
     eventSource.addEventListener("organize.job.updated", handleOrganizeJobUpdated);
@@ -192,6 +214,7 @@ export const useRoomEvents = ({
     eventSource.addEventListener("error", handleConnectionError);
 
     return () => {
+      eventSource.removeEventListener("upload.requested", handleUploadRequested);
       eventSource.removeEventListener("open", handleOpen);
       eventSource.removeEventListener("organize.room.changed", handleOrganizeRoomChanged);
       eventSource.removeEventListener("organize.job.updated", handleOrganizeJobUpdated);
@@ -206,6 +229,7 @@ export const useRoomEvents = ({
       eventSource.removeEventListener("media.likes.updated", handleMediaLikesUpdated);
       eventSource.removeEventListener("error", handleConnectionError);
       eventSource.close();
+      if (roomCode) reportRoom(null);
     };
-  }, [queryClient, roomId, userId, token]);
+  }, [queryClient, roomId, roomCode, userId, token]);
 };
