@@ -74,12 +74,12 @@ def orb_scores(photos, output, job):
     return matrix
 
 
-def run(input_dir, output, assets_root, threads=2):
+def run(input_dir, output, assets_root, threads=2, progress=None):
     input_dir, output = Path(input_dir).resolve(), Path(output).resolve()
     if not input_dir.is_dir() or output == input_dir or input_dir in output.parents:
         raise ValueError('Separate input/output directories required')
     output.mkdir(parents=True, exist_ok=False)
-    job = Job(output, input_dir)
+    job = Job(output, input_dir, progress)
     job.state['pipeline_version'] = VERSION
     try:
         configure_runtime(threads)
@@ -90,10 +90,12 @@ def run(input_dir, output, assets_root, threads=2):
             raise ValueError('Every input image failed decoding')
         ids = [p['image_id'] for p in photos]
         normalize = transforms.Normalize([.485, .456, .406], [.229, .224, .225])
+        job.update('loading_scene_model')
         model = load_model(assets_root, 'dinov2.pt')
         dino = feature_matrix(photos, output, model, transforms.Compose([
             transforms.Resize((224, 224)), transforms.ToTensor(), normalize]), job, 'extracting_scene_features')
         del model
+        job.update('loading_center_model')
         model = load_model(assets_root, 'resnet50.pt')
         center = feature_matrix(photos, output, model, transforms.Compose([
             transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize]),
@@ -101,7 +103,9 @@ def run(input_dir, output, assets_root, threads=2):
         del model
         orb = orb_scores(photos, output, job)
         similarity = .7 * (dino @ dino.T) + .3 * np.minimum(orb * 3, 1)
+        job.update('grouping_similar_photos')
         groups, small, unassigned = build_groups(similarity, center @ center.T)
+        job.update('exporting')
         result = {'pipeline_version': VERSION,
                   'groups': [{'group_id': f'similar_{i + 1:04d}', 'image_ids': [ids[j] for j in g]}
                              for i, g in enumerate(groups)],

@@ -25,6 +25,10 @@ class Settings:
     standalone: bool = True
     receipt_retention_seconds: int = 86400
     max_receipts: int = 1000
+    # Running delivery: changed progress is sent at most this often (latest value wins);
+    # unchanged progress is only a liveness signal at the heartbeat interval.
+    progress_interval_seconds: float = 2
+    heartbeat_interval_seconds: float = 15
 
     def __post_init__(self):
         if not self.standalone and not self.backend_url:
@@ -50,6 +54,8 @@ class Settings:
                 raise ValueError('A separate backend service token of at least 32 characters is required')
         if self.receipt_retention_seconds < 1 or self.max_receipts < 1:
             raise ValueError('Receipt bounds must be positive')
+        if not 0 < self.progress_interval_seconds <= self.heartbeat_interval_seconds:
+            raise ValueError('Progress interval must be positive and not exceed the heartbeat interval')
         if len(self.token) < 32:
             raise ValueError('Service token must contain at least 32 characters')
         for value in (self.max_photos, self.max_queue, self.timeout, self.threads):
@@ -79,4 +85,6 @@ class Settings:
             standalone=os.environ.get('GALLERY_STANDALONE', 'false').lower() == 'true',
             receipt_retention_seconds=int(os.environ.get('GALLERY_RECEIPT_RETENTION_SECONDS', '86400')),
             max_receipts=int(os.environ.get('GALLERY_MAX_RECEIPTS', '1000')),
+            progress_interval_seconds=float(os.environ.get('GALLERY_PROGRESS_INTERVAL_SECONDS', '2')),
+            heartbeat_interval_seconds=float(os.environ.get('GALLERY_HEARTBEAT_INTERVAL_SECONDS', '15')),
         )
