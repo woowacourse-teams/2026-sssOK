@@ -528,7 +528,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 찾은 사람이 있는 결과는 닫으면 버려지므로 한 번 더 묻는다. 실패·0명 알림은 버릴 것이 없어 바로 닫는다.
           onDismiss={() => {
             const notice = organize.notice;
-            if (notice?.status === "READY" && notice.peopleCount !== 0) {
+            if (notice?.status === "READY" && notice.groupCount !== 0) {
               setIsOrganizeResultCloseOpen(true);
               return;
             }
@@ -537,6 +537,11 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
+            // 비슷한 사진 결과 확인 화면은 아직 없다. 누르면 준비 중이라고만 알린다.
+            if (organize.notice?.kind === "SIMILAR") {
+              showToast({ message: "비슷한 사진 확인 화면은 곧 열려요.", showClose: false });
+              return;
+            }
             organize.reloadResult();
             setIsPersonReviewOpen(true);
           }}
@@ -586,6 +591,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
       {isOrganizeCancelOpen && organize.isRunning && (
         <OrganizeCancelSheet
+          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeCancelOpen(false)}
           onStop={() => {
             setIsOrganizeCancelOpen(false);
@@ -597,6 +603,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
         <OrganizeCancelSheet
           kind="result"
+          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
           onStop={() => {
             setIsOrganizeResultCloseOpen(false);
