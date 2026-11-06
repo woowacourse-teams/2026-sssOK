@@ -17,8 +17,7 @@ public class MediaUploadedNotificationTrigger {
     @EventListener
     public void onUploaded(MediaUploadedEvent event) {
         try {
-            uploadNotificationService.notifyUploaded(
-                event.roomId(), event.uploaderId(), event.uploaderName(), event.count());
+            uploadNotificationService.notifyUploaded(event.roomId(), event.uploaderId(), event.uploaderName());
         } catch (RuntimeException e) {
             log.warn("업로드 알림을 보내지 못했습니다. roomId={}", event.roomId(), e);
         }
