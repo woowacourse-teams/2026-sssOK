@@ -15,6 +15,7 @@ import {
   HeaderTitle,
   Scroll,
   Submit,
+  TOAST_ABOVE_BUTTON,
 } from "./PersonReview.styles";
 
 interface PersonPhotosProps {
@@ -72,6 +73,7 @@ export const PersonPhotos = ({
                       closeExcludedToast.current = showToast({
                         message: `${nextExcludedCount}장을 뺐어요`,
                         showClose: false,
+                        bottom: TOAST_ABOVE_BUTTON,
                       });
                     } else {
                       closeExcludedToast.current?.();
