@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
 import { HiCheckCircle, HiExclamationCircle } from "react-icons/hi2";
 
-import { CloseButton, Dock, Frame, StatusIcon, Text } from "./Toast.styles";
+import { CloseButton, DEFAULT_TOAST_BOTTOM, Dock, Frame, StatusIcon, Text } from "./Toast.styles";
 
 export interface ToastProps {
   container?: Element | null;
@@ -15,6 +15,8 @@ export interface ToastProps {
    * 눌러야 하는 줄 알고 손이 간다. 그때는 부르는 쪽이 정한 시간 뒤에 `onClose` 로 닫는다.
    */
   showClose?: boolean;
+  /** 화면 아래에서 띄울 거리(CSS 값). 하단에 버튼이 있는 화면은 버튼 위로 올려 겹치지 않게 한다. */
+  bottom?: string;
 }
 
 /** 공통 토스트 틀과 표시 위치. 자동 닫힘 시점은 사용하는 쪽에서 관리한다. */
@@ -24,9 +26,10 @@ export const Toast = ({
   onClose,
   showClose = true,
   container,
+  bottom = DEFAULT_TOAST_BOTTOM,
 }: ToastProps) => {
   return createPortal(
-    <Dock>
+    <Dock $bottom={bottom}>
       <Frame>
         <StatusIcon $tone={tone} aria-hidden="true">
           {tone === "error" ? <HiExclamationCircle /> : <HiCheckCircle />}

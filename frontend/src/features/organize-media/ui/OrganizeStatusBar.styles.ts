@@ -131,7 +131,15 @@ export const StateIcon = styled.span`
   }
 `;
 
-/** 완료 문구는 14px, 실패·사람 없음 문구는 12px 이다(시안 그대로). */
+/** 시안 폭(390px)보다 좁은 폰. 결과 알림이 한 줄에 들어가도록 글자와 버튼 여백을 조금 줄인다. */
+const NARROW = "@media (max-width: 389px)";
+const NARROWER = "@media (max-width: 374px)";
+
+/**
+ * 완료 문구는 14px, 실패·사람 없음 문구는 12px 이다(시안 그대로).
+ * "비슷한 사진을 18개로 묶었어요" 는 390px 에서 딱 한 줄이라, 좁은 폰에서는 완료 문구를
+ * 13px(375px)·12px(360px)로 줄여 한 줄을 지킨다. 그래도 넘치면 끝을 말줄임한다.
+ */
 export const Message = styled.p<{ $size: 12 | 14 }>`
   flex: 1;
   min-width: 0;
@@ -143,6 +151,14 @@ export const Message = styled.p<{ $size: 12 | 14 }>`
   letter-spacing: ${({ $size }) => -$size / 100}px;
   text-overflow: ellipsis;
   white-space: nowrap;
+
+  ${NARROW} {
+    font-size: ${({ $size }) => Math.min($size, 13)}px;
+  }
+
+  ${NARROWER} {
+    font-size: 12px;
+  }
 `;
 
 export const ActionButton = styled.button`
@@ -159,6 +175,14 @@ export const ActionButton = styled.button`
 
   &:active {
     background: ${colors.primaryPressed};
+  }
+
+  ${NARROW} {
+    padding: 0 ${spacing[12]};
+  }
+
+  ${NARROWER} {
+    padding: 0 10px;
   }
 `;
 

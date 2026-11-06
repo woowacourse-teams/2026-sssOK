@@ -315,6 +315,11 @@ export const SmallAction = styled.button`
 `;
 
 /** 하단 고정 영역. 위쪽 24px 은 목록이 흐려지며 사라지는 그라데이션이다. */
+/** 완료 버튼만 있는 하단(버튼 56 + 아래 여백 16)에서 12px 위에 토스트를 띄운다. */
+export const TOAST_ABOVE_BUTTON = "calc(84px + env(safe-area-inset-bottom, 0px))";
+/** 안내 한 줄과 버튼이 있는 하단(안내 29 + 버튼 56 + 여백 28) 바로 위에 토스트를 띄운다. */
+export const TOAST_ABOVE_HINT = "calc(112px + env(safe-area-inset-bottom, 0px))";
+
 export const Footer = styled.div`
   position: relative;
   display: flex;

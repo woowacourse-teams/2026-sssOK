@@ -17,6 +17,8 @@ import {
   type BridgeEvent,
 } from "../bridge/downloadBridge";
 import { usePushNotifications, type PushEvent } from "../bridge/usePushNotifications";
+import { createAuthBridge } from "../bridge/authBridge";
+import { NATIVE_AUTH_PROVIDERS } from "../bridge/sdkAuth";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 import {
   canPersistCookies,
@@ -25,7 +27,7 @@ import {
 } from "../bridge/cookiePersistence";
 
 /** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장을 앱에 맡긴다. */
-const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION} }; true;`;
+const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION}, auth: ${JSON.stringify(NATIVE_AUTH_PROVIDERS)} }; true;`;
 
 /** 브릿지 메시지는 쏙 웹에서 온 것만 받는다. 로그인 페이지(`AUTH_ORIGINS`)도 저장을 시킬 수 없다. */
 const isWebOrigin = (url: string) => {
@@ -56,6 +58,7 @@ const isAllowedWebUrl = (url: string) => {
 export function SssokWebView() {
   const webView = useRef<WebView<object>>(null);
   const downloadBridge = useRef<ReturnType<typeof createDownloadBridge>>(null);
+  const authBridge = useRef<ReturnType<typeof createAuthBridge>>(null);
   const canGoBack = useRef(false);
   const [failed, setFailed] = useState(false);
   const lastInternalUrl = useRef(WEB_URL);
@@ -114,8 +117,21 @@ export function SssokWebView() {
     loadedUrl.current = null;
     // 답을 받을 페이지가 사라졌다. 받던 것을 이어 가봐야 결과를 알릴 곳이 없다.
     downloadBridge.current?.cancelAll();
+    authBridge.current?.cancelAll();
     setFailed(true);
   };
+
+  useEffect(() => {
+    const bridge = createAuthBridge((event) => {
+      webView.current?.injectJavaScript(
+        `if (location.origin === ${JSON.stringify(WEB_ORIGIN)}) {
+          window.dispatchEvent(new CustomEvent("sssok:auth", { detail: ${JSON.stringify(event)} }));
+        } true;`,
+      );
+    });
+    authBridge.current = bridge;
+    return () => bridge.cancelAll();
+  }, []);
 
   useEffect(() => {
     const bridge = createDownloadBridge((event: BridgeEvent) => {
@@ -192,10 +208,13 @@ export function SssokWebView() {
             BRIDGE_FLAG_SCRIPT + (canPersistCookies ? COOKIE_PERSISTENCE_SCRIPT : "")
           }
           // Android에서는 로딩 전 주입이 누락될 수 있어 로딩 후에도 설치한다.
-          injectedJavaScript={canPersistCookies ? COOKIE_PERSISTENCE_SCRIPT : undefined}
+          injectedJavaScript={
+            BRIDGE_FLAG_SCRIPT + (canPersistCookies ? COOKIE_PERSISTENCE_SCRIPT : "")
+          }
           onMessage={({ nativeEvent }) => {
             // 서비스 페이지가 보낸 것만 받는다. 다른 주소의 페이지가 저장을 시키지 못하게 한다.
             if (!isWebOrigin(nativeEvent.url)) return;
+            if (authBridge.current?.handle(nativeEvent.data)) return;
             try {
               const message = JSON.parse(nativeEvent.data);
               if (message?.type === "push/current-room") {
@@ -216,6 +235,7 @@ export function SssokWebView() {
             downloadBridge.current?.handle(nativeEvent.data);
           }}
           onLoadStart={() => {
+            authBridge.current?.cancelAll();
             loadedUrl.current = null;
             currentRoomCode.current = null;
           }}
