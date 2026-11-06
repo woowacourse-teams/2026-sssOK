@@ -2,7 +2,7 @@ import type { OrganizeKind, OrganizeProgress } from "../api/types";
 
 /**
  * 분석 서버가 지나가는 단계 순서. 사람별은 `mcp/servers/gallery/pipeline/photo_analysis.py`,
- * 비슷한 사진은 같은 폴더의 `similar_analysis.py` 를 따른다.
+ * 비슷한 사진은 진행 정보 계약(`docs/backend/ORGANIZE_PROGRESS_CONTRACT.md`)을 따른다.
  *
  * 서버가 주는 `processed / total` 은 **단계마다 0부터 다시 센다.** 단계가 바뀌면 숫자가 되돌아가고,
  * 숫자를 주지 않는 단계(묶기·내보내기)도 있다. 그대로 그리면 진행 바가 앞뒤로 튀거나 비어 보여서,
@@ -19,12 +19,23 @@ export const PERSON_STAGES = [
   "exporting",
 ] as const;
 
+/**
+ * 계약의 11단계다. 계약 이전 분석 서버가 보내는 다섯 단계(initializing·preparing·
+ * extracting_scene_features·extracting_center_features·matching_similar_photos)도 같은 순서로 들어 있어
+ * 어느 서버에서든 진행 바가 앞으로만 간다.
+ */
 export const SIMILAR_STAGES = [
+  "waiting",
+  "downloading_photos",
   "initializing",
   "preparing",
+  "loading_scene_model",
   "extracting_scene_features",
+  "loading_center_model",
   "extracting_center_features",
   "matching_similar_photos",
+  "grouping_similar_photos",
+  "exporting",
 ] as const;
 
 const STAGES: Record<OrganizeKind, readonly string[]> = {
@@ -34,11 +45,13 @@ const STAGES: Record<OrganizeKind, readonly string[]> = {
 
 /**
  * 종류를 모르면(다른 기기에서 시작한 작업의 SSE 만 받은 경우) 단계 이름으로 고른다.
- * 앞의 두 단계는 둘이 같아 사람별로 본다. 곧 종류를 아는 응답이 오면 바로잡힌다.
+ * 두 종류가 함께 쓰는 단계(준비·내보내기 등)는 사람별로 본다. 곧 종류를 아는 응답이 오면 바로잡힌다.
  */
 const stagesOf = (kind: OrganizeKind | null, stage: string): readonly string[] => {
   if (kind) return STAGES[kind];
-  return STAGES.SIMILAR.slice(2).includes(stage) ? STAGES.SIMILAR : STAGES.PERSON;
+  return STAGES.SIMILAR.includes(stage) && !STAGES.PERSON.includes(stage)
+    ? STAGES.SIMILAR
+    : STAGES.PERSON;
 };
 
 /** 끝나기 전에는 100% 를 보이지 않는다. 마지막 단계를 다 해도 결과를 받기 전까지는 99% 다. */

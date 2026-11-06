@@ -116,7 +116,7 @@ describe("useOrganizeJob", () => {
     expect(result.current.notice).toMatchObject({ kind: "SIMILAR", status: "QUEUED" });
     expect(result.current.blockedReason).toBe("지금 비슷한 사진을 묶고 있어요");
 
-    // SSE 이벤트에는 종류가 없다. 비슷한 사진 단계 순서로 진행률을 센다: (2 + 0.5) / 5
+    // SSE 이벤트에는 종류가 없다. 비슷한 사진 단계 순서로 진행률을 센다: (5 + 0.5) / 11
     const { jobId, status, jobVersion, attempt, retryable, retryAvailableAt } = jobOf({
       status: "RUNNING",
       jobVersion: 3,
