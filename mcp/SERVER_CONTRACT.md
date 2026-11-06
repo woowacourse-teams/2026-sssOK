@@ -53,7 +53,7 @@ Python 설정 `GALLERY_BACKEND_URL`의 고정 URL로 POST한다. 예: `https://b
 MCP 입력으로 임의 callback URL을 받지 않는다. HTTPS가 기본이며 로컬 통합 테스트만 loopback HTTP를 허용한다.
 
 요청 헤더: `Authorization: Bearer <별도의 GALLERY_BACKEND_TOKEN>`.
-본문: 위 상태 응답 필드에 `eventId`를 추가한다. 원본 URL·파일 경로는 포함하지 않는다. RUNNING 상태는 약 15초 주기로 진행·생존을 전달한다. terminal 상태 변화는 재시도 대기와 별도로 전달한다.
+본문: 위 상태 응답 필드에 `eventId`를 추가한다. 원본 URL·파일 경로는 포함하지 않는다. RUNNING 상태는 진행이 바뀌면 약 2초 간격으로, 바뀌지 않으면 약 15초 간격으로 전달한다(생존 확인). 단계 변경은 진행 간격을 기다리지 않는다. terminal 상태 변화는 재시도 대기와 별도로 전달한다. 진행 본문(`progress`의 `stage`·`processed`·`total`·`unit`)과 단계 목록은 [docs/backend/ORGANIZE_PROGRESS_CONTRACT.md](../docs/backend/ORGANIZE_PROGRESS_CONTRACT.md)를 따른다.
 
 Spring은 다음을 확인한다.
 
