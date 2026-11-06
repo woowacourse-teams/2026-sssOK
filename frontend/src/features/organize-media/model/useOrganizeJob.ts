@@ -38,17 +38,29 @@ export type OrganizeRequest = { kind: OrganizeKind } | { text: string };
 /** 진행 바와 결과 알림이 그리는 내 작업. 취소·반영·만료된 작업은 여기 오지 않는다. */
 export interface MyOrganizeJob {
   jobId: string;
+  /** 사람별인지 비슷한 사진인지. 진행·결과 문구가 이것으로 갈린다. */
+  kind: OrganizeKind;
   status: "QUEUED" | "RUNNING" | "READY" | "FAILED";
   /** 단계 순서로 만든 전체 진행률(0~99). 진행 정보를 아직 못 받았으면 null. 앞으로만 간다. */
   percent: number | null;
   /** 분석 대상 장수. 접수 응답을 받기 전이면 null 이다. */
   photoCount: number | null;
   retryable: boolean;
-  /** READY 일 때 찾은 사람 수(결과 그룹 수). 결과를 읽기 전이나 읽지 못했으면 null. */
-  peopleCount: number | null;
+  /**
+   * READY 일 때 결과 그룹 수. 사람별이면 찾은 사람 수, 비슷한 사진이면 묶음 수다.
+   * 결과를 읽기 전이나 읽지 못했으면 null.
+   */
+  groupCount: number | null;
 }
 
-type TrackedJob = OrganizeJobState & { photoCount: number | null; percent: number | null };
+type TrackedJob = OrganizeJobState & {
+  photoCount: number | null;
+  percent: number | null;
+  /** SSE 에는 종류가 없어 접수·조회 응답에서 채운다. 아직 못 받았으면 null. */
+  kind: OrganizeKind | null;
+};
+
+type IncomingJob = OrganizeJobState & Partial<Pick<OrganizeJob, "photoCount" | "kind">>;
 
 interface UseOrganizeJobParams {
   roomId: number;
@@ -93,22 +105,27 @@ const writeDismissed = (roomId: number, jobId: string) => {
  * 같은 작업이면 `jobVersion` 이 더 높을 때만 받는다. 다른 작업이면 새 작업으로 갈아탄다
  * (같은 사람이 다른 기기에서 새로 시작한 경우다).
  */
-const mergeJob = (
-  current: TrackedJob | null,
-  next: OrganizeJobState & Partial<Pick<OrganizeJob, "photoCount">>,
-): TrackedJob | null => {
+const mergeJob = (current: TrackedJob | null, next: IncomingJob): TrackedJob | null => {
   const isSameJob = current?.jobId === next.jobId;
-  // 분석 대상 장수는 SSE 에 없고 접수·조회 응답에만 있다. SSE 가 접수 응답보다 먼저 와서
-  // 응답이 "오래된 버전" 으로 버려져도, 장수만은 그 응답에서 채운다.
+  // 분석 대상 장수와 종류는 SSE 에 없고 접수·조회 응답에만 있다. SSE 가 접수 응답보다 먼저 와서
+  // 응답이 "오래된 버전" 으로 버려져도, 장수와 종류만은 그 응답에서 채운다.
   const photoCount = next.photoCount ?? (isSameJob ? current.photoCount : null);
+  const kind = next.kind ?? (isSameJob ? current.kind : null);
 
   if (current && isSameJob && next.jobVersion <= current.jobVersion) {
-    return photoCount === current.photoCount ? current : { ...current, photoCount };
+    return photoCount === current.photoCount && kind === current.kind
+      ? current
+      : { ...current, photoCount, kind };
   }
   // 같은 실행 회차 안에서는 진행률이 줄지 않는다. 다시 시도해 새 회차가 되면 처음부터 센다.
   const previous =
     current && isSameJob && current.attempt === next.attempt ? current.percent : null;
-  return { ...next, photoCount, percent: overallPercentOf(next.progress, previous) };
+  return {
+    ...next,
+    photoCount,
+    kind,
+    percent: overallPercentOf(next.progress, previous, kind),
+  };
 };
 
 /**
@@ -139,8 +156,7 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
   const applyKeyRef = useRef<{ body: string; key: string } | null>(null);
 
   const applyJob = useCallback(
-    (next: OrganizeJobState & Partial<Pick<OrganizeJob, "photoCount">>) =>
-      setJob((current) => mergeJob(current, next)),
+    (next: IncomingJob) => setJob((current) => mergeJob(current, next)),
     [],
   );
 
@@ -292,8 +308,13 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
 
   /** 분석을 멈춘다. */
   const cancel = useCallback(
-    () => release("나누기를 멈추지 못했어요. 잠시 뒤 다시 시도해 주세요."),
-    [release],
+    () =>
+      release(
+        job?.kind === "SIMILAR"
+          ? "묶기를 멈추지 못했어요. 잠시 뒤 다시 시도해 주세요."
+          : "나누기를 멈추지 못했어요. 잠시 뒤 다시 시도해 주세요.",
+      ),
+    [job?.kind, release],
   );
 
   /**
@@ -378,23 +399,28 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
   const isAwaitingReview = job?.status === "READY";
 
   const readyResult = loaded !== null && loaded.jobId === readyJobId ? loaded : null;
+  // 종류를 아직 모르면 결과의 종류를, 그것도 없으면 사람별로 본다.
+  const kind: OrganizeKind = job?.kind ?? readyResult?.result?.kind ?? "PERSON";
 
   // READY 는 방을 점유하므로 숨기지 않는다. 숨기면 방을 풀어 줄 X 까지 사라진다.
   const notice: MyOrganizeJob | null =
     job && isMine && (isRunning || isAwaitingReview || job.jobId !== dismissedJobId)
       ? {
           jobId: job.jobId,
+          kind,
           status: job.status as MyOrganizeJob["status"],
           percent: job.percent,
           photoCount: job.photoCount,
           retryable: job.retryable,
-          peopleCount: readyResult?.result ? readyResult.result.groups.length : null,
+          groupCount: readyResult?.result ? readyResult.result.groups.length : null,
         }
       : null;
 
   // 완료된 내 결과도 검토 기한(30분) 동안 방을 점유한다. 다른 사람 작업과 구분해 알린다.
   const blockedReason = isRunning
-    ? "지금 나누고 있어요"
+    ? kind === "SIMILAR"
+      ? "지금 비슷한 사진을 묶고 있어요"
+      : "지금 나누고 있어요"
     : isAwaitingReview
       ? "확인하지 않은 정리 결과가 있어요"
       : room.busy
@@ -406,7 +432,7 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
     isRunning,
     isStarting,
     blockedReason,
-    isPeopleCountLoading: notice?.status === "READY" && readyResult === null,
+    isGroupCountLoading: notice?.status === "READY" && readyResult === null,
     /**
      * 검토할 결과. 아직 읽는 중이면 `loading`, 읽지 못했으면 `failed` 다.
      * 완료(READY)된 내 작업이 없으면 null 이다.

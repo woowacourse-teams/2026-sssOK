@@ -9,11 +9,12 @@ import { OrganizeStatusBar } from "./OrganizeStatusBar";
 
 const jobOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob => ({
   jobId: "org_1",
+  kind: "PERSON",
   status: "RUNNING",
   percent: 45,
   photoCount: 40,
   retryable: true,
-  peopleCount: null,
+  groupCount: null,
   ...overrides,
 });
 
@@ -136,7 +137,7 @@ describe("OrganizeStatusBar", () => {
 
   it("완료되면 찾은 사람 수와 확인하기를 보여 준다", async () => {
     const handlers = barHandlers();
-    render(<OrganizeStatusBar job={jobOf({ status: "READY", peopleCount: 6 })} {...handlers} />);
+    render(<OrganizeStatusBar job={jobOf({ status: "READY", groupCount: 6 })} {...handlers} />);
 
     expect(screen.getByText("6명을 찾았어요")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "확인하기" }));
@@ -162,11 +163,52 @@ describe("OrganizeStatusBar", () => {
 
   it("찾은 사람이 없으면 사람 없음 알림을 보여 준다", () => {
     render(
-      <OrganizeStatusBar job={jobOf({ status: "READY", peopleCount: 0 })} {...barHandlers()} />,
+      <OrganizeStatusBar job={jobOf({ status: "READY", groupCount: 0 })} {...barHandlers()} />,
     );
 
     expect(screen.getByText("사람이 찍힌 사진을 찾지 못했어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+  });
+});
+
+describe("OrganizeStatusBar · 비슷한 사진", () => {
+  const similarOf = (overrides: Partial<MyOrganizeJob> = {}) =>
+    jobOf({ kind: "SIMILAR", ...overrides });
+
+  it("묶는 중에는 묶기 진행률을 보여 준다", () => {
+    render(<OrganizeStatusBar job={similarOf({ percent: 47 })} {...barHandlers()} />);
+
+    expect(screen.getByText("비슷한 사진들 묶는 중... 47%")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "묶기 진행률" })).toBeInTheDocument();
+  });
+
+  it("완료되면 묶음 수와 확인하기를 보여 준다", async () => {
+    const handlers = barHandlers();
+    render(
+      <OrganizeStatusBar job={similarOf({ status: "READY", groupCount: 18 })} {...handlers} />,
+    );
+
+    expect(screen.getByText("비슷한 사진을 18개로 묶었어요")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "확인하기" }));
+    expect(handlers.onReview).toHaveBeenCalled();
+  });
+
+  it("묶을 사진이 없으면 찾지 못했다고 알린다", () => {
+    render(
+      <OrganizeStatusBar job={similarOf({ status: "READY", groupCount: 0 })} {...barHandlers()} />,
+    );
+
+    expect(screen.getByText("비슷한 사진을 찾지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+  });
+
+  it("실패하면 묶지 못했다고 알리고 다시 시도를 보여 준다", async () => {
+    const handlers = barHandlers();
+    render(<OrganizeStatusBar job={similarOf({ status: "FAILED" })} {...handlers} />);
+
+    expect(screen.getByText("사진을 묶지 못했어요")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(handlers.onRetry).toHaveBeenCalled();
   });
 });
 

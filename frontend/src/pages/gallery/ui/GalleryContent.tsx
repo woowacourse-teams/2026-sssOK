@@ -485,7 +485,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 찾은 사람이 있는 결과는 닫으면 버려지므로 한 번 더 묻는다. 실패·0명 알림은 버릴 것이 없어 바로 닫는다.
           onDismiss={() => {
             const notice = organize.notice;
-            if (notice?.status === "READY" && notice.peopleCount !== 0) {
+            if (notice?.status === "READY" && notice.groupCount !== 0) {
               setIsOrganizeResultCloseOpen(true);
               return;
             }
