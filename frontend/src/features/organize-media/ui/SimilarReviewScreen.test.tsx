@@ -27,17 +27,14 @@ const resultOf = (sizes: number[]): OrganizeResult => {
 };
 
 const renderScreen = (sizes = [9, 5, 2]) => {
-  const onSubmit = jest.fn();
   render(
     <SimilarReviewScreen
       source={{ state: "ready", result: resultOf(sizes) }}
       folderNames={[]}
       onClose={jest.fn()}
       onRetry={jest.fn()}
-      onSubmit={onSubmit}
     />,
   );
-  return { onSubmit };
 };
 
 describe("SimilarReviewScreen", () => {
@@ -52,17 +49,39 @@ describe("SimilarReviewScreen", () => {
     expect(screen.getByRole("button", { name: "폴더 만들기" })).toBeDisabled();
   });
 
-  it("이름을 붙이면 남는 모음 안내와 함께 그 모음으로 폴더를 만든다", async () => {
+  it("이름을 붙이면 남는 모음 안내와 만들 폴더 수가 보이고, 누르면 준비 중이라고 알린다", async () => {
     const user = userEvent.setup();
-    const { onSubmit } = renderScreen();
+    renderScreen();
 
     await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "잔디밭 풍경");
 
     expect(screen.getByText("이름을 안 붙인 2개는 폴더 없이 전체에 남아요")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "1개 폴더 만들기" }));
-    expect(onSubmit).toHaveBeenCalledWith([
-      { groupId: "s1", folderName: "잔디밭 풍경", mediaIds: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
-    ]);
+    expect(screen.getByText("폴더 만들기는 곧 열려요.")).toBeInTheDocument();
+  });
+
+  it("엔터를 치면 키보드를 닫고 이름을 주황 칩으로 바꾸며, 칩을 누르면 다시 고칠 수 있다", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "잔디밭 풍경{Enter}");
+
+    expect(screen.getAllByRole("textbox", { name: "폴더 이름" })).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "잔디밭 풍경 이름 고치기" }));
+
+    const input = screen.getByDisplayValue("잔디밭 풍경");
+    expect(input).toHaveFocus();
+    await user.type(input, "2{Enter}");
+    expect(screen.getByRole("button", { name: "잔디밭 풍경2 이름 고치기" })).toBeInTheDocument();
+  });
+
+  it("이름 없이 엔터를 치면 입력칸 그대로 둔다", async () => {
+    const user = userEvent.setup();
+    renderScreen();
+
+    await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "{Enter}");
+
+    expect(screen.getAllByRole("textbox", { name: "폴더 이름" })).toHaveLength(3);
   });
 
   it("모음을 눌러 사진을 빼면 '1장을 뺐어요' 가 보이고 모음 장수가 줄어든다", async () => {

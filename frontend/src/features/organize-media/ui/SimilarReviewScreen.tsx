@@ -4,9 +4,9 @@ import { Button } from "@/shared/ui/button";
 import { Spinner } from "@/shared/ui/spinner";
 import { Toast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
-import type { OrganizeApplyGroup, OrganizeResult } from "../api/types";
+import type { OrganizeResult } from "../api/types";
 import { createPersonReview, type PersonReview, togglePhoto } from "../model/personReview";
-import { renameCard, similarApplyGroupsOf, similarFooterOf } from "../model/similarReview";
+import { renameCard, similarFooterOf } from "../model/similarReview";
 import { PersonPhotos } from "./PersonPhotos";
 import {
   BackButton,
@@ -30,6 +30,7 @@ import { SimilarCard } from "./SimilarCard";
 const SCREEN_TITLE = "비슷한 사진 나누기";
 /** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 띄운다. */
 const TOAST_BOTTOM = "calc(112px + env(safe-area-inset-bottom, 0px))";
+const TOAST_MS = 2500;
 
 interface SimilarReviewScreenProps {
   source: PersonReviewSource;
@@ -37,11 +38,6 @@ interface SimilarReviewScreenProps {
   folderNames: string[];
   onClose: () => void;
   onRetry: () => void;
-  /** 이름을 붙인 모음으로 폴더를 만든다. 뺀 사진은 빠져 있고, 같은 이름은 한 그룹으로 합쳐 있다. */
-  onSubmit: (groups: OrganizeApplyGroup[]) => void;
-  isSubmitting?: boolean;
-  submitError?: string | null;
-  onDismissError?: () => void;
 }
 
 const BackHeader = ({ onClick }: { onClick: () => void }) => (
@@ -98,17 +94,17 @@ type ReviewProps = Omit<SimilarReviewScreenProps, "source" | "onRetry"> & {
   result: OrganizeResult;
 };
 
-const Review = ({
-  result,
-  folderNames,
-  onClose,
-  onSubmit,
-  isSubmitting = false,
-  submitError = null,
-  onDismissError,
-}: ReviewProps) => {
+const Review = ({ result, folderNames, onClose }: ReviewProps) => {
   const [review, setReview] = useState<PersonReview>(() => createPersonReview(result.groups));
   const [openedId, setOpenedId] = useState<string | null>(null);
+  /** 폴더로 반영하는 건 아직 없다(#728). 버튼을 누르면 준비 중이라고만 알린다. */
+  const [isSubmitPending, setIsSubmitPending] = useState(false);
+
+  useEffect(() => {
+    if (!isSubmitPending) return;
+    const timer = window.setTimeout(() => setIsSubmitPending(false), TOAST_MS);
+    return () => window.clearTimeout(timer);
+  }, [isSubmitPending]);
 
   const opened = review.people.find((card) => card.id === openedId) ?? null;
   const footer = similarFooterOf(review, folderNames);
@@ -148,20 +144,19 @@ const Review = ({
         {footer.hint && <Hint>{footer.hint}</Hint>}
         <Submit
           type="button"
-          disabled={!footer.canSubmit || isSubmitting}
-          aria-busy={isSubmitting}
-          onClick={() => onSubmit(similarApplyGroupsOf(review.people))}
+          disabled={!footer.canSubmit}
+          onClick={() => setIsSubmitPending(true)}
         >
-          {isSubmitting ? "폴더를 만드는 중" : footer.submit}
+          {footer.submit}
         </Submit>
       </Footer>
 
-      {submitError && (
+      {isSubmitPending && (
         <Toast
-          tone="error"
-          message={submitError}
+          message="폴더 만들기는 곧 열려요."
+          showClose={false}
           bottom={TOAST_BOTTOM}
-          onClose={() => onDismissError?.()}
+          onClose={() => setIsSubmitPending(false)}
         />
       )}
     </>
