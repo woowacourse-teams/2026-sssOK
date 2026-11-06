@@ -62,16 +62,21 @@ const scenarioOf = (): Scenario => {
 
 /**
  * 실제 분석 서버처럼 단계마다 0부터 다시 센다(진행 정보 계약 #704).
- * 처음 3분의 1은 사진 내려받기, 다음은 얼굴 찾기, 마지막은 사람(몸) 찾기다.
+ * 처음 3분의 1은 사진 내려받기다. 사람별은 다음이 얼굴 찾기, 마지막이 사람(몸) 찾기이고,
+ * 비슷한 사진은 장면 특징을 뽑은 뒤 서로 비교한다.
  * 진행 바가 이 숫자를 그대로 쓰지 않고 전체 진행률로 바꾸는지 손으로 확인할 수 있다.
  */
-const STAGES = ["downloading_photos", "detecting_faces", "detecting_bodies"] as const;
+const STAGES: Record<MockJob["kind"], readonly string[]> = {
+  PERSON: ["downloading_photos", "detecting_faces", "detecting_bodies"],
+  SIMILAR: ["downloading_photos", "extracting_scene_features", "matching_similar_photos"],
+};
 
-const progressOf = (processed: number, total: number) => {
-  const size = Math.ceil(total / STAGES.length);
-  const index = Math.min(STAGES.length - 1, Math.floor(processed / size));
-  const inStage = Math.min(total, (processed - index * size) * STAGES.length);
-  return { stage: STAGES[index], processed: inStage, total, unit: "PHOTO" };
+const progressOf = (kind: MockJob["kind"], processed: number, total: number) => {
+  const stages = STAGES[kind];
+  const size = Math.ceil(total / stages.length);
+  const index = Math.min(stages.length - 1, Math.floor(processed / size));
+  const inStage = Math.min(total, (processed - index * size) * stages.length);
+  return { stage: stages[index], processed: inStage, total, unit: "PHOTO" };
 };
 
 /** 분석 서버에 넘어갔지만 아직 차례가 오지 않은 상태. 접수 대기 시간의 뒤 절반이다. */
@@ -120,7 +125,7 @@ const snapshot = (job: MockJob, now = Date.now()) => {
     attempt: job.attempt,
     jobVersion,
     ...(status === "RUNNING"
-      ? { progress: isWaiting ? WAITING : progressOf(processed, total) }
+      ? { progress: isWaiting ? WAITING : progressOf(job.kind, processed, total) }
       : {}),
     ...(status === "FAILED" ? { failureCode: "ANALYSIS_FAILED" } : {}),
     retryable: status === "FAILED" && job.attempt <= MAX_RETRIES,
@@ -232,14 +237,19 @@ export const organizeHandlers = [
     if (text.length === 0 || text.length > 1000) {
       return error(400, "INVALID_PARAM", "요청 값이 올바르지 않습니다");
     }
-    if (!/사람|인물|얼굴|친구/.test(text)) {
+    const kind = /비슷|중복|닮은/.test(text)
+      ? "SIMILAR"
+      : /사람|인물|얼굴|친구/.test(text)
+        ? "PERSON"
+        : null;
+    if (kind === null) {
       return error(
         422,
         "ORGANIZE_NEEDS_CLARIFICATION",
         "어떤 정리를 원하는지 더 구체적으로 알려주세요",
       );
     }
-    return startJob(request, Number(params.roomId), "PERSON");
+    return startJob(request, Number(params.roomId), kind);
   }),
 
   http.get(`${BASE}/current`, ({ request, params }) => {
@@ -271,7 +281,8 @@ export const organizeHandlers = [
     const groupCount = job.scenario === "empty" ? 0 : Math.min(PEOPLE_LIMIT, media.length);
     const groups = Array.from({ length: groupCount }, (_, index) => {
       const photos = media.filter((__, photoIndex) => photoIndex % groupCount === index);
-      return { groupId: `person_${index + 1}`, photoCount: photos.length, photos };
+      const prefix = job.kind === "SIMILAR" ? "similar" : "person";
+      return { groupId: `${prefix}_${index + 1}`, photoCount: photos.length, photos };
     });
 
     return HttpResponse.json({

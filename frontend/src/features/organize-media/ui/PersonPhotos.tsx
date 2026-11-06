@@ -21,13 +21,23 @@ interface PersonPhotosProps {
   person: ReviewPerson;
   onToggle: (mediaId: number) => void;
   onDone: () => void;
+  /** 그리드 위 안내. 비슷한 사진 모음은 "이 모음에 안 맞는 사진을…"처럼 바꿔 쓴다. */
+  hint?: string;
+  /** 뒤로 가기 버튼 이름. */
+  backLabel?: string;
 }
 
 /**
- * 한 사람의 사진 확인 화면 (AI-4·4b). 사진마다 체크가 있고, 이 사람이 아닌 사진을 눌러 체크를 풀면 빠진다.
+ * 한 사람(또는 비슷한 사진 모음 하나)의 사진 확인 화면 (AI-4·4b). 사진마다 체크가 있고, 이 사람이 아닌 사진을 눌러 체크를 풀면 빠진다.
  * 뺀 사진은 흐리게 남겨 두어 다시 누르면 되돌릴 수 있다. 뺀 결과는 검토 화면이 들고 있다.
  */
-export const PersonPhotos = ({ person, onToggle, onDone }: PersonPhotosProps) => {
+export const PersonPhotos = ({
+  person,
+  onToggle,
+  onDone,
+  hint = "이 사람이 아닌 사진을 눌러 빼 주세요.",
+  backLabel = "사람 목록으로",
+}: PersonPhotosProps) => {
   const { showToast } = useToast();
   const closeExcludedToast = useRef<(() => void) | null>(null);
 
@@ -37,13 +47,13 @@ export const PersonPhotos = ({ person, onToggle, onDone }: PersonPhotosProps) =>
   return (
     <>
       <Header>
-        <BackButton type="button" aria-label="사람 목록으로" onClick={onDone}>
+        <BackButton type="button" aria-label={backLabel} onClick={onDone}>
           <img src={arrowLeft} alt="" width={22} height={22} />
         </BackButton>
         <HeaderTitle>{title}</HeaderTitle>
       </Header>
       <Scroll>
-        <GridHint>이 사람이 아닌 사진을 눌러 빼 주세요.</GridHint>
+        <GridHint>{hint}</GridHint>
         <Grid>
           {person.photos.map((photo, index) => {
             const isExcluded = person.excludedIds.includes(photo.mediaId);
