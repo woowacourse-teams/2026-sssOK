@@ -42,3 +42,28 @@ export const NameInput = styled.input<{ $filled: boolean }>`
     font-size: 16px;
   }
 `;
+
+/**
+ * 엔터로 이름을 넣으면 입력칸 대신 보이는 주황 칩. 사람별 카드에서 고른 이름 칩과 같은 색이다.
+ * 높이는 입력칸과 같은 44px 라 바뀌어도 카드 높이가 흔들리지 않는다. 누르면 다시 입력칸이 된다.
+ */
+export const NamedChip = styled.button`
+  display: block;
+  max-width: 100%;
+  height: 44px;
+  padding: 0 18px;
+  overflow: hidden;
+  border: 1px solid ${colors.borderPrimary};
+  border-radius: ${radius.full};
+  background: ${colors.primary};
+  font-size: 14px;
+  font-weight: 700;
+  color: ${colors.textInverse};
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:focus-visible {
+    outline: 2px solid ${colors.primary};
+    outline-offset: 2px;
+  }
+`;
