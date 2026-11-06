@@ -153,7 +153,12 @@ jobs:
         run: |
           set -eu
           cd "$DEPLOY_PATH"
-          trap 'docker logout ghcr.io > /dev/null 2>&1 || true' EXIT
+          # 신규 러너의 기본 credential helper 대신 이 배포에만 사용하는 설정에 로그인한다.
+          # 배포 스크립트(compose pull)도 이 DOCKER_CONFIG 를 물려받아 같은 인증으로 이미지를 받는다.
+          DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/ghcr.XXXXXXXX")"
+          export DOCKER_CONFIG
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+          printf '%s\n' '{"auths":{"ghcr.io":{}}}' > "$DOCKER_CONFIG/config.json"
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
           COMPOSE="docker compose --env-file .env --env-file blue.env --env-file green.env -f docker-compose.prod.yml"
