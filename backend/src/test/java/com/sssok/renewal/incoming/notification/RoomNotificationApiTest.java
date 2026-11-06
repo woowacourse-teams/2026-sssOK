@@ -323,6 +323,21 @@ class RoomNotificationApiTest extends PostgresContainerSupport {
         }
 
         @Test
+        void 요청자_이름은_회원_닉네임이_아니라_이_방의_닉네임을_쓴다() throws Exception {
+            Member requester = member("현미밥");
+            roomMembershipService.join(room.getId(), room.getCode(), requester.id(), "해니");
+
+            requestUpload(requester).andExpect(status().isAccepted());
+
+            JsonNode push = sentPayload(host);
+            assertThat(push.get("title").asText()).isEqualTo("해니님이 알림을 보냈습니다");
+            assertThat(push.get("body").asText()).isEqualTo("해니님의 사진을 올려주세요!");
+            JsonNode event = objectMapper.readTree(uploadRequestedEvents().get(0).getPayload());
+            assertThat(event.get("title").asText()).isEqualTo("해니님이 알림을 보냈습니다");
+            assertThat(event.get("body").asText()).isEqualTo("해니님의 사진을 올려주세요!");
+        }
+
+        @Test
         void 쿨다운에_걸린_요청은_SSE_이벤트를_보내지_않는다() throws Exception {
             requestUpload(guest).andExpect(status().isAccepted());
 

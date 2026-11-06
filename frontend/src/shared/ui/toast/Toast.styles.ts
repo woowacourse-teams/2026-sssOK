@@ -3,9 +3,11 @@ import styled from "@emotion/styled";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 
-export const Dock = styled.div`
+export const DEFAULT_TOAST_BOTTOM = "calc(36px + env(safe-area-inset-bottom, 0px))";
+
+export const Dock = styled.div<{ $bottom: string }>`
   position: fixed;
-  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
+  bottom: ${({ $bottom }) => $bottom};
   left: 50%;
   transform: translateX(-50%);
   z-index: 1100;
