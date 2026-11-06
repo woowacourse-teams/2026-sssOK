@@ -52,7 +52,7 @@ timer 09:00 KST → 대상 날짜 결정 → 누락 일간 집계 복구(발송 
 ### 저장 데이터
 
 DB: `/var/lib/sssok-ops-report/report.sqlite3` (systemd `StateDirectory`, 700). 코드 배포 폴더
-`/home/ubuntu/monitoring`과 분리되어 중앙 CD의 백업·복구·파일 교체 대상이 아니다.
+`/home/ec2-user/monitoring`과 분리되어 중앙 CD의 백업·복구·파일 교체 대상이 아니다.
 
 | 테이블 | 내용 |
 | --- | --- |
@@ -70,9 +70,9 @@ DB: `/var/lib/sssok-ops-report/report.sqlite3` (systemd `StateDirectory`, 700). 
 백업은 실행 중에도 일관된 사본을 만드는 명령을 쓴다. 서버 디스크 손실 대비는 사본을 서버 밖에 보관한다.
 
 ```bash
-cd /home/ubuntu/monitoring
+cd /home/ec2-user/monitoring
 python3 -B -m ops_report --db /var/lib/sssok-ops-report/report.sqlite3 backup \
-  --to "/home/ubuntu/monitoring/backups/ops-report-$(date +%Y%m%d).sqlite3"
+  --to "/home/ec2-user/monitoring/backups/ops-report-$(date +%Y%m%d).sqlite3"
 ```
 
 복원은 timer를 멈춘 뒤 사본을 같은 경로에 `ubuntu` 소유·600으로 복사하고 timer를 다시 켠다.
@@ -80,11 +80,11 @@ python3 -B -m ops_report --db /var/lib/sssok-ops-report/report.sqlite3 backup \
 ### 설치 (중앙 서버, 최초 1회)
 
 1. 이 변경을 develop에 병합하고 해당 커밋으로 **중앙 CD**를 실행한다. CD는 `ops_report/`의 코드와
-   유닛 파일을 `/home/ubuntu/monitoring/ops_report/`에 배치·백업·복구하지만 systemd에는 설치하지 않는다.
+   유닛 파일을 `/home/ec2-user/monitoring/ops_report/`에 배치·백업·복구하지만 systemd에는 설치하지 않는다.
    컨테이너 서비스·Compose는 바뀌지 않는다.
 2. 미리보기로 실데이터 조회를 확인한다. 이 단계는 집계만 저장하고 발송하지 않는다.
    ```bash
-   cd /home/ubuntu/monitoring
+   cd /home/ec2-user/monitoring
    sudo install -d -o ubuntu -g ubuntu -m 700 /var/lib/sssok-ops-report
    python3 -B -m ops_report run --preview
    ```
@@ -123,7 +123,7 @@ Prometheus·DB·웹훅 설정을 점검한다. 자동 CD 성공 판정에는 연
 | 결과 불확실 재발송 | 채널에서 메시지가 없음을 확인한 뒤에만 `run --date ... --send --force` |
 | 서버 밖에서 미리보기 | `--prometheus https://monitor.ssssok.com/api/datasources/proxy/uid/prometheus --prometheus-token-file <Viewer 토큰 파일> --db <임시 경로> run --date ... --preview` — 확인 후 토큰 삭제 |
 
-수동 명령은 `cd /home/ubuntu/monitoring`에서 `ubuntu` 사용자로 실행한다(DB 기본 경로가 timer와 같다).
+수동 명령은 `cd /home/ec2-user/monitoring`에서 `ubuntu` 사용자로 실행한다(DB 기본 경로가 timer와 같다).
 
 - **실패 처리**: 일부 지표 조회 실패 → 나머지를 보고하고 데이터 상태에 실패 지표를 적는다. 전체 조회 실패 →
   정상 보고서 대신 "보고서 생성 실패" 메시지를 보내고 실행은 실패로 끝난다.
@@ -167,7 +167,7 @@ Grafana Live는 새 `/api/live/ws` 경로에서만 제공한다.
 
 전환 순서:
 1. 중앙 CI를 통과한 이 변경 커밋으로 중앙 CD를 실행한다. `/health`는 유지하고 내부 Grafana 조회는 `/api/health`로 바뀐다.
-2. 대상 그룹 `sssok-monitoring-central`의 `10.0.20.46:80`이 Healthy인지 확인한다.
+2. 대상 그룹 `sssok-monitoring-central`의 `10.0.20.204:80`이 Healthy인지 확인한다.
 3. ALB HTTPS:443 우선순위 5 규칙에서 호스트 `monitor.ssssok.com`과 전달 대상은 유지하고 `/central`, `/central/*` 경로 조건만 제거한다.
 4. 로그인, prod 지표·로그, 대시보드 간 링크, Discord 링크와 Grafana Live 연결을 확인한다.
 5. `/central`, `/central/`, `/central/api/live/ws`가 리다이렉트 없이 404를 반환하는지 확인한다.
@@ -225,7 +225,7 @@ Compose 정의 제거는 기존 컨테이너 중지·데이터 삭제를 뜻하�
 [중앙 CD 첫 실행](https://github.com/woowacourse-teams/2026-sssOK/actions/runs/38416851150)이 성공했다.
 적용 커밋은 `c9756cc61980af43ea84ba350f1d6636d27a5fb9`이며, 설정·Grafana 데이터 백업,
 중앙 자체 수집 5개 대상, 호스트 지표, Loki 시험 로그 저장·조회, 대시보드 5개 자동 등록을 확인했다.
-백업 경로는 `/home/ubuntu/monitoring/backups/20261013T145150.855227Z-c9756cc61980`이다.
+백업 경로는 `/home/ec2-user/monitoring/backups/20261013T145150.855227Z-c9756cc61980`이다.
 기동 직후 준비 상태 조회의 503은 재시도 후 정상화됐다. 실패 복구는 이번 실배포에서 실행되지 않았다.
 
 아래 추가 알림 규칙 15개는 후속 작업이며 이 첫 배포에 포함되지 않았다. 중앙 서버는 기존
@@ -296,7 +296,7 @@ Compose 정의 제거는 기존 컨테이너 중지·데이터 삭제를 뜻하�
 중앙 호스트에서 평가 주기(15초)가 지난 뒤 실행한다.
 
 ```bash
-cd /home/ubuntu/monitoring || exit 1
+cd /home/ec2-user/monitoring || exit 1
 python3 check-alerts.py
 ```
 
@@ -338,7 +338,7 @@ develop 병합 또는 수동 실행 때 GitHub-hosted `ubuntu-latest`에서 검�
 
 사용자 확인: 중앙 `sssok-monitoring` 러너(ubuntu, Linux ARM64, `monitoring` 라벨)는
 서비스로 실행 중이며 GitHub Idle, Docker 접근, 배포 폴더 쓰기, 기존 `.env` 읽기를 확인했다.
-GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ubuntu/monitoring`도 준비했다.
+GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ec2-user/monitoring`도 준비했다.
 
 `monitoring-central-deploy.yml`은 수동 실행만 지원한다. 다음 절차는 저장소 반영 후 사용한다.
 
@@ -349,7 +349,7 @@ GitHub Environment `monitoring`과 해당 환경 변수 `DEPLOY_PATH=/home/ubunt
    PR의 가상 병합 SHA나 다른 커밋의 성공 기록은 사용하지 않는다. 성공 기록이 없거나 API 조회가 실패하면 배포를 중단한다.
    해당 push CI를 완료하거나 재실행한 뒤 CD를 다시 실행한다. 설정·대시보드·복구 시험은 CI에서 실행하고 CD에서 반복하지 않는다.
    허용 목록의 파일만 같은 실행의 artifact로 전달한다. `.env`는 포함하지 않는다.
-3. 중앙 전용 러너가 `/home/ubuntu/monitoring`의 기존 6개 서비스·이미지 ID·메모리 한도·
+3. 중앙 전용 러너가 `/home/ec2-user/monitoring`의 기존 6개 서비스·이미지 ID·메모리 한도·
    데이터 볼륨을 대조한다. 이미지 업그레이드나 볼륨 변경은 이 배포에서 거절한다.
    기존 Grafana 관리자 인증과 백업 공간도 확인한다.
 4. `backups/<UTC 시각>-<SHA 앞 12자리>/`에 이전 설정을 저장하고 Grafana를 정지한 상태에서
@@ -481,18 +481,18 @@ Discord 발송, CI/CD 분리와 사양 하향은 이후 단계다.
 
 | 서버 | 사설 IP | 현재 사양 | 서브넷 |
 | --- | --- | --- | --- |
-| 중앙 | 10.0.20.46 | t4g.micro 후보, RAM 약 906MiB 확인 | project-app-a |
-| 개발 | 10.0.0.69 | t4g.small (기존 micro) | project-public-a |
-| 운영 | 10.0.20.127 | t4g.medium (기존 micro) | project-app-a |
+| 중앙 | 10.0.20.204 | t4g.small, RAM 2GiB | project-app-a |
+| 개발 | 10.0.0.104 | t4g.small | project-public-a |
+| 운영 | 10.0.20.161 | t4g.small | project-app-a |
 
-같은 TECHCOURSE-PROJECT VPC, ap-northeast-2a에 위치한다. 중앙은 Ubuntu 24.04 ARM64,
+같은 TECHCOURSE-PROJECT VPC, ap-northeast-2a에 위치한다. 중앙은 Amazon Linux 2023 ARM64,
 20GiB 루트 디스크, Swap 1GiB, project-app 보안 그룹, Session Manager 접속을 사용한다.
-중앙 배포 디렉터리는 `/home/ubuntu/monitoring`이다. 서버에서 확인한 Docker는 29.9.0,
-Compose는 5.6.0이다. 개발·운영 메트릭 보존은 15일, Loki 보존 환경변수는 각각 7일·30일이다.
+중앙 배포 디렉터리는 `/home/ec2-user/monitoring`이다. 서버에서 확인한 Docker는 25.0.18,
+Compose는 5.4.0이다. 개발·운영 메트릭 보존은 15일, Loki 보존 환경변수는 각각 7일·30일이다.
 
 project-app의 self 규칙은 같은 그룹을 가진 모든 서버 사이의 트래픽을 허용한다.
 중앙만 접근 가능한 제한으로 오해하지 않는다. 중앙 Compose의 호스트 공개 포트는 모두
-127.0.0.1에 묶어 서버 내부에서만 사용하며 ALB도 아직 연결하지 않는다.
+기본 구성에서는 127.0.0.1에 묶는다. 운영에서는 compose.web.yml을 함께 적용하여 ALB용 80번과 사설 로그 수신 13100번을 연다.
 
 ## 자원 시험값
 
@@ -500,7 +500,7 @@ project-app의 self 규칙은 같은 그룹을 가진 모든 서버 사이의 �
 | --- | --- | --- |
 | Prometheus | 192MiB | 150MiB |
 | Loki | 256MiB | 200MiB |
-| Grafana | 256MiB | 200MiB |
+| Grafana | 512MiB | 400MiB |
 | Alertmanager | 64MiB | 48MiB |
 | node_exporter | 48MiB | 36MiB |
 
@@ -518,11 +518,11 @@ Loki는 기동 검증용 24시간 보존이며 **실제 개발·운영 로그를
 
 ## 서버에 파일을 전달한 뒤 실행
 
-이 디렉터리의 파일들을 `/home/ubuntu/monitoring`에 배치한다. 아직 GitHub에 푸시하지 않은
+이 디렉터리의 파일들을 `/home/ec2-user/monitoring`에 배치한다. 아직 GitHub에 푸시하지 않은
 파일은 서버에서 git pull로 받을 수 없다. 전달 전에 파일·커밋 버전을 확인한다.
 
 ```bash
-cd /home/ubuntu/monitoring
+cd /home/ec2-user/monitoring
 bash init.sh
 docker compose config --quiet
 docker compose pull
@@ -557,7 +557,7 @@ Session Manager 플러그인, 유효한 AWS 자격 증명이 필요하다. 포�
 ## 개발 연결과 재배포
 
 개발 서버에서 임시 `dev-node.override.yml`로 검증한 CPU·메모리·Swap·부하·디스크 수집과
-`127.0.0.1:9100` 포트를 `backend/docker-compose.dev.yml` 본문으로 옮겼다.
+설정을 `backend/docker-compose.dev.yml` 본문으로 옮겼다. AMI 기본 수집기와 충돌하지 않도록 팀 node-exporter의 호스트 9100 포트 공개는 제거하고 Docker 내부로만 접근한다.
 개발 CD는 기존처럼 이 Compose 하나로 실행하므로 별도 override가 필요 없다.
 해당 변경이 develop에 병합되고 자동 배포되기 전까지는 종전 배포가 임시 설정을 되돌릴 수 있다.
 새 Compose로 배포된 것을 확인한 뒤 서버에 남은 임시 override를 정리한다.
@@ -575,14 +575,14 @@ server_name만 다르고 동작은 동일하다. 두 호스트 이름과 기존 
 별도 `sssok-node-metrics.conf`를 이미 설치했다면 중복되지 않도록 함께 비활성화한다.
 공통 로그 형식 파일은 유지한다. `nginx -t`가 실패하면 reload하지 말고 기존 파일과 링크를
 복원한다. 검사 성공 후 reload하고 두 Host 헤더의 `/health` 응답이 기존과 같은지 확인한다.
-사설 주소 `10.0.0.69:19100`에서는 `/metrics`만 프록시하며 중앙 `10.0.20.46`만 허용한다.
+사설 주소 `10.0.0.104:19100`에서는 `/metrics`만 프록시하며 중앙 `10.0.20.204`만 허용한다.
 개발 호스트에서 해당 사설 주소로 요청하면 403, 중앙 호스트에서 요청하면 200과 node 지표를
 반환하는지 확인한다. 공유 보안 그룹 규칙은 수정하지 않는다. 설정 검사만으로 포트 충돌이나
 실제 접근 제한이 검증되지는 않으므로 두 서버의 HTTP 검증이 필요하다.
 롤백은 통합 파일을 제거하고 백업한 기존 파일과 링크를 원래 위치에 복원한 뒤,
 `nginx -t` 성공 후 reload한다. `sites-enabled/*`는 확장자와 무관하게 읽으므로
 그 디렉터리 안에서 `.bak`로 이름만 바꾸는 방식은 사용하지 않는다.
-중앙 Prometheus의 node job에는 개발 `10.0.0.69:19100`을 environment=dev, server=dev로
+중앙 Prometheus의 node job에는 개발 `10.0.0.104:19100`을 environment=dev, server=dev로
 등록한다. 개발 Nginx와 새 Compose 구성이 준비되지 않으면 이 대상은 DOWN이다.
 컨테이너의 `promtool check config /etc/prometheus/prometheus.yml` 성공 후 Prometheus에
 SIGHUP을 보내 반영한다. 중앙 호스트 curl 성공과 컨테이너에서의 수집 성공은 별도로 확인해야 한다.
@@ -595,7 +595,7 @@ SIGHUP을 보내 반영한다. 중앙 호스트 curl 성공과 컨테이너에�
 
 ### 개발 재배포 안정화 완료 기준
 
-- PR CI의 `개발 호스트 관측 설정 검증`은 기본 Compose 하나만으로 loopback 9100,
+- PR CI의 `개발 호스트 관측 설정 검증`은 기본 Compose 하나만으로 호스트 9100 비공개,
   호스트 마운트, CPU·메모리·Swap 수집 옵션을 유지하는지 검사하고 Nginx 문법도 검사한다.
 - 개발 CD는 앱 교체 전에 `/etc/nginx/conf.d/sssok-dev.conf`가 레포의
   `dev.nginx.conf`와 같은지 검사한다. 주석·공백 차이도 실패하므로 최초 한 번은 검토한
@@ -672,9 +672,9 @@ python3 notifications.py --enable-dev app --enable-dev logs
 
 ### CD에서 발송 선택과 웹훅을 다루는 방식
 
-실행 대상은 **중앙 서버 `10.0.20.46`의 전용 CD 러너**다. 앱 서버는 변경하지 않는다.
+실행 대상은 **중앙 서버 `10.0.20.204`의 전용 CD 러너**다. 앱 서버는 변경하지 않는다.
 
-| 파일 (`/home/ubuntu/monitoring` 기준) | 관리 주체 | 역할 |
+| 파일 (`/home/ec2-user/monitoring` 기준) | 관리 주체 | 역할 |
 | --- | --- | --- |
 | `discord-selection.json` | 서버 담당자 | 발송 묶음 선택. 예: `{"dev": ["app"]}`. CD가 덮어쓰지 않음 |
 | `.env`의 `CENTRAL_DISCORD_WEBHOOK_URL` | 서버 담당자 | 웹훅 원본. CD가 덮어쓰거나 백업·출력하지 않음 |
@@ -728,7 +728,7 @@ Grafana 단일 값 regex 보간을 재현하는 검사이며 브라우저 E2E는
 
 ### 서버 .env로 Discord 웹훅 관리
 
-`/home/ubuntu/monitoring/.env`에 `CENTRAL_DISCORD_WEBHOOK_URL`을 등록한다.
+`/home/ec2-user/monitoring/.env`에 `CENTRAL_DISCORD_WEBHOOK_URL`을 등록한다.
 기존 Grafana 변수 등은 유지한다. 등록만으로 발송하지 않으며 `discord-selection.json`으로
 개발 묶음을 선택한 배포에서만 Compose secret이 전달된다.
 

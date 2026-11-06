@@ -34,7 +34,7 @@ flowchart LR
 
 ## 서버 디렉터리 구조
 
-환경별 배포 경로(`DEPLOY_PATH`, 예: `/home/ubuntu/app`) 안에 아래 파일이 놓인다. dev와 prod는
+환경별 배포 경로(`DEPLOY_PATH`, 예: `/home/ec2-user/app`) 안에 아래 파일이 놓인다. dev와 prod는
 서로 다른 EC2의 서로 다른 경로를 사용한다.
 
 | 파일 | 만드는 주체 | 설명 |
@@ -190,7 +190,7 @@ sudo ./svc.sh status   # active (running) 확인
 
 | 이름 | 예시 |
 | --- | --- |
-| `DEPLOY_PATH` | `/home/ubuntu/app` |
+| `DEPLOY_PATH` | `/home/ec2-user/app` |
 | `DISCORD_WEBHOOK_URL` | Discord 모니터링 채널의 Webhook URL |
 
 배포 워크플로는 `DISCORD_WEBHOOK_URL`을 권한이 `600`인 서버 파일로 저장하고 Alertmanager에
@@ -323,7 +323,7 @@ tar xzf ./actions-runner-linux-arm64.tar.gz
 
 | 이름 | 예시 |
 | --- | --- |
-| `DEPLOY_PATH` | `/home/ubuntu/app` |
+| `DEPLOY_PATH` | `/home/ec2-user/app` |
 | `DISCORD_WEBHOOK_URL` | Discord 모니터링 채널의 Webhook URL |
 
 운영과 마찬가지로 배포 워크플로가 Discord Webhook URL을 서버의 권한 `600` 비밀 파일로 만들며,

@@ -13,7 +13,7 @@ done
 # ALB 뒤에서 실제로 사용하는 Nginx → Grafana 경로도 확인한다.
 status=$(curl --noproxy '*' --fail --silent --show-error --max-time 5 \
   --retry 10 --retry-delay 2 --retry-all-errors \
-  -H 'Host: monitor.ssssok.com' -o /dev/null -w '%{http_code}' http://10.0.20.46/health)
+  -H 'Host: monitor.ssssok.com' -o /dev/null -w '%{http_code}' http://10.0.20.204/health)
 [ "$status" = 200 ] || { echo "중앙 Nginx health 실패: HTTP $status" >&2; exit 1; }
 python3 - <<'PY'
 import json

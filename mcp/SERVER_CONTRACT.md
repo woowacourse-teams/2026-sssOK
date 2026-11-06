@@ -127,13 +127,23 @@ Spring 통신 실패와 개별 분석 실패는 기존 재시도·실패 처리�
   `smallGroupMediaIds`(2장 후보 배열), `unassignedMediaIds`(단독 사진), `errors`, `counts`.
 - 그룹은 최소 3장, 실행 내 ID, 사진 중복 없음. 오류를 포함해 입력 전체를 정확히 분할한다.
 - PERSON 결과 형식은 유지한다. SIMILAR에는 얼굴·신체 수를 넣지 않는다.
-- SQLite 파일명은 `executions-v1.sqlite3`을 유지하지만 `PRAGMA user_version=2`다.
+- SQLite 파일명은 `executions-v1.sqlite3`을 유지하지만 #661에서 `PRAGMA user_version=2`가 되었다(현재는 아래 환경 격리의 v3).
   이전 서버를 중지한 상태에서 단일 트랜잭션으로 kind 컬럼을 추가하고 기존 기록을 PERSON으로 해석한다.
   기존 완료 결과·수신 확인·대기 상태는 유지한다. 기존 RUNNING 복구 정책은 그대로다.
-- v1 실행 파일은 v2 DB를 읽을 수 없다. 배포 표시는 sqlite-v2이며 마이그레이션 가능성이 있는
+- v1 실행 파일은 v2 DB를 읽을 수 없다. #661의 배포 표시는 sqlite-v2였으며 마이그레이션 가능성이 있는
   배포 실패 후 v1/JSON 이미지로 자동 복귀하지 않는다. 데이터 보존 후 v2 호환 릴리스로 복구한다.
   변경 전 정지 상태 DB 백업으로 돌아가는 경우 신규 접수·미전송 결과 유실을 따로 검토해야 한다.
 - 기존 미전송 PERSON 이벤트에도 jobType 필드가 추가되어 이벤트 해시가 바뀔 수 있다.
   Spring 중복 처리는 eventId만이 아니라 executionId·terminal state를 기준으로 해야 한다.
 
 정책·자원 측정·모델 준비: [SIMILAR_PHOTOS.md](SIMILAR_PHOTOS.md).
+
+## DEV·PROD 공유 실행 시 환경 격리
+
+- 같은 MCP endpoint에 서로 다른 서비스 토큰으로 접속한다. 인증된 환경은 HTTP 요청 scope에서
+  도구 실행으로 전달되며, 도구의 공개 입력 스키마에는 환경 이름·콜백 URL을 노출하지 않는다.
+- 접수 환경을 SQLite v3 실행 기록에 저장한다. 해당 환경만 결과를 조회하거나 동일 실행을 재사용할 수 있다.
+- 완료·실패·진행 이벤트는 저장된 환경의 고정 HTTPS endpoint와 전용 콜백 토큰으로 전송한다.
+  재시작·재시도 시에도 환경이 보존되며, 미설정 환경을 DEV 등으로 대체하지 않는다.
+- 기존 작업은 DEV로 이전한다. 실행 UUID는 전역 유일, business job ID의 동시 실행 제약은 환경별이다.
+- 설정과 v3 롤백 제약은 `deployment/README.md`의 공유 환경 절차를 따른다.
