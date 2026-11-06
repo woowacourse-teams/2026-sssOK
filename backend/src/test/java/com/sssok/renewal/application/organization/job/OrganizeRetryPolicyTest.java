@@ -25,7 +25,7 @@ class OrganizeRetryPolicyTest {
     private OrganizeJob job(OrganizeJobStatus status, OrganizeFailureCode code, int retryCount) {
         return new OrganizeJob(1L, UUID.randomUUID(), 10L, 20L, OrganizeKind.PERSON, OrganizeTrigger.BUTTON, status,
             null, "gallery", "group_photos_by_person", "설명", 5, 0, 3, retryCount,
-            code == null ? null : code.name(), null, null, null, null, null, null, null, null, FINISHED,
+            code == null ? null : code.name(), null, null, null, null, null, null, null, null, null, FINISHED,
             FINISHED, FINISHED);
     }
 

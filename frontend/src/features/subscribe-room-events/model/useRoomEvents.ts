@@ -4,7 +4,12 @@ import { useQueryClient } from "@tanstack/react-query";
 import { photosQueryKey, type Media, type MediaItem, type MediaList } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
-import type { MediaFoldersUpdatedEvent, MediaLikesUpdatedEvent } from "./roomEventTypes";
+import type {
+  MediaFoldersUpdatedEvent,
+  MediaLikesUpdatedEvent,
+  OrganizeJobUpdatedEvent,
+  OrganizeRoomChangedEvent,
+} from "./roomEventTypes";
 import { updateMediaReadyCache } from "./updateMediaReadyCache";
 import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
@@ -17,6 +22,10 @@ interface UseRoomEventsParams {
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
   onMediaFoldersUpdated?: (event: MediaFoldersUpdatedEvent) => void;
+  onOrganizeRoomChanged?: (event: OrganizeRoomChangedEvent) => void;
+  onOrganizeJobUpdated?: (event: OrganizeJobUpdatedEvent) => void;
+  /** 끊겼던 연결이 다시 붙었다. 그사이 놓친 상태를 한 번 다시 읽는 데 쓴다. */
+  onReconnected?: () => void;
 }
 
 const FOLDER_CHANGE_EVENTS = ["folder.created", "folder.renamed", "folder.deleted"] as const;
@@ -30,6 +39,9 @@ export const useRoomEvents = ({
   onFoldersChanged,
   onFolderDeleted,
   onMediaFoldersUpdated,
+  onOrganizeRoomChanged,
+  onOrganizeJobUpdated,
+  onReconnected,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
   const onMediaCreatedRef = useRef(onMediaCreated);
@@ -37,6 +49,9 @@ export const useRoomEvents = ({
   const onFoldersChangedRef = useRef(onFoldersChanged);
   const onFolderDeletedRef = useRef(onFolderDeleted);
   const onMediaFoldersUpdatedRef = useRef(onMediaFoldersUpdated);
+  const onOrganizeRoomChangedRef = useRef(onOrganizeRoomChanged);
+  const onOrganizeJobUpdatedRef = useRef(onOrganizeJobUpdated);
+  const onReconnectedRef = useRef(onReconnected);
 
   useEffect(() => {
     onMediaCreatedRef.current = onMediaCreated;
@@ -59,14 +74,34 @@ export const useRoomEvents = ({
   }, [onMediaFoldersUpdated]);
 
   useEffect(() => {
+    onOrganizeRoomChangedRef.current = onOrganizeRoomChanged;
+  }, [onOrganizeRoomChanged]);
+
+  useEffect(() => {
+    onOrganizeJobUpdatedRef.current = onOrganizeJobUpdated;
+  }, [onOrganizeJobUpdated]);
+
+  useEffect(() => {
+    onReconnectedRef.current = onReconnected;
+  }, [onReconnected]);
+
+  useEffect(() => {
     // 앱 확인용 개발 서버(`pnpm start:app`)는 API 주소가 상대 경로라 현재 페이지 주소를 기준으로 푼다.
     const url = new URL(`${API_BASE_URL}/rooms/${roomId}/events`, window.location.origin);
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
     let hasReportedConnectionError = false;
+    let hasDisconnected = false;
+
+    const handleOpen = () => {
+      if (!hasDisconnected) return;
+      hasDisconnected = false;
+      onReconnectedRef.current?.();
+    };
 
     const handleConnectionError = () => {
+      hasDisconnected = true;
       if (hasReportedConnectionError) return;
 
       hasReportedConnectionError = true;
@@ -134,6 +169,17 @@ export const useRoomEvents = ({
       );
     };
 
+    const handleOrganizeRoomChanged = (event: MessageEvent<string>) => {
+      onOrganizeRoomChangedRef.current?.(JSON.parse(event.data) as OrganizeRoomChangedEvent);
+    };
+
+    const handleOrganizeJobUpdated = (event: MessageEvent<string>) => {
+      onOrganizeJobUpdatedRef.current?.(JSON.parse(event.data) as OrganizeJobUpdatedEvent);
+    };
+
+    eventSource.addEventListener("open", handleOpen);
+    eventSource.addEventListener("organize.room.changed", handleOrganizeRoomChanged);
+    eventSource.addEventListener("organize.job.updated", handleOrganizeJobUpdated);
     eventSource.addEventListener("media.created", handleMediaCreated);
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
@@ -146,6 +192,9 @@ export const useRoomEvents = ({
     eventSource.addEventListener("error", handleConnectionError);
 
     return () => {
+      eventSource.removeEventListener("open", handleOpen);
+      eventSource.removeEventListener("organize.room.changed", handleOrganizeRoomChanged);
+      eventSource.removeEventListener("organize.job.updated", handleOrganizeJobUpdated);
       eventSource.removeEventListener("media.created", handleMediaCreated);
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);

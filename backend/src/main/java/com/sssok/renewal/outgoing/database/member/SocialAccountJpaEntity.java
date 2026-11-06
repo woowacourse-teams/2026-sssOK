@@ -1,6 +1,7 @@
 package com.sssok.renewal.outgoing.database.member;
 
 import com.sssok.infrastructure.persistence.BaseEntity;
+import com.sssok.renewal.domain.auth.OAuthClientType;
 import com.sssok.renewal.domain.member.SocialAccount;
 import com.sssok.renewal.domain.member.SocialIdentity;
 import com.sssok.renewal.domain.member.SocialProvider;
@@ -31,6 +32,7 @@ import org.hibernate.annotations.Check;
 @Check(name = "ck_social_account_subject", constraints = "length(trim(provider_user_id)) > 0")
 @Check(name = "ck_social_account_token_pair", constraints = "encrypted_refresh_token IS NULL OR encrypted_access_token IS NOT NULL")
 @Check(name = "ck_social_account_access_cipher", constraints = "encrypted_access_token IS NULL OR encrypted_access_token LIKE 'v1:%'")
+@Check(name = "ck_social_account_token_client_type", constraints = "token_client_type IS NULL OR token_client_type IN ('WEB', 'NATIVE')")
 @Check(name = "ck_social_account_refresh_cipher", constraints = "encrypted_refresh_token IS NULL OR encrypted_refresh_token LIKE 'v1:%'")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -55,6 +57,11 @@ public class SocialAccountJpaEntity extends BaseEntity {
 
     @Column(name = "encrypted_refresh_token", columnDefinition = "text", updatable = false)
     private String encryptedRefreshToken;
+
+    // 보관한 토큰을 발급한 제공자 client 설정이다. 토큰과 함께만 갱신하며, NULL은 웹 설정으로 취급하는 기존 토큰이다.
+    @Enumerated(EnumType.STRING)
+    @Column(name = "token_client_type", length = 10, updatable = false)
+    private OAuthClientType tokenClientType;
 
     // 탈퇴 회원도 연결 해제 확인 전까지 계정과 암호문을 유지한다. 회원은 물리 삭제하지 않는다.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

@@ -18,9 +18,7 @@ import sys
 services = json.load(open(sys.argv[1]))['services']
 node = services['node-exporter']
 assert node['pid'] == 'host', '호스트 PID 설정 누락'
-assert any(p.get('host_ip') == '127.0.0.1' and str(p.get('published')) == '9100'
-           and p['target'] == 9100 for p in node['ports']), 'loopback 9100 연결 누락'
-assert all(p.get('host_ip') == '127.0.0.1' for p in node['ports']), '수집기 외부 포트 공개'
+assert not node.get('ports'), '수집기 호스트 포트 게시 금지 (AMI 기본 수집기와 충돌)'
 assert any(v['source'] == '/' and v['target'] == '/host' and v.get('read_only')
            and v.get('bind', {}).get('propagation') == 'rslave'
            for v in node['volumes']), '호스트 읽기 전용 마운트 누락'
@@ -30,16 +28,16 @@ required = {'--path.rootfs=/host', '--path.procfs=/host/proc', '--path.sysfs=/ho
 assert required <= set(node['command']), '호스트 수집 옵션 누락'
 nginx = services['nginx']
 assert any(p['target'] == 19100 and str(p.get('published')) == '19100'
-           and p.get('host_ip') == '10.0.0.69' for p in nginx['ports']), 'Nginx 사설 수집 포트 누락'
+           and p.get('host_ip') == '10.0.0.104' for p in nginx['ports']), 'Nginx 사설 수집 포트 누락'
 assert any(p['target'] == 80 and str(p.get('published')) == '80' for p in nginx['ports']), 'Nginx API 포트 누락'
 assert nginx['environment']['SSSOK_ENVIRONMENT'] == 'dev'
-assert nginx['environment']['CENTRAL_PRIVATE_IP'] == '10.0.20.46'
+assert nginx['environment']['CENTRAL_PRIVATE_IP'] == '10.0.20.204'
 assert nginx['labels']['com.sssok.log.service'] == 'sssok-nginx', 'Docker 로그 수집 라벨 누락'
 assert set(nginx['networks']) & set(services['app']['networks']) & set(node['networks']), '공통 네트워크 누락'
 print('개발 node_exporter·Nginx 배포 구성 정상')
 PY
 docker run --rm \
-  -e SSSOK_ENVIRONMENT=dev -e CENTRAL_PRIVATE_IP=10.0.20.46 \
+  -e SSSOK_ENVIRONMENT=dev -e CENTRAL_PRIVATE_IP=10.0.20.204 \
   -e 'NGINX_ENVSUBST_FILTER=^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$' \
   -v "$PWD/backend/monitoring/nginx/container/default.conf.template:/etc/nginx/templates/default.conf.template:ro" \
   nginx:1.27-alpine nginx -t
