@@ -3,6 +3,7 @@ package com.sssok.renewal.application.auth;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.renewal.application.auth.exception.SocialAuthException;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
+import com.sssok.renewal.domain.auth.OAuthClientType;
 import com.sssok.renewal.domain.auth.OAuthLoginAttempt;
 import com.sssok.renewal.domain.member.Member;
 import com.sssok.renewal.domain.member.Nickname;
@@ -132,7 +133,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         OAuthLoginAttempt saved = storedAttempt(started);
         oauthLoginAttemptRepository.save(new OAuthLoginAttempt(saved.stateHash(), saved.loginVerifierHash(), saved.provider(),
             saved.redirectUri(), saved.nonce(), saved.anonymousMemberIds(),
-            Instant.now().minusSeconds(600), Instant.now().minusSeconds(300)));
+            Instant.now().minusSeconds(600), Instant.now().minusSeconds(300), OAuthClientType.WEB));
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 
@@ -142,7 +143,7 @@ class OAuthLoginAttemptServiceTest extends PostgresContainerSupport {
         OAuthLoginAttemptResult started = startKakao(List.of());
         OAuthLoginAttempt saved = storedAttempt(started);
         oauthLoginAttemptRepository.save(new OAuthLoginAttempt(saved.stateHash(), saved.loginVerifierHash(), saved.provider(),
-            redirectUri, saved.nonce(), saved.anonymousMemberIds(), saved.createdAt(), saved.expiresAt()));
+            redirectUri, saved.nonce(), saved.anonymousMemberIds(), saved.createdAt(), saved.expiresAt(), OAuthClientType.WEB));
         assertThatThrownBy(() -> consume(started)).isInstanceOf(SocialAuthException.class);
     }
 

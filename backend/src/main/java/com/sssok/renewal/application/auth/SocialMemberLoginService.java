@@ -106,6 +106,6 @@ public class SocialMemberLoginService {
         String encryptedAccessToken = socialTokenCipher.encrypt(identity, TokenType.ACCESS, authentication.accessToken());
         String encryptedRefreshToken = authentication.refreshToken() == null ? null
             : socialTokenCipher.encrypt(identity, TokenType.REFRESH, authentication.refreshToken());
-        return new EncryptedSocialTokens(encryptedAccessToken, encryptedRefreshToken);
+        return new EncryptedSocialTokens(encryptedAccessToken, encryptedRefreshToken, authentication.clientType());
     }
 }
