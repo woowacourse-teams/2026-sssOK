@@ -8,6 +8,7 @@ import com.sssok.renewal.domain.organization.OrganizeExecutionStatus;
 import com.sssok.renewal.domain.organization.OrganizeJob;
 import com.sssok.renewal.domain.organization.OrganizeJobStatus;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -160,5 +161,99 @@ class OrganizeEventServiceTest extends OrganizeServiceTestSupport {
         OrganizeJob canceled = reload(job);
         assertThat(canceled.status()).isEqualTo(OrganizeJobStatus.CANCELED);
         assertThat(canceled.hasResult()).isFalse();
+    }
+
+    @Test
+    void MCP가_접수하면_RUNNING이고_단계는_waiting이다() {
+        states.accept(job);
+
+        OrganizeJob accepted = reload(job);
+        assertThat(accepted.status()).isEqualTo(OrganizeJobStatus.RUNNING);
+        assertThat(accepted.progressStage()).isEqualTo("waiting");
+        assertThat(accepted.progressProcessed()).isNull();
+        assertThat(accepted.progressTotal()).isNull();
+        assertThat(accepted.progressUnit()).isNull();
+    }
+
+    @Test
+    void 진행_이벤트가_먼저_오면_늦은_접수_응답이_그_진행을_덮어쓰지_않는다() {
+        eventService.handle(progress(job, "downloading_photos", 3, 10, "PHOTO"));
+        OrganizeJob running = reload(job);
+
+        states.accept(job);
+
+        OrganizeJob afterAccepted = reload(job);
+        assertThat(afterAccepted.progressStage()).isEqualTo("downloading_photos");
+        assertThat(afterAccepted.progressProcessed()).isEqualTo(3);
+        assertThat(afterAccepted.progressUnit()).isEqualTo("PHOTO");
+        assertThat(afterAccepted.jobVersion()).isEqualTo(running.jobVersion());
+    }
+
+    @Test
+    void 같은_진행을_다시_받으면_버전은_그대로이고_생존_시각만_갱신된다() {
+        states.accept(job);
+        eventService.handle(progress(job, "detecting_faces", 24, 60, "PHOTO"));
+        OrganizeJob first = reload(job);
+        Instant firstEventAt = repository.findLatestExecution(job.id()).orElseThrow().lastEventAt();
+
+        clock.advance(Duration.ofSeconds(15));
+        eventService.handle(progress(job, "detecting_faces", 24, 60, "PHOTO"));
+
+        assertThat(reload(job).jobVersion()).isEqualTo(first.jobVersion());
+        assertThat(repository.findLatestExecution(job.id()).orElseThrow().lastEventAt()).isAfter(firstEventAt);
+    }
+
+    @Test
+    void 처리_수와_단위가_바뀌면_저장하고_버전이_오른다() {
+        states.accept(job);
+        eventService.handle(progress(job, "extracting_body_features", 2, 8, "BODY"));
+
+        OrganizeJob running = reload(job);
+        assertThat(running.progressStage()).isEqualTo("extracting_body_features");
+        assertThat(running.progressProcessed()).isEqualTo(2);
+        assertThat(running.progressTotal()).isEqualTo(8);
+        assertThat(running.progressUnit()).isEqualTo("BODY");
+
+        eventService.handle(progress(job, "extracting_body_features", 3, 8, "BODY"));
+
+        assertThat(reload(job).jobVersion()).isEqualTo(running.jobVersion() + 1);
+    }
+
+    @Test
+    void 같은_회차의_지연된_이벤트는_진행과_버전을_되돌리지_않는다() {
+        states.accept(job);
+        eventService.handle(progress(job, "detecting_faces", 24, 60, "PHOTO"));
+        OrganizeJob current = reload(job);
+
+        eventService.handle(progress(job, "preparing", 60, 60, "PHOTO"));
+        eventService.handle(progress(job, "detecting_faces", 10, 60, "PHOTO"));
+
+        OrganizeJob after = reload(job);
+        assertThat(after.progressStage()).isEqualTo("detecting_faces");
+        assertThat(after.progressProcessed()).isEqualTo(24);
+        assertThat(after.jobVersion()).isEqualTo(current.jobVersion());
+    }
+
+    @Test
+    void 완료하면_READY에서_마지막_중간_진행이_모두_비워진다() {
+        states.accept(job);
+        eventService.handle(progress(job, "extracting_body_features", 2, 8, "BODY"));
+
+        eventService.handle(completed(job, personResult(ids, List.of())));
+
+        OrganizeJob ready = reload(job);
+        assertThat(ready.status()).isEqualTo(OrganizeJobStatus.READY);
+        assertThat(ready.progressStage()).isNull();
+        assertThat(ready.progressProcessed()).isNull();
+        assertThat(ready.progressTotal()).isNull();
+        assertThat(ready.progressUnit()).isNull();
+    }
+
+    private OrganizeEvent progress(OrganizeJob target, String stage, int processed, int total, String unit) {
+        var progress = objectMapper.createObjectNode().put("stage", stage);
+        progress.put("processed", processed).put("total", total).put("unit", unit);
+        var execution = repository.findLatestExecution(target.id()).orElseThrow();
+        return new OrganizeEvent(target.publicId(), target.roomId(), execution.executionId(), execution.attempt(),
+            target.kind().name(), "RUNNING", progress, null, null);
     }
 }

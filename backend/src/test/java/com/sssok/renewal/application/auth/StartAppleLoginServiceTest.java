@@ -22,7 +22,7 @@ class StartAppleLoginServiceTest {
     void 설정값과_저장된_state로_URL을_만들고_확인값과_비밀키는_포함하지_않는다() {
         OAuthLoginAttemptService attempts = mock(OAuthLoginAttemptService.class);
         String redirectUri = "https://example.com/auth/callback/apple?next=/rooms&label=한글+값";
-        AppleOAuthProperties properties = new AppleOAuthProperties("client+id", "team", "key", "secret-value", redirectUri);
+        AppleOAuthProperties properties = new AppleOAuthProperties("client+id", "team", "key", "secret-value", redirectUri, null);
         Instant expiresAt = Instant.parse("2026-10-25T12:05:00Z");
         when(attempts.start(SocialProvider.APPLE, List.of("anonymous-token"))).thenReturn(
             new OAuthLoginAttemptResult(SocialProvider.APPLE, "server-state", "private-verifier", "server-nonce", redirectUri, expiresAt));

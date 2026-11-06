@@ -82,6 +82,8 @@ cp .env.example .env
 | GALLERY_BACKEND_URL | Spring의 고정 HTTPS 이벤트 수신 URL |
 | GALLERY_BACKEND_TOKEN | Spring 내부 API용 별도 토큰, 32자 이상 |
 | GALLERY_STANDALONE | Spring 없이 시험할 때만 true; 기본 false |
+| GALLERY_PROGRESS_INTERVAL_SECONDS | 진행이 바뀐 동안 Spring에 보내는 최소 간격(초); 기본 2 |
+| GALLERY_HEARTBEAT_INTERVAL_SECONDS | 진행이 그대로일 때 생존 확인을 보내는 간격(초); 기본 15. 진행 간격보다 짧을 수 없다 |
 
 모델은 Git과 이미지에 포함하지 않는다.
 

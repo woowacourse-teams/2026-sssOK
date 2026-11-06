@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useRef } from "react";
 import { HiCheck } from "react-icons/hi2";
 
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
 import { includedPhotos, type ReviewPerson } from "../model/personReview";
 import {
@@ -17,15 +17,11 @@ import {
   Submit,
 } from "./PersonReview.styles";
 
-/** 하단 여백(16) + '완료'(56) + 간격(10) 위에 토스트를 띄운다 (AI-4b). */
-const TOAST_BOTTOM = "calc(82px + env(safe-area-inset-bottom, 0px))";
-const TOAST_MS = 2500;
-
 interface PersonPhotosProps {
   person: ReviewPerson;
   onToggle: (mediaId: number) => void;
   onDone: () => void;
-  /** 사진 위 안내. 비슷한 사진 모음은 "이 모음에 안 맞는 사진을…" 으로 바꿔 쓴다. */
+  /** 그리드 위 안내. 비슷한 사진 모음은 "이 모음에 안 맞는 사진을…"처럼 바꿔 쓴다. */
   hint?: string;
   /** 뒤로 가기 버튼 이름. */
   backLabel?: string;
@@ -42,16 +38,8 @@ export const PersonPhotos = ({
   hint = "이 사람이 아닌 사진을 눌러 빼 주세요.",
   backLabel = "사람 목록으로",
 }: PersonPhotosProps) => {
-  const [toastKey, setToastKey] = useState(0);
-  const excludedCount = person.excludedIds.length;
-  const isToastVisible = toastKey > 0 && excludedCount > 0;
-
-  // 누를 때마다 토스트를 다시 띄우고, 잠시 뒤 스스로 닫는다.
-  useEffect(() => {
-    if (toastKey === 0) return;
-    const timer = window.setTimeout(() => setToastKey(0), TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [toastKey]);
+  const { showToast } = useToast();
+  const closeExcludedToast = useRef<(() => void) | null>(null);
 
   const count = includedPhotos(person).length;
   const title = person.name ? `${person.name} ${count}장` : `${count}장`;
@@ -79,7 +67,16 @@ export const PersonPhotos = ({
                   $excluded={isExcluded}
                   onClick={() => {
                     onToggle(photo.mediaId);
-                    setToastKey((key) => key + 1);
+                    const nextExcludedCount = person.excludedIds.length + (isExcluded ? -1 : 1);
+                    if (nextExcludedCount > 0) {
+                      closeExcludedToast.current = showToast({
+                        message: `${nextExcludedCount}장을 뺐어요`,
+                        showClose: false,
+                      });
+                    } else {
+                      closeExcludedToast.current?.();
+                      closeExcludedToast.current = null;
+                    }
                   }}
                 >
                   <img src={photo.thumbnailUrl} alt="" loading="lazy" />
@@ -97,14 +94,6 @@ export const PersonPhotos = ({
           완료
         </Submit>
       </Footer>
-      {isToastVisible && (
-        <Toast
-          message={`${excludedCount}장을 뺐어요`}
-          showClose={false}
-          bottom={TOAST_BOTTOM}
-          onClose={() => setToastKey(0)}
-        />
-      )}
     </>
   );
 };

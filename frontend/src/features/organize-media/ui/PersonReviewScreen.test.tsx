@@ -1,4 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 
 import type { MediaItem } from "@/entities/media";
@@ -163,6 +164,7 @@ describe("PersonReviewScreen", () => {
     await userEvent.click(first);
     expect(first).toBeChecked();
     expect(screen.getByRole("heading", { name: "하루 22장" })).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("checkbox", { name: "사진 2" }));
     await userEvent.click(screen.getByRole("button", { name: "완료" }));

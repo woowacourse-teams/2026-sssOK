@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 
 import type { MediaItem } from "@/entities/media";
@@ -97,6 +98,8 @@ describe("SimilarReviewScreen", () => {
     expect(screen.getByRole("heading", { name: "4장" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "완료" }));
-    expect(screen.getByRole("button", { name: "이름 없는 모음 사진 4장 확인" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "이름 없는 모음 사진 4장 확인" }),
+    ).toBeInTheDocument();
   });
 });

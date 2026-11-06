@@ -319,3 +319,43 @@ describe("useMediaUpload", () => {
 });
 
 afterEach(() => server.events.removeAllListeners());
+
+it.each([false, true])(
+  "취소한 업로드의 늦은 오류를 알리지 않는다 (새 업로드: %s)",
+  async (restart) => {
+    await enterRoom();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let requested = false;
+    server.use(
+      http.post(API_BASE_URL + "/rooms/:roomId/media/upload-urls", async () => {
+        if (requested) return undefined;
+        requested = true;
+        await held;
+        return HttpResponse.json(
+          { code: "NOT_ROOM_MEMBER", message: "권한 없음" },
+          { status: 403 },
+        );
+      }),
+    );
+    const onError = jest.fn();
+    const onSettled = jest.fn();
+    const { result } = renderUpload({ onError, onSettled });
+    const running = startUpload(result, [fileOf("이전.jpg", 3)]);
+    await waitFor(() => expect(requested).toBe(true));
+    act(() => result.current.cancel());
+    if (restart) {
+      await act(async () => {
+        await result.current.start([fileOf("새.jpg", 3)]);
+      });
+      expect(onSettled).toHaveBeenCalledWith(expect.anything(), { superseded: false });
+    }
+    release();
+    await act(async () => {
+      await running;
+    });
+    expect(onError).not.toHaveBeenCalled();
+  },
+);

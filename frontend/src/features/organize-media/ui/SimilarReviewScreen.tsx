@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 import { Spinner } from "@/shared/ui/spinner";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
 import type { OrganizeResult } from "../api/types";
 import { createPersonReview, type PersonReview, togglePhoto } from "../model/personReview";
@@ -29,8 +29,6 @@ import { SimilarCard } from "./SimilarCard";
 
 const SCREEN_TITLE = "비슷한 사진 나누기";
 /** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 띄운다. */
-const TOAST_BOTTOM = "calc(112px + env(safe-area-inset-bottom, 0px))";
-const TOAST_MS = 2500;
 
 interface SimilarReviewScreenProps {
   source: PersonReviewSource;
@@ -97,14 +95,7 @@ type ReviewProps = Omit<SimilarReviewScreenProps, "source" | "onRetry"> & {
 const Review = ({ result, folderNames, onClose }: ReviewProps) => {
   const [review, setReview] = useState<PersonReview>(() => createPersonReview(result.groups));
   const [openedId, setOpenedId] = useState<string | null>(null);
-  /** 폴더로 반영하는 건 아직 없다(#728). 버튼을 누르면 준비 중이라고만 알린다. */
-  const [isSubmitPending, setIsSubmitPending] = useState(false);
-
-  useEffect(() => {
-    if (!isSubmitPending) return;
-    const timer = window.setTimeout(() => setIsSubmitPending(false), TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [isSubmitPending]);
+  const { showToast } = useToast();
 
   const opened = review.people.find((card) => card.id === openedId) ?? null;
   const footer = similarFooterOf(review, folderNames);
@@ -145,20 +136,14 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
         <Submit
           type="button"
           disabled={!footer.canSubmit}
-          onClick={() => setIsSubmitPending(true)}
+          onClick={() =>
+            // 폴더로 반영하는 건 아직 없다(#728). 누르면 준비 중이라고만 알린다.
+            showToast({ message: "폴더 만들기는 곧 열려요.", showClose: false })
+          }
         >
           {footer.submit}
         </Submit>
       </Footer>
-
-      {isSubmitPending && (
-        <Toast
-          message="폴더 만들기는 곧 열려요."
-          showClose={false}
-          bottom={TOAST_BOTTOM}
-          onClose={() => setIsSubmitPending(false)}
-        />
-      )}
     </>
   );
 };

@@ -31,12 +31,25 @@ public record OrganizeJobResponse(
     Instant createdAt,
     Instant updatedAt
 ) {
-    public record Progress(String stage, Integer processed, Integer total) {
+    @Schema(description = "현재 단계의 진행. processed·total 은 그 단계 기준이라 전체 완료율이 아니다. "
+        + "수치를 잴 수 없는 단계는 processed·total·unit 이 null 이다")
+    public record Progress(
+        @Schema(description = "현재 처리 단계") String stage,
+        @Schema(description = "현재 단계에서 처리한 수") Integer processed,
+        @Schema(description = "현재 단계의 전체 처리 대상 수") Integer total,
+        @Schema(description = "처리 수의 단위. PHOTO(사진) 또는 BODY(검출된 신체)") String unit) {
     }
 
+    // READY 는 진행 정보를 내지 않는다(null 이면 NON_NULL 직렬화로 progress 키가 빠진다).
+    // 이 변경 이전에 완료된 작업은 DB 에 진행 값이 남아 있을 수 있어 저장값과 무관하게 여기서도 거른다.
     public static Progress progressOf(OrganizeJob job) {
+        if (job.status() == OrganizeJobStatus.READY) {
+            return null;
+        }
         boolean hasProgress = job.progressStage() != null || job.progressProcessed() != null;
-        return hasProgress ? new Progress(job.progressStage(), job.progressProcessed(), job.progressTotal()) : null;
+        return hasProgress
+            ? new Progress(job.progressStage(), job.progressProcessed(), job.progressTotal(), job.progressUnit())
+            : null;
     }
 
     public static OrganizeJobResponse from(OrganizeJob job, OrganizeRetryPolicy retryPolicy) {

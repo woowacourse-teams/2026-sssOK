@@ -43,6 +43,11 @@ export interface MyOrganizeJob {
   status: "QUEUED" | "RUNNING" | "READY" | "FAILED";
   /** 단계 순서로 만든 전체 진행률(0~99). 진행 정보를 아직 못 받았으면 null. 앞으로만 간다. */
   percent: number | null;
+  /**
+   * 분석 순서를 기다리는 중인지. 접수만 된 QUEUED 와, 분석 서버에 넘어갔지만 아직 차례가 오지 않은
+   * RUNNING + `waiting` 단계(계약 #704)를 함께 본다.
+   */
+  isWaiting: boolean;
   /** 분석 대상 장수. 접수 응답을 받기 전이면 null 이다. */
   photoCount: number | null;
   retryable: boolean;
@@ -410,6 +415,7 @@ export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
           kind,
           status: job.status as MyOrganizeJob["status"],
           percent: job.percent,
+          isWaiting: job.status === "QUEUED" || job.progress?.stage === "waiting",
           photoCount: job.photoCount,
           retryable: job.retryable,
           groupCount: readyResult?.result ? readyResult.result.groups.length : null,
