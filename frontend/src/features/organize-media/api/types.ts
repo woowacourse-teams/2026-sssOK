@@ -20,6 +20,8 @@ export interface OrganizeProgress {
   stage: string | null;
   processed: number | null;
   total: number | null;
+  /** 센 대상(계약 #704). 사진이면 PHOTO, 검출된 사람(몸)이면 BODY. 진행률 계산에는 쓰지 않는다. */
+  unit?: "PHOTO" | "BODY" | null;
 }
 
 /** 작업 상태가 바뀔 때마다 오는 필드. 접수·조회 응답과 SSE 가 함께 쓴다. */
