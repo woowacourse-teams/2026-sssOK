@@ -3,6 +3,7 @@ import { mswLoader } from "msw-storybook-addon/csf3";
 
 import { handlers } from "../src/mocks/handlers";
 import { GlobalStyles } from "../src/shared/styles/GlobalStyles";
+import { ToastProvider } from "../src/shared/ui/toast";
 
 const preview: Preview = {
   loaders: [mswLoader()],
@@ -11,7 +12,9 @@ const preview: Preview = {
     (Story) => (
       <>
         <GlobalStyles />
-        <Story />
+        <ToastProvider>
+          <Story />
+        </ToastProvider>
       </>
     ),
   ],

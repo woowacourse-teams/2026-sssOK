@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
@@ -51,6 +52,35 @@ const cardOf = async (name: string) =>
   (await screen.findByRole("link", { name: new RegExp(name) })).closest("li") as HTMLElement;
 
 describe("방 목록 화면", () => {
+  it("초대 링크를 복사하면 메뉴가 닫히고 전역 완료 알림이 표시된다", async () => {
+    const user = userEvent.setup();
+    const copy = jest.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
+    renderRoomList();
+
+    await user.click(await screen.findByRole("button", { name: "동아리 MT 메뉴" }));
+    await user.click(screen.getByRole("button", { name: "초대 링크 복사" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent("초대 링크를 복사했어요.");
+    expect(copy).toHaveBeenCalledWith(expect.stringContaining("/join/"));
+    expect(screen.queryByTestId("dropdown-menu")).not.toBeInTheDocument();
+    copy.mockRestore();
+  });
+
+  it("초대 링크 복사가 실패하면 전역 실패 알림이 표시된다", async () => {
+    const user = userEvent.setup();
+    const copy = jest
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValue(new Error("denied"));
+    renderRoomList();
+
+    await user.click(await screen.findByRole("button", { name: "동아리 MT 메뉴" }));
+    await user.click(screen.getByRole("button", { name: "초대 링크 복사" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("링크를 복사하지 못했어요.");
+    expect(screen.queryByTestId("dropdown-menu")).not.toBeInTheDocument();
+    copy.mockRestore();
+  });
+
   it("들어간 방을 사진 수·참여 인원과 함께 보여주고, 내가 만든 방에만 방장 표시를 붙인다", async () => {
     renderRoomList();
 

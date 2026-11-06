@@ -1,29 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+
+import { useToast } from "@/shared/ui/toast";
 
 import { isApiError } from "@/shared/api";
 
-export const TRIAGE_TOAST_MS = 2500;
-
-interface TriageToast {
-  id: number;
-  tone: "success" | "error";
-  message: string;
-}
-
 export const useTriageToast = (onUnauthorized: () => void) => {
-  const [toast, setToast] = useState<TriageToast | null>(null);
-
-  useEffect(() => {
-    if (!toast) return;
-
-    const timer = window.setTimeout(() => setToast(null), TRIAGE_TOAST_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [toast]);
+  const { showToast } = useToast();
 
   const showChanged = useCallback(
-    (message: string) => setToast({ id: Date.now(), tone: "success", message }),
-    [],
+    (message: string) => showToast({ tone: "success", message, showClose: false }),
+    [showToast],
   );
 
   const showFailed = useCallback(
@@ -33,14 +19,14 @@ export const useTriageToast = (onUnauthorized: () => void) => {
         return;
       }
 
-      setToast({
-        id: Date.now(),
+      showToast({
+        showClose: false,
         tone: "error",
         message: `${target === "상태" ? "상태를" : "담당자를"} 바꾸지 못했어요. 다시 시도해 주세요.`,
       });
     },
-    [onUnauthorized],
+    [onUnauthorized, showToast],
   );
 
-  return { toast, showChanged, showFailed, closeToast: () => setToast(null) };
+  return { showChanged, showFailed };
 };
