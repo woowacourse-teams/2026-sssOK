@@ -27,15 +27,31 @@ const resultOf = (sizes: number[]): OrganizeResult => {
   };
 };
 
-const renderScreen = (sizes = [9, 5, 2], folderNames: string[] = []) => {
+interface ScreenOptions {
+  isSubmitting?: boolean;
+  submitError?: string | null;
+}
+
+const renderScreen = (
+  sizes = [9, 5, 2],
+  folderNames: string[] = [],
+  { isSubmitting, submitError }: ScreenOptions = {},
+) => {
+  const onSubmit = jest.fn();
+  const onDismissError = jest.fn();
   render(
     <SimilarReviewScreen
       source={{ state: "ready", result: resultOf(sizes) }}
       folderNames={folderNames}
       onClose={jest.fn()}
       onRetry={jest.fn()}
+      onSubmit={onSubmit}
+      isSubmitting={isSubmitting}
+      submitError={submitError}
+      onDismissError={onDismissError}
     />,
   );
+  return { onSubmit, onDismissError };
 };
 
 describe("SimilarReviewScreen", () => {
@@ -50,15 +66,39 @@ describe("SimilarReviewScreen", () => {
     expect(screen.getByRole("button", { name: "폴더 만들기" })).toBeDisabled();
   });
 
-  it("이름을 붙이면 남는 모음 안내와 만들 폴더 수가 보이고, 누르면 준비 중이라고 알린다", async () => {
+  it("이름을 붙이면 남는 모음 안내와 함께 그 모음으로 폴더를 만든다", async () => {
     const user = userEvent.setup();
-    renderScreen();
+    const { onSubmit } = renderScreen();
 
     await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "잔디밭 풍경");
 
     expect(screen.getByText("이름을 안 붙인 2개는 폴더 없이 전체에 남아요")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "1개 폴더 만들기" }));
-    expect(screen.getByText("폴더 만들기는 곧 열려요.")).toBeInTheDocument();
+    expect(onSubmit).toHaveBeenCalledWith([
+      { groupId: "s1", folderName: "잔디밭 풍경", mediaIds: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+    ]);
+  });
+
+  it("폴더를 만드는 중이면 버튼을 막고 진행 중이라고 보여 준다", () => {
+    renderScreen([9, 5, 2], [], { isSubmitting: true });
+
+    expect(screen.getByRole("button", { name: "폴더를 만드는 중" })).toBeDisabled();
+  });
+
+  it("폴더를 만들지 못하면 오류를 알리고 화면에 남아 다시 누를 수 있다", async () => {
+    const user = userEvent.setup();
+    const { onSubmit, onDismissError } = renderScreen([9, 5, 2], [], {
+      submitError: "폴더를 만들지 못했어요. 다시 시도해 주세요.",
+    });
+
+    expect(
+      await screen.findByText("폴더를 만들지 못했어요. 다시 시도해 주세요."),
+    ).toBeInTheDocument();
+    expect(onDismissError).toHaveBeenCalled();
+
+    await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "잔디밭 풍경");
+    await user.click(screen.getByRole("button", { name: "1개 폴더 만들기" }));
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 
   it("엔터를 치면 키보드를 닫고 이름을 주황 칩으로 바꾸며, 칩을 누르면 다시 고칠 수 있다", async () => {
