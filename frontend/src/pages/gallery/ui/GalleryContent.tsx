@@ -24,7 +24,9 @@ import {
   OrganizeLimitModal,
   organizeLimitOf,
   OrganizeStatusBar,
+  type OrganizeKind,
   PersonReviewScreen,
+  SimilarReviewScreen,
   useOrganizeJob,
 } from "@/features/organize-media";
 import { SearchRequestField } from "@/features/search-media";
@@ -53,6 +55,9 @@ import {
   FolderEmptyTitle,
   Page,
 } from "./GalleryPage.styles";
+
+/** 정리 알림(바닥 36px + 높이 76px) 위. 같은 자리에 띄우면 알림의 X 를 가린다. */
+const ABOVE_ORGANIZE_BAR = "calc(120px + env(safe-area-inset-bottom, 0px))";
 
 interface GalleryContentProps {
   room: Room;
@@ -129,7 +134,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
-  const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
+  /** 열려 있는 검토 화면의 정리 종류. 사람별과 비슷한 사진은 화면이 다르다. */
+  const [reviewKind, setReviewKind] = useState<OrganizeKind | null>(null);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -230,7 +236,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 결과가 취소·만료돼 검토할 것이 없어지면 검토 화면도 닫는다. 다음 결과에서 저절로 열리지 않게 한다.
   const hasReview = organize.review !== null;
-  if (isPersonReviewOpen && !hasReview) setIsPersonReviewOpen(false);
+  if (reviewKind && !hasReview) setReviewKind(null);
 
   const folders = room.folders.map((folder) => ({
     ...folder,
@@ -292,6 +298,19 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     clearSelection,
   });
 
+  /** 검토 화면에서 고른 그룹으로 폴더를 만든다. 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다. */
+  const applyReview = async (groups: Parameters<typeof organize.apply>[0]) => {
+    const applied = await organize.apply(groups);
+    if (!applied) return;
+    setReviewKind(null);
+    search.closeSearch();
+    clearSelection();
+    await Promise.all([refreshRoom(), refreshPhotos()]);
+    const [first] = applied.folders;
+    if (first) selectFolder(first.folderId);
+    showToast({ message: `폴더 ${applied.folders.length}개를 만들었어요`, showClose: false });
+  };
+
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
   const downloadTargets = galleryItems
@@ -309,9 +328,10 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     showToast({
       message: organizeError,
       tone: "error",
+      bottom: isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined,
     });
     clearOrganizeError();
-  }, [organizeError, clearOrganizeError, showToast]);
+  }, [organizeError, clearOrganizeError, showToast, isOrganizeBarVisible]);
 
   return (
     <Page>
@@ -528,7 +548,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 찾은 사람이 있는 결과는 닫으면 버려지므로 한 번 더 묻는다. 실패·0명 알림은 버릴 것이 없어 바로 닫는다.
           onDismiss={() => {
             const notice = organize.notice;
-            if (notice?.status === "READY" && notice.peopleCount !== 0) {
+            if (notice?.status === "READY" && notice.groupCount !== 0) {
               setIsOrganizeResultCloseOpen(true);
               return;
             }
@@ -538,37 +558,36 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
             organize.reloadResult();
-            setIsPersonReviewOpen(true);
+            setReviewKind(organize.notice?.kind ?? "PERSON");
           }}
         />
       )}
 
-      {isPersonReviewOpen && organize.review && (
+      {reviewKind === "PERSON" && organize.review && (
         <PersonReviewScreen
           source={organize.review}
           myName={myName}
           memberNames={reviewMemberNames}
           folderNames={room.folders.map((folder) => folder.name)}
-          onClose={() => setIsPersonReviewOpen(false)}
+          onClose={() => setReviewKind(null)}
           onRetry={organize.reloadResult}
           isSubmitting={organize.isApplying}
           submitError={organize.applyError}
           onDismissError={organize.clearApplyError}
-          // 반영이 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다.
-          onSubmit={async (groups) => {
-            const applied = await organize.apply(groups);
-            if (!applied) return;
-            setIsPersonReviewOpen(false);
-            search.closeSearch();
-            clearSelection();
-            await Promise.all([refreshRoom(), refreshPhotos()]);
-            const [first] = applied.folders;
-            if (first) selectFolder(first.folderId);
-            showToast({
-              message: `폴더 ${applied.folders.length}개를 만들었어요`,
-              showClose: false,
-            });
-          }}
+          onSubmit={applyReview}
+        />
+      )}
+
+      {reviewKind === "SIMILAR" && organize.review && (
+        <SimilarReviewScreen
+          source={organize.review}
+          folderNames={room.folders.map((folder) => folder.name)}
+          onClose={() => setReviewKind(null)}
+          onRetry={organize.reloadResult}
+          isSubmitting={organize.isApplying}
+          submitError={organize.applyError}
+          onDismissError={organize.clearApplyError}
+          onSubmit={applyReview}
         />
       )}
 
@@ -586,6 +605,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
       {isOrganizeCancelOpen && organize.isRunning && (
         <OrganizeCancelSheet
+          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeCancelOpen(false)}
           onStop={() => {
             setIsOrganizeCancelOpen(false);
@@ -597,6 +617,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
         <OrganizeCancelSheet
           kind="result"
+          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
           onStop={() => {
             setIsOrganizeResultCloseOpen(false);

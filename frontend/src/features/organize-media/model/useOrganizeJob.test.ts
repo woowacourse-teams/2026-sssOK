@@ -100,6 +100,48 @@ describe("useOrganizeJob", () => {
     expect(result.current.blockedReason).toBe("지금 나누고 있어요");
   });
 
+  it("비슷한 사진으로 시작하면 SIMILAR 로 접수하고, 종류가 없는 SSE 에도 종류를 지킨다", async () => {
+    const { requests } = serve();
+    server.use(
+      http.post(BASE, async ({ request }) => {
+        requests.push({ path: "", body: await request.json(), key: null });
+        return HttpResponse.json({ data: jobOf({ kind: "SIMILAR" }) }, { status: 202 });
+      }),
+    );
+    const { result } = render();
+    await settle();
+
+    await act(() => result.current.start({ kind: "SIMILAR" }));
+    expect(requests[0]).toMatchObject({ body: { kind: "SIMILAR" } });
+    expect(result.current.notice).toMatchObject({ kind: "SIMILAR", status: "QUEUED" });
+    expect(result.current.blockedReason).toBe("지금 비슷한 사진을 묶고 있어요");
+
+    // SSE 이벤트에는 종류가 없다. 비슷한 사진 단계 순서로 진행률을 센다: (5 + 0.5) / 11
+    const { jobId, status, jobVersion, attempt, retryable, retryAvailableAt } = jobOf({
+      status: "RUNNING",
+      jobVersion: 3,
+    });
+    act(() =>
+      result.current.applyJobUpdate({
+        jobId,
+        status,
+        jobVersion,
+        attempt,
+        retryable,
+        retryAvailableAt,
+        reviewExpiresAt: null,
+        resultExpiresAt: null,
+        progress: { stage: "extracting_scene_features", processed: 20, total: 40 },
+      }),
+    );
+
+    expect(result.current.notice).toMatchObject({
+      kind: "SIMILAR",
+      status: "RUNNING",
+      percent: 50,
+    });
+  });
+
   it("문장으로 시작하면 by-text 로 보낸다", async () => {
     const { requests } = serve();
     const { result } = render();
@@ -135,7 +177,7 @@ describe("useOrganizeJob", () => {
 
     act(() => result.current.applyJobUpdate(jobOf({ status: "READY", jobVersion: 5 })));
 
-    await waitFor(() => expect(result.current.notice?.peopleCount).toBe(6));
+    await waitFor(() => expect(result.current.notice?.groupCount).toBe(6));
     expect(result.current.isRunning).toBe(false);
   });
 
@@ -147,7 +189,7 @@ describe("useOrganizeJob", () => {
 
     act(() => result.current.applyJobUpdate(jobOf({ status: "READY", jobVersion: 5 })));
 
-    await waitFor(() => expect(result.current.notice?.peopleCount).toBe(0));
+    await waitFor(() => expect(result.current.notice?.groupCount).toBe(0));
   });
 
   it("다른 사람이 정리하는 중이면 이름 없이 막는다", async () => {
@@ -429,7 +471,7 @@ describe("useOrganizeJob", () => {
     act(() => result.current.reloadResult());
 
     await waitFor(() => expect(result.current.review?.state).toBe("ready"));
-    expect(result.current.notice?.peopleCount).toBe(6);
+    expect(result.current.notice?.groupCount).toBe(6);
     expect(result.current.blockedReason).toBe("확인하지 않은 정리 결과가 있어요");
   });
 
