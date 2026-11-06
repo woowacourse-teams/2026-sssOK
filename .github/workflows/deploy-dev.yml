@@ -13,6 +13,7 @@ on:
       - '!backend/monitoring/alloy/write.local.alloy'
       - '!backend/monitoring/alloy/write.dual.alloy'
       - '!backend/docker-compose.prod.yml'
+      - '!backend/deploy/**'
       - '!backend/docker-compose.monitoring.yml'
       - '!backend/nginx.conf'
       - '!backend/**/*.md'

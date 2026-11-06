@@ -35,7 +35,7 @@ def validate_binding(config, interfaces):
 def check(environment, deploy_path):
     deploy_path = Path(deploy_path).resolve()
     compose = Path(__file__).resolve().parents[1] / f'docker-compose.{environment}.yml'
-    # image.env는 이후 배포에서 이미지·버전만 새로 기록한다. 최초 배포도 검사할 수 있도록
+    # 앱 이미지는 배포마다 기록된다(dev image.env, prod blue.env·green.env). 최초 배포도 검사할 수 있도록
     # 이미지에만 임시값을 주고, 사설 IP 등 서버 설정은 실제 .env를 Compose로 해석한다.
     config = read_json([
         'docker', 'compose', '--project-directory', str(deploy_path),

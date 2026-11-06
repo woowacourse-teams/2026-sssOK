@@ -1,9 +1,11 @@
-# 운영 서버용 compose. CI가 이 파일을 서버로 전송한 뒤
-#   docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml up -d
-# 형태로 실행한다.
+# 운영 서버용 compose. 배포는 CI 가 이 파일과 deploy/blue-green.sh 를 서버로 전송한 뒤
+#   bash deploy/blue-green.sh deploy
+# 로 실행한다. 앱은 app-blue / app-green 두 칸을 번갈아 쓰고, nginx 가 가리키는 칸만 트래픽을 받는다.
 #
 # .env       : 서버에서 최초 1회 수동 생성 (DB 접속 정보, JWT, R2 자격증명, OAuth)
-# image.env  : 배포마다 CI가 덮어씀 (BACKEND_IMAGE=ghcr.io/...:<sha>)
+# blue.env   : 배포 스크립트가 app-blue 에 띄울 이미지·버전을 기록 (BLUE_IMAGE=ghcr.io/...:<sha>)
+# green.env  : 같은 형식으로 app-green 용
+# nginx/     : default.conf(저장소 nginx.conf 복사본)와 배포 스크립트가 쓰는 upstream.conf(활성 칸)
 #
 # 저장·조회·알림은 중앙 모니터링 서버에서 관리한다. 기존 데이터 볼륨은 전환 시 삭제하지 않는다.
 # DB는 RDS를 쓴다. 컨테이너로 띄우지 않으므로 DB_URL은 RDS 엔드포인트를 가리켜야 한다.
@@ -11,55 +13,68 @@
 # ALB 타겟 그룹이 80 포트로 헬스체크·트래픽을 보내는데 앱은 8080이라, nginx가 그 사이를
 # 메운다 (nginx.conf 참고). TLS는 ALB(ACM)에서 이미 끝내고 오므로 여기는 평문 HTTP만 처리.
 
+x-app: &app
+  restart: unless-stopped
+  # 웹 요청 20s + 비동기 작업 20s 보다 길게 둔다 (기본 10s).
+  stop_grace_period: 50s
+  # 서버 .env의 설정을 앱에 전달한다. 같은 이름은 아래 environment 값이 우선한다.
+  env_file:
+    - .env
+  expose:
+    - "8080"
+    # Actuator 관리 포트. Nginx로 전달하거나 호스트에 publish하지 않는다.
+    - "8081"
+  healthcheck:
+    test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+    interval: 10s
+    timeout: 5s
+    retries: 12
+    start_period: 30s
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+  labels:
+    # Alloy 가 이 라벨이 붙은 컨테이너만 수집하고, 값을 Loki 의 service 라벨로 쓴다.
+    com.sssok.log.service: sssok-backend
+  networks:
+    - sssok
+
 services:
-  app:
-    image: ${BACKEND_IMAGE}
-    container_name: sssok-app
-    restart: unless-stopped
-    # 웹 요청 20s + 비동기 작업 20s 보다 길게 둔다 (기본 10s).
-    stop_grace_period: 50s
-    # 서버 .env의 설정을 앱에 전달한다. 같은 이름은 아래 environment 값이 우선한다.
-    env_file:
-      - .env
-    expose:
-      - "8080"
-      # Actuator 관리 포트. Nginx로 전달하거나 호스트에 publish하지 않는다.
-      - "8081"
+  # 이미지가 비어 있어도 다른 칸을 다루는 compose 명령이 실패하지 않도록 자리표시 이미지를 둔다.
+  # 자리표시 이미지로 실제 기동되는 일은 없다 (배포 스크립트가 해당 칸의 env 파일을 먼저 쓴다).
+  app-blue:
+    <<: *app
+    image: ${BLUE_IMAGE:-sssok-app-unset}
+    container_name: sssok-app-blue
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      # 배포마다 CI가 image.env에 기록하는 버전 정보.
-      APP_RELEASE_VERSION: ${APP_RELEASE_VERSION:-unknown}
-      APP_BACKEND_VERSION: ${APP_BACKEND_VERSION:-unknown}
-      APP_GIT_SHA: ${APP_GIT_SHA:-unknown}
-    healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 30s
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    labels:
-      # Alloy 가 이 라벨이 붙은 컨테이너만 수집하고, 값을 Loki 의 service 라벨로 쓴다.
-      com.sssok.log.service: sssok-backend
-    networks:
-      - sssok
+      APP_RELEASE_VERSION: ${BLUE_RELEASE_VERSION:-unknown}
+      APP_BACKEND_VERSION: ${BLUE_BACKEND_VERSION:-unknown}
+      APP_GIT_SHA: ${BLUE_GIT_SHA:-unknown}
 
+  app-green:
+    <<: *app
+    image: ${GREEN_IMAGE:-sssok-app-unset}
+    container_name: sssok-app-green
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      APP_RELEASE_VERSION: ${GREEN_RELEASE_VERSION:-unknown}
+      APP_BACKEND_VERSION: ${GREEN_BACKEND_VERSION:-unknown}
+      APP_GIT_SHA: ${GREEN_GIT_SHA:-unknown}
+
+  # 배포 중에는 다시 만들지 않고 reload 만 한다. 이 서비스 정의를 바꾸면 반영에 nginx 재생성(1~2초 끊김)이
+  # 필요하므로 사용자가 적은 시간에 수동으로 적용한다 (docs/deployment/DEPLOYMENT.md).
   nginx:
-    image: nginx:1.27-alpine
+    image: nginx:1.27.5-alpine
     container_name: sssok-nginx
     restart: unless-stopped
     ports:
       - "80:80"
       - "${MONITORING_PRIVATE_IP:-10.0.20.161}:19100:19100"
     volumes:
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      app:
-        condition: service_healthy
+      - ./nginx:/etc/nginx/conf.d:ro
     logging:
       driver: json-file
       options:
