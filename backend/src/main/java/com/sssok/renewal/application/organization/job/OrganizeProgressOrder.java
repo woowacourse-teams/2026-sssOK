@@ -16,7 +16,8 @@ final class OrganizeProgressOrder {
     private OrganizeProgressOrder() {
     }
 
-    // 이미 지나간 단계로 돌아가거나, 같은 단계에서 처리 수가 줄어든 이벤트는 오래된 것이다.
+    // 이미 지나간 단계로 돌아가거나, 같은 단계에서 처리 수가 줄거나 사라진 이벤트는 오래된 것이다.
+    // 단계에 들어올 때의 수치 없는 이벤트가 수치가 찍힌 뒤에 늦게 도착하는 경우가 뒤쪽이다.
     static boolean isStale(OrganizeKind kind, String currentStage, Integer currentProcessed, String nextStage,
                            Integer nextProcessed) {
         int current = rank(kind, currentStage);
@@ -27,7 +28,7 @@ final class OrganizeProgressOrder {
         if (next != current) {
             return next < current;
         }
-        return currentProcessed != null && nextProcessed != null && nextProcessed < currentProcessed;
+        return currentProcessed != null && (nextProcessed == null || nextProcessed < currentProcessed);
     }
 
     private static int rank(OrganizeKind kind, String stage) {

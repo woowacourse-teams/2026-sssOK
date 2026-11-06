@@ -117,6 +117,7 @@ class OrganizeEventProgressTest {
     @CsvSource({
         "PERSON, detecting_bodies, 5, detecting_faces, 60",
         "PERSON, detecting_faces, 30, detecting_faces, 24",
+        "PERSON, detecting_faces, 24, detecting_faces, ",
         "PERSON, exporting, , waiting, ",
         "SIMILAR, extracting_scene_features, 10, loading_scene_model, ",
         "SIMILAR, matching_similar_photos, 4, extracting_center_features, 60"
@@ -168,6 +169,31 @@ class OrganizeEventProgressTest {
         service.handle(running(progress("detecting_faces", 3, 60, "FILE")));
 
         verify(repository).updateProgress(eq(JOB_PK), eq(7), eq("detecting_faces"), eq(3), eq(60), eq(null), any());
+    }
+
+    @Test
+    void 단계가_없는_수치는_버린다() {
+        ObjectNode withoutStage = objectMapper.createObjectNode().put("processed", 3).put("total", 10)
+            .put("unit", "PHOTO");
+
+        var snapshot = running(withoutStage).snapshot();
+
+        org.assertj.core.api.Assertions.assertThat(snapshot)
+            .isEqualTo(new OrganizeEvent.Snapshot(null, null, null, null));
+    }
+
+    @Test
+    void int_범위를_넘는_수치는_줄여서_받지_않고_버린다() {
+        // 4294967297 -> 1, 4294967299 -> 3 으로 줄면 멀쩡한 1/3 처럼 보인다.
+        ObjectNode flat = objectMapper.createObjectNode().put("stage", "detecting_faces")
+            .put("processed", 4294967297L).put("total", 4294967299L).put("unit", "PHOTO");
+        ObjectNode legacy = objectMapper.createObjectNode().put("stage", "detecting_faces");
+        legacy.putObject("counts").put("processed", 4294967297L).put("total", 4294967299L);
+
+        org.assertj.core.api.Assertions.assertThat(running(flat).snapshot())
+            .isEqualTo(new OrganizeEvent.Snapshot("detecting_faces", null, null, null));
+        org.assertj.core.api.Assertions.assertThat(running(legacy).snapshot())
+            .isEqualTo(new OrganizeEvent.Snapshot("detecting_faces", null, null, null));
     }
 
     @Test

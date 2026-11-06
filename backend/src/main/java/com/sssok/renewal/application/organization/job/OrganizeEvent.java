@@ -16,9 +16,10 @@ public record OrganizeEvent(UUID jobId, Long roomId, UUID executionId, Integer a
     public Snapshot snapshot() {
         Integer processed = count("processed");
         Integer total = count("total");
-        boolean valid = processed != null && total != null && processed >= 0 && processed <= total;
-        return new Snapshot(text("stage"), valid ? processed : null, valid ? total : null,
-            valid ? unit() : null);
+        String stage = text("stage");
+        // 단계 없는 수치는 화면에 붙일 곳이 없다. progress 에는 항상 stage 가 있어야 한다.
+        boolean valid = stage != null && processed != null && total != null && processed >= 0 && processed <= total;
+        return new Snapshot(stage, valid ? processed : null, valid ? total : null, valid ? unit() : null);
     }
 
     private String text(String field) {
@@ -40,9 +41,14 @@ public record OrganizeEvent(UUID jobId, Long roomId, UUID executionId, Integer a
         }
         JsonNode flat = progress.path(field);
         if (flat.isIntegralNumber()) {
-            return flat.asInt();
+            return intOrNull(flat);
         }
         JsonNode legacy = progress.path("counts").path(field);
-        return legacy.isIntegralNumber() ? legacy.asInt() : null;
+        return legacy.isIntegralNumber() ? intOrNull(legacy) : null;
+    }
+
+    // int 범위를 넘는 값을 asInt() 로 줄이면 전혀 다른 수가 되므로(4294967297 -> 1) 버린다.
+    private Integer intOrNull(JsonNode number) {
+        return number.canConvertToInt() ? number.asInt() : null;
     }
 }

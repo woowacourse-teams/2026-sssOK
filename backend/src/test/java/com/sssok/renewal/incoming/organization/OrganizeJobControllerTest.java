@@ -113,8 +113,13 @@ class OrganizeJobControllerTest {
     }
 
     private static OrganizeJob jobWithProgress(String stage, Integer processed, Integer total, String unit) {
+        return jobWithProgress(OrganizeJobStatus.RUNNING, stage, processed, total, unit);
+    }
+
+    private static OrganizeJob jobWithProgress(OrganizeJobStatus status, String stage, Integer processed,
+                                               Integer total, String unit) {
         return new OrganizeJob(1L, JOB_ID, ROOM_ID, MEMBER_ID, OrganizeKind.PERSON, OrganizeTrigger.BUTTON,
-            OrganizeJobStatus.RUNNING, null, "gallery", "group_photos_by_person", "설명", 40, 5, 3, 0, null, null,
+            status, null, "gallery", "group_photos_by_person", "설명", 40, 5, 3, 0, null, null,
             null, null, stage, processed, total, unit, null, null, null, T0, T0);
     }
 
@@ -333,6 +338,16 @@ class OrganizeJobControllerTest {
                 .andExpect(jsonPath("$.data.roomVersion").value(8))
                 .andExpect(jsonPath("$.data.myJob.jobId").value(JOB_ID.toString()))
                 .andExpect(jsonPath("$.data.myJob.status").value("RUNNING"));
+        }
+
+        @Test
+        void 이전_배포에서_완료된_READY_작업은_진행이_남아_있어도_응답에서_뺀다() throws Exception {
+            given(queryService.get(ROOM_ID, MEMBER_ID, JOB_ID))
+                .willReturn(jobWithProgress(OrganizeJobStatus.READY, "exporting", 60, 60, "PHOTO"));
+
+            mockMvc.perform(get(BASE + "/{jobId}", ROOM_ID, JOB_ID).header("Authorization", BEARER))
+                .andExpect(jsonPath("$.data.status").value("READY"))
+                .andExpect(jsonPath("$.data.progress").doesNotExist());
         }
 
         @Test
