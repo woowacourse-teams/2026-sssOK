@@ -8,6 +8,7 @@ import com.sssok.renewal.application.auth.CompleteSocialLoginService;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
 import com.sssok.renewal.application.auth.LinkLoginService;
+import com.sssok.renewal.application.auth.NativeSocialLoginService;
 import com.sssok.renewal.application.auth.SessionTokenProvider;
 import com.sssok.renewal.application.auth.StartAppleLoginService;
 import com.sssok.renewal.application.auth.StartKakaoLoginService;
@@ -50,6 +51,7 @@ public class AuthController {
     private final StartKakaoLoginService startKakaoLoginService;
     private final StartAppleLoginService startAppleLoginService;
     private final CompleteSocialLoginService completeSocialLoginService;
+    private final NativeSocialLoginService nativeSocialLoginService;
 
     @Operation(summary = "카카오 로그인 시작", description = "카카오 로그인 URL과 일회용 확인값을 발급한다. "
         + "요청의 Origin 헤더(없을 때만 Referer)로 로그인을 시작한 웹 출처를 판별해, 서버에 등록된 그 출처의 카카오 콜백으로 돌아오는 URL을 만든다. "
@@ -80,6 +82,17 @@ public class AuthController {
         return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
     }
 
+    @Operation(summary = "카카오 앱 SDK 가입 또는 로그인", description = "앱이 카카오 SDK로 받은 access token을 서버가 카카오에 조회해 "
+        + "app_id를 검증한 뒤 가입 또는 로그인한다. 시작 API는 없다. 요청의 사용자 ID·앱 ID는 신뢰하지 않는다. "
+        + "유효한 access token의 재사용을 막지는 않는다. 이 요청으로는 익명 활동을 통합하지 않는다.")
+    @PostMapping("/oauth/kakao/native/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithKakaoNative(
+        @Valid @RequestBody KakaoNativeLoginRequest request, HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = nativeSocialLoginService.loginWithKakao(request.kakaoAccessToken(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
+    }
+
     @Operation(summary = "애플 로그인 시작", description = "애플 웹 로그인 URL과 일회용 확인값을 발급한다. "
         + "익명 활동을 연결하려면 현재 익명 토큰을 Authorization 헤더로 전달한다.")
     @PostMapping("/oauth/apple/start")
@@ -99,6 +112,27 @@ public class AuthController {
         HttpServletRequest httpRequest) {
         tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
         AuthResult result = completeSocialLoginService.login(SocialProvider.APPLE,
+            request.code(), request.state(), request.loginVerifier(), request.refreshTokenDelivery());
+        return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
+    }
+
+    @Operation(summary = "애플 앱 SDK 로그인 준비", description = "앱 SDK 인증에 쓸 로그인 시도를 서버가 만들어 state·loginVerifier·nonce를 발급한다. "
+        + "웹 로그인 URL은 만들지 않는다. nonce는 애플 SDK 인증 요청에 변환 없이 그대로 넣고, loginVerifier는 웹뷰가 보관했다가 "
+        + "완료 API에만 전달한다. 로그인 시도는 5분 뒤 만료되며 일회용이다.")
+    @PostMapping("/oauth/apple/native/start")
+    public ResponseEntity<ApiResponse<AppleNativeStartResponse>> startAppleNativeLogin() {
+        AppleNativeStartResponse response = AppleNativeStartResponse.from(nativeSocialLoginService.startApple());
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(ApiResponse.of(response));
+    }
+
+    @Operation(summary = "애플 앱 SDK 가입 또는 로그인", description = "준비 API의 state·loginVerifier와 애플 SDK가 반환한 authorizationCode로 인증한다. "
+        + "서버가 저장한 nonce와 앱용 client 설정으로 ID 토큰을 검증한다. 시도는 외부 교환 전에 소비되므로 실패하거나 응답을 잃어도 "
+        + "같은 코드를 재시도하지 말고 준비 API부터 다시 시작한다. 이 요청으로는 익명 활동을 통합하지 않는다.")
+    @PostMapping("/oauth/apple/native/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> loginWithAppleNative(@Valid @RequestBody SocialLoginRequest request,
+        HttpServletRequest httpRequest) {
+        tokenHttpSupport.validateDelivery(request.refreshTokenDelivery(), httpRequest);
+        AuthResult result = nativeSocialLoginService.loginWithApple(
             request.code(), request.state(), request.loginVerifier(), request.refreshTokenDelivery());
         return tokenHttpSupport.respond(result, request.refreshTokenDelivery(), HttpStatus.OK);
     }

@@ -47,7 +47,7 @@ public class UnlinkSocialAccountService {
 
         String accessToken = decryptToken(identity, TokenType.ACCESS, storedTokens.accessToken());
         String refreshToken = decryptToken(identity, TokenType.REFRESH, storedTokens.refreshToken());
-        return new SocialAuthentication(identity, accessToken, refreshToken);
+        return new SocialAuthentication(identity, accessToken, refreshToken, storedTokens.clientType());
     }
 
     private String decryptToken(SocialIdentity identity, TokenType tokenType, String encryptedToken) {

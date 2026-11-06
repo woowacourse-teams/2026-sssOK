@@ -34,7 +34,7 @@ public class CompleteUploadService {
     private void publishUploaded(CompleteUploadCommand command, String uploaderName, int registeredCount) {
         if (registeredCount > 0) {
             eventPublisher.publishEvent(
-                new MediaUploadedEvent(command.roomId(), command.uploaderId(), uploaderName, registeredCount));
+                new MediaUploadedEvent(command.roomId(), command.uploaderId(), uploaderName));
         }
     }
 }
