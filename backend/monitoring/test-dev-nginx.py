@@ -20,7 +20,7 @@ class NginxConfigTest(unittest.TestCase):
             env_file.write_text('')
             template = TEMPLATE.read_bytes()
 
-            def config_hash(image, content, private_ip='10.0.0.69'):
+            def config_hash(image, content, private_ip='10.0.0.104'):
                 result = subprocess.run([
                     'docker', 'compose', '--env-file', str(env_file), '-f', str(COMPOSE),
                     'config', '--hash', 'nginx',

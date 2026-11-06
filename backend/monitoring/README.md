@@ -20,8 +20,8 @@ Backend CI를 수동 실행하거나 `backend-ci.yml` 자체를 변경하면 앱
 ## 개발·운영 지표 포트의 서버 주소
 
 `MONITORING_PRIVATE_IP`는 **지표를 제공하는 개발·운영 서버 자신의 사설 IPv4**다.
-서버 배포 폴더의 `.env`에서 지정하며, 생략하면 기존 주소(dev `10.0.0.69`, prod
-`10.0.20.127`)를 사용한다. 중앙 서버 주소를 넣거나 `0.0.0.0`으로 열지 않는다.
+서버 배포 폴더의 `.env`에서 지정하며, 생략하면 기존 주소(dev `10.0.0.104`, prod
+`10.0.20.161`)를 사용한다. 중앙 서버 주소를 넣거나 `0.0.0.0`으로 열지 않는다.
 
 개발·운영 CD는 파일을 복사하기 전에 후보 Compose를 실제 서버 `.env`로 해석하고,
 19100 포트의 주소가 RFC1918 사설 IPv4이며 해당 호스트에 할당되어 있는지 검사한다.
@@ -31,7 +31,7 @@ Compose 실행과 접근 제한 검사에 전달한다. 검사는 비밀값이 �
 
 서버 교체 시 `.env`의 주소뿐 아니라 중앙 Prometheus의 수집 대상과 보안 그룹 허용 주소도
 함께 갱신해야 한다. 수동으로 접근 제한 검사를 실행할 때는 동일한 주소를 전달한다.
-예: `MONITORING_PRIVATE_IP=10.0.20.127 bash monitoring/check-prod-node.sh`.
+예: `MONITORING_PRIVATE_IP=10.0.20.161 bash monitoring/check-prod-node.sh`.
 이 검사는 주소 불일치를 사전에 차단하며, 포트 충돌 등 모든 Nginx 기동 실패를 보장하지는 않는다.
 
 ## 개발 Nginx 설정 변경 감지
@@ -63,7 +63,7 @@ Compose는 공통 파일과 아래 전송 파일 하나만 `/etc/alloy/config/`�
 | dev·prod | `alloy/write.dual.alloy` | 기존 `loki:3100` + `CENTRAL_LOKI_URL` |
 
 개발·운영의 `CENTRAL_LOKI_URL` 기본값은
-`http://10.0.20.46:13100/loki/api/v1/push`다. 서버 `.env`에서 전체 push URL을 변경할 수 있다.
+`http://10.0.20.204:13100/loki/api/v1/push`다. 서버 `.env`에서 전체 push URL을 변경할 수 있다.
 로컬은 중앙 환경변수와 전송 파일을 연결하지 않아 중앙 클라이언트 자체가 생성되지 않는다.
 전체 `alloy/` 폴더를 마운트하면 두 전송 파일의 component 이름이 충돌하므로 두 파일만 선택한다.
 
@@ -197,8 +197,9 @@ prod 는 `environment="prod"`, 컨테이너 이름은 `sssok-app-blue`·`sssok-a
 ### dev 호스트 Nginx 설정
 
 중앙 수집용 개발 API·메트릭 통합 설정은 [중앙 구성 안내](central/README.md#개발-연결과-재배포)를
-따른다. 개발 Compose는 node_exporter를 loopback 9100에 연결하고, 개발 CD는 배포 후
-호스트 지표와 Nginx 접근 제한을 검사한다. 아래 공통 로그 형식 설정은 유지한다.
+따른다. 개발 Compose는 node_exporter의 호스트 포트를 게시하지 않는다. 개발 CD는 배포 후
+팀 Nginx 컨테이너에서 `node-exporter:9100`으로 팀 호스트 지표를 조회하고 Nginx 접근 제한을 검사한다.
+Amazon Linux AMI 기본 수집기가 호스트 9100을 사용하더라도 충돌하지 않는다. 아래 공통 로그 형식 설정은 유지한다.
 
 배포 파이프라인이 옮기지 않으므로 dev EC2 에서 한 번만 한다. 접근 로그를 쿼리스트링 없는 JSON
 파일(`sssok-access.log`) 하나로 바꾼다.

@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=ubuntu
-Group=ubuntu
-WorkingDirectory=/home/ubuntu/monitoring
+User=ec2-user
+Group=ec2-user
+WorkingDirectory=/home/ec2-user/monitoring
 StateDirectory=sssok-ops-report
 StateDirectoryMode=0700
 UMask=0077

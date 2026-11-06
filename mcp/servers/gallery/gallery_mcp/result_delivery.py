@@ -1,4 +1,4 @@
-"""At-least-once delivery to one configured Spring endpoint.
+"""At-least-once delivery to the persisted environment’s configured Spring endpoint.
 
 No callback URL is accepted from an MCP caller. Terminal receipts remain on disk
 until Spring confirms the execution ID and state after committing its transaction.
@@ -32,8 +32,11 @@ class Delivery:
             payload = self.service.view(row)
             payload['eventId'] = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
             try:
-                response = await client.post(self.settings.backend_url, json=payload,
-                    headers={'Authorization': 'Bearer ' + self.settings.backend_token})
+                url, token = self.settings.callback(row['environment'])
+                if not url:
+                    raise ValueError('Callback missing for environment')
+                response = await client.post(url, json=payload,
+                    headers={'Authorization': 'Bearer ' + token})
                 response.raise_for_status()
                 ack = response.json()
                 if (ack.get('accepted') is not True or ack.get('executionId') != execution_id
@@ -42,7 +45,7 @@ class Delivery:
                 self.service.store.acknowledge(execution_id, row['state'])
                 failures = 0
                 delay = 15  # Running heartbeat; terminal states are persisted as acknowledged.
-            except (httpx.HTTPError, ValueError, AttributeError):
+            except (httpx.HTTPError, ValueError, AttributeError, KeyError):
                 failures += 1
                 delay = min(60, 2 ** min(failures, 6))
                 # No URL, token, response body or signed source is logged.
