@@ -6,7 +6,7 @@ import { Toast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
 import type { OrganizeResult } from "../api/types";
 import { createPersonReview, type PersonReview, togglePhoto } from "../model/personReview";
-import { renameCard, similarFooterOf } from "../model/similarReview";
+import { renameCard, similarConflictOf, similarFooterOf } from "../model/similarReview";
 import { PersonPhotos } from "./PersonPhotos";
 import {
   BackButton,
@@ -52,6 +52,7 @@ const BackHeader = ({ onClick }: { onClick: () => void }) => (
 /**
  * 비슷한 사진 나누기 검토 화면 (AI-S2·S3·S4·S4b). 사람별 검토와 같은 틀이고,
  * 모음마다 이름을 직접 붙이거나 안 맞는 사진을 뺀다. 붙인 이름과 뺀 사진은 이 화면만 들고 있어 나가면 사라진다.
+ * 방에 있는 폴더 이름을 붙이면 바꾸게 한다(AI-S3d).
  */
 export const SimilarReviewScreen = ({ source, ...props }: SimilarReviewScreenProps) => {
   // 검토하는 동안 뒤의 갤러리가 같이 스크롤되지 않게 막는다.
@@ -108,6 +109,7 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
 
   const opened = review.people.find((card) => card.id === openedId) ?? null;
   const footer = similarFooterOf(review, folderNames);
+  const conflict = similarConflictOf(review, folderNames);
 
   if (opened) {
     return (
@@ -134,6 +136,7 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
             <SimilarCard
               key={card.id}
               card={card}
+              needsRename={conflict?.id === card.id}
               onOpenPhotos={() => setOpenedId(card.id)}
               onRename={(value) => setReview((current) => renameCard(current, card.id, value))}
             />
@@ -142,11 +145,7 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
       </Scroll>
       <Footer>
         {footer.hint && <Hint>{footer.hint}</Hint>}
-        <Submit
-          type="button"
-          disabled={!footer.canSubmit}
-          onClick={() => setIsSubmitPending(true)}
-        >
+        <Submit type="button" disabled={!footer.canSubmit} onClick={() => setIsSubmitPending(true)}>
           {footer.submit}
         </Submit>
       </Footer>

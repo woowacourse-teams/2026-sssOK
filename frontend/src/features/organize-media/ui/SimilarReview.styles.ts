@@ -4,7 +4,7 @@ import { colors, radius } from "@/shared/styles/tokens";
 
 /*
  * 비슷한 사진 나누기 검토 화면의 이름 입력칸. 피그마 "AI-S2 · 이름 붙이기 전"(655:2696),
- * "AI-S3 · 이름 붙인 후"(655:2932) 값을 옮겼다. 나머지 틀은 사람별 검토(PersonReview.styles)와 같다.
+ * "AI-S3 · 이름 붙인 후"(655:2932), "AI-S3d · 같은 이름 폴더가 이미 있음"(1475:10155) 값을 옮겼다. 나머지 틀은 사람별 검토(PersonReview.styles)와 같다.
  */
 
 /** 자리표시 글자색. 토큰에 없는 시안 값이다. */
@@ -14,14 +14,21 @@ export const NameField = styled.form`
   padding-top: 10px;
 `;
 
-/** 이름을 쓰면 주황 테두리(1.5px)로 바뀐다. 두께가 달라도 칸 높이는 44px 로 같다. */
-export const NameInput = styled.input<{ $filled: boolean }>`
+const nameBorderOf = ({ $filled, $error }: { $filled: boolean; $error: boolean }) => {
+  if ($error) return `1.5px solid ${colors.borderDanger}`;
+  return $filled ? `1.5px solid ${colors.borderPrimary}` : `1px solid ${colors.borderDefault}`;
+};
+
+/**
+ * 이름을 쓰면 주황 테두리(1.5px)로 바뀐다. 방에 이미 있는 폴더 이름이면 빨간 테두리다 (AI-S3d).
+ * 두께가 달라도 칸 높이는 44px 로 같다.
+ */
+export const NameInput = styled.input<{ $filled: boolean; $error: boolean }>`
   display: block;
   width: 100%;
   height: 44px;
   padding: 0 14px;
-  border: ${({ $filled }) =>
-    $filled ? `1.5px solid ${colors.borderPrimary}` : `1px solid ${colors.borderDefault}`};
+  border: ${nameBorderOf};
   border-radius: ${radius.full};
   outline: none;
   background: ${colors.backgroundDefault};
@@ -34,7 +41,7 @@ export const NameInput = styled.input<{ $filled: boolean }>`
   }
 
   &:focus {
-    border-color: ${colors.borderPrimary};
+    border-color: ${({ $error }) => ($error ? colors.borderDanger : colors.borderPrimary)};
   }
 
   /* iOS 는 16px 보다 작은 입력창에 포커스하면 화면을 확대하고 되돌리지 않는다. */
@@ -65,5 +72,23 @@ export const NamedChip = styled.button`
   &:focus-visible {
     outline: 2px solid ${colors.primary};
     outline-offset: 2px;
+  }
+`;
+
+/** 입력칸 아래 이름을 바꾸라는 상자 (AI-S3d). 사람별 카드의 이름 바꾸기 상자와 같은 틀에 입력칸만 없다. */
+export const ConflictNotice = styled.p`
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid ${colors.borderDefault};
+  border-radius: ${radius[12]};
+  background: ${colors.backgroundDefault};
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: ${colors.textPrimary};
+
+  strong {
+    font-weight: 700;
+    color: ${colors.textStrong};
   }
 `;

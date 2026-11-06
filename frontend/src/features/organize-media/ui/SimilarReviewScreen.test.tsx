@@ -26,11 +26,11 @@ const resultOf = (sizes: number[]): OrganizeResult => {
   };
 };
 
-const renderScreen = (sizes = [9, 5, 2]) => {
+const renderScreen = (sizes = [9, 5, 2], folderNames: string[] = []) => {
   render(
     <SimilarReviewScreen
       source={{ state: "ready", result: resultOf(sizes) }}
-      folderNames={[]}
+      folderNames={folderNames}
       onClose={jest.fn()}
       onRetry={jest.fn()}
     />,
@@ -97,6 +97,32 @@ describe("SimilarReviewScreen", () => {
     expect(screen.getByRole("heading", { name: "4장" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "완료" }));
-    expect(screen.getByRole("button", { name: "이름 없는 모음 사진 4장 확인" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "이름 없는 모음 사진 4장 확인" }),
+    ).toBeInTheDocument();
+  });
+
+  it("방에 같은 이름 폴더가 있으면 입력칸 아래에 바꾸라고 알리고, 바꾸기 전에는 폴더를 못 만든다", async () => {
+    const user = userEvent.setup();
+    renderScreen([9, 5, 2], ["잔디밭 풍경"]);
+
+    await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "잔디밭 풍경{Enter}");
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "‘잔디밭 풍경’ 폴더가 이미 있어요. 다른 이름을 붙여 주세요.",
+    );
+    expect(screen.getAllByRole("textbox", { name: "폴더 이름" })[0]).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+    expect(
+      screen.getByText("‘잔디밭 풍경’ 폴더는 이름을 바꿔야 만들 수 있어요"),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "폴더 만들기" })).toBeDisabled();
+
+    await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[0], "2{Enter}");
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1개 폴더 만들기" })).toBeEnabled();
   });
 });

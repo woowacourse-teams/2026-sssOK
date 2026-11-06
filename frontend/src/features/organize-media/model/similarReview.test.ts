@@ -57,7 +57,7 @@ describe("similarReview", () => {
     const review = renameCard(reviewOf([2]), "s1", "여행");
 
     expect(similarFooterOf(review, ["여행"])).toMatchObject({
-      hint: "‘여행’ 폴더가 이미 있어요. 다른 이름을 붙여 주세요",
+      hint: "‘여행’ 폴더는 이름을 바꿔야 만들 수 있어요",
       canSubmit: false,
     });
   });
