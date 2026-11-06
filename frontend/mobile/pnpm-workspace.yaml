@@ -1,6 +1,6 @@
 # 기존 웹과 별도로 의존성과 lockfile을 관리한다.
 packages: []
 allowBuilds:
-  '@firebase/util': false
+  "@firebase/util": false
   protobufjs: false
   unrs-resolver: true
