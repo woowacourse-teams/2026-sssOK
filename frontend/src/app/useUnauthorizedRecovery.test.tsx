@@ -75,6 +75,7 @@ it.each([false, true])(
         ? getRoomSession("ROOM")?.accessToken
         : client.getQueryData<typeof session>(MEMBER_SESSION_QUERY_KEY)?.accessToken,
     ).toBe("new");
+    if (anonymous) expect(getRoomSession("ROOM")).not.toHaveProperty("memberStatus");
   },
 );
 
@@ -193,4 +194,85 @@ it("재발급 중 로그아웃하면 늦은 응답을 적용하지 않는다", a
   });
   expect(client.getQueryData(MEMBER_SESSION_QUERY_KEY)).toBeNull();
   expect(result.current).toBe("/rooms/ROOM/gallery");
+});
+
+it("관리자 토큰은 회원·익명 재발급을 하지 않는다", async () => {
+  const { client } = setup();
+  const refresh = jest.fn();
+  server.use(
+    http.post(`${API_BASE_URL}/auth/refresh`, () => {
+      refresh();
+      return new HttpResponse(null, { status: 401 });
+    }),
+    http.get(`${API_BASE_URL}/admin/accounts`, () => new HttpResponse(null, { status: 401 })),
+  );
+  await expect(apiClient("/admin/accounts", { token: "admin-token" })).rejects.toMatchObject({
+    status: 401,
+  });
+  expect(refresh).not.toHaveBeenCalled();
+  expect(client.getQueryData(MEMBER_SESSION_QUERY_KEY)).toEqual(session);
+});
+
+it("보호된 auth API도 요청 내용 그대로 재시도한다", async () => {
+  setup();
+  const received: string[] = [];
+  server.use(
+    http.post(`${API_BASE_URL}/auth/refresh`, () =>
+      HttpResponse.json({ data: { ...session, accessToken: "new" } }),
+    ),
+    http.post(`${API_BASE_URL}/auth/link-code`, async ({ request }) => {
+      received.push(await request.text());
+      expect(request.headers.get("X-Test")).toBe("preserved");
+      return request.headers.get("Authorization") === "Bearer new"
+        ? HttpResponse.json({ data: "ok" })
+        : new HttpResponse(null, { status: 401 });
+    }),
+  );
+  await act(async () => {
+    await expect(
+      apiClient("/auth/link-code", {
+        method: "POST",
+        token: "old",
+        headers: { "X-Test": "preserved" },
+        body: "request-body",
+      }),
+    ).resolves.toBe("ok");
+  });
+  expect(received).toEqual(["request-body", "request-body"]);
+});
+
+it("여러 번 갱신해도 이전 토큰 요청은 최신 토큰을 사용한다", async () => {
+  const { client } = setup();
+  let count = 0;
+  server.use(
+    http.post(`${API_BASE_URL}/auth/refresh`, () => {
+      count++;
+      return HttpResponse.json({ data: { ...session, accessToken: `renewed-${count}` } });
+    }),
+    http.post(`${API_BASE_URL}/recovery-test`, ({ request }) =>
+      request.headers.get("Authorization") === "Bearer renewed-1"
+        ? HttpResponse.json({ data: "ok" })
+        : new HttpResponse(null, { status: 401 }),
+    ),
+  );
+  await act(async () => {
+    await expect(request()).resolves.toBe("ok");
+  });
+  server.use(
+    http.post(`${API_BASE_URL}/recovery-test`, ({ request }) =>
+      request.headers.get("Authorization") === "Bearer renewed-2"
+        ? HttpResponse.json({ data: "ok" })
+        : new HttpResponse(null, { status: 401 }),
+    ),
+  );
+  await act(async () => {
+    await expect(apiClient("/recovery-test", { method: "POST", token: "renewed-1" })).resolves.toBe(
+      "ok",
+    );
+    await expect(request()).resolves.toBe("ok");
+  });
+  expect(count).toBe(2);
+  expect(client.getQueryData<typeof session>(MEMBER_SESSION_QUERY_KEY)?.accessToken).toBe(
+    "renewed-2",
+  );
 });

@@ -10,7 +10,12 @@ import {
   removeRoomSession,
 } from "@/entities/session";
 import { ApiError, setUnauthorizedHandler } from "@/shared/api";
-import { getTokenReplacement, setAuthRecovery } from "@/shared/api/authRecovery";
+import {
+  clearTokenReplacements,
+  getTokenReplacement,
+  rememberTokenReplacement,
+  setAuthRecovery,
+} from "@/shared/api/authRecovery";
 import { ROUTES } from "@/shared/config";
 
 /** 공통 인증 복구에 세션 저장소와 플랫폼별 화면 이동을 연결한다. */
@@ -20,7 +25,6 @@ export const useUnauthorizedRecovery = () => {
 
   useEffect(() => {
     let active = true;
-    const replacements = new Map<string, string>();
     const current = (token: string) => {
       const member = queryClient.getQueryData<MemberSession | null>(MEMBER_SESSION_QUERY_KEY);
       if (member?.accessToken === token) return { session: member, roomCode: null };
@@ -41,18 +45,18 @@ export const useUnauthorizedRecovery = () => {
       void queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "member-session" });
       queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, null);
-      replacements.clear();
+      clearTokenReplacements();
     };
     const disposeFailure = setUnauthorizedHandler(fail);
     const disposeRecovery = setAuthRecovery(async (token) => {
-      const replacement = replacements.get(token) ?? getTokenReplacement(token);
+      const replacement = getTokenReplacement(token);
       if (replacement && current(replacement)) return replacement;
       const context = current(token);
       if (!context) return null;
       try {
         const session = await refreshSession();
         if (!active) return null;
-        const updated = replacements.get(token);
+        const updated = getTokenReplacement(token);
         if (updated && current(updated)) return updated;
         // 익명 저장소는 refreshSession에서 갱신된다. 로그아웃/전환과 구분한다.
         const stillCurrent =
@@ -69,8 +73,7 @@ export const useUnauthorizedRecovery = () => {
           return null;
         }
         if (context.roomCode === null) queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, session);
-        replacements.set(token, session.accessToken);
-        if (replacements.size > 64) replacements.delete(replacements.keys().next().value!);
+        rememberTokenReplacement(token, session.accessToken);
         return session.accessToken;
       } catch (error) {
         if (error instanceof ApiError && error.status === 401) {

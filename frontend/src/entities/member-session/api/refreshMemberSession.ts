@@ -12,15 +12,6 @@ export const refreshMemberSession = async (): Promise<MemberSession | null> => {
   try {
     const session = await refreshSession();
     if (session?.memberStatus === "ANONYMOUS") return null;
-    if (
-      session?.memberStatus !== "REGISTERED" ||
-      typeof session.accessToken !== "string" ||
-      !session.accessToken ||
-      !Number.isFinite(Date.parse(session.expiresAt)) ||
-      Date.parse(session.expiresAt) <= Date.now()
-    ) {
-      throw new ApiError(502, "INVALID_RESPONSE", "로그인 정보를 확인하지 못했어요.");
-    }
     return { ...session, memberStatus: "REGISTERED" };
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) return null;

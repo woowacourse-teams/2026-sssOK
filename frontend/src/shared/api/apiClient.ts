@@ -119,15 +119,9 @@ export const apiClient = async <T>(
     throw error;
   }
 
-  if (
-    response.status === 401 &&
-    token &&
-    !skipAuthRecovery &&
-    !path.startsWith("/admin") &&
-    !["/auth/refresh", "/auth/anonymous", "/auth/link"].includes(path) &&
-    !path.startsWith("/auth/oauth/") &&
-    !(options.body instanceof ReadableStream)
-  ) {
+  // 스트림 본문은 재전송할 수 없다. 그 외 인증 요청은 한 번만 복구한다.
+  const canRetry = !skipAuthRecovery && !(options.body instanceof ReadableStream);
+  if (response.status === 401 && token && canRetry) {
     options.signal?.throwIfAborted();
     const renewed = await recoverAccessToken(token);
     options.signal?.throwIfAborted();

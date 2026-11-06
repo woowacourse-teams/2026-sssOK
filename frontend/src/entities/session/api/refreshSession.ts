@@ -1,3 +1,4 @@
+import { rememberTokenReplacement } from "@/shared/api/authRecovery";
 import { apiClient, ApiError } from "@/shared/api";
 import { getRoomSession, saveRoomSession } from "../lib/roomSessionStorage";
 import type { AnonymousSession } from "../model/types";
@@ -39,8 +40,16 @@ export const refreshSession = (): Promise<RefreshedSession> => {
     if (session.memberStatus === "ANONYMOUS") {
       for (const { code, token } of rooms) {
         const current = getRoomSession(code);
-        if (current?.accessToken === token && current?.userId === session.userId)
-          saveRoomSession(code, session);
+        if (token && current?.accessToken === token && current.userId === session.userId) {
+          saveRoomSession(code, {
+            accessToken: session.accessToken,
+            userId: session.userId,
+            nickname: session.nickname,
+            expiresAt: session.expiresAt,
+            refreshExpiresAt: session.refreshExpiresAt,
+          });
+          rememberTokenReplacement(token, session.accessToken);
+        }
       }
     }
     return session;
