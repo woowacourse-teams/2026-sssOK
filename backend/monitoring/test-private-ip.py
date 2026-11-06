@@ -25,13 +25,13 @@ def interfaces(ip):
 
 class PrivateIPTest(unittest.TestCase):
     def test_assigned_private_addresses(self):
-        for ip in ('10.0.0.69', '10.0.20.127', '10.2.3.4', '172.16.1.2', '192.168.1.2'):
+        for ip in ('10.0.0.104', '10.0.20.161', '10.2.3.4', '172.16.1.2', '192.168.1.2'):
             with self.subTest(ip=ip):
                 self.assertEqual(preflight.validate_binding(config(ip), interfaces(ip)), ip)
 
     def test_missing_address_blocks_deployment(self):
         with self.assertRaisesRegex(ValueError, '이 서버에 없습니다'):
-            preflight.validate_binding(config('10.0.20.127'), interfaces('10.0.20.128'))
+            preflight.validate_binding(config('10.0.20.161'), interfaces('10.0.20.128'))
 
     def test_unsafe_addresses_rejected_even_when_assigned(self):
         for ip in ('0.0.0.0', '127.0.0.1', '169.254.1.1', '8.8.8.8', '::', '', 'bad\nvalue'):
@@ -39,8 +39,8 @@ class PrivateIPTest(unittest.TestCase):
                 preflight.validate_binding(config(ip), interfaces(ip))
 
     def test_missing_duplicate_or_wrong_port_rejected(self):
-        for ports in ([], [config('10.0.0.69')['services']['nginx']['ports'][1]] * 2,
-                      [{'target': 19100, 'published': '19101', 'host_ip': '10.0.0.69'}]):
+        for ports in ([], [config('10.0.0.104')['services']['nginx']['ports'][1]] * 2,
+                      [{'target': 19100, 'published': '19101', 'host_ip': '10.0.0.104'}]):
             with self.subTest(ports=ports), self.assertRaises(ValueError):
                 preflight.validate_binding({'services': {'nginx': {'ports': ports}}}, [])
 

@@ -109,7 +109,18 @@ class OrganizeJobControllerTest {
     private static OrganizeJob job(OrganizeJobStatus status) {
         return new OrganizeJob(1L, JOB_ID, ROOM_ID, MEMBER_ID, OrganizeKind.PERSON, OrganizeTrigger.BUTTON, status,
             null, "gallery", "group_photos_by_person", "설명", 40, 5, 3, 0, null, null, null, null, null, null, null,
-            null, null, null, T0, T0);
+            null, null, null, null, T0, T0);
+    }
+
+    private static OrganizeJob jobWithProgress(String stage, Integer processed, Integer total, String unit) {
+        return jobWithProgress(OrganizeJobStatus.RUNNING, stage, processed, total, unit);
+    }
+
+    private static OrganizeJob jobWithProgress(OrganizeJobStatus status, String stage, Integer processed,
+                                               Integer total, String unit) {
+        return new OrganizeJob(1L, JOB_ID, ROOM_ID, MEMBER_ID, OrganizeKind.PERSON, OrganizeTrigger.BUTTON,
+            status, null, "gallery", "group_photos_by_person", "설명", 40, 5, 3, 0, null, null,
+            null, null, stage, processed, total, unit, null, null, null, T0, T0);
     }
 
     private ResultActions startByKind(String body) throws Exception {
@@ -156,6 +167,29 @@ class OrganizeJobControllerTest {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"retryAvailableAt\":null")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"reviewExpiresAt\":null")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"resultExpiresAt\":null")));
+        }
+
+        @Test
+        void 진행은_단계_처리_수_전체_수_단위를_함께_내려간다() throws Exception {
+            given(startService.startByKind(anyLong(), anyLong(), any(), any()))
+                .willReturn(jobWithProgress("detecting_faces", 24, 60, "PHOTO"));
+
+            startByKind("{\"kind\":\"PERSON\"}")
+                .andExpect(jsonPath("$.data.progress.stage").value("detecting_faces"))
+                .andExpect(jsonPath("$.data.progress.processed").value(24))
+                .andExpect(jsonPath("$.data.progress.total").value(60))
+                .andExpect(jsonPath("$.data.progress.unit").value("PHOTO"));
+        }
+
+        @Test
+        void 수치를_잴_수_없는_단계는_단계만_있고_처리_수_전체_수_단위는_null이다() throws Exception {
+            given(startService.startByKind(anyLong(), anyLong(), any(), any()))
+                .willReturn(jobWithProgress("grouping_faces", null, null, null));
+
+            startByKind("{\"kind\":\"PERSON\"}")
+                .andExpect(jsonPath("$.data.progress.stage").value("grouping_faces"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                    "\"progress\":{\"stage\":\"grouping_faces\",\"processed\":null,\"total\":null,\"unit\":null}")));
         }
 
         @Test
@@ -307,6 +341,16 @@ class OrganizeJobControllerTest {
         }
 
         @Test
+        void 이전_배포에서_완료된_READY_작업은_진행이_남아_있어도_응답에서_뺀다() throws Exception {
+            given(queryService.get(ROOM_ID, MEMBER_ID, JOB_ID))
+                .willReturn(jobWithProgress(OrganizeJobStatus.READY, "exporting", 60, 60, "PHOTO"));
+
+            mockMvc.perform(get(BASE + "/{jobId}", ROOM_ID, JOB_ID).header("Authorization", BEARER))
+                .andExpect(jsonPath("$.data.status").value("READY"))
+                .andExpect(jsonPath("$.data.progress").doesNotExist());
+        }
+
+        @Test
         void 단건_조회는_작업을_돌려주고_없으면_404다() throws Exception {
             given(queryService.get(ROOM_ID, MEMBER_ID, JOB_ID)).willReturn(job(OrganizeJobStatus.READY));
             mockMvc.perform(get(BASE + "/{jobId}", ROOM_ID, JOB_ID).header("Authorization", BEARER))
@@ -380,6 +424,23 @@ class OrganizeJobControllerTest {
                 .andExpect(jsonPath("$.data.folders[0].mediaIds[1]").value(102));
             verify(applyService).apply(ROOM_ID, MEMBER_ID, JOB_ID,
                 List.of(new OrganizeApplyService.GroupRequest("person_0001", "민찬", List.of(101L, 102L))), KEY);
+        }
+
+        @Test
+        void groupId_없이_최종_폴더_구성을_전달한다() throws Exception {
+            given(applyService.apply(eq(ROOM_ID), eq(MEMBER_ID), eq(JOB_ID), anyList(), eq(KEY))).willReturn(
+                new OrganizeApplyService.Applied(job(OrganizeJobStatus.APPLIED),
+                    List.of(new OrganizeApplyService.AppliedFolder(201L, "민찬", List.of(101L, 102L)))));
+
+            apply("{\"groups\":[{\"folderName\":\"민찬\",\"mediaIds\":[101,102]}]}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.jobId").value(JOB_ID.toString()))
+                .andExpect(jsonPath("$.data.status").value("APPLIED"))
+                .andExpect(jsonPath("$.data.folders[0].folderId").value(201))
+                .andExpect(jsonPath("$.data.folders[0].folderName").value("민찬"))
+                .andExpect(jsonPath("$.data.folders[0].mediaIds[1]").value(102));
+            verify(applyService).apply(ROOM_ID, MEMBER_ID, JOB_ID,
+                List.of(new OrganizeApplyService.GroupRequest(null, "민찬", List.of(101L, 102L))), KEY);
         }
 
         @Test

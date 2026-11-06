@@ -16,10 +16,22 @@ import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
 import { SelectionDownloadBar } from "@/features/download-media";
 import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
+import {
+  countAnalyzablePhotos,
+  OrganizeCancelSheet,
+  OrganizeKindSheet,
+  type OrganizeLimit,
+  OrganizeLimitModal,
+  organizeLimitOf,
+  OrganizeStatusBar,
+  PersonReviewScreen,
+  useOrganizeJob,
+} from "@/features/organize-media";
+import { SearchRequestField } from "@/features/search-media";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
-import { isAppWebView, track } from "@/shared/lib";
+import { isAppWebView, rememberLoginReturn, track } from "@/shared/lib";
 import { Toast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -41,6 +53,10 @@ import {
   FolderEmptyTitle,
   Page,
 } from "./GalleryPage.styles";
+
+const CREATED_FOLDER_TOAST_MS = 2500;
+/** 정리 알림(바닥 36px + 높이 76px) 위. 같은 자리에 띄우면 알림의 X 를 가린다. */
+const ABOVE_ORGANIZE_BAR = "calc(120px + env(safe-area-inset-bottom, 0px))";
 
 interface GalleryContentProps {
   room: Room;
@@ -125,6 +141,19 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   }, [photoRequestNotice]);
   const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
   const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
+  const [isOrganizeSheetOpen, setIsOrganizeSheetOpen] = useState(false);
+  const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
+  const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
+  const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
+  const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
+  const [createdFolderCount, setCreatedFolderCount] = useState<number | null>(null);
+
+  // 폴더를 만들었다는 알림은 잠깐 보여 주고 스스로 닫는다. 닫기 버튼은 두지 않는다.
+  useEffect(() => {
+    if (createdFolderCount === null) return;
+    const timer = window.setTimeout(() => setCreatedFolderCount(null), CREATED_FOLDER_TOAST_MS);
+    return () => window.clearTimeout(timer);
+  }, [createdFolderCount]);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -136,6 +165,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     galleryItems: filteredItems,
     allGalleryItems,
     completedUploadIds,
+    isProcessingPhotos,
     totalCount,
     folderCounts,
     isPending,
@@ -190,6 +220,42 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     removePendingMedia(completedUploadIds);
   }, [completedUploadIds, removePendingMedia]);
 
+  // 사진 정리
+  const organize = useOrganizeJob({ roomId: room.roomId, token: accessToken });
+  // 시트를 열어 둔 채 작업이 끝나면 닫는다. 다음 작업에서 누르지 않은 시트가 저절로 뜨지 않게 한다.
+  if (isOrganizeCancelOpen && !organize.isRunning) setIsOrganizeCancelOpen(false);
+  if (isOrganizeResultCloseOpen && organize.notice?.status !== "READY") {
+    setIsOrganizeResultCloseOpen(false);
+  }
+  /** 사진 처리가 다 끝나야 정리할 수 있다. 진행 중인 정리 같은 다른 사유가 있으면 그쪽을 먼저 보인다. */
+  const organizeBlockedReason =
+    organize.blockedReason ?? (isProcessingPhotos ? "사진을 처리하고 있어요" : null);
+  /**
+   * 정리를 시작하기 전에 장수 한도를 먼저 본다. 시트에서 방식까지 고른 뒤에 막히면 헛걸음이라서다.
+   * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
+   */
+  const beginOrganize = (open: () => void) => {
+    const limit =
+      isPending || isError ? null : organizeLimitOf(countAnalyzablePhotos(allGalleryItems));
+    if (limit) setOrganizeLimit(limit);
+    else open();
+  };
+
+  /**
+   * 검토 화면의 이름 칩. 방 멤버 목록 API 가 없어서 사진을 올린 사람 이름으로 대신한다.
+   * 내 이름은 "나" 칩으로 따로 보인다.
+   */
+  const myName = room.myNickname ?? nickname;
+  const reviewMemberNames = [
+    ...new Set(
+      allGalleryItems.flatMap((item) => (item.type === "server" ? [item.media.uploaderName] : [])),
+    ),
+  ].filter((name) => name.trim() !== "" && name !== myName);
+
+  // 결과가 취소·만료돼 검토할 것이 없어지면 검토 화면도 닫는다. 다음 결과에서 저절로 열리지 않게 한다.
+  const hasReview = organize.review !== null;
+  if (isPersonReviewOpen && !hasReview) setIsPersonReviewOpen(false);
+
   const folders = room.folders.map((folder) => ({
     ...folder,
     photoCount: folderCounts.get(folder.id) ?? 0,
@@ -206,6 +272,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     toggleAllPhotos,
     clearSelection,
   } = usePhotoSelection(photoIds);
+
+  const isOrganizeBarVisible = organize.notice !== null && selectedPhotoIds.length === 0;
 
   useRoomEvents({
     roomId: room.roomId,
@@ -235,6 +303,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     onMediaFoldersUpdated: () => {
       void Promise.all([refreshRoom(), refreshPhotos()]);
     },
+    onOrganizeRoomChanged: organize.applyRoomChange,
+    onOrganizeJobUpdated: organize.applyJobUpdate,
+    onReconnected: () => void organize.resync(),
   });
 
   // 폴더 생성 흐름
@@ -298,22 +369,37 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onAddFolder={() => void handleCreateFolder("menu")}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
-        isSearchOpen={search.isSearchOpen}
-        searchType={search.searchType}
-        onSearchTypeChange={(searchType) => {
-          search.changeSearchType(searchType);
-          clearSelection();
-        }}
-        onOpenSearch={search.openSearch}
-        onSearch={(query) => {
-          selectFolder(null);
-          search.search(query);
-          clearSelection();
-        }}
-        onCloseSearch={() => {
-          search.closeSearch();
-          clearSelection();
-        }}
+        searchField={
+          <SearchRequestField
+            appliedText={search.appliedText}
+            folders={room.folders}
+            uploaders={search.uploaders}
+            myNickname={room.myNickname ?? nickname}
+            onOpen={search.openSearch}
+            onSearchKeyword={(query) => {
+              selectFolder(null);
+              search.searchBy("keyword", query);
+              clearSelection();
+            }}
+            onSearchUploader={(uploader) => {
+              selectFolder(null);
+              search.searchByUploader(uploader);
+              clearSelection();
+            }}
+            organizeBlockedReason={organizeBlockedReason}
+            onOrganize={() => beginOrganize(() => setIsOrganizeSheetOpen(true))}
+            onOrganizeText={(text) => beginOrganize(() => void organize.start({ text }))}
+            onOpenFolder={(folderId) => {
+              search.closeSearch();
+              selectFolder(folderId);
+              clearSelection();
+            }}
+            onClear={() => {
+              search.closeSearch();
+              clearSelection();
+            }}
+          />
+        }
       />
       <FolderFilter
         totalCount={totalCount}
@@ -348,7 +434,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onToggleAll={toggleAllPhotos}
       />
       <FeedbackButton
-        hidden={selectedPhotoIds.length > 0}
+        hidden={selectedPhotoIds.length > 0 || isOrganizeBarVisible}
         onClick={() => setIsFeedbackOpen(true)}
       />
       <MediaUploader
@@ -357,7 +443,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         // 방장만 올리는 방의 참여자에게는 버튼을 아예 내주지 않는다. 서버가 발급에서
         // 403 으로 막는 것을, 누르기 전에 화면이 먼저 말해주는 셈이다.
         canUpload={canUploadTo(room, userId)}
-        hideButton={selectedPhotoIds.length > 0}
+        hideButton={selectedPhotoIds.length > 0 || isOrganizeBarVisible}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         onPreviewReady={addPendingMedia}
         onRegistered={() => refreshRoom()}
@@ -447,6 +533,112 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onDeleteSelection={() => setIsDeleteSelectionOpen(true)}
         onMoveSelection={() => setIsMoveSelectionOpen(true)}
       />
+
+      {isOrganizeBarVisible && organize.notice && (
+        <OrganizeStatusBar
+          job={organize.notice}
+          onCancel={() => setIsOrganizeCancelOpen(true)}
+          onRetry={organize.retry}
+          // 찾은 사람이 있는 결과는 닫으면 버려지므로 한 번 더 묻는다. 실패·0명 알림은 버릴 것이 없어 바로 닫는다.
+          onDismiss={() => {
+            const notice = organize.notice;
+            if (notice?.status === "READY" && notice.peopleCount !== 0) {
+              setIsOrganizeResultCloseOpen(true);
+              return;
+            }
+            organize.dismiss();
+          }}
+          // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
+          // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
+          onReview={() => {
+            organize.reloadResult();
+            setIsPersonReviewOpen(true);
+          }}
+        />
+      )}
+
+      {isPersonReviewOpen && organize.review && (
+        <PersonReviewScreen
+          source={organize.review}
+          myName={myName}
+          memberNames={reviewMemberNames}
+          folderNames={room.folders.map((folder) => folder.name)}
+          onClose={() => setIsPersonReviewOpen(false)}
+          onRetry={organize.reloadResult}
+          isSubmitting={organize.isApplying}
+          submitError={organize.applyError}
+          onDismissError={organize.clearApplyError}
+          // 반영이 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다.
+          onSubmit={async (groups) => {
+            const applied = await organize.apply(groups);
+            if (!applied) return;
+            setIsPersonReviewOpen(false);
+            search.closeSearch();
+            clearSelection();
+            await Promise.all([refreshRoom(), refreshPhotos()]);
+            const [first] = applied.folders;
+            if (first) selectFolder(first.folderId);
+            setCreatedFolderCount(applied.folders.length);
+          }}
+        />
+      )}
+
+      {isOrganizeSheetOpen && (
+        <OrganizeKindSheet
+          isGuest={!memberSession.data}
+          isStarting={organize.isStarting}
+          onClose={() => setIsOrganizeSheetOpen(false)}
+          onStart={(kind) => {
+            setIsOrganizeSheetOpen(false);
+            void organize.start({ kind });
+          }}
+        />
+      )}
+
+      {isOrganizeCancelOpen && organize.isRunning && (
+        <OrganizeCancelSheet
+          onKeepGoing={() => setIsOrganizeCancelOpen(false)}
+          onStop={() => {
+            setIsOrganizeCancelOpen(false);
+            void organize.cancel();
+          }}
+        />
+      )}
+
+      {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
+        <OrganizeCancelSheet
+          kind="result"
+          onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
+          onStop={() => {
+            setIsOrganizeResultCloseOpen(false);
+            organize.dismiss();
+          }}
+        />
+      )}
+
+      {(organizeLimit ?? organize.limit) && (
+        <OrganizeLimitModal
+          limit={(organizeLimit ?? organize.limit)!}
+          onClose={() => {
+            setOrganizeLimit(null);
+            organize.clearLimit();
+          }}
+          onLogin={() => {
+            organize.clearLimit();
+            rememberLoginReturn(location.pathname);
+            navigate(ROUTES.login);
+          }}
+        />
+      )}
+
+      {organize.error && (
+        <Toast
+          tone="error"
+          message={organize.error}
+          onClose={organize.clearError}
+          bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
+        />
+      )}
 
       {isDeleteSelectionOpen && (
         <DeleteSelectedMediaModal
@@ -557,6 +749,14 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           tone="error"
           message={`‘${failedFolderName}’ 폴더를 삭제하지 못했어요.`}
           onClose={() => setFailedFolderName(null)}
+        />
+      )}
+
+      {createdFolderCount !== null && (
+        <Toast
+          message={`폴더 ${createdFolderCount}개를 만들었어요`}
+          showClose={false}
+          onClose={() => setCreatedFolderCount(null)}
         />
       )}
 

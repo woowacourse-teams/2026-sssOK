@@ -7,6 +7,7 @@ import com.sssok.renewal.domain.member.SocialProvider;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -20,9 +21,10 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 
 class KakaoAuthClientTest {
+    private static final String CALLBACK = "http://localhost:3000/app/auth/callback/kakao";
     private final RestClient.Builder builder = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final KakaoAuthClient kakaoAuthClient = new KakaoAuthClient(new OAuthHttpClient(builder.build()), "client", "secret", "https://example.com/callback", "admin-key");
+    private final KakaoAuthClient kakaoAuthClient = new KakaoAuthClient(new OAuthHttpClient(builder.build()), "client", "secret", "admin-key", null);
 
     @Test
     void 서버에서_코드를_교환하고_사용자_번호를_식별자로_반환한다() {
@@ -31,12 +33,13 @@ class KakaoAuthClientTest {
             .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_FORM_URLENCODED))
             .andExpect(content().string(Matchers.containsString("code=one-time-code")))
             .andExpect(content().string(Matchers.containsString("client_secret=secret")))
+            .andExpect(content().string(Matchers.containsString("redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fapp%2Fauth%2Fcallback%2Fkakao")))
             .andRespond(withSuccess("{\"access_token\":\"access\",\"refresh_token\":\"refresh\"}", MediaType.APPLICATION_JSON));
         server.expect(requestTo("https://kapi.kakao.com/v2/user/me"))
             .andExpect(header("Authorization", "Bearer access"))
             .andRespond(withSuccess("{\"id\":1234567890}", MediaType.APPLICATION_JSON));
 
-        SocialAuthentication result = kakaoAuthClient.authenticate("one-time-code", null);
+        SocialAuthentication result = kakaoAuthClient.authenticate("one-time-code", null, CALLBACK);
         assertThat(result.identity().provider()).isEqualTo(SocialProvider.KAKAO);
         assertThat(result.identity().providerUserId()).isEqualTo("1234567890");
         assertThat(result.refreshToken()).isEqualTo("refresh");
@@ -49,7 +52,7 @@ class KakaoAuthClientTest {
         server.expect(requestTo("https://kauth.kakao.com/oauth/token"))
             .andRespond(withBadRequest().body("{\"error\":\"invalid_grant\",\"error_description\":\"secret-value\"}")
                 .contentType(MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> kakaoAuthClient.authenticate("expired", null)).isInstanceOfSatisfying(SocialAuthException.class,
+        assertThatThrownBy(() -> kakaoAuthClient.authenticate("expired", null, CALLBACK)).isInstanceOfSatisfying(SocialAuthException.class,
             e -> { assertThat(e.errorCode()).isEqualTo(ErrorCode.INVALID_SOCIAL_AUTH);
                 assertThat(e.getMessage()).doesNotContain("secret-value"); assertThat(e.getCause()).isNull(); });
         server.verify();
@@ -60,7 +63,7 @@ class KakaoAuthClientTest {
     void 제공자_실패를_서비스_장애로_변환한다(int status) {
         server.expect(requestTo("https://kauth.kakao.com/oauth/token"))
             .andRespond(withStatus(HttpStatus.valueOf(status)).body("secret-value"));
-        assertThatThrownBy(() -> kakaoAuthClient.authenticate("code", null)).isInstanceOfSatisfying(SocialAuthException.class,
+        assertThatThrownBy(() -> kakaoAuthClient.authenticate("code", null, CALLBACK)).isInstanceOfSatisfying(SocialAuthException.class,
             e -> assertThat(e.errorCode()).isEqualTo(ErrorCode.SOCIAL_AUTH_UNAVAILABLE));
         server.verify();
     }
@@ -70,13 +73,21 @@ class KakaoAuthClientTest {
     void 잘못된_토큰_응답으로_사용자를_조회하지_않는다(String response) {
         server.expect(requestTo("https://kauth.kakao.com/oauth/token"))
             .andRespond(withSuccess(response, MediaType.APPLICATION_JSON));
-        assertThatThrownBy(() -> kakaoAuthClient.authenticate("code", null)).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> kakaoAuthClient.authenticate("code", null, CALLBACK)).isInstanceOf(SocialAuthException.class);
         server.verify();
     }
 
     @Test
     void 빈_코드는_외부_요청_전에_거부한다() {
-        assertThatThrownBy(() -> kakaoAuthClient.authenticate(" ", null)).isInstanceOf(SocialAuthException.class);
+        assertThatThrownBy(() -> kakaoAuthClient.authenticate(" ", null, CALLBACK)).isInstanceOf(SocialAuthException.class);
+        server.verify();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = " ")
+    void 저장된_콜백이_없으면_외부_요청_전에_거부한다(String redirectUri) {
+        assertThatThrownBy(() -> kakaoAuthClient.authenticate("code", null, redirectUri)).isInstanceOf(SocialAuthException.class);
         server.verify();
     }
 

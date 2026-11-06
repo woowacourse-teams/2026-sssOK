@@ -8,7 +8,7 @@ public record OrganizeJob(Long id, UUID publicId, Long roomId, Long requesterId,
                           String toolName, String toolDescription, int photoCount, int excludedCount, int jobVersion,
                           int retryCount, String failureCode, String failureDetail, Integer resultVersion,
                           String result, String progressStage, Integer progressProcessed, Integer progressTotal,
-                          Instant reviewExpiresAt, Instant resultExpiresAt, Instant finishedAt, Instant createdAt,
+                          String progressUnit, Instant reviewExpiresAt, Instant resultExpiresAt, Instant finishedAt, Instant createdAt,
                           Instant updatedAt) {
     public boolean isOwnedBy(Long memberId) {
         return requesterId.equals(memberId);

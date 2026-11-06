@@ -12,6 +12,7 @@ import sys
 from .config import Settings
 from .inputs import Photo, fingerprint, validate
 from .execution_store import Store
+from .progress import progress_path, read_progress, snapshot
 from .rejection import RetryableRejection
 
 
@@ -33,7 +34,7 @@ class PersonGroupingService:
             self.store.recover()
             yield
 
-    def start(self, room_id, request_id, photos: list[Photo], job_id=None, attempt=1, kind='PERSON'):
+    def start(self, room_id, request_id, photos: list[Photo], job_id=None, attempt=1, kind='PERSON', environment='dev'):
         # Coordinate admission with deployment across processes. Queries and the
         # worker remain available while queued work drains.
         with (self.settings.data / 'admission.lock').open('a') as lock:
@@ -43,13 +44,15 @@ class PersonGroupingService:
             if (self.settings.data / 'draining').exists():
                 raise RetryableRejection('DEPLOYING', 'Server deployment in progress; retry later')
             try:
-                return self._start(room_id, request_id, photos, job_id, attempt, kind)
+                return self._start(room_id, request_id, photos, job_id, attempt, kind, environment)
             except sqlite3.OperationalError as error:
                 if 'locked' not in str(error):
                     raise
                 raise RetryableRejection('STORAGE_BUSY', 'Analysis storage is busy; retry later') from None
 
-    def _start(self, room_id, request_id, photos, job_id, attempt, kind):
+    def _start(self, room_id, request_id, photos, job_id, attempt, kind, environment):
+        if environment not in self.settings.credentials():
+            raise ValueError('Unknown request environment')
         if job_id is not None and str(UUID(job_id)) != job_id:
             raise ValueError('Spring job ID must be a canonical UUID')
         if type(attempt) is not int or attempt < 1:
@@ -59,22 +62,22 @@ class PersonGroupingService:
         validate(room_id,request_id,photos,self.settings)
         row,reused = self.store.create(room_id,request_id,fingerprint(photos),
                                        [p.model_dump() for p in photos],self.settings.max_queue,job_id,attempt,
-                                       max_receipts=self.settings.max_receipts, kind=kind)
+                                       max_receipts=self.settings.max_receipts, kind=kind, environment=environment)
         return {**self.view(row),'reused':reused}
 
-    def get(self, room_id, job_id):
-        return self.view(self.store.get(room_id,job_id))
+    def get(self, room_id, job_id, environment='dev'):
+        row = self.store.get(room_id,job_id)
+        if row['environment'] != environment:
+            raise ValueError('Execution not found in this environment')
+        return self.view(row)
 
     def view(self, row):
         progress = {}
-        path = self.settings.data / 'runs' / row['id'] / 'analysis/job.json'
-        if row['state'] == 'RUNNING' and path.is_file():
-            try:
-                internal = json.loads(path.read_text())
-                progress = {'stage':internal['stage'],'counts':internal.get('progress',{}),
-                            'elapsedSeconds':internal.get('elapsed_seconds',0)}
-            except (OSError,KeyError,json.JSONDecodeError):
-                pass
+        if row['state'] == 'RUNNING':
+            # Until the worker records its first value, the execution has just been claimed:
+            # report the first real step so Spring never shows a RUNNING job without a stage.
+            progress = read_progress(progress_path(self.settings.data, row['id'])) or snapshot(
+                'downloading_photos', 0, len(json.loads(row['photos'])))
         return {'jobType':row['kind'], 'jobId':row['business_job_id'],'executionId':row['id'],'attempt':row['attempt'],'roomId':row['room_id'],'state':row['state'],
                 'progress':progress,'result':json.loads(row['result']) if row['result'] else None,
                 'errorCode':row['error_code'],'createdAt':row['created_at'],'updatedAt':row['updated_at']}

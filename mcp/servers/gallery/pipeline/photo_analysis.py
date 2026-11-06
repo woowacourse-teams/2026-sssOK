@@ -33,8 +33,10 @@ def write_json(path, data):
 
 
 class Job:
-    def __init__(self, output, input_dir):
+    def __init__(self, output, input_dir, progress=None):
         self.output = output
+        # Optional recorder for the server's delivery loop. Local runs write job.json only.
+        self.progress = progress
         self.started = time.perf_counter()
         self.state = {'schema_version': 1, 'pipeline_version': PIPELINE_VERSION, 'status': 'running',
                       'stage': 'initializing', 'input': str(input_dir), 'output': str(output), 'timings': {}}
@@ -42,7 +44,7 @@ class Job:
         self.last_printed = None
         self.update('initializing')
 
-    def update(self, stage, **details):
+    def update(self, stage, _report=True, **details):
         now = time.perf_counter()
         old = self.state['stage']
         if old != stage:
@@ -50,17 +52,20 @@ class Job:
             self.stage_started = now
         self.state.update(stage=stage, progress=details, elapsed_seconds=round(now - self.started, 4))
         write_json(self.output / 'job.json', self.state)
+        if self.progress and _report:
+            self.progress.write(stage, details.get('processed'), details.get('total'))
         if stage != self.last_printed:
             print(json.dumps({'stage': stage, **details}, ensure_ascii=False), flush=True)
             self.last_printed = stage
 
     def finish(self, status, **details):
-        self.update(status, **details)
+        # A terminal status is not a stage: the result itself is what the server reports next.
+        self.update(status, _report=False, **details)
         self.state['status'] = status
         write_json(self.output / 'job.json', self.state)
 
 
-def run(input_dir, output, assets_root, threads=4):
+def run(input_dir, output, assets_root, threads=4, progress=None):
     # Load model libraries only when analysis starts. Local reporting is a
     # separate consumer of the JSON result, never part of server execution.
     from .image_features import (configure_runtime, resolve_assets, prepare_photos,
@@ -72,8 +77,9 @@ def run(input_dir, output, assets_root, threads=4):
         raise ValueError('Output must be outside the input directory')
     # Exclusive creation prevents accidental overwrite and concurrent runs sharing a result directory.
     output.mkdir(parents=True, exist_ok=False)
-    job = Job(output, input_dir)
+    job = Job(output, input_dir, progress)
     try:
+        job.update('loading_models')
         assets = resolve_assets(assets_root)
         runtime = configure_runtime(threads)
         manifest = {'schema_version': 1, 'pipeline_version': PIPELINE_VERSION, 'policy': POLICY,

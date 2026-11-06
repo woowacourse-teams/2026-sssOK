@@ -42,3 +42,11 @@ logging:
   structured:
     format:
       console: com.sssok.common.logging.SssOkJsonLogFormatter
+
+media:
+  thumbnail:
+    queue:
+      # 무중단 배포로 기존 앱과 함께 떠 있는 동안 새 앱이 작업을 가져가 메모리를 더 쓰지 않게 늦춘다.
+      dispatch-initial-delay: 60s
+  search:
+    dispatch-initial-delay: 60000

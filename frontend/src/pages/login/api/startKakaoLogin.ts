@@ -1,4 +1,5 @@
-import { apiClient, ApiError } from "@/shared/api";
+import { ApiError } from "@/shared/api";
+import { requestLoginStart } from "./requestLoginStart";
 
 interface KakaoLoginStart {
   authorizationUrl: string;
@@ -10,10 +11,7 @@ interface KakaoLoginStart {
 /** 콜백에서 사용할 확인값을 같은 탭에 보관하고 카카오 인증 주소를 반환한다. */
 export const startKakaoLogin = async (): Promise<string> => {
   sessionStorage.removeItem("sssok.oauth.kakao");
-  const result = await apiClient<KakaoLoginStart>("/auth/oauth/kakao/start", {
-    method: "POST",
-    credentials: "omit",
-  });
+  const result = await requestLoginStart<KakaoLoginStart>("/auth/oauth/kakao/start");
   let url: URL;
   try {
     url = new URL(result.authorizationUrl);

@@ -18,15 +18,19 @@ from .tools.people import register as register_people_tools
 
 class InternalAuth:
     """Private service authentication, not an end-user OAuth authorization server."""
-    def __init__(self, app, token):
-        self.app,self.expected = app,('Bearer '+token).encode()
+    def __init__(self, app, credentials):
+        self.app = app
+        self.credentials = {name: ('Bearer '+token).encode() for name, token in credentials.items()}
 
     async def __call__(self, scope, receive, send):
         if scope['type'] == 'http' and scope['path'].startswith('/mcp'):
             values = [v for k,v in scope['headers'] if k.lower() == b'authorization']
-            if len(values) != 1 or not hmac.compare_digest(values[0],self.expected):
+            matches = [name for name, expected in self.credentials.items()
+                       if len(values) == 1 and hmac.compare_digest(values[0], expected)]
+            if len(matches) != 1:
                 await JSONResponse({'error':'Service authentication required'},401)(scope,receive,send)
                 return
+            scope['gallery_environment'] = matches[0]
         await self.app(scope,receive,send)
 
 
@@ -49,7 +53,7 @@ def create_app(settings=None, service=None):
             async with original_lifespan(app):
                 stopping = False
                 tasks = [asyncio.create_task(service.dispatch(), name='analysis-dispatch')]
-                if settings.backend_url:
+                if settings.backend_url or settings.routes:
                     tasks.append(asyncio.create_task(Delivery(service).run(), name="result-delivery"))
                 def task_finished(task):
                     # Retrieve exceptions even during normal shutdown.
@@ -87,7 +91,7 @@ def create_app(settings=None, service=None):
 
     app.routes.append(Route('/healthz',health))
     app.routes.append(Route('/readyz',ready))
-    return InternalAuth(app,settings.token)
+    return InternalAuth(app,settings.credentials())
 
 
 if __name__ == '__main__':

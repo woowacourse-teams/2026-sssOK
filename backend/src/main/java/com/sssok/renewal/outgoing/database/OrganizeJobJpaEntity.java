@@ -99,6 +99,9 @@ public class OrganizeJobJpaEntity extends BaseEntity {
     @Column(name = "progress_total")
     private Integer progressTotal;
 
+    @Column(name = "progress_unit", length = 16)
+    private String progressUnit;
+
     @Column(name = "job_version", nullable = false)
     @ColumnDefault("1")
     private int jobVersion;

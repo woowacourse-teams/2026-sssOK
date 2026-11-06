@@ -102,8 +102,10 @@ public class OrganizeJobRepository {
         return jobs.markRunning(jobId, now) == 1;
     }
 
-    public boolean updateProgress(Long jobId, String stage, Integer processed, Integer total, Instant now) {
-        return jobs.updateProgress(jobId, stage, processed, total, now) == 1;
+    // 읽은 jobVersion 이 그대로일 때만 쓴다. 그 사이 다른 이벤트·접수 응답이 먼저 바꿨다면 0 행이라 덮어쓰지 않는다.
+    public boolean updateProgress(Long jobId, int expectedVersion, String stage, Integer processed, Integer total,
+                                  String unit, Instant now) {
+        return jobs.updateProgress(jobId, expectedVersion, stage, processed, total, unit, now) == 1;
     }
 
     public boolean markJobReady(Long jobId, int resultVersion, String result, Instant reviewExpiresAt,
@@ -265,7 +267,7 @@ public class OrganizeJobRepository {
             entity.getToolName(), entity.getToolDescription(), entity.getPhotoCount(), entity.getExcludedCount(),
             entity.getJobVersion(), entity.getRetryCount(), entity.getFailureCode(), entity.getFailureDetail(),
             entity.getResultVersion(), entity.getResult(), entity.getProgressStage(), entity.getProgressProcessed(),
-            entity.getProgressTotal(), entity.getReviewExpiresAt(), entity.getResultExpiresAt(),
+            entity.getProgressTotal(), entity.getProgressUnit(), entity.getReviewExpiresAt(), entity.getResultExpiresAt(),
             entity.getFinishedAt(), entity.getCreatedAt(), entity.getUpdatedAt());
     }
 

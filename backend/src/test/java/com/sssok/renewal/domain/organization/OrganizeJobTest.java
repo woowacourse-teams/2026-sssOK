@@ -12,7 +12,7 @@ class OrganizeJobTest {
 
     private OrganizeJob job(OrganizeJobStatus status, String result, Instant reviewExpiresAt, Instant resultExpiresAt) {
         return new OrganizeJob(1L, UUID.randomUUID(), 10L, 20L, OrganizeKind.PERSON, OrganizeTrigger.BUTTON, status,
-            null, "gallery", "tool", "설명", 5, 0, 1, 0, null, null, 1, result, null, null, null, reviewExpiresAt,
+            null, "gallery", "tool", "설명", 5, 0, 1, 0, null, null, 1, result, null, null, null, null, reviewExpiresAt,
             resultExpiresAt, null, NOW, NOW);
     }
 

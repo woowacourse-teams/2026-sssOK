@@ -20,7 +20,7 @@
       },
       "env": {
         "APP_ENV": "production",
-        "EXPO_PUBLIC_WEB_URL": "https://www.ssssok.com/home"
+        "EXPO_PUBLIC_WEB_URL": "https://www.ssssok.com/rooms"
       },
       "environment": "production"
     }
