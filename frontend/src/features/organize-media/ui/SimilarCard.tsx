@@ -16,6 +16,8 @@ interface SimilarCardProps {
   needsRename?: boolean;
   onOpenPhotos: () => void;
   onRename: (value: string) => void;
+  /** 이름을 다 쓰고 입력칸을 벗어났을 때. 다른 모음과 이름이 같은지는 부르는 쪽이 본다 (AI-S3b). */
+  onCommit?: () => void;
 }
 
 /**
@@ -29,6 +31,7 @@ export const SimilarCard = ({
   needsRename = false,
   onOpenPhotos,
   onRename,
+  onCommit,
 }: SimilarCardProps) => {
   const photos = includedPhotos(card);
   const visible = photos.slice(0, VISIBLE_PHOTOS);
@@ -88,7 +91,10 @@ export const SimilarCard = ({
             $error={needsRename}
             aria-invalid={needsRename}
             onFocus={() => setIsEditing(true)}
-            onBlur={() => setIsEditing(false)}
+            onBlur={() => {
+              setIsEditing(false);
+              onCommit?.();
+            }}
             onChange={(event) => onRename(event.target.value)}
           />
         )}

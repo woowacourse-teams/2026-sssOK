@@ -17,6 +17,14 @@ export const renameCard = (review: PersonReview, cardId: string, value: string):
   ),
 });
 
+/** 이 모음과 같은 이름을 먼저 쓴 다른 모음. 없으면 null 이다. 이름을 다 쓴 뒤 합칠지 물을 때 쓴다 (AI-S3b). */
+export const similarOwnerOf = ({ people }: PersonReview, cardId: string) => {
+  const self = people.find((card) => card.id === cardId);
+  const folderName = self ? folderNameOf(self) : null;
+  if (folderName === null) return null;
+  return people.find((card) => card.id !== cardId && folderNameOf(card) === folderName) ?? null;
+};
+
 /** 방에 이미 같은 이름의 폴더가 있는 모음. 없으면 null 이다. */
 export const similarConflictOf = ({ people }: PersonReview, folderNames: readonly string[]) =>
   people.find((card) => {

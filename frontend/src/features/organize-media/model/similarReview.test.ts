@@ -1,6 +1,6 @@
 import type { MediaItem } from "@/entities/media";
 import { createPersonReview, togglePhoto } from "./personReview";
-import { renameCard, similarApplyGroupsOf, similarFooterOf } from "./similarReview";
+import { renameCard, similarApplyGroupsOf, similarFooterOf, similarOwnerOf } from "./similarReview";
 
 const photo = (mediaId: number) => ({ mediaId, thumbnailUrl: `/t/${mediaId}.webp` }) as MediaItem;
 
@@ -60,5 +60,15 @@ describe("similarReview", () => {
       hint: "‘여행’ 폴더는 이름을 바꿔야 만들 수 있어요",
       canSubmit: false,
     });
+  });
+
+  it("같은 이름을 먼저 쓴 다른 모음을 찾는다", () => {
+    let review = reviewOf([1, 1, 1]);
+    review = renameCard(review, "s1", "바다");
+    review = renameCard(review, "s3", "바다 ");
+
+    expect(similarOwnerOf(review, "s3")?.id).toBe("s1");
+    expect(similarOwnerOf(review, "s2")).toBeNull();
+    expect(similarOwnerOf(renameCard(review, "s3", "산"), "s3")).toBeNull();
   });
 });

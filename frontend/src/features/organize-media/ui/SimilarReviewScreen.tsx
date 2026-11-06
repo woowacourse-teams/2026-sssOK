@@ -5,8 +5,20 @@ import { Spinner } from "@/shared/ui/spinner";
 import { Toast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
 import type { OrganizeResult } from "../api/types";
-import { createPersonReview, type PersonReview, togglePhoto } from "../model/personReview";
-import { renameCard, similarConflictOf, similarFooterOf } from "../model/similarReview";
+import {
+  createPersonReview,
+  includedPhotos,
+  mergePeople,
+  type PersonReview,
+  togglePhoto,
+} from "../model/personReview";
+import {
+  folderNameOf,
+  renameCard,
+  similarConflictOf,
+  similarFooterOf,
+  similarOwnerOf,
+} from "../model/similarReview";
 import { PersonPhotos } from "./PersonPhotos";
 import {
   BackButton,
@@ -26,9 +38,10 @@ import {
 } from "./PersonReview.styles";
 import type { PersonReviewSource } from "./PersonReviewScreen";
 import { SimilarCard } from "./SimilarCard";
+import { SimilarMergeSheet } from "./SimilarMergeSheet";
 
 const SCREEN_TITLE = "비슷한 사진 나누기";
-/** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 띄운다. */
+/** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 띄운다. 합친 결과(AI-S3c)도 같은 자리다. */
 const TOAST_BOTTOM = "calc(112px + env(safe-area-inset-bottom, 0px))";
 const TOAST_MS = 2500;
 
@@ -52,7 +65,7 @@ const BackHeader = ({ onClick }: { onClick: () => void }) => (
 /**
  * 비슷한 사진 나누기 검토 화면 (AI-S2·S3·S4·S4b). 사람별 검토와 같은 틀이고,
  * 모음마다 이름을 직접 붙이거나 안 맞는 사진을 뺀다. 붙인 이름과 뺀 사진은 이 화면만 들고 있어 나가면 사라진다.
- * 방에 있는 폴더 이름을 붙이면 바꾸게 한다(AI-S3d).
+ * 다른 모음과 같은 이름을 붙이면 합칠지 묻고(AI-S3b·S3c), 방에 있는 폴더 이름이면 바꾸게 한다(AI-S3d).
  */
 export const SimilarReviewScreen = ({ source, ...props }: SimilarReviewScreenProps) => {
   // 검토하는 동안 뒤의 갤러리가 같이 스크롤되지 않게 막는다.
@@ -95,11 +108,20 @@ type ReviewProps = Omit<SimilarReviewScreenProps, "source" | "onRetry"> & {
   result: OrganizeResult;
 };
 
+/** 합칠지 묻는 중인 두 모음. `cardId` 가 방금 이름을 붙인 쪽, `ownerId` 가 그 이름을 먼저 쓴 쪽이다. */
+interface PendingMerge {
+  cardId: string;
+  ownerId: string;
+  name: string;
+}
+
 const Review = ({ result, folderNames, onClose }: ReviewProps) => {
   const [review, setReview] = useState<PersonReview>(() => createPersonReview(result.groups));
   const [openedId, setOpenedId] = useState<string | null>(null);
   /** 폴더로 반영하는 건 아직 없다(#728). 버튼을 누르면 준비 중이라고만 알린다. */
   const [isSubmitPending, setIsSubmitPending] = useState(false);
+  const [pendingMerge, setPendingMerge] = useState<PendingMerge | null>(null);
+  const [mergedNotice, setMergedNotice] = useState<{ key: number; message: string } | null>(null);
 
   useEffect(() => {
     if (!isSubmitPending) return;
@@ -107,9 +129,41 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
     return () => window.clearTimeout(timer);
   }, [isSubmitPending]);
 
+  useEffect(() => {
+    if (!mergedNotice) return;
+    const timer = window.setTimeout(() => setMergedNotice(null), TOAST_MS);
+    return () => window.clearTimeout(timer);
+  }, [mergedNotice]);
+
   const opened = review.people.find((card) => card.id === openedId) ?? null;
   const footer = similarFooterOf(review, folderNames);
   const conflict = similarConflictOf(review, folderNames);
+
+  /** 이름을 다 쓰면, 같은 이름을 먼저 쓴 모음이 있을 때 합칠지 묻는다. */
+  const commitName = (cardId: string) => {
+    const owner = similarOwnerOf(review, cardId);
+    const name = owner && folderNameOf(owner);
+    if (owner && name) setPendingMerge({ cardId, ownerId: owner.id, name });
+  };
+
+  const merge = ({ cardId, ownerId, name }: PendingMerge) => {
+    const next = mergePeople(review, ownerId, cardId);
+    const owner = next.people.find((card) => card.id === ownerId);
+    setReview(next);
+    setPendingMerge(null);
+    if (owner) {
+      setMergedNotice((current) => ({
+        key: (current?.key ?? 0) + 1,
+        message: `${name} 사진을 합쳤어요 (${includedPhotos(owner).length}장)`,
+      }));
+    }
+  };
+
+  /** 합치지 않으면 방금 붙인 이름을 떼어 이름 없는 모음으로 돌린다. */
+  const cancelMerge = ({ cardId }: PendingMerge) => {
+    setReview((current) => renameCard(current, cardId, ""));
+    setPendingMerge(null);
+  };
 
   if (opened) {
     return (
@@ -139,6 +193,7 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
               needsRename={conflict?.id === card.id}
               onOpenPhotos={() => setOpenedId(card.id)}
               onRename={(value) => setReview((current) => renameCard(current, card.id, value))}
+              onCommit={() => commitName(card.id)}
             />
           ))}
         </Cards>
@@ -156,6 +211,24 @@ const Review = ({ result, folderNames, onClose }: ReviewProps) => {
           showClose={false}
           bottom={TOAST_BOTTOM}
           onClose={() => setIsSubmitPending(false)}
+        />
+      )}
+
+      {mergedNotice && (
+        <Toast
+          key={mergedNotice.key}
+          message={mergedNotice.message}
+          showClose={false}
+          bottom={TOAST_BOTTOM}
+          onClose={() => setMergedNotice(null)}
+        />
+      )}
+
+      {pendingMerge && (
+        <SimilarMergeSheet
+          name={pendingMerge.name}
+          onMerge={() => merge(pendingMerge)}
+          onCancel={() => cancelMerge(pendingMerge)}
         />
       )}
     </>
