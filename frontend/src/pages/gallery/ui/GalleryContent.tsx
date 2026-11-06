@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
 import { useMemberSessionQuery } from "@/entities/member-session";
@@ -8,6 +8,8 @@ import { canUploadTo, myRoomsQueryKey, roomQueryKey, type Room } from "@/entitie
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
 import { DeleteRoomModal } from "@/features/delete-room";
+import { PhotoRequestBanner } from "@/features/app-push/PhotoRequestBanner";
+import { getNotificationSetting } from "@/features/room-notifications/api";
 import { RoomNotificationMenu } from "@/features/room-notifications";
 import { DeleteSelectedMediaModal } from "@/features/delete-media";
 import { DeleteFolderModal } from "@/features/delete-folder";
@@ -48,6 +50,19 @@ interface GalleryContentProps {
 }
 
 export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryContentProps) => {
+  const [receivedRequest, setReceivedRequest] = useState<{ title: string; body: string } | null>(
+    null,
+  );
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  const notificationSetting = useQuery({
+    queryKey: ["room-notification-setting", room.roomId, userId],
+    queryFn: () => getNotificationSetting(room.roomId, accessToken),
+  });
+  useEffect(() => {
+    if (!receivedRequest) return;
+    const timer = window.setTimeout(() => setReceivedRequest(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [receivedRequest]);
   const navigate = useNavigate();
   const memberSession = useMemberSessionQuery();
   const queryClient = useQueryClient();
@@ -194,8 +209,14 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   useRoomEvents({
     roomId: room.roomId,
+    roomCode: room.code,
     userId,
     token: accessToken,
+    onUploadRequested: (event) => {
+      if (document.visibilityState === "visible" && notificationSetting.data?.enabled === true) {
+        setReceivedRequest({ title: event.title, body: event.body });
+      }
+    },
     onMediaCreated: addProcessingMedia,
     onMediaDeleted: (mediaIds) => {
       removePendingMedia(mediaIds);
@@ -237,6 +258,14 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   return (
     <Page>
+      {receivedRequest && notificationSetting.data?.enabled && (
+        <PhotoRequestBanner
+          title={receivedRequest.title}
+          message={receivedRequest.body}
+          roomPath={ROUTES.gallery(room.code)}
+          onClose={() => setReceivedRequest(null)}
+        />
+      )}
       <RoomSummary
         notificationMenu={(close) => (
           <RoomNotificationMenu

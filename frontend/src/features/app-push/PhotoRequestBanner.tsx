@@ -5,12 +5,18 @@ import { HiOutlineBell, HiXMark } from "react-icons/hi2";
 import { colors, radius, shadow, typography } from "@/shared/styles/tokens";
 
 interface Props {
+  title?: string;
   message: string;
   roomPath: string;
   onClose: () => void;
 }
 
-export const PhotoRequestBanner = ({ message, roomPath, onClose }: Props) =>
+export const PhotoRequestBanner = ({
+  title = "사진 요청이 왔어요",
+  message,
+  roomPath,
+  onClose,
+}: Props) =>
   createPortal(
     <Position>
       <Card aria-label="받은 사진 요청">
@@ -19,7 +25,7 @@ export const PhotoRequestBanner = ({ message, roomPath, onClose }: Props) =>
         </Bell>
         <Content>
           <div role="status" aria-live="polite" aria-atomic="true">
-            <Title>사진 요청이 왔어요</Title>
+            <Title>{title}</Title>
             <Message>{message}</Message>
           </div>
           {window.location.pathname !== roomPath && (
@@ -36,7 +42,7 @@ export const PhotoRequestBanner = ({ message, roomPath, onClose }: Props) =>
 
 const Position = styled.div`
   position: fixed;
-  top: calc(16px + env(safe-area-inset-top, 0px));
+  top: calc(28px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1100;

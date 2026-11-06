@@ -31,6 +31,7 @@ class FakeEventSource {
 }
 
 const renderRoomEvents = (callbacks: {
+  onUploadRequested?: (event: import("./roomEventTypes").UploadRequestedEvent) => void;
   onMediaCreated?: (media: Media) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
@@ -148,4 +149,26 @@ describe("useRoomEvents 좋아요 이벤트", () => {
       likedByMe: true,
     });
   });
+});
+
+it("사진 요청은 다른 참여자의 현재 방 이벤트만 전달하고 구독 해제 후에는 전달하지 않는다", () => {
+  const onUploadRequested = jest.fn();
+  const { source, unmount } = renderRoomEvents({ onUploadRequested });
+  const event = {
+    roomId: 1,
+    roomCode: "ABCDEFG2",
+    requesterId: 2,
+    title: "사진 요청",
+    body: "사진을 올려주세요",
+  };
+  act(() => {
+    source.emit("upload.requested", { ...event, requesterId: 10234 });
+    source.emit("upload.requested", { ...event, roomId: 9 });
+    source.emit("upload.requested", event);
+  });
+  expect(onUploadRequested).toHaveBeenCalledTimes(1);
+  expect(onUploadRequested).toHaveBeenCalledWith(event);
+  unmount();
+  act(() => source.emit("upload.requested", event));
+  expect(onUploadRequested).toHaveBeenCalledTimes(1);
 });

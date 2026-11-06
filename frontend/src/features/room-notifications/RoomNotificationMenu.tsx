@@ -76,7 +76,7 @@ export const RoomNotificationMenu = ({
         disabled={enabled !== true || update.isPending || request.isPending}
         onClick={() => request.mutate()}
       >
-        {request.isPending ? "보내는 중…" : "사진 요청하기"}
+        사진 요청하기
       </DropdownMenuItem>
       {request.isError && (
         <Notice role="alert">

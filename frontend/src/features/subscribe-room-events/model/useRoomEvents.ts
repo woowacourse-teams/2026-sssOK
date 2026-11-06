@@ -4,14 +4,20 @@ import { useQueryClient } from "@tanstack/react-query";
 import { photosQueryKey, type Media, type MediaItem, type MediaList } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
-import type { MediaFoldersUpdatedEvent, MediaLikesUpdatedEvent } from "./roomEventTypes";
+import type {
+  UploadRequestedEvent,
+  MediaFoldersUpdatedEvent,
+  MediaLikesUpdatedEvent,
+} from "./roomEventTypes";
 import { updateMediaReadyCache } from "./updateMediaReadyCache";
 import { updateMediaDeletedCache } from "./updateMediaDeletedCache";
 
 interface UseRoomEventsParams {
   roomId: number;
+  roomCode?: string;
   userId: number;
   token: string;
+  onUploadRequested?: (event: UploadRequestedEvent) => void;
   onMediaCreated?: (media: Media) => void;
   onMediaDeleted?: (mediaIds: number[]) => void;
   onFoldersChanged?: () => void;
@@ -23,8 +29,10 @@ const FOLDER_CHANGE_EVENTS = ["folder.created", "folder.renamed", "folder.delete
 
 export const useRoomEvents = ({
   roomId,
+  roomCode,
   userId,
   token,
+  onUploadRequested,
   onMediaCreated,
   onMediaDeleted,
   onFoldersChanged,
@@ -32,6 +40,10 @@ export const useRoomEvents = ({
   onMediaFoldersUpdated,
 }: UseRoomEventsParams) => {
   const queryClient = useQueryClient();
+  const onUploadRequestedRef = useRef(onUploadRequested);
+  useEffect(() => {
+    onUploadRequestedRef.current = onUploadRequested;
+  }, [onUploadRequested]);
   const onMediaCreatedRef = useRef(onMediaCreated);
   const onMediaDeletedRef = useRef(onMediaDeleted);
   const onFoldersChangedRef = useRef(onFoldersChanged);
@@ -64,9 +76,17 @@ export const useRoomEvents = ({
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
+    const reportRoom = (code: string | null) =>
+      window.ReactNativeWebView?.postMessage(
+        JSON.stringify({ type: "push/current-room", roomCode: code }),
+      );
+    const handleOpen = () => {
+      if (roomCode) reportRoom(roomCode);
+    };
     let hasReportedConnectionError = false;
 
     const handleConnectionError = () => {
+      if (roomCode) reportRoom(null);
       if (hasReportedConnectionError) return;
 
       hasReportedConnectionError = true;
@@ -77,6 +97,13 @@ export const useRoomEvents = ({
         route: "/rooms/:roomId/events",
         code: "EVENT_SOURCE_ERROR",
       });
+    };
+
+    const handleUploadRequested = (event: MessageEvent<string>) => {
+      const payload = JSON.parse(event.data) as UploadRequestedEvent;
+      if (payload.roomId === roomId && payload.requesterId !== userId) {
+        onUploadRequestedRef.current?.(payload);
+      }
     };
 
     const handleMediaCreated = (event: MessageEvent<string>) => {
@@ -134,6 +161,8 @@ export const useRoomEvents = ({
       );
     };
 
+    eventSource.addEventListener("open", handleOpen);
+    eventSource.addEventListener("upload.requested", handleUploadRequested);
     eventSource.addEventListener("media.created", handleMediaCreated);
     eventSource.addEventListener("media.ready", handleMediaReady);
     eventSource.addEventListener("media.deleted", handleMediaDeleted);
@@ -146,6 +175,8 @@ export const useRoomEvents = ({
     eventSource.addEventListener("error", handleConnectionError);
 
     return () => {
+      eventSource.removeEventListener("open", handleOpen);
+      eventSource.removeEventListener("upload.requested", handleUploadRequested);
       eventSource.removeEventListener("media.created", handleMediaCreated);
       eventSource.removeEventListener("media.ready", handleMediaReady);
       eventSource.removeEventListener("media.deleted", handleMediaDeleted);
@@ -157,6 +188,7 @@ export const useRoomEvents = ({
       eventSource.removeEventListener("media.likes.updated", handleMediaLikesUpdated);
       eventSource.removeEventListener("error", handleConnectionError);
       eventSource.close();
+      if (roomCode) reportRoom(null);
     };
-  }, [queryClient, roomId, userId, token]);
+  }, [queryClient, roomId, roomCode, userId, token]);
 };

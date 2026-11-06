@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider, createBrowserRouter } from "react-router-dom";
@@ -18,18 +18,6 @@ const queryClient = new QueryClient({
 
 export const App = () => {
   const [router] = useState(() => createBrowserRouter(routes));
-  useEffect(() => {
-    if (!isAppWebView()) return;
-    const reportRoom = () => {
-      const roomCode =
-        /^\/rooms\/([A-Z2-9]{8})(?:\/|$)/.exec(router.state.location.pathname)?.[1] ?? null;
-      window.ReactNativeWebView?.postMessage(
-        JSON.stringify({ type: "push/current-room", roomCode }),
-      );
-    };
-    reportRoom();
-    return router.subscribe(reportRoom);
-  }, [router]);
   return (
     <QueryClientProvider client={queryClient}>
       <div className="container">

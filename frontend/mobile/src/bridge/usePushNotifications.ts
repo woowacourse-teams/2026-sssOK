@@ -17,9 +17,7 @@ import { AppState, NativeModules, PermissionsAndroid, Platform } from "react-nat
 const loadNotifee = () =>
   NativeModules.NotifeeApiModule ? import("@notifee/react-native") : Promise.resolve(null);
 
-export type PushEvent =
-  | { type: "token"; token: string; platform: "ios" | "android" }
-  | { type: "upload-requested"; roomCode: string; message?: string };
+export type PushEvent = { type: "token"; token: string; platform: "ios" | "android" };
 
 const getNativeMessaging = () => {
   try {
@@ -115,21 +113,13 @@ export const usePushNotifications = (
     const removeMessage = onMessage(messaging, (message) => {
       const roomCode = roomCodeOf(message);
       if (AppState.currentState !== "active" || !roomCode) return;
-      const showInPage = () => {
-        if (message.data?.type === "UPLOAD_REQUESTED") {
-          emit({ type: "upload-requested", roomCode, message: message.notification?.body });
-        }
-      };
-      if (readCurrentRoom() === roomCode) {
-        showInPage();
-        return;
-      }
+      // 현재 방의 화면 알림은 SSE만 사용한다.
+      if (readCurrentRoom() === roomCode) return;
       // 포그라운드 FCM은 OS가 자동 표시하지 않는다. 다른 방의 알림만 직접 표시한다.
       void loadNotifee()
         .then(async (module) => {
           if (!active) return;
           if (!module) {
-            showInPage();
             return;
           }
           const { default: notifee, AndroidImportance } = module;
@@ -157,7 +147,7 @@ export const usePushNotifications = (
             },
           });
         })
-        .catch(showInPage);
+        .catch(() => {});
     });
     const removeRefresh = onTokenRefresh(messaging, (token) => {
       if (tokenAllowed.current) sendToken(token);

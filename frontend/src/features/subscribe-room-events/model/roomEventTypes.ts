@@ -12,3 +12,11 @@ export interface MediaLikesUpdatedEvent {
   mediaId: number;
   likeCount: number;
 }
+
+export interface UploadRequestedEvent {
+  roomId: number;
+  roomCode: string;
+  requesterId: number;
+  title: string;
+  body: string;
+}
