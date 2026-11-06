@@ -15,6 +15,10 @@ export const Card = styled.li`
   border-radius: 18px;
   background: ${colors.backgroundDefault};
 
+  &[data-menu-open] {
+    z-index: 11;
+  }
+
   ${DESKTOP} {
     flex-direction: column;
     align-items: stretch;
@@ -34,6 +38,15 @@ export const Card = styled.li`
     &:hover [data-menu-slot],
     &:focus-within [data-menu-slot] {
       opacity: 1;
+    }
+
+    &[data-menu-open] {
+      overflow: visible;
+      transform: none;
+
+      [data-menu-slot] {
+        opacity: 1;
+      }
     }
   }
 `;

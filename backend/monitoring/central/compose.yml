@@ -62,9 +62,9 @@ services:
   grafana:
     <<: *defaults
     image: grafana/grafana:13.2.2
-    mem_limit: 256m
+    mem_limit: 512m
     environment:
-      GOMEMLIMIT: 200MiB
+      GOMEMLIMIT: 400MiB
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Run bash init.sh first}
       GF_AUTH_ANONYMOUS_ENABLED: "false"

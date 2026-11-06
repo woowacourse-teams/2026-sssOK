@@ -32,6 +32,17 @@ spring:
       pool:
         size: 2
 
+  # 종료 시간 상한은 이 값 + shutdown.task-drain-timeout 이다. docker stop_grace_period 는 이보다 길어야 한다.
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+
+server:
+  shutdown: graceful
+
+shutdown:
+  # TaskExecutorDrainer 가 비동기 작업 대기열을 비우며 기다리는 최대 시간
+  task-drain-timeout: 20s
+
 jwt:
   # 시크릿 자체는 실제 값을 커밋하지 않는다 — 로컬은 application-local.yml(gitignored), CI/운영은 환경변수로 공급한다.
   secret: ${JWT_SECRET}
@@ -146,8 +157,8 @@ media:
 
 notification:
   discord:
-    # 새 의견을 받을 디스코드 채널 웹훅. URL 자체가 비밀이라 저장소에 넣지 않고 환경변수로만 받는다.
-    # 비어 있으면 알림만 건너뛰고 기동·의견 등록은 그대로 된다 (로컬·테스트 기본값).
+    # 새 의견·사진 신고를 받을 디스코드 운영 채널 웹훅. URL 자체가 비밀이라 저장소에 넣지 않고 환경변수로만 받는다.
+    # 비어 있으면 알림만 건너뛰고 기동·의견 등록·신고 접수는 그대로 된다 (로컬·테스트 기본값).
     feedback-webhook-url: ${DISCORD_FEEDBACK_WEBHOOK_URL:}
     connect-timeout: 2s
     # 알림은 공용 워커 풀에서 돈다. 디스코드가 응답하지 않을 때 스레드를 오래 붙잡지 않게 짧게 둔다.
@@ -196,6 +207,8 @@ download:
   retention: 1h
   # 보관 기간이 지난 zip을 정리하는 시각(10분마다).
   sweep-cron: "0 */10 * * * *"
+  # QUEUED·RUNNING 인데 이 시간 동안 진행 기록이 없으면 실패로 닫는다.
+  stale-after: 30m
 
 springdoc:
   swagger-ui:
@@ -244,7 +257,10 @@ oauth:
     client-id: ${OAUTH_KAKAO_CLIENT_ID:}
     client-secret: ${OAUTH_KAKAO_CLIENT_SECRET:}
     admin-key: ${OAUTH_KAKAO_ADMIN_KEY:}
-    redirect-uri: ${OAUTH_KAKAO_REDIRECT_URI:}
+    # 앱 SDK 로그인용 숫자 앱 ID(REST API 키와 다름). 비어 있으면 앱 SDK 로그인만 비활성이다.
+    app-id: ${OAUTH_KAKAO_APP_ID:}
+    # 허용할 카카오 콜백 전체 주소를 쉼표로 구분한다. 각 주소의 출처가 로그인을 시작한 웹의 출처와 일치해야 선택된다.
+    redirect-uris: ${OAUTH_KAKAO_REDIRECT_URIS:}
   apple:
     enabled: ${OAUTH_APPLE_ENABLED:false}
     client-id: ${OAUTH_APPLE_CLIENT_ID:}
@@ -252,3 +268,38 @@ oauth:
     key-id: ${OAUTH_APPLE_KEY_ID:}
     private-key: ${OAUTH_APPLE_PRIVATE_KEY:}
     redirect-uri: ${OAUTH_APPLE_REDIRECT_URI:}
+    # 앱 SDK 로그인용 client 식별자(앱 번들 ID). 비어 있으면 앱 SDK 로그인만 비활성이다.
+    native-client-id: ${OAUTH_APPLE_NATIVE_CLIENT_ID:}
+
+gallery:
+  organization:
+    interpretation:
+      enabled: ${GALLERY_ORGANIZATION_INTERPRETATION_ENABLED:false}
+      api-key: ${OPENAI_API_KEY:}
+      model: ${GALLERY_ORGANIZATION_MODEL:}
+      reasoning-effort: ${GALLERY_ORGANIZATION_REASONING_EFFORT:}
+      timeout: 20s
+    mcp:
+      server-id: gallery
+      url: ${GALLERY_MCP_URL:http://localhost:8818/mcp}
+      token: ${GALLERY_TOKEN:}
+      exposed-tools:
+        - group_photos_by_person
+        - group_similar_photos
+      timeout: 10s
+    # 사진 정리 작업(접수·발송·이벤트 수신·조회·검토·반영·취소·재시도). 정책 값(한도·보관·제한)은 여기서 바꾼다.
+    # max-photos 는 분석 서버의 GALLERY_MAX_PHOTOS 와 같은 값이어야 한다.
+    job:
+      enabled: ${GALLERY_ORGANIZATION_JOB_ENABLED:false}
+      max-photos: ${GALLERY_ORGANIZATION_MAX_PHOTOS:200}
+      internal-token: ${GALLERY_BACKEND_TOKEN:}
+      # 결과 본문 보관(분석 완료부터)과 검토 기한(분석 완료부터)은 서로 독립이다.
+      retention: 3d
+      review: 30m
+      # 같은 요청의 재전송을 가려내는 멱등 키 보관 기간. 성공한 요청만 기록한다.
+      idempotency-retention: 24h
+      # OAuth 회원의 새 작업 접수 간격(모든 방 공통). 익명 회원은 방별 1회 체험이라 적용하지 않는다.
+      start-interval: 60s
+      # 새 실행 회차를 만드는 사용자 재시도 상한(작업당).
+      max-user-retries: 3
+      rate-limit-per-minute: 5

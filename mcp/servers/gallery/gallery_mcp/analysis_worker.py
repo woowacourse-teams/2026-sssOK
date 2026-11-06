@@ -8,6 +8,7 @@ import sys
 from .config import Settings
 from .inputs import Photo, stage_photos
 from .execution_store import Store
+from .progress import ProgressFile, progress_path
 
 
 def execute(room_id, job_id, settings):
@@ -17,15 +18,19 @@ def execute(room_id, job_id, settings):
     directory = settings.data / 'runs' / job_id
     directory.mkdir(parents=True, exist_ok=False)
     photos = [Photo.model_validate(p) for p in json.loads(job['photos'])]
+    # The delivery loop reads this file; recording progress never sends anything itself.
+    progress = ProgressFile(progress_path(settings.data, job_id))
     # Also excludes a surviving orphan worker after a forced MCP server restart.
     with (settings.data / 'analysis.lock').open('a') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
-        stage_photos(photos, directory / 'input', settings)
+        progress.write('downloading_photos', 0, len(photos))
+        stage_photos(photos, directory / 'input', settings,
+                     lambda done: progress.write('downloading_photos', done, len(photos)))
         if job['kind'] == 'SIMILAR':
             from pipeline.similar_analysis import run
         else:
             from pipeline.photo_analysis import run
-        result = run(directory / 'input', directory / 'analysis', settings.assets, settings.threads)
+        result = run(directory / 'input', directory / 'analysis', settings.assets, settings.threads, progress)
         manifest = json.loads((directory / 'analysis/manifest.json').read_text())
         mapping = {p.filename:p.mediaId for p in photos}
         media_ids = {p['image_id']:mapping[p['source_filename']] for p in manifest['photos']}

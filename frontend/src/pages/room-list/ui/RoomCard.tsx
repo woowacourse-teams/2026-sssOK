@@ -1,24 +1,14 @@
 import { useState, type ReactNode } from "react";
-import { HiEllipsisHorizontal, HiOutlinePhoto } from "react-icons/hi2";
+import { HiOutlinePhoto } from "react-icons/hi2";
 
 import type { MyRoom } from "@/entities/room";
 import { ROUTES } from "@/shared/config";
-import {
-  Card,
-  Cover,
-  HostBadge,
-  Info,
-  MenuSlot,
-  Meta,
-  MoreButton,
-  Name,
-  NameLink,
-} from "./RoomCard.styles";
+import { Card, Cover, HostBadge, Info, Meta, Name, NameLink } from "./RoomCard.styles";
 
 interface RoomCardProps {
   room: MyRoom;
-  onOpenMenu: () => void;
-  menu?: ReactNode;
+  isMenuOpen: boolean;
+  children: ReactNode;
 }
 
 const RoomCover = ({ thumbnailUrl }: Pick<MyRoom, "thumbnailUrl">) => {
@@ -35,9 +25,9 @@ const RoomCover = ({ thumbnailUrl }: Pick<MyRoom, "thumbnailUrl">) => {
   );
 };
 
-export const RoomCard = ({ room, onOpenMenu, menu }: RoomCardProps) => {
+export const RoomCard = ({ room, isMenuOpen, children }: RoomCardProps) => {
   return (
-    <Card>
+    <Card data-menu-open={isMenuOpen || undefined}>
       <RoomCover thumbnailUrl={room.thumbnailUrl} />
       <Info>
         <NameLink to={ROUTES.roomEntry(room.code)}>
@@ -48,12 +38,7 @@ export const RoomCard = ({ room, onOpenMenu, menu }: RoomCardProps) => {
           사진 {room.mediaCount.toLocaleString()} · {room.memberCount.toLocaleString()}명
         </Meta>
       </Info>
-      <MenuSlot data-menu-slot>
-        <MoreButton type="button" aria-label={`${room.name} 메뉴`} onClick={onOpenMenu}>
-          <HiEllipsisHorizontal />
-        </MoreButton>
-        {menu}
-      </MenuSlot>
+      {children}
     </Card>
   );
 };

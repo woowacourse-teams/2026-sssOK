@@ -58,6 +58,8 @@ public class RoomNotificationController {
     @Operation(
         summary = "업로드 요청 보내기",
         description = "\"내 사진 올려 줘\" 요청을 보낸다. 알림을 켠 같은 방의 다른 참여자에게 브라우저·앱 알림이 간다. "
+            + "방 SSE 구독자 전체(요청자 본인·알림 끈 참여자 포함)에게는 upload.requested 이벤트"
+            + "(roomId·roomCode·requesterId·title·body)가 간다. "
             + "발송은 비동기라 요청을 접수하면 바로 202를 돌려준다. 같은 방에서 쿨다운(기본 1분) 안에 다시 요청하면 429."
     )
     @PostMapping("/upload-requests")

@@ -25,7 +25,21 @@
 
 같은 실행 UUID에 다른 방·작업·회차·사진 목록을 보내면 거절한다. 같은 작업의 실행이 로컬에서 대기·실행 중이면 새 회차도 거절한다. 서명 URL 쿼리 변경만으로 다른 사진으로 판단하지 않지만 접수된 URL을 자동 교체하지 않는다.
 
-사진 수가 100장을 넘으면 전체 요청을 거절하며 임의의 일부 사진만 분석하지 않는다. 다운로드 중 사진당 30MiB·작업당 300MiB를 넘거나 실행이 600초를 넘으면 작업이 실패한다. 사진당 2400만 픽셀 초과는 해당 사진의 준비 오류로 기록하며, 준비 가능한 사진이 있으면 나머지 분석을 진행한다. 큰 방 전체 지원은 별도 부하 검증이 필요하다.
+사진 수가 200장을 넘으면 전체 요청을 거절하며 임의의 일부 사진만 분석하지 않는다. 다운로드 중 사진당 30MiB·작업당 300MiB를 넘거나 실행이 600초를 넘으면 작업이 실패한다. 사진당 2400만 픽셀 초과는 해당 사진의 준비 오류로 기록하며, 준비 가능한 사진이 있으면 나머지 분석을 진행한다. 큰 방 전체 지원은 별도 부하 검증이 필요하다.
+
+## 거절 응답
+
+접수 도구가 거절하면 `isError=true` 결과를 돌려준다. 실행이 만들어지기 전에 던져지는 일시적 거절에는 `structuredContent`로 `{"errorCode": "...", "retryable": true}`를 함께 싣는다. 이때는 같은 실행 UUID로 나중에 다시 보내도 안전하다(이미 접수된 실행이면 `reused=true`로 받는다).
+
+| errorCode | 상황 |
+|---|---|
+| QUEUE_FULL | 대기·실행 중인 작업이 `max_queue`(기본 8)에 도달 |
+| BACKLOG_FULL | 수신 확인되지 않은 영수증이 상한(기본 1000)에 도달 |
+| DEPLOYING | 배포로 새 접수를 멈춘 상태 |
+| UNAVAILABLE | 필수 백그라운드 작업 중단으로 접수를 막은 상태(수동 재시작 필요) |
+| STORAGE_BUSY | 로컬 저장소 쓰기 잠금을 5초 안에 얻지 못함 |
+
+입력 오류, 같은 실행 UUID의 다른 스냅샷 재사용, 같은 작업의 활성 실행 충돌은 표시 없이 거절한다. 호출자는 `retryable`이 `true`가 아니면 재시도하지 않는다.
 
 ## 로컬 상태 조회
 
@@ -39,7 +53,7 @@ Python 설정 `GALLERY_BACKEND_URL`의 고정 URL로 POST한다. 예: `https://b
 MCP 입력으로 임의 callback URL을 받지 않는다. HTTPS가 기본이며 로컬 통합 테스트만 loopback HTTP를 허용한다.
 
 요청 헤더: `Authorization: Bearer <별도의 GALLERY_BACKEND_TOKEN>`.
-본문: 위 상태 응답 필드에 `eventId`를 추가한다. 원본 URL·파일 경로는 포함하지 않는다. RUNNING 상태는 약 15초 주기로 진행·생존을 전달한다. terminal 상태 변화는 재시도 대기와 별도로 전달한다.
+본문: 위 상태 응답 필드에 `eventId`를 추가한다. 원본 URL·파일 경로는 포함하지 않는다. RUNNING 상태는 진행이 바뀌면 약 2초 간격으로, 바뀌지 않으면 약 15초 간격으로 전달한다(생존 확인). 단계 변경은 진행 간격을 기다리지 않는다. terminal 상태 변화는 재시도 대기와 별도로 전달한다. 진행 본문(`progress`의 `stage`·`processed`·`total`·`unit`)과 단계 목록은 [docs/backend/ORGANIZE_PROGRESS_CONTRACT.md](../docs/backend/ORGANIZE_PROGRESS_CONTRACT.md)를 따른다.
 
 Spring은 다음을 확인한다.
 
@@ -113,13 +127,23 @@ Spring 통신 실패와 개별 분석 실패는 기존 재시도·실패 처리�
   `smallGroupMediaIds`(2장 후보 배열), `unassignedMediaIds`(단독 사진), `errors`, `counts`.
 - 그룹은 최소 3장, 실행 내 ID, 사진 중복 없음. 오류를 포함해 입력 전체를 정확히 분할한다.
 - PERSON 결과 형식은 유지한다. SIMILAR에는 얼굴·신체 수를 넣지 않는다.
-- SQLite 파일명은 `executions-v1.sqlite3`을 유지하지만 `PRAGMA user_version=2`다.
+- SQLite 파일명은 `executions-v1.sqlite3`을 유지하지만 #661에서 `PRAGMA user_version=2`가 되었다(현재는 아래 환경 격리의 v3).
   이전 서버를 중지한 상태에서 단일 트랜잭션으로 kind 컬럼을 추가하고 기존 기록을 PERSON으로 해석한다.
   기존 완료 결과·수신 확인·대기 상태는 유지한다. 기존 RUNNING 복구 정책은 그대로다.
-- v1 실행 파일은 v2 DB를 읽을 수 없다. 배포 표시는 sqlite-v2이며 마이그레이션 가능성이 있는
+- v1 실행 파일은 v2 DB를 읽을 수 없다. #661의 배포 표시는 sqlite-v2였으며 마이그레이션 가능성이 있는
   배포 실패 후 v1/JSON 이미지로 자동 복귀하지 않는다. 데이터 보존 후 v2 호환 릴리스로 복구한다.
   변경 전 정지 상태 DB 백업으로 돌아가는 경우 신규 접수·미전송 결과 유실을 따로 검토해야 한다.
 - 기존 미전송 PERSON 이벤트에도 jobType 필드가 추가되어 이벤트 해시가 바뀔 수 있다.
   Spring 중복 처리는 eventId만이 아니라 executionId·terminal state를 기준으로 해야 한다.
 
 정책·자원 측정·모델 준비: [SIMILAR_PHOTOS.md](SIMILAR_PHOTOS.md).
+
+## DEV·PROD 공유 실행 시 환경 격리
+
+- 같은 MCP endpoint에 서로 다른 서비스 토큰으로 접속한다. 인증된 환경은 HTTP 요청 scope에서
+  도구 실행으로 전달되며, 도구의 공개 입력 스키마에는 환경 이름·콜백 URL을 노출하지 않는다.
+- 접수 환경을 SQLite v3 실행 기록에 저장한다. 해당 환경만 결과를 조회하거나 동일 실행을 재사용할 수 있다.
+- 완료·실패·진행 이벤트는 저장된 환경의 고정 HTTPS endpoint와 전용 콜백 토큰으로 전송한다.
+  재시작·재시도 시에도 환경이 보존되며, 미설정 환경을 DEV 등으로 대체하지 않는다.
+- 기존 작업은 DEV로 이전한다. 실행 UUID는 전역 유일, business job ID의 동시 실행 제약은 환경별이다.
+- 설정과 v3 롤백 제약은 `deployment/README.md`의 공유 환경 절차를 따른다.

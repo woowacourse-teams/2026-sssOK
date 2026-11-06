@@ -276,8 +276,8 @@ def main():
     args = parser.parse_args()
     if not re.fullmatch(r'[0-9a-f]{40}', args.commit):
         parser.error('40자리 소문자 커밋 SHA가 필요합니다')
-    if args.target.resolve() != Path('/home/ubuntu/monitoring'):
-        parser.error('중앙 배포 경로 /home/ubuntu/monitoring만 허용합니다')
+    if args.target.resolve() != (Path.home() / 'monitoring').resolve():
+        parser.error('실행 계정의 ~/monitoring 경로만 허용합니다')
     os.umask(0o077)
     Deployment(args.source.resolve(), args.target.resolve(), args.commit).execute()
 

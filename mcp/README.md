@@ -82,6 +82,8 @@ cp .env.example .env
 | GALLERY_BACKEND_URL | Spring의 고정 HTTPS 이벤트 수신 URL |
 | GALLERY_BACKEND_TOKEN | Spring 내부 API용 별도 토큰, 32자 이상 |
 | GALLERY_STANDALONE | Spring 없이 시험할 때만 true; 기본 false |
+| GALLERY_PROGRESS_INTERVAL_SECONDS | 진행이 바뀐 동안 Spring에 보내는 최소 간격(초); 기본 2 |
+| GALLERY_HEARTBEAT_INTERVAL_SECONDS | 진행이 그대로일 때 생존 확인을 보내는 간격(초); 기본 15. 진행 간격보다 짧을 수 없다 |
 
 모델은 Git과 이미지에 포함하지 않는다.
 
@@ -156,7 +158,7 @@ python -m unittest discover -s tests -v
 ## 후속 범위
 
 Spring/RDS 작업·결과·승인 API와 실제 갤러리 연결, 재실행 시 기존 사람 폴더 매칭,
-대량 사진·다중 워커는 후속이다. 현재 시험 한도는 100장이며 초과 시 전체 요청을 거절한다.
+대량 사진·다중 워커는 후속이다. 현재 한도는 200장(Spring 의 gallery.organization.job.max-photos 와 같아야 한다)이며 초과 시 전체 요청을 거절한다.
 
 장면 분류와 대화형 정리도 이후 확장한다. 운영 MCP는 갤러리와 별도 권한·프로세스로
 관리자 페이지의 릴리스·배포 지원과 장애 조사를 제공하는 계획이며, 실행 서버는 아직 없다.

@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
@@ -490,4 +491,28 @@ describe("MediaUploader", () => {
 
     await waitFor(() => expect(onRegistered).toHaveBeenCalled());
   });
+});
+
+it("새 업로드를 시작하면 이전 업로드 오류 안내를 닫는다", async () => {
+  await enterRoom();
+  const user = userEvent.setup();
+  failIssueWith(500, "INTERNAL_SERVER_ERROR", "오류");
+  renderUploader();
+  await user.upload(getFileInput(), fileOf("첫째.jpg"));
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  server.use(
+    http.post(API_BASE_URL + "/rooms/:roomId/media/upload-urls", async () => {
+      await held;
+      return HttpResponse.json({ code: "INTERNAL_SERVER_ERROR", message: "오류" }, { status: 500 });
+    }),
+  );
+  await user.upload(getFileInput(), fileOf("둘째.jpg"));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("progressbar")).toBeInTheDocument();
+  release();
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
 });

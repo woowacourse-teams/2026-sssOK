@@ -1,0 +1,12 @@
+{
+  "dev": {
+    "token": "<DEV_MCP_TOKEN>",
+    "backend_url": "https://dev-api.ssssok.com/internal/gallery-analysis/events",
+    "backend_token": "<DEV_CALLBACK_TOKEN>"
+  },
+  "prod": {
+    "token": "<PROD_MCP_TOKEN>",
+    "backend_url": "https://api.ssssok.com/internal/gallery-analysis/events",
+    "backend_token": "<PROD_CALLBACK_TOKEN>"
+  }
+}

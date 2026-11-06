@@ -10,6 +10,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .rejection import RetryableRejection
+
 
 class _ResultModel(BaseModel):
     model_config = ConfigDict(strict=True, extra='forbid')
@@ -92,10 +94,15 @@ class Store:
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.database = self.directory / self.DATABASE
-        with self._connection(write=True) as db:
+        with (self.directory / 'server.lock').open('a') as migration_lock, self._connection(write=True) as db:
             version = db.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1, 2):
+            if version not in (0, 1, 2, 3):
                 raise RuntimeError('Unsupported execution database version')
+            if version != 3:
+                try:
+                    fcntl.flock(migration_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError as exc:
+                    raise RuntimeError('Stop the previous server before schema migration') from exc
             db.execute('''CREATE TABLE IF NOT EXISTS executions (
                 id TEXT PRIMARY KEY, room_id INTEGER NOT NULL CHECK(room_id > 0),
                 request_id TEXT NOT NULL CHECK(request_id = id), business_job_id TEXT NOT NULL,
@@ -113,14 +120,13 @@ class Store:
             db.execute('CREATE INDEX IF NOT EXISTS execution_state ON executions(state, created_at, id)')
             db.execute('CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL)')
             if 'kind' not in {r[1] for r in db.execute('PRAGMA table_info(executions)')}:
-                # Migration must not modify the database of a running v1 server.
-                with (self.directory / 'server.lock').open('a') as lock:
-                    try:
-                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                    except BlockingIOError as exc:
-                        raise RuntimeError('Stop the previous server before schema migration') from exc
-                    db.execute("ALTER TABLE executions ADD COLUMN kind TEXT NOT NULL DEFAULT 'PERSON' CHECK(kind IN ('PERSON','SIMILAR'))")
-            db.execute('PRAGMA user_version=2')
+                db.execute("ALTER TABLE executions ADD COLUMN kind TEXT NOT NULL DEFAULT 'PERSON' CHECK(kind IN ('PERSON','SIMILAR'))")
+            if 'environment' not in {r[1] for r in db.execute('PRAGMA table_info(executions)')}:
+                # All pre-v3 receipts belong to the existing DEV-only service.
+                db.execute("ALTER TABLE executions ADD COLUMN environment TEXT NOT NULL DEFAULT 'dev' CHECK(environment IN ('dev','prod'))")
+                db.execute('DROP INDEX IF EXISTS active_business_job')
+                db.execute("CREATE UNIQUE INDEX active_business_job ON executions(environment,business_job_id) WHERE state IN ('QUEUED','RUNNING')")
+            db.execute('PRAGMA user_version=3')
 
     @contextmanager
     def _connection(self, write=False):
@@ -147,7 +153,9 @@ class Store:
             return [dict(r) for r in db.execute('SELECT * FROM executions ORDER BY id')]
 
     def create(self, room_id, request_id, fingerprint, photos, max_queue,
-               business_job_id=None, attempt=1, max_receipts=1000, kind='PERSON'):
+               business_job_id=None, attempt=1, max_receipts=1000, kind='PERSON', environment='dev'):
+        if environment not in ('dev', 'prod'):
+            raise ValueError('Unknown request environment')
         if kind not in ('PERSON', 'SIMILAR'):
             raise ValueError('Unknown analysis kind')
         canonical_id(request_id)
@@ -159,20 +167,20 @@ class Store:
                 raise RuntimeError('Recover legacy JSON receipts before accepting work')
             old = db.execute('SELECT * FROM executions WHERE id=?', (request_id,)).fetchone()
             if old:
-                if (old['room_id'], old['fingerprint'], old['business_job_id'], old['attempt'], old['kind']) != (
-                        room_id, fingerprint, business_job_id, attempt, kind):
+                if (old['room_id'], old['fingerprint'], old['business_job_id'], old['attempt'], old['kind'], old['environment']) != (
+                        room_id, fingerprint, business_job_id, attempt, kind, environment):
                     raise ValueError('Execution ID is already bound to another job or snapshot')
                 return dict(old), True
             if db.execute('SELECT COUNT(*) FROM executions').fetchone()[0] >= max_receipts:
-                raise ValueError('Delivery backlog is full; retry after Spring acknowledges results')
+                raise RetryableRejection('BACKLOG_FULL', 'Delivery backlog is full; retry after Spring acknowledges results')
             active = db.execute("SELECT COUNT(*) FROM executions WHERE state IN ('QUEUED', 'RUNNING')").fetchone()[0]
             if active >= max_queue:
-                raise ValueError('Analysis queue is full; retry later')
-            if db.execute("SELECT 1 FROM executions WHERE business_job_id=? AND state IN ('QUEUED', 'RUNNING')",
-                          (business_job_id,)).fetchone():
+                raise RetryableRejection('QUEUE_FULL', 'Analysis queue is full; retry later')
+            if db.execute("SELECT 1 FROM executions WHERE environment=? AND business_job_id=? AND state IN ('QUEUED', 'RUNNING')",
+                          (environment, business_job_id)).fetchone():
                 raise ValueError('This job already has an active execution')
             timestamp = now()
-            row = dict(kind=kind, id=request_id, room_id=room_id, request_id=request_id,
+            row = dict(environment=environment, kind=kind, id=request_id, room_id=room_id, request_id=request_id,
                        business_job_id=business_job_id, attempt=attempt, fingerprint=fingerprint,
                        photos=json.dumps(photos, allow_nan=False), state='QUEUED', result=None,
                        error_code=None, created_at=timestamp, updated_at=timestamp, acknowledged_at=None)
@@ -182,8 +190,8 @@ class Store:
     def _insert(self, db, row, legacy=0):
         columns = ','.join(self.COLUMNS)
         placeholders = ','.join('?' for _ in self.COLUMNS)
-        db.execute(f'INSERT INTO executions ({columns},legacy,kind) VALUES ({placeholders},?,?)',
-                   (*[row[k] for k in self.COLUMNS], legacy, row.get('kind', 'PERSON')))
+        db.execute(f'INSERT INTO executions ({columns},legacy,kind,environment) VALUES ({placeholders},?,?,?)',
+                   (*[row[k] for k in self.COLUMNS], legacy, row.get('kind', 'PERSON'), row.get('environment', 'dev')))
 
     def get(self, room_id, job_id):
         canonical_id(job_id)
