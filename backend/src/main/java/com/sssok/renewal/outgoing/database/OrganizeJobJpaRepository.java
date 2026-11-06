@@ -26,9 +26,13 @@ public interface OrganizeJobJpaRepository extends JpaRepository<OrganizeJobJpaEn
     @Query("select j.id from OrganizeJobJpaEntity j where j.status = 'READY' and j.reviewExpiresAt <= :now order by j.id")
     List<Long> findReviewOverdueIds(@Param("now") Instant now, Pageable pageable);
 
+    // MCP 가 접수하면 RUNNING 으로 바꾸되 아직 분석이 시작된 것은 아니므로 단계는 waiting 이다.
+    // QUEUED 일 때만 걸리므로, 분석 서버의 진행 이벤트가 먼저 도착했다면 늦은 접수 응답이 그 진행을 덮어쓰지 않는다.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("""
-        update OrganizeJobJpaEntity j set j.status = 'RUNNING', j.jobVersion = j.jobVersion + 1, j.updatedAt = :now
+        update OrganizeJobJpaEntity j
+        set j.status = 'RUNNING', j.progressStage = 'waiting', j.progressProcessed = null,
+            j.progressTotal = null, j.progressUnit = null, j.jobVersion = j.jobVersion + 1, j.updatedAt = :now
         where j.id = :id and j.status = 'QUEUED'
         """)
     int markRunning(@Param("id") Long id, @Param("now") Instant now);
@@ -37,11 +41,12 @@ public interface OrganizeJobJpaRepository extends JpaRepository<OrganizeJobJpaEn
     @Query("""
         update OrganizeJobJpaEntity j
         set j.status = 'RUNNING', j.progressStage = :stage, j.progressProcessed = :processed,
-            j.progressTotal = :total, j.jobVersion = j.jobVersion + 1, j.updatedAt = :now
-        where j.id = :id and j.status in ('QUEUED', 'RUNNING')
+            j.progressTotal = :total, j.progressUnit = :unit, j.jobVersion = j.jobVersion + 1, j.updatedAt = :now
+        where j.id = :id and j.jobVersion = :expectedVersion and j.status in ('QUEUED', 'RUNNING')
         """)
-    int updateProgress(@Param("id") Long id, @Param("stage") String stage, @Param("processed") Integer processed,
-                       @Param("total") Integer total, @Param("now") Instant now);
+    int updateProgress(@Param("id") Long id, @Param("expectedVersion") int expectedVersion,
+                       @Param("stage") String stage, @Param("processed") Integer processed,
+                       @Param("total") Integer total, @Param("unit") String unit, @Param("now") Instant now);
 
     // READY 는 검토 중이라 방을 계속 점유한다(active_room_id 유지). 검토 기한과 결과 보관 기한을 함께 정한다.
     @Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -49,6 +54,7 @@ public interface OrganizeJobJpaRepository extends JpaRepository<OrganizeJobJpaEn
         update OrganizeJobJpaEntity j
         set j.status = 'READY', j.resultVersion = :version, j.result = :result,
             j.reviewExpiresAt = :reviewExpiresAt, j.resultExpiresAt = :resultExpiresAt,
+            j.progressStage = null, j.progressProcessed = null, j.progressTotal = null, j.progressUnit = null,
             j.jobVersion = j.jobVersion + 1, j.updatedAt = :now
         where j.id = :id and j.status in ('QUEUED', 'RUNNING')
         """)
@@ -100,7 +106,7 @@ public interface OrganizeJobJpaRepository extends JpaRepository<OrganizeJobJpaEn
     @Query("""
         update OrganizeJobJpaEntity j
         set j.status = 'QUEUED', j.activeRoomId = j.roomId, j.failureCode = null, j.failureDetail = null,
-            j.progressStage = null, j.progressProcessed = null, j.progressTotal = null,
+            j.progressStage = null, j.progressProcessed = null, j.progressTotal = null, j.progressUnit = null,
             j.retryCount = j.retryCount + :retryIncrement, j.finishedAt = null,
             j.jobVersion = j.jobVersion + 1, j.updatedAt = :now
         where j.id = :id and j.status = 'FAILED'

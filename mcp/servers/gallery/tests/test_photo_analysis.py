@@ -40,7 +40,7 @@ class PhotoAnalysisTests(unittest.TestCase):
                  for i, p in enumerate(photos)]
         return faces, np.array([[1., 0.], [1., 0.]]), [np.zeros(63, bool), np.ones(63, bool)], []
 
-    def analyze(self):
+    def analyze(self, progress=None):
         features = SimpleNamespace(
             configure_runtime=lambda threads: {'test': 'fixed outputs'},
             resolve_assets=lambda root: {'test': self.model},
@@ -48,7 +48,13 @@ class PhotoAnalysisTests(unittest.TestCase):
             extract_bodies=lambda *args: ([], []),
             extract_body_features=lambda *args: np.empty((0, 512)))
         with patch.dict('sys.modules', {'pipeline.image_features': features}), contextlib.redirect_stdout(io.StringIO()):
-            return run(self.inputs, self.output, self.root)
+            return run(self.inputs, self.output, self.root, 2, progress)
+
+    def test_every_stage_is_recorded_for_the_server_without_a_terminal_status(self):
+        recorded = []
+        self.analyze(SimpleNamespace(write=lambda stage, processed=None, total=None: recorded.append(stage)))
+        self.assertEqual(recorded, ['initializing', 'loading_models', 'detecting_faces', 'grouping_faces',
+                                    'detecting_bodies', 'extracting_body_features', 'matching_bodies', 'exporting'])
 
     def test_server_result_has_groups_without_local_report(self):
         result = self.analyze()

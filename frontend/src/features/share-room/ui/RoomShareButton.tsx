@@ -7,6 +7,7 @@ import { track } from "@/shared/lib";
 import { IconButton } from "@/shared/ui/icon-button";
 import { useToast } from "@/shared/ui/toast";
 import { issueLinkCode } from "../api/issueLinkCode";
+import { copyRoomInviteLink } from "../lib/copyRoomInviteLink";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 import { RoomQrModal } from "./RoomQrModal";
 
@@ -76,9 +77,7 @@ export const RoomShareButton = ({
     closeCopyToast.current?.();
     setIsCopying(true);
     try {
-      // 쿼리나 해시에 담긴 일시적인 상태는 공유하지 않는다.
-      const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin).href;
-      await navigator.clipboard.writeText(url);
+      await copyRoomInviteLink(roomCode);
       track("Invite Link Copied", { is_success: true });
       closeCopyToast.current = showToast({ message: "공유 링크를 복사했어요.", tone: "success" });
       closeMenu();

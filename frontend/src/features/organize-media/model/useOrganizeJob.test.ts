@@ -679,8 +679,8 @@ describe("useOrganizeJob", () => {
       }),
     );
 
-    expect(afterFaces).toBe(37);
-    expect(result.current.notice?.percent).toBe(37);
+    expect(afterFaces).toBe(54);
+    expect(result.current.notice?.percent).toBe(54);
   });
 
   it("다시 시도해 새 회차가 되면 진행률을 처음부터 센다", async () => {
@@ -696,7 +696,7 @@ describe("useOrganizeJob", () => {
       },
     });
     const { result } = render();
-    await waitFor(() => expect(result.current.notice?.percent).toBe(75));
+    await waitFor(() => expect(result.current.notice?.percent).toBe(81));
 
     act(() =>
       result.current.applyJobUpdate({
@@ -705,6 +705,30 @@ describe("useOrganizeJob", () => {
       }),
     );
 
-    expect(result.current.notice?.percent).toBe(12);
+    expect(result.current.notice?.percent).toBe(36);
+  });
+
+  it("분석 서버에 넘어갔어도 waiting 단계면 대기 중으로 본다", async () => {
+    serve();
+    const { result } = render();
+    await settle();
+    await act(() => result.current.start({ kind: "PERSON" }));
+    expect(result.current.notice).toMatchObject({ status: "QUEUED", isWaiting: true });
+
+    act(() =>
+      result.current.applyJobUpdate({
+        ...jobOf({ status: "RUNNING", jobVersion: 2 }),
+        progress: { stage: "waiting", processed: null, total: null },
+      }),
+    );
+    expect(result.current.notice).toMatchObject({ status: "RUNNING", isWaiting: true });
+
+    act(() =>
+      result.current.applyJobUpdate({
+        ...jobOf({ status: "RUNNING", jobVersion: 3 }),
+        progress: { stage: "downloading_photos", processed: 10, total: 40 },
+      }),
+    );
+    expect(result.current.notice).toMatchObject({ isWaiting: false, percent: 11 });
   });
 });

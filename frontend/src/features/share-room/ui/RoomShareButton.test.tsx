@@ -31,11 +31,13 @@ beforeEach(() => localStorage.clear());
 describe("RoomShareButton 공유 이벤트", () => {
   it("링크 공유를 복사하면 초대 링크 복사를 남긴다", async () => {
     const user = userEvent.setup();
+    const writeText = jest.spyOn(navigator.clipboard, "writeText");
     await openMenu(user);
 
     await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
 
     expect(await screen.findByText("공유 링크를 복사했어요.")).toBeInTheDocument();
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/${ROOM_CODE}`);
     expect(track).toHaveBeenCalledWith("Invite Link Copied", { is_success: true });
   });
 

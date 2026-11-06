@@ -13,6 +13,7 @@ import { useToast } from "@/shared/ui/toast";
 import { ROUTES } from "@/shared/config";
 import type { MyRoom } from "@/entities/room";
 import { LeaveRoomModal } from "@/features/leave-room";
+import { copyRoomInviteLink } from "@/features/share-room";
 import { DropdownMenu, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 import { MenuSlot, MoreButton } from "./RoomCard.styles";
 
@@ -101,8 +102,7 @@ export const RoomCardMenu = ({ room, isMenuOpen, onOpenChange }: RoomCardMenuPro
   const copyInviteLink = async () => {
     closeMenu();
     try {
-      const url = new URL(ROUTES.roomInvite(room.code), window.location.origin);
-      await navigator.clipboard.writeText(url.href);
+      await copyRoomInviteLink(room.code);
       showToast({ message: "초대 링크를 복사했어요.", tone: "success", showClose: false });
     } catch {
       showToast({

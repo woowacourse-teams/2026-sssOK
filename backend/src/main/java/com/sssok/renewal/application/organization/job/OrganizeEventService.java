@@ -8,11 +8,13 @@ import com.sssok.renewal.domain.organization.OrganizeExecution;
 import com.sssok.renewal.domain.organization.OrganizeExecutionStatus;
 import com.sssok.renewal.domain.organization.OrganizeFailureCode;
 import com.sssok.renewal.domain.organization.OrganizeJob;
+import com.sssok.renewal.domain.organization.OrganizeJobStatus;
 import com.sssok.renewal.domain.organization.OrganizeTargetPhoto;
 import com.sssok.renewal.outgoing.config.OrganizeJobProperties;
 import com.sssok.renewal.outgoing.database.OrganizeJobRepository;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -70,13 +72,43 @@ public class OrganizeEventService {
                 .map(latest -> latest.executionId().equals(execution.executionId())).orElse(false);
     }
 
+    // 실행의 마지막 이벤트 시각은 항상 갱신한다(생존 신호). 작업의 상태·진행이 실제로 바뀔 때만 버전을 올리고 알린다.
+    // 읽은 버전이 그 사이 바뀌었으면(접수 응답·다른 이벤트가 먼저 커밋) 다시 읽어 한 번 더 판단한다.
     private void running(OrganizeEvent event, OrganizeExecution execution, OrganizeJob job) {
         Instant now = clock.instant();
         if (!repository.markExecutionRunning(execution.id(), now)) {
             return;
         }
-        repository.updateProgress(job.id(), event.progressStage(), event.processedCount(), event.totalCount(), now);
-        notifier.changed(job.id(), job.roomId(), Occupancy.UNCHANGED);
+        OrganizeEvent.Snapshot next = event.snapshot();
+        OrganizeJob current = job;
+        for (int tries = 0; tries < 2 && current != null && current.status().isAnalyzing(); tries++) {
+            if (!changes(current, next)) {
+                return;
+            }
+            if (repository.updateProgress(current.id(), current.jobVersion(), next.stage(), next.processed(),
+                next.total(), next.unit(), now)) {
+                notifier.changed(current.id(), current.roomId(), Occupancy.UNCHANGED);
+                return;
+            }
+            current = repository.findById(job.id()).orElse(null);
+        }
+    }
+
+    private boolean changes(OrganizeJob current, OrganizeEvent.Snapshot next) {
+        boolean first = current.status() == OrganizeJobStatus.QUEUED;
+        if (next.stage() == null) {
+            // 단계 정보가 없는 이벤트는 이미 있는 진행을 지우지 않는다. 첫 실행 전환만 반영한다.
+            return first;
+        }
+        if (OrganizeProgressOrder.isStale(current.kind(), current.progressStage(), current.progressProcessed(),
+            next.stage(), next.processed())) {
+            return false;
+        }
+        return first
+            || !Objects.equals(current.progressStage(), next.stage())
+            || !Objects.equals(current.progressProcessed(), next.processed())
+            || !Objects.equals(current.progressTotal(), next.total())
+            || !Objects.equals(current.progressUnit(), next.unit());
     }
 
     private void completed(OrganizeEvent event, OrganizeExecution execution, OrganizeJob job) {
