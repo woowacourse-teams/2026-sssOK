@@ -120,6 +120,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
   const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
+  /** 비슷한 사진 결과 확인 화면은 아직 없다. '확인하기' 를 누르면 준비 중이라고만 알린다. */
+  const [isSimilarReviewPending, setIsSimilarReviewPending] = useState(false);
   const [createdFolderCount, setCreatedFolderCount] = useState<number | null>(null);
 
   // 폴더를 만들었다는 알림은 잠깐 보여 주고 스스로 닫는다. 닫기 버튼은 두지 않는다.
@@ -128,6 +130,16 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     const timer = window.setTimeout(() => setCreatedFolderCount(null), CREATED_FOLDER_TOAST_MS);
     return () => window.clearTimeout(timer);
   }, [createdFolderCount]);
+
+  // 비슷한 사진 확인 안내도 잠깐만 보인다. 남아 있으면 시트 버튼을 가린다.
+  useEffect(() => {
+    if (!isSimilarReviewPending) return;
+    const timer = window.setTimeout(
+      () => setIsSimilarReviewPending(false),
+      CREATED_FOLDER_TOAST_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [isSimilarReviewPending]);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -494,6 +506,10 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
+            if (organize.notice?.kind === "SIMILAR") {
+              setIsSimilarReviewPending(true);
+              return;
+            }
             organize.reloadResult();
             setIsPersonReviewOpen(true);
           }}
@@ -581,6 +597,15 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           tone="error"
           message={organize.error}
           onClose={organize.clearError}
+          bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
+        />
+      )}
+
+      {isSimilarReviewPending && (
+        <Toast
+          message="비슷한 사진 확인 화면은 곧 열려요."
+          showClose={false}
+          onClose={() => setIsSimilarReviewPending(false)}
           bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
         />
       )}
