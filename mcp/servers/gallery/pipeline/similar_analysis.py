@@ -32,6 +32,8 @@ def load_model(assets, name):
 
 def feature_matrix(photos, output, model, transform, job, stage):
     features = []
+    # 첫 사진의 추론이 오래 걸려도 화면이 이전 단계에 머물지 않게 시작을 먼저 알린다.
+    job.update(stage, processed=0, total=len(photos))
     with torch.inference_mode():
         for index, photo in enumerate(photos, 1):
             with Image.open(output / photo['prepared_path']) as im:
@@ -48,6 +50,8 @@ def orb_scores(photos, output, job):
     cv2.setRNGSeed(661)
     detector = cv2.ORB_create(nfeatures=500)
     descriptors = []
+    # descriptor 준비가 비교 반복보다 먼저 오래 걸릴 수 있어 이 단계의 시작을 먼저 알린다.
+    job.update('matching_similar_photos', processed=0, total=len(photos))
     for photo in photos:
         image = cv2.imread(str(output / photo['prepared_path']), cv2.IMREAD_GRAYSCALE)
         if image is None:
