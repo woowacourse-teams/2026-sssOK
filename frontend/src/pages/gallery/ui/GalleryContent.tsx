@@ -24,7 +24,9 @@ import {
   OrganizeLimitModal,
   organizeLimitOf,
   OrganizeStatusBar,
+  type OrganizeKind,
   PersonReviewScreen,
+  SimilarReviewScreen,
   useOrganizeJob,
 } from "@/features/organize-media";
 import { SearchRequestField } from "@/features/search-media";
@@ -129,7 +131,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
-  const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
+  /** 열려 있는 검토 화면의 정리 종류. 사람별과 비슷한 사진은 화면이 다르다. */
+  const [reviewKind, setReviewKind] = useState<OrganizeKind | null>(null);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -230,7 +233,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 결과가 취소·만료돼 검토할 것이 없어지면 검토 화면도 닫는다. 다음 결과에서 저절로 열리지 않게 한다.
   const hasReview = organize.review !== null;
-  if (isPersonReviewOpen && !hasReview) setIsPersonReviewOpen(false);
+  if (reviewKind && !hasReview) setReviewKind(null);
 
   const folders = room.folders.map((folder) => ({
     ...folder,
@@ -537,24 +540,19 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
-            // 비슷한 사진 결과 확인 화면은 아직 없다. 누르면 준비 중이라고만 알린다.
-            if (organize.notice?.kind === "SIMILAR") {
-              showToast({ message: "비슷한 사진 확인 화면은 곧 열려요.", showClose: false });
-              return;
-            }
             organize.reloadResult();
-            setIsPersonReviewOpen(true);
+            setReviewKind(organize.notice?.kind ?? "PERSON");
           }}
         />
       )}
 
-      {isPersonReviewOpen && organize.review && (
+      {reviewKind === "PERSON" && organize.review && (
         <PersonReviewScreen
           source={organize.review}
           myName={myName}
           memberNames={reviewMemberNames}
           folderNames={room.folders.map((folder) => folder.name)}
-          onClose={() => setIsPersonReviewOpen(false)}
+          onClose={() => setReviewKind(null)}
           onRetry={organize.reloadResult}
           isSubmitting={organize.isApplying}
           submitError={organize.applyError}
@@ -563,7 +561,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           onSubmit={async (groups) => {
             const applied = await organize.apply(groups);
             if (!applied) return;
-            setIsPersonReviewOpen(false);
+            setReviewKind(null);
             search.closeSearch();
             clearSelection();
             await Promise.all([refreshRoom(), refreshPhotos()]);
@@ -574,6 +572,16 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
               showClose: false,
             });
           }}
+        />
+      )}
+
+      {/* 비슷한 사진 모음을 폴더로 반영하는 건 #728 에서 붙인다. 지금은 검토 화면만 연다. */}
+      {reviewKind === "SIMILAR" && organize.review && (
+        <SimilarReviewScreen
+          source={organize.review}
+          folderNames={room.folders.map((folder) => folder.name)}
+          onClose={() => setReviewKind(null)}
+          onRetry={organize.reloadResult}
         />
       )}
 
