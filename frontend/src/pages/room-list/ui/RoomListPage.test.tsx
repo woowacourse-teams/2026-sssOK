@@ -11,13 +11,27 @@ import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 
 const renderRoomList = () => {
+  server.use(
+    http.post(`${API_BASE_URL}/auth/refresh`, () =>
+      HttpResponse.json({
+        data: {
+          accessToken: "mock-token-10234",
+          userId: 10234,
+          nickname: "회원",
+          memberStatus: "REGISTERED",
+          expiresAt: "2099-01-01T00:00:00Z",
+          refreshExpiresAt: "2099-02-01T00:00:00Z",
+        },
+      }),
+    ),
+  );
   const router = createMemoryRouter(routes, { initialEntries: [ROUTES.rooms] });
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
 
   queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, {
-    accessToken: "member-token",
+    accessToken: "mock-token-10234",
     userId: 10234,
     nickname: "회원",
     memberStatus: "REGISTERED",
