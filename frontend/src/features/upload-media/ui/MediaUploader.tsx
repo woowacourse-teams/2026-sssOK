@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import { uploadErrorNoticeOf } from "../lib/uploadErrorNotice";
 import type { MediaSelection, RejectedSelection } from "../model/selectMediaFiles";
 import { trackUploadSelectionRejected } from "../model/trackUpload";
@@ -66,10 +66,7 @@ export const MediaUploader = ({
   hideButton = false,
 }: MediaUploaderProps) => {
   const [rejected, setRejected] = useState<RejectedSelection[]>([]);
-  /** 배치 전체가 못 올라간 이유. 진행 바가 사라진 자리에 이게 대신 뜬다 (#148). */
-  const [notice, setNotice] = useState<string | null>(null);
-  /** 실패 없이 끝난 판에서 올라간 장수. 진행 바가 말없이 사라지면 끝났는지 알 수 없다. */
-  const [doneCount, setDoneCount] = useState<number | null>(null);
+  const { showToast } = useToast();
   const failure = useUploadFailure();
   /*
    * 발급이 거절한 파일(`onRejected`)은 아직 잇지 않았다 — "고른 장수" 를 서버 응답으로
@@ -94,7 +91,11 @@ export const MediaUploader = ({
 
       // 실패가 섞이면 실패 모달이 설명하므로 겹쳐 띄우지 않는다. 밀려난 판도 알리지 않는다.
       if (!superseded && result.failed.length === 0 && uploadedCount > 0) {
-        setDoneCount(uploadedCount);
+        showToast({
+          message: `${uploadedCount}장을 올렸어요.`,
+          duration: DONE_TOAST_MS,
+          showClose: false,
+        });
       }
     },
     /*
@@ -107,32 +108,15 @@ export const MediaUploader = ({
     onError: (error) => {
       const { message, leavesRoom } = uploadErrorNoticeOf(error);
 
-      // 곧 화면이 바뀐다. 토스트를 띄워봐야 이동하면서 같이 사라진다.
+      // 입장 불가 상태는 기존 방 이탈 흐름에서 처리한다.
       if (leavesRoom) {
         onLeaveRoom?.();
         return;
       }
 
-      setNotice(message);
+      showToast({ message, tone: "error", duration: NOTICE_DURATION_MS });
     },
   });
-
-  // 손대지 않아도 사라진다. 알림 하나 때문에 닫기를 누르게 만들지 않는다.
-  useEffect(() => {
-    if (notice === null) return;
-
-    const timer = window.setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
-  useEffect(() => {
-    if (doneCount === null) return;
-
-    const timer = window.setTimeout(() => setDoneCount(null), DONE_TOAST_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [doneCount]);
 
   /**
    * 올릴 수 없는 사람의 파일은 한 장도 내보내지 않는다.
@@ -144,9 +128,6 @@ export const MediaUploader = ({
   const start = (files: File[]) => {
     if (!canUpload) return;
 
-    // 지난 판의 이유를 지운다. 새로 올리는 중에 옛 실패가 떠 있으면 이 판의 말로 읽힌다.
-    setNotice(null);
-    setDoneCount(null);
     upload.start(files);
   };
 
@@ -200,14 +181,6 @@ export const MediaUploader = ({
       )}
       {rejected.length > 0 && (
         <RejectedFilesModal rejected={rejected} onClose={() => setRejected([])} />
-      )}
-      {notice !== null && <Toast tone="error" message={notice} onClose={() => setNotice(null)} />}
-      {doneCount !== null && (
-        <Toast
-          message={`${doneCount}장을 올렸어요.`}
-          showClose={false}
-          onClose={() => setDoneCount(null)}
-        />
       )}
       {failure.isOpen && (
         <UploadFailureModal

@@ -9,7 +9,7 @@ import {
 import { useNavigate } from "react-router-dom";
 
 import { useMemberSessionQuery } from "@/entities/member-session";
-import type { ToastProps } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import { ROUTES } from "@/shared/config";
 import type { MyRoom } from "@/entities/room";
 import { LeaveRoomModal } from "@/features/leave-room";
@@ -26,7 +26,6 @@ interface RoomCardMenuProps {
   room: MyRoom;
   isMenuOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onNotify: (notice: Pick<ToastProps, "message" | "tone">) => void;
 }
 
 const RoomDropdown = ({
@@ -94,8 +93,9 @@ const RoomLeaveConfirmation = (
   return <LeaveRoomModal {...props} accessToken={session?.accessToken} />;
 };
 
-export const RoomCardMenu = ({ room, isMenuOpen, onOpenChange, onNotify }: RoomCardMenuProps) => {
+export const RoomCardMenu = ({ room, isMenuOpen, onOpenChange }: RoomCardMenuProps) => {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const closeMenu = () => onOpenChange(false);
 
   const copyInviteLink = async () => {
@@ -103,9 +103,13 @@ export const RoomCardMenu = ({ room, isMenuOpen, onOpenChange, onNotify }: RoomC
     try {
       const url = new URL(ROUTES.roomInvite(room.code), window.location.origin);
       await navigator.clipboard.writeText(url.href);
-      onNotify({ message: "초대 링크를 복사했어요.", tone: "success" });
+      showToast({ message: "초대 링크를 복사했어요.", tone: "success", showClose: false });
     } catch {
-      onNotify({ message: "링크를 복사하지 못했어요. 잠시 후 다시 시도해 주세요.", tone: "error" });
+      showToast({
+        message: "링크를 복사하지 못했어요. 잠시 후 다시 시도해 주세요.",
+        tone: "error",
+        showClose: false,
+      });
     }
   };
 

@@ -15,7 +15,6 @@ export interface ToastProps {
    * 눌러야 하는 줄 알고 손이 간다. 그때는 부르는 쪽이 정한 시간 뒤에 `onClose` 로 닫는다.
    */
   showClose?: boolean;
-  bottom?: string;
 }
 
 /** 공통 토스트 틀과 표시 위치. 자동 닫힘 시점은 사용하는 쪽에서 관리한다. */

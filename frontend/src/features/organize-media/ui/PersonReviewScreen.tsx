@@ -4,7 +4,7 @@ import { Button } from "@/shared/ui/button";
 import { Modal } from "@/shared/ui/modal";
 import { Spinner } from "@/shared/ui/spinner";
 import { Stack } from "@/shared/ui/stack";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import arrowLeft from "../assets/arrow-left.svg";
 import type { OrganizeApplyGroup, OrganizeResult } from "../api/types";
 import {
@@ -40,7 +40,6 @@ import {
 } from "./PersonReview.styles";
 
 /** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 합친 결과 토스트를 띄운다 (AI-3c). */
-const TOAST_BOTTOM = "calc(112px + env(safe-area-inset-bottom, 0px))";
 const TOAST_MS = 2500;
 
 export type PersonReviewSource =
@@ -138,13 +137,12 @@ const Review = ({
   const [openedId, setOpenedId] = useState<string | null>(null);
   const [pendingMerge, setPendingMerge] = useState<PendingMerge | null>(null);
   const [typedNames, setTypedNames] = useState<string[]>([]);
-  const [mergedNotice, setMergedNotice] = useState<{ key: number; message: string } | null>(null);
-
+  const { showToast } = useToast();
   useEffect(() => {
-    if (!mergedNotice) return;
-    const timer = window.setTimeout(() => setMergedNotice(null), TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [mergedNotice]);
+    if (!submitError) return;
+    showToast({ message: submitError, tone: "error" });
+    onDismissError?.();
+  }, [submitError, onDismissError, showToast]);
 
   const chips: NameChip[] = [
     { value: myName, label: "나" },
@@ -179,10 +177,11 @@ const Review = ({
     setReview(next);
     setPendingMerge(null);
     if (owner) {
-      setMergedNotice((current) => ({
-        key: (current?.key ?? 0) + 1,
+      showToast({
         message: `${name} 님 사진을 합쳤어요 (${includedPhotos(owner).length}장)`,
-      }));
+        duration: TOAST_MS,
+        showClose: false,
+      });
     }
   };
 
@@ -229,25 +228,6 @@ const Review = ({
           {isSubmitting ? "폴더를 만드는 중" : footer.submit}
         </Submit>
       </Footer>
-
-      {mergedNotice && (
-        <Toast
-          key={mergedNotice.key}
-          message={mergedNotice.message}
-          showClose={false}
-          bottom={TOAST_BOTTOM}
-          onClose={() => setMergedNotice(null)}
-        />
-      )}
-
-      {submitError && (
-        <Toast
-          tone="error"
-          message={submitError}
-          bottom={TOAST_BOTTOM}
-          onClose={() => onDismissError?.()}
-        />
-      )}
 
       {pendingMerge && (
         <Modal onClose={() => setPendingMerge(null)} showClose={false}>

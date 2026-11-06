@@ -15,7 +15,7 @@ import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { Button } from "@/shared/ui/button";
 import { Spinner } from "@/shared/ui/spinner";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import {
   ActionButton,
   BackButton,
@@ -84,7 +84,7 @@ const MediaDetailContent = ({
   mediaId: number;
 }) => {
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportDone, setReportDone] = useState(false);
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { selectedPhotoIds, togglePhoto, removePhotos } = usePhotoSelection([mediaId]);
@@ -97,6 +97,13 @@ const MediaDetailContent = ({
   const onBack = () => navigate(ROUTES.gallery(room.code), { replace: true });
 
   const deleteMutation = useMutation({
+    onError: (error) =>
+      showToast({
+        tone: "error",
+        message: isApiError(error)
+          ? error.message
+          : "사진을 삭제하지 못했어요. 다시 시도해 주세요.",
+      }),
     mutationFn: () => deleteMedia({ roomId: room.roomId, mediaId, token: session.accessToken }),
     onSuccess: async () => {
       const listKey = photosQueryKey(room.roomId, session.userId);
@@ -198,20 +205,8 @@ const MediaDetailContent = ({
           onClose={() => setReportOpen(false)}
           onSubmit={() => {
             setReportOpen(false);
-            setReportDone(true);
+            showToast({ message: "신고가 완료됐어요." });
           }}
-        />
-      )}
-      {reportDone && <Toast message="신고가 완료됐어요." onClose={() => setReportDone(false)} />}
-      {deleteMutation.isError && (
-        <Toast
-          tone="error"
-          message={
-            isApiError(deleteMutation.error)
-              ? deleteMutation.error.message
-              : "사진을 삭제하지 못했어요. 다시 시도해 주세요."
-          }
-          onClose={() => deleteMutation.reset()}
         />
       )}
     </Page>

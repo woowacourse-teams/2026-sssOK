@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 
 import { saveRoomSession } from "@/entities/session";

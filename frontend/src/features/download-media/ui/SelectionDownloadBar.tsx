@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   LuCheck,
   LuDownload,
@@ -12,7 +12,7 @@ import {
 import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
 import { trackDownload, trackDownloadStarted, trackShareBatch } from "../model/trackDownload";
@@ -172,18 +172,7 @@ export const SelectionDownloadBar = ({
     });
   };
   const [isDiscardOpen, setDiscardOpen] = useState(false);
-  /** 저장을 모두 마친 판. 차 있는 동안 완료 토스트를 띄운다. */
-  const [doneToast, setDoneToast] = useState<{ mode: DownloadMode; count: number } | null>(null);
-
-  useEffect(() => {
-    if (doneToast === null) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => setDoneToast(null), DONE_TOAST_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [doneToast]);
+  const { showToast } = useToast();
 
   const { progress, pendingShare, isSharing, start, share, dismissShare, cancel } =
     useMediaDownload({
@@ -198,7 +187,11 @@ export const SelectionDownloadBar = ({
         // 못 받은 것이 섞인 판은 실패 모달이 설명하므로 토스트를 겹쳐 띄우지 않는다.
         // 사진첩 묶음 사이에는 바가 남은 장수를 말하고, 토스트는 다 끝났을 때 한 번만 뜬다.
         if (outcome.type === "saved" && outcome.failed.length === 0) {
-          setDoneToast({ mode: trackedRunRef.current.mode, count: outcome.savedCount });
+          showToast({
+            message: doneMessageOf(trackedRunRef.current.mode, outcome.savedCount),
+            duration: DONE_TOAST_MS,
+            showClose: false,
+          });
           onClearSelection();
         }
 
@@ -369,14 +362,6 @@ export const SelectionDownloadBar = ({
             dismissShare();
           }}
           onClose={() => setDiscardOpen(false)}
-        />
-      )}
-
-      {doneToast !== null && (
-        <Toast
-          message={doneMessageOf(doneToast.mode, doneToast.count)}
-          showClose={false}
-          onClose={() => setDoneToast(null)}
         />
       )}
     </>

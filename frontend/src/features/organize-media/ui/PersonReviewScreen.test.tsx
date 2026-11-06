@@ -1,4 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 
 import type { MediaItem } from "@/entities/media";
