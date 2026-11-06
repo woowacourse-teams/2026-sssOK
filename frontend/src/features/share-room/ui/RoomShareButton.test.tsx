@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
+import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 
 import { saveRoomSession } from "@/entities/session";
@@ -125,4 +126,23 @@ describe("RoomShareButton 공유 이벤트", () => {
     expect(await screen.findByText(/이어하기 링크를 만들지 못했어요/)).toBeInTheDocument();
     expect(track).toHaveBeenCalledWith("Device Link Copied", { is_success: false });
   });
+});
+
+it("복사를 재시도하는 동안 이전 실패 안내를 닫는다", async () => {
+  const user = userEvent.setup();
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  jest
+    .spyOn(navigator.clipboard, "writeText")
+    .mockRejectedValueOnce(new Error("denied"))
+    .mockImplementationOnce(() => pending);
+  await openMenu(user);
+  await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+  expect(await screen.findByText(/링크를 복사하지 못했어요/)).toBeInTheDocument();
+  await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+  expect(screen.queryByText(/링크를 복사하지 못했어요/)).not.toBeInTheDocument();
+  finish();
+  expect(await screen.findByText("공유 링크를 복사했어요.")).toBeInTheDocument();
 });
