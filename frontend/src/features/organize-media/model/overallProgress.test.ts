@@ -1,4 +1,4 @@
-import { overallPercentOf, PERSON_STAGES } from "./overallProgress";
+import { overallPercentOf, PERSON_STAGES, SIMILAR_STAGES } from "./overallProgress";
 
 const at = (stage: string, processed: number | null = null, total: number | null = null) => ({
   stage,
@@ -34,5 +34,25 @@ describe("overallPercentOf", () => {
   it("끝나기 전에는 100% 를 보이지 않는다", () => {
     const last = PERSON_STAGES[PERSON_STAGES.length - 1];
     expect(overallPercentOf(at(last, 10, 10), null)).toBe(99);
+  });
+
+  describe("비슷한 사진", () => {
+    it("비슷한 사진 단계 순서로 전체 진행률을 만든다", () => {
+      // 5단계 중 3번째(extracting_scene_features)의 절반 → (2 + 0.5) / 5
+      expect(overallPercentOf(at("extracting_scene_features", 5, 10), null, "SIMILAR")).toBe(50);
+    });
+
+    it("사람별 단계 이름은 비슷한 사진 작업에서 모르는 단계다", () => {
+      expect(overallPercentOf(at("detecting_faces", 5, 10), 20, "SIMILAR")).toBe(20);
+    });
+
+    it("종류를 모르면 단계 이름으로 비슷한 사진 작업인지 알아낸다", () => {
+      expect(overallPercentOf(at("matching_similar_photos"), null, null)).toBe(80);
+    });
+
+    it("끝나기 전에는 100% 를 보이지 않는다", () => {
+      const last = SIMILAR_STAGES[SIMILAR_STAGES.length - 1];
+      expect(overallPercentOf(at(last, 10, 10), null, "SIMILAR")).toBe(99);
+    });
   });
 });
