@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import { render } from "../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 import { http, HttpResponse } from "msw";
@@ -308,9 +309,9 @@ describe("라우트", () => {
    * 맞지 않는 경우다. 손상된 세션을 그대로 두면 다음 요청도 같은 토큰으로 나가 401 만
    * 되풀이하고, 갤러리는 에러 문구만 띄운 채 돌아갈 길을 내주지 않는다.
    *
-   * 이름만 다시 받으면 이어갈 수 있으니, 세션을 지우고 그 방 입장 화면까지 데려다준다.
+   * 재발급도 실패하면 세션을 지우고 브라우저 홈으로 이동한다.
    */
-  it("방 조회가 401 이면 그 방 세션을 지우고 입장 화면으로 되돌린다", async () => {
+  it("방 조회가 401 이면 그 방 세션을 지우고 홈으로 이동한다", async () => {
     server.use(
       http.get(`${API_BASE_URL}/rooms/${ROOM_CODE}`, ({ request }) =>
         request.headers.get("Authorization") === null ? undefined : unauthorized(),
@@ -318,26 +319,22 @@ describe("라우트", () => {
     );
     const router = renderAtGallery();
 
-    expect(
-      await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
-    ).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(ROUTES.home);
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
 
   /**
    * 방은 멀쩡히 조회되고 사진 목록만 401 인 경우다. 화면에는 "사진을 불러오지 못했어요" 로
-   * 다른 실패와 똑같이 보이지만, 여기서 사용자가 할 수 있는 일은 다시 입장하는 것뿐이다.
+   * 다른 실패와 똑같이 보이지만, 재발급 실패는 공통 복구 정책에 따라 홈으로 이동한다.
    */
-  it("사진 목록이 401 이어도 실패 문구 대신 입장 화면으로 되돌린다", async () => {
+  it("사진 목록이 401 이어도 실패 문구 대신 홈으로 이동한다", async () => {
     server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, unauthorized));
     const router = renderAtGallery();
 
-    expect(
-      await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
     expect(screen.queryByText("사진을 불러오지 못했어요.")).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(ROUTES.roomEntry(ROOM_CODE));
+    expect(router.state.location.pathname).toBe(ROUTES.home);
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
 
@@ -356,9 +353,7 @@ describe("라우트", () => {
     );
     renderAtGallery();
 
-    expect(
-      await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
     expect(getRoomSession(OTHER_ROOM_CODE)).not.toBeNull();
   });
 

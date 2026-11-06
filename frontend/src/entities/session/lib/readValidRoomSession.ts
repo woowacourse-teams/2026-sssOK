@@ -15,7 +15,9 @@ export const readValidRoomSession = (
 
   if (session === null) return null;
 
-  if (isExpired(session.expiresAt, now)) {
+  // Access가 만료돼도 refresh 세션이 남아 있으면 API의 401 복구에 맡긴다.
+  const expiresAt = session.refreshExpiresAt ?? session.expiresAt;
+  if (isExpired(expiresAt, now)) {
     removeRoomSession(roomCode);
     return null;
   }
