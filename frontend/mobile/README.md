@@ -100,3 +100,26 @@ WebView에 주입한 fetch 래퍼는 `/api/v1/auth/**` 성공 응답 이후 `aut
 저장 브릿지가 활성화되지 않는다. 기존 로그인 → 앱 완전 종료 → 재실행 → `/rooms` 유지와,
 로그아웃 → 완전 종료 → 재실행 → 로그인 화면을 실제 기기에서 확인한다.
 쿠키가 거절되거나 서버에서 refresh token이 무효화된 경우는 이 처리로 해결되지 않는다.
+
+## 네이티브 소셜 로그인
+
+카카오는 Android·iOS SDK, 애플은 iOS의 `expo-apple-authentication`을 사용한다. Android 애플 로그인과 브릿지를 지원하지 않는 이전 앱은 기존 웹 OAuth를 유지한다.
+
+- 카카오: SDK access token → 웹뷰 → `/auth/oauth/kakao/native/login`.
+- 애플: 웹뷰의 `/auth/oauth/apple/native/start` → nonce를 그대로 SDK에 전달 → authorizationCode를 웹뷰에 전달 → `/auth/oauth/apple/native/login`. state·loginVerifier는 웹뷰 메모리에만 두고, 취소·실패 시 다음 클릭에서 준비부터 다시 시작한다.
+- 로그인 완료 API는 웹뷰가 `credentials: include`, `X-CSRF-Protection: 1`, `refreshTokenDelivery: COOKIE`로 호출한다. 서비스 access token은 기존 Query 캐시, refresh token은 HttpOnly 쿠키를 사용한다. Android 쿠키 영속 저장 브릿지도 그대로 적용된다. 네이티브 앱에는 서비스 토큰을 보관하지 않는다.
+- 익명 활동은 통합하지 않는다. SDK 인증값은 앱 로그·웹 저장소에 기록하지 않는다.
+
+### 실기기 확인 순서
+
+1. Firebase 설정 파일을 준비하고 `npx eas-cli@latest build --profile development --platform android` 또는 `--platform ios`로 새 개발 빌드를 만든다. 기존 APK에는 새 SDK가 없으므로 Metro 새로고침만으로 SDK를 추가할 수 없다.
+2. Android는 해당 빌드에 서명한 인증서의 키 해시를 카카오 앱 `1622567`에 등록한다. EAS의 Android 서명 인증서는 `npx eas-cli@latest credentials --platform android`에서 확인·다운로드할 수 있다. 다운로드한 keystore에서 아래 명령을 실행하면 비밀번호 입력 후 해시를 얻는다. keystore와 비밀번호는 저장소에 넣지 않는다.
+
+   ```sh
+   keytool -exportcert -alias YOUR_KEY_ALIAS -keystore /path/to/keystore.jks | openssl sha1 -binary | openssl base64
+   ```
+
+   Google Play 배포 앱은 Play 앱 서명 인증서의 해시도 별도로 등록한다. 같은 인증서를 사용하면 재빌드해도 해시는 바뀌지 않는다.
+
+3. 개발 앱 설치 후 `npx expo start --dev-client`를 실행한다. `EXPO_PUBLIC_WEB_URL`에는 이 브랜치의 웹 코드가 실행되는 주소를 넣는다. 로컬 웹 테스트 시 dev API의 CORS·쿠키 허용 출처도 맞아야 한다.
+4. 카카오톡 설치·미설치 로그인, 사용자 취소 후 재시도, iOS 애플 로그인, 로그인 후 앱 종료·재실행과 로그아웃을 확인한다. 일반 브라우저의 기존 웹 로그인도 함께 확인한다.
