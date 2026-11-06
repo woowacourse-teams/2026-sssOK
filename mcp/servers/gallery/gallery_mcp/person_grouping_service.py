@@ -12,6 +12,7 @@ import sys
 from .config import Settings
 from .inputs import Photo, fingerprint, validate
 from .execution_store import Store
+from .progress import progress_path, read_progress, snapshot
 from .rejection import RetryableRejection
 
 
@@ -72,14 +73,11 @@ class PersonGroupingService:
 
     def view(self, row):
         progress = {}
-        path = self.settings.data / 'runs' / row['id'] / 'analysis/job.json'
-        if row['state'] == 'RUNNING' and path.is_file():
-            try:
-                internal = json.loads(path.read_text())
-                progress = {'stage':internal['stage'],'counts':internal.get('progress',{}),
-                            'elapsedSeconds':internal.get('elapsed_seconds',0)}
-            except (OSError,KeyError,json.JSONDecodeError):
-                pass
+        if row['state'] == 'RUNNING':
+            # Until the worker records its first value, the execution has just been claimed:
+            # report the first real step so Spring never shows a RUNNING job without a stage.
+            progress = read_progress(progress_path(self.settings.data, row['id'])) or snapshot(
+                'downloading_photos', 0, len(json.loads(row['photos'])))
         return {'jobType':row['kind'], 'jobId':row['business_job_id'],'executionId':row['id'],'attempt':row['attempt'],'roomId':row['room_id'],'state':row['state'],
                 'progress':progress,'result':json.loads(row['result']) if row['result'] else None,
                 'errorCode':row['error_code'],'createdAt':row['created_at'],'updatedAt':row['updated_at']}

@@ -17,6 +17,8 @@ services:
       GALLERY_THREADS: "2"
       GALLERY_MAX_PHOTOS: "200"
       GALLERY_JOB_TIMEOUT: "600"
+      GALLERY_PROGRESS_INTERVAL_SECONDS: ${GALLERY_PROGRESS_INTERVAL_SECONDS:-2}
+      GALLERY_HEARTBEAT_INTERVAL_SECONDS: ${GALLERY_HEARTBEAT_INTERVAL_SECONDS:-15}
     volumes:
       - gallery-data:/data
       - ${GALLERY_MODELS_DIR:?Set the prepared model directory}:/models:ro
