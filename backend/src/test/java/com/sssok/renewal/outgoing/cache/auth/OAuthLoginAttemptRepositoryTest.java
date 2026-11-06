@@ -2,6 +2,7 @@ package com.sssok.renewal.outgoing.cache.auth;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.sssok.renewal.domain.auth.OAuthClientType;
 import com.sssok.renewal.domain.auth.OAuthLoginAttempt;
 import com.sssok.renewal.domain.member.SocialProvider;
 import java.time.Duration;
@@ -124,6 +125,6 @@ class OAuthLoginAttemptRepositoryTest {
 
     private OAuthLoginAttempt attempt(int number) {
         return new OAuthLoginAttempt("%064x".formatted(number), "a".repeat(64), SocialProvider.KAKAO,
-            "https://example.com/callback", null, List.of(), NOW, NOW.plusSeconds(300));
+            "https://example.com/callback", null, List.of(), NOW, NOW.plusSeconds(300), OAuthClientType.WEB);
     }
 }

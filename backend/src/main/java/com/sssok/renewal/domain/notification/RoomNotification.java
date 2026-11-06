@@ -12,11 +12,9 @@ public record RoomNotification(
 ) {
     private static final String DEFAULT_NAME = "참여자";
 
-    public static RoomNotification mediaUploaded(Long roomId, String roomCode, String roomName,
-                                                 String uploaderName, int count) {
-        String body = count == 1
-            ? "%s님이 사진을 올렸어요".formatted(nameOrDefault(uploaderName))
-            : "%s님이 사진 %d장을 올렸어요".formatted(nameOrDefault(uploaderName), count);
+    // 알림을 보는 시점에는 썸네일이 끝난 사진만 보이므로, 다 올렸다고 하지 않고 시작했다고 알린다.
+    public static RoomNotification mediaUploaded(Long roomId, String roomCode, String roomName, String uploaderName) {
+        String body = "%s님이 사진을 올리기 시작했어요!".formatted(nameOrDefault(uploaderName));
         return new RoomNotification(RoomNotificationType.MEDIA_UPLOADED, roomId, roomCode, roomName, body,
             galleryUrl(roomCode));
     }
