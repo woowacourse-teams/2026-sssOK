@@ -15,7 +15,6 @@ export interface ToastProps {
    * 눌러야 하는 줄 알고 손이 간다. 그때는 부르는 쪽이 정한 시간 뒤에 `onClose` 로 닫는다.
    */
   showClose?: boolean;
-  /** 화면 아래에서 띄울 거리(CSS 값). 기본은 화면 아래 36px 이다. */
   bottom?: string;
 }
 
@@ -26,10 +25,9 @@ export const Toast = ({
   onClose,
   showClose = true,
   container,
-  bottom,
 }: ToastProps) => {
   return createPortal(
-    <Dock $bottom={bottom}>
+    <Dock>
       <Frame>
         <StatusIcon $tone={tone} aria-hidden="true">
           {tone === "error" ? <HiExclamationCircle /> : <HiCheckCircle />}
