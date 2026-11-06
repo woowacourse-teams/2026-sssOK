@@ -196,13 +196,36 @@ running_sha() {
   docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$1" | sed -n 's/^APP_GIT_SHA=//p'
 }
 
+# 칸 컨테이너의 네트워크 주소(한 줄에 하나). nginx 가 실제로 응답받은 앱 주소와 비교한다.
+app_addrs_of() {
+  docker inspect -f '{{range .NetworkSettings.Networks}}{{println .IPAddress}}{{end}}' "$(container_of "$1")" 2>/dev/null |
+    grep -v '^$' || true
+}
+
+# nginx 컨테이너 안에서 nginx(:80) 를 거쳐 /health 를 부르고, 성공하면 응답한 앱 주소(X-Sssok-Upstream)를 출력한다.
+upstream_via_nginx() {
+  local out
+  out="$(nginx_exec wget -S -q -T 3 -O /dev/null http://127.0.0.1/health 2>&1)" || return 1
+  printf '%s\n' "$out" | tr -d '\r' | sed -n 's/^ *[Xx]-[Ss]ssok-[Uu]pstream: *//p' | head -n 1
+}
+
+# 전환 직후에는 이전 칸도 /health 에 정상 응답하므로 성공만으로는 전환을 확인할 수 없다. nginx 를 거친 요청에
+# 기대한 칸이 응답하고, 호스트 포트(ALB 가 쓰는 경로)로도 성공하는 것이 3회 연속이어야 통과한다.
 verify_via_nginx() {
-  local i ok=0
+  local color="$1" expected actual i ok=0
+  expected="$(app_addrs_of "$color" | sed 's/$/:8080/')"
+  if [ -z "$expected" ]; then
+    log "$(container_of "$color") 의 주소를 찾지 못했다"
+    return 1
+  fi
   for i in $(seq 1 20); do
-    if curl -fsS --max-time 3 "$NGINX_URL/health" > /dev/null 2>&1; then
+    actual="$(upstream_via_nginx || true)"
+    if [ -n "$actual" ] && printf '%s\n' "$expected" | grep -qxF "$actual" &&
+      curl -fsS --max-time 3 "$NGINX_URL/health" > /dev/null 2>&1; then
       ok=$((ok + 1))
       [ "$ok" -ge 3 ] && return 0
     else
+      [ -n "$actual" ] && log "nginx 경유 응답 칸 ${actual} (기대: $(container_of "$color"))"
       ok=0
     fi
     sleep 1
@@ -221,10 +244,21 @@ switch_to() {
   log "트래픽 전환: $(host_of "$color")"
 }
 
+# 트래픽을 직전 칸으로 되돌리고, nginx 를 거친 요청에 그 칸이 응답하는 것까지 확인해야 성공이다.
+# nginx 가 되돌린 설정을 읽지 못하면 계속 새 칸으로 보내고 있으므로, upstream.conf 도 새 칸으로 다시 맞춰
+# 다음 실행이 실제 상태를 보게 한다.
 switch_back() {
+  local previous="$1"
   [ -f nginx/upstream.conf.prev ] || return 1
+  cp nginx/upstream.conf nginx/upstream.conf.failed
   mv nginx/upstream.conf.prev nginx/upstream.conf
-  reload_nginx
+  if ! reload_nginx; then
+    mv nginx/upstream.conf.failed nginx/upstream.conf
+    log "nginx 가 되돌린 설정을 읽지 못했다. upstream.conf 는 nginx 가 실제로 쓰는 칸으로 둔다"
+    return 1
+  fi
+  rm -f nginx/upstream.conf.failed
+  verify_via_nginx "$previous"
 }
 
 retire() {
@@ -326,10 +360,13 @@ deploy() {
     discard "$target"
     fail "nginx 전환 실패. 트래픽은 $active 에 그대로 있다"
   fi
-  if ! verify_via_nginx; then
-    switch_back || true
-    discard "$target"
-    fail "전환 후 nginx 경유 헬스체크 실패. 트래픽을 $active 로 되돌렸다"
+  if ! verify_via_nginx "$target"; then
+    # 직전 칸이 다시 응답하는 것이 확인될 때만 새 칸을 지운다. 아니면 nginx 가 아직 새 칸으로 보내고 있을 수 있다.
+    if switch_back "$active"; then
+      discard "$target"
+      fail "전환 후 nginx 경유 확인 실패. 트래픽을 $active 로 되돌렸다"
+    fi
+    fail "전환 후 nginx 경유 확인 실패, $active 로 복구도 실패했다. 두 칸 모두 남겨 둔다 (bash deploy/blue-green.sh status 로 확인)"
   fi
 
   # 기존 활성 칸과, 중간에 끊긴 이전 배포가 남긴 칸까지 대상 칸 말고는 모두 끈다.
@@ -362,9 +399,10 @@ rollback() {
   docker start "$(container_of "$previous")" > /dev/null
   wait_ready "$previous" || fail "$(container_of "$previous") 이 준비되지 않았다. 트래픽은 $active 에 그대로 있다"
   switch_to "$previous" || fail "nginx 전환 실패. 트래픽은 $active 에 그대로 있다"
-  if ! verify_via_nginx; then
-    switch_back || true
-    fail "전환 후 nginx 경유 헬스체크 실패. 트래픽을 $active 로 되돌렸다"
+  if ! verify_via_nginx "$previous"; then
+    switch_back "$active" ||
+      fail "전환 후 nginx 경유 확인 실패, $active 로 복구도 실패했다. 두 칸 모두 남겨 둔다 (bash deploy/blue-green.sh status 로 확인)"
+    fail "전환 후 nginx 경유 확인 실패. 트래픽을 $active 로 되돌렸다"
   fi
   retire "$active"
   echo "$previous" > active-color

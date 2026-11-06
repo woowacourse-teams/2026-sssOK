@@ -376,7 +376,7 @@ sequenceDiagram
     CI->>New: 새 이미지로 기동
     CI->>New: readiness(DB 포함) 확인 · 커밋(APP_GIT_SHA) 확인
     CI->>N: upstream.conf 를 green 으로 바꾸고 nginx -t → reload
-    CI->>N: nginx 경유 /health 3회 연속 성공 확인
+    CI->>N: nginx 경유 /health 에 green 이 3회 연속 응답하는지 확인
     CI->>Old: 종료 (하던 요청·비동기 작업을 마친 뒤, 최대 50s)
     Note over Old: 지우지 않고 남겨 다음 롤백 대상이 된다
 ```
@@ -386,12 +386,17 @@ sequenceDiagram
 | 메모리 부족 | 아무것도 바꾸지 않고 잡 실패. 트래픽은 기존 칸 |
 | 새 칸 기동·readiness 실패, 재시작 반복, 커밋 불일치 | 새 칸 컨테이너를 지우고 잡 실패. 트래픽은 기존 칸 |
 | nginx 설정 검사 실패 | upstream.conf 를 되돌리고 잡 실패. 트래픽은 기존 칸 |
-| 전환 후 nginx 경유 헬스체크 실패 | upstream.conf 를 되돌려 reload 하고 잡 실패. 트래픽은 기존 칸 |
+| 전환 후 nginx 경유 확인 실패 (응답 실패 또는 기존 칸이 응답) | upstream.conf 를 되돌려 reload 하고, 기존 칸이 다시 응답하는 것을 확인한 뒤 새 칸을 지우고 잡 실패 |
+| 위 되돌리기마저 실패 | 두 칸을 모두 남기고 "복구 실패"로 잡 실패. `status` 로 확인 후 수동 조치. nginx 가 되돌린 설정을 못 읽었으면 upstream.conf 는 새 칸 그대로 둔다 |
 | 잡이 중간에 끊김 | 다시 실행하면 upstream.conf 와 실행 중인 컨테이너를 보고 한 칸으로 맞춘다 |
 | 활성 칸 컨테이너가 꺼져 있음(서버 재시작 등) | 다른 칸이 떠 있으면 그쪽으로 먼저 트래픽을 맞춘 뒤 배포한다 |
 
 nginx 의 upstream 은 `resolve` 로 컨테이너 이름을 주기적으로 다시 찾는다. 가리키는 칸이 꺼진 채로 nginx 가
 재시작돼도 nginx 는 뜨고(그동안 502), 칸이 다시 뜨면 reload 없이 복구된다.
+
+전환 직후엔 이전 칸도 `/health` 에 정상 응답하므로 성공 여부만으로는 전환을 알 수 없다. 그래서 nginx 컨테이너
+안(127.0.0.1)에서 보낸 요청에만 nginx 가 실제로 응답한 앱 주소를 `X-Sssok-Upstream` 헤더로 붙이고, 배포
+스크립트가 이 값을 대상 칸 컨테이너 주소와 비교한다. 외부(ALB) 요청에는 이 헤더가 붙지 않는다.
 
 ### 두 칸이 겹치는 동안 지켜야 할 것
 
