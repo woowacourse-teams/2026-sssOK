@@ -104,7 +104,9 @@ export const useMediaUpload = ({
       });
     } catch (error) {
       trackUploadError(files.length, analyticsRoom);
-      onError?.(error);
+      if (isCurrent()) {
+        onError?.(error);
+      }
     } finally {
       if (isCurrent()) {
         abortRef.current = null;

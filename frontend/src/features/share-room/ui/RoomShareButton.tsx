@@ -5,7 +5,7 @@ import { getRoomSession } from "@/entities/session";
 import { ROUTES } from "@/shared/config";
 import { track } from "@/shared/lib";
 import { IconButton } from "@/shared/ui/icon-button";
-import { Toast, type ToastProps } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import { issueLinkCode } from "../api/issueLinkCode";
 import { copyRoomInviteLink } from "../lib/copyRoomInviteLink";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
@@ -33,7 +33,8 @@ export const RoomShareButton = ({
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
   const [isCreatingDeviceLink, setIsCreatingDeviceLink] = useState(false);
-  const [notice, setNotice] = useState<Pick<ToastProps, "message" | "tone"> | null>(null);
+  const { showToast } = useToast();
+  const closeCopyToast = useRef<(() => void) | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copyRef = useRef<HTMLButtonElement>(null);
@@ -70,26 +71,19 @@ export const RoomShareButton = ({
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    if (!notice) return;
-
-    const timer = window.setTimeout(() => setNotice(null), 4000);
-    return () => window.clearTimeout(timer);
-  }, [notice]);
-
   const copyGalleryLink = async () => {
     if (isCopying) return;
 
+    closeCopyToast.current?.();
     setIsCopying(true);
-    setNotice(null);
     try {
       await copyRoomInviteLink(roomCode);
       track("Invite Link Copied", { is_success: true });
-      setNotice({ message: "공유 링크를 복사했어요.", tone: "success" });
+      closeCopyToast.current = showToast({ message: "공유 링크를 복사했어요.", tone: "success" });
       closeMenu();
     } catch {
       track("Invite Link Copied", { is_success: false });
-      setNotice({
+      closeCopyToast.current = showToast({
         message: "링크를 복사하지 못했어요. 브라우저 권한을 확인하거나 주소창에서 복사해 주세요.",
         tone: "error",
       });
@@ -101,14 +95,17 @@ export const RoomShareButton = ({
   const copyDeviceLink = async () => {
     if (isCreatingDeviceLink) return;
 
+    closeCopyToast.current?.();
     const accessToken = memberAccessToken ?? getRoomSession(roomCode)?.accessToken;
     if (!accessToken) {
-      setNotice({ message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.", tone: "error" });
+      closeCopyToast.current = showToast({
+        message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.",
+        tone: "error",
+      });
       return;
     }
 
     setIsCreatingDeviceLink(true);
-    setNotice(null);
     try {
       const deviceLink = issueLinkCode(accessToken).then(({ linkCode }) => {
         const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin);
@@ -117,11 +114,14 @@ export const RoomShareButton = ({
       });
       await copyPendingText(deviceLink);
       track("Device Link Copied", { is_success: true });
-      setNotice({ message: "다른 기기에서 이어할 링크를 복사했어요.", tone: "success" });
+      closeCopyToast.current = showToast({
+        message: "다른 기기에서 이어할 링크를 복사했어요.",
+        tone: "success",
+      });
       closeMenu();
     } catch {
       track("Device Link Copied", { is_success: false });
-      setNotice({
+      closeCopyToast.current = showToast({
         message: "이어하기 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
         tone: "error",
       });
@@ -210,7 +210,6 @@ export const RoomShareButton = ({
         )}
       </Anchor>
       {isQrModalOpen && <RoomQrModal roomCode={roomCode} onClose={() => setIsQrModalOpen(false)} />}
-      {notice && <Toast {...notice} onClose={() => setNotice(null)} />}
     </>
   );
 };
