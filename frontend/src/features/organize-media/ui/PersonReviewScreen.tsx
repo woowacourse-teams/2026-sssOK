@@ -39,9 +39,6 @@ import {
   Title,
 } from "./PersonReview.styles";
 
-/** 하단 영역(안내 29 + 버튼 56 + 여백 28) 바로 위에 합친 결과 토스트를 띄운다 (AI-3c). */
-const TOAST_MS = 2500;
-
 export type PersonReviewSource =
   { state: "loading" } | { state: "failed" } | { state: "ready"; result: OrganizeResult };
 
@@ -179,7 +176,6 @@ const Review = ({
     if (owner) {
       showToast({
         message: `${name} 님 사진을 합쳤어요 (${includedPhotos(owner).length}장)`,
-        duration: TOAST_MS,
         showClose: false,
       });
     }

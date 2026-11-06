@@ -38,9 +38,6 @@ interface MediaViewerModalProps {
   onDeleted: (mediaId: number) => void;
 }
 
-/** 한 장 저장을 마쳤다는 토스트가 떠 있는 시간. 여러 장 받기의 완료 토스트와 같다. */
-const DOWNLOAD_DONE_TOAST_MS = 2000;
-
 const formatDate = (value: string) => {
   const date = new Date(value);
 
@@ -376,7 +373,6 @@ const ViewerFooter = ({
       if (outcome.type === "saved") {
         showToast({
           message: toPhotoLibrary ? "사진첩에 저장했어요." : "사진을 저장했어요.",
-          duration: DOWNLOAD_DONE_TOAST_MS,
           showClose: false,
         });
       }
@@ -475,7 +471,6 @@ const ViewerFooter = ({
             setReportOpen(false);
             showToast({
               message: "신고가 완료됐어요.",
-              duration: DOWNLOAD_DONE_TOAST_MS,
               showClose: false,
             });
           }}

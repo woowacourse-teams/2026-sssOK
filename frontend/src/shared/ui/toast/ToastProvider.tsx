@@ -16,7 +16,7 @@ export interface ToastOptions extends Pick<ToastProps, "message" | "tone" | "sho
 }
 
 interface ToastContextValue {
-  showToast: (options: ToastOptions) => void;
+  showToast: (options: ToastOptions) => () => void;
   dismissToast: () => void;
 }
 
@@ -25,13 +25,18 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 export const ToastProvider = ({ children }: { children: ReactNode }) => {
   const [toast, setToast] = useState<ToastOptions | null>(null);
   const [container, setContainer] = useState<Element | null>(null);
-  const showToast = useCallback((options: ToastOptions) => setToast({ ...options }), []);
+  const showToast = useCallback((options: ToastOptions) => {
+    const nextToast = { ...options };
+    setToast(nextToast);
+    // 다른 알림으로 교체됐다면 그대로 두고, 이 호출로 띄운 알림만 닫는다.
+    return () => setToast((current) => (current === nextToast ? null : current));
+  }, []);
   const dismissToast = useCallback(() => setToast(null), []);
   const value = useMemo(() => ({ showToast, dismissToast }), [showToast, dismissToast]);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(dismissToast, toast.duration ?? 4000);
+    const timer = window.setTimeout(dismissToast, toast.duration ?? 2000);
     return () => window.clearTimeout(timer);
   }, [toast, dismissToast]);
 

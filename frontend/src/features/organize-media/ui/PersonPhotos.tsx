@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { HiCheck } from "react-icons/hi2";
 
 import { useToast } from "@/shared/ui/toast";
@@ -16,9 +17,6 @@ import {
   Submit,
 } from "./PersonReview.styles";
 
-/** 하단 여백(16) + '완료'(56) + 간격(10) 위에 토스트를 띄운다 (AI-4b). */
-const TOAST_MS = 2500;
-
 interface PersonPhotosProps {
   person: ReviewPerson;
   onToggle: (mediaId: number) => void;
@@ -31,6 +29,7 @@ interface PersonPhotosProps {
  */
 export const PersonPhotos = ({ person, onToggle, onDone }: PersonPhotosProps) => {
   const { showToast } = useToast();
+  const closeExcludedToast = useRef<(() => void) | null>(null);
 
   const count = includedPhotos(person).length;
   const title = person.name ? `${person.name} ${count}장` : `${count}장`;
@@ -60,11 +59,13 @@ export const PersonPhotos = ({ person, onToggle, onDone }: PersonPhotosProps) =>
                     onToggle(photo.mediaId);
                     const nextExcludedCount = person.excludedIds.length + (isExcluded ? -1 : 1);
                     if (nextExcludedCount > 0) {
-                      showToast({
+                      closeExcludedToast.current = showToast({
                         message: `${nextExcludedCount}장을 뺐어요`,
-                        duration: TOAST_MS,
                         showClose: false,
                       });
+                    } else {
+                      closeExcludedToast.current?.();
+                      closeExcludedToast.current = null;
                     }
                   }}
                 >

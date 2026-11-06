@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useToast } from "@/shared/ui/toast";
 import { uploadErrorNoticeOf } from "../lib/uploadErrorNotice";
@@ -11,12 +11,6 @@ import { RejectedFilesModal } from "./RejectedFilesModal";
 import { UploadButton } from "./UploadButton";
 import { UploadFailureModal } from "./UploadFailureModal";
 import { UploadProgressBar } from "./UploadProgressBar";
-
-/** 토스트가 스스로 사라지기까지. 공유 링크 복사 알림과 같은 시간을 쓴다. */
-const NOTICE_DURATION_MS = 4000;
-
-/** 다 올렸다는 토스트가 떠 있는 시간.  */
-const DONE_TOAST_MS = 2000;
 
 export interface MediaUploaderProps {
   roomId: number;
@@ -67,6 +61,7 @@ export const MediaUploader = ({
 }: MediaUploaderProps) => {
   const [rejected, setRejected] = useState<RejectedSelection[]>([]);
   const { showToast } = useToast();
+  const closeUploadToast = useRef<(() => void) | null>(null);
   const failure = useUploadFailure();
   /*
    * 발급이 거절한 파일(`onRejected`)은 아직 잇지 않았다 — "고른 장수" 를 서버 응답으로
@@ -91,9 +86,8 @@ export const MediaUploader = ({
 
       // 실패가 섞이면 실패 모달이 설명하므로 겹쳐 띄우지 않는다. 밀려난 판도 알리지 않는다.
       if (!superseded && result.failed.length === 0 && uploadedCount > 0) {
-        showToast({
+        closeUploadToast.current = showToast({
           message: `${uploadedCount}장을 올렸어요.`,
-          duration: DONE_TOAST_MS,
           showClose: false,
         });
       }
@@ -114,7 +108,7 @@ export const MediaUploader = ({
         return;
       }
 
-      showToast({ message, tone: "error", duration: NOTICE_DURATION_MS });
+      closeUploadToast.current = showToast({ message, tone: "error" });
     },
   });
 
@@ -126,8 +120,9 @@ export const MediaUploader = ({
    * 나중에 세 번째 길이 붙어도 서버까지 가서 403 을 받아오지는 않는다.
    */
   const start = (files: File[]) => {
-    if (!canUpload) return;
+    if (!canUpload || files.length === 0 || upload.progress !== null) return;
 
+    closeUploadToast.current?.();
     upload.start(files);
   };
 

@@ -51,9 +51,6 @@ import {
   Page,
 } from "./GalleryPage.styles";
 
-const CREATED_FOLDER_TOAST_MS = 2500;
-/** 정리 알림(바닥 36px + 높이 76px) 위. 같은 자리에 띄우면 알림의 X 를 가린다. */
-
 interface GalleryContentProps {
   room: Room;
   accessToken: string;
@@ -522,7 +519,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             if (first) selectFolder(first.folderId);
             showToast({
               message: `폴더 ${applied.folders.length}개를 만들었어요`,
-              duration: CREATED_FOLDER_TOAST_MS,
               showClose: false,
             });
           }}

@@ -75,12 +75,6 @@ const STATUS_TEXT: Record<DownloadPhase, string> = {
   sharing: "사진첩에 저장하는 중",
 };
 
-/**
- * 저장을 마쳤다는 토스트가 떠 있는 시간.
- * 결과를 알리기만 하고 할 일은 없는 알림이라, 닫기 버튼 없이 이 시간 뒤에 스스로 사라진다.
- */
-const DONE_TOAST_MS = 2000;
-
 /** 방식마다 끝난 자리가 다르다. 사진첩인지, 낱장 파일인지, 압축 파일 하나인지 말해준다. */
 const doneMessageOf = (mode: DownloadMode, count: number) =>
   ({
@@ -189,7 +183,6 @@ export const SelectionDownloadBar = ({
         if (outcome.type === "saved" && outcome.failed.length === 0) {
           showToast({
             message: doneMessageOf(trackedRunRef.current.mode, outcome.savedCount),
-            duration: DONE_TOAST_MS,
             showClose: false,
           });
           onClearSelection();

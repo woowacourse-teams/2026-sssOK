@@ -33,6 +33,7 @@ export const RoomShareButton = ({
   const [isCopying, setIsCopying] = useState(false);
   const [isCreatingDeviceLink, setIsCreatingDeviceLink] = useState(false);
   const { showToast } = useToast();
+  const closeCopyToast = useRef<(() => void) | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copyRef = useRef<HTMLButtonElement>(null);
@@ -72,17 +73,18 @@ export const RoomShareButton = ({
   const copyGalleryLink = async () => {
     if (isCopying) return;
 
+    closeCopyToast.current?.();
     setIsCopying(true);
     try {
       // 쿼리나 해시에 담긴 일시적인 상태는 공유하지 않는다.
       const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin).href;
       await navigator.clipboard.writeText(url);
       track("Invite Link Copied", { is_success: true });
-      showToast({ message: "공유 링크를 복사했어요.", tone: "success" });
+      closeCopyToast.current = showToast({ message: "공유 링크를 복사했어요.", tone: "success" });
       closeMenu();
     } catch {
       track("Invite Link Copied", { is_success: false });
-      showToast({
+      closeCopyToast.current = showToast({
         message: "링크를 복사하지 못했어요. 브라우저 권한을 확인하거나 주소창에서 복사해 주세요.",
         tone: "error",
       });
@@ -94,9 +96,13 @@ export const RoomShareButton = ({
   const copyDeviceLink = async () => {
     if (isCreatingDeviceLink) return;
 
+    closeCopyToast.current?.();
     const accessToken = memberAccessToken ?? getRoomSession(roomCode)?.accessToken;
     if (!accessToken) {
-      showToast({ message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.", tone: "error" });
+      closeCopyToast.current = showToast({
+        message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.",
+        tone: "error",
+      });
       return;
     }
 
@@ -109,11 +115,14 @@ export const RoomShareButton = ({
       });
       await copyPendingText(deviceLink);
       track("Device Link Copied", { is_success: true });
-      showToast({ message: "다른 기기에서 이어할 링크를 복사했어요.", tone: "success" });
+      closeCopyToast.current = showToast({
+        message: "다른 기기에서 이어할 링크를 복사했어요.",
+        tone: "success",
+      });
       closeMenu();
     } catch {
       track("Device Link Copied", { is_success: false });
-      showToast({
+      closeCopyToast.current = showToast({
         message: "이어하기 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
         tone: "error",
       });
