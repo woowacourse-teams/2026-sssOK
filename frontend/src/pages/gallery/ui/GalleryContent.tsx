@@ -56,6 +56,9 @@ import {
   Page,
 } from "./GalleryPage.styles";
 
+/** 정리 알림(바닥 36px + 높이 76px) 위. 같은 자리에 띄우면 알림의 X 를 가린다. */
+const ABOVE_ORGANIZE_BAR = "calc(120px + env(safe-area-inset-bottom, 0px))";
+
 interface GalleryContentProps {
   room: Room;
   accessToken: string;
@@ -295,6 +298,19 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     clearSelection,
   });
 
+  /** 검토 화면에서 고른 그룹으로 폴더를 만든다. 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다. */
+  const applyReview = async (groups: Parameters<typeof organize.apply>[0]) => {
+    const applied = await organize.apply(groups);
+    if (!applied) return;
+    setReviewKind(null);
+    search.closeSearch();
+    clearSelection();
+    await Promise.all([refreshRoom(), refreshPhotos()]);
+    const [first] = applied.folders;
+    if (first) selectFolder(first.folderId);
+    showToast({ message: `폴더 ${applied.folders.length}개를 만들었어요`, showClose: false });
+  };
+
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
   const downloadTargets = galleryItems
@@ -312,9 +328,10 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     showToast({
       message: organizeError,
       tone: "error",
+      bottom: isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined,
     });
     clearOrganizeError();
-  }, [organizeError, clearOrganizeError, showToast]);
+  }, [organizeError, clearOrganizeError, showToast, isOrganizeBarVisible]);
 
   return (
     <Page>
@@ -557,31 +574,20 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           isSubmitting={organize.isApplying}
           submitError={organize.applyError}
           onDismissError={organize.clearApplyError}
-          // 반영이 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다.
-          onSubmit={async (groups) => {
-            const applied = await organize.apply(groups);
-            if (!applied) return;
-            setReviewKind(null);
-            search.closeSearch();
-            clearSelection();
-            await Promise.all([refreshRoom(), refreshPhotos()]);
-            const [first] = applied.folders;
-            if (first) selectFolder(first.folderId);
-            showToast({
-              message: `폴더 ${applied.folders.length}개를 만들었어요`,
-              showClose: false,
-            });
-          }}
+          onSubmit={applyReview}
         />
       )}
 
-      {/* 비슷한 사진 모음을 폴더로 반영하는 건 #728 에서 붙인다. 지금은 검토 화면만 연다. */}
       {reviewKind === "SIMILAR" && organize.review && (
         <SimilarReviewScreen
           source={organize.review}
           folderNames={room.folders.map((folder) => folder.name)}
           onClose={() => setReviewKind(null)}
           onRetry={organize.reloadResult}
+          isSubmitting={organize.isApplying}
+          submitError={organize.applyError}
+          onDismissError={organize.clearApplyError}
+          onSubmit={applyReview}
         />
       )}
 
