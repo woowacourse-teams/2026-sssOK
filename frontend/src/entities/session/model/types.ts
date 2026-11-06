@@ -7,4 +7,5 @@ export interface AnonymousSession {
   userId: number;
   nickname: string;
   expiresAt: string;
+  refreshExpiresAt?: string;
 }

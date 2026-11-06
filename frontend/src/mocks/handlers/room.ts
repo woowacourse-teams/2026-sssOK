@@ -402,6 +402,35 @@ export const mediaOfRoom = (roomId: number) =>
     : registeredMediaOf(roomId)
   ).filter((media) => !isDeletedMedia(roomId, media.mediaId));
 
+/** 이 방에 같은 이름의 폴더가 있는지. 정리 반영 목이 충돌을 미리 거른다. */
+export const hasFolderNamed = (roomId: number, name: string) => {
+  const code = codeOfRoomId(roomId);
+  return code !== null && foldersOf(code).some((folder) => folder.name === name);
+};
+
+/**
+ * 폴더를 만들고 사진을 담는다. 정리 반영 목이 쓴다.
+ * 방 조회는 이번 세션에 올린 사진만 폴더 사진 수에 더해 세므로, 처음부터 있던 사진 수만 저장해 둔다.
+ */
+export const createFolderWithMedia = (roomId: number, name: string, mediaIds: number[]) => {
+  const code = codeOfRoomId(roomId);
+  if (code === null) return null;
+
+  const folders = ROOM_FOLDERS[code] ?? (ROOM_FOLDERS[code] = []);
+  const uploadedIds = new Set(registeredMediaOf(roomId).map((media) => media.mediaId));
+  const folder = {
+    id: Math.max(500, ...folders.map(({ id }) => id)) + 1,
+    name,
+    createdAt: new Date().toISOString(),
+    photoCount: mediaIds.filter((mediaId) => !uploadedIds.has(mediaId)).length,
+  };
+  folders.push(folder);
+  mediaOfRoom(roomId)
+    .filter((media) => mediaIds.includes(media.mediaId))
+    .forEach((media) => media.folderIds.push(folder.id));
+  return folder;
+};
+
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
 export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
 

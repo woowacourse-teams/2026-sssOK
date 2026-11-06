@@ -18,6 +18,11 @@ public interface StoredFileJpaRepository extends JpaRepository<StoredFileJpaEnti
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<StoredFileJpaEntity> findWithLockById(Long id);
 
+    // 여러 장을 지우는 트랜잭션끼리도 같은 순서로 잠그도록 id 순으로 잠근다.
+    @Query(value = "SELECT id FROM stored_file WHERE id IN (:ids) ORDER BY id FOR UPDATE",
+        nativeQuery = true)
+    List<Long> lockIdsInOrder(@Param("ids") Collection<Long> ids);
+
     List<StoredFileJpaEntity> findAllByRoomId(Long roomId);
 
     List<StoredFileJpaEntity> findAllByRoomIdAndIdIn(Long roomId, Collection<Long> ids);

@@ -30,7 +30,8 @@ public class OAuthClientConfig {
     public KakaoAuthClient kakaoAuthClient(KakaoOAuthProperties properties, SocialTokenCipher tokenCipher) {
         properties.validate();
         tokenCipher.requireConfigured();
-        return new KakaoAuthClient(createHttpClient(), properties.clientId(), properties.clientSecret(), properties.redirectUri(), properties.adminKey());
+        return new KakaoAuthClient(createHttpClient(), properties.clientId(), properties.clientSecret(), properties.adminKey(),
+            properties.nativeLoginConfigured() ? properties.appId() : null);
     }
 
     @Bean
@@ -42,9 +43,14 @@ public class OAuthClientConfig {
         AppleClientSecretGenerator clientSecretGenerator = new AppleClientSecretGenerator(
             properties.clientId(), properties.teamId(), properties.keyId(), properties.privateKey()
         );
+        AppleClientSecretGenerator nativeClientSecretGenerator = properties.nativeLoginConfigured()
+            ? new AppleClientSecretGenerator(
+                properties.nativeClientId(), properties.teamId(), properties.keyId(), properties.privateKey())
+            : null;
         return new AppleAuthClient(
             httpClient, new AppleSigningKeyProvider(httpClient), clientSecretGenerator,
-            properties.clientId(), properties.redirectUri()
+            properties.clientId(), properties.redirectUri(),
+            properties.nativeLoginConfigured() ? properties.nativeClientId() : null, nativeClientSecretGenerator
         );
     }
 

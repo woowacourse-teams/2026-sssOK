@@ -7,10 +7,11 @@ import { PageSpinner } from "@/shared/ui/spinner";
 import { useCompleteLogin } from "../model/useCompleteLogin";
 
 export const LoginCallbackPage = () => {
-  const { status, error } = useCompleteLogin();
+  const { status, error, returnTo } = useCompleteLogin();
 
   if (status === "pending") return <PageSpinner label="로그인 완료 중" />;
-  if (status === "success") return <Navigate to={ROUTES.rooms} replace />;
+  // 방에서 로그인하러 왔으면 그 방으로, 아니면 방 목록으로 간다.
+  if (status === "success") return <Navigate to={returnTo ?? ROUTES.rooms} replace />;
   return (
     <Page>
       <h1>로그인을 완료하지 못했어요</h1>

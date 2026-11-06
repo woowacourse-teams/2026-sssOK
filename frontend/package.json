@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "2.6.0",
+  "version": "2.7.0",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -82,6 +82,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-error-boundary": "^6.1.6",
     "react-icons": "5.7.0",
     "react-router-dom": "^7.18.2"
   },

@@ -16,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 // publish()가 실제 Repository 빈을 통해 room_events에 기록하는지 확인하는 통합 테스트.
 // 실시간 전달(SseEmitter.send)은 실제 HTTP 연결이 있어야 검증 가능해 API 인수 테스트가 담당한다.
@@ -73,6 +74,58 @@ class InMemorySseEventPublisherTest {
             .isInstanceOf(IllegalStateException.class);
 
         assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L)).isEmpty();
+    }
+
+    @Test
+    void 수신자를_지정해_발행하면_그_회원이_기록되고_방_전체_발행은_수신자가_없다() {
+        Long roomId = 16384L;
+
+        sseEventPublisher.publish(roomId, "room.updated", Map.of("name", "전체"));
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("jobId", "x"), 7L);
+
+        List<RoomEventJpaEntity> events = roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L);
+        assertThat(events).extracting(RoomEventJpaEntity::getRecipientMemberId).containsExactly(null, 7L);
+    }
+
+    @Test
+    void 재연결_때_놓친_이벤트는_방_전체_이벤트와_내_전용_이벤트만_받는다() {
+        Long roomId = 32768L;
+        sseEventPublisher.publish(roomId, "room.updated", Map.of("name", "전체"));
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("jobId", "mine"), 7L);
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("jobId", "others"), 8L);
+
+        List<RoomEventJpaEntity> mine = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 7L);
+        List<RoomEventJpaEntity> stranger = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 9L);
+
+        assertThat(mine).extracting(RoomEventJpaEntity::getPayload)
+            .anyMatch(payload -> payload.contains("mine")).noneMatch(payload -> payload.contains("others"))
+            .anyMatch(payload -> payload.contains("전체"));
+        assertThat(stranger).extracting(RoomEventJpaEntity::getEventType).containsExactly("room.updated");
+    }
+
+    @Test
+    void 놓친_이벤트_조회는_lastEventId_이후만_고른다() {
+        Long roomId = 65536L;
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("n", 1), 7L);
+        sseEventPublisher.publish(roomId, "organize.job.updated", Map.of("n", 2), 7L);
+        Long firstId = roomEventJpaRepository.findVisibleAfter(roomId, 0L, 7L).get(0).getId();
+
+        assertThat(roomEventJpaRepository.findVisibleAfter(roomId, firstId, 7L)).hasSize(1);
+    }
+
+    @Test
+    void 앱이_종료되면_모든_방의_구독을_닫는다() {
+        Long firstRoomId = 131072L;
+        Long secondRoomId = 131073L;
+        memberships.save(RoomMember.join(firstRoomId, 1L, Instant.now(), new Nickname("참여자")));
+        memberships.save(RoomMember.join(secondRoomId, 1L, Instant.now(), new Nickname("참여자")));
+        SseEmitter first = sseEventPublisher.subscribe(firstRoomId, 1L, null);
+        SseEmitter second = sseEventPublisher.subscribe(secondRoomId, 1L, null);
+
+        sseEventPublisher.completeAllOnShutdown();
+
+        assertThatThrownBy(() -> first.send("after-shutdown")).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> second.send("after-shutdown")).isInstanceOf(IllegalStateException.class);
     }
 
     // Jackson 기본 설정(FAIL_ON_EMPTY_BEANS)에서, 필드도 getter도 없는 빈은 직렬화할 수 없어 예외가 난다.

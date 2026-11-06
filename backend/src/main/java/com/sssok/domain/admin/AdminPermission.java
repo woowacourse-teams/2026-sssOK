@@ -5,5 +5,7 @@ public enum AdminPermission {
 
     FEEDBACK_READ,
     FEEDBACK_MANAGE,
+    MEDIA_REPORT_READ,
+    MEDIA_REPORT_MANAGE,
     ADMIN_ACCOUNT_MANAGE,
 }

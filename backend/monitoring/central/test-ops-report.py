@@ -82,7 +82,7 @@ class FakePrometheus:
         if query == queries.ALERTS and day in self.days:
             base = daily(day).start.timestamp() + 3600
             return [{'metric': {'alertname': 'BackendHighLatency', 'severity': 'warning', 'environment': 'prod',
-                                'server': 'prod', 'instance': '10.0.20.127:19100'},
+                                'server': 'prod', 'instance': '10.0.20.161:19100'},
                      'values': [[base + i * 60, '1'] for i in range(12)]}]
         if query == queries.LATENCY_WINDOW and day in self.days:
             return [{'metric': {}, 'values': [[daily(day).start.timestamp() + 600, '0.4'],

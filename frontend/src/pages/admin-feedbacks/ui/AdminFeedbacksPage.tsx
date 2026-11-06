@@ -9,7 +9,6 @@ import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { useInfiniteScroll } from "@/shared/hooks";
 import { Button } from "@/shared/ui/button";
-import { Toast } from "@/shared/ui/toast";
 import { useTriageFilter } from "../model/useTriageFilter";
 import { useTriageToast } from "../model/useTriageToast";
 import { useVersionFilter } from "../model/useVersionFilter";
@@ -79,7 +78,7 @@ export const AdminFeedbacksPage = () => {
     if (isUnauthorized) leaveToLogin();
   }, [isUnauthorized, leaveToLogin]);
 
-  const { toast, showChanged, showFailed, closeToast } = useTriageToast(leaveToLogin);
+  const { showChanged, showFailed } = useTriageToast(leaveToLogin);
 
   return (
     <Page>
@@ -159,10 +158,6 @@ export const AdminFeedbacksPage = () => {
           onClose={closeDetail}
           onUnauthorized={leaveToLogin}
         />
-      )}
-
-      {toast && (
-        <Toast tone={toast.tone} message={toast.message} showClose={false} onClose={closeToast} />
       )}
     </Page>
   );

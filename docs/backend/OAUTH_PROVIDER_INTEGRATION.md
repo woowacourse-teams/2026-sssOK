@@ -56,7 +56,14 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 
 - 요청 본문은 선택 사항이다. 익명 활동 연결 시 `Authorization: Bearer {anonymousAccessToken}`을 전달하거나, 본문의 `anonymousAccessTokens` 배열로 여러 익명 access token을 전달한다. 각 토큰을 검증하고 회원 중복을 제거하며, 최대 100개까지 받는다. 헤더와 본문을 함께 보내면 합쳐서 처리한다.
 - 잘못된 인증 헤더를 인증 없는 요청으로 낮춰 처리하지 않는다.
-- memberId, redirectUri, clientId는 요청에서 받지 않는다. 현재 웹 계약은 서버 설정의 리다이렉트만 사용한다.
+- memberId, redirectUri, clientId는 요청에서 받지 않는다. 요청·응답 본문은 그대로이며, 콜백은 아래 규칙으로 서버가 고른다.
+- 콜백 선택: 요청의 `Origin` 헤더(없을 때만 `Referer`의 scheme·host·port)로 로그인을 시작한 웹 출처를 판별하고, 서버에 등록된 그 출처의 전체 콜백 주소를 `redirect_uri`로 쓴다. 요청 값으로 주소를 조합하지 않는다.
+  - `Origin`이 있으면 그 값만 기준이다. 빈 값·문자열 `null`·형식 오류·미등록 출처는 `Referer`로 우회하지 않고 거절한다.
+  - 두 헤더가 모두 있으면 `Referer`도 검증하며 출처가 다르면 거절한다.
+  - 둘 다 없거나, 헤더가 중복되거나, 경로·사용자 정보·fragment가 섞인 `Origin`이면 거절한다. 기존 고정 주소로 되돌리는 fallback은 없다.
+  - 거절은 기존 소셜 인증 오류 계약인 `401 INVALID_SOCIAL_AUTH`다. 단, 허용 목록(CORS)에 없는 `Origin`은 CORS 단계에서 먼저 `403`으로 막힌다.
+  - 이 헤더는 콜백 선택 정보일 뿐이며 사용자 인증이나 state·loginVerifier 검증을 대신하지 않는다.
+- 선택한 콜백은 로그인 시도에 저장하고 인가 URL, 완료 시 허용 목록 재검증, 카카오 토큰 교환의 `redirect_uri`까지 같은 값을 쓴다. 로그인 완료 요청은 주소를 받지 않고 헤더로 다시 고르지도 않는다. 저장된 주소가 설정에서 빠졌으면 완료를 거절한다.
 - 성공: `200 OK`, `Cache-Control: no-store`.
 
 ```json
@@ -152,28 +159,161 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 - 시작 URL은 `https://appleid.apple.com/auth/authorize`로 고정하며, `response_type=code`, `response_mode=query`, 서버 설정의 client_id·redirect_uri, 서버가 생성한 state·nonce를 넣는다. loginVerifier와 비밀키는 URL에 넣지 않는다.
 - 완료 요청에서 nonce·회원 ID·제공자 ID 토큰을 받지 않는다. 서버가 저장한 nonce로 코드 교환 결과의 ID 토큰을 검증한다.
 - `CompleteSocialLoginService`가 제공자를 선택해 인증하고 `SocialMemberLoginService`의 가입·기존 로그인·활동 통합을 재사용한다. 다른 제공자의 state는 소비하지 않는다.
-- 이름·이메일 scope를 요청하지 않는 웹 인증 코드 방식이다. 네이티브 SDK 인증 결과를 직접 받는 API는 이번 구현에 포함하지 않는다.
+- 이름·이메일 scope를 요청하지 않는 웹 인증 코드 방식이다. 앱 SDK 인증 결과를 받는 API는 아래 "앱 SDK 로그인 (#702)"에서 따로 다룬다.
+
+## 앱 SDK 로그인 (#702)
+
+앱은 네이티브 SDK에서 소셜 인증을 끝내고, 웹뷰의 웹 코드가 그 결과를 백엔드로 전달한다. 제공자별 인증 방식은 유지한다(회의 결정 A안). 네이티브 SDK 실행과 앱↔웹뷰 브리지는 프런트엔드 작업이며 이 문서의 범위가 아니다. 검증 이후 회원 조회·가입과 서비스 토큰 발급은 웹 로그인과 같은 `SocialMemberLoginService`를 쓴다.
+
+공통: 경로 `/api/v1/auth`, JSON 요청·응답. 성공은 `200 OK` + `Cache-Control: no-store` + 기존 `AuthResponse`(`ApiResponse`)다. `refreshTokenDelivery`를 생략하면 기존 기본값 `COOKIE`이며 `BODY`도 기존 정책대로 지원한다. 실제 웹뷰 연동은 `COOKIE`로 하며, `X-CSRF-Protection: 1` 헤더·`credentials: "include"`·기존 Origin 검증을 그대로 따른다. refresh token은 `sssok_refresh` HttpOnly 쿠키로 전달하고 COOKIE 응답 본문에서는 제외한다. 허용 Origin(`CORS_ALLOWED_ORIGINS`)을 이 기능을 위해 넓히지 않는다.
+
+### 카카오: `POST /oauth/kakao/native/login`
+
+```json
+{ "kakaoAccessToken": "SDK에서 받은 카카오 access token", "refreshTokenDelivery": "COOKIE" }
+```
+
+1. 앱이 카카오 SDK로 로그인해 access token을 받는다.
+2. 웹뷰가 위 요청을 보낸다. 시작(start) API, state, loginVerifier, nonce는 없다.
+3. 서버가 고정 URL `https://kapi.kakao.com/v1/user/access_token_info`를 Bearer 토큰으로 호출한다.
+4. 응답의 `id`(양수), `app_id`(서버 설정 `OAUTH_KAKAO_APP_ID`와 일치), `expires_in`(양수)을 엄격히 검증한다.
+5. 검증된 `(KAKAO, id)`만 회원 처리에 전달한다. 요청에서 사용자 ID나 앱 ID를 받지 않는다.
+
+- `kakaoAccessToken`은 필수, 최대 2048자, 공백·제어 문자·비ASCII를 거절한다(헤더 주입 방지). 위반은 400이다.
+- `app_id`는 카카오 개발자 콘솔의 **숫자 앱 ID**이며 REST API 키(`client_id`)와 다르다.
+- 이 방식은 유효한 access token의 재사용을 막지 않는다. 로그인 시도·nonce 검증과 같은 효과는 없다.
+- 이 요청에는 익명 인증 정보가 없어 익명 활동을 통합하지 않는다.
+
+### 애플 준비: `POST /oauth/apple/native/start`
+
+본문 없이 호출한다. `200` + `Cache-Control: no-store`.
+
+```json
+{ "data": { "state": "…", "loginVerifier": "…", "nonce": "…", "expiresAt": "2026-11-05T12:05:00Z" } }
+```
+
+- 서버가 로그인 시도를 만든다(5분 TTL, 난수·해시 저장은 웹과 같다). 시도에는 제공자 APPLE, 흐름 NATIVE, 서버 nonce가 연결된다. 웹 로그인 URL·`redirectUri`는 만들지 않고 응답하지 않는다.
+- `nonce`는 애플 SDK 인증 요청의 nonce에 **변환 없이 그대로** 넣는다. `state`는 서버 시도 식별값이며 SDK가 돌려줘야만 완료되는 계약이 아니다. `loginVerifier`는 웹뷰가 보관하고 SDK에는 전달하지 않는다.
+- 웹 시도는 앱 완료 API에서, 앱 시도는 웹 완료 API에서 사용할 수 없다(401).
+
+### 애플 완료: `POST /oauth/apple/native/login`
+
+```json
+{ "code": "SDK가 반환한 authorizationCode", "state": "준비 API의 state", "loginVerifier": "준비 API의 loginVerifier", "refreshTokenDelivery": "COOKIE" }
+```
+
+- 요청 검증은 웹의 `SocialLoginRequest`와 같다. 요청에서 nonce·사용자 ID를 받지 않으며, 기대 nonce와 client 설정은 저장된 시도에서 읽는다.
+- 서버는 앱용 client(`OAUTH_APPLE_NATIVE_CLIENT_ID`)로 `https://appleid.apple.com/auth/token`에서 코드를 교환한다. 앱 SDK가 발급한 코드에는 웹 redirect URI가 없으므로 `redirect_uri`를 보내지 않는다.
+- ID 토큰은 웹과 같은 검증(허용된 서명 알고리즘·공개키, issuer, exp/iat/sub)에 더해 audience가 **앱 client 식별자**여야 하고, `nonce` 클레임이 저장된 nonce와 **정확히 같아야** 한다. raw/해시를 모두 허용하는 느슨한 비교는 하지 않는다.
+- 시도는 외부 교환 전에 원자적으로 소비한다. 같은 시도의 동시 요청은 한 번만 교환·로그인에 들어가고 나머지는 401이다.
+- 교환 실패·응답 유실 후 같은 코드나 시도를 자동 재시도하지 않는다. 앱은 **준비 API부터 다시 시작**해 새 nonce로 SDK 인증을 다시 한다.
+- 이 요청에도 익명 인증 정보가 없어 익명 활동을 통합하지 않는다(기존 웹의 익명 연결은 유지).
+
+### 앱 SDK → 웹뷰 → 서버 순서
+
+| 단계 | 카카오 | 애플 |
+| --- | --- | --- |
+| 1 | 앱 SDK 로그인 → access token | 웹뷰가 `native/start` 호출 → state·loginVerifier·nonce |
+| 2 | 웹뷰가 `native/login`에 토큰 전달 | 앱이 nonce를 **그대로** 넣어 SDK 인증 → authorizationCode |
+| 3 | 서버가 토큰 정보 조회·`app_id` 검증 | 웹뷰가 `native/login`에 code·state·loginVerifier 전달 |
+| 4 | 회원 로그인·서비스 토큰 발급 | 서버가 앱 client로 코드 교환·ID 토큰/nonce 검증 후 로그인 |
+
+### 오류 계약
+
+| 상황 | 응답 |
+| --- | --- |
+| 필수 필드 누락·빈 값·형식 오류 | 400 (기존 요청 검증) |
+| 무효/만료 제공자 토큰, 카카오 `app_id` 불일치·`expires_in` ≤ 0, 애플 시도/nonce/audience 불일치·재사용·만료 | 401 `INVALID_SOCIAL_AUTH` |
+| COOKIE 요청의 CSRF/Origin 검증 실패 | 403 `INVALID_COOKIE_AUTH_REQUEST` |
+| 회원 상태 충돌·동일 소셜 계정 동시 가입 충돌 | 409 `SOCIAL_AUTH_CONFLICT` |
+| 제공자 타임아웃·장애·예상하지 못한 응답 형식(필드 누락·타입 오류·범위 초과), 앱 설정 없음 | 503 `SOCIAL_AUTH_UNAVAILABLE` |
+
+- 카카오 HTTP 401 + 응답 `code: -401`만 무효 토큰(401)으로 분류한다. 그 밖의 제공자 4xx(자격 증명·설정 오류 포함)는 사용자 토큰 오류로 숨기지 않고 503이다.
+- 실패한 인증은 회원·서비스 세션·제공자 보관 토큰을 바꾸지 않는다. 애플 시도 소비는 별도이며 실패해도 복원하지 않는다.
+- 토큰·인가 코드·확인값·client secret·외부 응답 원문은 로그·예외·DTO `toString`에 노출하지 않는다.
+
+### 설정과 적용 절차
+
+| 환경 변수 | 용도 | 비고 |
+| --- | --- | --- |
+| `OAUTH_KAKAO_APP_ID` | 카카오 숫자 앱 ID | 환경별로 다를 수 있다. 숫자가 아니면 기동 실패, 비우면 카카오 앱 로그인만 비활성(503) |
+| `OAUTH_APPLE_NATIVE_CLIENT_ID` | 애플 앱 client 식별자(앱 번들 ID) | 웹 `OAUTH_APPLE_CLIENT_ID`와 달라야 한다. 비우면 애플 앱 로그인만 비활성(503) |
+
+실제 비밀값을 문서·예시에 넣지 않는다. 앱용 `client_secret`은 기존 `OAUTH_APPLE_TEAM_ID` / `KEY_ID` / `PRIVATE_KEY`로 앱 client 식별자를 subject로 서명한다.
+
+1. 개발자 콘솔에서 값을 확인한다: 카카오 개발자 콘솔의 숫자 앱 ID(REST API 키가 아님), 애플 앱의 번들 ID(Sign in with Apple 활성화)와 서버가 쓰는 키가 이 앱에 연결돼 있는지.
+2. 환경별 비밀 설정에 변수를 추가하고 배포한다. 변수를 추가해도 기존 웹 로그인 동작은 변하지 않는다.
+3. 아래 확인 항목을 실기기·실계정으로 점검한 뒤 앱 연동을 켠다.
+
+### 토큰 보관과 탈퇴
+
+- V54가 `social_account.token_client_type`(`WEB`/`NATIVE`/NULL)을 추가한다. 보관 토큰과 이를 발급한 client 설정을 한 번의 갱신으로 함께 저장한다. NULL은 컬럼 추가 전의 기존 토큰이며 **웹 설정으로 취급**한다.
+- 단일 토큰 저장 구조를 유지한다. 웹→앱, 앱→웹으로 재로그인하면 access/refresh와 client 종류가 새 발급 건으로 함께 바뀐다. 새 로그인에 refresh가 없으면, 같은 client일 때만 기존 refresh를 유지하고 다른 client일 때는 지운다(다른 client의 refresh가 새 client 메타데이터에 붙지 않게).
+- 탈퇴 시 연결 해제는 보관 토큰의 client 종류로 `client_id`·`client_secret`을 골라 철회한다. 앱 설정이 지금 없으면 웹 설정으로 대신하지 않고 503으로 처리한다. 이전 client로 발급된 토큰은 새 로그인 후 보관하지 않으므로 별도로 철회하지 않는다.
+- 카카오 연결 해제는 기존 admin key + 사용자 ID 방식이며 SDK refresh token 제출을 요구하지 않는다.
+
+### 실기기·실계정 확인 항목 (자동 테스트로 대체할 수 없음)
+
+- 앱에서 사용하는 애플 SDK/래퍼가 `nonce`를 **변환 없이** ID 토큰 `nonce` 클레임에 넣는지(해시하는 래퍼라면 앱 쪽에서 계약을 맞춰야 한다). 이 문서의 기준은 "서버 nonce 그대로"이며 **앱 담당자 확인 필요**.
+- 애플 앱 client 식별자와 코드 교환이 `redirect_uri` 없이 성공하는지.
+- 카카오 환경별 숫자 앱 ID와 SDK가 발급한 토큰의 `app_id` 일치.
+- 동일 카카오·애플 계정이 웹과 앱에서 같은 회원으로 로그인되는지(제공자 콘솔의 계정 연결 설정 포함).
+- 실제 웹뷰 Origin에서 CORS 허용과 `sssok_refresh` 쿠키 수신.
+- 웹→앱, 앱→웹 재로그인 후 탈퇴 시 연결 해제.
+
+### 범위 밖
+
+카카오 native/start 및 OIDC 전환, 제공자 전체 인증 프레임워크 재작성, 프런트엔드 SDK·화면·브리지, 기존 웹 API 계약 변경, 이메일 기준 계정 자동 병합, 앱 익명 활동 자동 통합(합의 전).
 
 ## 제공자 검증 및 설정
 
 | 제공자 | 확인 절차 | 설정 |
 | --- | --- | --- |
-| 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URI / ADMIN_KEY |
-| 애플 | code → ID 토큰 서명·issuer·audience·expiration·issued-at·nonce 검증 → sub | OAUTH_APPLE_ENABLED / CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY / REDIRECT_URI |
+| 카카오 | code → access token → `/v2/user/me`의 양수 id | OAUTH_KAKAO_ENABLED / CLIENT_ID / CLIENT_SECRET / REDIRECT_URIS / ADMIN_KEY |
+| 애플 | code → ID 토큰 서명·issuer·audience·expiration·issued-at·nonce 검증 → sub | OAUTH_APPLE_ENABLED / CLIENT_ID / TEAM_ID / KEY_ID / PRIVATE_KEY / REDIRECT_URI (앱 SDK 로그인은 NATIVE_CLIENT_ID 추가) |
 
-표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 현재 웹 리다이렉트는 HTTPS만 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다.
+표의 설정은 각 제공자 접두사를 붙인 환경 변수다. 기본 비활성화이며 활성화 시 필수 설정을 검증한다. 웹 리다이렉트는 HTTPS를 기본으로 허용하며, 카카오의 명시적으로 등록한 HTTP localhost 콜백만 예외로 허용한다. 제공자 콘솔·인가 요청·코드 교환에서 주소가 일치해야 한다. 앱 SDK 로그인용 설정(`OAUTH_KAKAO_APP_ID`, `OAUTH_APPLE_NATIVE_CLIENT_ID`)은 선택이며, 비워 두면 해당 앱 SDK 로그인만 503으로 비활성이고 기존 웹 로그인은 영향받지 않는다.
+
+### 카카오 콜백 설정 (`OAUTH_KAKAO_REDIRECT_URIS`)
+
+기존 단일 `OAUTH_KAKAO_REDIRECT_URI`를 대체한다. 허용할 콜백의 전체 주소를 쉼표로 나열하며, 각 주소의 출처(scheme://host[:port])가 요청 출처와 정확히 비교되는 매핑 키가 된다. 키와 콜백의 출처는 같은 주소에서 만들어지므로 항상 일치한다.
+
+| 백엔드 환경 | 설정 값 |
+| --- | --- |
+| dev | `https://dev.ssssok.com/app/auth/callback/kakao,http://localhost:3000/app/auth/callback/kakao` |
+| 운영 | `https://www.ssssok.com/app/auth/callback/kakao` |
+
+- 카카오 활성화 시 기동 단계에서 검증하며 하나라도 어긋나면 서버가 시작하지 않는다. 목록이 비어 있거나, HTTPS가 아닌 주소(예외: 정확히 `localhost` 호스트의 HTTP), 사용자 정보·fragment가 있는 주소, 경로가 없는 주소, 같은 출처의 중복을 거절한다. `127.0.0.1`, `localhost.example.com`, 임의 포트·서브도메인 와일드카드는 허용하지 않는다.
+- 추가 로컬 포트가 필요하면 이 목록과 카카오 콘솔에 전체 주소를 명시적으로 추가한다. 운영에는 localhost를 등록하지 않는다.
+- 애플은 기존 `OAUTH_APPLE_REDIRECT_URI` 단일 주소와 HTTPS 검증을 그대로 쓴다.
+- 백엔드 매핑과 카카오 콘솔 Redirect URI는 별개 허용 설정이며 전체 주소가 정확히 일치해야 한다. CORS 허용 출처(`CORS_ALLOWED_ORIGINS`)도 각 출처를 포함해야 하지만 콜백 선택을 대신하지 않는다.
+
+**전환 순서** (이전 코드는 새 키를, 새 코드는 옛 키를 읽지 않으므로 이 순서면 중단 없이 바꿀 수 있다)
+
+1. 카카오 콘솔에 localhost 콜백을 추가한다. 기존 dev·운영 주소는 유지한다.
+2. 서버 환경변수에 `OAUTH_KAKAO_REDIRECT_URIS`를 추가한다. 옛 `OAUTH_KAKAO_REDIRECT_URI`는 이전 코드 실행과 롤백을 위해 아직 유지한다.
+3. 이 변경을 배포한다. 새 설정이 잘못되면 기동 단계에서 실패하므로 헬스체크로 확인한다.
+4. 배포가 안정되면 `OAUTH_KAKAO_REDIRECT_URI`를 제거한다.
+
+### 요청 헤더 지원 범위
+
+브라우저는 교차 출처 `fetch`/XHR POST에 `Origin`을 보내고, 기본 `Referrer-Policy`(`strict-origin-when-cross-origin`)에서는 교차 출처에 출처만 담은 `Referer`도 보낸다. 따라서 dev 웹과 localhost에서 백엔드를 직접 호출하면 `Origin`으로 구분된다.
+
+`frontend/webpack.config.js`의 `API_PROXY=1` 개발 프록시는 `Origin`을 제거한다. `Referer`는 코드상 제거하지 않지만 프록시를 거쳐 실제로 도착하는지는 서버에서 확인해야 한다. 프록시에서 두 헤더가 모두 사라지면 백엔드만으로 출처를 구분할 수 없어 시작 요청이 거절되며, 이 경우 지원하지 않는다. 프론트 코드와 프록시 설정은 이 작업에서 바꾸지 않는다.
+
+> 실제 dev 서버·카카오 콘솔 설정 적용 후 (1) dev 웹, (2) localhost 직접 호출, (3) localhost 프록시 호출에서 도착한 `Origin`·`Referer`와 로그인 완료·refresh 결과를 이 절에 기록한다. 아직 확인하지 않았다.
 
 애플 서명 검증 공개키는 고정된 Apple 키 주소에서 조회하고 1시간 캐시한다. 알 수 없는 kid에 대한 재조회는 1분 간격으로 제한한다. client secret은 설정된 PKCS#8 EC 개인키로 5분 유효한 ES256 JWT를 생성한다. 비밀 설정은 저장소에 커밋하지 않는다.
 
 외부 HTTP 연결 3초·응답 5초, 자동 리다이렉트·인가 코드 자동 재시도 없음. 오류 원문·코드·토큰·비밀키는 예외와 로그에 담지 않는다.
 
-현재 구현한 애플 웹 인가는 이름·이메일 scope 없이 response_type=code, response_mode=query다. scope를 추가하거나 인가 응답으로 ID 토큰을 직접 요청하면 응답 방식을 재검토한다. ID 토큰은 서버 코드 교환 응답에서 검증한다. 네이티브 SDK 입력 계약은 아직 지원을 확정하지 않았다.
+현재 구현한 애플 웹 인가는 이름·이메일 scope 없이 response_type=code, response_mode=query다. scope를 추가하거나 인가 응답으로 ID 토큰을 직접 요청하면 응답 방식을 재검토한다. ID 토큰은 서버 코드 교환 응답에서 검증한다. 앱 SDK 입력 계약은 아래 "앱 SDK 로그인 (#702)"를 따른다.
 
 ## 제공자 토큰 암호화 저장
 
 - V42에서 social_account에 encrypted_access_token·encrypted_refresh_token을 추가한다. 기존 행은 NULL을 허용하고 다음 정상 로그인에서 채운다. refresh만 있고 access가 없는 상태와 지원하지 않는 버전 접두사는 DB와 JPA 제약으로 제한한다.
 - `SocialTokenCipher`는 AES-256-GCM, 매 암호화마다 새 12바이트 IV와 128비트 인증 태그를 사용한다. `v1:` + Base64(IV + 암호문/태그) 형식이며 제공자·subject·토큰 종류를 인증 데이터에 포함한다. GCM 매개변수는 [Java 공식 문서](https://docs.oracle.com/en/java/javase/25/docs/api/java.base/javax/crypto/spec/GCMParameterSpec.html)를 참고한다.
-- 검증된 `SocialAuthentication`의 access/refresh 토큰만 암호화한다. 새 refresh 토큰이 없으면 기존 암호문을 유지하고, 새 값이 있으면 교체한다. 토큰 만료·갱신 HTTP 호출은 아직 구현하지 않았다.
+- 검증된 `SocialAuthentication`의 access/refresh 토큰만 암호화한다. 새 refresh 토큰이 없으면 같은 발급 client(웹/앱)의 기존 refresh 암호문을 유지하고, 새 값이 있으면 교체한다. 다른 client로 로그인해 refresh가 없으면 이전 client의 refresh를 지운다(아래 "토큰 보관과 탈퇴" 참고). 토큰 만료·갱신 HTTP 호출은 아직 구현하지 않았다.
 - 회원 잠금을 유지한 동일 트랜잭션에서 가입·활동 이전·토큰 저장·서비스 토큰 발급을 처리한다. 계정 메타데이터 save로 암호문이 지워지지 않도록 JPA 일반 갱신을 금지하고 전용 쿼리를 사용한다.
 - 제공자 토큰·암호문·암호화 키는 API 응답과 객체 문자열 표현에 포함하지 않는다. 복호화 오류는 원문 원인을 노출하지 않는 503으로 처리한다.
 
@@ -190,7 +330,7 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 `UnlinkSocialAccountService.unlink(identity)`는 탈퇴 흐름에서 사용할 내부 기능이다. 카카오는 사용자 식별자만 전달하고, 애플은 저장소에서 암호문을 읽고 복호화한 후 제공자 클라이언트의 unlink를 호출한다. 별도의 공개 엔드포인트는 없으며 호출자가 회원 본인 확인과 탈퇴 진행 제어를 담당해야 한다.
 
 - 카카오: 서버의 `OAUTH_KAKAO_ADMIN_KEY`를 `Authorization: KakaoAK {adminKey}`로 전달하고, 본문에 `target_id_type=user_id`와 `target_id={providerUserId}`를 넣어 `POST https://kapi.kakao.com/v1/user/unlink`를 호출한다. 성공 응답의 양수 정수 id가 대상 subject와 같은지 확인한다. 카카오 활성화 시 어드민 키가 필수이며 서버 비밀 설정으로 관리한다. [카카오 공식 문서](https://developers.kakao.com/docs/ko/kakaologin/rest-api#unlink)
-- 애플: refresh token을 우선 선택하고 없으면 access token을 사용해 `POST https://appleid.apple.com/auth/revoke`를 호출한다. 기존 ES256 client secret 생성기를 재사용하며 token_type_hint를 함께 전달한다. 본문 없는 HTTP 200을 성공으로 처리한다. 애플 문서상 이미 무효화된 토큰도 200일 수 있다. [애플 공식 문서](https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens)
+- 애플: 토큰을 발급한 client 설정(웹/앱)으로 철회한다. refresh token을 우선 선택하고 없으면 access token을 사용해 `POST https://appleid.apple.com/auth/revoke`를 호출한다. 기존 ES256 client secret 생성기를 재사용하며 token_type_hint를 함께 전달한다. 본문 없는 HTTP 200을 성공으로 처리한다. 애플 문서상 이미 무효화된 토큰도 200일 수 있다. [애플 공식 문서](https://developer.apple.com/documentation/signinwithapplerestapi/revoke-tokens)
 - 애플의 보관 토큰 없음, HTTP 400/error invalid_grant는 SOCIAL_REAUTHENTICATION_REQUIRED(409)로 구분한다. invalid_client·429·5xx·리다이렉트·불명확한 응답·통신 오류·암호문 오류는 503이다. 실패 원문과 토큰은 예외에 남기지 않는다.
 - 카카오 연결 해제는 사용자 access/refresh token의 만료·누락·암호문 손상에 영향을 받지 않는다. 어드민 키 인증 실패는 재인증 요청이 아닌 503으로 처리한다. 현재 로그인 시 제공자 토큰을 암호화해 저장하는 공통 구조는 유지한다. 무효 토큰이나 타임아웃만 보고 이미 연결 해제됐다고 추정하지 않는다.
 - DB 트랜잭션 중 호출하면 Propagation.NEVER로 거부한다. 외부 요청의 자동 재시도는 없으며 로컬 회원·방·세션·소셜 계정·암호문은 성공/실패 모두 변경하지 않는다. 실제 외부 계정은 테스트에 사용하지 않았다.

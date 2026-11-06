@@ -31,12 +31,18 @@ public class CompleteSocialLoginService {
         }
         OAuthLoginAttempt attempt = oauthLoginAttemptService.consume(provider, state, loginVerifier);
         SocialAuthClient socialAuthClient = findSocialAuthClient(provider);
-        SocialAuthentication authentication = socialAuthClient.authenticate(code, attempt.nonce());
+        SocialAuthentication authentication = socialAuthClient.authenticate(code, attempt.nonce(), attempt.redirectUri());
         if (authentication.identity().provider() != provider) {
             throw SocialAuthException.invalid();
         }
+        return loginVerified(authentication, attempt.anonymousMemberIds(), delivery);
+    }
+
+    // 제공자 검증을 마친 인증 결과로 회원 로그인을 완료한다. 웹과 앱 SDK 로그인이 함께 쓴다.
+    public AuthResult loginVerified(SocialAuthentication authentication, List<Long> anonymousMemberIds,
+                                    RefreshTokenDelivery delivery) {
         try {
-            return socialMemberLoginService.login(authentication, attempt.anonymousMemberIds(), delivery);
+            return socialMemberLoginService.login(authentication, anonymousMemberIds, delivery);
         } catch (DataIntegrityViolationException e) {
             // 동일 소셜 계정의 동시 가입은 DB 유일성 제약으로 막는다. 롤백 후 새 시도로 재시작한다.
             throw SocialAuthException.conflict();

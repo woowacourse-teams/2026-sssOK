@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   LuCheck,
   LuDownload,
@@ -12,7 +12,7 @@ import {
 import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
 import { trackDownload, trackDownloadStarted, trackShareBatch } from "../model/trackDownload";
@@ -74,12 +74,6 @@ const STATUS_TEXT: Record<DownloadPhase, string> = {
   receiving: "zip 받는 중",
   sharing: "사진첩에 저장하는 중",
 };
-
-/**
- * 저장을 마쳤다는 토스트가 떠 있는 시간.
- * 결과를 알리기만 하고 할 일은 없는 알림이라, 닫기 버튼 없이 이 시간 뒤에 스스로 사라진다.
- */
-const DONE_TOAST_MS = 2000;
 
 /** 방식마다 끝난 자리가 다르다. 사진첩인지, 낱장 파일인지, 압축 파일 하나인지 말해준다. */
 const doneMessageOf = (mode: DownloadMode, count: number) =>
@@ -172,18 +166,7 @@ export const SelectionDownloadBar = ({
     });
   };
   const [isDiscardOpen, setDiscardOpen] = useState(false);
-  /** 저장을 모두 마친 판. 차 있는 동안 완료 토스트를 띄운다. */
-  const [doneToast, setDoneToast] = useState<{ mode: DownloadMode; count: number } | null>(null);
-
-  useEffect(() => {
-    if (doneToast === null) {
-      return;
-    }
-
-    const timer = window.setTimeout(() => setDoneToast(null), DONE_TOAST_MS);
-
-    return () => window.clearTimeout(timer);
-  }, [doneToast]);
+  const { showToast } = useToast();
 
   const { progress, pendingShare, isSharing, start, share, dismissShare, cancel } =
     useMediaDownload({
@@ -198,7 +181,10 @@ export const SelectionDownloadBar = ({
         // 못 받은 것이 섞인 판은 실패 모달이 설명하므로 토스트를 겹쳐 띄우지 않는다.
         // 사진첩 묶음 사이에는 바가 남은 장수를 말하고, 토스트는 다 끝났을 때 한 번만 뜬다.
         if (outcome.type === "saved" && outcome.failed.length === 0) {
-          setDoneToast({ mode: trackedRunRef.current.mode, count: outcome.savedCount });
+          showToast({
+            message: doneMessageOf(trackedRunRef.current.mode, outcome.savedCount),
+            showClose: false,
+          });
           onClearSelection();
         }
 
@@ -369,14 +355,6 @@ export const SelectionDownloadBar = ({
             dismissShare();
           }}
           onClose={() => setDiscardOpen(false)}
-        />
-      )}
-
-      {doneToast !== null && (
-        <Toast
-          message={doneMessageOf(doneToast.mode, doneToast.count)}
-          showClose={false}
-          onClose={() => setDoneToast(null)}
         />
       )}
     </>

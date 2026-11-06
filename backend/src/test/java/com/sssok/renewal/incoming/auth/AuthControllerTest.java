@@ -5,6 +5,8 @@ import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.application.auth.NativeSocialLoginService;
+import com.sssok.renewal.application.auth.OAuthLoginAttemptResult;
 import com.sssok.renewal.application.auth.CompleteSocialLoginService;
 import com.sssok.renewal.application.auth.IssueLinkCodeService;
 import com.sssok.renewal.application.auth.LinkCodeResult;
@@ -54,6 +56,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import(AuthTokenHttpSupport.class)
 @WebMvcTest(AuthController.class)
 class AuthControllerTest {
+    private static final String KAKAO_ORIGIN = "http://localhost:3000";
 
     @Autowired
     MockMvc mockMvc;
@@ -63,6 +66,9 @@ class AuthControllerTest {
 
     @MockitoBean
     CompleteSocialLoginService completeSocialLoginService;
+
+    @MockitoBean
+    NativeSocialLoginService nativeSocialLoginService;
 
     @MockitoBean
     StartAppleLoginService startAppleLoginService;
@@ -236,10 +242,166 @@ class AuthControllerTest {
             .andExpect(status().is(statusCode));
     }
 
+    private AuthResult nativeAuthResult() {
+        return new AuthResult("service-token", 10L, "민수", Instant.parse("2026-11-01T00:00:00Z"), "service-refresh",
+            Instant.now().plusSeconds(2592000), MemberStatus.REGISTERED);
+    }
+
+    @Test
+    void 카카오_앱_로그인은_기본값_쿠키로_토큰을_캐시없이_반환한다() throws Exception {
+        given(nativeSocialLoginService.loginWithKakao("sdk-token", RefreshTokenDelivery.COOKIE)).willReturn(nativeAuthResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"kakaoAccessToken\":\"sdk-token\"}"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().string("Set-Cookie", Matchers.allOf(
+                Matchers.containsString("sssok_refresh=service-refresh"), Matchers.containsString("HttpOnly"))))
+            .andExpect(jsonPath("$.data.accessToken").value("service-token"))
+            .andExpect(jsonPath("$.data.userId").value(10))
+            .andExpect(jsonPath("$.data.memberStatus").value("REGISTERED"))
+            .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void 카카오_앱_로그인은_쿠키_요청의_CSRF_헤더가_없으면_거부한다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"kakaoAccessToken\":\"sdk-token\"}"))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @Test
+    void 카카오_앱_로그인은_BODY_전달을_요청하면_본문으로_refresh를_준다() throws Exception {
+        given(nativeSocialLoginService.loginWithKakao("sdk-token", RefreshTokenDelivery.BODY)).willReturn(nativeAuthResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"kakaoAccessToken\":\"sdk-token\",\"refreshTokenDelivery\":\"BODY\"}"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.refreshToken").value("service-refresh"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"kakaoAccessToken\":\"\"}", "{\"kakaoAccessToken\":\"   \"}",
+        "{\"kakaoAccessToken\":\"a b\"}", "{\"kakaoAccessToken\":\"a\\r\\nX-Evil: 1\"}",
+        "{\"kakaoAccessToken\":\"한글토큰\"}", "{\"kakaoAccessToken\":null}"})
+    void 카카오_앱_로그인은_잘못된_토큰을_제공자_호출_전에_거부한다(String body) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @Test
+    void 카카오_앱_로그인은_토큰_길이_상한을_넘으면_거부한다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"kakaoAccessToken\":\"%s\"}".formatted("a".repeat(2049))))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 409, 503})
+    void 카카오_앱_로그인_실패의_상태코드를_유지한다(int statusCode) throws Exception {
+        SocialAuthException error = switch (statusCode) {
+            case 401 -> SocialAuthException.invalid();
+            case 409 -> SocialAuthException.conflict();
+            default -> SocialAuthException.unavailable();
+        };
+        given(nativeSocialLoginService.loginWithKakao("sdk-token", RefreshTokenDelivery.COOKIE)).willThrow(error);
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content("{\"kakaoAccessToken\":\"sdk-token\"}"))
+            .andExpect(status().is(statusCode));
+    }
+
+    @Test
+    void 애플_앱_준비는_웹_URL없이_시도_정보와_nonce를_캐시없이_반환한다() throws Exception {
+        given(nativeSocialLoginService.startApple()).willReturn(new OAuthLoginAttemptResult(
+            SocialProvider.APPLE, "s".repeat(43), "v".repeat(43), "n".repeat(43), null, Instant.parse("2026-11-05T12:05:00Z")));
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/start"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.state").value("s".repeat(43)))
+            .andExpect(jsonPath("$.data.loginVerifier").value("v".repeat(43)))
+            .andExpect(jsonPath("$.data.nonce").value("n".repeat(43)))
+            .andExpect(jsonPath("$.data.expiresAt").value("2026-11-05T12:05:00Z"))
+            .andExpect(jsonPath("$.data.authorizationUrl").doesNotExist())
+            .andExpect(jsonPath("$.data.redirectUri").doesNotExist());
+    }
+
+    @Test
+    void 애플_앱_준비는_앱_설정이_없으면_503이다() throws Exception {
+        given(nativeSocialLoginService.startApple()).willThrow(SocialAuthException.unavailable());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/start")).andExpect(status().isServiceUnavailable());
+    }
+
+    @Test
+    void 애플_앱_로그인은_기본값_쿠키로_토큰을_캐시없이_반환한다() throws Exception {
+        given(nativeSocialLoginService.loginWithApple("sdk-code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE))
+            .willReturn(nativeAuthResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}".formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Cache-Control", "no-store"))
+            .andExpect(header().string("Set-Cookie", Matchers.allOf(
+                Matchers.containsString("sssok_refresh=service-refresh"), Matchers.containsString("HttpOnly"))))
+            .andExpect(jsonPath("$.data.accessToken").value("service-token"))
+            .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
+    }
+
+    @Test
+    void 애플_앱_로그인은_BODY_전달을_요청하면_본문으로_refresh를_준다() throws Exception {
+        given(nativeSocialLoginService.loginWithApple("sdk-code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.BODY))
+            .willReturn(nativeAuthResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\",\"refreshTokenDelivery\":\"BODY\"}"
+                    .formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isOk())
+            .andExpect(header().doesNotExist("Set-Cookie"))
+            .andExpect(jsonPath("$.data.refreshToken").value("service-refresh"));
+    }
+
+    @Test
+    void 애플_앱_로그인은_쿠키_요청의_CSRF_헤더가_없으면_거부한다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}".formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().isForbidden());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"code\":\"code\"}", "{\"code\":\"code\",\"state\":\"bad\",\"loginVerifier\":\"bad\"}"})
+    void 애플_앱_로그인은_잘못된_요청을_인증_전에_거부한다(String body) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON).content(body))
+            .andExpect(status().isBadRequest());
+        verifyNoInteractions(nativeSocialLoginService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {401, 409, 503})
+    void 애플_앱_로그인_실패의_상태코드를_유지한다(int statusCode) throws Exception {
+        SocialAuthException error = switch (statusCode) {
+            case 401 -> SocialAuthException.invalid();
+            case 409 -> SocialAuthException.conflict();
+            default -> SocialAuthException.unavailable();
+        };
+        given(nativeSocialLoginService.loginWithApple("sdk-code", "s".repeat(43), "v".repeat(43), RefreshTokenDelivery.COOKIE)).willThrow(error);
+        mockMvc.perform(post("/api/v1/auth/oauth/apple/native/login").header("X-CSRF-Protection", "1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"code\":\"sdk-code\",\"state\":\"%s\",\"loginVerifier\":\"%s\"}".formatted("s".repeat(43), "v".repeat(43))))
+            .andExpect(status().is(statusCode));
+    }
+
     @Test
     void 인증_없이_카카오_로그인을_시작하고_쿠키_없이_확인값을_반환한다() throws Exception {
-        given(startKakaoLoginService.start(List.of())).willReturn(kakaoStartResult());
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+        given(startKakaoLoginService.start(List.of(), KAKAO_ORIGIN)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN))
             .andExpect(status().isOk())
             .andExpect(header().string("Cache-Control", "no-store"))
             .andExpect(header().doesNotExist("Set-Cookie"))
@@ -253,32 +415,59 @@ class AuthControllerTest {
 
     @Test
     void 헤더의_익명_토큰을_로그인_시작에_전달한다() throws Exception {
-        given(startKakaoLoginService.start(List.of("anonymous-token"))).willReturn(kakaoStartResult());
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
+        given(startKakaoLoginService.start(List.of("anonymous-token"), KAKAO_ORIGIN)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN)
                 .header("Authorization", "Bearer anonymous-token"))
             .andExpect(status().isOk());
-        verify(startKakaoLoginService).start(List.of("anonymous-token"));
+        verify(startKakaoLoginService).start(List.of("anonymous-token"), KAKAO_ORIGIN);
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"", "Basic token", "Bearer ", "Bearer two tokens"})
     void 잘못된_인증_헤더를_인증_없는_요청으로_취급하지_않는다(String authorization) throws Exception {
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", authorization))
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN).header("Authorization", authorization))
             .andExpect(status().isUnauthorized());
         verifyNoInteractions(startKakaoLoginService);
     }
 
     @Test
     void 카카오_시작에서_만료된_익명_토큰은_401로_반환한다() throws Exception {
-        given(startKakaoLoginService.start(List.of("expired"))).willThrow(new UnauthorizedException("다시 접속해주세요"));
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Authorization", "Bearer expired"))
+        given(startKakaoLoginService.start(List.of("expired"), KAKAO_ORIGIN)).willThrow(new UnauthorizedException("다시 접속해주세요"));
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN).header("Authorization", "Bearer expired"))
+            .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void Origin이_없고_Referer_출처가_있으면_Referer로_카카오_로그인을_시작한다() throws Exception {
+        given(startKakaoLoginService.start(List.of(), KAKAO_ORIGIN)).willReturn(kakaoStartResult());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Referer", KAKAO_ORIGIN + "/login?next=/rooms"))
+            .andExpect(status().isOk());
+        verify(startKakaoLoginService).start(List.of(), KAKAO_ORIGIN);
+    }
+
+    @Test
+    void 출처를_판별할_수_없는_카카오_시작_요청은_401로_거절하고_서비스를_호출하지_않는다() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value("INVALID_SOCIAL_AUTH"));
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Referer", "not a url"))
+            .andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN).header("Referer", "https://other.example/"))
+            .andExpect(status().isUnauthorized());
+        verifyNoInteractions(startKakaoLoginService);
+    }
+
+    @Test
+    void 등록되지_않은_출처는_서비스에서_거절한_401을_그대로_반환한다() throws Exception {
+        given(startKakaoLoginService.start(List.of(), "http://localhost:9999")).willThrow(SocialAuthException.invalid());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Referer", "http://localhost:9999/login"))
             .andExpect(status().isUnauthorized());
     }
 
     @Test
     void 카카오가_비활성이면_503을_반환한다() throws Exception {
-        given(startKakaoLoginService.start(List.of())).willThrow(SocialAuthException.unavailable());
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start"))
+        given(startKakaoLoginService.start(List.of(), KAKAO_ORIGIN)).willThrow(SocialAuthException.unavailable());
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN))
             .andExpect(status().isServiceUnavailable())
             .andExpect(jsonPath("$.code").value("SOCIAL_AUTH_UNAVAILABLE"));
     }
@@ -291,14 +480,14 @@ class AuthControllerTest {
     @Test
     void 카카오_시작은_본문의_복수_익명_토큰도_같은_목록으로_전달한다() throws Exception {
         List<String> tokens = List.of("first-token", "second-token");
-        given(startKakaoLoginService.start(tokens)).willReturn(kakaoStartResult());
+        given(startKakaoLoginService.start(tokens, KAKAO_ORIGIN)).willReturn(kakaoStartResult());
 
-        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start")
+        mockMvc.perform(post("/api/v1/auth/oauth/kakao/start").header("Origin", KAKAO_ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"anonymousAccessTokens\":[\"first-token\",\"second-token\"]}"))
             .andExpect(status().isOk());
 
-        verify(startKakaoLoginService).start(tokens);
+        verify(startKakaoLoginService).start(tokens, KAKAO_ORIGIN);
     }
 
     @Test

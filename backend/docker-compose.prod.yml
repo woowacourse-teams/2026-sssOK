@@ -16,6 +16,8 @@ services:
     image: ${BACKEND_IMAGE}
     container_name: sssok-app
     restart: unless-stopped
+    # 웹 요청 20s + 비동기 작업 20s 보다 길게 둔다 (기본 10s).
+    stop_grace_period: 50s
     # 서버 .env의 설정을 앱에 전달한다. 같은 이름은 아래 environment 값이 우선한다.
     env_file:
       - .env
@@ -52,7 +54,7 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
-      - "${MONITORING_PRIVATE_IP:-10.0.20.127}:19100:19100"
+      - "${MONITORING_PRIVATE_IP:-10.0.20.161}:19100:19100"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
@@ -84,7 +86,7 @@ services:
       SSSOK_ENVIRONMENT: prod
       # Docker API 를 프록시로만 부른다 (아래 docker-socket-proxy 참고).
       SSSOK_DOCKER_HOST: tcp://docker-socket-proxy:2375
-      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.46:13100/loki/api/v1/push}
+      CENTRAL_LOKI_URL: ${CENTRAL_LOKI_URL:-http://10.0.20.204:13100/loki/api/v1/push}
       GOMEMLIMIT: 200MiB
     mem_limit: 256m
     volumes:

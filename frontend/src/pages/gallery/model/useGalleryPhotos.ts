@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import { usePhotosQuery } from "@/entities/media";
+import { hasProcessingPhotos } from "@/features/organize-media";
 import type { GalleryItem, PhotoFilter, PhotoSort } from "@/entities/media";
 import type { RoomFolder } from "@/entities/room";
 import {
@@ -59,6 +60,20 @@ export const useGalleryPhotos = ({
       .filter((slot) => serverMediaIds.has(slot.mediaId))
       .map((slot) => slot.mediaId);
   }, [photosQuery.data?.items, uploadSlots]);
+  /** 썸네일이 없어 갤러리에 안 그려진 처리 중 사진까지 본다. */
+  const isProcessingPhotos = useMemo(
+    () =>
+      hasProcessingPhotos([
+        ...uploadSlots,
+        ...(photosQuery.data?.items ?? []).map((media): GalleryItem => ({
+          mediaId: media.mediaId,
+          type: "server",
+          media,
+          folderIds: media.folderIds,
+        })),
+      ]),
+    [photosQuery.data?.items, uploadSlots],
+  );
   const hasLoadedPhotos = photosQuery.data !== undefined;
   const folderCounts = useMemo(
     () =>
@@ -82,6 +97,7 @@ export const useGalleryPhotos = ({
     galleryItems: visibleItems,
     allGalleryItems,
     completedUploadIds,
+    isProcessingPhotos,
     totalCount: hasLoadedPhotos ? allGalleryItems.length : initialTotalCount,
     folderCounts,
     isPending: photosQuery.isPending,
