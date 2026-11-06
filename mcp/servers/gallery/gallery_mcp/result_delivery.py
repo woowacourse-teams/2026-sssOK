@@ -1,4 +1,4 @@
-"""At-least-once delivery to one configured Spring endpoint.
+"""At-least-once delivery to the persisted environment’s configured Spring endpoint.
 
 No callback URL is accepted from an MCP caller. Terminal receipts remain on disk
 until Spring confirms the execution ID and state after committing its transaction.
@@ -70,8 +70,11 @@ class Delivery:
             sent = _Sent(row['state'], sent.progress if sent else None, sent.sent_at if sent else 0,
                          0, sent.failures if sent else 0)
             try:
-                response = await client.post(self.settings.backend_url, json=payload,
-                    headers={'Authorization': 'Bearer ' + self.settings.backend_token})
+                url, token = self.settings.callback(row['environment'])
+                if not url:
+                    raise ValueError('Callback missing for environment')
+                response = await client.post(url, json=payload,
+                    headers={'Authorization': 'Bearer ' + token})
                 response.raise_for_status()
                 ack = response.json()
                 if (ack.get('accepted') is not True or ack.get('executionId') != execution_id
@@ -79,7 +82,8 @@ class Delivery:
                     raise ValueError('Backend did not acknowledge this execution and state')
                 self.service.store.acknowledge(execution_id, row['state'])
                 sent.failures, sent.progress, sent.sent_at = 0, key, now
-            except (httpx.HTTPError, ValueError, AttributeError):
+            except (httpx.HTTPError, ValueError, AttributeError, KeyError):
+                # KeyError: no callback route is configured for this execution's environment.
                 sent.failures += 1
                 sent.retry_at = now + min(60, 2 ** min(sent.failures, 6))
                 # No URL, token, response body or signed source is logged.

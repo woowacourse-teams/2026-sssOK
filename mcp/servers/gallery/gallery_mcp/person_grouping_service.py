@@ -34,7 +34,7 @@ class PersonGroupingService:
             self.store.recover()
             yield
 
-    def start(self, room_id, request_id, photos: list[Photo], job_id=None, attempt=1, kind='PERSON'):
+    def start(self, room_id, request_id, photos: list[Photo], job_id=None, attempt=1, kind='PERSON', environment='dev'):
         # Coordinate admission with deployment across processes. Queries and the
         # worker remain available while queued work drains.
         with (self.settings.data / 'admission.lock').open('a') as lock:
@@ -44,13 +44,15 @@ class PersonGroupingService:
             if (self.settings.data / 'draining').exists():
                 raise RetryableRejection('DEPLOYING', 'Server deployment in progress; retry later')
             try:
-                return self._start(room_id, request_id, photos, job_id, attempt, kind)
+                return self._start(room_id, request_id, photos, job_id, attempt, kind, environment)
             except sqlite3.OperationalError as error:
                 if 'locked' not in str(error):
                     raise
                 raise RetryableRejection('STORAGE_BUSY', 'Analysis storage is busy; retry later') from None
 
-    def _start(self, room_id, request_id, photos, job_id, attempt, kind):
+    def _start(self, room_id, request_id, photos, job_id, attempt, kind, environment):
+        if environment not in self.settings.credentials():
+            raise ValueError('Unknown request environment')
         if job_id is not None and str(UUID(job_id)) != job_id:
             raise ValueError('Spring job ID must be a canonical UUID')
         if type(attempt) is not int or attempt < 1:
@@ -60,11 +62,14 @@ class PersonGroupingService:
         validate(room_id,request_id,photos,self.settings)
         row,reused = self.store.create(room_id,request_id,fingerprint(photos),
                                        [p.model_dump() for p in photos],self.settings.max_queue,job_id,attempt,
-                                       max_receipts=self.settings.max_receipts, kind=kind)
+                                       max_receipts=self.settings.max_receipts, kind=kind, environment=environment)
         return {**self.view(row),'reused':reused}
 
-    def get(self, room_id, job_id):
-        return self.view(self.store.get(room_id,job_id))
+    def get(self, room_id, job_id, environment='dev'):
+        row = self.store.get(room_id,job_id)
+        if row['environment'] != environment:
+            raise ValueError('Execution not found in this environment')
+        return self.view(row)
 
     def view(self, row):
         progress = {}

@@ -12,8 +12,8 @@ services:
     restart: unless-stopped
     mem_limit: 32m
     ports:
-      - "10.0.20.46:80:80"
-      - "10.0.20.46:13100:13100"
+      - "10.0.20.204:80:80"
+      - "10.0.20.204:13100:13100"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:

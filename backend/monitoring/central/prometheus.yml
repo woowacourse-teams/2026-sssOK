@@ -35,33 +35,41 @@ scrape_configs:
     static_configs:
       - targets: [node-exporter:9100]
         labels: *central
-      - targets: [10.0.0.69:19100]
+      - targets: [10.0.0.104:19100]
         labels:
           environment: dev
           server: dev
-      - targets: [10.0.20.127:19100]
+      - targets: [10.0.20.161:19100]
         labels:
           environment: prod
           server: prod
+      - targets: [10.0.0.251:19100]
+        labels:
+          environment: mcp
+          server: mcp
   - job_name: sssok-backend
     metrics_path: /app-metrics
     static_configs:
-      - targets: [10.0.0.69:19100]
+      - targets: [10.0.0.104:19100]
         labels:
           environment: dev
           server: dev
-      - targets: [10.0.20.127:19100]
+      - targets: [10.0.20.161:19100]
         labels:
           environment: prod
           server: prod
   - job_name: alloy
     metrics_path: /alloy-metrics
     static_configs:
-      - targets: [10.0.0.69:19100]
+      - targets: [10.0.0.104:19100]
         labels:
           environment: dev
           server: dev
-      - targets: [10.0.20.127:19100]
+      - targets: [10.0.20.161:19100]
         labels:
           environment: prod
           server: prod
+      - targets: [10.0.0.251:19100]
+        labels:
+          environment: mcp
+          server: mcp

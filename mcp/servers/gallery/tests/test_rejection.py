@@ -3,6 +3,8 @@ import asyncio
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
+from types import SimpleNamespace
 from pathlib import Path
 from uuid import uuid4
 
@@ -33,7 +35,10 @@ def call_start(error, tool='group_photos_by_person'):
 
     async def run():
         async with create_connected_server_and_client_session(mcp._mcp_server) as client:
-            return await client.call_tool(tool, arguments)
+            context = SimpleNamespace(request_context=SimpleNamespace(
+                request=SimpleNamespace(scope={'gallery_environment':'dev'})))
+            with patch.object(mcp, 'get_context', return_value=context):
+                return await client.call_tool(tool, arguments)
     return asyncio.run(run())
 
 

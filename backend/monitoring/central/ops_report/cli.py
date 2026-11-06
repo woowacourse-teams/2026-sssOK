@@ -20,7 +20,7 @@ from .prometheus import DEFAULT_URL, Prometheus
 from .service import RECOVER_DAYS, Reporter, deliver, message_key
 from .store import Store
 
-DEPLOY = Path('/home/ubuntu/monitoring')
+DEPLOY = Path(__file__).resolve().parent.parent
 STATE = Path(os.environ.get('STATE_DIRECTORY', '/var/lib/sssok-ops-report'))
 UNITS = ('sssok-ops-report.service', 'sssok-ops-report.timer')
 

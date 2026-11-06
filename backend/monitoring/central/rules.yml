@@ -12,7 +12,7 @@ groups:
   - name: sssok-metrics-availability
     rules:
       - alert: NodeMetricsDown
-        expr: up{job="node",environment=~"dev|prod"} == 0
+        expr: up{job="node",environment=~"dev|prod|mcp"} == 0
         for: 2m
         keep_firing_for: 5m
         labels:
@@ -89,7 +89,7 @@ groups:
       - alert: HostHighCPU
         expr: |
           1 - avg by (environment, server, instance) (
-            rate(node_cpu_seconds_total{job="node",environment=~"dev|prod|monitoring",mode="idle"}[5m])
+            rate(node_cpu_seconds_total{job="node",environment=~"dev|prod|monitoring|mcp",mode="idle"}[5m])
           ) > 0.85
         for: 10m
         labels:
@@ -100,8 +100,8 @@ groups:
           description: '{{ $labels.environment }} / {{ $labels.server }}: 최근 5분 평균 CPU 사용률 85% 초과가 10분 지속됐습니다. 현재 사용률: {{ $value | humanizePercentage }}'
       - alert: HostMemoryLow
         expr: |
-          node_memory_MemAvailable_bytes{job="node",environment=~"dev|prod|monitoring"}
-            / node_memory_MemTotal_bytes{job="node",environment=~"dev|prod|monitoring"} < 0.1
+          node_memory_MemAvailable_bytes{job="node",environment=~"dev|prod|monitoring|mcp"}
+            / node_memory_MemTotal_bytes{job="node",environment=~"dev|prod|monitoring|mcp"} < 0.1
         for: 5m
         labels:
           severity: warning
@@ -111,8 +111,8 @@ groups:
           description: '{{ $labels.environment }} / {{ $labels.server }}: 사용 가능 메모리 10% 미만이 5분 지속됐습니다. 현재 여유: {{ $value | humanizePercentage }}. 컨테이너별 메모리 한도는 별도 확인하세요.'
       - alert: HostDiskSpaceLow
         expr: |
-          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
-            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"} < 0.15
+          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"} < 0.15
         for: 10m
         labels:
           severity: warning
@@ -123,8 +123,8 @@ groups:
             사용량을 확인하세요.
       - alert: HostDiskSpaceCritical
         expr: |
-          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
-            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"} < 0.05
+          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"} < 0.05
         for: 5m
         labels:
           severity: critical
@@ -134,10 +134,10 @@ groups:
           description: 루트 디스크 여유가 {{ $value | humanizePercentage }} 뿐입니다. 곧 배포와 로그 쓰기가 실패합니다.
       - alert: HostDiskWillFillIn24h
         expr: |
-          predict_linear(node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}[6h], 24 * 3600) < 0
+          predict_linear(node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"}[6h], 24 * 3600) < 0
           and
-          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"}
-            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring", mountpoint="/"} < 0.4
+          node_filesystem_avail_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"}
+            / node_filesystem_size_bytes{job="node", environment=~"dev|prod|monitoring|mcp", mountpoint="/"} < 0.4
         for: 30m
         labels:
           severity: warning
@@ -148,7 +148,7 @@ groups:
   - name: sssok-logging
     rules:
       - alert: LogPipelineDown
-        expr: up{job="alloy",environment=~"dev|prod"} == 0
+        expr: up{job="alloy",environment=~"dev|prod|mcp"} == 0
         for: 5m
         keep_firing_for: 5m
         labels:
@@ -159,7 +159,7 @@ groups:
           description: '{{ $labels.environment }} / {{ $labels.server }} Alloy 지표를 5분 이상 수집하지 못했습니다. 실제 로그 전송 중단 여부는 별도 확인하세요.'
       - alert: LogShippingFailing
         expr: |
-          sum by (environment, server, host) (rate(loki_write_request_duration_seconds_count{job="alloy",environment=~"dev|prod",status_code!~"2.."}[5m])) > 0
+          sum by (environment, server, host) (rate(loki_write_request_duration_seconds_count{job="alloy",environment=~"dev|prod|mcp",status_code!~"2.."}[5m])) > 0
         for: 10m
         labels:
           severity: warning
@@ -169,7 +169,7 @@ groups:
           description: '{{ $labels.environment }} / {{ $labels.server }} → {{ $labels.host }} 로그 전송 실패가 10분 이상 관측됩니다.'
       - alert: LogEntriesDropped
         expr: |
-          sum by (environment, server, host, reason) (increase(loki_write_dropped_entries_total{job="alloy",environment=~"dev|prod"}[10m])) > 0
+          sum by (environment, server, host, reason) (increase(loki_write_dropped_entries_total{job="alloy",environment=~"dev|prod|mcp"}[10m])) > 0
         labels:
           severity: warning
           service: sssok-logging
