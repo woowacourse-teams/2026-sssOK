@@ -34,7 +34,7 @@ class SimilarStoreTests(unittest.TestCase):
             self.assertEqual(migrated.get(1,eid)['kind'],'PERSON')
             self.assertEqual(migrated.get(1,eid)['state'],'QUEUED')
             self.assertTrue(migrated.create(1,eid,'same',[{'mediaId':1}],8)[1])
-            with sqlite3.connect(store.database) as db:self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],2)
+            with sqlite3.connect(store.database) as db:self.assertEqual(db.execute('PRAGMA user_version').fetchone()[0],3)
 
 
     def test_result_requires_disjoint_complete_partition(self):

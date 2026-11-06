@@ -122,11 +122,11 @@ tests:
 - name: 중앙 전송 실패 목적지 분리와 복구
   interval: 1m
   input_series:
-  - series: loki_write_request_duration_seconds_count{job="alloy",environment="dev",server="dev",host="10.0.20.46:13100",status_code="500"}
+  - series: loki_write_request_duration_seconds_count{job="alloy",environment="dev",server="dev",host="10.0.20.204:13100",status_code="500"}
     values: 0+10x15 150+0x20
   - series: loki_write_request_duration_seconds_count{job="alloy",environment="dev",server="dev",host="loki:3100",status_code="204"}
     values: 0+10x36
-  - series: loki_write_request_duration_seconds_count{job="alloy",environment="prod",server="prod",host="10.0.20.46:13100",status_code="204"}
+  - series: loki_write_request_duration_seconds_count{job="alloy",environment="prod",server="prod",host="10.0.20.204:13100",status_code="204"}
     values: 0+10x36
   promql_expr_test:
   - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing"}) or vector(0)
@@ -134,7 +134,7 @@ tests:
     exp_samples:
     - labels: '{}'
       value: 0
-  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing",environment="dev",server="dev",host="10.0.20.46:13100"}) or vector(0)
+  - expr: count(ALERTS{alertname="LogShippingFailing",alertstate="firing",environment="dev",server="dev",host="10.0.20.204:13100"}) or vector(0)
     eval_time: 12m
     exp_samples:
     - labels: '{}'
@@ -157,9 +157,9 @@ tests:
 - name: 폐기는 목적지와 사유별 유지
   interval: 1m
   input_series:
-  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="10.0.20.46:13100",reason="rate_limited"}
+  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="10.0.20.204:13100",reason="rate_limited"}
     values: 0+2x10
-  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="10.0.20.46:13100",reason="queue_is_full"}
+  - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="10.0.20.204:13100",reason="queue_is_full"}
     values: 0+3x10
   - series: loki_write_dropped_entries_total{job="alloy",environment="dev",server="dev",host="loki:3100",reason="rate_limited"}
     values: 0+0x10
@@ -169,7 +169,7 @@ tests:
     exp_samples:
     - labels: '{}'
       value: 2
-  - expr: count(ALERTS{alertname="LogEntriesDropped",alertstate="firing",host="10.0.20.46:13100",reason="rate_limited",environment="dev",server="dev"})
+  - expr: count(ALERTS{alertname="LogEntriesDropped",alertstate="firing",host="10.0.20.204:13100",reason="rate_limited",environment="dev",server="dev"})
       or vector(0)
     eval_time: 5m
     exp_samples:

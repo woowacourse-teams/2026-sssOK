@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Run as the dedicated ubuntu runner. No sudo, host build or data deletion.
+# Run as the dedicated deployment account. No sudo, host build or data deletion.
 set -Eeuo pipefail
 umask 077
 source_dir=$(cd "$(dirname "$0")" && pwd)
-root=${MCP_DEPLOY_ROOT:-/home/ubuntu/sssok-mcp}
+root=${MCP_DEPLOY_ROOT:-${HOME:?Deployment account home required}/sssok-mcp}
 : "${GALLERY_IMAGE:?Immutable image reference required}"
 [[ "$GALLERY_IMAGE" =~ ^ghcr\.io/[a-z0-9._/-]+@sha256:[a-f0-9]{64}$ ]] || { echo 'Invalid image digest'; exit 1; }
-[[ -r "$root/gallery/.env" ]] || { echo 'ubuntu must be able to read gallery/.env'; exit 1; }
+[[ -r "$root/gallery/.env" ]] || { echo 'Deployment account must be able to read gallery/.env'; exit 1; }
 mkdir -p "$root/releases"
 exec 9>"$root/deploy.lock"
 flock -n 9 || { echo 'Another deployment is running'; exit 1; }
@@ -20,7 +20,7 @@ if [[ -e "$root/current" || -L "$root/current" ]]; then
   done
 fi
 release=$(mktemp -d "$root/releases/gallery-XXXXXXXX")
-printf 'sqlite-v2\n' > "$release/storage-version"
+printf 'sqlite-v3\n' > "$release/storage-version"
 cp "$source_dir/compose.yml" "$source_dir/smoke.py" "$source_dir/control.py" "$release/"
 cp "$source_dir/../servers/gallery/model-checksums.json" "$release/"
 chmod 644 "$release/model-checksums.json"
@@ -89,7 +89,7 @@ rollback_compatible() {
   previous_storage=$(cat "$previous/storage-version" 2>/dev/null || true)
   database=$(database_version "$next_data/executions-v1.sqlite3") || database=unknown
   case "$previous_storage:$database" in
-    sqlite-v1:1|sqlite-v2:1|sqlite-v2:2|:absent) return 0 ;;
+    sqlite-v1:1|sqlite-v2:1|sqlite-v2:2|sqlite-v3:1|sqlite-v3:2|sqlite-v3:3|:absent) return 0 ;;
   esac
   echo "ERROR: incompatible rollback refused (previous=${previous_storage:-JSON}, database=$database). Keep data and recover with a compatible release manually." >&2
   return 1
@@ -143,7 +143,7 @@ if [[ -n "$previous" ]]; then
     echo 'Persistent data directory changed; deployment refused. Migrate data separately before deploying.' >&2
     exit 1
   }
-  if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v2 && -f "$next_data/executions-v1.sqlite3" ]]; then
+  if [[ "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v1 && "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v2 && "$(cat "$previous/storage-version" 2>/dev/null || true)" != sqlite-v3 && -f "$next_data/executions-v1.sqlite3" ]]; then
     echo 'SQLite data exists but the previous release is JSON-only; manual recovery required.' >&2
     exit 1
   fi

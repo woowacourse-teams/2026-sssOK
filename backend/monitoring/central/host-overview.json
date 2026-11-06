@@ -507,10 +507,10 @@
         "name": "environment",
         "label": "환경",
         "type": "custom",
-        "query": "monitoring,dev,prod",
+        "query": "monitoring,dev,prod,mcp",
         "multi": false,
         "includeAll": true,
-        "allValue": "monitoring|dev|prod",
+        "allValue": "monitoring|dev|prod|mcp",
         "current": {
           "text": "All",
           "value": "$__all"
@@ -535,6 +535,11 @@
             "text": "prod",
             "value": "prod",
             "selected": false
+          },
+          {
+            "selected": false,
+            "text": "mcp",
+            "value": "mcp"
           }
         ]
       }
