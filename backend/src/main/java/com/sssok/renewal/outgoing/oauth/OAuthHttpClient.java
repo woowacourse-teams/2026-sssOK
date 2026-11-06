@@ -42,6 +42,29 @@ public class OAuthHttpClient {
             .body(JsonNode.class));
     }
 
+    // 앱 SDK가 넘긴 access token을 제공자에게 확인한다. 카카오가 HTTP 401 + code -401로 답하면 사용자 토큰 문제로,
+    // 그 밖의 실패는 제공자 장애·설정 문제로 구분한다.
+    public JsonNode getTokenInfo(String url, String accessToken) {
+        try {
+            JsonNode response = restClient.get()
+                .uri(url)
+                .headers(headers -> headers.setBearerAuth(accessToken))
+                .retrieve()
+                .body(JsonNode.class);
+            if (response == null || !response.isObject()) {
+                throw SocialAuthException.unavailable();
+            }
+            return response;
+        } catch (RestClientResponseException e) {
+            if (isInvalidAccessTokenResponse(e)) {
+                throw SocialAuthException.invalid();
+            }
+            throw SocialAuthException.unavailable();
+        } catch (RestClientException e) {
+            throw SocialAuthException.unavailable();
+        }
+    }
+
     public JsonNode postAdminUnlink(String url, String adminKey, MultiValueMap<String, String> form) {
         return executeJsonRequest(() -> {
             ResponseEntity<JsonNode> response = restClient.post().uri(url)

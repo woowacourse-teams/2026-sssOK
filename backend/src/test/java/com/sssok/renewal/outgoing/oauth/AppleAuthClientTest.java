@@ -39,7 +39,7 @@ class AppleAuthClientTest {
     private final OAuthHttpClient oauthHttpClient = new OAuthHttpClient(builder.build());
     private final AppleClientSecretGenerator secret = new AppleClientSecretGenerator("client", "team", "client-key",
         "-----BEGIN PRIVATE KEY-----\n" + Base64.getEncoder().encodeToString(CLIENT_KEY.getPrivate().getEncoded()) + "\n-----END PRIVATE KEY-----");
-    private final AppleAuthClient appleAuthClient = new AppleAuthClient(oauthHttpClient, new AppleSigningKeyProvider(oauthHttpClient), secret, "client", "https://example.com/callback");
+    private final AppleAuthClient appleAuthClient = new AppleAuthClient(oauthHttpClient, new AppleSigningKeyProvider(oauthHttpClient), secret, "client", "https://example.com/callback", null, null);
 
     @Test
     void 검증된_sub만_사용자_식별자로_사용한다() throws Exception {

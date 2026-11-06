@@ -15,7 +15,7 @@ class KakaoOAuthPropertiesTest {
     private static final String LOCAL = "http://localhost:3000/app/auth/callback/kakao";
 
     private static KakaoOAuthProperties properties(String... uris) {
-        return new KakaoOAuthProperties("client", "secret", Arrays.asList(uris), "admin");
+        return new KakaoOAuthProperties("client", "secret", Arrays.asList(uris), "admin", null);
     }
 
     @Test
@@ -55,12 +55,37 @@ class KakaoOAuthPropertiesTest {
     void 유효한_설정은_검증을_통과하고_빈_값과_공백은_무시한다() {
         properties(DEV, " ", LOCAL).validate();
         assertThat(properties(DEV, " ", null).redirectUris()).containsExactly(DEV);
-        assertThat(new KakaoOAuthProperties("c", "s", null, "a").redirectUris()).isEmpty();
+        assertThat(new KakaoOAuthProperties("c", "s", null, "a", null).redirectUris()).isEmpty();
+    }
+
+    @Test
+    void 앱_ID가_없어도_웹_설정은_유효하고_앱_로그인만_비활성이다() {
+        KakaoOAuthProperties web = properties(DEV);
+        web.validate();
+        assertThat(web.nativeLoginConfigured()).isFalse();
+        assertThat(new KakaoOAuthProperties("c", "s", List.of(DEV), "a", " ").nativeLoginConfigured()).isFalse();
+    }
+
+    @Test
+    void 숫자_앱_ID가_있으면_앱_로그인이_활성이다() {
+        KakaoOAuthProperties withAppId = new KakaoOAuthProperties("c", "s", List.of(DEV), "a", " 123456 ");
+        withAppId.validate();
+        assertThat(withAppId.nativeLoginConfigured()).isTrue();
+        assertThat(withAppId.appId()).isEqualTo("123456");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"abc", "0", "-1", "12 34", "1.5", "1234567890123456789"})
+    void 숫자가_아닌_앱_ID는_검증에_실패하고_값을_노출하지_않는다(String appId) {
+        KakaoOAuthProperties invalid = new KakaoOAuthProperties("c", "s", List.of(DEV), "a", appId);
+        assertThatThrownBy(invalid::validate).isInstanceOf(IllegalArgumentException.class);
+        assertThat(invalid.nativeLoginConfigured()).isFalse();
+        assertThat(invalid.toString()).doesNotContain(appId);
     }
 
     @Test
     void 콜백이_하나도_없으면_검증에_실패한다() {
-        assertThatThrownBy(() -> new KakaoOAuthProperties("c", "s", List.of(), "a").validate())
+        assertThatThrownBy(() -> new KakaoOAuthProperties("c", "s", List.of(), "a", null).validate())
             .isInstanceOf(IllegalArgumentException.class);
     }
 

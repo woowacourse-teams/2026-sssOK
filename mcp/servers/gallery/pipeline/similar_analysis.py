@@ -32,6 +32,8 @@ def load_model(assets, name):
 
 def feature_matrix(photos, output, model, transform, job, stage):
     features = []
+    # 첫 사진의 추론이 오래 걸려도 화면이 이전 단계에 머물지 않게 시작을 먼저 알린다.
+    job.update(stage, processed=0, total=len(photos))
     with torch.inference_mode():
         for index, photo in enumerate(photos, 1):
             with Image.open(output / photo['prepared_path']) as im:
@@ -48,6 +50,8 @@ def orb_scores(photos, output, job):
     cv2.setRNGSeed(661)
     detector = cv2.ORB_create(nfeatures=500)
     descriptors = []
+    # descriptor 준비가 비교 반복보다 먼저 오래 걸릴 수 있어 이 단계의 시작을 먼저 알린다.
+    job.update('matching_similar_photos', processed=0, total=len(photos))
     for photo in photos:
         image = cv2.imread(str(output / photo['prepared_path']), cv2.IMREAD_GRAYSCALE)
         if image is None:
@@ -74,12 +78,12 @@ def orb_scores(photos, output, job):
     return matrix
 
 
-def run(input_dir, output, assets_root, threads=2):
+def run(input_dir, output, assets_root, threads=2, progress=None):
     input_dir, output = Path(input_dir).resolve(), Path(output).resolve()
     if not input_dir.is_dir() or output == input_dir or input_dir in output.parents:
         raise ValueError('Separate input/output directories required')
     output.mkdir(parents=True, exist_ok=False)
-    job = Job(output, input_dir)
+    job = Job(output, input_dir, progress)
     job.state['pipeline_version'] = VERSION
     try:
         configure_runtime(threads)
@@ -90,10 +94,12 @@ def run(input_dir, output, assets_root, threads=2):
             raise ValueError('Every input image failed decoding')
         ids = [p['image_id'] for p in photos]
         normalize = transforms.Normalize([.485, .456, .406], [.229, .224, .225])
+        job.update('loading_scene_model')
         model = load_model(assets_root, 'dinov2.pt')
         dino = feature_matrix(photos, output, model, transforms.Compose([
             transforms.Resize((224, 224)), transforms.ToTensor(), normalize]), job, 'extracting_scene_features')
         del model
+        job.update('loading_center_model')
         model = load_model(assets_root, 'resnet50.pt')
         center = feature_matrix(photos, output, model, transforms.Compose([
             transforms.Resize(256), transforms.CenterCrop(224), transforms.ToTensor(), normalize]),
@@ -101,7 +107,9 @@ def run(input_dir, output, assets_root, threads=2):
         del model
         orb = orb_scores(photos, output, job)
         similarity = .7 * (dino @ dino.T) + .3 * np.minimum(orb * 3, 1)
+        job.update('grouping_similar_photos')
         groups, small, unassigned = build_groups(similarity, center @ center.T)
+        job.update('exporting')
         result = {'pipeline_version': VERSION,
                   'groups': [{'group_id': f'similar_{i + 1:04d}', 'image_ids': [ids[j] for j in g]}
                              for i, g in enumerate(groups)],

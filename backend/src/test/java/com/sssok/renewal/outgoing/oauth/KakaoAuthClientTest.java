@@ -24,7 +24,7 @@ class KakaoAuthClientTest {
     private static final String CALLBACK = "http://localhost:3000/app/auth/callback/kakao";
     private final RestClient.Builder builder = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-    private final KakaoAuthClient kakaoAuthClient = new KakaoAuthClient(new OAuthHttpClient(builder.build()), "client", "secret", "admin-key");
+    private final KakaoAuthClient kakaoAuthClient = new KakaoAuthClient(new OAuthHttpClient(builder.build()), "client", "secret", "admin-key", null);
 
     @Test
     void 서버에서_코드를_교환하고_사용자_번호를_식별자로_반환한다() {
