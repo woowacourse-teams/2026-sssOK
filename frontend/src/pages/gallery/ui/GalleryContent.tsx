@@ -21,7 +21,9 @@ import {
   OrganizeLimitModal,
   organizeLimitOf,
   OrganizeStatusBar,
+  type OrganizeKind,
   PersonReviewScreen,
+  SimilarReviewScreen,
   useOrganizeJob,
 } from "@/features/organize-media";
 import { SearchRequestField } from "@/features/search-media";
@@ -119,9 +121,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
-  const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
-  /** 비슷한 사진 결과 확인 화면은 아직 없다. '확인하기' 를 누르면 준비 중이라고만 알린다. */
-  const [isSimilarReviewPending, setIsSimilarReviewPending] = useState(false);
+  /** 열려 있는 검토 화면의 정리 종류. 사람별과 비슷한 사진은 화면이 다르다. */
+  const [reviewKind, setReviewKind] = useState<OrganizeKind | null>(null);
   const [createdFolderCount, setCreatedFolderCount] = useState<number | null>(null);
 
   // 폴더를 만들었다는 알림은 잠깐 보여 주고 스스로 닫는다. 닫기 버튼은 두지 않는다.
@@ -130,16 +131,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     const timer = window.setTimeout(() => setCreatedFolderCount(null), CREATED_FOLDER_TOAST_MS);
     return () => window.clearTimeout(timer);
   }, [createdFolderCount]);
-
-  // 비슷한 사진 확인 안내도 잠깐만 보인다. 남아 있으면 시트 버튼을 가린다.
-  useEffect(() => {
-    if (!isSimilarReviewPending) return;
-    const timer = window.setTimeout(
-      () => setIsSimilarReviewPending(false),
-      CREATED_FOLDER_TOAST_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [isSimilarReviewPending]);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -240,7 +231,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 결과가 취소·만료돼 검토할 것이 없어지면 검토 화면도 닫는다. 다음 결과에서 저절로 열리지 않게 한다.
   const hasReview = organize.review !== null;
-  if (isPersonReviewOpen && !hasReview) setIsPersonReviewOpen(false);
+  if (reviewKind && !hasReview) setReviewKind(null);
 
   const folders = room.folders.map((folder) => ({
     ...folder,
@@ -295,6 +286,19 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     selectFolder,
     clearSelection,
   });
+
+  /** 검토 화면에서 고른 그룹으로 폴더를 만든다. 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다. */
+  const applyReview = async (groups: Parameters<typeof organize.apply>[0]) => {
+    const applied = await organize.apply(groups);
+    if (!applied) return;
+    setReviewKind(null);
+    search.closeSearch();
+    clearSelection();
+    await Promise.all([refreshRoom(), refreshPhotos()]);
+    const [first] = applied.folders;
+    if (first) selectFolder(first.folderId);
+    setCreatedFolderCount(applied.folders.length);
+  };
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
@@ -506,39 +510,37 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
-            if (organize.notice?.kind === "SIMILAR") {
-              setIsSimilarReviewPending(true);
-              return;
-            }
             organize.reloadResult();
-            setIsPersonReviewOpen(true);
+            setReviewKind(organize.notice?.kind ?? "PERSON");
           }}
         />
       )}
 
-      {isPersonReviewOpen && organize.review && (
+      {reviewKind === "PERSON" && organize.review && (
         <PersonReviewScreen
           source={organize.review}
           myName={myName}
           memberNames={reviewMemberNames}
           folderNames={room.folders.map((folder) => folder.name)}
-          onClose={() => setIsPersonReviewOpen(false)}
+          onClose={() => setReviewKind(null)}
           onRetry={organize.reloadResult}
           isSubmitting={organize.isApplying}
           submitError={organize.applyError}
           onDismissError={organize.clearApplyError}
-          // 반영이 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다.
-          onSubmit={async (groups) => {
-            const applied = await organize.apply(groups);
-            if (!applied) return;
-            setIsPersonReviewOpen(false);
-            search.closeSearch();
-            clearSelection();
-            await Promise.all([refreshRoom(), refreshPhotos()]);
-            const [first] = applied.folders;
-            if (first) selectFolder(first.folderId);
-            setCreatedFolderCount(applied.folders.length);
-          }}
+          onSubmit={applyReview}
+        />
+      )}
+
+      {reviewKind === "SIMILAR" && organize.review && (
+        <SimilarReviewScreen
+          source={organize.review}
+          folderNames={room.folders.map((folder) => folder.name)}
+          onClose={() => setReviewKind(null)}
+          onRetry={organize.reloadResult}
+          isSubmitting={organize.isApplying}
+          submitError={organize.applyError}
+          onDismissError={organize.clearApplyError}
+          onSubmit={applyReview}
         />
       )}
 
@@ -597,15 +599,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           tone="error"
           message={organize.error}
           onClose={organize.clearError}
-          bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
-        />
-      )}
-
-      {isSimilarReviewPending && (
-        <Toast
-          message="비슷한 사진 확인 화면은 곧 열려요."
-          showClose={false}
-          onClose={() => setIsSimilarReviewPending(false)}
           bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
         />
       )}
