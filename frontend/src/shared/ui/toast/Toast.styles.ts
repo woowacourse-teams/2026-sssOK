@@ -3,10 +3,9 @@ import styled from "@emotion/styled";
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 
-/** `$bottom` 을 주면 그만큼 띄운다. 화면 아래에 버튼이 있어 그 위에 띄워야 할 때 쓴다. */
-export const Dock = styled.div<{ $bottom?: string }>`
+export const Dock = styled.div`
   position: fixed;
-  bottom: ${({ $bottom }) => $bottom ?? "calc(36px + env(safe-area-inset-bottom, 0px))"};
+  bottom: calc(36px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1100;

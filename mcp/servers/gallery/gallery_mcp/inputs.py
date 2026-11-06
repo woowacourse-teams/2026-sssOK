@@ -57,9 +57,11 @@ def fingerprint(photos):
     return hashlib.sha256(json.dumps(normalized).encode()).hexdigest()
 
 
-def stage_photos(photos, target, settings):
+def stage_photos(photos, target, settings, on_photo=None):
+    """Copy every photo into the job snapshot. on_photo(done) runs after each completed photo."""
     target.mkdir()
     total = 0
+    done = 0
     with httpx.Client(timeout=30, follow_redirects=False, trust_env=False) as client:
         for photo in photos:
             kind = source_kind(photo, settings)
@@ -84,6 +86,9 @@ def stage_photos(photos, target, settings):
                             output.write(chunk)
             if not size:
                 raise ValueError('Empty photo input')
+            done += 1
+            if on_photo:
+                on_photo(done)
 
 
 @contextmanager

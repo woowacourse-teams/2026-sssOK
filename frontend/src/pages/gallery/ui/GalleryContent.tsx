@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
 import { useMemberSessionQuery } from "@/entities/member-session";
@@ -8,6 +8,9 @@ import { canUploadTo, myRoomsQueryKey, roomQueryKey, type Room } from "@/entitie
 import { removeRoomSession } from "@/entities/session";
 import { FeedbackBottomSheet, FeedbackButton } from "@/features/create-feedback";
 import { DeleteRoomModal } from "@/features/delete-room";
+import { PhotoRequestBanner } from "@/features/app-push/PhotoRequestBanner";
+import { getNotificationSetting } from "@/features/room-notifications/api";
+import { RoomNotificationMenu } from "@/features/room-notifications";
 import { DeleteSelectedMediaModal } from "@/features/delete-media";
 import { DeleteFolderModal } from "@/features/delete-folder";
 import { EditFolderBottomSheet } from "@/features/edit-folder";
@@ -29,7 +32,7 @@ import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
 import { isAppWebView, rememberLoginReturn, track } from "@/shared/lib";
-import { Toast } from "@/shared/ui/toast";
+import { useToast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
 import { MediaViewerModal } from "@/widgets/media-viewer";
@@ -51,10 +54,6 @@ import {
   Page,
 } from "./GalleryPage.styles";
 
-const CREATED_FOLDER_TOAST_MS = 2500;
-/** 정리 알림(바닥 36px + 높이 76px) 위. 같은 자리에 띄우면 알림의 X 를 가린다. */
-const ABOVE_ORGANIZE_BAR = "calc(120px + env(safe-area-inset-bottom, 0px))";
-
 interface GalleryContentProps {
   room: Room;
   accessToken: string;
@@ -63,6 +62,19 @@ interface GalleryContentProps {
 }
 
 export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryContentProps) => {
+  const [receivedRequest, setReceivedRequest] = useState<{ title: string; body: string } | null>(
+    null,
+  );
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  const notificationSetting = useQuery({
+    queryKey: ["room-notification-setting", room.roomId, userId],
+    queryFn: () => getNotificationSetting(room.roomId, accessToken),
+  });
+  useEffect(() => {
+    if (!receivedRequest) return;
+    const timer = window.setTimeout(() => setReceivedRequest(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [receivedRequest]);
   const navigate = useNavigate();
   const memberSession = useMemberSessionQuery();
   const queryClient = useQueryClient();
@@ -112,34 +124,12 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [isDeleteSelectionOpen, setIsDeleteSelectionOpen] = useState(false);
   const [isMoveSelectionOpen, setIsMoveSelectionOpen] = useState(false);
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
-  const [isFeedbackSuccess, setIsFeedbackSuccess] = useState(false);
-  const [deletedFolderName, setDeletedFolderName] = useState<string | null>(null);
-  const [failedFolderName, setFailedFolderName] = useState<string | null>(null);
+  const { showToast } = useToast();
   const [isOrganizeSheetOpen, setIsOrganizeSheetOpen] = useState(false);
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
   const [isPersonReviewOpen, setIsPersonReviewOpen] = useState(false);
-  /** 비슷한 사진 결과 확인 화면은 아직 없다. '확인하기' 를 누르면 준비 중이라고만 알린다. */
-  const [isSimilarReviewPending, setIsSimilarReviewPending] = useState(false);
-  const [createdFolderCount, setCreatedFolderCount] = useState<number | null>(null);
-
-  // 폴더를 만들었다는 알림은 잠깐 보여 주고 스스로 닫는다. 닫기 버튼은 두지 않는다.
-  useEffect(() => {
-    if (createdFolderCount === null) return;
-    const timer = window.setTimeout(() => setCreatedFolderCount(null), CREATED_FOLDER_TOAST_MS);
-    return () => window.clearTimeout(timer);
-  }, [createdFolderCount]);
-
-  // 비슷한 사진 확인 안내도 잠깐만 보인다. 남아 있으면 시트 버튼을 가린다.
-  useEffect(() => {
-    if (!isSimilarReviewPending) return;
-    const timer = window.setTimeout(
-      () => setIsSimilarReviewPending(false),
-      CREATED_FOLDER_TOAST_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [isSimilarReviewPending]);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -263,8 +253,14 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   useRoomEvents({
     roomId: room.roomId,
+    roomCode: room.code,
     userId,
     token: accessToken,
+    onUploadRequested: (event) => {
+      if (document.visibilityState === "visible" && notificationSetting.data?.enabled === true) {
+        setReceivedRequest({ title: event.title, body: event.body });
+      }
+    },
     onMediaCreated: addProcessingMedia,
     onMediaDeleted: (mediaIds) => {
       removePendingMedia(mediaIds);
@@ -307,15 +303,50 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       mimeType: slot.type === "local" ? slot.file.type : slot.media.mimeType,
     }));
 
+  const { error: organizeError, clearError: clearOrganizeError } = organize;
+  useEffect(() => {
+    if (!organizeError) return;
+    showToast({
+      message: organizeError,
+      tone: "error",
+    });
+    clearOrganizeError();
+  }, [organizeError, clearOrganizeError, showToast]);
+
   return (
     <Page>
+      {receivedRequest && notificationSetting.data?.enabled && (
+        <PhotoRequestBanner
+          title={receivedRequest.title}
+          message={receivedRequest.body}
+          roomPath={ROUTES.gallery(room.code)}
+          onClose={() => setReceivedRequest(null)}
+        />
+      )}
       <RoomSummary
+        notificationMenu={(close) => (
+          <RoomNotificationMenu
+            roomId={room.roomId}
+            userId={userId}
+            accessToken={accessToken}
+            onRequested={() => {
+              close();
+              showToast({ message: "사진 요청을 보냈어요.", tone: "success" });
+            }}
+            onRequestLimited={() => {
+              close();
+              showToast({
+                message: "사진 요청은 1분에 한 번 보낼 수 있어요.",
+                tone: "error",
+              });
+            }}
+          />
+        )}
         roomCode={room.code}
         hostId={room.hostId}
         roomName={room.name}
         session={{ userId, accessToken, nickname: room.myNickname ?? nickname }}
         exitLabel={memberSession.data ? "내 방 목록" : "홈으로"}
-        // 디자인 확인 중에는 비회원에게도 표시한다.
         onExit={() => navigate(memberSession.data ? ROUTES.rooms : ROUTES.home, { replace: true })}
         isHost={userId === room.hostId}
         hasSelectedFolder={selectedFolderId !== null}
@@ -506,8 +537,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 알림은 그대로 둔다. 검토 화면을 닫으면 알림의 '확인하기' 로 다시 들어올 수 있다.
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
+            // 비슷한 사진 결과 확인 화면은 아직 없다. 누르면 준비 중이라고만 알린다.
             if (organize.notice?.kind === "SIMILAR") {
-              setIsSimilarReviewPending(true);
+              showToast({ message: "비슷한 사진 확인 화면은 곧 열려요.", showClose: false });
               return;
             }
             organize.reloadResult();
@@ -537,7 +569,10 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             await Promise.all([refreshRoom(), refreshPhotos()]);
             const [first] = applied.folders;
             if (first) selectFolder(first.folderId);
-            setCreatedFolderCount(applied.folders.length);
+            showToast({
+              message: `폴더 ${applied.folders.length}개를 만들었어요`,
+              showClose: false,
+            });
           }}
         />
       )}
@@ -589,24 +624,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             rememberLoginReturn(location.pathname);
             navigate(ROUTES.login);
           }}
-        />
-      )}
-
-      {organize.error && (
-        <Toast
-          tone="error"
-          message={organize.error}
-          onClose={organize.clearError}
-          bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
-        />
-      )}
-
-      {isSimilarReviewPending && (
-        <Toast
-          message="비슷한 사진 확인 화면은 곧 열려요."
-          showClose={false}
-          onClose={() => setIsSimilarReviewPending(false)}
-          bottom={isOrganizeBarVisible ? ABOVE_ORGANIZE_BAR : undefined}
         />
       )}
 
@@ -667,7 +684,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           roomId={room.roomId}
           accessToken={accessToken}
           onClose={() => setIsFeedbackOpen(false)}
-          onSuccess={() => setIsFeedbackSuccess(true)}
+          onSuccess={() => showToast({ message: "문의를 보냈어요." })}
         />
       )}
 
@@ -697,41 +714,15 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             setIsDeleteFolderOpen(false);
             selectFolder(null);
             clearSelection();
-            setFailedFolderName(null);
-            setDeletedFolderName(selectedFolder.name);
+            showToast({ message: `‘${selectedFolder.name}’ 폴더를 삭제했어요.` });
           }}
           onError={() => {
-            setDeletedFolderName(null);
-            setFailedFolderName(selectedFolder.name);
+            showToast({
+              message: `‘${selectedFolder.name}’ 폴더를 삭제하지 못했어요.`,
+              tone: "error",
+            });
           }}
         />
-      )}
-
-      {deletedFolderName && (
-        <Toast
-          message={`‘${deletedFolderName}’ 폴더를 삭제했어요.`}
-          onClose={() => setDeletedFolderName(null)}
-        />
-      )}
-
-      {failedFolderName && (
-        <Toast
-          tone="error"
-          message={`‘${failedFolderName}’ 폴더를 삭제하지 못했어요.`}
-          onClose={() => setFailedFolderName(null)}
-        />
-      )}
-
-      {createdFolderCount !== null && (
-        <Toast
-          message={`폴더 ${createdFolderCount}개를 만들었어요`}
-          showClose={false}
-          onClose={() => setCreatedFolderCount(null)}
-        />
-      )}
-
-      {isFeedbackSuccess && (
-        <Toast message="문의를 보냈어요." onClose={() => setIsFeedbackSuccess(false)} />
       )}
     </Page>
   );

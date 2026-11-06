@@ -10,6 +10,7 @@ import { RoomMenuButton } from "./RoomMenuButton";
 import { Header, RoomTitle, TitleArea } from "./RoomSummary.styles";
 
 interface RoomSummaryProps {
+  notificationMenu?: (close: () => void) => ReactNode;
   roomCode: string;
   hostId: number;
   roomName: string;
@@ -41,6 +42,7 @@ export const RoomSummary = ({
   onAddFolder,
   onEditFolder,
   onDeleteFolder,
+  notificationMenu,
 }: RoomSummaryProps) => {
   const titleRef = useRef<HTMLHeadingElement>(null);
 
@@ -69,6 +71,7 @@ export const RoomSummary = ({
           <Row align="center" gap={4}>
             <RoomShareButton roomCode={roomCode} accessToken={session?.accessToken} />
             <RoomMenuButton
+              notificationMenu={notificationMenu}
               isHost={isHost}
               hasSelectedFolder={hasSelectedFolder}
               onOpenSettings={onOpenSettings}
