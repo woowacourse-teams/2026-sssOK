@@ -27,6 +27,8 @@ import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
+import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
+import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
 import com.sssok.renewal.domain.notification.PushSubscription;
@@ -90,6 +92,9 @@ class RoomNotificationApiTest extends PostgresContainerSupport {
 
     @Autowired
     PushSubscriptionJpaRepository pushSubscriptionJpaRepository;
+
+    @Autowired
+    RoomEventJpaRepository roomEventJpaRepository;
 
     @MockitoBean
     WebPushClient webPushClient;
@@ -202,6 +207,12 @@ class RoomNotificationApiTest extends PostgresContainerSupport {
         return objectMapper.readTree(payload.getValue());
     }
 
+    private List<RoomEventJpaEntity> uploadRequestedEvents() {
+        return roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(room.getId(), 0L).stream()
+            .filter(event -> event.getEventType().equals("upload.requested"))
+            .toList();
+    }
+
     @Nested
     class 알림_설정 {
 
@@ -294,6 +305,33 @@ class RoomNotificationApiTest extends PostgresContainerSupport {
         }
 
         @Test
+        void 방_구독자_전체에게_요청자와_문구를_담은_SSE_이벤트가_간다() throws Exception {
+            updateSetting(otherGuest, false);
+
+            requestUpload(guest).andExpect(status().isAccepted());
+
+            List<RoomEventJpaEntity> events = uploadRequestedEvents();
+            assertThat(events).hasSize(1);
+            assertThat(events.get(0).getRecipientMemberId()).isNull();
+            JsonNode payload = objectMapper.readTree(events.get(0).getPayload());
+            assertThat(payload.get("roomId").asLong()).isEqualTo(room.getId());
+            assertThat(payload.get("roomCode").asText()).isEqualTo(room.getCode().value());
+            assertThat(payload.get("requesterId").asLong()).isEqualTo(guest.id());
+            assertThat(payload.get("title").asText()).isEqualTo("민수님이 알림을 보냈습니다");
+            assertThat(payload.get("body").asText()).isEqualTo("민수님의 사진을 올려주세요!");
+            assertThat(payload.has("url")).isFalse();
+        }
+
+        @Test
+        void 쿨다운에_걸린_요청은_SSE_이벤트를_보내지_않는다() throws Exception {
+            requestUpload(guest).andExpect(status().isAccepted());
+
+            requestUpload(guest).andExpect(status().isTooManyRequests());
+
+            assertThat(uploadRequestedEvents()).hasSize(1);
+        }
+
+        @Test
         void 쿨다운_안에_다시_요청하면_429() throws Exception {
             requestUpload(guest).andExpect(status().isAccepted());
 
@@ -358,7 +396,7 @@ class RoomNotificationApiTest extends PostgresContainerSupport {
 
             JsonNode payload = sentPayload(host);
             assertThat(payload.get("type").asText()).isEqualTo("MEDIA_UPLOADED");
-            assertThat(payload.get("body").asText()).isEqualTo("민수님이 사진 3장을 올렸어요");
+            assertThat(payload.get("body").asText()).isEqualTo("민수님이 사진을 올리기 시작했어요!");
             assertThat(payload.get("roomId").asLong()).isEqualTo(room.getId());
             verify(webPushClient, after(300).times(1)).send(sentTo(host), anyString());
             verify(webPushClient, times(1)).send(sentTo(otherGuest), anyString());

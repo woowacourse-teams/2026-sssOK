@@ -333,7 +333,7 @@ class AppNotificationApiTest extends PostgresContainerSupport {
     class 업로드_알림 {
 
         @Test
-        void 올린_사진_수와_함께_다른_참여자_기기로_간다() throws Exception {
+        void 올리기_시작했다는_문구로_다른_참여자_기기로_간다() throws Exception {
             given(fileStorage.findUploaded(any())).willReturn(Optional.of(new UploadedObject(1024, "image/jpeg")));
             disableNotification(otherGuest);
 
@@ -342,7 +342,7 @@ class AppNotificationApiTest extends PostgresContainerSupport {
 
             RoomNotification notification = sentNotification(host);
             assertThat(notification.type()).isEqualTo(RoomNotificationType.MEDIA_UPLOADED);
-            assertThat(notification.body()).isEqualTo("민수님이 사진 2장을 올렸어요");
+            assertThat(notification.body()).isEqualTo("민수님이 사진을 올리기 시작했어요!");
             assertThat(notification.roomId()).isEqualTo(room.getId());
             verify(fcmClient, after(300).never()).send(sentTo(guest), any());
             verify(fcmClient, never()).send(sentTo(otherGuest), any());

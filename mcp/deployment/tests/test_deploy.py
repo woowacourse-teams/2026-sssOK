@@ -13,9 +13,13 @@ IMAGE = 'ghcr.io/test/gallery@sha256:' + 'a' * 64
 
 class DeployTests(unittest.TestCase):
     def run_deploy(self, failure='', previous=False, invalid_current=None, extra_env=None, changed_data=False,
-                   legacy_release=False, v1_release=False):
+                   legacy_release=False, v1_release=False, home_default=False, v3_release=False):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp).resolve()
+            home = root
+            if home_default:
+                root = home / 'sssok-mcp'
+                root.mkdir()
             (root / 'gallery').mkdir()
             data = root / 'data'
             data.mkdir()
@@ -31,10 +35,10 @@ class DeployTests(unittest.TestCase):
                 (root / 'current').symlink_to(old)
                 (old / 'settings.env').write_text(f'GALLERY_DATA_DIR={data}\n')
                 if not legacy_release:
-                    (old / 'storage-version').write_text('sqlite-v1\n' if v1_release else 'sqlite-v2\n')
+                    (old / 'storage-version').write_text('sqlite-v3\n' if v3_release else 'sqlite-v1\n' if v1_release else 'sqlite-v2\n')
                 if not legacy_release:
                     with closing(sqlite3.connect(data / 'executions-v1.sqlite3')) as db:
-                        db.execute(f'PRAGMA user_version={1 if v1_release else 2}')
+                        db.execute(f'PRAGMA user_version={3 if v3_release else 1 if v1_release else 2}')
             if invalid_current == 'broken_link':
                 (root / 'current').symlink_to(root / 'missing')
             elif invalid_current == 'directory':
@@ -52,7 +56,7 @@ from pathlib import Path
 args = sys.argv[1:]
 if os.environ.get('CHECK_GALLERY_ENV'):
     assert not any(key.startswith('GALLERY_') for key in os.environ), 'Leaked GALLERY environment'
-root = Path(os.environ['MCP_DEPLOY_ROOT'])
+root = Path(os.environ['TEST_DEPLOY_ROOT'])
 with (root/'calls').open('a') as f: f.write(' '.join(args)+'\\n')
 old = str(root/'old/compose.yml') in args
 failure = os.environ['FAILURE']
@@ -65,10 +69,10 @@ if failure == 'verify' and 'verify' in args: sys.exit(1)
 if failure == 'drain' and 'drain' in args: sys.exit(1)
 if failure == 'up' and 'up' in args and not old: sys.exit(1)
 if failure == 'resume' and 'resume' in args and not old: sys.exit(1)
-if failure == 'sqlite-smoke' and 'up' in args and not old:
+if failure in ('sqlite-smoke', 'v3-smoke') and 'up' in args and not old:
     with closing(sqlite3.connect(root/'data/executions-v1.sqlite3')) as db:
-        db.execute('PRAGMA user_version=2')
-if failure == 'sqlite-smoke' and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
+        db.execute('PRAGMA user_version=' + ('3' if failure == 'v3-smoke' else '2'))
+if failure in ('sqlite-smoke', 'v3-smoke') and 'exec' in args and args[-1] == '-' and not old: sys.exit(1)
 if failure in ('corrupt-db', 'unknown-version', 'empty-db', 'missing-db') and 'up' in args and not old:
     database = root/'data/executions-v1.sqlite3'
     if failure == 'corrupt-db': database.write_bytes(b'not a database')
@@ -85,7 +89,11 @@ if failure in ('smoke', 'stop-failure', 'corrupt-db', 'unknown-version', 'empty-
             lock.write_text('#!/bin/sh\nexit 0\n')
             lock.chmod(0o755)
             env = {**os.environ, 'PATH': str(binary) + ':' + os.environ['PATH'],
-                   'MCP_DEPLOY_ROOT': str(root), 'GALLERY_IMAGE': IMAGE, 'FAILURE': failure}
+                   'MCP_DEPLOY_ROOT': str(root), 'TEST_DEPLOY_ROOT': str(root),
+                   'GALLERY_IMAGE': IMAGE, 'FAILURE': failure}
+            if home_default:
+                env.pop('MCP_DEPLOY_ROOT')
+                env['HOME'] = str(home)
             env.update(extra_env or {})
             result = subprocess.run(['bash', str(SCRIPT)], env=env, capture_output=True, text=True)
             calls = (root / 'calls').read_text() if (root / 'calls').exists() else ''
@@ -100,6 +108,13 @@ if failure in ('smoke', 'stop-failure', 'corrupt-db', 'unknown-version', 'empty-
         self.assertFalse(old)
         self.assertIn(' verify', calls)
         self.assertNotIn(' drain', calls)
+
+    def test_default_root_uses_deployment_account_home(self):
+        result, calls, old, exists = self.run_deploy(home_default=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(exists)
+        self.assertFalse(old)
+        self.assertIn(' verify', calls)
 
     def test_invalid_current_stops_before_docker_commands(self):
         for kind in ('broken_link', 'directory', 'incomplete_release'):
@@ -209,6 +224,17 @@ if failure in ('smoke', 'stop-failure', 'corrupt-db', 'unknown-version', 'empty-
         self.assertIn('incompatible rollback refused',result.stderr)
         self.assertNotIn('Previous release restored',result.stdout)
         self.assertNotIn(' resume',calls)
+
+    def test_v3_migration_blocks_v2_rollback_but_allows_v3_rollback(self):
+        result,calls,_,_=self.run_deploy('v3-smoke',previous=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('incompatible rollback refused',result.stderr)
+        self.assertNotIn('Previous release restored',result.stdout)
+        self.assertNotIn(' resume',calls)
+        result,calls,_,_=self.run_deploy('v3-smoke',previous=True,v3_release=True)
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn('Previous release restored and verified',result.stdout)
+        self.assertIn(' resume',calls)
 
     def test_v1_failure_before_migration_restores_previous(self):
         for failure in ('up', 'smoke'):
