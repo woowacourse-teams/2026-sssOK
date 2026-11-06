@@ -213,6 +213,22 @@ describe("OrganizeStatusBar · 비슷한 사진", () => {
 });
 
 describe("OrganizeCancelSheet", () => {
+  it("비슷한 사진은 묶기를 멈출지 묻는다", async () => {
+    const onStop = jest.fn();
+    const onKeepGoing = jest.fn();
+    render(
+      <OrganizeCancelSheet organizeKind="SIMILAR" onStop={onStop} onKeepGoing={onKeepGoing} />,
+    );
+
+    expect(screen.getByRole("dialog", { name: "사진 묶기를 멈출까요?" })).toBeInTheDocument();
+    expect(screen.getByText("지금까지 묶은 결과는 사라져요.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "계속 묶기" }));
+    expect(onKeepGoing).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "멈추기" }));
+    expect(onStop).toHaveBeenCalled();
+  });
+
   it("멈추기와 계속 나누기를 나눠 부른다", async () => {
     const onStop = jest.fn();
     const onKeepGoing = jest.fn();

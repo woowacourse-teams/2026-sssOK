@@ -540,6 +540,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
       {isOrganizeCancelOpen && organize.isRunning && (
         <OrganizeCancelSheet
+          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeCancelOpen(false)}
           onStop={() => {
             setIsOrganizeCancelOpen(false);
@@ -551,6 +552,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
         <OrganizeCancelSheet
           kind="result"
+          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
           onStop={() => {
             setIsOrganizeResultCloseOpen(false);
