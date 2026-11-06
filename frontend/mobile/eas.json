@@ -3,6 +3,15 @@
     "appVersionSource": "remote"
   },
   "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "environment": "development",
+      "env": {
+        "APP_ENV": "development",
+        "EXPO_PUBLIC_WEB_URL": "https://dev.ssssok.com/rooms"
+      }
+    },
     "production": {
       "distribution": "store",
       "autoIncrement": true,
@@ -10,8 +19,10 @@
         "buildType": "app-bundle"
       },
       "env": {
+        "APP_ENV": "production",
         "EXPO_PUBLIC_WEB_URL": "https://www.ssssok.com/rooms"
-      }
+      },
+      "environment": "production"
     }
   }
 }

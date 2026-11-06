@@ -45,3 +45,7 @@ credentials.json
 *.keystore
 *.aab
 *.apk
+
+# Firebase per-environment app configuration
+GoogleService-Info*.plist
+google-services*.json

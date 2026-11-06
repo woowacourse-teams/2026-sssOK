@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   HiAdjustmentsHorizontal,
   HiEllipsisHorizontal,
@@ -13,6 +13,7 @@ import { DropdownMenu, DropdownMenuDivider, DropdownMenuItem } from "@/shared/ui
 import { IconButton } from "@/shared/ui/icon-button";
 
 interface RoomMenuButtonProps {
+  notificationMenu?: (close: () => void) => ReactNode;
   isHost?: boolean;
   hasSelectedFolder?: boolean;
   onOpenSettings?: () => void;
@@ -30,6 +31,7 @@ export const RoomMenuButton = ({
   onAddFolder,
   onEditFolder,
   onDeleteFolder,
+  notificationMenu,
 }: RoomMenuButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -47,13 +49,15 @@ export const RoomMenuButton = ({
       {isOpen && (
         <DropdownMenu onClose={() => setIsOpen(false)}>
           {isHost && (
+            <DropdownMenuItem
+              icon={<HiAdjustmentsHorizontal />}
+              onClick={() => selectMenu(onOpenSettings)}
+            >
+              방 설정
+            </DropdownMenuItem>
+          )}
+          {isHost && (
             <>
-              <DropdownMenuItem
-                icon={<HiAdjustmentsHorizontal />}
-                onClick={() => selectMenu(onOpenSettings)}
-              >
-                방 설정
-              </DropdownMenuItem>
               <DropdownMenuItem
                 icon={<HiTrash />}
                 tone="danger"
@@ -81,6 +85,12 @@ export const RoomMenuButton = ({
           >
             폴더 삭제
           </DropdownMenuItem>
+          {notificationMenu && (
+            <>
+              <DropdownMenuDivider />
+              {notificationMenu(() => setIsOpen(false))}
+            </>
+          )}
         </DropdownMenu>
       )}
     </MenuContainer>

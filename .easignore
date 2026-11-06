@@ -1,0 +1,42 @@
+# EAS reads this file from the Git repository root.
+# This app has a standalone dependency/lockfile setup: upload only the mobile project.
+/*
+!/frontend
+/frontend/*
+!/frontend/mobile
+
+# Build dependencies are installed on EAS.
+node_modules/
+.pnpm-store/
+.expo/
+dist/
+web-build/
+.metro-health-check*
+
+# Local/generated/private files.
+.env
+.env.*
+!frontend/mobile/.env.example
+.DS_Store
+*.log
+*.tsbuildinfo
+*.jks
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+*.keystore
+*.aab
+*.apk
+credentials.json
+/frontend/mobile/ios/
+/frontend/mobile/android/
+/frontend/mobile/artifacts/
+
+# Firebase client app configs are needed for the native build, but remain Git-ignored.
+!frontend/mobile/firebase/
+!frontend/mobile/firebase/google-services.dev.json
+!frontend/mobile/firebase/google-services.prod.json
+!frontend/mobile/firebase/GoogleService-Info.dev.plist
+!frontend/mobile/firebase/GoogleService-Info.prod.plist
