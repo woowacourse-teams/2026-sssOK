@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { delay, http, HttpResponse } from "msw";
 import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router-dom";
 
@@ -54,10 +55,56 @@ it.each([401, 503])("세션 복원 %s 응답에서는 로그인 UI를 이용할 
 });
 
 it("LoginPage 자체는 세션 요청 없이 UI만 표시한다", () => {
+  const client = new QueryClient();
   render(
-    <MemoryRouter>
-      <LoginPage />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
   expect(screen.getByRole("button", { name: "카카오 로그인" })).toBeInTheDocument();
+  expect(client.getQueryCache().getAll()).toHaveLength(0);
+});
+
+it("앱 SDK 인증 후 기존 회원 세션에 반영하고 방 목록으로 이동한다", async () => {
+  server.use(
+    http.post(`${API_BASE_URL}/auth/refresh`, () => HttpResponse.json({}, { status: 401 })),
+    http.post(`${API_BASE_URL}/auth/oauth/kakao/native/login`, () =>
+      HttpResponse.json({
+        data: {
+          accessToken: "member-token",
+          memberStatus: "REGISTERED",
+          userId: 1,
+          nickname: "회원",
+          expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
+        },
+      }),
+    ),
+  );
+  window.sssokApp = { auth: ["kakao"] };
+  window.ReactNativeWebView = {
+    postMessage: (raw) => {
+      const request = JSON.parse(raw);
+      window.dispatchEvent(
+        new CustomEvent("sssok:auth", {
+          detail: {
+            requestId: request.requestId,
+            provider: "kakao",
+            status: "success",
+            credential: "kakao-token",
+          },
+        }),
+      );
+    },
+  };
+  try {
+    const router = renderLogin();
+    await userEvent.click(await screen.findByRole("button", { name: "카카오 로그인" }));
+    expect(await screen.findByText("방 목록")).toBeInTheDocument();
+    expect(router.state.historyAction).toBe("REPLACE");
+  } finally {
+    delete window.ReactNativeWebView;
+    delete window.sssokApp;
+  }
 });

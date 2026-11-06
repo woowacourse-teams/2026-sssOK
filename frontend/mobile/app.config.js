@@ -16,6 +16,7 @@ module.exports = ({ config }) => {
     ios: iosFile
       ? {
           ...config.ios,
+          usesAppleSignIn: true,
           googleServicesFile: iosFile,
           entitlements: {
             ...config.ios?.entitlements,
@@ -37,11 +38,17 @@ module.exports = ({ config }) => {
       ...(config.plugins ?? []),
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      "expo-apple-authentication",
+      ["@react-native-seoul/kakao-login", { kakaoAppKey: "49e12318151676c430bd253609755519" }],
+      "./plugins/withKakaoSceneDelegate",
       [
         "expo-build-properties",
         {
           ios: { useFrameworks: "dynamic" },
-          android: { usesCleartextTraffic: environment === "development" },
+          android: {
+            usesCleartextTraffic: environment === "development",
+            extraMavenRepos: ["https://devrepo.kakao.com/nexus/content/groups/public/"],
+          },
         },
       ],
     ],

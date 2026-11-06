@@ -21,7 +21,7 @@ declare global {
      * 앱이 페이지보다 먼저 심어 두는 표시. 브릿지를 모르는 예전 앱 빌드에는 없다 —
      * 그런 앱에 메시지를 보내면 답이 영영 오지 않으므로, 이 값이 있을 때만 앱에 맡긴다.
      */
-    sssokApp?: { download?: number };
+    sssokApp?: { download?: number; auth?: ("kakao" | "apple")[] };
   }
 }
 
