@@ -18,7 +18,7 @@ export default defineConfig({
   webServer: remoteBaseURL
     ? undefined
     : {
-        command: "pnpm start:app",
+        command: "pnpm start",
         url: localBaseURL,
         reuseExistingServer: !process.env.CI,
         env: { MOCK: "off" },
