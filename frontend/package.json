@@ -19,7 +19,11 @@
     "test:coverage": "jest --coverage",
     "test:check": "pnpm type-check && pnpm test",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +41,7 @@
     "@babel/preset-react": "^7.29.7",
     "@babel/preset-typescript": "^7.29.7",
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.65.0",
     "@storybook/addon-webpack5-compiler-swc": "latest",
     "@storybook/react-webpack5": "10.5.7",
     "@tanstack/eslint-plugin-query": "^5.101.4",
