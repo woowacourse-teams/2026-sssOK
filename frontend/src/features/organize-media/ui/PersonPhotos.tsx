@@ -70,8 +70,11 @@ export const PersonPhotos = ({
                     onToggle(photo.mediaId);
                     const nextExcludedCount = person.excludedIds.length + (isExcluded ? -1 : 1);
                     if (nextExcludedCount > 0) {
+                      const isAllExcluded = nextExcludedCount === person.photos.length;
                       closeExcludedToast.current = showToast({
-                        message: `${nextExcludedCount}장을 뺐어요`,
+                        message: isAllExcluded
+                          ? "모두 뺐어요. 폴더로 만들지 않아요"
+                          : `${nextExcludedCount}장을 뺐어요`,
                         bottom: TOAST_ABOVE_BUTTON,
                       });
                     } else {

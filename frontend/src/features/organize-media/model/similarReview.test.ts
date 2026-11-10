@@ -71,4 +71,35 @@ describe("similarReview", () => {
     expect(similarOwnerOf(review, "s2")).toBeNull();
     expect(similarOwnerOf(renameCard(review, "s3", "산"), "s3")).toBeNull();
   });
+
+  describe("사진을 모두 뺀 모음", () => {
+    it("이름을 붙인 모음을 모두 빼면 폴더 수와 남는 모음 수에서 모두 빠진다", () => {
+      let review = reviewOf([2, 1, 1]);
+      review = renameCard(review, "s1", "바다");
+      review = renameCard(review, "s2", "산");
+      review = togglePhoto(review, "s2", 3);
+
+      expect(similarFooterOf(review)).toEqual({
+        hint: "이름을 안 붙인 1개는 폴더 없이 전체에 남아요",
+        submit: "1개 폴더 만들기",
+        canSubmit: true,
+      });
+    });
+
+    it("모두 뺀 모음의 이름은 합칠 대상과 폴더 이름 충돌로 보지 않는다", () => {
+      let review = reviewOf([1, 1]);
+      review = renameCard(review, "s1", "바다");
+      review = togglePhoto(review, "s1", 1);
+      review = renameCard(review, "s2", "바다");
+
+      expect(similarOwnerOf(review, "s2")).toBeNull();
+      expect(similarOwnerOf(review, "s1")).toBeNull();
+      expect(similarFooterOf(renameCard(reviewOf([1]), "s1", "여행"), ["여행"]).canSubmit).toBe(
+        false,
+      );
+      expect(
+        similarFooterOf(togglePhoto(renameCard(reviewOf([1, 1]), "s1", "여행"), "s1", 1), ["여행"]),
+      ).toMatchObject({ hint: "이름을 붙이면 폴더가 생겨요", canSubmit: false });
+    });
+  });
 });
