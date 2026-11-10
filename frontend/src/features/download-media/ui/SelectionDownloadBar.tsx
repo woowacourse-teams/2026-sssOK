@@ -183,7 +183,6 @@ export const SelectionDownloadBar = ({
         if (outcome.type === "saved" && outcome.failed.length === 0) {
           showToast({
             message: doneMessageOf(trackedRunRef.current.mode, outcome.savedCount),
-            showClose: false,
           });
           onClearSelection();
         }
