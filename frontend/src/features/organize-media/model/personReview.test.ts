@@ -5,6 +5,7 @@ import {
   createPersonReview,
   footerOf,
   includedPhotos,
+  isEmptied,
   mergePeople,
   ownerOfName,
   toggleName,
@@ -121,6 +122,56 @@ describe("personReview", () => {
       review = togglePhoto(review, "p2", 3);
 
       expect(applyGroupsOf(review.people)).toEqual([]);
+    });
+  });
+
+  describe("사진을 모두 뺀 카드", () => {
+    const emptyP2 = (review = reviewOf()) => togglePhoto(review, "p2", 3);
+
+    it("사진이 하나도 남지 않으면 모두 뺀 카드다", () => {
+      expect(isEmptied(reviewOf().people[1])).toBe(false);
+      expect(isEmptied(emptyP2().people[1])).toBe(true);
+    });
+
+    it("이름을 고른 카드를 모두 빼면 폴더 수에서 빠지고, 남는 사람으로도 세지 않는다", () => {
+      const review = emptyP2(toggleName(reviewOf(), "p2", "하루"));
+      expect(footerOf(review)).toEqual({
+        hint: "이름을 고르면 폴더가 생겨요",
+        submit: "폴더 만들기",
+        canSubmit: false,
+      });
+
+      const withOther = toggleName(review, "p1", "윤돌");
+      expect(footerOf(withOther)).toEqual({
+        hint: "이름을 안 고른 1명은 폴더 없이 전체에 남아요",
+        submit: "1명의 폴더 만들기",
+        canSubmit: true,
+      });
+    });
+
+    it("모두 뺀 카드의 이름은 같은 이름 합치기와 폴더 이름 충돌 검사에 쓰지 않는다", () => {
+      const review = emptyP2(toggleName(reviewOf(), "p2", "하루"));
+
+      expect(ownerOfName(review, "p1", "하루")).toBeNull();
+      expect(footerOf(review, ["하루"]).hint).toBe("이름을 고르면 폴더가 생겨요");
+    });
+
+    it("사진을 다시 넣으면 붙였던 이름이 그대로 돌아온다", () => {
+      const emptied = emptyP2(toggleName(reviewOf(), "p2", "하루"));
+      const restored = togglePhoto(emptied, "p2", 3);
+
+      expect(restored.people[1]).toMatchObject({ name: "하루", excludedIds: [] });
+    });
+
+    it("다시 넣었을 때 다른 카드가 같은 이름을 쓰고 있으면 다시 넣은 카드의 이름을 뗀다", () => {
+      let review = emptyP2(toggleName(reviewOf(), "p2", "하루"));
+      review = toggleName(review, "p1", "하루");
+      review = togglePhoto(review, "p2", 3);
+
+      expect(review.people.map((person) => person.name)).toEqual(["하루", null, null]);
+      expect(applyGroupsOf(review.people)).toEqual([
+        { groupId: "p1", folderName: "하루", mediaIds: [1, 2] },
+      ]);
     });
   });
 });
