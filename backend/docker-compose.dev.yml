@@ -16,8 +16,8 @@
 # 칸마다 environment 를 따로 쓰면 앵커의 environment 를 통째로 덮으므로, 공통 값은 이 앵커로 합친다.
 x-app-env: &app-env
   SPRING_PROFILES_ACTIVE: dev
-  # 운영과 같은 힙 상한(#759). 서버 .env 의 JAVA_OPTS 보다 이 값이 우선한다.
-  JAVA_OPTS: "-Xmx512m -Duser.timezone=Asia/Seoul"
+  # 운영과 같은 힙 상한(#759). 서버 .env의 APP_JAVA_OPTS로 조정하며 기존 JAVA_OPTS보다 우선한다.
+  JAVA_OPTS: "${APP_JAVA_OPTS:--Xmx512m -Duser.timezone=Asia/Seoul}"
 
 x-app: &app
   restart: unless-stopped
@@ -31,8 +31,9 @@ x-app: &app
     - "8080"
     # Actuator 관리 포트. 중앙 수집 요청만 nginx 내부 수집 포트를 거쳐 전달한다.
     - "8081"
-  # 운영과 같은 한도(#759). 전환 중에는 두 칸이 함께 떠 있으므로 서버는 t4g.medium(4GiB) 이상이어야 한다(#764).
-  mem_limit: 900m
+  # 운영과 같은 기본값으로 검증한다(#781). 서버 .env의 APP_MEM_LIMIT으로 조정한다.
+  # 전환 중에는 두 칸이 함께 떠 있으므로 서버는 t4g.medium(4GiB) 이상이어야 한다(#764).
+  mem_limit: ${APP_MEM_LIMIT:-1536m}
   healthcheck:
     test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
     interval: 10s

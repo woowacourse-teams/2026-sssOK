@@ -87,6 +87,12 @@ upload:
   max-retry-count: 5
 
 media:
+  upload:
+    head:
+      workers: 4
+      queue-capacity: 64
+      validation-timeout: 30s
+      call-timeout: 3s
   url-cache:
     enabled: ${MEDIA_URL_CACHE_ENABLED:true}
     maximum-size: ${MEDIA_URL_CACHE_MAXIMUM_SIZE:10000}
@@ -134,7 +140,7 @@ media:
       recovery-interval: 10s
       image-workers: 4
       video-workers: 2
-      lease: 2m
+      lease: 30s
       max-runtime: 10m
       max-attempts: 5
       retry-base: 5s

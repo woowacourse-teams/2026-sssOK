@@ -28,7 +28,7 @@ NGINX_URL="${NGINX_URL:-http://localhost}"
 NGINX_CONTAINER="${NGINX_CONTAINER:-sssok-nginx$suffix}"
 # 블루-그린 이전의 단일 앱 컨테이너. 칸 컨테이너는 이 이름 뒤에 -blue / -green 을 붙인다.
 LEGACY_CONTAINER="${LEGACY_CONTAINER:-sssok-app$suffix}"
-# 새 칸 기동 피크(약 600~730MiB)가 mem_limit(900m) 안에서 끝나도록 여유를 둔다.
+# 새 칸 기동 피크(약 600~730MiB)를 기존 칸이 떠 있는 상태에서도 받아낼 만큼 여유를 둔다.
 # 두 칸이 겹치므로 서버는 t4g.medium(4GiB) 이상이어야 이 기준을 넘는다(#764).
 MIN_AVAILABLE_MB="${MIN_AVAILABLE_MB:-1000}"
 MEMORY_WAIT_SECONDS="${MEMORY_WAIT_SECONDS:-300}"

@@ -57,7 +57,7 @@ class DevBlueGreenTest(unittest.TestCase):
             self.assertEqual(app['container_name'], f'sssok-app-dev-{color}')
             self.assertEqual(app['labels']['com.sssok.log.service'], 'sssok-backend')
             self.assertEqual(app['stop_grace_period'], '50s')
-            self.assertEqual(app['mem_limit'], str(900 * 1024 * 1024))
+            self.assertEqual(app['mem_limit'], str(1536 * 1024 * 1024))
             self.assertEqual(app['environment']['SPRING_PROFILES_ACTIVE'], 'dev')
             self.assertIn('-Xmx512m', app['environment']['JAVA_OPTS'])
             # 두 칸이 함께 뜨므로 호스트 포트를 게시하면 두 번째 칸이 뜨지 못한다.
