@@ -9,16 +9,18 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
+    locale: "ko-KR",
+    actionTimeout: 15_000,
     baseURL: remoteBaseURL || localBaseURL,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"], headless: false } }],
   webServer: remoteBaseURL
     ? undefined
     : {
-        command: "pnpm start",
+        command: "pnpm start --no-open",
         url: localBaseURL,
         reuseExistingServer: !process.env.CI,
         env: { MOCK: "off" },
