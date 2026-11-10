@@ -264,7 +264,6 @@ describe("SelectionDownloadBar", () => {
     await downloadIndividually();
 
     expect(await screen.findByText("2장을 저장했어요.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
   });
 
   it("zip 으로 다 받으면 압축 파일로 저장했다고 알린다", async () => {
@@ -451,7 +450,7 @@ describe("SelectionDownloadBar", () => {
       expect(onClearSelection).toHaveBeenCalled();
     });
 
-    it("저장했다는 알림은 닫기 버튼 없이 3초 뒤 스스로 사라진다", async () => {
+    it("저장했다는 알림은 닫기 버튼을 두고 스스로도 사라진다", async () => {
       serveSingle();
       shareFilesMock.mockResolvedValue({ type: "shared" });
       renderBar([targetOf(5000)]);
@@ -459,7 +458,7 @@ describe("SelectionDownloadBar", () => {
       await downloadToPhotos();
 
       expect(await screen.findByText("1장을 사진첩에 저장했어요.")).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "알림 닫기" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "알림 닫기" })).toBeInTheDocument();
 
       await waitForElementToBeRemoved(() => screen.queryByText("1장을 사진첩에 저장했어요."), {
         timeout: 4000,

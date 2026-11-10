@@ -1,7 +1,8 @@
 import { useRef, useState, type FormEvent } from "react";
 
 import chevronRight from "../assets/chevron-right.svg";
-import { includedPhotos, type ReviewPerson } from "../model/personReview";
+import { includedPhotos, isEmptied, type ReviewPerson } from "../model/personReview";
+import { EmptiedCard } from "./EmptiedCard";
 import {
   Card,
   Chevron,
@@ -56,6 +57,8 @@ export const PersonCard = ({
   onPickName,
   onTypeName,
 }: PersonCardProps) => {
+  if (isEmptied(person)) return <EmptiedCard person={person} onOpenPhotos={onOpenPhotos} />;
+
   const photos = includedPhotos(person);
   const visible = photos.slice(0, VISIBLE_PHOTOS);
   const rest = photos.length - VISIBLE_PHOTOS;

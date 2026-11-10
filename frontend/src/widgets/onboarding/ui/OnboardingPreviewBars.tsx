@@ -1,4 +1,4 @@
-import { HiCheckCircle } from "react-icons/hi2";
+import { HiCheckCircle, HiXMark } from "react-icons/hi2";
 import { LuCheck, LuDownload } from "react-icons/lu";
 
 import { FloatingBar } from "@/shared/ui/floating-bar";
@@ -52,6 +52,8 @@ export const PreviewToast = ({ message }: { message: string }) => (
       <HiCheckCircle />
     </ToastIcon>
     <ToastText>{message}</ToastText>
-    <ToastClose>닫기</ToastClose>
+    <ToastClose>
+      <HiXMark />
+    </ToastClose>
   </ToastFrame>
 );
