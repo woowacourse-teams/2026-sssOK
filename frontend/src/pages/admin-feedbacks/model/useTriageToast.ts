@@ -8,7 +8,7 @@ export const useTriageToast = (onUnauthorized: () => void) => {
   const { showToast } = useToast();
 
   const showChanged = useCallback(
-    (message: string) => showToast({ tone: "success", message, showClose: false }),
+    (message: string) => showToast({ tone: "success", message }),
     [showToast],
   );
 
@@ -20,7 +20,6 @@ export const useTriageToast = (onUnauthorized: () => void) => {
       }
 
       showToast({
-        showClose: false,
         tone: "error",
         message: `${target === "상태" ? "상태를" : "담당자를"} 바꾸지 못했어요. 다시 시도해 주세요.`,
       });

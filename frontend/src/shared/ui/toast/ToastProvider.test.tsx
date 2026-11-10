@@ -10,7 +10,7 @@ const Trigger = () => {
     <>
       <button
         onClick={() => {
-          closeSuccess.current = showToast({ message: "완료", showClose: true });
+          closeSuccess.current = showToast({ message: "완료" });
         }}
       >
         성공

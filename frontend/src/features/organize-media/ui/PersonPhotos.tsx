@@ -75,7 +75,6 @@ export const PersonPhotos = ({
                         message: isAllExcluded
                           ? "모두 뺐어요. 폴더로 만들지 않아요"
                           : `${nextExcludedCount}장을 뺐어요`,
-                        showClose: false,
                         bottom: TOAST_ABOVE_BUTTON,
                       });
                     } else {
