@@ -15,6 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
@@ -32,7 +33,11 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
     private final RoomMemberRepository roomMemberRepository;
     private final TokenProvider tokenProvider;
 
+    // 이 메서드는 스프링 프록시를 거쳐 읽기 트랜잭션 하나로 실행된다(preHandle 이 끝나면 함께 끝난다).
+    // 토큰 확인(회원·세션)과 방·참여자 확인이 각자 커넥션을 빌리면 컨트롤러 진입 전에만 4~6번을 빌린다.
+    // tokenProvider.parse 도 읽기 트랜잭션이라 여기에 합류해 같은 커넥션을 쓴다.
     @Override
+    @Transactional(readOnly = true)
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (!(handler instanceof HandlerMethod)) {
             return true;
@@ -40,8 +45,8 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
 
         Long roomId = extractRoomId(request);
         String token = extractToken(request);
-        Long memberId = tokenProvider.parse(token);
 
+        Long memberId = tokenProvider.parse(token);
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
         if (!room.canEnter()) {
