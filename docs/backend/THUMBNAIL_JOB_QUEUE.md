@@ -57,7 +57,7 @@ GC 정지나 네트워크 지연 때문에 임대 만료 후 기존 워커가 �
 |---|---|---|
 | dispatch-interval | 1s | 유휴 워커 시작 간격. 실행 중에는 다음 작업을 즉시 선점 |
 | image-workers / video-workers | 4 / 2 | 인스턴스별 동시 실행 수 |
-| lease | 2m | heartbeat 유실 후 회수까지의 임대 |
+| lease | 30s | heartbeat 유실 후 회수까지의 임대 |
 | max-runtime | 10m | heartbeat가 연장할 수 있는 최대 실행 시간 |
 | recovery-interval / recovery-batch-size | 10s / 50 | 임대 만료 회수 간격과 상한 |
 | max-attempts | 5 | 최초 포함 최대 처리 시도 |

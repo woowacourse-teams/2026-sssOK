@@ -134,7 +134,7 @@ media:
       recovery-interval: 10s
       image-workers: 4
       video-workers: 2
-      lease: 2m
+      lease: 30s
       max-runtime: 10m
       max-attempts: 5
       retry-base: 5s
