@@ -46,6 +46,8 @@ module.exports = ({ config }) => {
         {
           ios: { useFrameworks: "dynamic" },
           android: {
+            extraProguardRules:
+              "-keep class androidx.work.impl.WorkDatabase_Impl { public <init>(); }",
             usesCleartextTraffic: environment === "development",
             extraMavenRepos: ["https://devrepo.kakao.com/nexus/content/groups/public/"],
           },
