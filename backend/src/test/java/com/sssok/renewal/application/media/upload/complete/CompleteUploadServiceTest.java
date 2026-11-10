@@ -14,8 +14,13 @@ import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequestException;
 import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
 import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
+import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
 import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
 import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.renewal.outgoing.database.ThumbnailJobRepository;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
+import com.sssok.renewal.domain.media.thumbnail.status.ThumbnailJobStatus;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.support.H2IntegrationTest;
@@ -36,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
 
 
 // Repository + Service 통합 테스트 (H2). 스토리지에 무엇이 올라와 있는지는 목으로 정해두고,
@@ -69,6 +75,9 @@ class CompleteUploadServiceTest {
 
     @Autowired
     ThumbnailJobJpaRepository thumbnailJobRepository;
+
+    @Autowired
+    ThumbnailJobRepository thumbnailJobs;
 
     private Long hostId;
     private Long roomId;
@@ -287,6 +296,63 @@ class CompleteUploadServiceTest {
         uploadedAs(SIZE - 1, "video/mp4");
         assertThat(complete(roomId, hostId, List.of(file.getId())).failed())
             .containsExactly(FailedMedia.of(file.getId(), UploadRejectionReason.FILE_TOO_LARGE));
+    }
+
+    @Test
+    void 검증이_일시적으로_불가능하면_예약을_유지하고_같은_ID로_재시도할_수_있다() {
+        StoredFile first = reserved(hostId);
+        StoredFile second = reserved(hostId);
+        uploadedAs(SIZE, MIME);
+        given(fileStorage.findUploaded(second.getStorageKey()))
+            .willThrow(new UploadVerificationUnavailableException());
+        List<Long> ids = List.of(first.getId(), second.getId());
+
+        assertThatThrownBy(() -> complete(roomId, hostId, ids))
+            .isInstanceOf(UploadVerificationUnavailableException.class);
+        assertNoRegistration(first, second);
+
+        willReturn(Optional.of(new UploadedObject(SIZE, MIME)))
+            .given(fileStorage).findUploaded(second.getStorageKey());
+
+        CompleteUploadResult retried = complete(roomId, hostId, ids);
+
+        assertThat(retried.registered()).extracting(MediaDetail::mediaId).containsExactlyElementsOf(ids);
+        assertThat(retried.failed()).isEmpty();
+        assertThat(thumbnailJobRepository.findAllById(ids)).hasSize(2);
+        assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L))
+            .filteredOn(event -> event.getEventType().equals("media.created")).hasSize(2);
+    }
+
+    @Test
+    void 일괄_등록은_기존_재시도_이력을_보존하고_실패한_작업만_초기화한다() {
+        StoredFile fresh = reserved(hostId);
+        StoredFile retrying = reserved(hostId);
+        StoredFile failed = reserved(hostId);
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        Instant nextAttempt = now.plusSeconds(60);
+        ThumbnailJob retryJob = new ThumbnailJob(retrying.getId(), ThumbnailKind.IMAGE, now);
+        retryJob.claim(now, now.plusSeconds(30));
+        retryJob.retry(nextAttempt, "TEMPORARY_ERROR");
+        thumbnailJobs.save(retryJob);
+        ThumbnailJob failedJob = new ThumbnailJob(failed.getId(), ThumbnailKind.IMAGE, now);
+        failedJob.claim(now, now.plusSeconds(30));
+        failedJob.complete(ThumbnailJobStatus.from("FAILED"), now, "CONVERSION_FAILED");
+        thumbnailJobs.save(failedJob);
+        uploadedAs(SIZE, MIME);
+
+        complete(roomId, hostId, List.of(fresh.getId(), retrying.getId(), failed.getId()));
+
+        ThumbnailJob preserved = thumbnailJobs.findById(retrying.getId()).orElseThrow();
+        assertThat(preserved.getStatus().name()).isEqualTo("RETRY_WAIT");
+        assertThat(preserved.getAttempts()).isEqualTo(1);
+        assertThat(preserved.getAvailableAt()).isEqualTo(nextAttempt);
+        assertThat(preserved.getErrorCode()).isEqualTo("TEMPORARY_ERROR");
+        for (StoredFile file : List.of(fresh, failed)) {
+            ThumbnailJob pending = thumbnailJobs.findById(file.getId()).orElseThrow();
+            assertThat(pending.getStatus().name()).isEqualTo("PENDING");
+            assertThat(pending.getAttempts()).isZero();
+            assertThat(pending.getErrorCode()).isNull();
+        }
     }
 
     private void assertNoRegistration(StoredFile... files) {

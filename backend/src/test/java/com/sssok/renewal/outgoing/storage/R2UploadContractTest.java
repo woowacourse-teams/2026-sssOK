@@ -2,26 +2,31 @@ package com.sssok.renewal.outgoing.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
 import static org.mockito.ArgumentMatchers.any;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.S3Exception;
-import org.springframework.test.util.ReflectionTestUtils;
-
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import com.sssok.domain.file.StorageKey;
+import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
 import com.sssok.renewal.outgoing.config.R2Properties;
 import com.sssok.renewal.outgoing.config.UploadHeadProperties;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
+import software.amazon.awssdk.core.exception.ApiCallAttemptTimeoutException;
+import software.amazon.awssdk.core.exception.ApiCallTimeoutException;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 class R2UploadContractTest {
     @Test
@@ -93,6 +98,27 @@ class R2UploadContractTest {
         } finally {
             storage.closeClients();
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("headTimeouts")
+    void SDK_호출과_시도_timeout은_재시도_가능한_검증_예외로_변환한다(RuntimeException timeout) {
+        S3Client sdk = mock(S3Client.class);
+        R2FileStorage storage = storageWith(sdk);
+        when(sdk.headObject(any(HeadObjectRequest.class))).thenThrow(timeout);
+
+        try {
+            assertThatThrownBy(() -> storage.findUploaded(new StorageKey("rooms/1/file.jpg")))
+                .isInstanceOf(UploadVerificationUnavailableException.class);
+        } finally {
+            storage.closeClients();
+        }
+    }
+
+    private static Stream<RuntimeException> headTimeouts() {
+        return Stream.of(
+            ApiCallTimeoutException.create(3000),
+            ApiCallAttemptTimeoutException.create(3000));
     }
 
     private R2FileStorage storageWith(S3Client sdk) {

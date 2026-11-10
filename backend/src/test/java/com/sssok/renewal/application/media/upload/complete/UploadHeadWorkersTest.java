@@ -40,6 +40,8 @@ class UploadHeadWorkersTest {
         ExecutorService callers = Executors.newFixedThreadPool(8);
         try {
             UploadHeadWorkers workers = new UploadHeadWorkers(executor, properties, metrics);
+            CountDownLatch firstWorkersStarted = new CountDownLatch(4);
+            CountDownLatch release = new CountDownLatch(1);
             AtomicInteger active = new AtomicInteger();
             AtomicInteger peak = new AtomicInteger();
             List<Integer> items = IntStream.range(0, 12).boxed().toList();
@@ -49,7 +51,10 @@ class UploadHeadWorkersTest {
                 results.add(callers.submit(() -> workers.map(items, item -> {
                     peak.accumulateAndGet(active.incrementAndGet(), Math::max);
                     try {
-                        Thread.sleep(3 + (item % 4));
+                        firstWorkersStarted.countDown();
+                        if (!release.await(5, TimeUnit.SECONDS)) {
+                            throw new IllegalStateException("워커 시작 확인 대기 초과");
+                        }
                         return item;
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
@@ -58,6 +63,13 @@ class UploadHeadWorkersTest {
                         active.decrementAndGet();
                     }
                 })));
+            }
+
+            try {
+                assertThat(firstWorkersStarted.await(2, TimeUnit.SECONDS)).isTrue();
+                assertThat(peak.get()).isEqualTo(4);
+            } finally {
+                release.countDown();
             }
 
             for (Future<List<Integer>> result : results) {
@@ -79,10 +91,11 @@ class UploadHeadWorkersTest {
         try {
             UploadHeadWorkers workers = new UploadHeadWorkers(executor, properties, metrics);
             CountDownLatch interrupted = new CountDownLatch(1);
+            CountDownLatch blocked = new CountDownLatch(1);
 
             assertThatThrownBy(() -> workers.map(List.of(1), item -> {
                 try {
-                    Thread.sleep(10_000);
+                    blocked.await();
                     return item;
                 } catch (InterruptedException e) {
                     interrupted.countDown();
