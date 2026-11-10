@@ -4,6 +4,7 @@ import com.sssok.application.admin.exception.AdminLoginRateLimitedException;
 import com.sssok.common.exception.ErrorCode;
 import com.sssok.common.exception.SssOkException;
 import com.sssok.common.logging.LogContext;
+import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
 import com.sssok.renewal.application.organization.job.OrganizeJobInProgressException;
 import com.sssok.renewal.application.organization.job.OrganizeRateLimitedException;
 import java.util.Objects;
@@ -30,6 +31,14 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GlobalExceptionHandler {
 
     private static final String DEFAULT_VIOLATION_MESSAGE = "요청 값이 올바르지 않습니다";
+
+    @ExceptionHandler(UploadVerificationUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleUploadVerificationUnavailable(
+            UploadVerificationUnavailableException e) {
+        record(e.errorCode(), e);
+        return errorResponse(e.errorCode()).header(HttpHeaders.RETRY_AFTER, "1")
+            .body(new ErrorResponse(e.errorCode().name(), e.getMessage()));
+    }
 
     @ExceptionHandler(AdminLoginRateLimitedException.class)
     public ResponseEntity<ErrorResponse> handleAdminLoginRateLimited(AdminLoginRateLimitedException e) {

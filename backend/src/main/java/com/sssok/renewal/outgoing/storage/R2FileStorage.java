@@ -1,7 +1,9 @@
 package com.sssok.renewal.outgoing.storage;
 
 import com.sssok.domain.file.StorageKey;
+import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
 import com.sssok.renewal.outgoing.config.R2Properties;
+import com.sssok.renewal.outgoing.config.UploadHeadProperties;
 import jakarta.annotation.PreDestroy;
 import java.io.InputStream;
 import java.net.URI;
@@ -14,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.ApiCallAttemptTimeoutException;
+import software.amazon.awssdk.core.exception.ApiCallTimeoutException;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.regions.Region;
@@ -45,6 +49,7 @@ public class R2FileStorage implements FileStorage {
 
     private final R2Properties properties;
     private final R2UploadStrategyResolver uploadStrategies;
+    private final UploadHeadProperties headProperties;
 
     private volatile S3Presigner presigner;
     private volatile R2GetObjectSigner getObjectSigner;
@@ -79,13 +84,18 @@ public class R2FileStorage implements FileStorage {
     @Override
     public Optional<UploadedObject> findUploaded(StorageKey storageKey) {
         try {
+            Duration callTimeout = headProperties.callTimeout();
             HeadObjectResponse head = client().headObject(HeadObjectRequest.builder()
+                .overrideConfiguration(c -> c.apiCallTimeout(callTimeout).apiCallAttemptTimeout(callTimeout))
                 .bucket(properties.bucket())
                 .key(storageKey.value())
                 .build());
             return Optional.of(new UploadedObject(head.contentLength(), head.contentType()));
         } catch (NoSuchKeyException e) {
             return Optional.empty();
+        } catch (ApiCallTimeoutException | ApiCallAttemptTimeoutException timeout) {
+            // 저장소 응답이 늦은 것이지 파일이 없는 것이 아니다. RESERVED 를 유지한 채 재시도하게 한다.
+            throw new UploadVerificationUnavailableException();
         }
     }
 

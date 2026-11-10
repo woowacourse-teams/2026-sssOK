@@ -2,18 +2,15 @@ package com.sssok.renewal.application.media.upload.complete;
 
 import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.application.port.out.EventSubscriberPort;
-import com.sssok.application.port.out.RoomPermissionPort;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
-import com.sssok.renewal.application.media.thumbnail.ThumbnailJobService;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.support.H2IntegrationTest;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +23,6 @@ import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -47,14 +43,8 @@ class MediaEventAfterCommitTest {
     @Autowired
     AnonymousAuthService anonymousAuthService;
 
-    @MockitoBean
+    @Autowired
     UploadFileRepository fileRepository;
-
-    @MockitoBean
-    ThumbnailJobService thumbnailJobService;
-
-    @MockitoBean
-    RoomPermissionPort roomPermissionPort;
 
     // 실제 발행 지점을 목으로 잡는다. room_events 행은 롤백되지만 이미 나간 SSE 는 되돌아가지 않으므로,
     // "발행이 호출됐는가" 를 봐야 커밋 전 발행을 잡을 수 있다.
@@ -72,9 +62,8 @@ class MediaEventAfterCommitTest {
         Long hostId = anonymousAuthService.authenticate("가현").userId();
         Room room = createRoomService.create(hostId, "우테코 회식", null).room();
         roomId = room.getId();
-        file = StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
-            new FileSize(1024L), Instant.now(), SIZE_POLICY);
-        given(fileRepository.findByIdForUpdate(any())).willReturn(Optional.of(file));
+        file = fileRepository.savePendingUploads(List.of(StoredFile.reserve(roomId, hostId, "a.jpg", "image/jpeg",
+            new FileSize(1024L), Instant.now(), SIZE_POLICY))).getFirst();
     }
 
     // 이 메서드는 스프링 테스트 기본값에 따라 끝에 롤백된다. register 는 그 트랜잭션에 참여하므로
@@ -83,7 +72,6 @@ class MediaEventAfterCommitTest {
     @Test
     @Transactional
     void 커밋되지_않으면_이벤트가_나가지_않는다() {
-        given(fileRepository.save(any())).willAnswer(call -> call.getArgument(0));
 
         mediaRegistrationService.register(roomId, List.of(file), "가현");
 
@@ -92,7 +80,6 @@ class MediaEventAfterCommitTest {
 
     @Test
     void 저장에_성공하면_커밋된_뒤에_이벤트가_나간다() {
-        given(fileRepository.save(any())).willAnswer(call -> call.getArgument(0));
 
         mediaRegistrationService.register(roomId, List.of(file), "가현");
 
@@ -105,7 +92,6 @@ class MediaEventAfterCommitTest {
 
     @Test
     void 이벤트를_등록한_뒤_롤백해도_SSE는_발행하지_않는다() {
-        given(fileRepository.save(any())).willAnswer(call -> call.getArgument(0));
         new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
             mediaRegistrationService.register(roomId, List.of(file), "가현");
             status.setRollbackOnly();

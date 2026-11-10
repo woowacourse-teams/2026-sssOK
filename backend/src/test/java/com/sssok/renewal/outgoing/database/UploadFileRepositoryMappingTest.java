@@ -2,6 +2,7 @@ package com.sssok.renewal.outgoing.database;
 
 import com.sssok.infrastructure.persistence.file.StoredFileJpaRepository;
 import com.sssok.infrastructure.persistence.file.FileRepositoryAdapter;
+import jakarta.persistence.EntityManager;
 import java.util.List;
 import org.mockito.Mockito;
 import org.mockito.ArgumentMatchers;
@@ -44,7 +45,7 @@ class UploadFileRepositoryMappingTest {
         assertThat(legacyRepository.save(original)).usingRecursiveComparison().isEqualTo(original);
         assertThat(legacyRepository.saveAll(List.of(original)).getFirst())
             .usingRecursiveComparison().isEqualTo(original);
-        UploadFileRepository repository = new UploadFileRepository(jpaRepository);
+        UploadFileRepository repository = new UploadFileRepository(jpaRepository, Mockito.mock(EntityManager.class));
         assertThat(repository.savePendingUploads(List.of(original)).getFirst())
             .usingRecursiveComparison().isEqualTo(original);
         assertThat(repository.save(original))
