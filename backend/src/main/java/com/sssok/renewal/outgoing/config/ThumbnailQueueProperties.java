@@ -18,7 +18,7 @@ public record ThumbnailQueueProperties(
     private static final int DEFAULT_VIDEO_WORKERS = 2;
     private static final int DEFAULT_MAX_ATTEMPTS = 5;
     private static final int DEFAULT_RECOVERY_BATCH_SIZE = 50;
-    private static final Duration DEFAULT_LEASE = Duration.ofMinutes(2);
+    private static final Duration DEFAULT_LEASE = Duration.ofSeconds(30);
     private static final Duration DEFAULT_MAX_RUNTIME = Duration.ofMinutes(10);
     private static final Duration DEFAULT_RETRY_BASE = Duration.ofSeconds(5);
     private static final Duration DEFAULT_RETRY_MAX = Duration.ofMinutes(5);
