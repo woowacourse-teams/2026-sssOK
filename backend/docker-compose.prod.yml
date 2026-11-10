@@ -25,16 +25,15 @@ services:
       - "8080"
       # Actuator 관리 포트. Nginx로 전달하거나 호스트에 publish하지 않는다.
       - "8081"
-    # 앱이 이 한도를 넘으면 호스트 전체가 아니라 이 컨테이너만 정리되고, restart 정책으로 다시 뜬다.
-    # 힙 상한 + 비힙(약 216MiB) + 그 밖(약 130MiB)을 더한 최악의 RSS(약 860MiB)가 이 안에 들도록 잡았다.
-    mem_limit: 900m
+    # 2026-11-10 운영 분석: JVM RSS 평소 약 825MB, 피크 약 943MB로 기존 900m 한도에서 OOM 발생.
+    # 기본 1536m은 t4g.medium 기준이다. 인스턴스 사양을 낮추면 호스트 전체 사용량을 재검토한다.
+    # 서버 .env의 APP_MEM_LIMIT으로 조정하며, 컨테이너 재생성 후에도 같은 한도를 적용한다.
+    mem_limit: ${APP_MEM_LIMIT:-1536m}
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      # JVM 힙 상한. Dockerfile 기본값(MaxRAMPercentage=75)은 컨테이너 한도가 없으면 호스트 RAM 기준이라
-      # 힙 최대가 1,386MiB 가 되고, 업로드 후처리 때 힙 커밋이 30초에 207→567MiB 로 팽창해
-      # 호스트(약 1.8GB)를 고갈시켰다(#759). 서버 .env 의 JAVA_OPTS 보다 이 값이 우선한다.
-      # 512m 는 초안이다 — dev 에서 JAVA_OPTS 를 바꿔 비교한 뒤 조정한다.
-      JAVA_OPTS: "-Xmx512m -Duser.timezone=Asia/Seoul"
+      # 힙 실사용 약 326MB를 기준으로 상한 512m 유지. 비힙 등은 컨테이너 한도에 별도로 포함된다.
+      # 서버 .env의 APP_JAVA_OPTS로 조정한다. 기존 JAVA_OPTS보다 이 값이 우선한다.
+      JAVA_OPTS: "${APP_JAVA_OPTS:--Xmx512m -Duser.timezone=Asia/Seoul}"
       # 배포마다 CI가 image.env에 기록하는 버전 정보.
       APP_RELEASE_VERSION: ${APP_RELEASE_VERSION:-unknown}
       APP_BACKEND_VERSION: ${APP_BACKEND_VERSION:-unknown}
