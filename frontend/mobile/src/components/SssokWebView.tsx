@@ -55,7 +55,12 @@ const isAllowedWebUrl = (url: string) => {
   }
 };
 
-export function SssokWebView() {
+type SssokWebViewProps = {
+  /** 첫 페이지가 다 뜨거나 오류 화면으로 넘어가면 부른다. 스플래시를 닫는 신호다. */
+  onReady?: () => void;
+};
+
+export function SssokWebView({ onReady }: SssokWebViewProps) {
   const webView = useRef<WebView<object>>(null);
   const downloadBridge = useRef<ReturnType<typeof createDownloadBridge>>(null);
   const authBridge = useRef<ReturnType<typeof createAuthBridge>>(null);
@@ -119,6 +124,7 @@ export function SssokWebView() {
     downloadBridge.current?.cancelAll();
     authBridge.current?.cancelAll();
     setFailed(true);
+    onReady?.();
   };
 
   useEffect(() => {
@@ -242,6 +248,7 @@ export function SssokWebView() {
           onLoad={({ nativeEvent }) => {
             loadedUrl.current = nativeEvent.url;
           }}
+          onLoadEnd={() => onReady?.()}
           onNavigationStateChange={(state) => {
             rememberInternalUrl(state.url);
             canGoBack.current = state.canGoBack;
@@ -252,6 +259,7 @@ export function SssokWebView() {
           }}
           onContentProcessDidTerminate={() => showError()}
           onRenderProcessGone={() => showError()}
+          // 첫 로딩은 스플래시가 가리고, 이후 다시 불러올 때만 스피너가 보인다.
           startInLoadingState
           renderLoading={() => (
             <View style={[StyleSheet.absoluteFill, styles.message]}>
