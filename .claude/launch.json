@@ -22,16 +22,6 @@
       "port": 3000
     },
     {
-      "name": "frontend-dev-app",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--dir",
-        "frontend",
-        "start:app"
-      ],
-      "port": 3000
-    },
-    {
       "name": "storybook",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
