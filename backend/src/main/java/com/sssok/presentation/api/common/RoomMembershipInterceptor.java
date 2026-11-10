@@ -3,6 +3,7 @@ package com.sssok.presentation.api.common;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.renewal.incoming.auth.VerifiedAuthentication;
 import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -38,7 +39,8 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         }
 
         Long roomId = extractRoomId(request);
-        Long memberId = extractMemberId(request);
+        String token = extractToken(request);
+        Long memberId = tokenProvider.parse(token);
 
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
@@ -47,6 +49,8 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         }
         roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)
             .orElseThrow(NotRoomMemberException::new);
+        // 컨트롤러의 @AuthMember 가 같은 토큰을 다시 검증하지 않도록 결과를 남긴다.
+        VerifiedAuthentication.remember(request, token, memberId);
 
         return true;
     }
@@ -68,11 +72,11 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         }
     }
 
-    private Long extractMemberId(HttpServletRequest request) {
+    private String extractToken(HttpServletRequest request) {
         String authorizationHeader = request.getHeader("Authorization");
         if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
             throw new UnauthorizedException("다시 접속해주세요");
         }
-        return tokenProvider.parse(authorizationHeader.substring(BEARER_PREFIX.length()));
+        return authorizationHeader.substring(BEARER_PREFIX.length());
     }
 }
