@@ -180,9 +180,12 @@ export const ToastText = styled.span`
 `;
 
 export const ToastClose = styled.span`
+  display: flex;
   flex: none;
   color: ${colors.textSecondary};
 
-  ${typography.caption2}
-  font-size: 13px;
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 `;

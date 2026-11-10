@@ -72,7 +72,6 @@ export const PersonPhotos = ({
                     if (nextExcludedCount > 0) {
                       closeExcludedToast.current = showToast({
                         message: `${nextExcludedCount}장을 뺐어요`,
-                        showClose: false,
                         bottom: TOAST_ABOVE_BUTTON,
                       });
                     } else {

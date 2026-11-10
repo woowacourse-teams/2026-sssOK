@@ -373,7 +373,6 @@ const ViewerFooter = ({
       if (outcome.type === "saved") {
         showToast({
           message: toPhotoLibrary ? "사진첩에 저장했어요." : "사진을 저장했어요.",
-          showClose: false,
         });
       }
     },
@@ -471,7 +470,6 @@ const ViewerFooter = ({
             setReportOpen(false);
             showToast({
               message: "신고가 완료됐어요.",
-              showClose: false,
             });
           }}
         />
