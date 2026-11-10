@@ -3,38 +3,44 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <title>쏙 · 사진 공유, 쏙으로 더 가볍게</title>
+    <title>쏙 · 사진 공유 서비스</title>
     <meta
       name="description"
-      content="모으고, 고르고, 쏙 나누세요. 여행이나 모임이 끝난 뒤, 링크 하나만 보내면 끝. 설치 없이 바로 들어와 사진을 올리고 원하는 사진만 받아가요."
+      content="“사진 보내 줘” 이제 그만! 함께 찍은 사진을 링크 하나로 모아 사람별로 정리하고, 내 사진만 원본 그대로 받아요. 설치·가입 없이 바로 시작해요."
     />
-    <meta name="theme-color" content="#FFF6E9" />
+    <meta name="theme-color" content="#FFF6EC" />
     <!-- 이 파일은 / 와 /landing.html 두 주소로 열린다. 검색 결과에는 / 만 잡히게 한다 -->
     <link rel="canonical" href="https://www.ssssok.com/" />
     <!-- 구글 서치 콘솔 소유 확인용. 지우면 서치 콘솔 확인이 풀린다 -->
     <meta name="google-site-verification" content="TQ5Z4OvUp-6lzQ6NgxZ5Uiv88JZaRFwb7valld1Zm0o" />
 
+    <!-- 미리보기 수집기(카카오톡·슬랙 등)는 상대 경로를 못 푸는 경우가 많아 절대 주소로 쓴다 -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="쏙" />
-    <meta property="og:title" content="사진 공유, 쏙으로 더 가볍게" />
-    <meta property="og:description" content="링크 하나로 모으고, 고르고, 쏙 나누세요" />
-    <!-- 미리보기 수집기(카카오톡·슬랙 등)는 상대 경로를 못 푸는 경우가 많아 절대 주소로 쓴다 -->
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:title" content="“사진 보내 줘” 이제 그만! · 쏙" />
+    <meta
+      property="og:description"
+      content="함께 찍은 사진, 링크 하나로 모아 사람별로 정리하고 내 사진만 받아요."
+    />
     <meta property="og:url" content="https://www.ssssok.com/" />
     <meta property="og:image" content="https://www.ssssok.com/og/default.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="링크 하나로 사진 모으고 쏙! — 사진을 든 쏙이" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="“사진 보내 줘” 이제 그만! · 쏙" />
+    <meta
+      name="twitter:description"
+      content="함께 찍은 사진, 링크 하나로 모아 사람별로 정리하고 내 사진만 받아요."
+    />
+    <meta name="twitter:image" content="https://www.ssssok.com/og/default.png" />
 
     <!-- 탭 아이콘은 앱과 같은 파일을 써서, 랜딩에서 앱으로 넘어가도 바뀌지 않게 한다 -->
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="icon" href="/favicon.png" type="image/png" sizes="192x192" />
     <!-- 홈 화면 아이콘은 크게 보이니 글자가 들어간 로고를 쓴다. 1MB 원본 대신 180px 로 줄인 파일 -->
     <link rel="apple-touch-icon" href="/landing/assets/logo-180.png" />
-    <!-- 히어로 폰 세 장을 HTML 파싱과 동시에 받기 시작한다. 가운데(onboarding)가 가장 먼저 -->
-    <link rel="preload" as="image" href="/landing/assets/onboarding.png" fetchpriority="high" />
-    <link rel="preload" as="image" href="/landing/assets/four.png" />
-    <link rel="preload" as="image" href="/landing/assets/five.png" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <link
       rel="stylesheet"
@@ -43,829 +49,456 @@
     <link rel="stylesheet" href="/landing/styles.css" />
   </head>
   <body>
-    <nav id="nav">
-      <div class="wrap">
-        <a href="#" class="logo">쏙 <img src="/landing/assets/characte8.png" alt="" /></a>
-        <a
-          class="btn nav-cta"
-          id="navCta"
-          href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=nav"
-          >지금 바로 사진 모으기</a
+    <div class="bg" aria-hidden="true"></div>
+
+    <!-- 시작 방법 목록: 머리글 메뉴는 전부, 첫 화면 '쏙 앱 알아보기' 메뉴는 앱 항목만 복사해 쓴다 -->
+    <template id="startMenu">
+      <a
+        class="start-opt"
+        href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=header"
+      >
+        <span class="start-ico web"
+          ><svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+            <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></svg
+        ></span>
+        <span><strong>웹에서 바로 시작</strong><small>설치 없이 링크부터 만들어요</small></span>
+      </a>
+      <a
+        class="start-opt"
+        href="https://apps.apple.com/kr/app/%EC%8F%99-%ED%95%A8%EA%BB%98-%EB%AA%A8%EC%9C%BC%EB%8A%94-%EC%82%AC%EC%A7%84/id6828711923"
+        target="_blank"
+        rel="noopener"
+      >
+        <span class="start-ico apple"
+          ><svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.7-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.87-.76-1.47.02-2.83.86-3.59 2.18-1.53 2.66-.39 6.6 1.1 8.75.73 1.05 1.6 2.24 2.73 2.2 1.1-.05 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.3-.88-2.32-3.5zM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.65-1.05 1.68-.92 2.67.97.08 1.96-.49 2.56-1.22z"
+            /></svg
+        ></span>
+        <span><strong>iPhone 앱</strong><small>App Store에서 받아요</small></span>
+      </a>
+      <span class="start-opt off" aria-disabled="true">
+        <span class="start-ico droid"
+          ><svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 16a7 7 0 0 1 14 0z" />
+            <path d="M7.6 8.2 6 5.6M16.4 8.2 18 5.6" class="ant" />
+            <circle cx="9.2" cy="12.6" r="1" class="eye" />
+            <circle cx="14.8" cy="12.6" r="1" class="eye" /></svg
+        ></span>
+        <span><strong>Android 앱</strong><small>곧 출시 예정이에요</small></span>
+      </span>
+    </template>
+
+    <!-- 머리글: 첫 화면 버튼이 사라진 뒤에만 '링크 만들기'(웹·iPhone·Android 고르기)가 뜬다. 첫 화면 '사진 모을 링크 만들기'와 같은 동작이라 이름을 맞춘다. 마지막 장면에선 다시 숨는다 -->
+    <header class="site-header" id="siteHeader">
+      <div class="start">
+        <button
+          type="button"
+          class="header-cta"
+          id="startBtn"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="headerMenu"
+          tabindex="-1"
         >
-      </div>
-    </nav>
-
-    <!-- HERO -->
-    <header class="hero">
-      <div class="wrap hero-grid">
-        <div>
-          <h1>
-            <span class="w">사진</span> <span class="w">공유,</span><br /><span class="w"
-              ><em>쏙</em>으로</span
-            ><br /><span class="w">더</span> <span class="w">가볍게!</span>
-          </h1>
-          <p class="tagline rv rv-hero">링크로 모으고, 쏙 골라 받아요</p>
-
-          <div class="cta-row rv rv-hero">
-            <a
-              class="btn btn-lg"
-              id="heroCta"
-              href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=hero"
-              >지금 바로 사진 모으기</a
-            >
-          </div>
-        </div>
-        <div class="art" id="art">
-          <div class="phones rv rv-hero">
-            <div class="ph ph-left">
-              <img
-                src="/landing/assets/four.png"
-                alt="공유방에서 사진을 훑어보고 필요한 것만 골라 담는 화면"
-              />
-            </div>
-            <div class="ph ph-right">
-              <img
-                src="/landing/assets/five.png"
-                alt="QR 또는 참여 코드로 공유방에 들어가는 화면"
-              />
-            </div>
-            <div class="ph ph-main">
-              <img
-                src="/landing/assets/onboarding.png"
-                fetchpriority="high"
-                alt="쏙 첫 화면 — 링크로 모으고 쏙 골라 받기, 링크 만들기 버튼"
-              />
-            </div>
-          </div>
-        </div>
+          링크 만들기
+          <svg class="caret-ico" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+        </button>
+        <div class="start-menu" id="headerMenu" hidden></div>
       </div>
     </header>
 
-    <!-- PROBLEM -->
-    <section>
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>혹시, 이런 적 있지 않으셨나요?</h2>
-          <p>단체 사진 공유는 보내는 쪽도, 받는 쪽도 불편해요.</p>
-        </div>
-        <div class="cards3">
-          <div class="card rv">
-            <div class="ch">
-              <img src="/landing/assets/character4.png" alt="아무것도 남지 않은 빈 구멍" />
-            </div>
-            <h3>잠깐 나갔다 왔더니<br />업로드하던 사진이 날아갔어요</h3>
-            <p>처음부터 다시 올리다 보면, <br />결국 공유를 포기하게 돼요.</p>
-          </div>
-          <div class="card rv">
-            <div class="ch">
-              <img src="/landing/assets/character3.png" alt="사진을 잔뜩 들고 있는 쏙이" />
-            </div>
-            <h3>그 사진, DM이었나 카톡이었나…</h3>
-            <p>단톡·스레드·DM에 흩어져서, <br />나중엔 어디 있는지 몰라요.</p>
-          </div>
-          <div class="card rv">
-            <div class="ch">
-              <img src="/landing/assets/character1.png" alt="사진 한 장을 들고 있는 쏙이" />
-            </div>
-            <h3>내 사진 한 장 찾으려고 전부 내려받아요</h3>
-            <p>미리보기로는 확인이 오래 걸려서, <br />결국 통째로 받게 돼요.</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <h1 class="sr">
+      쏙 — 함께 찍은 사진을 링크 하나로 모으고, 버튼 한 번으로 사람별·비슷한 사진별로 정리해 필요한
+      사진만 받는 서비스
+    </h1>
 
-    <!-- COMPARE -->
-    <section id="why">
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>그래서 쏙이 만들었어요</h2>
-          <p>로그인 여부도, 계정도, 전화번호도 묻지 않아요</p>
-        </div>
-        <!-- 한 줄에 "불편 → 해결" 을 짝지어 보여준다. 쏙 쪽 문구는 히어로 "쏙" 과 같은 노란 형광펜 -->
-        <div class="vs-table rv">
-          <img
-            class="badge-char rv-pop"
-            src="/landing/assets/character5.png"
-            alt="따봉을 든 쏙이"
-          />
-          <div class="vs-head">
-            <span>지금까지는..</span>
-            <span></span>
-            <span class="now-label">쏙으로는!</span>
-          </div>
-          <div class="vs-row rv">
-            <span class="was">메신저·DM에 흩어지고</span>
-            <span class="arrow" aria-hidden="true">→</span>
-            <span class="now"><mark>한 링크에 다 모여요</mark></span>
-          </div>
-          <div class="vs-row rv">
-            <span class="was">앱 설치하고 계정 만들고</span>
-            <span class="arrow" aria-hidden="true">→</span>
-            <span class="now"><mark>링크만 열면 끝</mark></span>
-          </div>
-          <div class="vs-row rv">
-            <span class="was">미리보기 없이 전부 다운로드</span>
-            <span class="arrow" aria-hidden="true">→</span>
-            <span class="now"><mark>훑어보고 필요한 것만</mark></span>
-          </div>
-          <div class="vs-row rv">
-            <span class="was">번호·프로필까지 공개</span>
-            <span class="arrow" aria-hidden="true">→</span>
-            <span class="now"><mark>이메일도 번호도 안 물어봐요</mark></span>
-          </div>
-        </div>
-      </div>
-    </section>
+    <nav class="toc" id="toc" aria-label="목차">
+      <!-- 목차 이름은 각 장면 태그(main.js 의 tag)와 같게 둔다. 바꿀 때 함께 바꾼다.
+           1 링크로 모으기: 첫 화면(단톡방) 동안엔 꺼져 있다가 스크롤 1.0(= 장면 -1.8, INTRO 2.8)부터 켜진다. 누르면 사진이 다 올라온 자리(장면 -0.3)로 -->
+      <button type="button" data-from="-1.8" data-go="-0.3" aria-label="1 링크로 모으기">
+        <span>1 링크로 모으기</span>
+      </button>
+      <button type="button" data-from="0" data-go="4.2" aria-label="2 사람별로 나누기">
+        <span>2 사람별로 나누기</span>
+      </button>
+      <button type="button" data-from="6.6" data-go="9.2" aria-label="3 비슷한 컷 묶기">
+        <span>3 비슷한 컷 묶기</span>
+      </button>
+      <button type="button" data-from="12.8" data-go="14.2" aria-label="4 검색해서 받기">
+        <span>4 검색해서 받기</span>
+      </button>
+      <button type="button" data-from="20.8" data-go="22.4" aria-label="링크 만들기">
+        <span>링크 만들기</span>
+      </button>
+    </nav>
 
-    <!-- STEPS -->
-    <section>
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>10초면 충분해요</h2>
-          <p>준비물은 링크 하나!</p>
+    <!-- 아이콘 묶음 -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-back" viewBox="0 0 24 24">
+        <path d="M20 12H4M10 6l-6 6 6 6" />
+      </symbol>
+      <symbol id="i-link" viewBox="0 0 24 24">
+        <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" />
+        <path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+      </symbol>
+      <symbol id="i-more" viewBox="0 0 24 24">
+        <circle cx="5" cy="12" r="1.2" />
+        <circle cx="12" cy="12" r="1.2" />
+        <circle cx="19" cy="12" r="1.2" />
+      </symbol>
+      <symbol id="i-search" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="6.5" />
+        <path d="M20 20l-4.2-4.2" />
+      </symbol>
+      <symbol id="i-folder" viewBox="0 0 24 24">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <path d="M12 10.5v5M9.5 13h5" />
+      </symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></symbol>
+      <symbol id="i-heart" viewBox="0 0 24 24">
+        <path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" />
+      </symbol>
+      <symbol id="i-photo" viewBox="0 0 24 24">
+        <rect x="3.5" y="5" width="14" height="14" rx="2" />
+        <path d="M3.5 15l4-4 5 5M20.5 3v5M18 5.5h5" />
+      </symbol>
+      <symbol id="i-spark" viewBox="0 0 24 24">
+        <path
+          d="M10 4l1.6 4.4L16 10l-4.4 1.6L10 16l-1.6-4.4L4 10l4.4-1.6zM18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"
+        />
+      </symbol>
+      <symbol id="i-up" viewBox="0 0 24 24">
+        <path d="M12 16V5M7 10l5-5 5 5M5 19h14" />
+      </symbol>
+      <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" /></symbol>
+      <symbol id="i-dl" viewBox="0 0 24 24">
+        <path d="M12 4v11M7 10l5 5 5-5M5 19h14" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V5h6v2M6.5 7l1 12h9l1-12" />
+      </symbol>
+      <symbol id="i-move" viewBox="0 0 24 24">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        <path d="M10 13h6M13.5 10.5L16 13l-2.5 2.5" />
+      </symbol>
+    </svg>
+
+    <section class="film" id="film">
+      <div class="stage" id="stage">
+        <div id="texts"></div>
+
+        <div class="layer head" id="sortHead">
+          <span class="kicker">버튼 한 번이면</span>
+          <h2 class="title"><em>사람마다</em> 쏙 나눠져요</h2>
         </div>
-        <div class="steps">
-          <div class="step rv">
-            <div class="step-body">
-              <div class="num">1</div>
-              <h3>공유방 만들기</h3>
-              <p>방 제목만 정하면 끝!</p>
-              <p>가입도 필요없어요.</p>
-            </div>
-            <div class="ch">
-              <img
-                src="/landing/assets/create.png"
-                alt="방 제목·이름·업로드 권한을 정하는 방 만들기 화면"
-              />
-            </div>
-          </div>
-          <div class="step rv">
-            <div class="step-body">
-              <div class="num">2</div>
-              <h3>링크나 QR로 초대하기</h3>
-              <p>헤어진 뒤엔 링크로,</p>
-              <p>모여 있을 땐 QR로</p>
-            </div>
-            <div class="ch">
-              <img
-                src="/landing/assets/invite.png"
-                alt="링크 공유·QR 코드 공유·다른 기기에서 이어하기 메뉴"
-              />
+        <div class="layer head" id="simHead">
+          <span class="kicker">버튼 한 번이면</span>
+          <h2 class="title"><em>비슷한 컷끼리</em> 쏙 묶여요</h2>
+        </div>
+        <!-- 폰 폭 사람별 장면: 민지·서연·나 세로 칸마다 깔리는 카드 (main.js 가 자리를 잡는다) -->
+        <div id="sortCols" aria-hidden="true"></div>
+        <div id="rowLabs" aria-hidden="true"></div>
+        <div id="cams" aria-hidden="true"></div>
+        <!-- 단톡방 위로 떠오르는 쏙 초대 링크 미리보기 (문구·그림은 실제 초대 링크 OG 와 같다: webpack join.html) -->
+        <div class="layer invite" id="invite" aria-hidden="true">
+          <div class="inv-card">
+            <img class="inv-og" src="/og/invite.png" alt="" />
+            <div class="inv-body">
+              <strong>사진방에 초대받았어요 📸</strong>
+              <p>설치 없이 바로 들어와서 사진을 쏙 올려 주세요!</p>
+              <small>ssssok.com</small>
             </div>
           </div>
-          <div class="step rv">
-            <div class="step-body">
-              <div class="num">3</div>
-              <h3>골라 가기</h3>
-              <p>올리는 즉시 다 같이 보고,</p>
-              <p>필요한 것만 골라 받아요.</p>
-            </div>
-            <div class="ch">
-              <img
-                src="/landing/assets/pick.png"
-                alt="공유방에서 사진 4장을 골라 다운로드하는 화면"
-              />
-            </div>
-          </div>
-        </div>
-        <!-- 폰 폭에서만 보이는 진행 점 (main.js 가 .on 을 옮긴다) -->
-        <div class="step-dots" aria-hidden="true">
-          <span class="on"></span><span></span><span></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- FEATURES — 기능을 글로 설명하지 않고 미니 화면으로 "보여준다".
-         각 .demo 는 화면에 들어오면 main.js 가 반복 재생한다 (모션 줄이기 설정이면 최종 상태로 고정) -->
-    <section>
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>사진이 많아도, 고르는 건 쉽게</h2>
-          <p>찾고, 추리고, 나눠 담기까지 한 곳에서!</p>
-        </div>
-        <!-- 폰 폭에서만 보이는 탭. 데모를 하나씩 바꿔 보여준다 (main.js) -->
-        <div class="demo-tabs" role="tablist">
-          <button type="button" role="tab" class="on" data-demo="demoSearch">
-            <span aria-hidden="true">🔍</span> 검색
-          </button>
-          <button type="button" role="tab" data-demo="demoLike">
-            <span aria-hidden="true">♥</span> 좋아요
-          </button>
-          <button type="button" role="tab" data-demo="demoFolder">
-            <span aria-hidden="true">📁</span> 폴더
-          </button>
-        </div>
-        <div class="demos">
-          <article class="demo rv" id="demoSearch">
-            <div class="d-screen">
-              <div class="d-search">
-                <span aria-hidden="true">🔍</span>
-                <span class="d-q" data-q="같이 먹은 음식 사진"></span>
-              </div>
-              <div class="d-grid">
-                <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" class="hit" />
-                <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" />
-                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" class="hit" />
-                <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" />
-                <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" class="hit" />
-                <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" />
-                <img src="/landing/assets/photo-7.jpg" alt="" loading="lazy" />
-                <img src="/landing/assets/photo-8.jpg" alt="" loading="lazy" class="hit" />
-                <img src="/landing/assets/photo-9.jpg" alt="" loading="lazy" />
-              </div>
-            </div>
-            <h3>단어로 찾는 사진 검색</h3>
-            <p>“같이 먹은 음식 사진”처럼 검색하면 찾아줘요.</p>
-          </article>
-          <article class="demo rv" id="demoLike">
-            <div class="d-screen">
-              <div class="d-bar"><b>주말 나들이 ☀️</b><span>사진 9장</span></div>
-              <div class="d-grid d-grid-like">
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="5"
-                    >5</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="1"
-                    >1</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="2"
-                    >2</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="3"
-                    >3</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="0"
-                    >0</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="1"
-                    >1</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-7.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="2"
-                    >2</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-8.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="0"
-                    >0</span
-                  >
-                </div>
-                <div class="d-cell">
-                  <img src="/landing/assets/photo-9.jpg" alt="" loading="lazy" /><span
-                    class="d-heart"
-                    data-n="1"
-                    >1</span
-                  >
-                </div>
-              </div>
-            </div>
-            <h3>좋아요로 마음 표시하기</h3>
-            <p>다들 좋아한 사진이 한눈에 보여요.</p>
-          </article>
-          <article class="demo rv" id="demoFolder">
-            <div class="d-screen">
-              <div class="d-chips">
-                <span class="on" data-f="all">전체 9</span>
-                <span data-f="d1">1일차 4</span>
-                <span data-f="d2">2일차 5</span>
-              </div>
-              <div class="d-grid">
-                <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" data-f="d1" />
-                <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" data-f="d1" />
-                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" data-f="d1" />
-                <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" data-f="d1" />
-                <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" data-f="d2" />
-                <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" data-f="d2" />
-                <img src="/landing/assets/photo-7.jpg" alt="" loading="lazy" data-f="d2" />
-                <img src="/landing/assets/photo-8.jpg" alt="" loading="lazy" data-f="d2" />
-                <img src="/landing/assets/photo-9.jpg" alt="" loading="lazy" data-f="d2" />
-              </div>
-            </div>
-            <h3>폴더로 나눠 담기</h3>
-            <p>필요한 묶음만 열어 보고 받아가요.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- USECASES -->
-    <section>
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>이럴 때 특히 좋아요</h2>
-        </div>
-        <div class="uses">
-          <div class="use rv">
-            <span class="emo rv-pop">🚌</span>
-            <h3>현지 투어</h3>
-            <p>가이드가 QR이나 링크 하나로 오늘 사진 전달</p>
-          </div>
-          <div class="use rv">
-            <span class="emo rv-pop">🎤</span>
-            <h3>학회·컨퍼런스</h3>
-            <p>처음 만난 사이라도 번호 없이</p>
-          </div>
-          <div class="use rv">
-            <span class="emo rv-pop">🎫</span>
-            <h3>콘서트 동행</h3>
-            <p>오늘 처음 본 동행과도 사진 나누기</p>
-          </div>
-          <div class="use rv">
-            <span class="emo rv-pop">👥</span>
-            <h3>친구들끼리</h3>
-            <p>단톡방에 각자 올리던 사진, 링크 하나에</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TECH — 앞에서 본 기능(바로 보기·검색·폴더)이 뒤에서 어떻게 움직이는지 보여 준다.
-         형식은 위 섹션들과 같다: 가운데 제목 → 그림 한 덩어리 → 짧은 설명.
-         막대그래프는 .rv 가 화면에 들어와 .in 이 붙을 때 --v(0~1) 만큼 차오른다 -->
-    <section id="tech" class="tech-intro">
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>앞에서 본 기능들,<br />뒤에서는 이렇게 움직여요</h2>
-          <p>쏙이 가볍고 빠른 이유를 소개할게요.</p>
-          <ul class="t-jump" aria-label="기술 소개 바로가기">
-            <li><a href="#tech-upload">⚡ 바로 보이는 업로드</a></li>
-            <li><a href="#tech-search">🔍 AI 검색</a></li>
-            <li><a href="#tech-organize">📁 AI 사진 정리</a></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- TECH 1 — 업로드 -->
-    <section id="tech-upload" class="tech">
-      <div class="wrap">
-        <div class="sec-head rv">
-          <p class="t-mark"><span class="n">1</span>업로드</p>
-          <h2>올리는 즉시,<br />다 같이 볼 수 있게</h2>
-          <p>사진은 먼저 화면에 띄우고, 검색 준비는 뒤에서 따로 해요.</p>
-        </div>
-
-        <!-- 업로드 흐름도. 글 대신 작은 그림으로 보여 준다:
-             원본 한 장 → 같은 사진의 여러 크기(썸네일) → 두 갈래(갤러리에 한 칸씩 채워짐 / AI가 훑으며 장면 설명).
-             .rv 에 .in 이 붙으면 갤러리 칸이 차례로 채워진다 -->
-        <div class="t-flow rv">
-          <ol class="t-flow-row" aria-label="사진 업로드 처리 흐름">
-            <li class="t-node">
-              <span class="t-pic">
-                <img src="/landing/assets/photo-3.jpg" alt="올린 사진" loading="lazy" />
-                <em aria-hidden="true">↑</em>
-              </span>
-              <b>원본 업로드</b>
-            </li>
-            <li class="t-arrow" aria-hidden="true"></li>
-            <li class="t-node">
-              <span class="t-sizes" aria-hidden="true">
-                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
-                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
-                <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
-              </span>
-              <b>썸네일 생성</b>
-            </li>
-            <li class="t-arrow" aria-hidden="true"></li>
-            <li class="t-branches">
-              <div class="t-branch live">
-                <span class="t-mini-gallery" aria-hidden="true">
-                  <img src="/landing/assets/photo-1.jpg" alt="" loading="lazy" />
-                  <img src="/landing/assets/photo-5.jpg" alt="" loading="lazy" />
-                  <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" />
-                  <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" />
-                  <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" />
-                  <img class="new" src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
-                </span>
-                <div>
-                  <b>갤러리에 바로</b>
-                  <span>SSE 실시간 반영</span>
-                </div>
-              </div>
-              <div class="t-branch">
-                <span class="t-scan" aria-hidden="true">
-                  <img src="/landing/assets/photo-3.jpg" alt="" loading="lazy" />
-                  <i></i>
-                </span>
-                <div>
-                  <b>AI 분석</b>
-                  <span class="t-caption-chip">“식탁 위 파스타”</span>
-                </div>
-              </div>
-            </li>
-          </ol>
-        </div>
-
-        <p class="t-footnote rv">
-          <span aria-hidden="true">✓</span>작업을 DB에 기록해 두어서, 멈춘 지점부터 이어서 처리해요
-        </p>
-
-        <div class="t-metrics">
-          <figure class="t-metric rv">
-            <span class="t-tag">이미지 처리 방식 개선</span>
-            <figcaption>사진 후처리 메모리</figcaption>
-            <p class="t-big">51% <small>감소</small></p>
-            <dl class="t-bars">
-              <div>
-                <dt>개선 전</dt>
-                <dd class="t-track" aria-hidden="true"><i style="--v: 1"></i></dd>
-                <dd>1,485 MiB</dd>
-              </div>
-              <div class="hi">
-                <dt>개선 후</dt>
-                <dd class="t-track" aria-hidden="true"><i style="--v: 0.486"></i></dd>
-                <dd>722 MiB</dd>
-              </div>
-            </dl>
-          </figure>
-          <figure class="t-metric rv">
-            <span class="t-tag">워커 2개 → 4개</span>
-            <figcaption>사진 300장 준비 시간</figcaption>
-            <p class="t-big">47% <small>단축</small></p>
-            <dl class="t-bars">
-              <div>
-                <dt>워커 2개</dt>
-                <dd class="t-track" aria-hidden="true"><i style="--v: 1"></i></dd>
-                <dd>288초</dd>
-              </div>
-              <div class="hi">
-                <dt>워커 4개</dt>
-                <dd class="t-track" aria-hidden="true"><i style="--v: 0.531"></i></dd>
-                <dd>153초</dd>
-              </div>
-            </dl>
-          </figure>
-        </div>
-
-        <details class="t-more">
-          <summary>측정 조건 보기</summary>
-          <dl>
-            <div>
-              <dt>사진 후처리 메모리</dt>
-              <dd>
-                같은 사진으로 이미지 처리 방식을 바꾸기 전과 후의 후처리 메모리 사용량을 비교했어요.
-              </dd>
-            </div>
-            <div>
-              <dt>사진 300장 준비 시간</dt>
-              <dd>
-                사진 300장이 모두 준비되기까지 걸린 시간을 후처리 워커 2개와 4개로 비교했어요.
-              </dd>
-            </div>
-          </dl>
-        </details>
-      </div>
-    </section>
-
-    <!-- TECH 2 — AI 검색. 위 "단어로 찾는 사진 검색" 데모와 같은 미니 화면(.d-screen)을 쓴다 -->
-    <section id="tech-search" class="tech">
-      <div class="wrap">
-        <div class="sec-head rv">
-          <p class="t-mark"><span class="n">2</span>AI 검색</p>
-          <h2>“같이 먹은 음식 사진”,<br />이렇게 찾았어요</h2>
-          <p>파일 이름을 몰라도, 기억나는 장면을 검색하면 찾아 줘요.</p>
-        </div>
-
-        <div class="t-search">
-          <!-- 벡터 비교 그림. 검색 문장과 각 사진 설명을 숫자 막대(벡터)로 그리고,
-               사진 줄 막대마다 검색 문장의 높이(--q)만큼 점선 테두리를 둘러 모양이 겹치는지 보여 준다.
-               막대는 .rv 에 .in 이 붙으면 아래에서 자라난다 -->
-          <div class="t-vec rv">
-            <div class="t-vec-group now">
-              <div class="t-vec-group-head">
-                <span class="t-vec-group-label">🔍 검색할 때</span>
-                <span class="t-vec-col bars">문장 의미를 숫자로</span>
-                <span class="t-vec-col res">검색어와 닮은 정도</span>
-              </div>
-              <div class="t-vec-row query">
-                <span class="t-vec-in" aria-hidden="true">🔍</span>
-                <span class="t-vec-text">같이 먹은 음식 사진</span>
-                <span class="t-vbars" role="img" aria-label="검색 문장의 벡터"
-                  ><i style="--h: 6"></i><i style="--h: 9"></i><i style="--h: 3"></i
-                  ><i style="--h: 7"></i><i style="--h: 4"></i><i style="--h: 8"></i
-                  ><i style="--h: 2"></i><i style="--h: 5"></i><i style="--h: 7"></i
-                  ><i style="--h: 3"></i
-                ></span>
-                <span class="t-vec-res"></span>
-              </div>
-            </div>
-            <p class="t-vec-compare">↓ 이 모양과 얼마나 닮았는지 비교해요</p>
-            <div class="t-vec-group saved">
-              <div class="t-vec-group-head">
-                <span class="t-vec-group-label">🗂️ 사진마다 AI가 적어 둔 설명</span>
-              </div>
-              <div class="t-vec-row hit">
-                <img
-                  class="t-vec-in"
-                  src="/landing/assets/photo-3.jpg"
-                  alt="파스타 사진"
-                  loading="lazy"
-                />
-                <span class="t-vec-text">“식탁 위 파스타”</span>
-                <span class="t-vbars" role="img" aria-label="검색 문장과 닮은 벡터"
-                  ><i style="--h: 5; --q: 6"></i><i style="--h: 9; --q: 9"></i
-                  ><i style="--h: 3; --q: 3"></i><i style="--h: 6; --q: 7"></i
-                  ><i style="--h: 4; --q: 4"></i><i style="--h: 8; --q: 8"></i
-                  ><i style="--h: 3; --q: 2"></i><i style="--h: 5; --q: 5"></i
-                  ><i style="--h: 6; --q: 7"></i><i style="--h: 4; --q: 3"></i
-                ></span>
-                <span class="t-vec-res"><b>94%</b> 닮음</span>
-              </div>
-              <div class="t-vec-row miss">
-                <img
-                  class="t-vec-in"
-                  src="/landing/assets/photo-2.jpg"
-                  alt="놀이공원 타워 사진"
-                  loading="lazy"
-                />
-                <span class="t-vec-text">“놀이공원 타워”</span>
-                <span class="t-vbars" role="img" aria-label="검색 문장과 다른 벡터"
-                  ><i style="--h: 2; --q: 6"></i><i style="--h: 3; --q: 9"></i
-                  ><i style="--h: 8; --q: 3"></i><i style="--h: 2; --q: 7"></i
-                  ><i style="--h: 9; --q: 4"></i><i style="--h: 1; --q: 8"></i
-                  ><i style="--h: 7; --q: 2"></i><i style="--h: 8; --q: 5"></i
-                  ><i style="--h: 2; --q: 7"></i><i style="--h: 6; --q: 3"></i
-                ></span>
-                <span class="t-vec-res"><b>21%</b> 닮음</span>
-              </div>
-            </div>
-          </div>
-
-          <span class="t-search-arrow" aria-hidden="true">→</span>
-
-          <div class="t-screen rv">
-            <div class="d-screen">
-              <div class="d-search t-query">
-                <span aria-hidden="true">🔍</span>
-                <span>같이 먹은 음식 사진</span>
-              </div>
-              <div class="t-photos">
-                <img
-                  src="/landing/assets/photo-1.jpg"
-                  alt="검색에 걸린 음식 사진"
-                  loading="lazy"
-                  class="hit"
-                />
-                <img src="/landing/assets/photo-2.jpg" alt="" loading="lazy" />
-                <img
-                  src="/landing/assets/photo-3.jpg"
-                  alt="검색에 걸린 음식 사진"
-                  loading="lazy"
-                  class="hit"
-                />
-                <img src="/landing/assets/photo-4.jpg" alt="" loading="lazy" />
-                <img
-                  src="/landing/assets/photo-5.jpg"
-                  alt="검색에 걸린 음식 사진"
-                  loading="lazy"
-                  class="hit"
-                />
-                <img src="/landing/assets/photo-6.jpg" alt="" loading="lazy" />
-              </div>
-            </div>
-            <p class="t-caption">검색 결과 · 화면 예시</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TECH 3 — AI 사진 정리. 위 "폴더로 나눠 담기" 를 AI 가 대신 제안하는 기능 -->
-    <section id="tech-organize" class="tech">
-      <div class="wrap">
-        <div class="sec-head rv">
-          <p class="t-mark">
-            <span class="n">3</span>AI 사진 정리 <span class="badge">곧 출시 예정</span>
-          </p>
-          <h2>내가 나온 사진만<br />알아서 모아 줄게요</h2>
-          <p>AI가 사람별로 묶어 제안하면, 확인하고 고른 것만 폴더에 담아요.</p>
-        </div>
-
-        <ol class="t-steps rv" aria-label="사람별 사진 정리 흐름">
-          <li><b>사진 모으기</b></li>
-          <li><b>얼굴로 사람 나누기</b></li>
-          <li><b>몸 특징으로 보완</b></li>
-          <li class="me"><b>결과 확인</b></li>
-          <li><b>폴더에 반영</b></li>
-        </ol>
-
-        <div class="t-organize">
-          <!-- 눌러 볼 수 있지만 실제로 폴더를 만들지는 않는 화면 예시 (main.js) -->
-          <div class="t-review-wrap rv">
-            <div class="d-screen t-review" id="techReview" aria-label="분류 결과 확인 화면 예시">
-              <div class="t-review-head">
-                <p>🙆‍♀️ 사람별로 묶었어요</p>
-                <span>다른 사람 사진은 눌러서 빼 주세요</span>
-              </div>
-              <div class="t-group p1">
-                <label
-                  ><input type="checkbox" checked /> <b>지수</b>
-                  <span class="t-count">3장</span></label
-                >
-                <div class="t-tiles">
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="지수의 1번째 사진 빼기"
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="지수의 2번째 사진 빼기"
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="true"
-                    aria-label="지수의 3번째 사진 빼기"
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="지수의 4번째 사진 빼기"
-                  ></button>
-                </div>
-                <p class="t-edit" aria-live="polite"></p>
-              </div>
-              <div class="t-group p2">
-                <label
-                  ><input type="checkbox" checked /> <b>서연</b>
-                  <span class="t-count">3장</span></label
-                >
-                <div class="t-tiles">
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="서연의 1번째 사진 빼기"
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="서연의 2번째 사진 빼기"
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="서연의 3번째 사진 빼기"
-                  ></button>
-                </div>
-                <p class="t-edit" aria-live="polite"></p>
-              </div>
-              <div class="t-group crowd off">
-                <label
-                  ><input type="checkbox" /> <b>단체 사진</b>
-                  <span class="t-count">3장</span></label
-                >
-                <div class="t-tiles">
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="단체 사진의 1번째 사진 빼기"
-                    disabled
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="단체 사진의 2번째 사진 빼기"
-                    disabled
-                  ></button>
-                  <button
-                    type="button"
-                    aria-pressed="false"
-                    aria-label="단체 사진의 3번째 사진 빼기"
-                    disabled
-                  ></button>
-                </div>
-                <p class="t-edit" aria-live="polite"></p>
-              </div>
-              <button type="button" class="t-apply">
-                선택한 <span>2</span>개 묶음을 폴더로 만들기
-              </button>
-              <div class="t-result" aria-live="polite" hidden>
-                <p>폴더가 생겼어요</p>
-                <ul></ul>
-                <button type="button" class="t-redo">다시 고르기</button>
-              </div>
-            </div>
-            <p class="t-caption">⬆️ 사진이나 묶음을 빼고 폴더로 만들어 보세요</p>
-          </div>
-
-          <div class="t-recall rv">
-            <h3>놓쳤던 사진을<br />더 많이 찾았어요</h3>
-            <p class="t-recall-sub">목표 인물–사진 연결 <b>회수율</b></p>
-            <ol class="t-chart" aria-label="단계별 목표 인물–사진 연결 회수율">
-              <li style="--v: 0.5"><b>50%</b><i aria-hidden="true"></i><span>얼굴 기준</span></li>
-              <li style="--v: 0.6">
-                <b>60%</b><i aria-hidden="true"></i><span>얼굴 연결 보완</span>
-              </li>
-              <li style="--v: 0.725">
-                <b>72.5%</b><i aria-hidden="true"></i><span>옷차림 보완</span>
-              </li>
-              <li style="--v: 0.925" class="hi">
-                <b>92.5%</b><i aria-hidden="true"></i><span>사람 재식별 모델</span>
-              </li>
-            </ol>
-            <p class="t-fine">
-              사진 62장으로 개발 중에 실험한 결과예요.
-              <br />
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- TECH NEXT — 앞으로의 쏙. 아직 계획 단계라 기술 1~3 과 섹션을 나눠 구분한다.
-         대화 말풍선은 .rv 가 화면에 들어오면 요청 → 답 순서로 하나씩 뜬다 -->
-    <section id="tech-next" class="tech">
-      <div class="wrap">
-        <div class="sec-head rv">
-          <h2>앞으로의 쏙은?</h2>
-          <p>버튼을 찾아 누르는 대신, 원하는 정리를 말로 부탁하게 될 거예요.</p>
-        </div>
-
-        <div class="t-chat-wrap rv">
-          <div class="d-screen t-chat" aria-label="글로 정리를 요청하는 화면 예시">
-            <p class="t-bubble me">사람별로 나누고, 단체 사진은 따로 모아줘</p>
-            <div class="t-reply">
-              <img src="/landing/assets/characte8.png" alt="" />
-              <div class="t-bubble">
-                <p>좋아요! 이렇게 정리해 볼게요.</p>
-                <ul class="t-folders">
-                  <li>📁 지수</li>
-                  <li>📁 서연</li>
-                  <li>📁 단체 사진</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="t-now-next rv">
-          <div>
-            <span>지금은</span>
-            <p>정리 버튼을 하나씩 찾아 눌러요</p>
-            <small>사람별로 나누기, 폴더 만들기를 따로따로 실행해요</small>
-          </div>
-          <span class="arrow" aria-hidden="true">→</span>
-          <div class="next">
-            <i class="t-next-icon" aria-hidden="true">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
+          <span class="inv-tap"
+            ><svg class="cur" viewBox="0 0 22 24" aria-hidden="true">
+              <path
+                d="M3 2v17l4.6-4.3 3 6.8 3-1.3-3-6.6H17z"
+                fill="#1a1a1a"
+                stroke="#fff"
+                stroke-width="1.6"
                 stroke-linejoin="round"
-              >
-                <path d="M3 20l1.3-3.9A9 8 0 1 1 7.7 19L3 20" />
-              </svg>
-            </i>
-            <div>
-              <span>앞으로는</span>
-              <p>말로 부탁하면 쏙이 알아서 정리해요</p>
-              <small>여러 정리 도구를 MCP로 연결해, 요청에 맞는 순서로 실행해요</small>
-            </div>
+              /></svg
+          ></span>
+        </div>
+        <div id="joins" aria-hidden="true"></div>
+        <!-- 첫 화면 단톡방 -->
+        <div class="layer chat" id="chat" aria-hidden="true">
+          <div class="chat-head">
+            <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" /></svg>공주들 방
+            <small>6</small>
+            <svg viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="6.5" />
+              <path d="M20 20l-4.2-4.2" />
+            </svg>
+            <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          </div>
+          <div class="chat-body" id="chatBody"></div>
+          <div class="chat-input">
+            <svg viewBox="0 0 24 24">
+              <rect x="4" y="4" width="16" height="16" rx="4" />
+              <path d="M12 8.5v7M8.5 12h7" />
+            </svg>
+            <span></span>
+            <svg viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="8" />
+              <path d="M9 14.2a4 4 0 0 0 6 0" />
+              <path d="M9.5 10h.01M14.5 10h.01" stroke-width="2.4" />
+            </svg>
           </div>
         </div>
-      </div>
-    </section>
+        <div id="cards" aria-hidden="true"></div>
+        <div id="ghosts" aria-hidden="true"></div>
+        <p class="layer hint" id="hint" aria-hidden="true">스크롤해서 살펴보세요 <span>↓</span></p>
 
-    <!-- FINAL CTA -->
-    <section>
-      <div class="wrap">
-        <div class="final rv">
-          <h2>다음 모임엔,<br />쏙 링크 하나만 보내보세요!</h2>
-          <a
-            class="btn btn-lg"
-            href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=final"
-            >지금 바로 사진 모으러 가기</a
-          >
-          <img class="peek" src="/landing/assets/characte8.png" alt="아래에서 빼꼼 올라온 쏙이" />
+        <!-- 검색 장면: 폰 대신 크게 보여 주는 검색 화면 -->
+        <div class="layer sp" id="sp" aria-hidden="true">
+          <div class="sp-bar">
+            <svg class="ico"><use href="#i-search" /></svg><span id="spQ"></span
+            ><i class="caret"></i>
+          </div>
+          <div class="sp-grid" id="spGrid"></div>
+        </div>
+
+        <!-- 폰 옆 버튼 (폰 뒤에 깔린 껍데기, 움직임은 폰을 따라간다) -->
+        <div class="layer phone-shell" id="phoneShell" aria-hidden="true">
+          <i class="l" style="top: 17%; height: 4.2%"></i>
+          <i class="l" style="top: 24.5%; height: 7.5%"></i>
+          <i class="l" style="top: 33.5%; height: 7.5%"></i>
+          <i class="r" style="top: 26%; height: 11%"></i>
+        </div>
+
+        <!-- 폰. 실제 앱의 갤러리 화면 구성을 따른다 -->
+        <div class="layer phone" id="phone" aria-hidden="true">
+          <div class="island"></div>
+          <div class="sbar">
+            <span>9:41</span>
+            <span class="ic">
+              <svg viewBox="0 0 18 12">
+                <rect x="0" y="8" width="3" height="4" rx="0.8" />
+                <rect x="5" y="5.5" width="3" height="6.5" rx="0.8" />
+                <rect x="10" y="3" width="3" height="9" rx="0.8" />
+                <rect x="15" y="0" width="3" height="12" rx="0.8" />
+              </svg>
+              <svg viewBox="0 0 16 12">
+                <path
+                  d="M8 2.2c2.4 0 4.6.9 6.3 2.5l1.2-1.3A10.8 10.8 0 0 0 8 .4C5.2.4 2.5 1.4.5 3.4l1.2 1.3A9 9 0 0 1 8 2.2zm0 3.6c1.4 0 2.8.5 3.8 1.5l1.3-1.3A7.2 7.2 0 0 0 8 4c-1.9 0-3.8.7-5.1 2l1.3 1.3c1-1 2.4-1.5 3.8-1.5zm0 3.5c-.7 0-1.3.3-1.8.7L8 11.8l1.8-1.8c-.5-.4-1.1-.7-1.8-.7z"
+                />
+              </svg>
+              <svg viewBox="0 0 27 12">
+                <rect
+                  x="0.6"
+                  y="0.6"
+                  width="22.8"
+                  height="10.8"
+                  rx="3.2"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.1"
+                  opacity="0.4"
+                />
+                <rect x="2.2" y="2.2" width="19.6" height="7.6" rx="1.8" />
+                <rect x="24.6" y="4" width="1.8" height="4" rx="0.9" opacity="0.4" />
+              </svg>
+            </span>
+          </div>
+          <div class="homebar"></div>
+
+          <div class="scr" id="gal">
+            <div class="g-row1">
+              <svg class="ico"><use href="#i-back" /></svg><span class="me">나</span>
+            </div>
+            <div class="g-title">
+              <strong>걸스나잇 파티 ♥</strong><svg class="ico"><use href="#i-link" /></svg
+              ><svg class="ico"><use href="#i-more" /></svg>
+            </div>
+            <div class="g-search" id="gSearch">
+              <svg class="ico"><use href="#i-search" /></svg
+              ><span id="gQuery">어떤 사진을 찾거나 정리할까요?</span>
+            </div>
+            <div class="g-tabs" id="gTabs"></div>
+            <div class="g-filter">
+              <div>
+                <span
+                  >전체 <svg class="ico"><use href="#i-down" /></svg></span
+                ><span id="gSort"
+                  >업로드 순 <svg class="ico"><use href="#i-down" /></svg
+                ></span>
+              </div>
+              <span class="all">전체 선택 <i class="ring"></i></span>
+            </div>
+            <div class="g-grid" id="gGrid">
+              <div class="gset" id="setP"></div>
+              <div class="gset" id="setS"></div>
+              <div class="gset" id="setA"></div>
+            </div>
+            <div class="fab" id="fab">
+              <svg class="ico"><use href="#i-photo" /></svg>올리기
+            </div>
+
+            <div class="sb" id="sb"></div>
+            <!-- 실제 앱 SelectionDownloadBar(고른 상태)와 같은 모양: 체크 원 + N개 | 다운로드 | 삭제(빨강)·폴더 이동. 아이콘은 앱과 같은 lucide -->
+            <div class="selbar" id="selbar">
+              <span class="n"
+                ><i
+                  ><svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2.5"
+                  >
+                    <path d="M20 6 9 17l-5-5" /></svg></i
+                ><span><span id="selN">0</span>개</span></span
+              ><span class="dl" id="selDl"
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="M7 10l5 5 5-5" />
+                  <path d="M12 15V3" /></svg
+                >다운로드</span
+              ><span class="acts"
+                ><svg
+                  class="del"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" /></svg
+                ><svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M2 9V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-1"
+                  />
+                  <path d="M2 13h10" />
+                  <path d="m9 16 3-3-3-3" /></svg
+              ></span>
+            </div>
+
+            <div class="ovl" id="ovl"></div>
+            <div class="sheet" id="kindSheet">
+              <div class="handle"></div>
+              <h3>어떻게 정리할까요?</h3>
+              <div class="kinds">
+                <div class="kind on" id="kindP">
+                  <div class="kthumb">
+                    <span class="av"><img src="/landing/assets/app/avatar-1.svg" alt="" /></span>
+                    <span class="av"><img src="/landing/assets/app/avatar-2.svg" alt="" /></span>
+                    <span class="av"><img src="/landing/assets/app/avatar-3.svg" alt="" /></span>
+                    <span class="kcheck"><img src="/landing/assets/app/check.svg" alt="" /></span>
+                  </div>
+                  <span>사람별로</span>
+                </div>
+                <div class="kind" id="kindS">
+                  <div class="kthumb" id="simThumb"></div>
+                  <span>비슷한 사진</span>
+                </div>
+              </div>
+              <div class="btn" id="kindGo">얼굴 분석해서 정리하기</div>
+              <div class="btn-ghost">다음에 할게요</div>
+            </div>
+            <div class="p-toast" id="saveToast">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill-rule="evenodd"
+                  d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z"
+                /></svg
+              ><span>3장을 사진첩에 저장했어요.</span>
+            </div>
+            <!-- 실제 앱과 같은 문구 (GalleryContent: 폴더 N개를 만들었어요) -->
+            <div class="p-toast" id="folderToast">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill-rule="evenodd"
+                  d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z"
+                /></svg
+              ><span>폴더 3개를 만들었어요</span>
+            </div>
+          </div>
+
+          <!-- 사람별로 나누기 결과 -->
+          <div class="scr rv" id="rvP">
+            <div class="rv-back">
+              <svg class="ico"><use href="#i-back" /></svg>사람별로 나누기
+            </div>
+            <div class="rv-head">
+              <strong>3명을 찾았어요.</strong><small>같은 이름을 고르면 한 폴더로 합쳐져요.</small>
+            </div>
+            <div id="rvPCards"></div>
+            <div class="rv-foot">
+              <div class="btn" id="rvPGo">3명의 폴더 만들기</div>
+            </div>
+          </div>
+
+          <!-- 비슷한 사진 나누기 결과 -->
+          <div class="scr rv" id="rvS">
+            <div class="rv-back">
+              <svg class="ico"><use href="#i-back" /></svg>비슷한 사진 나누기
+            </div>
+            <div class="rv-head">
+              <strong>사진을 3개로 묶었어요.</strong
+              ><small>같은 이름을 쓰면 한 폴더로 합쳐져요.</small>
+            </div>
+            <div id="rvSCards"></div>
+            <div class="rv-foot">
+              <div class="btn" id="rvSGo">3개 폴더 만들기</div>
+            </div>
+          </div>
+
+          <div class="tap" id="tap"><i class="finger"></i></div>
+        </div>
+
+        <div class="layer end" id="end">
+          <img class="logo" id="endLogo" src="/icons/apple-touch-icon.png" alt="쏙 로고" />
+          <span class="kicker" id="endKicker">다음 모임엔 “사진 보내 줘” 대신</span>
+          <h2 class="title" id="endTitle"><em>링크 하나</em>만 보내봐요!</h2>
+          <p class="desc" id="endDesc"></p>
+          <!-- 끝 화면: 링크 만들기 버튼과 애플 공식 App Store 배지를 같은 높이로 한 줄에 둔다
+               (배지 그림은 애플 마케팅 도구에서 받은 그대로: 바꾸지 않기, 높이 40px 이상) -->
+          <div class="ctas end-ctas">
+            <a
+              class="cta web-badge"
+              id="endCta"
+              href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=final"
+              ><img class="wb-ico" src="/icons/apple-touch-icon.png" alt="" /><span class="wb-tx"
+                >링크 만들기</span
+              ></a
+            >
+            <a
+              class="store-badge"
+              id="endApps"
+              href="https://apps.apple.com/kr/app/%EC%8F%99-%ED%95%A8%EA%BB%98-%EB%AA%A8%EC%9C%BC%EB%8A%94-%EC%82%AC%EC%A7%84/id6828711923"
+              target="_blank"
+              rel="noopener"
+              ><img
+                src="/landing/assets/app-store-badge-ko.svg"
+                alt="App Store에서 쏙 - 함께 모으는 사진 다운로드"
+            /></a>
+          </div>
         </div>
       </div>
     </section>
