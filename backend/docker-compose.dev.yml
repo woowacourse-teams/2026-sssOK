@@ -28,8 +28,12 @@ services:
     expose:
       # 중앙 수집 요청을 전달하는 Docker Nginx의 내부 수집 포트.
       - "8081"
+    # 운영과 같은 기본값으로 검증한다. 1536m은 t4g.medium 기준이다.
+    mem_limit: ${APP_MEM_LIMIT:-1536m}
     environment:
       SPRING_PROFILES_ACTIVE: dev
+      # 서버 .env의 APP_JAVA_OPTS로 조정하며 기존 JAVA_OPTS보다 우선한다.
+      JAVA_OPTS: "${APP_JAVA_OPTS:--Xmx512m -Duser.timezone=Asia/Seoul}"
       # 배포마다 CI가 image.env에 기록하는 버전 정보.
       APP_RELEASE_VERSION: ${APP_RELEASE_VERSION:-unknown}
       APP_BACKEND_VERSION: ${APP_BACKEND_VERSION:-unknown}
