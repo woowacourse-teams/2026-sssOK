@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from "react";
 
 import chevronRight from "../assets/chevron-right.svg";
-import { includedPhotos, type ReviewPerson } from "../model/personReview";
+import { includedPhotos, isEmptied, type ReviewPerson } from "../model/personReview";
 import { folderNameOf } from "../model/similarReview";
 import { MAX_NAME_LENGTH } from "./PersonCard";
 import { Card, Chevron, More, PhotoRow, Thumb, Thumbs, Who } from "./PersonReview.styles";
+import { EmptiedCard } from "./EmptiedCard";
 import { ConflictNotice, NamedChip, NameField, NameInput } from "./SimilarReview.styles";
 
 /** 사진 줄에 보이는 칸 수. 더 있으면 마지막 칸 위에 남은 장수를 올린다. */
@@ -45,6 +46,8 @@ export const SimilarCard = ({
     event.preventDefault();
     (event.currentTarget.elements.namedItem("folderName") as HTMLInputElement | null)?.blur();
   };
+
+  if (isEmptied(card)) return <EmptiedCard person={card} onOpenPhotos={onOpenPhotos} />;
 
   return (
     <Card $picked={folderName !== null}>
