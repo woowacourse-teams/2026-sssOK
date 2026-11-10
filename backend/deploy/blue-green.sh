@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 운영 블루-그린 배포. 배포 경로(DEPLOY_PATH)에서 실행한다.
+# 블루-그린 배포. 운영·개발이 같은 스크립트를 쓰고, 배포 경로(DEPLOY_PATH)에서 실행한다.
 #
 #   bash deploy/blue-green.sh deploy     새 이미지를 쉬는 칸에 띄우고 트래픽을 넘긴 뒤 기존 칸을 끈다
 #   bash deploy/blue-green.sh rollback   직전 칸을 다시 띄우고 트래픽을 되돌린다
@@ -8,17 +8,29 @@
 # 활성 칸의 기준은 nginx/upstream.conf 다 (nginx 가 실제로 트래픽을 보내는 곳). 배포가 중간에 끊겨도
 # 다시 실행하면 이 파일과 실행 중인 컨테이너를 보고 이어서 맞춘다.
 #
+# DEPLOY_ENV(prod|dev, 기본 prod)로 compose 파일과 컨테이너 이름만 바뀐다. 흐름은 두 환경이 같아서,
+# develop 머지 때 개발 서버에서 먼저 돌고 같은 코드가 운영으로 올라간다.
+#
 # deploy 에 필요한 환경변수: NEW_IMAGE, APP_RELEASE_VERSION, APP_BACKEND_VERSION, APP_GIT_SHA
 # 아래 기본값(COMPOSE_FILES·NGINX_URL·SKIP_PULL 등)은 로컬 리허설에서만 바꾼다.
 set -euo pipefail
 
 cd "${DEPLOY_PATH:-$(dirname "$0")/..}"
 
-COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.prod.yml}"
+DEPLOY_ENV="${DEPLOY_ENV:-prod}"
+case "$DEPLOY_ENV" in
+  prod) suffix='' ;;
+  dev) suffix='-dev' ;;
+  *) echo "[blue-green] 실패: DEPLOY_ENV 는 prod 또는 dev 여야 한다 ($DEPLOY_ENV)" >&2; exit 2 ;;
+esac
+COMPOSE_FILES="${COMPOSE_FILES:--f docker-compose.$DEPLOY_ENV.yml}"
 NGINX_URL="${NGINX_URL:-http://localhost}"
-NGINX_CONTAINER="${NGINX_CONTAINER:-sssok-nginx}"
-LEGACY_CONTAINER="${LEGACY_CONTAINER:-sssok-app}"
-MIN_AVAILABLE_MB="${MIN_AVAILABLE_MB:-600}"
+NGINX_CONTAINER="${NGINX_CONTAINER:-sssok-nginx$suffix}"
+# 블루-그린 이전의 단일 앱 컨테이너. 칸 컨테이너는 이 이름 뒤에 -blue / -green 을 붙인다.
+LEGACY_CONTAINER="${LEGACY_CONTAINER:-sssok-app$suffix}"
+# 새 칸 기동 피크(약 600~730MiB)가 mem_limit(900m) 안에서 끝나도록 여유를 둔다.
+# 두 칸이 겹치므로 서버는 t4g.medium(4GiB) 이상이어야 이 기준을 넘는다(#764).
+MIN_AVAILABLE_MB="${MIN_AVAILABLE_MB:-1000}"
 MEMORY_WAIT_SECONDS="${MEMORY_WAIT_SECONDS:-300}"
 MEMINFO_FILE="${MEMINFO_FILE:-/proc/meminfo}"
 READY_TIMEOUT_SECONDS="${READY_TIMEOUT_SECONDS:-180}"
@@ -37,7 +49,7 @@ compose() {
 container_of() {
   case "$1" in
     legacy) echo "$LEGACY_CONTAINER" ;;
-    *) echo "sssok-app-$1" ;;
+    *) echo "$LEGACY_CONTAINER-$1" ;;
   esac
 }
 

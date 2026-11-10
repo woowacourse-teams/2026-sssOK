@@ -23,11 +23,11 @@ flowchart LR
   뒤에 사람이 읽기 위한 `backend-vX.Y.Z`·`release-vX.Y.Z`·`latest` 별칭 태그가 추가로 붙지만,
   배포·롤백에는 쓰지 않는다 (별칭은 다음 릴리스에서 다른 이미지로 옮겨간다 —
   [버전과 릴리스 태그](#버전과-릴리스-태그) 참고).
-- prod 는 **블루-그린 무중단 배포**다. 새 이미지를 쉬는 칸(`app-blue`/`app-green`)에 띄워 readiness 를
+- dev·prod 모두 **블루-그린 무중단 배포**다. 새 이미지를 쉬는 칸(`app-blue`/`app-green`)에 띄워 readiness 를
   확인한 뒤 nginx 가 가리키는 칸만 바꾸고, 기존 칸은 하던 일을 마친 뒤 끈다. 어느 단계에서 실패해도
-  트래픽은 기존 칸에 남는다 — [운영 블루-그린 배포](#운영-블루-그린-배포) 참고.
-- dev 는 기존처럼 앱 컨테이너를 교체한다. Compose 반영 후 `nginx -t` 로 새 설정을 검사하고, 헬스체크가
-  실패하면 직전 이미지로 롤백한다.
+  트래픽은 기존 칸에 남는다 — [블루-그린 배포](#블루-그린-배포) 참고.
+- 두 환경은 같은 배포 스크립트·같은 칸 설정(메모리 한도·힙 상한)을 쓴다. develop 머지 때 dev 에서 먼저
+  돌기 때문에, 배포 방식의 문제는 운영에 가기 전에 dev 에서 드러난다.
 - 위 그림은 백엔드 경로다. 프론트엔드는 GitHub Actions 를 거치지 않고 AWS CodePipeline 이
   `deploy` 브랜치를 받아 S3 에 올린다 — [프론트엔드 배포](#프론트엔드-배포) 참고.
 
@@ -41,14 +41,13 @@ flowchart LR
 | 파일 | 만드는 주체 | 설명 |
 | --- | --- | --- |
 | `.env` | **사람이 1회 수동 생성** | DB 접속 정보(RDS), JWT, R2 자격증명, CORS 허용 오리진, Grafana 관리자 계정, 방 알림 키(Web Push·FCM) |
-| `image.env` | dev CI가 배포마다 덮어씀 | (dev 전용) `BACKEND_IMAGE=ghcr.io/...:<sha>` 와 `APP_RELEASE_VERSION`·`APP_BACKEND_VERSION`·`APP_GIT_SHA` |
-| `image.env.prev` | dev CI가 자동 생성 | (dev 전용) 롤백용 직전 이미지·버전 |
-| `blue.env`, `green.env` | prod 배포 스크립트 | 각 칸에 띄운 이미지·버전 (`BLUE_IMAGE`·`BLUE_GIT_SHA` 등). 쉬는 칸의 값이 곧 롤백 대상이다 |
-| `nginx/default.conf` | prod CI가 배포마다 전송 | 저장소 `backend/nginx.conf` 복사본. `nginx/` 디렉터리가 컨테이너 `conf.d` 로 마운트된다 |
-| `nginx/upstream.conf` | prod 배포 스크립트 | **활성 칸의 기준.** nginx 가 트래픽을 보내는 칸(`app-blue`/`app-green`). 직접 고치지 않는다 |
-| `deploy/blue-green.sh` | prod CI가 배포마다 전송 | 배포·롤백·상태 확인 스크립트 |
-| `active-color` | prod 배포 스크립트 | 마지막 배포 결과 기록용. 판단은 `nginx/upstream.conf` 로 한다 |
-| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱·모니터링 컨테이너 정의 (`8080` 직접 노출 — 호스트에 설치된 Nginx가 `80`에서 받아 넘긴다, Actuator `8081`은 내부 전용) |
+| `blue.env`, `green.env` | 배포 스크립트 | 각 칸에 띄운 이미지·버전 (`BLUE_IMAGE`·`BLUE_GIT_SHA` 등). 쉬는 칸의 값이 곧 롤백 대상이다 |
+| `nginx/default.conf` | CI가 배포마다 전송 | prod 는 저장소 `backend/nginx.conf` 복사본, dev 는 `backend/monitoring/nginx/container/default.conf.template` 에서 환경 라벨·중앙 IP 만 치환한 것. `nginx/` 디렉터리가 컨테이너 `conf.d` 로 마운트된다 |
+| `nginx/upstream.conf` | 배포 스크립트 | **활성 칸의 기준.** nginx 가 트래픽을 보내는 칸(`app-blue`/`app-green`). 직접 고치지 않는다 |
+| `deploy/blue-green.sh` | CI가 배포마다 전송 | 배포·롤백·상태 확인 스크립트 (dev 는 `DEPLOY_ENV=dev` 로 실행) |
+| `active-color` | 배포 스크립트 | 마지막 배포 결과 기록용. 판단은 `nginx/upstream.conf` 로 한다 |
+| `image.env`, `image.env.prev` | (블루-그린 이전 dev) | 더 쓰지 않는다. 첫 블루-그린 배포 뒤 지워도 된다 |
+| `docker-compose.dev.yml` | dev CI가 배포마다 전송 | dev 앱(blue·green 두 칸)·Nginx·모니터링 컨테이너 정의. 앱 포트는 호스트에 게시하지 않고 nginx(`80`)를 거친다 |
 | `docker-compose.prod.yml` | prod CI가 배포마다 전송 | prod 앱(blue·green 두 칸)·Nginx·모니터링 컨테이너 정의 (`80`은 앱 프록시, Actuator `8081`은 외부 비공개) |
 | `monitoring/` | 두 CI 모두 배포마다 전송 | Prometheus·Alertmanager·Grafana·Loki·Alloy 설정. 로그 수집은 [monitoring/README.md](../../backend/monitoring/README.md#로그-수집과-조회) 참고 |
 
@@ -335,11 +334,10 @@ tar xzf ./actions-runner-linux-arm64.tar.gz
 운영과 마찬가지로 배포 워크플로가 Discord Webhook URL을 서버의 권한 `600` 비밀 파일로 만들며,
 DB·JWT·R2·CORS 값은 dev 서버 `.env`에 둔다.
 
-### 7. 호스트 Nginx 로그 형식 추가
+### 7. Nginx
 
-dev의 Nginx는 컨테이너가 아니라 EC2에 직접 설치돼 `dev-api.ssssok.com`의 `80`을 앱 `8080`으로 넘긴다.
-이 Nginx가 prod와 같은 필드의 JSON 접근 로그를 남겨야 Alloy가 Loki로 수집한다. 설정 방법은
-[monitoring/README.md의 dev 호스트 Nginx 설정](../../backend/monitoring/README.md#dev-호스트-nginx-설정)을 따른다.
+dev 도 prod 와 같이 Docker nginx(`sssok-nginx-dev`)가 `80` 을 받아 활성 칸으로 넘긴다. 호스트에 설치했던
+Nginx 는 중지·비활성화돼 있어야 한다 (배포 잡의 "호스트 Nginx 전환 완료 확인" 단계가 검사한다).
 
 ## 배포하기
 
@@ -359,10 +357,22 @@ gh pr create --base deploy --head main --title "deploy: 운영 배포" --body "m
 승격 PR을 만들기 전에 릴리스 준비 PR에서 통합 릴리스와 필요한 서비스 버전을 올린다. 백엔드
 버전은 작업 PR에서 누적한 버전 의도를 집계해 한 번 반영한다 — 자세한 기준은 아래에 정리돼 있다.
 
-## 운영 블루-그린 배포
+## 블루-그린 배포
 
-운영 EC2(t4g.small) 한 대 안에서 앱 컨테이너 두 칸(`app-blue`, `app-green`)을 번갈아 쓴다. ALB·Target
-Group·nginx 는 그대로 두고, nginx 가 가리키는 칸만 바꾼다. 배포 스크립트는 `backend/deploy/blue-green.sh` 다.
+dev·prod 각 EC2(t4g.medium, 4GiB) 한 대 안에서 앱 컨테이너 두 칸(`app-blue`, `app-green`)을 번갈아 쓴다.
+ALB·Target Group·nginx 는 그대로 두고, nginx 가 가리키는 칸만 바꾼다. 배포 스크립트는 `backend/deploy/blue-green.sh`
+하나를 두 환경이 같이 쓰고, `DEPLOY_ENV` 로 compose 파일과 컨테이너 이름만 달라진다.
+
+| | prod | dev |
+| --- | --- | --- |
+| 실행 | `bash deploy/blue-green.sh deploy` | `DEPLOY_ENV=dev bash deploy/blue-green.sh deploy` |
+| compose | `docker-compose.prod.yml` | `docker-compose.dev.yml` |
+| 칸 컨테이너 | `sssok-app-blue` / `sssok-app-green` | `sssok-app-dev-blue` / `sssok-app-dev-green` |
+| nginx 컨테이너 | `sssok-nginx` | `sssok-nginx-dev` |
+| 블루-그린 이전 단일 앱 | `sssok-app` | `sssok-app-dev` |
+
+배포 방식을 바꾸는 PR(스크립트·compose·nginx)은 develop 에 머지되면 dev 에서 먼저 실행된다. dev 배포 잡이
+성공하고 `status` 가 기대한 칸을 가리키는지 확인한 뒤에 운영으로 승격한다.
 
 ```mermaid
 sequenceDiagram
@@ -372,7 +382,7 @@ sequenceDiagram
     participant Old as 활성 칸 (예: blue)
     participant New as 쉬는 칸 (예: green)
     CI->>CI: 활성 칸 확인 (nginx/upstream.conf)
-    CI->>CI: 가용 메모리 600MiB 이상인지 확인 (부족하면 중단)
+    CI->>CI: 가용 메모리 1,000MiB 이상인지 확인 (부족하면 중단)
     CI->>New: 새 이미지로 기동
     CI->>New: readiness(DB 포함) 확인 · 커밋(APP_GIT_SHA) 확인
     CI->>N: upstream.conf 를 green 으로 바꾸고 nginx -t → reload
@@ -402,10 +412,12 @@ nginx 의 upstream 은 `resolve` 로 컨테이너 이름을 주기적으로 다�
 
 - **마이그레이션 호환**: 새 칸이 Flyway 로 스키마를 바꾸는 동안 기존 칸이 요청을 받는다. 아래
   [DB 마이그레이션](#db-마이그레이션)의 호환 규칙을 지킨다.
-- **메모리**: 운영 서버 RAM 이 1.8GiB 라 두 앱이 동시에 뜰 여유가 크지 않다. 배포 전 가용 메모리를 확인하고,
+- **메모리**: 칸마다 `mem_limit: 900m`·`-Xmx512m` 를 건다(#759). 최악(앱 밖 약 690MiB + 두 칸 900MiB씩)에도
+  4GiB 서버에서 약 1.3GiB 가 남는다. 2GiB 서버로는 두 칸이 겹칠 때 메모리가 모자라므로 dev·prod 모두
+  t4g.medium 이상이어야 한다(#764). 배포 전 가용 메모리가 1,000MiB 미만이면 기다리다 중단한다.
   운영에서는 새 칸의 썸네일·분석 배치를 기동 60초 뒤에 시작한다(`application-prod.yml`).
-- **nginx 서비스 정의 변경**: 배포 스크립트는 nginx 를 다시 만들지 않고 reload 만 한다. `docker-compose.prod.yml`
-  의 nginx 서비스(이미지·포트·마운트)를 바꿨다면 사용자가 적은 시간에 아래로 반영한다. 1~2초 끊긴다.
+- **nginx 서비스 정의 변경**: 배포 스크립트는 nginx 를 다시 만들지 않고 reload 만 한다. compose 의 nginx
+  서비스(이미지·포트·마운트)를 바꿨다면 dev 에서 먼저, 운영은 사용자가 적은 시간에 아래로 반영한다. 1~2초 끊긴다.
 
   ```bash
   $COMPOSE up -d --no-deps --force-recreate nginx
@@ -413,13 +425,15 @@ nginx 의 upstream 은 `resolve` 로 컨테이너 이름을 주기적으로 다�
 
 ### 기존 단일 앱에서 처음 넘어갈 때 (1회)
 
-블루-그린이 들어간 첫 운영 배포는 기존 `sssok-app` 을 활성으로 보고 `app-blue` 로 넘어간다. 이때 nginx 를
-`nginx/` 디렉터리 마운트로 한 번 다시 만들어서 **약 1~2초 끊긴다** (로컬 리허설에서 실패 요청 1건). 그 뒤
-배포부터는 끊기지 않는다. 사용자가 적은 시간에 승격하고, 배포 잡을 지켜본 뒤 아래를 확인한다.
+블루-그린이 들어간 첫 배포는 기존 단일 앱(`sssok-app`, dev 는 `sssok-app-dev`)을 활성으로 보고 `app-blue` 로
+넘어간다. 이때 nginx 를 `nginx/` 디렉터리 마운트로 한 번 다시 만들어서 **약 1~2초 끊긴다** (로컬 리허설에서
+실패 요청 1~3건). 그 뒤 배포부터는 끊기지 않는다. dev 에서 먼저 일어나므로 dev 결과를 확인한 뒤, 운영은
+사용자가 적은 시간에 승격하고 배포 잡을 지켜본 뒤 아래를 확인한다.
 
 ```bash
 cd ~/app
-bash deploy/blue-green.sh status   # 활성 칸: blue, sssok-app 은 목록에서 사라져야 한다
+bash deploy/blue-green.sh status                  # prod: 활성 칸 blue, sssok-app 은 목록에서 사라져야 한다
+DEPLOY_ENV=dev bash deploy/blue-green.sh status   # dev: 활성 칸 blue, sssok-app-dev 는 사라져야 한다
 curl -i http://localhost/health
 ```
 
@@ -516,7 +530,7 @@ curl -s http://localhost/version
 
 ### 배포 실패·롤백 시
 
-- **배포가 실패한 경우**(prod 는 트래픽이 기존 칸에 남음, dev 는 자동 롤백): 태그가 만들어지지 않았으므로 버전은 그대로 둔다.
+- **배포가 실패한 경우**(dev·prod 모두 트래픽이 기존 칸에 남음): 태그가 만들어지지 않았으므로 버전은 그대로 둔다.
   원인을 고친 커밋을 올려 같은 버전으로 다시 배포한다.
 - **태그까지 만들어진 뒤 문제를 발견해 수동 롤백한 경우**: 이미 찍힌 태그는 지우지 않는다
   (배포된 사실 자체는 남기는 게 이력상 정확하다). 수정은 새 `PATCH` 버전으로 다시 올린다.
@@ -524,7 +538,8 @@ curl -s http://localhost/version
 
 ## 운영 명령어
 
-배포 디렉터리에서 실행한다.
+배포 디렉터리에서 실행한다. dev 는 compose 파일을 `docker-compose.dev.yml` 로 바꾸고, 배포 스크립트 앞에
+`DEPLOY_ENV=dev` 를 붙인다.
 
 ```bash
 cd ~/app

@@ -1,5 +1,13 @@
 # 개발 Docker Nginx의 API·지표 프록시 템플릿.
+# 개발 CD 가 ${SSSOK_ENVIRONMENT}·${CENTRAL_PRIVATE_IP} 만 치환해 배포 경로의 nginx/default.conf 로 둔다.
+# 앱 주소(upstream sssok_app·sssok_app_management)는 같은 디렉터리의 upstream.conf 에 있고,
+# 배포 스크립트(deploy/blue-green.sh)가 활성 칸(app-blue/app-green)으로 다시 쓴다 — 운영 nginx.conf 와 같은 방식.
 # 운영 ALB realip·기존 Grafana 라우팅은 운영 전환 전에 별도로 통합해야 한다.
+
+# upstream 의 resolve 가 쓰는 Docker DNS. 꺼진 칸의 이름을 시작 시점에 못 찾아도 nginx 가 뜨고,
+# 컨테이너가 다시 뜨면 주소를 새로 찾는다.
+resolver 127.0.0.11 valid=10s ipv6=off;
+
 map $upstream_http_x_request_id $sssok_request_id {
     '' $request_id;
     default $upstream_http_x_request_id;
@@ -8,6 +16,13 @@ map $status $sssok_log_level {
     ~^5 ERROR;
     ~^4 WARN;
     default INFO;
+}
+# 배포 스크립트가 nginx 컨테이너 안(127.0.0.1)에서 보낸 요청에만 실제로 응답한 앱 주소를 알려 준다.
+# 전환 뒤 기존 칸을 끄기 전에 트래픽이 정말 새 칸으로 가는지 확인하는 데 쓴다. 외부 요청에는 값이 비어
+# 헤더가 붙지 않는다.
+map $realip_remote_addr $sssok_upstream_for_deploy {
+    127.0.0.1 $upstream_addr;
+    default   '';
 }
 geo $realip_remote_addr $sssok_central_allowed {
     default 0;
@@ -25,12 +40,11 @@ server {
     listen 80 default_server;
     server_name _;
     access_log /dev/stdout sssok_json;
-    resolver 127.0.0.11 valid=10s ipv6=off;
-    set $sssok_app_upstream app:8080;
     add_header X-Request-ID $sssok_request_id always;
+    add_header X-Sssok-Upstream $sssok_upstream_for_deploy always;
 
     location / {
-        proxy_pass http://$sssok_app_upstream;
+        proxy_pass http://sssok_app;
         proxy_hide_header X-Request-ID;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -51,7 +65,6 @@ server {
     server_name _;
     resolver 127.0.0.11 valid=10s ipv6=off;
     set $sssok_node_upstream node-exporter:9100;
-    set $sssok_management_upstream app:8081;
     access_log off;
 
     location = /metrics {
@@ -62,7 +75,7 @@ server {
     }
     location = /app-metrics {
         if ($sssok_central_allowed = 0) { return 403; }
-        proxy_pass http://$sssok_management_upstream/actuator/prometheus;
+        proxy_pass http://sssok_app_management/actuator/prometheus;
         proxy_connect_timeout 3s;
         proxy_read_timeout 10s;
     }
