@@ -143,6 +143,32 @@ describe("SimilarReviewScreen", () => {
     ).toBeInTheDocument();
   });
 
+  it("이름 붙인 모음의 사진을 모두 빼면 흐린 카드로 바뀌어 폴더에서 빠지고, 다시 넣으면 이름째 돌아온다", async () => {
+    const user = userEvent.setup();
+    renderScreen([9, 5, 2]);
+
+    await user.type(screen.getAllByRole("textbox", { name: "폴더 이름" })[2], "바다{Enter}");
+    await user.click(screen.getByRole("button", { name: "바다 모음 사진 2장 확인" }));
+    await user.click(screen.getByRole("checkbox", { name: "사진 1" }));
+    await user.click(screen.getByRole("checkbox", { name: "사진 2" }));
+    expect(screen.getByText("모두 뺐어요. 폴더로 만들지 않아요")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "완료" }));
+
+    const emptied = screen.getByRole("button", { name: /사진을 모두 뺐어요/ });
+    expect(emptied).toHaveTextContent("눌러서 다시 넣기");
+    expect(screen.queryByRole("button", { name: "바다 이름 고치기" })).not.toBeInTheDocument();
+    expect(screen.getByText("이름을 붙이면 폴더가 생겨요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "폴더 만들기" })).toBeDisabled();
+
+    await user.click(emptied);
+    expect(screen.getByRole("heading", { name: "바다 0장" })).toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: "사진 1" }));
+    await user.click(screen.getByRole("button", { name: "완료" }));
+
+    expect(screen.getByRole("button", { name: "바다 이름 고치기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "1개 폴더 만들기" })).toBeEnabled();
+  });
+
   describe("이름 겹침", () => {
     const nameInputs = () => screen.getAllByRole("textbox", { name: "폴더 이름" });
 
