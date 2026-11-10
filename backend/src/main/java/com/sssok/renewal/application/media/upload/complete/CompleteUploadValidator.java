@@ -11,7 +11,10 @@ import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -21,25 +24,28 @@ public class CompleteUploadValidator {
     private final UploadRegistrationMetrics metrics;
     private final UploadFileRepository uploadFileRepository;
     private final FileStorage fileStorage;
+    private final UploadHeadWorkers headWorkers;
 
     public ValidatedUploadedFiles validate(CompleteUploadCommand command) {
         List<StoredFile> foundFiles = metrics.measure(FILE_LOOKUP,
             () -> uploadFileRepository.findAllByIdIn(command.mediaIds()));
         rejectOthersReservation(foundFiles, command.uploaderId());
 
+        // 요청 순서를 유지한다. DB 에 없는 ID 는 null 로 남겨 MEDIA_NOT_FOUND 로 거절한다.
+        Map<Long, StoredFile> filesById = foundFiles.stream()
+            .collect(Collectors.toMap(StoredFile::getId, Function.identity()));
+        List<StoredFile> requestedFiles = command.mediaIds().stream().map(filesById::get).toList();
+        List<UploadRejectionReason> rejections = headWorkers.map(requestedFiles,
+            file -> file == null ? UploadRejectionReason.MEDIA_NOT_FOUND : verifyUploaded(file));
+
         List<StoredFile> verifiedFiles = new ArrayList<>();
         List<FailedMedia> failedMedia = new ArrayList<>();
-        for (Long mediaId : command.mediaIds()) {
-            StoredFile file = findIn(foundFiles, mediaId);
-            if (file == null) {
-                failedMedia.add(FailedMedia.of(mediaId, UploadRejectionReason.MEDIA_NOT_FOUND));
-                continue;
-            }
-            UploadRejectionReason reason = verifyUploaded(file);
-            if (reason == null) {
-                verifiedFiles.add(file);
+        for (int i = 0; i < requestedFiles.size(); i++) {
+            UploadRejectionReason rejection = rejections.get(i);
+            if (rejection == null) {
+                verifiedFiles.add(requestedFiles.get(i));
             } else {
-                failedMedia.add(FailedMedia.of(mediaId, reason));
+                failedMedia.add(FailedMedia.of(command.mediaIds().get(i), rejection));
             }
         }
 
@@ -68,13 +74,6 @@ public class CompleteUploadValidator {
                 : UploadRejectionReason.UNSUPPORTED_MEDIA_TYPE;
         }
         return null;
-    }
-
-    private StoredFile findIn(List<StoredFile> files, Long mediaId) {
-        return files.stream()
-            .filter(file -> file.getId().equals(mediaId))
-            .findFirst()
-            .orElse(null);
     }
 
 }
