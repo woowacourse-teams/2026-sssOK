@@ -88,7 +88,6 @@ export const MediaUploader = ({
       if (!superseded && result.failed.length === 0 && uploadedCount > 0) {
         closeUploadToast.current = showToast({
           message: `${uploadedCount}장을 올렸어요.`,
-          showClose: false,
         });
       }
     },
