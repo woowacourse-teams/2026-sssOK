@@ -3,6 +3,7 @@ package com.sssok.presentation.api.common;
 import com.sssok.renewal.application.auth.exception.UnauthorizedException;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.port.out.RoomRepository;
+import com.sssok.renewal.incoming.auth.VerifiedAuthentication;
 import com.sssok.renewal.outgoing.security.TokenProvider;
 import com.sssok.application.room.exception.NotRoomMemberException;
 import com.sssok.application.room.exception.RoomExpiredException;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
@@ -31,15 +33,20 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
     private final RoomMemberRepository roomMemberRepository;
     private final TokenProvider tokenProvider;
 
+    // 이 메서드는 스프링 프록시를 거쳐 읽기 트랜잭션 하나로 실행된다(preHandle 이 끝나면 함께 끝난다).
+    // 토큰 확인(회원·세션)과 방·참여자 확인이 각자 커넥션을 빌리면 컨트롤러 진입 전에만 4~6번을 빌린다.
+    // tokenProvider.parse 도 읽기 트랜잭션이라 여기에 합류해 같은 커넥션을 쓴다.
     @Override
+    @Transactional(readOnly = true)
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         if (!(handler instanceof HandlerMethod)) {
             return true;
         }
 
         Long roomId = extractRoomId(request);
-        Long memberId = extractMemberId(request);
+        String token = extractToken(request);
 
+        Long memberId = tokenProvider.parse(token);
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RoomNotFoundException(roomId));
         if (!room.canEnter()) {
@@ -47,6 +54,8 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         }
         roomMemberRepository.findByRoomIdAndMemberId(roomId, memberId)
             .orElseThrow(NotRoomMemberException::new);
+        // 컨트롤러의 @AuthMember 가 같은 토큰을 다시 검증하지 않도록 결과를 남긴다.
+        VerifiedAuthentication.remember(request, token, memberId);
 
         return true;
     }
@@ -68,11 +77,11 @@ public class RoomMembershipInterceptor implements HandlerInterceptor {
         }
     }
 
-    private Long extractMemberId(HttpServletRequest request) {
+    private String extractToken(HttpServletRequest request) {
         String authorizationHeader = request.getHeader("Authorization");
         if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
             throw new UnauthorizedException("다시 접속해주세요");
         }
-        return tokenProvider.parse(authorizationHeader.substring(BEARER_PREFIX.length()));
+        return authorizationHeader.substring(BEARER_PREFIX.length());
     }
 }
