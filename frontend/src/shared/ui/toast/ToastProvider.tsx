@@ -11,10 +11,7 @@ import {
 
 import { Toast, type ToastProps } from "./Toast";
 
-export interface ToastOptions extends Pick<
-  ToastProps,
-  "message" | "tone" | "showClose" | "bottom"
-> {
+export interface ToastOptions extends Pick<ToastProps, "message" | "tone" | "bottom"> {
   duration?: number;
 }
 

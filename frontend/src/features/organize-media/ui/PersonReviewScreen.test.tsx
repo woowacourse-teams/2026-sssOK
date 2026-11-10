@@ -171,6 +171,37 @@ describe("PersonReviewScreen", () => {
     expect(within(cards()[0]).getByText("+17")).toBeInTheDocument();
   });
 
+  it("이름 고른 사람의 사진을 모두 빼면 흐린 카드로 바뀌어 폴더에서 빠지고, 그 이름을 다른 카드가 써도 합칠지 묻지 않는다", async () => {
+    const { onSubmit } = renderScreen();
+
+    await userEvent.click(within(cards()[1]).getByRole("button", { name: "하루" }));
+    await userEvent.click(within(cards()[1]).getByRole("button", { name: /사진 3장 확인/ }));
+    for (const index of [1, 2, 3]) {
+      await userEvent.click(screen.getByRole("checkbox", { name: `사진 ${index}` }));
+    }
+    expect(screen.getByRole("status")).toHaveTextContent("모두 뺐어요. 폴더로 만들지 않아요");
+    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+
+    expect(
+      within(cards()[1]).getByRole("button", { name: /사진을 모두 뺐어요/ }),
+    ).toHaveTextContent("눌러서 다시 넣기");
+    expect(screen.getByText("이름을 고르면 폴더가 생겨요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "폴더 만들기" })).toBeDisabled();
+
+    await userEvent.click(within(cards()[0]).getByRole("button", { name: "하루" }));
+    expect(screen.queryByText("하루 님이 이미 있어요. 같은 사람인가요?")).not.toBeInTheDocument();
+    expect(screen.getByText("이름을 안 고른 1명은 폴더 없이 전체에 남아요")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "1명의 폴더 만들기" }));
+    expect(onSubmit).toHaveBeenCalledWith([
+      {
+        groupId: "p1",
+        folderName: "하루",
+        mediaIds: Array.from({ length: 22 }, (_, index) => index + 1),
+      },
+    ]);
+  });
+
   it("'나' 를 고르면 내 닉네임으로 폴더를 만든다", async () => {
     const { onSubmit } = renderScreen({ sizes: [2] });
 

@@ -308,7 +308,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     await Promise.all([refreshRoom(), refreshPhotos()]);
     const [first] = applied.folders;
     if (first) selectFolder(first.folderId);
-    showToast({ message: `폴더 ${applied.folders.length}개를 만들었어요`, showClose: false });
+    showToast({ message: `폴더 ${applied.folders.length}개를 만들었어요` });
   };
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이

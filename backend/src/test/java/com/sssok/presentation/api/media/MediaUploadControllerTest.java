@@ -17,6 +17,7 @@ import com.sssok.renewal.application.media.upload.complete.CompleteUploadService
 import com.sssok.renewal.application.media.upload.complete.FailedMedia;
 import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
 import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
+import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
 import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsResult;
 import com.sssok.renewal.application.media.upload.issue.IssueUploadUrlsService;
 import com.sssok.renewal.application.media.upload.issue.RejectedFile;
@@ -47,6 +48,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
@@ -228,6 +230,17 @@ class MediaUploadControllerTest {
             .andExpect(jsonPath("$.data.registered[0].folderIds[0]").value(31))
             .andExpect(jsonPath("$.data.failed[0].code").value("UPLOAD_NOT_COMPLETED"));
         Mockito.verify(metrics).registered(1, 1);
+    }
+
+    @Test
+    void 완료_검증이_지연되면_503과_재시도_간격을_반환한다() throws Exception {
+        given(completeUploadService.complete(any()))
+            .willThrow(new UploadVerificationUnavailableException());
+
+        completeUpload("{\"mediaIds\":[5012]}")
+            .andExpect(status().isServiceUnavailable())
+            .andExpect(header().string("Retry-After", "1"))
+            .andExpect(jsonPath("$.code").value("UPLOAD_VERIFICATION_UNAVAILABLE"));
     }
 
     @Test
