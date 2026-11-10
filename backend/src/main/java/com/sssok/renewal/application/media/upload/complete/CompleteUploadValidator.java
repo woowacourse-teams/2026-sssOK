@@ -1,9 +1,12 @@
 package com.sssok.renewal.application.media.upload.complete;
 
+import static com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics.Stage.*;
+
 import com.sssok.domain.file.StoredFile;
-import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
 import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
+import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import java.util.ArrayList;
@@ -15,11 +18,13 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class CompleteUploadValidator {
+    private final UploadRegistrationMetrics metrics;
     private final UploadFileRepository uploadFileRepository;
     private final FileStorage fileStorage;
 
     public ValidatedUploadedFiles validate(CompleteUploadCommand command) {
-        List<StoredFile> foundFiles = uploadFileRepository.findAllByIdIn(command.mediaIds());
+        List<StoredFile> foundFiles = metrics.measure(FILE_LOOKUP,
+            () -> uploadFileRepository.findAllByIdIn(command.mediaIds()));
         rejectOthersReservation(foundFiles, command.uploaderId());
 
         List<StoredFile> verifiedFiles = new ArrayList<>();
@@ -51,7 +56,8 @@ public class CompleteUploadValidator {
 
     // 발급 때 신고한 값과 실제로 올라온 것이 다르면 거부한다. 통과하면 null 이다.
     private UploadRejectionReason verifyUploaded(StoredFile file) {
-        Optional<UploadedObject> uploaded = fileStorage.findUploaded(file.getStorageKey());
+        Optional<UploadedObject> uploaded = metrics.measure(STORAGE_HEAD,
+            () -> fileStorage.findUploaded(file.getStorageKey()));
         if (uploaded.isEmpty()) {
             return UploadRejectionReason.UPLOAD_NOT_COMPLETED;
         }

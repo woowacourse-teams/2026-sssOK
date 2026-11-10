@@ -1,5 +1,7 @@
 package com.sssok.renewal.application.media.upload.complete;
 
+import static com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics.Stage.*;
+
 import com.sssok.application.media.MediaCreatedEvent;
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.media.MediaUrlResolver;
@@ -7,6 +9,7 @@ import com.sssok.domain.file.StoredFile;
 import com.sssok.renewal.application.media.thumbnail.ThumbnailJobService;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.renewal.outgoing.database.UploadFolderRepository;
+import com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class MediaRegistrationService {
 
+    private final UploadRegistrationMetrics metrics;
     private final UploadFileRepository uploadFileRepository;
     private final ThumbnailJobService thumbnailJobService;
     private final UploadFolderRepository uploadFolderRepository;
@@ -32,13 +36,15 @@ public class MediaRegistrationService {
             return List.of();
         }
         List<Long> mediaIds = verifiedFiles.stream().map(StoredFile::getId).toList();
-        Map<Long, List<Long>> folderIdsByMediaId = uploadFolderRepository.findFolderIdsByMedia(mediaIds);
+        Map<Long, List<Long>> folderIdsByMediaId = metrics.measure(FOLDERS,
+            () -> uploadFolderRepository.findFolderIdsByMedia(mediaIds));
 
         List<MediaDetail> registeredMedia = new ArrayList<>();
         for (StoredFile verifiedFile : verifiedFiles) {
-            StoredFile processingFile = registerForProcessing(verifiedFile.getId());
+            StoredFile processingFile = metrics.measure(FILE_WRITE, () -> registerForProcessing(verifiedFile.getId()));
             List<Long> mediaFolderIds = folderIdsByMediaId.getOrDefault(processingFile.getId(), List.of());
-            registeredMedia.add(toMediaDetail(processingFile, uploaderName, mediaFolderIds));
+            registeredMedia.add(metrics.measure(RESPONSE,
+                () -> toMediaDetail(processingFile, uploaderName, mediaFolderIds)));
         }
         publishMediaCreatedEvents(roomId, registeredMedia);
         return registeredMedia;
