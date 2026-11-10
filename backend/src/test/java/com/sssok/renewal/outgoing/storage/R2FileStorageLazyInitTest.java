@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.renewal.outgoing.config.R2Properties;
+import com.sssok.renewal.outgoing.config.UploadHeadProperties;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -19,13 +20,15 @@ class R2FileStorageLazyInitTest {
     @Test
     void 자격증명이_없어도_빈은_만들어진다() {
         assertThatCode(() -> new R2FileStorage(EMPTY, new R2UploadStrategyResolver(
-            new SinglePutUploadStrategy(), new MultipartUploadStrategy()))).doesNotThrowAnyException();
+            new SinglePutUploadStrategy(), new MultipartUploadStrategy()),
+            UploadHeadProperties.defaults())).doesNotThrowAnyException();
     }
 
     @Test
     void 실제로_쓸_때_비로소_자격증명을_요구한다() {
         R2FileStorage adapter = new R2FileStorage(EMPTY, new R2UploadStrategyResolver(
-            new SinglePutUploadStrategy(), new MultipartUploadStrategy()));
+            new SinglePutUploadStrategy(), new MultipartUploadStrategy()),
+            UploadHeadProperties.defaults());
 
         assertThatThrownBy(() -> adapter.presignPut(
             StorageKey.generate(1L, MediaType.PNG), "image/png", Duration.ofMinutes(10)))
