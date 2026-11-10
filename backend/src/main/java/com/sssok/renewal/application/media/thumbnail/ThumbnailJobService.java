@@ -45,6 +45,13 @@ public class ThumbnailJobService {
     }
 
     @Transactional
+    public void enqueueAll(List<StoredFile> files) {
+        Instant now = clock.instant();
+        jobRepository.enqueueAll(files.stream().map(file ->
+            new ThumbnailJob(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), now)).toList());
+    }
+
+    @Transactional
     public Optional<ThumbnailClaim> claimNext(ThumbnailKind kind) {
         Instant now = clock.instant();
         return jobRepository.claimable(kind, now).map(job -> {

@@ -4,6 +4,7 @@ import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.StorageKey;
 import com.sssok.renewal.domain.download.DownloadFileNames;
 import com.sssok.renewal.outgoing.config.R2Properties;
+import com.sssok.renewal.outgoing.config.UploadHeadProperties;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.support.ExternalTest;
 import java.io.IOException;
@@ -56,7 +57,8 @@ class R2FileStorageTest {
         return new R2FileStorage(new R2Properties(
             CONFIG.get("R2_ENDPOINT"), CONFIG.get("R2_ACCESS_KEY"), CONFIG.get("R2_SECRET_KEY"),
             CONFIG.get("R2_BUCKET"), CONFIG.get("R2_PUBLIC_BASE_URL")), new R2UploadStrategyResolver(
-            new SinglePutUploadStrategy(), new MultipartUploadStrategy()));
+            new SinglePutUploadStrategy(), new MultipartUploadStrategy()),
+            UploadHeadProperties.defaults());
     }
 
     @AfterEach
