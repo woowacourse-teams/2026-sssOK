@@ -103,12 +103,11 @@ export const RoomCardMenu = ({ room, isMenuOpen, onOpenChange }: RoomCardMenuPro
     closeMenu();
     try {
       await copyRoomInviteLink(room.code);
-      showToast({ message: "초대 링크를 복사했어요.", tone: "success", showClose: false });
+      showToast({ message: "초대 링크를 복사했어요.", tone: "success" });
     } catch {
       showToast({
         message: "링크를 복사하지 못했어요. 잠시 후 다시 시도해 주세요.",
         tone: "error",
-        showClose: false,
       });
     }
   };

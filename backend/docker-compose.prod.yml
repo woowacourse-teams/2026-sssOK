@@ -13,6 +13,14 @@
 # ALB 타겟 그룹이 80 포트로 헬스체크·트래픽을 보내는데 앱은 8080이라, nginx가 그 사이를
 # 메운다 (nginx.conf 참고). TLS는 ALB(ACM)에서 이미 끝내고 오므로 여기는 평문 HTTP만 처리.
 
+# 칸마다 environment 를 따로 쓰면 앵커의 environment 를 통째로 덮으므로, 공통 값은 이 앵커로 합친다.
+x-app-env: &app-env
+  SPRING_PROFILES_ACTIVE: prod
+  # JVM 힙 상한. Dockerfile 기본값(MaxRAMPercentage=75)은 컨테이너 한도가 없으면 호스트 RAM 기준이라
+  # 힙 최대가 호스트 메모리에 비례해 커지고, 업로드 후처리 때 힙 커밋이 팽창해 호스트를 고갈시켰다(#759).
+  # 서버 .env 의 JAVA_OPTS 보다 이 값이 우선한다.
+  JAVA_OPTS: "-Xmx512m -Duser.timezone=Asia/Seoul"
+
 x-app: &app
   restart: unless-stopped
   # 웹 요청 20s + 비동기 작업 20s 보다 길게 둔다 (기본 10s).
@@ -24,6 +32,10 @@ x-app: &app
     - "8080"
     # Actuator 관리 포트. Nginx로 전달하거나 호스트에 publish하지 않는다.
     - "8081"
+  # 앱이 이 한도를 넘으면 호스트 전체가 아니라 이 컨테이너만 정리되고, restart 정책으로 다시 뜬다.
+  # 힙 상한 + 비힙(약 216MiB) + 그 밖(약 130MiB)을 더한 최악의 RSS(약 860MiB)가 이 안에 들도록 잡았다.
+  # 전환 중에는 두 칸이 함께 떠 있으므로 서버는 t4g.medium(4GiB) 이상이어야 한다(#764).
+  mem_limit: 900m
   healthcheck:
     test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
     interval: 10s
@@ -49,7 +61,7 @@ services:
     image: ${BLUE_IMAGE:-sssok-app-unset}
     container_name: sssok-app-blue
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      <<: *app-env
       APP_RELEASE_VERSION: ${BLUE_RELEASE_VERSION:-unknown}
       APP_BACKEND_VERSION: ${BLUE_BACKEND_VERSION:-unknown}
       APP_GIT_SHA: ${BLUE_GIT_SHA:-unknown}
@@ -59,7 +71,7 @@ services:
     image: ${GREEN_IMAGE:-sssok-app-unset}
     container_name: sssok-app-green
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      <<: *app-env
       APP_RELEASE_VERSION: ${GREEN_RELEASE_VERSION:-unknown}
       APP_BACKEND_VERSION: ${GREEN_BACKEND_VERSION:-unknown}
       APP_GIT_SHA: ${GREEN_GIT_SHA:-unknown}

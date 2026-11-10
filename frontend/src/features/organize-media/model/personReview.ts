@@ -37,9 +37,14 @@ export const createPersonReview = (groups: OrganizeGroup[]): PersonReview => ({
 export const includedPhotos = (person: ReviewPerson) =>
   person.photos.filter((photo) => !person.excludedIds.includes(photo.mediaId));
 
+export const isEmptied = (person: ReviewPerson) =>
+  person.photos.length > 0 && includedPhotos(person).length === 0;
+
 /** 이 이름을 이미 고른 다른 카드. 없으면 null 이다. */
 export const ownerOfName = (review: PersonReview, personId: string, name: string) =>
-  review.people.find((person) => person.id !== personId && person.name === name) ?? null;
+  review.people.find(
+    (person) => person.id !== personId && !isEmptied(person) && person.name === name,
+  ) ?? null;
 
 const update = (
   review: PersonReview,
@@ -84,17 +89,31 @@ export const mergePeople = (review: PersonReview, targetId: string, sourceId: st
 };
 
 /** 사진을 빼거나, 뺀 사진을 다시 넣는다. */
-export const togglePhoto = (review: PersonReview, personId: string, mediaId: number) =>
-  update(review, personId, (person) => ({
+export const togglePhoto = (review: PersonReview, personId: string, mediaId: number) => {
+  const before = review.people.find((person) => person.id === personId);
+  const next = update(review, personId, (person) => ({
     ...person,
     excludedIds: person.excludedIds.includes(mediaId)
       ? person.excludedIds.filter((id) => id !== mediaId)
       : [...person.excludedIds, mediaId],
   }));
+  const after = next.people.find((person) => person.id === personId);
+  if (!before || !after || !isEmptied(before) || isEmptied(after)) return next;
+
+  const name = after.name?.trim();
+  const isTaken =
+    !!name &&
+    next.people.some(
+      (person) => person.id !== personId && !isEmptied(person) && person.name?.trim() === name,
+    );
+  return isTaken ? update(next, personId, (person) => ({ ...person, name: null })) : next;
+};
 
 /** 방에 이미 같은 이름의 폴더가 있어 이름을 바꿔야 하는 카드. 없으면 null 이다. */
 export const conflictOf = ({ people }: PersonReview, folderNames: readonly string[]) =>
-  people.find((person) => person.name !== null && folderNames.includes(person.name)) ?? null;
+  people.find(
+    (person) => person.name !== null && !isEmptied(person) && folderNames.includes(person.name),
+  ) ?? null;
 
 /**
  * 하단 안내와 버튼 문구.
@@ -113,7 +132,7 @@ export const footerOf = (review: PersonReview, folderNames: readonly string[] = 
     };
   }
 
-  const { people } = review;
+  const people = review.people.filter((person) => !isEmptied(person));
   const named = people.filter((person) => person.name !== null).length;
   const unnamed = people.length - named;
 
