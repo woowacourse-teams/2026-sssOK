@@ -13,6 +13,9 @@ import com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -39,9 +42,9 @@ public class MediaRegistrationService {
         Map<Long, List<Long>> folderIdsByMediaId = metrics.measure(FOLDERS,
             () -> uploadFolderRepository.findFolderIdsByMedia(mediaIds));
 
+        List<StoredFile> processingFiles = metrics.measure(FILE_WRITE, () -> registerForProcessing(mediaIds));
         List<MediaDetail> registeredMedia = new ArrayList<>();
-        for (StoredFile verifiedFile : verifiedFiles) {
-            StoredFile processingFile = metrics.measure(FILE_WRITE, () -> registerForProcessing(verifiedFile.getId()));
+        for (StoredFile processingFile : processingFiles) {
             List<Long> mediaFolderIds = folderIdsByMediaId.getOrDefault(processingFile.getId(), List.of());
             registeredMedia.add(metrics.measure(RESPONSE,
                 () -> toMediaDetail(processingFile, uploaderName, mediaFolderIds)));
@@ -50,13 +53,18 @@ public class MediaRegistrationService {
         return registeredMedia;
     }
 
-    private StoredFile registerForProcessing(Long mediaId) {
-        // 검증 이후 상태가 바뀔 수 있으므로 잠금을 잡고 최신 파일을 다시 읽는다.
-        StoredFile lockedFile = uploadFileRepository.findByIdForUpdate(mediaId).orElseThrow();
-        lockedFile.startProcessing();
-        StoredFile processingFile = uploadFileRepository.save(lockedFile);
-        thumbnailJobService.enqueue(processingFile);
-        return processingFile;
+    // 검증 이후 상태가 바뀔 수 있으므로 ID 순서로 한 번에 잠금을 잡고 최신 파일을 다시 읽는다.
+    private List<StoredFile> registerForProcessing(List<Long> mediaIds) {
+        Map<Long, StoredFile> lockedFiles = uploadFileRepository.findAllForRegistration(mediaIds).stream()
+            .collect(Collectors.toMap(StoredFile::getId, Function.identity()));
+        List<StoredFile> processing = new ArrayList<>(mediaIds.size());
+        for (Long id : mediaIds) {
+            StoredFile file = Optional.ofNullable(lockedFiles.get(id)).orElseThrow();
+            file.startProcessing(); // 중복 ID는 기존처럼 상태 오류를 내고 요청 전체를 롤백한다.
+            processing.add(uploadFileRepository.save(file));
+        }
+        thumbnailJobService.enqueueAll(processing);
+        return processing;
     }
 
     private MediaDetail toMediaDetail(StoredFile processingFile, String uploaderName, List<Long> folderIds) {
