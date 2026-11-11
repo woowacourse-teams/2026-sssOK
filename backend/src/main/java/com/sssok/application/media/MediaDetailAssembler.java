@@ -39,12 +39,14 @@ public class MediaDetailAssembler {
             return LoadedMedia.EMPTY;
         }
         List<Long> mediaIds = files.stream().map(StoredFile::getId).toList();
+        // 좋아요 수와 내가 누른 여부는 같은 인덱스를 두 번 읽을 필요가 없어 한 번의 집계로 가져온다.
+        MediaLikeRepository.LikeSummary likes = mediaLikeRepository.summarize(viewerId, mediaIds);
         return new LoadedMedia(
             files,
             folderMediaRepository.findFolderIdsByMedia(mediaIds),
             roomNicknameReader.readUploaderNames(files),
-            mediaLikeRepository.countByMediaIds(mediaIds),
-            viewerId == null ? Set.of() : mediaLikeRepository.findLikedMediaIds(viewerId, mediaIds));
+            likes.counts(),
+            likes.likedIds());
     }
 
     public List<MediaDetail> toDetails(LoadedMedia loaded) {

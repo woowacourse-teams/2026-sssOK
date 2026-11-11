@@ -18,29 +18,27 @@ def body(bid, pid):
 
 class GroupingTests(unittest.TestCase):
     def test_empty_detections(self):
-        groups, evidence = build_face_groups([], np.empty((0, 128), dtype=np.float32), [])
+        groups, evidence = build_face_groups([], np.empty((0, 128), dtype=np.float32))
         self.assertEqual(groups, [])
         additions, pending = match_bodies([], np.empty((0, 512), dtype=np.float32), [], [])
         self.assertEqual((additions, pending), ([], []))
 
     def test_single_face_does_not_publish_identity(self):
-        groups, evidence = build_face_groups([face(0, 'one')], np.ones((1, 128)), [np.zeros(63, bool)])
+        groups, evidence = build_face_groups([face(0, 'one')], np.ones((1, 128)))
         self.assertEqual(groups, [])
         self.assertEqual(len(evidence['pending_faces']), 1)
 
     def test_same_photo_faces_cannot_merge_and_single_group_is_supported(self):
         faces = [face(0, 'one'), face(1, 'one'), face(2, 'two')]
         features = np.array([[1., 0.]] * 3)
-        hashes = [np.zeros(63, bool), np.ones(63, bool), np.ones(63, bool)]
-        groups, _ = build_face_groups(faces, features, hashes)
+        groups, _ = build_face_groups(faces, features)
         self.assertEqual(len(groups), 1)
         self.assertEqual(set(groups[0]['face_ids']), {0, 2})
 
     def test_pair_floor_blocks_identity_chain(self):
         faces = [face(i, str(i)) for i in range(3)]
         features = np.array([[1., 0.], [2**-.5, 2**-.5], [0., 1.]])
-        hashes = [np.zeros(63, bool), np.ones(63, bool), np.array([True, False] * 31 + [True])]
-        groups, _ = build_face_groups(faces, features, hashes)
+        groups, _ = build_face_groups(faces, features)
         self.assertEqual(len(groups), 1)
         self.assertEqual(len(groups[0]['face_ids']), 2)
 

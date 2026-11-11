@@ -167,12 +167,18 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     void heartbeat가_살아있으면_회수하지_않고_재시작후_만료된_작업만_복구한다() {
         StoredFile file = pending();
         ThumbnailClaim claim = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        now.set(now.get().plusSeconds(90));
-        assertThat(thumbnailJobService.renewLease(claim)).isEqualTo(ThumbnailJobService.Heartbeat.RENEWED);
-        now.set(now.get().plusSeconds(40));
+        // 초기 임대(30초)를 넘겨도 10초마다 갱신하면 작업 소유권을 유지한다.
+        for (int seconds = 10; seconds <= 40; seconds += 10) {
+            now.set(claim.startedAt().plusSeconds(seconds));
+            assertThat(thumbnailJobService.renewLease(claim)).isEqualTo(ThumbnailJobService.Heartbeat.RENEWED);
+        }
+        Instant leaseUntil = repository.findById(file.getId()).orElseThrow().getLeaseUntil();
+        assertThat(leaseUntil).isEqualTo(claim.startedAt().plusSeconds(70));
+        now.set(leaseUntil.minusSeconds(1));
         thumbnailJobCompletionService.recoverExpired(file.getId());
         assertThat(repository.findById(file.getId()).orElseThrow().getState()).isEqualTo("RUNNING");
-        now.set(now.get().plusSeconds(100));
+        // 하트비트가 중단되면 마지막으로 갱신한 임대가 지난 뒤 회수한다.
+        now.set(leaseUntil.plusSeconds(1));
         assertThat(thumbnailJobCompletionService.findExpiredMediaIds()).contains(file.getId());
         assertThat(thumbnailJobService.renewLease(claim)).isEqualTo(ThumbnailJobService.Heartbeat.LOST);
         thumbnailJobCompletionService.recoverExpired(file.getId());
@@ -230,8 +236,9 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     void 최대실행시간이_지나면_heartbeat도_임대를_연장하지_않는다() {
         pending();
         ThumbnailClaim claim = thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow();
-        for (int minute = 1; minute <= 9; minute++) {
-            now.set(claim.startedAt().plusSeconds(minute * 60L));
+        // 30초 임대가 도중에 만료되지 않도록 실제 주기인 10초마다 갱신한다.
+        for (int seconds = 10; seconds < 600; seconds += 10) {
+            now.set(claim.startedAt().plusSeconds(seconds));
             assertThat(thumbnailJobService.renewLease(claim)).isEqualTo(ThumbnailJobService.Heartbeat.RENEWED);
         }
         assertThat(repository.findById(claim.mediaId()).orElseThrow().getLeaseUntil())
