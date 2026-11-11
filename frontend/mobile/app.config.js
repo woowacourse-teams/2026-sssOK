@@ -6,6 +6,7 @@ module.exports = ({ config }) => {
     throw new Error("APP_ENV는 development 또는 production이어야 합니다.");
   }
   const suffix = environment === "production" ? "prod" : "dev";
+  const inviteHost = environment === "production" ? "www.ssssok.com" : "dev.ssssok.com";
   const iosFile =
     process.env.GOOGLE_SERVICES_INFO_PLIST || `./firebase/GoogleService-Info.${suffix}.plist`;
   const androidFile =
@@ -16,6 +17,7 @@ module.exports = ({ config }) => {
     ios: iosFile
       ? {
           ...config.ios,
+          associatedDomains: [`applinks:${inviteHost}`],
           usesAppleSignIn: true,
           googleServicesFile: iosFile,
           entitlements: {
@@ -28,6 +30,14 @@ module.exports = ({ config }) => {
       ? {
           ...config.android,
           googleServicesFile: androidFile,
+          intentFilters: [
+            {
+              action: "VIEW",
+              autoVerify: true,
+              category: ["BROWSABLE", "DEFAULT"],
+              data: [{ scheme: "https", host: inviteHost, pathPrefix: "/join/" }],
+            },
+          ],
           permissions: [
             ...(config.android?.permissions ?? []),
             "android.permission.POST_NOTIFICATIONS",
