@@ -123,3 +123,13 @@ WebView에 주입한 fetch 래퍼는 `/api/v1/auth/**` 성공 응답 이후 `aut
 
 3. 개발 앱 설치 후 `npx expo start --dev-client`를 실행한다. `EXPO_PUBLIC_WEB_URL`에는 이 브랜치의 웹 코드가 실행되는 주소를 넣는다. 로컬 웹 테스트 시 dev API의 CORS·쿠키 허용 출처도 맞아야 한다.
 4. 카카오톡 설치·미설치 로그인, 사용자 취소 후 재시도, iOS 애플 로그인, 로그인 후 앱 종료·재실행과 로그아웃을 확인한다. 일반 브라우저의 기존 웹 로그인도 함께 확인한다.
+
+### 방 초대 링크 배포
+
+운영 웹 도메인은 `www.ssssok.com`이다. Android는 Play Console의 **앱 서명 키 인증서** SHA-256 지문을 사용한다. 저장소 루트에서 다음 명령으로 파일을 생성한 뒤 웹 빌드에 포함한다.
+
+```sh
+node frontend/scripts/generate-assetlinks.mjs "$PLAY_APP_SIGNING_SHA256" > /tmp/sssok-assetlinks.json && cp /tmp/sssok-assetlinks.json frontend/public/.well-known/assetlinks.json
+```
+
+웹 배포 후 `/.well-known/apple-app-site-association`과 `/.well-known/assetlinks.json`이 리다이렉트 없이 HTTP 200과 `Content-Type: application/json`으로 제공되는지 확인한다. S3에서는 확장자가 없는 iOS 파일의 Content-Type을 직접 지정한다. 스토어 서명 빌드를 설치하고 메시지에서 기존 방 초대 링크를 눌러 앱 종료·실행 상태 모두에서 해당 방으로 이동하는지 확인한다.
