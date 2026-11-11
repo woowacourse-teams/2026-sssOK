@@ -21,6 +21,7 @@ jobs:
         run: |
           docker run --rm --network none --entrypoint python \
             -v "$PWD/mcp/servers/gallery/tests:/tests:ro" \
+            -v "$PWD/mcp/servers/gallery/evaluation:/app/evaluation:ro" \
             -v "$PWD/mcp/servers/gallery/scripts:/app/scripts:ro" \
             -v "$PWD/mcp/deployment:/deployment:ro" \
             gallery-mcp-test -m unittest discover -s /tests -v
