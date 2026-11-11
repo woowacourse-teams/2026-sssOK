@@ -98,20 +98,21 @@ export const GalleryMediaCard = ({
   onToggle,
   onOpen,
 }: GalleryMediaCardProps) => {
-  const [initialImageUrl] = useState(() => createImageUrl(item));
-  const localPreviewUrl = useRef(item.type === "local" ? initialImageUrl : null);
-  const [imageUrl, setImageUrl] = useState(initialImageUrl);
+  const [previewUrl] = useState(() => createImageUrl(item));
+  const localPreviewUrl = useRef(item.type === "local" ? previewUrl : null);
+  const thumbnailUrl = item.type === "server" ? item.media.thumbnailUrl : null;
+  const [isThumbnailShown, setIsThumbnailShown] = useState(thumbnailUrl !== null);
+  // 썸네일을 한 번 보여 준 카드는 서명 URL이 갱신돼도 src만 바꿔 loading="lazy"에 맡긴다.
+  const imageUrl = isThumbnailShown && thumbnailUrl !== null ? thumbnailUrl : previewUrl;
 
   useEffect(() => {
-    if (item.type !== "server") return;
+    if (isThumbnailShown || thumbnailUrl === null) return;
 
-    const thumbnailUrl = item.media.thumbnailUrl;
-    if (thumbnailUrl === null || imageUrl === thumbnailUrl) return;
-
+    // 업로드 미리보기에서 바뀔 때만 미리 받아 빈 화면 깜빡임 없이 교체한다.
     const image = new Image();
     image.src = thumbnailUrl;
     image.onload = () => {
-      setImageUrl(thumbnailUrl);
+      setIsThumbnailShown(true);
       if (localPreviewUrl.current) {
         URL.revokeObjectURL(localPreviewUrl.current);
         localPreviewUrl.current = null;
@@ -121,7 +122,7 @@ export const GalleryMediaCard = ({
     return () => {
       image.onload = null;
     };
-  }, [imageUrl, item]);
+  }, [isThumbnailShown, thumbnailUrl]);
 
   useEffect(
     () => () => {
