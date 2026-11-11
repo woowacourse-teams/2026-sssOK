@@ -99,6 +99,14 @@ class DevBlueGreenTest(unittest.TestCase):
                             image, 'nginx', '-t'], check=True,
                            capture_output=True, text=True, timeout=30)
 
+    def test_app_metrics_sends_valid_host_to_app(self):
+        # upstream 이름(sssok_app_management)이 Host 로 가면 Tomcat 이 밑줄 든 Host 를 400 으로 거부한다(#793).
+        block = re.search(r'location = /app-metrics \{(.*?)\n    \}', render_template(), re.S)
+        self.assertIsNotNone(block)
+        host = re.search(r'proxy_set_header Host ([^;]+);', block.group(1))
+        self.assertIsNotNone(host, '/app-metrics 가 Host 헤더를 지정하지 않는다')
+        self.assertNotIn('_', host.group(1))
+
     def test_dev_uses_only_central_without_legacy_credentials(self):
         # 예전 서버 환경변수가 남아 있어도 중앙 전송을 사용한다.
         config = compose_config(DEV_ALLOY_WRITER='dual')

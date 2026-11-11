@@ -2,6 +2,7 @@
 """운영 수집기 구성과 앱 배포 이후 관측 장애 처리를 검증한다."""
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -98,6 +99,14 @@ curl() {
                 f'type=bind,src={conf},dst=/etc/nginx/conf.d,readonly',
                 'nginx:1.27.5-alpine', 'nginx', '-t'], check=True,
                 capture_output=True, text=True, timeout=30)
+
+    def test_app_metrics_sends_valid_host_to_app(self):
+        # upstream 이름(sssok_app_management)이 Host 로 가면 Tomcat 이 밑줄 든 Host 를 400 으로 거부한다(#793).
+        block = re.search(r'location = /app-metrics \{(.*?)\n    \}', (ROOT / 'backend/nginx.conf').read_text(), re.S)
+        self.assertIsNotNone(block)
+        host = re.search(r'proxy_set_header Host ([^;]+);', block.group(1))
+        self.assertIsNotNone(host, '/app-metrics 가 Host 헤더를 지정하지 않는다')
+        self.assertNotIn('_', host.group(1))
 
     def test_prod_compose_without_legacy_credentials(self):
         env = {k: v for k, v in os.environ.items()
