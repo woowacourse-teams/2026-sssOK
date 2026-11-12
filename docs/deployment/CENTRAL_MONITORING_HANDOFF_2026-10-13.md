@@ -38,7 +38,7 @@
 | --- | --- | --- | --- | --- |
 | 중앙 | 10.0.20.46 | t4g.micro | project-app-a | /home/ubuntu/monitoring |
 | 개발 | 10.0.0.69 | t4g.small | project-public-a | /home/ubuntu/app |
-| 운영 | 10.0.20.127 | t4g.medium | project-app-a | /home/ssm-user/app |
+| 운영 | 10.0.20.127 | t4g.small (2026-11-04 확인, 이후 축소) | project-app-a | /home/ssm-user/app |
 
 - 모두 TECHCOURSE-PROJECT VPC, 서울 리전, ap-northeast-2a에 있다. 개발·운영은 이전에 모두 t4g.micro였다.
 - 중앙은 Ubuntu 24.04.4 LTS ARM64, 20GiB gp3, Swap 1GiB로 시작했다.

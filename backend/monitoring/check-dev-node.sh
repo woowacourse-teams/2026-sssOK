@@ -43,8 +43,21 @@ for path in metrics app-metrics alloy-metrics; do
     fi
   done
 done
-curl --noproxy '*' --fail --silent --show-error --max-time 5 \
-  --retry 5 --retry-delay 2 --retry-all-errors \
-  http://127.0.0.1:8081/actuator/prometheus -o "$metrics_file"
+# 블루-그린 활성 칸은 배포 스크립트가 쓰는 nginx/upstream.conf 에서 읽는다 (운영 검사와 같은 방식).
+# 관리 포트를 호스트에 게시하지 않으므로 nginx 컨테이너에서 조회한다.
+app_host=$(grep -oE 'server app(-blue|-green)?:8081' nginx/upstream.conf 2>/dev/null | head -n 1 | sed 's/^server //; s/:8081$//')
+fetch_app_metrics() {
+  local attempt
+  for attempt in 1 2 3 4 5 6; do
+    if docker exec sssok-nginx-dev wget -q -T 5 -O - \
+      "http://${app_host:-app}:8081/actuator/prometheus" > "$metrics_file"; then
+      return 0
+    fi
+    if [ "$attempt" != 6 ]; then sleep 2; fi
+  done
+  echo "개발 앱 내부 지표 조회 실패: ${app_host:-app}" >&2
+  return 1
+}
+fetch_app_metrics
 grep -q '^jvm_memory_used_bytes{' "$metrics_file" || { echo '앱 JVM 지표 누락' >&2; exit 1; }
 echo '개발 호스트·앱 지표와 호스트·앱·Alloy 경로 차단 정상 (중앙 수집은 중앙에서 별도 확인)'

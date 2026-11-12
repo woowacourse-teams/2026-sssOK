@@ -49,18 +49,30 @@ em {
   background-color: #fff6ec;
 }
 
+/* --svh: 화면 높이의 1%. 폰 브라우저는 스크롤 방향에 따라 주소창·아래 바가 접혔다 펴지며 화면 높이가 바뀌는데,
+   그때마다 폰 그림·글 자리가 커졌다 작아지지 않게 main.js 가 바가 펴진 작은 화면 높이(100svh)로 묶어 둔다
+   (넓은 화면은 svh 그대로) */
+
+/* main.js 가 첫 장면을 그리기 전엔 무대를 감춘다. 안 그러면 CSS 기본 자리의 폰과 빈 단톡방이
+   잠깐 보였다가 단톡방 장면으로 바뀌어 깜빡여 보인다 (js-wait 는 head 의 인라인 스크립트가 붙인다) */
+.js-wait .stage {
+  opacity: 0;
+}
+
 /* 스크롤 길이 = 타임라인 길이. 화면은 고정되고 스크롤 위치가 곧 장면 시각이다 */
 .film {
   position: relative;
-  height: calc(var(--secs) * var(--per) + 100svh);
+  height: calc(var(--secs) * var(--per) + calc(var(--svh, 1svh) * 100) + var(--stage-extra, 0px));
   /* 장면 1초당 스크롤 길이. 작을수록 같은 스크롤에 장면이 빨리 지나간다 */
-  --per: 105svh;
+  --per: calc(var(--svh, 1svh) * 105);
 }
 
+/* --stage-extra: 폰 폭에선 무대를 묶어 둔 화면 높이보다 아래로 더 길게 둔다. 브라우저 바가 접혀 화면이 길어져도
+   무대 끝이 화면 안에 드러나 폰 그림자가 잘린 줄로 보이지 않게 한다. 장면은 모두 위쪽 묶인 높이 안에 놓인다 */
 .stage {
   position: sticky;
   top: 0;
-  height: 100svh;
+  height: calc(calc(var(--svh, 1svh) * 100) + var(--stage-extra, 0px));
   overflow: hidden;
 }
 
@@ -318,7 +330,7 @@ a.start-opt:focus-visible {
 /* ── 폰. 안쪽 화면은 실제 앱을 375px 기준으로 옮겨 em 으로 줄인다 (1em ≈ 앱의 15.6px) ── */
 .phone,
 .phone-shell {
-  --ph: min(80svh, 860px);
+  --ph: min(calc(var(--svh, 1svh) * 80), 860px);
   --pw: calc(var(--ph) * 0.462);
   left: 66%;
   top: 50%;
@@ -1337,7 +1349,7 @@ a.start-opt:focus-visible {
   display: flex;
   align-items: center;
   gap: 0.5em;
-  margin-bottom: 2.6svh;
+  margin-bottom: calc(var(--svh, 1svh) * 2.6);
   font-size: clamp(14px, 1.25vw, 21px);
   color: var(--page-sub);
   font-weight: 700;
@@ -1403,8 +1415,8 @@ a.start-opt:focus-visible {
 
 /* 헤드라인 아래 한 문장 설명 */
 .hero-lead {
-  margin-top: 2.2svh;
-  font-size: clamp(15px, 1.35vw, 22px);
+  margin-top: calc(var(--svh, 1svh) * 2.2);
+  font-size: clamp(18px, 1.35vw, 22px);
   font-weight: 700;
   line-height: 1.55;
   letter-spacing: -0.02em;
@@ -1421,7 +1433,7 @@ a.start-opt:focus-visible {
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 4svh;
+  margin-top: calc(var(--svh, 1svh) * 6);
 }
 
 /* 두 버튼은 높이·글씨 크기를 같게 두고, 우선순위는 색(주황 > 검정)으로만 나눈다 */
@@ -1504,7 +1516,7 @@ a.start-opt:focus-visible {
   display: flex;
   flex-direction: column;
   width: min(390px, 34vw);
-  height: min(80svh, 720px);
+  height: min(calc(var(--svh, 1svh) * 80), 720px);
   border-radius: 24px;
   background: #b2c7d9;
   overflow: hidden;
@@ -2064,7 +2076,7 @@ a.start-opt:focus-visible {
 .head {
   left: 0;
   right: 0;
-  top: calc(88px + 1svh);
+  top: calc(88px + calc(var(--svh, 1svh) * 1));
   z-index: 8;
   text-align: center;
   opacity: 0;
@@ -2114,7 +2126,9 @@ a.start-opt:focus-visible {
 /* 스크롤 안내: 칩 없이 글자만 */
 .hint {
   left: 50%;
-  bottom: calc(3.2svh + env(safe-area-inset-bottom));
+  bottom: calc(
+    calc(var(--svh, 1svh) * 3.2) + env(safe-area-inset-bottom) + var(--stage-extra, 0px)
+  );
   z-index: 9;
   font-size: clamp(13px, 1vw, 16px);
   font-weight: 700;
@@ -2229,7 +2243,7 @@ a.start-opt:focus-visible {
 }
 
 .end .kicker {
-  margin-top: 2.6svh;
+  margin-top: calc(var(--svh, 1svh) * 2.6);
   font-size: clamp(15px, 1.6vw, 26px);
 }
 
@@ -2243,7 +2257,7 @@ a.start-opt:focus-visible {
 
 .cta {
   display: inline-flex;
-  margin-top: 3.4svh;
+  margin-top: calc(var(--svh, 1svh) * 3.4);
   padding: 0.75em 1.6em;
   border-radius: 999px;
   background: var(--primary);
@@ -2260,7 +2274,7 @@ a.start-opt:focus-visible {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  margin-top: 3.4svh;
+  margin-top: calc(var(--svh, 1svh) * 5.4);
 }
 
 .ctas .cta {
@@ -2359,7 +2373,7 @@ a.start-opt:focus-visible {
 }
 
 .url {
-  margin-top: 2.4svh;
+  margin-top: calc(var(--svh, 1svh) * 2.4);
   font-size: clamp(13px, 1.1vw, 18px);
   font-weight: 800;
   color: #8a7c70;
@@ -2456,7 +2470,13 @@ a.start-opt:focus-visible {
 /* ── 모바일: 글은 위, 폰은 아래 ── */
 @media (max-width: 760px) {
   .film {
-    --per: 92svh;
+    /* 스크롤 길이는 처음 잰 화면 높이(--scroll-vh)로 고정한다. 주소창이 접혀 장면을 다시 짜도
+       같은 스크롤 위치가 같은 장면을 가리키게 (--svh 로 하면 다시 짤 때 장면이 앞뒤로 튄다) */
+    --per: calc(var(--scroll-vh, var(--svh, 1svh)) * 92);
+  }
+
+  .hint {
+    font-size: 15px;
   }
 
   .site-header {
@@ -2480,45 +2500,78 @@ a.start-opt:focus-visible {
   }
 
   .head {
-    top: calc(64px + 1svh);
+    top: calc(64px + calc(var(--svh, 1svh) * 1));
   }
 
   .tx {
-    top: calc(64px + 1.5svh);
+    top: calc(60px + calc(var(--svh, 1svh) * 1));
     left: 6vw;
     right: 6vw;
     text-align: center;
   }
 
   .tag {
-    margin-bottom: 0.6em;
+    margin-bottom: 0.8em;
+  }
+
+  /* 태그 아래가 작은 질문 줄(kicker)이면 1번 장면(태그 → 큰 제목)과 보이는 간격이 같도록 더 띄운다 */
+  .tag + .kicker {
+    margin-top: 6px;
   }
 
   /* 폰 폭: 헤더에 로고가 이미 있으니 한 줄 소개만 남기고, 줄들은 가운데로 */
   .hero-id {
     justify-content: center;
-    margin-bottom: 1.2svh;
+    margin-bottom: calc(var(--svh, 1svh) * 1.2);
     font-size: 14px;
+  }
+
+  /* 첫 화면엔 헤드라인만 있으니(단톡방은 스크롤하면 올라온다) 손 흔드는 쏙이를 크게 키워
+     빈 자리를 채우고, 덩어리째 화면 세로 가운데보다 살짝 위에 둔다 */
+  .tx.hero {
+    top: calc(var(--svh, 1svh) * 48);
+  }
+
+  /* 무대가 아래로 더 길어도 마지막 장면은 묶인 화면 높이의 가운데에 둔다 */
+  .end {
+    top: calc(var(--svh, 1svh) * 50);
+  }
+
+  .tx.hero .hero-id {
+    margin-bottom: calc(var(--svh, 1svh) * 2);
+  }
+
+  .tx.hero .kind-logo {
+    flex-direction: column;
+    gap: 0;
+    font-size: 27px;
+  }
+
+  .tx.hero .kind-logo img {
+    width: min(126px, calc(var(--svh, 1svh) * 18.5));
+    height: auto;
+    margin-bottom: 4px;
   }
 
   /* 첫 화면 헤드라인: 한 줄('사진 보내달라는 말,')이 360px 폭에서도 꺾이지 않는 선까지 키운다 */
   .tx.hero .title {
-    font-size: 35px;
+    font-size: 38px;
   }
 
+  /* 헤드라인('이제 그만!')과 한 줄 소개 사이를 띄워, 소개가 헤드라인에 붙어 보이지 않게 한다 */
   .hero-lead {
-    margin-top: 0.8svh;
-    font-size: 16.5px;
+    margin-top: 16px;
+    font-size: 18.5px;
     line-height: 1.5;
   }
 
   .hero-ctas {
     justify-content: center;
-    margin-top: 1.8svh;
+    margin-top: calc(var(--svh, 1svh) * 3);
   }
 
   .hero-ctas .cta {
-    font-size: 15px;
+    font-size: 17.5px;
   }
 
   /* App Store 는 머리글 '링크 만들기' 메뉴에 있으니 폰 폭 첫 화면에선 웹 버튼 하나만 */
@@ -2527,13 +2580,15 @@ a.start-opt:focus-visible {
   }
 
   /* 폰 폭 글씨: 제목은 한 줄이 화면 폭을 넘지 않는 선(33px)까지, 나머지는 읽기 편한 크기로 */
+  /* 폰 그림을 조금이라도 크게 두려고 장면 글은 한 단계 줄인다 */
   .title {
-    font-size: 33px;
+    font-size: 30px;
   }
 
   .desc {
-    margin-top: 0.5em;
-    font-size: 15.5px;
+    margin-top: 0.45em;
+    font-size: 14.5px;
+    line-height: 1.5;
   }
 
   .kicker {
@@ -2560,12 +2615,19 @@ a.start-opt:focus-visible {
     white-space: nowrap;
   }
 
+  /* 프로필 동그라미가 글자에 비해 커 보여서, 칸 카드 폭 안에서 이름·장수와 어울리게 줄인다 */
+  .rowlab .ava {
+    width: 1.4em;
+    height: 1.4em;
+    border-width: 1.5px;
+  }
+
   .phone,
   .phone-shell {
-    --ph: min(60svh, calc((100vw - 64px) / 0.462));
+    --ph: min(calc(var(--svh, 1svh) * 60), calc((100vw - 64px) / 0.462));
     left: 50%;
     top: auto;
-    bottom: 3svh;
+    bottom: calc(calc(var(--svh, 1svh) * 1.8) + var(--stage-extra, 0px));
   }
 
   /* 폰 폭에선 옆 목차를 숨긴다. 왼쪽 가장자리의 폰 그림·사진 줄과 겹치고,
@@ -2578,7 +2640,7 @@ a.start-opt:focus-visible {
   .sp {
     left: 16px;
     right: 16px;
-    top: max(calc(50svh - 40px), 220px);
+    top: max(calc(calc(var(--svh, 1svh) * 50) - 40px), 220px);
     bottom: auto;
     padding: 14px;
   }
@@ -2592,14 +2654,14 @@ a.start-opt:focus-visible {
 @media (max-width: 760px) and (max-height: 700px) {
   .phone,
   .phone-shell {
-    --ph: min(54svh, calc((100vw - 64px) / 0.462));
+    --ph: min(calc(var(--svh, 1svh) * 54), calc((100vw - 64px) / 0.462));
   }
 }
 
 @media (max-width: 760px) {
   .invite {
     left: 50%;
-    top: 50svh;
+    top: calc(var(--svh, 1svh) * 50);
     width: min(300px, 78vw);
   }
 
@@ -2615,14 +2677,16 @@ a.start-opt:focus-visible {
     border-radius: 7px;
   }
 
+  /* 폰 폭 단톡방: 실제 카톡처럼 세로로 길게, 머리글 아래부터 화면 끝까지 채운다.
+     이 자리는 다 올라온 뒤의 자리이고, 첫 화면에선 main.js 가 화면 아래 밖으로 내려 둔다 */
   .chat {
-    left: 16px;
-    right: 16px;
-    top: auto;
-    bottom: calc(3.2svh + 30px);
-    width: auto;
-    /* 키가 작은 폰(667px 등)에선 첫 화면 버튼과 겹치지 않게 위쪽 글 높이만큼 비운다 */
-    height: min(50svh, calc(100svh - 400px));
+    --cw: min(360px, calc(100vw - 40px));
+    left: calc(50% - var(--cw) / 2);
+    right: auto;
+    top: 96px;
+    bottom: auto;
+    width: var(--cw);
+    height: min(680px, calc(calc(var(--svh, 1svh) * 100) - 116px - env(safe-area-inset-bottom)));
     font-size: 12.5px;
   }
 
