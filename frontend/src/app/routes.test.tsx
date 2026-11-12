@@ -124,7 +124,7 @@ describe("라우트", () => {
     await user.click(screen.getByRole("button", { name: "방 설정" }));
 
     expect(router.state.location.pathname).toBe(ROUTES.roomSettings(ROOM_CODE));
-    expect(screen.getByRole("heading", { name: "방 설정" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "방 설정" })).toBeInTheDocument();
   });
 
   it("방 설정을 변경하면 갤러리에 변경된 정보를 보여준다", async () => {
@@ -357,11 +357,11 @@ describe("라우트", () => {
     expect(getRoomSession(OTHER_ROOM_CODE)).not.toBeNull();
   });
 
-  it("알 수 없는 주소는 홈으로 보낸다", () => {
+  it("알 수 없는 주소는 홈으로 보낸다", async () => {
     const router = renderAt("/이런-주소는-없다");
 
     expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 });
 
