@@ -41,19 +41,19 @@ const renderAt = (path: string) => {
 describe("라우트", () => {
   beforeEach(() => localStorage.clear());
 
-  it("/home 은 홈 화면을 보여준다", () => {
+  it("/home 은 홈 화면을 보여준다", async () => {
     renderAt(ROUTES.home);
 
-    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 
   // 운영에서 / 는 CloudFront 가 랜딩(landing.html)을 바로 주므로 앱까지 오지 않는다.
   // 그 설정 전이나 로컬 개발 서버처럼 앱이 / 를 받으면 홈으로 보낸다.
-  it("/ 로 들어오면 홈으로 보낸다", () => {
+  it("/ 로 들어오면 홈으로 보낸다", async () => {
     const router = renderAt("/");
 
     expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 
   // 방 조회 결과에 따른 화면 분기는 RoomEntryPage.test.tsx 가 검증한다.
@@ -124,7 +124,7 @@ describe("라우트", () => {
     await user.click(screen.getByRole("button", { name: "방 설정" }));
 
     expect(router.state.location.pathname).toBe(ROUTES.roomSettings(ROOM_CODE));
-    expect(screen.getByRole("heading", { name: "방 설정" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "방 설정" })).toBeInTheDocument();
   });
 
   it("방 설정을 변경하면 갤러리에 변경된 정보를 보여준다", async () => {
@@ -294,7 +294,7 @@ describe("라우트", () => {
     const user = userEvent.setup();
     const router = renderAt(ROUTES.createRoom);
 
-    await user.type(screen.getByRole("textbox", { name: "내 이름" }), "민수");
+    await user.type(await screen.findByRole("textbox", { name: "내 이름" }), "민수");
     await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");
     await user.click(screen.getByRole("button", { name: "방 만들기" }));
 
@@ -357,11 +357,11 @@ describe("라우트", () => {
     expect(getRoomSession(OTHER_ROOM_CODE)).not.toBeNull();
   });
 
-  it("알 수 없는 주소는 홈으로 보낸다", () => {
+  it("알 수 없는 주소는 홈으로 보낸다", async () => {
     const router = renderAt("/이런-주소는-없다");
 
     expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(screen.getByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
   });
 });
 
