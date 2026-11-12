@@ -10,8 +10,9 @@ from pathlib import Path
 import numpy as np
 
 from .person_grouping import build_face_groups, match_bodies
+from .photo_duplicates import independent_photos
 
-PIPELINE_VERSION = '1.0.1-local'
+PIPELINE_VERSION = '1.1.0-subject-evidence'
 POLICY = {
     'face_detector': 'YuNet', 'face_features': 'SFace', 'body_detector': 'SSDLite320 MobileNetV3',
     'body_features': 'OSNet-x1.0 MSMT17, full body, no flip', 'face_detection_score': .75,
@@ -23,6 +24,10 @@ POLICY = {
                         'min_assignment_photos': 2, 'min_competitor_photos': 1,
                         'references': 'frozen face-anchored bodies from different images'},
     'new_body_references': False, 'group_ids': 'run scoped',
+    'seed_recovery': {'min_face_size': 32, 'min_body_area': .04,
+                      'min_relative_body_area': .50, 'min_body_score': .80},
+    'duplicate_evidence': 'whole-frame mean <=1.5 and worst 8x8 tile <=6, 96x96 RGB',
+    'attachment_references': 'frozen passes, duplicate reference photos count once',
 }
 
 
@@ -93,19 +98,21 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
         if not photos:
             raise ValueError('Every supported input image failed decoding; see manifest.json')
         job.update('detecting_faces')
-        faces, face_features, hashes, face_errors = extract_faces(photos, output, assets, job.update)
+        faces, face_features, _hashes, face_errors = extract_faces(photos, output, assets, job.update)
         errors.extend(face_errors)
         np.savez_compressed(output / 'face-features.npz', features=face_features)
         job.update('grouping_faces', faces=len(faces))
-        groups, face_evidence = build_face_groups(faces, face_features, hashes)
-        job.update('detecting_bodies', groups=len(groups))
+        photo_identities = independent_photos(photos, output)
+        job.update('detecting_bodies')
         bodies, body_errors = extract_bodies(photos, output, assets, job.update)
         errors.extend(body_errors)
+        groups, face_evidence = build_face_groups(
+            faces, face_features, bodies=bodies, photo_identities=photo_identities)
         job.update('extracting_body_features', bodies=len(bodies))
         body_features = extract_body_features(bodies, photos, output, assets, job.update)
         np.savez_compressed(output / 'body-features.npz', features=body_features)
         job.update('matching_bodies')
-        additions, pending_bodies = match_bodies(bodies, body_features, faces, groups)
+        additions, pending_bodies = match_bodies(bodies, body_features, faces, groups, photo_identities=photo_identities)
         result_groups = []
         for gi, group in enumerate(groups):
             face_ids = sorted({faces[fid]['image_id'] for fid in group['face_ids']})
@@ -126,13 +133,15 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
                   'counts': {'photos_prepared': len(photos), 'groups': len(groups), 'faces': len(faces),
                              'bodies': len(bodies), 'face_memberships': sum(len(g['face_image_ids']) for g in result_groups),
                              'body_additions': len(additions), 'memberships': sum(len(g['image_ids']) for g in result_groups),
-                             'unassigned_photos': len(unassigned), 'errors': len(errors)},
+                             'unassigned_photos': len(unassigned), 'errors': len(errors),
+                             'seed_faces': face_evidence['seed_faces'],
+                             'independent_photos': face_evidence['independent_photos']},
                   'groups': result_groups, 'unassigned_image_ids': unassigned, 'errors': errors,
                   'artifacts': {'manifest': 'manifest.json', 'evidence': 'evidence.json'},
                   'notes': ['No identity annotations or previous experiment outputs loaded.',
                             'Group IDs are scoped to this run; no cross-run identity matching.',
                             'Unassigned photos and pending person detections are different.']}
-        evidence = {'faces': faces, 'bodies': bodies, 'face_grouping': face_evidence,
+        evidence = {'faces': faces, 'bodies': bodies, 'face_grouping': face_evidence, 'photo_identities': photo_identities,
                     'pending_bodies': pending_bodies, 'body_additions': additions}
         job.update('exporting')
         write_json(output / 'evidence.json', evidence)

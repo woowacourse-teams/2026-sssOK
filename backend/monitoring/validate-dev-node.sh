@@ -30,15 +30,28 @@ nginx = services['nginx']
 assert any(p['target'] == 19100 and str(p.get('published')) == '19100'
            and p.get('host_ip') == '10.0.0.104' for p in nginx['ports']), 'Nginx 사설 수집 포트 누락'
 assert any(p['target'] == 80 and str(p.get('published')) == '80' for p in nginx['ports']), 'Nginx API 포트 누락'
-assert nginx['environment']['SSSOK_ENVIRONMENT'] == 'dev'
-assert nginx['environment']['CENTRAL_PRIVATE_IP'] == '10.0.20.204'
+# 환경 라벨·중앙 IP 는 개발 CD 가 템플릿을 치환해 nginx/default.conf 로 둔다 (운영과 같은 conf.d 마운트).
+assert [v['target'] for v in nginx['volumes']] == ['/etc/nginx/conf.d'], 'Nginx conf.d 마운트 누락'
 assert nginx['labels']['com.sssok.log.service'] == 'sssok-nginx', 'Docker 로그 수집 라벨 누락'
-assert set(nginx['networks']) & set(services['app']['networks']) & set(node['networks']), '공통 네트워크 누락'
+assert set(nginx['networks']) & set(services['app-blue']['networks']) & set(services['app-green']['networks']) & set(node['networks']), '공통 네트워크 누락'
 print('개발 node_exporter·Nginx 배포 구성 정상')
 PY
-docker run --rm \
-  -e SSSOK_ENVIRONMENT=dev -e CENTRAL_PRIVATE_IP=10.0.20.204 \
-  -e 'NGINX_ENVSUBST_FILTER=^(SSSOK_ENVIRONMENT|CENTRAL_PRIVATE_IP)$' \
-  -v "$PWD/backend/monitoring/nginx/container/default.conf.template:/etc/nginx/templates/default.conf.template:ro" \
-  nginx:1.27-alpine nginx -t
+# 개발 CD 와 같은 치환으로 default.conf 를 만들고, 배포 스크립트가 쓰는 형식의 upstream.conf 와 함께 검사한다.
+conf_dir=$(mktemp -d)
+trap 'rm -rf "$config" "$env_file" "$conf_dir"' EXIT
+sed -e 's/${SSSOK_ENVIRONMENT}/dev/g' -e 's/${CENTRAL_PRIVATE_IP}/10.0.20.204/g' \
+  backend/monitoring/nginx/container/default.conf.template > "$conf_dir/default.conf"
+cat > "$conf_dir/upstream.conf" <<'EOF'
+upstream sssok_app {
+    zone sssok_app 64k;
+    server app-blue:8080 resolve;
+}
+upstream sssok_app_management {
+    zone sssok_app_management 64k;
+    server app-blue:8081 resolve;
+}
+EOF
+docker run --rm --network none \
+  --mount "type=bind,src=$conf_dir,dst=/etc/nginx/conf.d,readonly" \
+  nginx:1.27.5-alpine nginx -t
 bash -n backend/monitoring/check-dev-node.sh

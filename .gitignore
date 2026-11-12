@@ -35,3 +35,8 @@ Thumbs.db
 
 # 중앙 서버에서 자동 생성하는 Discord 비밀 파일
 /backend/monitoring/central/secrets/
+
+# Playwright
+/frontend/playwright-report/
+/frontend/test-results/
+/frontend/e2e/.auth/

@@ -177,7 +177,6 @@ const Review = ({
     if (owner) {
       showToast({
         message: `${name} 님 사진을 합쳤어요 (${includedPhotos(owner).length}장)`,
-        showClose: false,
         bottom: TOAST_ABOVE_HINT,
       });
     }

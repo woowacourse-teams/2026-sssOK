@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { memberSessionQueryOptions } from "@/entities/member-session";
 import { createAnonymous, saveRoomSession } from "@/entities/session";
+import { isAppWebView } from "@/shared/lib";
 import { joinRoom } from "./joinRoom";
 
 interface EnterRoomVariables {
@@ -15,6 +16,7 @@ export const useJoinRoomMutation = (roomCode: string, onSuccess: () => void) => 
   return useMutation({
     mutationFn: async ({ nickname, roomId }: EnterRoomVariables) => {
       const member = await queryClient.fetchQuery(memberSessionQueryOptions());
+      if (!member && isAppWebView()) throw new Error("회원 로그인이 필요합니다.");
       const session = member ?? (await createAnonymous({ nickname }));
       const result = await joinRoom(roomId, session.accessToken, { code: roomCode, nickname });
       if (!member) saveRoomSession(roomCode, session);

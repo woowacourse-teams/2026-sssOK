@@ -2,7 +2,7 @@
   "expo": {
     "name": "쏙",
     "slug": "ssssok",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "scheme": "sssok",
@@ -36,6 +36,15 @@
     },
     "owner": "sssok",
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
       "expo-sharing",
       [
         "expo-media-library",

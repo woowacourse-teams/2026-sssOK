@@ -1,12 +1,11 @@
 {
   "name": "frontend",
-  "version": "2.8.0",
+  "version": "2.9.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "start": "pnpm type-check && webpack serve --mode development",
     "start:mock": "MOCK=full pnpm start",
-    "start:app": "API_PROXY=1 pnpm start",
     "build:dev": "pnpm type-check && webpack --mode development",
     "build": "pnpm type-check && webpack --mode production",
     "type-check": "tsc --noEmit",
@@ -19,7 +18,11 @@
     "test:coverage": "jest --coverage",
     "test:check": "pnpm type-check && pnpm test",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report"
   },
   "keywords": [],
   "author": "",
@@ -37,6 +40,7 @@
     "@babel/preset-react": "^7.29.7",
     "@babel/preset-typescript": "^7.29.7",
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.65.0",
     "@storybook/addon-webpack5-compiler-swc": "latest",
     "@storybook/react-webpack5": "10.5.7",
     "@tanstack/eslint-plugin-query": "^5.101.4",
@@ -49,6 +53,7 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "adm-zip": "^0.6.1",
     "babel-jest": "^30.4.1",
     "babel-loader": "^10.1.1",
     "copy-webpack-plugin": "^14.0.0",

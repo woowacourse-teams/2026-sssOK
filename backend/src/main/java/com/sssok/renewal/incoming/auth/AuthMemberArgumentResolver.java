@@ -40,7 +40,9 @@ public class AuthMemberArgumentResolver implements HandlerMethodArgumentResolver
         if (isMissing(authorizationHeader) && isMissing(tokenParam) && !isRequired(parameter)) {
             return null;
         }
-        return tokenProvider.parse(extractToken(authorizationHeader, tokenParam));
+        String token = extractToken(authorizationHeader, tokenParam);
+        Long verifiedMemberId = VerifiedAuthentication.find(request, token);
+        return verifiedMemberId != null ? verifiedMemberId : tokenProvider.parse(token);
     }
 
     private boolean isRequired(MethodParameter parameter) {

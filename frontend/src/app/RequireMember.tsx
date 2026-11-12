@@ -1,14 +1,29 @@
 import styled from "@emotion/styled";
-import { Navigate, Outlet } from "react-router-dom";
+import { useEffect } from "react";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useMemberSessionQuery } from "@/entities/member-session";
 import { ROUTES } from "@/shared/config";
+import { isAppWebView, rememberLoginReturn } from "@/shared/lib";
 import { spacing } from "@/shared/styles/tokens";
 import { Button } from "@/shared/ui/button";
 import { PageSpinner } from "@/shared/ui/spinner";
 
-export const RequireMember = () => {
+export const RequireAppRoomMember = () =>
+  isAppWebView() ? <RequireMember rememberDestination /> : <Outlet />;
+
+export const RequireMember = ({
+  rememberDestination = false,
+}: {
+  rememberDestination?: boolean;
+}) => {
   const session = useMemberSessionQuery();
+
+  const { pathname, search, hash } = useLocation();
+  const needsLogin = session.isSuccess && !session.data;
+  useEffect(() => {
+    if (rememberDestination && needsLogin) rememberLoginReturn(pathname + search + hash);
+  }, [rememberDestination, needsLogin, pathname, search, hash]);
 
   if (session.isPending) return <PageSpinner label="로그인 확인 중" />;
   if (session.isError) {

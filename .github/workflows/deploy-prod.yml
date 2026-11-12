@@ -132,14 +132,16 @@ jobs:
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
         run: |
           set -eu
-          mkdir -p "$DEPLOY_PATH/monitoring/alloy"
+          mkdir -p "$DEPLOY_PATH/monitoring/alloy" "$DEPLOY_PATH/nginx" "$DEPLOY_PATH/deploy"
           cp backend/docker-compose.prod.yml "$DEPLOY_PATH/docker-compose.prod.yml"
-          cp backend/nginx.conf "$DEPLOY_PATH/nginx.conf"
+          # 활성 칸을 담은 nginx/upstream.conf 는 배포 스크립트가 관리하므로 덮어쓰지 않는다.
+          cp backend/nginx.conf "$DEPLOY_PATH/nginx/default.conf"
+          cp backend/deploy/blue-green.sh "$DEPLOY_PATH/deploy/blue-green.sh"
           cp backend/monitoring/check-prod-node.sh "$DEPLOY_PATH/monitoring/check-prod-node.sh"
           cp backend/monitoring/alloy/config.alloy "$DEPLOY_PATH/monitoring/alloy/config.alloy"
           cp backend/monitoring/alloy/write.central.alloy "$DEPLOY_PATH/monitoring/alloy/write.central.alloy"
 
-      - name: 이미지 교체 및 헬스체크
+      - name: 블루-그린 배포
         env:
           NEW_IMAGE: ${{ needs.build.outputs.image }}
           APP_RELEASE_VERSION: ${{ needs.build.outputs.release-version }}
@@ -151,94 +153,19 @@ jobs:
         run: |
           set -eu
           cd "$DEPLOY_PATH"
-
-          COMPOSE="docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml"
-          IMAGE_REPOSITORY="${NEW_IMAGE%:*}"
-
-          cleanup_old_images() {
-            CURRENT_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env 2>/dev/null | tail -n 1)"
-            PREVIOUS_IMAGE="$(sed -n 's/^BACKEND_IMAGE=//p' image.env.prev 2>/dev/null | tail -n 1)"
-
-            echo "미사용 이전 이미지 정리 시작 (현재·직전 이미지는 보존)"
-            docker image ls "$IMAGE_REPOSITORY" --format '{{.Repository}}:{{.Tag}}' |
-              while IFS= read -r IMAGE; do
-                [ "$IMAGE" = "$CURRENT_IMAGE" ] && continue
-                [ "$IMAGE" = "$PREVIOUS_IMAGE" ] && continue
-                [ "${IMAGE##*:}" = '<none>' ] && continue
-                docker image rm "$IMAGE" || true
-              done
-            docker image prune -f > /dev/null 2>&1 || true
-          }
-
           # 신규 러너의 기본 credential helper 대신 이 배포에만 사용하는 설정에 로그인한다.
+          # 배포 스크립트(compose pull)도 이 DOCKER_CONFIG 를 물려받아 같은 인증으로 이미지를 받는다.
           DOCKER_CONFIG="$(mktemp -d "$RUNNER_TEMP/ghcr.XXXXXXXX")"
           export DOCKER_CONFIG
-          finish() {
-            rm -rf -- "$DOCKER_CONFIG"
-            cleanup_old_images
-          }
-          trap finish EXIT
+          trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
           printf '%s\n' '{"auths":{"ghcr.io":{}}}' > "$DOCKER_CONFIG/config.json"
-
-          # pull 전에 공간을 확보해 디스크 부족으로 배포가 시작조차 못 하는 상황을 막는다.
-          cleanup_old_images
-
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
-          # 롤백 대비로 직전 이미지 태그를 보관한다.
-          if [ -f image.env ]; then
-            cp image.env image.env.prev
-          fi
-          # 이미지와 버전을 한 파일에 같이 둔다 — 롤백으로 image.env.prev 를 되돌리면
-          # 그 이미지가 실제로 배포됐을 때의 버전 정보도 같이 돌아간다.
-          {
-            echo "BACKEND_IMAGE=$NEW_IMAGE"
-            echo "APP_RELEASE_VERSION=$APP_RELEASE_VERSION"
-            echo "APP_BACKEND_VERSION=$APP_BACKEND_VERSION"
-            echo "APP_GIT_SHA=$APP_GIT_SHA"
-          } > image.env
+          COMPOSE="docker compose --env-file .env --env-file blue.env --env-file green.env -f docker-compose.prod.yml"
 
-          $COMPOSE pull
-          # 앱과 외부 헬스체크 경로를 먼저 교체해 모니터링 의존성 실패와 분리한다. nginx는
-          # 앱 readiness를 기다리지 않고 시작하고, 실제 요청 성공 여부는 아래 헬스체크가 판정한다.
-          $COMPOSE up -d app
-          $COMPOSE up -d --no-deps nginx
-          if ! $COMPOSE up -d; then
-            echo "일부 서비스 기동 실패 - 앱 헬스체크와 로컬 수집기 검사를 계속한다"
-          fi
-
-          # nginx.conf 는 bind mount라 파일이 바뀌어도 실행 중인 Nginx가 자동으로 다시 읽지 않는다.
-          # 새 설정을 먼저 검사해, 잘못된 설정으로 기존 정상 프로세스까지 reload하지 않게 한다.
-          echo "Nginx 설정 검사 및 리로드"
-          $COMPOSE exec -T nginx nginx -t
-          $COMPOSE exec -T nginx nginx -s reload
-
-          echo "헬스체크 시작"
-          # 8080이 아니라 80(nginx)을 확인한다 — ALB가 실제로 타는 경로 그대로 검증한다.
-          APP_HEALTHY=false
-          for i in $(seq 1 30); do
-            if curl -fsS http://localhost/health > /dev/null 2>&1; then
-              echo "헬스체크 성공 ($i번째 시도)"
-              APP_HEALTHY=true
-              break
-            fi
-            sleep 5
-          done
-
-          if [ "$APP_HEALTHY" != true ]; then
-            echo "헬스체크 실패 - 직전 버전으로 롤백한다"
-            $COMPOSE logs --tail 100 app || true
-
-            if [ -f image.env.prev ]; then
-              mv image.env.prev image.env
-              $COMPOSE up -d
-              echo "롤백 완료"
-            else
-              echo "직전 버전이 없어 롤백하지 못했다 (최초 배포로 추정)"
-            fi
-
-            exit 1
-          fi
+          # 새 이미지를 쉬는 칸에 띄워 readiness 를 확인한 뒤 nginx 를 전환하고 기존 칸을 끈다.
+          # 어느 단계에서 실패해도 트래픽은 기존 칸에 남거나 되돌려지고, 잡은 실패로 끝난다.
+          bash deploy/blue-green.sh deploy
 
           # 로컬 수집기를 검사한다. 중앙 연결 실패와 앱 롤백은 분리한다.
           $COMPOSE exec -T alloy /bin/alloy validate /etc/alloy/config
@@ -255,7 +182,7 @@ jobs:
         run: |
           set -eu
           cd "$DEPLOY_PATH"
-          CENTRAL_URL=$(docker compose --env-file .env --env-file image.env -f docker-compose.prod.yml exec -T alloy printenv CENTRAL_LOKI_URL)
+          CENTRAL_URL=$(docker compose --env-file .env --env-file blue.env --env-file green.env -f docker-compose.prod.yml exec -T alloy printenv CENTRAL_LOKI_URL)
           payload=$(printf '{"streams":[{"stream":{"environment":"prod","service":"monitoring-deploy"},"values":[["%s","prod central deployment probe"]]}]}' "$(date +%s%N)")
           if ! status=$(curl --noproxy '*' --silent --show-error --max-time 15 \
             -H 'Content-Type: application/json' --data "$payload" -o /dev/null -w '%{http_code}' "$CENTRAL_URL"); then
