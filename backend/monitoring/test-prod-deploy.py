@@ -2,6 +2,7 @@
 """운영 수집기 구성과 앱 배포 이후 관측 장애 처리를 검증한다."""
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -15,10 +16,21 @@ PROBE = '      - name: 중앙 Loki 수신 확인 (앱 배포와 별도)'
 
 def monitoring_steps():
     source = WORKFLOW.read_text()
-    app_check = source.index('          if [ "$APP_HEALTHY" != true ]; then')
-    end = source.index('\n          fi\n', app_check) + len('\n          fi\n')
+    deploy = source.index('          bash deploy/blue-green.sh deploy\n')
+    end = deploy + len('          bash deploy/blue-green.sh deploy\n')
     return textwrap.dedent(source[end:].split(PROBE, 1)[0])
 
+
+UPSTREAM = '''
+upstream sssok_app {
+    zone sssok_app 64k;
+    server app-green:8080 resolve;
+}
+upstream sssok_app_management {
+    zone sssok_app_management 64k;
+    server app-green:8081 resolve;
+}
+'''
 
 MOCK_COMMANDS = r'''
 set -eu
@@ -78,22 +90,41 @@ curl() {
                     self.assertIn('::warning::', result.stdout)
 
     def test_prod_nginx_without_local_grafana(self):
-        subprocess.run(['docker', 'run', '--rm', '--network', 'none',
-            '--add-host', 'app:127.0.0.1', '--mount',
-            f'type=bind,src={ROOT}/backend/nginx.conf,dst=/etc/nginx/conf.d/default.conf,readonly',
-            'nginx:1.27-alpine', 'nginx', '-t'], check=True,
-            capture_output=True, text=True, timeout=30)
+        # 앱 컨테이너 이름을 찾을 수 없는(network none) 상태에서도 upstream resolve 로 설정이 통과해야
+        # 꺼진 칸을 가리킨 채 nginx 가 재시작돼도 뜬다.
+        with tempfile.TemporaryDirectory() as conf:
+            Path(conf, 'default.conf').write_text((ROOT / 'backend/nginx.conf').read_text())
+            Path(conf, 'upstream.conf').write_text(UPSTREAM)
+            subprocess.run(['docker', 'run', '--rm', '--network', 'none', '--mount',
+                f'type=bind,src={conf},dst=/etc/nginx/conf.d,readonly',
+                'nginx:1.27.5-alpine', 'nginx', '-t'], check=True,
+                capture_output=True, text=True, timeout=30)
+
+    def test_app_metrics_sends_valid_host_to_app(self):
+        # upstream 이름(sssok_app_management)이 Host 로 가면 Tomcat 이 밑줄 든 Host 를 400 으로 거부한다(#793).
+        block = re.search(r'location = /app-metrics \{(.*?)\n    \}', (ROOT / 'backend/nginx.conf').read_text(), re.S)
+        self.assertIsNotNone(block)
+        host = re.search(r'proxy_set_header Host ([^;]+);', block.group(1))
+        self.assertIsNotNone(host, '/app-metrics 가 Host 헤더를 지정하지 않는다')
+        self.assertNotIn('_', host.group(1))
 
     def test_prod_compose_without_legacy_credentials(self):
         env = {k: v for k, v in os.environ.items()
                if k not in ('GRAFANA_ADMIN_PASSWORD', 'DISCORD_WEBHOOK_FILE', 'COMPOSE_PROFILES')}
-        env['BACKEND_IMAGE'] = 'app:test'
         result = subprocess.run(['docker', 'compose', '--env-file', os.devnull,
             '-f', str(ROOT / 'backend/docker-compose.prod.yml'), 'config', '--format', 'json'],
             env=env, capture_output=True, text=True, check=True)
         config = json.loads(result.stdout)
         self.assertEqual(set(config['services']),
-            {'app', 'nginx', 'alloy', 'node-exporter', 'docker-socket-proxy'})
+            {'app-blue', 'app-green', 'nginx', 'alloy', 'node-exporter', 'docker-socket-proxy'})
+        for color in ('blue', 'green'):
+            app = config['services'][f'app-{color}']
+            self.assertEqual(app['container_name'], f'sssok-app-{color}')
+            self.assertEqual(app['labels']['com.sssok.log.service'], 'sssok-backend')
+            self.assertEqual(app['stop_grace_period'], '50s')
+        nginx = config['services']['nginx']
+        self.assertNotIn('depends_on', nginx)
+        self.assertEqual([v['target'] for v in nginx['volumes']], ['/etc/nginx/conf.d'])
         self.assertEqual(set(config['volumes']), {'alloy-data'})
         self.assertFalse(config.get('secrets'))
         alloy = config['services']['alloy']

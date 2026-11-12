@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 
 import type { GalleryItem } from "@/entities/media";
 import { GalleryMediaCard } from "./GalleryMediaCard";
@@ -34,6 +34,20 @@ export const PhotoGallery = ({
   onTogglePhoto,
   onOpenPhoto,
 }: PhotoGalleryProps) => {
+  const selectedIdSet = useMemo(() => new Set(selectedPhotoIds), [selectedPhotoIds]);
+
+  /*
+   * 부모가 렌더마다 새 콜백을 넘겨도 카드에는 늘 같은 함수를 준다.
+   * 콜백이 바뀔 때마다 카드 전체가 다시 그려지면 한 장을 고르는 데도 방의 사진 수만큼 비용이 든다.
+   */
+  const handlers = useRef({ onTogglePhoto, onOpenPhoto });
+  useLayoutEffect(() => {
+    handlers.current = { onTogglePhoto, onOpenPhoto };
+  });
+  const togglePhoto = useCallback((mediaId: number) => handlers.current.onTogglePhoto(mediaId), []);
+  const openPhoto = useCallback((mediaId: number) => handlers.current.onOpenPhoto?.(mediaId), []);
+  const canOpen = onOpenPhoto !== undefined;
+
   if (isPending && items.length === 0) return <PhotoGallerySkeleton count={expectedPhotoCount} />;
   if (isError && items.length === 0) return <StateMessage>{errorMessage}</StateMessage>;
   if (items.length === 0) return <StateMessage>{emptyMessage}</StateMessage>;
@@ -41,22 +55,18 @@ export const PhotoGallery = ({
   return (
     <GallerySection>
       <GalleryGrid>
-        {items.map((item) => {
-          const isSelected = selectedPhotoIds.includes(item.mediaId);
-
-          return (
-            <GalleryMediaCard
-              key={item.mediaId}
-              item={item}
-              roomId={roomId}
-              userId={userId}
-              token={token}
-              isSelected={isSelected}
-              onToggle={() => onTogglePhoto(item.mediaId)}
-              onOpen={onOpenPhoto ? () => onOpenPhoto(item.mediaId) : undefined}
-            />
-          );
-        })}
+        {items.map((item) => (
+          <GalleryMediaCard
+            key={item.mediaId}
+            item={item}
+            roomId={roomId}
+            userId={userId}
+            token={token}
+            isSelected={selectedIdSet.has(item.mediaId)}
+            onToggle={togglePhoto}
+            onOpen={canOpen ? openPhoto : undefined}
+          />
+        ))}
       </GalleryGrid>
     </GallerySection>
   );

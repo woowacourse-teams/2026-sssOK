@@ -9,14 +9,20 @@ import { LoginPage } from "@/pages/login";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { RedirectIfMember } from "./RedirectIfMember";
 
-const renderLogin = () => {
+import { RequireAppRoomMember } from "./RequireMember";
+
+const renderLogin = (path: string = ROUTES.login) => {
   const client = new QueryClient();
   const router = createMemoryRouter(
     [
       { element: <RedirectIfMember />, children: [{ path: ROUTES.login, element: <LoginPage /> }] },
+      {
+        element: <RequireAppRoomMember />,
+        children: [{ path: "/rooms/:code", element: <p>초대받은 방</p> }],
+      },
       { path: ROUTES.rooms, element: <p>방 목록</p> },
     ],
-    { initialEntries: [ROUTES.login] },
+    { initialEntries: [path] },
   );
   render(
     <QueryClientProvider client={client}>
@@ -67,7 +73,10 @@ it("LoginPage 자체는 세션 요청 없이 UI만 표시한다", () => {
   expect(client.getQueryCache().getAll()).toHaveLength(0);
 });
 
-it("앱 SDK 인증 후 기존 회원 세션에 반영하고 방 목록으로 이동한다", async () => {
+it.each([
+  [ROUTES.login, "방 목록"],
+  ["/rooms/ABCDEF23?linkCode=483920#invite", "초대받은 방"],
+])("앱 SDK 인증 후 진입 경로 %s에 맞게 복귀한다", async (path, expected) => {
   server.use(
     http.post(`${API_BASE_URL}/auth/refresh`, () => HttpResponse.json({}, { status: 401 })),
     http.post(`${API_BASE_URL}/auth/oauth/kakao/native/login`, () =>
@@ -99,12 +108,21 @@ it("앱 SDK 인증 후 기존 회원 세션에 반영하고 방 목록으로 이
     },
   };
   try {
-    const router = renderLogin();
+    const router = renderLogin(path);
     await userEvent.click(await screen.findByRole("button", { name: "카카오 로그인" }));
-    expect(await screen.findByText("방 목록")).toBeInTheDocument();
+    expect(await screen.findByText(expected)).toBeInTheDocument();
+    if (path !== ROUTES.login)
+      expect(router.state.location.search + router.state.location.hash).toBe(
+        "?linkCode=483920#invite",
+      );
     expect(router.state.historyAction).toBe("REPLACE");
   } finally {
     delete window.ReactNativeWebView;
     delete window.sssokApp;
   }
+});
+
+it("일반 웹 초대는 로그인 없이 방 입장 화면을 연다", async () => {
+  renderLogin("/rooms/ABCDEF23");
+  expect(await screen.findByText("초대받은 방")).toBeInTheDocument();
 });

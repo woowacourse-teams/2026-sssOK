@@ -18,7 +18,7 @@ import { BrowserEntryPage } from "@/pages/browser-entry";
 import { RoomSettingsPage } from "@/pages/room-settings";
 import { ROUTE_PATTERNS, ROUTES } from "@/shared/config";
 import { RedirectIfMember } from "./RedirectIfMember";
-import { RequireMember } from "./RequireMember";
+import { RequireAppRoomMember, RequireMember } from "./RequireMember";
 import { AdminRoute } from "./AdminRoute";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 import { useUnauthorizedRecovery } from "./useUnauthorizedRecovery";
@@ -43,13 +43,18 @@ const pageRoutes: RouteObject[] = [
   { path: ROUTE_PATTERNS.closedRoom, element: <RoomClosedPage /> },
   { path: ROUTE_PATTERNS.roomInvite, element: <BrowserEntryPage /> },
   {
-    path: ROUTE_PATTERNS.roomEntry,
-    element: <RoomMediaLayout />,
+    element: <RequireAppRoomMember />,
     children: [
-      { index: true, element: <RoomEntryPage /> },
-      { path: ROUTE_PATTERNS.gallery, element: <GalleryPage /> },
-      { path: ROUTE_PATTERNS.mediaDetail, element: <MediaDetailPage /> },
-      { path: ROUTE_PATTERNS.roomSettings, element: <RoomSettingsPage /> },
+      {
+        path: ROUTE_PATTERNS.roomEntry,
+        element: <RoomMediaLayout />,
+        children: [
+          { index: true, element: <RoomEntryPage /> },
+          { path: ROUTE_PATTERNS.gallery, element: <GalleryPage /> },
+          { path: ROUTE_PATTERNS.mediaDetail, element: <MediaDetailPage /> },
+          { path: ROUTE_PATTERNS.roomSettings, element: <RoomSettingsPage /> },
+        ],
+      },
     ],
   },
   { path: ROUTE_PATTERNS.adminLogin, element: <AdminLoginPage /> },
