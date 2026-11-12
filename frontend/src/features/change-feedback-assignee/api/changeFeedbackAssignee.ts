@@ -1,3 +1,4 @@
+import { AdminFeedbackDetailSchema } from "../../../entities/feedback/model/types";
 import type { AdminFeedbackDetail, FeedbackAssignee } from "@/entities/feedback";
 import { apiClient } from "@/shared/api";
 
@@ -11,8 +12,9 @@ export const changeFeedbackAssignee = ({
   token,
   feedbackId,
   assignee,
-}: ChangeFeedbackAssigneeParams) =>
+}: ChangeFeedbackAssigneeParams): Promise<AdminFeedbackDetail> =>
   apiClient<AdminFeedbackDetail>(`/admin/feedbacks/${feedbackId}/assignee`, {
+    schema: AdminFeedbackDetailSchema,
     method: "PATCH",
     token,
     headers: { "Content-Type": "application/json" },

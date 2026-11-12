@@ -1,3 +1,4 @@
+import type { Locator } from "@playwright/test";
 import AdmZip from "adm-zip";
 import { readFile } from "node:fs/promises";
 import { expect, type Page } from "@playwright/test";
@@ -67,10 +68,10 @@ export async function makePhotos(page: Page): Promise<TestPhoto[]> {
   }));
 }
 
-export const photoButton = (page: Page, name: string) =>
+export const photoButton = (page: Page, name: string): Locator =>
   page.getByRole("button", { name: `${name} 크게 보기`, exact: true });
 
-export async function expectPhotos(page: Page, names: string[]) {
+export async function expectPhotos(page: Page, names: string[]): Promise<void> {
   await expect(page.getByRole("button", { name: / 크게 보기$/ })).toHaveCount(names.length);
   for (const name of names) {
     await expect(photoButton(page, name)).toBeVisible();
@@ -84,25 +85,25 @@ export async function expectPhotos(page: Page, names: string[]) {
   }
 }
 
-export async function upload(page: Page, photos: TestPhoto[]) {
+export async function upload(page: Page, photos: TestPhoto[]): Promise<void> {
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "사진 올리기", exact: true }).click();
   await (await chooser).setFiles(photos);
   await expect(page.getByText(`${photos.length}장을 올렸어요.`, { exact: true })).toBeVisible();
 }
 
-export async function filterPhotos(page: Page, name: string) {
+export async function filterPhotos(page: Page, name: string): Promise<void> {
   await page.getByRole("button", { name: / 필터 열기$/ }).click();
   await page.getByRole("button", { name, exact: true }).click();
 }
 
-export async function selectPhotos(page: Page, names: string[]) {
+export async function selectPhotos(page: Page, names: string[]): Promise<void> {
   for (const name of names) {
     await page.getByRole("button", { name: `${name} 선택, 선택 안 됨`, exact: true }).click();
   }
 }
 
-export async function expectDetail(page: Page, name: string) {
+export async function expectDetail(page: Page, name: string): Promise<Locator> {
   await photoButton(page, name).click();
   const dialog = page.getByRole("dialog", { name: "사진 크게 보기", exact: true });
   await expect(dialog).toBeVisible();
@@ -116,7 +117,7 @@ export async function expectDetail(page: Page, name: string) {
   return dialog;
 }
 
-export async function verifyZip(page: Page, path: string, selected: TestPhoto[]) {
+export async function verifyZip(page: Page, path: string, selected: TestPhoto[]): Promise<void> {
   const zip = new AdmZip(await readFile(path));
   const entries = zip.getEntries();
   expect(entries).toHaveLength(selected.length);

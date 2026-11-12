@@ -59,3 +59,18 @@ describe("roomSessionStorage", () => {
     });
   });
 });
+
+it.each([
+  null,
+  [],
+  { accessToken: "token" },
+  { ...session, userId: "1" },
+  { ...session, expiresAt: "invalid" },
+])("구조가 잘못된 세션만 제거하고 다른 방은 보존한다: %j", (value) => {
+  localStorage.setItem("sssok.auth:BROKEN", JSON.stringify(value));
+  saveRoomSession("VALID", session);
+  expect(getRoomSession("BROKEN")).toBeNull();
+  expect(localStorage.getItem("sssok.auth:BROKEN")).toBeNull();
+  expect(getRoomSession("VALID")).toEqual(session);
+  localStorage.clear();
+});

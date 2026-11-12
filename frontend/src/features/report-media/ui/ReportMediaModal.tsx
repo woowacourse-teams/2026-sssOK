@@ -33,7 +33,7 @@ export const ReportMediaModal = ({
   const [reason, setReason] = useState<ReportReason | null>(null);
   const groupName = useId();
   const mutation = useReportMedia({ roomId, mediaId, onSuccess: onSubmit });
-  const close = () => {
+  const close = (): void => {
     if (!mutation.isPending) onClose();
   };
 

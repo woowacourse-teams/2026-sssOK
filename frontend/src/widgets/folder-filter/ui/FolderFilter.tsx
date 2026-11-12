@@ -23,7 +23,7 @@ interface FolderFilterProps {
 const REVEAL_GAP = 16;
 
 /** 탭이 목록 밖으로 나가 있으면 보이게 하려고 옮길 거리. 이미 다 보이면 0 이다. */
-const offsetToReveal = (list: HTMLElement, tab: HTMLElement) => {
+const offsetToReveal = (list: HTMLElement, tab: HTMLElement): number => {
   const listRect = list.getBoundingClientRect();
   const tabRect = tab.getBoundingClientRect();
 

@@ -14,7 +14,7 @@ export interface BottomSheetProps {
 export const BottomSheet = ({ title, onClose, children, variant = "form" }: BottomSheetProps) => {
   const titleId = useId();
   const [isClosing, setIsClosing] = useState(false);
-  const requestClose = () => {
+  const requestClose = (): void => {
     if (!onClose || isClosing) return;
     setIsClosing(true);
   };
@@ -67,7 +67,7 @@ export const BottomSheet = ({ title, onClose, children, variant = "form" }: Bott
     };
   }, []);
 
-  const resetDrag = () => {
+  const resetDrag = (): void => {
     drag.current = null;
     if (sheetRef.current) sheetRef.current.style.transform = "";
   };

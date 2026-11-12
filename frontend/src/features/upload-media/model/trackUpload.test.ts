@@ -5,11 +5,40 @@ import type { FailedUpload, UploadResult } from "./types";
 
 jest.mock("@/shared/lib/analytics", () => ({ track: jest.fn() }));
 
-const media = (mediaId: number, fileName = `${mediaId}.jpg`, mimeType = "image/jpeg") =>
-  ({ mediaId, fileName, mimeType }) as Media;
+const media = (
+  mediaId: number,
+  fileName = `${mediaId}.jpg`,
+  mimeType = "image/jpeg",
+): {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  thumbnailUrl: string | null;
+  displayUrl: string | null;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  status: "RESERVED" | "PROCESSING" | "READY" | "FAILED";
+  uploadedAt: string;
+  thumbnailUrlExpiresAt?: string | null | undefined;
+  displayUrlExpiresAt?: string | null | undefined;
+  likeCount?: number | undefined;
+  likedByMe?: boolean | undefined;
+} => ({ mediaId, fileName, mimeType }) as Media;
 const failed = (mediaId: number): FailedUpload =>
   ({ mediaId, fileName: `IMG_${mediaId}.jpg`, code: "UPLOAD_FAILED", message: "" }) as FailedUpload;
-const rejected = (fileName: string) => ({ fileName }) as RejectedFile;
+const rejected = (
+  fileName: string,
+): {
+  fileName: string;
+  code: "FILE_SIZE_EXCEEDED" | "UNSUPPORTED_FILE_TYPE" | "INVALID_PARAM";
+  message: string;
+} => ({ fileName }) as RejectedFile;
 
 const ROOM = { room_code: "7K93QX2S", role: "guest" } as const;
 

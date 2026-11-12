@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
 import { ApiError } from "./ApiError";
@@ -12,26 +13,25 @@ interface ErrorTrackingOptions {
   route: string;
 }
 
-interface ApiClientOptions extends RequestInit {
+interface BaseApiClientOptions extends RequestInit {
   token?: string;
-  responseType?: "json" | "empty";
+
   errorTracking?: ErrorTrackingOptions;
   skipAuthRecovery?: boolean;
 }
 
-interface ErrorResponse {
-  code?: string;
-  message?: string;
-}
-
-/** 성공 응답은 항상 data 로 한 겹 감싸여 온다 (backend ApiResponse<T>). */
-interface ApiResponse<T> {
-  data: T;
-}
+type ApiClientOptions<T> = BaseApiClientOptions &
+  ({ responseType?: "json"; schema: z.ZodType<T> } | { responseType: "empty"; schema?: never });
+const ErrorResponseSchema = z.object({
+  code: z.string().optional(),
+  message: z.string().optional(),
+});
+type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 
 const getErrorResponse = async (response: Response): Promise<ErrorResponse> => {
   try {
-    return (await response.json()) as ErrorResponse;
+    const result = ErrorResponseSchema.safeParse(await response.json());
+    return result.success ? result.data : {};
   } catch {
     return {};
   }
@@ -56,14 +56,14 @@ const getRetryAfterSeconds = (response: Response): number | undefined => {
   return seconds;
 };
 
-const shouldCaptureApiError = (error: ApiError) =>
+const shouldCaptureApiError = (error: ApiError): boolean =>
   error.status === 0 || error.status >= 500 || error.code === "INVALID_RESPONSE";
 
 const reportApiError = (
   error: ApiError,
   tracking: ErrorTrackingOptions | undefined,
   method: string,
-) => {
+): void => {
   if (!tracking || !shouldCaptureApiError(error)) return;
 
   captureException(error, {
@@ -92,11 +92,12 @@ export const apiClient = async <T>(
   {
     token,
     headers,
-    responseType = "json",
+    responseType,
+    schema,
     errorTracking,
     skipAuthRecovery = false,
     ...options
-  }: ApiClientOptions = {},
+  }: ApiClientOptions<T>,
 ): Promise<T> => {
   const method = options.method?.toUpperCase() ?? "GET";
   const requestHeaders = new Headers(headers);
@@ -130,7 +131,7 @@ export const apiClient = async <T>(
         ...options,
         headers,
         token: renewed,
-        responseType,
+        ...(responseType === "empty" ? { responseType } : { schema: schema! }),
         errorTracking,
         skipAuthRecovery: true,
       });
@@ -164,7 +165,7 @@ export const apiClient = async <T>(
   if (responseType === "empty") {
     // 개발 서버의 HTML fallback까지 삭제 성공으로 오인하지는 않는다.
     if (response.headers.get("content-type")?.includes("text/html")) {
-      throwInvalidResponse(response.status, errorTracking, method);
+      return throwInvalidResponse(response.status, errorTracking, method);
     }
     return undefined as T;
   }
@@ -174,8 +175,10 @@ export const apiClient = async <T>(
   // 200 인데 본문이 없거나 우리 API 형식이 아니면 서버 응답이 아니다.
   // (목이 준비되기 전 요청이 dev 서버로 새어 index.html 을 받는 경우가 그렇다)
   if (body === null || typeof body !== "object" || !("data" in body)) {
-    throwInvalidResponse(response.status, errorTracking, method);
+    return throwInvalidResponse(response.status, errorTracking, method);
   }
 
-  return (body as ApiResponse<T>).data;
+  const result = schema!.safeParse(body.data);
+  if (!result.success) return throwInvalidResponse(response.status, errorTracking, method);
+  return result.data;
 };

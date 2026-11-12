@@ -3,21 +3,22 @@ import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
 
 const TOKEN = "Bearer mock-token-10234";
 
-const getRoom = (code: string, token?: string) =>
+const getRoom = (code: string, token?: string): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${code}`, token ? { headers: { Authorization: token } } : undefined);
 
 const joinRoom = (
   token: string,
   roomId: number = MOCK_ROOM_ID,
   code: string = MOCK_ROOM_CODES.active,
-) =>
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/members`, {
     method: "POST",
     headers: { Authorization: token },
     body: JSON.stringify({ code }),
   });
 
-const roomIdOf = async (code: string) => (await (await getRoom(code)).json()).data.roomId as number;
+const roomIdOf = async (code: string): Promise<number> =>
+  (await (await getRoom(code)).json()).data.roomId as number;
 
 describe("GET /rooms/{code} 목 핸들러", () => {
   it("활성 방은 200 과 ACTIVE 상태를 내려준다", async () => {
@@ -247,7 +248,7 @@ describe("POST /rooms/{roomId}/members 목 핸들러", () => {
 });
 
 describe("GET /rooms/{roomId}/media 목 핸들러", () => {
-  const listMedia = (query = "", token = TOKEN) =>
+  const listMedia = (query = "", token = TOKEN): Promise<Response> =>
     fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media${query}`, {
       headers: { Authorization: token },
     });

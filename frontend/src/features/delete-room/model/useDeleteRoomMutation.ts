@@ -1,3 +1,5 @@
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { DeleteRoomResponse } from "@/features/delete-room/api/deleteRoom";
 import { useMutation } from "@tanstack/react-query";
 
 import { deleteRoom } from "../api/deleteRoom";
@@ -12,7 +14,7 @@ export const useDeleteRoomMutation = ({
   roomId,
   accessToken,
   onSuccess,
-}: UseDeleteRoomMutationParams) => {
+}: UseDeleteRoomMutationParams): UseMutationResult<DeleteRoomResponse, Error, void, unknown> => {
   return useMutation({
     mutationFn: () => deleteRoom({ roomId, accessToken }),
     onSuccess,

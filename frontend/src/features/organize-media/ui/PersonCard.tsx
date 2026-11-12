@@ -119,14 +119,14 @@ const TypeNameChip = ({ onSubmit }: { onSubmit: (name: string) => void }) => {
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const commit = () => {
+  const commit = (): void => {
     const name = draft.trim();
     if (!name) return;
     setDraft("");
     onSubmit(name);
   };
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     inputRef.current?.blur();
   };
@@ -165,7 +165,7 @@ const Rename = ({ name, onSubmit }: { name: string; onSubmit: (name: string) => 
     );
   }
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (trimmed && trimmed !== name) onSubmit(trimmed);
   };

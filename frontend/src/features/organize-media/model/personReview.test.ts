@@ -1,3 +1,4 @@
+import type { PersonReview } from "@/features/organize-media/model/personReview";
 import type { MediaItem } from "@/entities/media";
 import type { OrganizeGroup } from "../api/types";
 import {
@@ -12,7 +13,29 @@ import {
   togglePhoto,
 } from "./personReview";
 
-const photo = (mediaId: number) => ({ mediaId }) as MediaItem;
+const photo = (
+  mediaId: number,
+): {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  uploadedAt: string;
+  thumbnailUrl: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  status: "READY";
+  likeCount: number;
+  likedByMe: boolean;
+  thumbnailUrlExpiresAt?: string | null | undefined;
+  displayUrlExpiresAt?: string | null | undefined;
+} => ({ mediaId }) as MediaItem;
 
 const group = (groupId: string | null, ids: number[]): OrganizeGroup => ({
   groupId,
@@ -20,7 +43,7 @@ const group = (groupId: string | null, ids: number[]): OrganizeGroup => ({
   photos: ids.map(photo),
 });
 
-const reviewOf = () =>
+const reviewOf = (): PersonReview =>
   createPersonReview([group("p1", [1, 2]), group("p2", [3]), group("p3", [4, 5])]);
 
 describe("personReview", () => {
@@ -126,7 +149,7 @@ describe("personReview", () => {
   });
 
   describe("사진을 모두 뺀 카드", () => {
-    const emptyP2 = (review = reviewOf()) => togglePhoto(review, "p2", 3);
+    const emptyP2 = (review = reviewOf()): PersonReview => togglePhoto(review, "p2", 3);
 
     it("사진이 하나도 남지 않으면 모두 뺀 카드다", () => {
       expect(isEmptied(reviewOf().people[1])).toBe(false);

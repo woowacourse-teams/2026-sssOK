@@ -7,7 +7,7 @@ const HOST_TOKEN = "Bearer mock-token-10234";
 /** 방장이 아닌 참여자 토큰. */
 const GUEST_TOKEN = "Bearer mock-token-10235";
 
-const jsonHeaders = (token: string) => ({
+const jsonHeaders = (token: string): { "Content-Type": string; Authorization: string } => ({
   "Content-Type": "application/json",
   Authorization: token,
 });
@@ -22,13 +22,17 @@ interface Issued {
 }
 
 /** 이름·크기만 다르게 준 요청 파일. 목은 확장자와 크기만 본다. */
-const file = (fileName: string, size = 2 * 1024 * 1024, mimeType = "image/jpeg") => ({
+const file = (
+  fileName: string,
+  size = 2 * 1024 * 1024,
+  mimeType = "image/jpeg",
+): { fileName: string; mimeType: string; size: number } => ({
   fileName,
   mimeType,
   size,
 });
 
-const roomIdOf = async (code: string) =>
+const roomIdOf = async (code: string): Promise<number> =>
   (await (await fetch(`${API_BASE_URL}/rooms/${code}`)).json()).data.roomId as number;
 
 /** 업로드는 참여자만 부를 수 있어서 모든 흐름이 입장부터 시작한다. */
@@ -36,7 +40,7 @@ const enterRoom = async (
   roomId = MOCK_ROOM_ID,
   token = HOST_TOKEN,
   code: string = MOCK_ROOM_CODES.active,
-) => {
+): Promise<number> => {
   await fetch(`${API_BASE_URL}/rooms/${roomId}/members`, {
     method: "POST",
     headers: { Authorization: token },
@@ -55,14 +59,17 @@ interface IssueOptions {
 const issueUploadUrls = (
   files: ReturnType<typeof file>[],
   { token = HOST_TOKEN, roomId = MOCK_ROOM_ID, folderIds }: IssueOptions = {},
-) =>
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/media/upload-urls`, {
     method: "POST",
     headers: jsonHeaders(token),
     body: JSON.stringify(folderIds === undefined ? { files } : { files, folderIds }),
   });
 
-const issueOne = async (target = file("제주-해변.jpg"), options: IssueOptions = {}) => {
+const issueOne = async (
+  target = file("제주-해변.jpg"),
+  options: IssueOptions = {},
+): Promise<Issued> => {
   const body = await (await issueUploadUrls([target], options)).json();
 
   return body.data.issued[0] as Issued;
@@ -71,10 +78,18 @@ const issueOne = async (target = file("제주-해변.jpg"), options: IssueOption
 const BYTES = new Uint8Array([1, 2, 3]);
 
 /** headers 를 넘기지 않으면 발급받은 헤더를 그대로 싣는다 — 정상 흐름이 기본값이다. */
-const putToR2 = (issued: Issued, headers: Record<string, string> = issued.headers, body = BYTES) =>
+const putToR2 = (
+  issued: Issued,
+  headers: Record<string, string> = issued.headers,
+  body = BYTES,
+): Promise<Response> =>
   fetch(issued.uploadUrl, { method: "PUT", headers, body: body as BodyInit | null });
 
-const registerMedia = (mediaIds: number[], token = HOST_TOKEN, roomId = MOCK_ROOM_ID) =>
+const registerMedia = (
+  mediaIds: number[],
+  token = HOST_TOKEN,
+  roomId = MOCK_ROOM_ID,
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/media`, {
     method: "POST",
     headers: jsonHeaders(token),
@@ -88,7 +103,7 @@ const reissueUploadUrl = (
     roomId = MOCK_ROOM_ID,
     size,
   }: { token?: string; roomId?: number; size?: number } = {},
-) =>
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/media/${mediaId}/upload-url`, {
     method: "POST",
     headers: jsonHeaders(token),
@@ -96,7 +111,7 @@ const reissueUploadUrl = (
   });
 
 /** 발급받은 적 없는 키를 가리키는 URL. 쿼리(서명·만료)는 진짜 것을 그대로 쓴다. */
-const withUnknownKey = (uploadUrl: string) =>
+const withUnknownKey = (uploadUrl: string): string =>
   uploadUrl.replace(/\/rooms\/\d+\/[^?]+/, `/rooms/${MOCK_ROOM_ID}/발급한적없음.jpg`);
 
 beforeEach(async () => {
@@ -656,7 +671,7 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
  * 여기가 끊기면 화면에서는 "올렸는데 갤러리에 아무것도 안 생기는" 것으로 보인다.
  */
 describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
-  const listMedia = (roomId = MOCK_ROOM_ID, token = HOST_TOKEN) =>
+  const listMedia = (roomId = MOCK_ROOM_ID, token = HOST_TOKEN): Promise<Response> =>
     fetch(`${API_BASE_URL}/rooms/${roomId}/media`, { headers: { Authorization: token } });
 
   /** 픽스처로 미리 들어 있는 장수. 등록분은 이 위에 쌓인다. 첫 페이지(30장)보다 많다. */

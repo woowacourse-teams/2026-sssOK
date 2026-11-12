@@ -11,7 +11,14 @@ import { API_BASE_URL, ROUTES } from "@/shared/config";
 import { RedirectIfMember } from "./RedirectIfMember";
 import { RequireMember } from "./RequireMember";
 
-const member = () => ({
+const member = (): {
+  accessToken: string;
+  userId: number;
+  nickname: string;
+  expiresAt: string;
+  refreshExpiresAt: string;
+  memberStatus: string;
+} => ({
   accessToken: "member-access",
   userId: 123,
   nickname: "회원",
@@ -20,7 +27,9 @@ const member = () => ({
   memberStatus: "REGISTERED",
 });
 
-const setup = (path: string = ROUTES.rooms) => {
+const setup = (
+  path: string = ROUTES.rooms,
+): { router: ReturnType<typeof createMemoryRouter>; client: QueryClient } => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(
     [
@@ -61,7 +70,15 @@ it("복원이 끝나기 전에는 방 목록이나 로그인 화면을 표시하
 it.each(["401", "ANONYMOUS"])(
   "%s이면 익명 로컬 토큰과 무관하게 로그인으로 보낸다",
   async (kind) => {
-    localStorage.setItem("sssok.auth:TESTROOM", JSON.stringify({ accessToken: "anonymous" }));
+    localStorage.setItem(
+      "sssok.auth:TESTROOM",
+      JSON.stringify({
+        accessToken: "anonymous",
+        userId: 2,
+        nickname: "익명",
+        expiresAt: "2099-01-01T00:00:00Z",
+      }),
+    );
     server.use(
       http.post(`${API_BASE_URL}/auth/refresh`, () =>
         kind === "401"

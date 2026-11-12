@@ -5,7 +5,14 @@ import type { ComponentProps } from "react";
 
 import { SearchRequestField } from "./SearchRequestField";
 
-const renderField = (props: Partial<ComponentProps<typeof SearchRequestField>> = {}) => {
+const renderField = (
+  props: Partial<ComponentProps<typeof SearchRequestField>> = {},
+): {
+  onSearchKeyword: ReturnType<typeof jest.fn>;
+  onSearchUploader: ReturnType<typeof jest.fn>;
+  onOpenFolder: ReturnType<typeof jest.fn>;
+  onClear: ReturnType<typeof jest.fn>;
+} => {
   const handlers = {
     onSearchKeyword: jest.fn(),
     onSearchUploader: jest.fn(),
@@ -28,7 +35,7 @@ const renderField = (props: Partial<ComponentProps<typeof SearchRequestField>> =
   return handlers;
 };
 
-const input = () => screen.getByRole("searchbox", { name: "사진 찾기·정리 요청" });
+const input = (): HTMLElement => screen.getByRole("searchbox", { name: "사진 찾기·정리 요청" });
 
 describe("SearchRequestField", () => {
   it("입력창을 누르면 정리와 찾는 방법을 고르는 패널을 연다", async () => {

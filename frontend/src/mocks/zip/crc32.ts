@@ -51,4 +51,4 @@ export class Crc32 {
   }
 }
 
-export const crc32Of = (bytes: Uint8Array) => new Crc32().update(bytes).value;
+export const crc32Of = (bytes: Uint8Array): number => new Crc32().update(bytes).value;

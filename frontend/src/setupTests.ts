@@ -31,10 +31,10 @@ Object.defineProperty(globalThis, "EventSource", {
 installIntersectionObserverMock();
 
 // jsdom 에 없는 dialog API를 실제 브라우저의 open 상태만큼 흉내 낸다.
-HTMLDialogElement.prototype.showModal = function showModal() {
+HTMLDialogElement.prototype.showModal = function showModal(): void {
   this.setAttribute("open", "");
 };
-HTMLDialogElement.prototype.close = function close() {
+HTMLDialogElement.prototype.close = function close(): void {
   this.removeAttribute("open");
 };
 

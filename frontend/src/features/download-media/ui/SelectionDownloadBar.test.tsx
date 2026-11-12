@@ -1,3 +1,24 @@
+import type { FindAllByRole } from "@testing-library/dom";
+import type { FindByRole } from "@testing-library/dom";
+import type { QueryByRole } from "@testing-library/dom";
+import type { AllByRole } from "@testing-library/dom";
+import type { GetByRole } from "@testing-library/dom";
+import type { ByRoleOptions } from "@testing-library/dom";
+import type { ByRoleMatcher } from "@testing-library/dom";
+import type { FindAllByBoundAttribute } from "@testing-library/dom";
+import type { FindByBoundAttribute } from "@testing-library/dom";
+import type { QueryByBoundAttribute } from "@testing-library/dom";
+import type { AllByBoundAttribute } from "@testing-library/dom";
+import type { GetByBoundAttribute } from "@testing-library/dom";
+import type { MatcherOptions } from "@testing-library/dom";
+import type { FindAllByText } from "@testing-library/dom";
+import type { FindByText } from "@testing-library/dom";
+import type { waitForOptions } from "@testing-library/dom";
+import type { QueryByText } from "@testing-library/dom";
+import type { AllByText } from "@testing-library/dom";
+import type { GetByText } from "@testing-library/dom";
+import type { SelectorMatcherOptions } from "@testing-library/dom";
+import type { Matcher } from "@testing-library/dom";
 import { screen, waitFor, waitForElementToBeRemoved, within } from "@testing-library/react";
 import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
@@ -39,14 +60,14 @@ const targetOf = (mediaId: number): DownloadTarget => ({
   mimeType: "image/jpeg",
 });
 
-const enterRoom = () =>
+const enterRoom = (): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const serveSingle = (status = 200) =>
+const serveSingle = (status = 200): void =>
   server.use(
     // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
     http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
@@ -72,7 +93,7 @@ const serveSingle = (status = 200) =>
   );
 
 /** 압축 잡을 만들자마자 다 묶인 것으로 답한다. 고른 장수가 그대로 zip 에 들어간다. */
-const serveZip = () => {
+const serveZip = (): void => {
   let mediaCount = 0;
 
   server.use(
@@ -114,7 +135,10 @@ const serveZip = () => {
   );
 };
 
-const renderBar = (targets: DownloadTarget[], isAllSelected = false) => {
+const renderBar = (
+  targets: DownloadTarget[],
+  isAllSelected = false,
+): { onClearSelection: ReturnType<typeof jest.fn> } => {
   const onClearSelection = jest.fn();
 
   render(
@@ -133,32 +157,357 @@ const renderBar = (targets: DownloadTarget[], isAllSelected = false) => {
 };
 
 /** 바의 다운로드와 시트의 다운로드가 이름이 같다. 시트 안쪽으로 범위를 좁힌다. */
-const sheet = () => within(screen.getByTestId("bottom-sheet-overlay"));
+const sheet = (): {
+  getByLabelText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<GetByText<T>>;
+  getAllByLabelText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<AllByText<T>>;
+  queryByLabelText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<QueryByText<T>>;
+  queryAllByLabelText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<AllByText<T>>;
+  findByLabelText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByText<T>>;
+  findAllByLabelText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByText<T>>;
+  getByPlaceholderText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<GetByBoundAttribute<T>>;
+  getAllByPlaceholderText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  queryByPlaceholderText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<QueryByBoundAttribute<T>>;
+  queryAllByPlaceholderText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  findByPlaceholderText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByBoundAttribute<T>>;
+  findAllByPlaceholderText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByBoundAttribute<T>>;
+  getByText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<GetByText<T>>;
+  getAllByText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<AllByText<T>>;
+  queryByText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<QueryByText<T>>;
+  queryAllByText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ): ReturnType<AllByText<T>>;
+  findByText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByText<T>>;
+  findAllByText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByText<T>>;
+  getByAltText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<GetByBoundAttribute<T>>;
+  getAllByAltText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  queryByAltText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<QueryByBoundAttribute<T>>;
+  queryAllByAltText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  findByAltText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByBoundAttribute<T>>;
+  findAllByAltText<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByBoundAttribute<T>>;
+  getByTitle<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<GetByBoundAttribute<T>>;
+  getAllByTitle<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  queryByTitle<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<QueryByBoundAttribute<T>>;
+  queryAllByTitle<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  findByTitle<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByBoundAttribute<T>>;
+  findAllByTitle<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByBoundAttribute<T>>;
+  getByDisplayValue<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<GetByBoundAttribute<T>>;
+  getAllByDisplayValue<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  queryByDisplayValue<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<QueryByBoundAttribute<T>>;
+  queryAllByDisplayValue<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  findByDisplayValue<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByBoundAttribute<T>>;
+  findAllByDisplayValue<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByBoundAttribute<T>>;
+  getByRole<T extends HTMLElement = HTMLElement>(
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+  ): ReturnType<GetByRole<T>>;
+  getAllByRole<T extends HTMLElement = HTMLElement>(
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+  ): ReturnType<AllByRole<T>>;
+  queryByRole<T extends HTMLElement = HTMLElement>(
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+  ): ReturnType<QueryByRole<T>>;
+  queryAllByRole<T extends HTMLElement = HTMLElement>(
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+  ): ReturnType<AllByRole<T>>;
+  findByRole<T extends HTMLElement = HTMLElement>(
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByRole<T>>;
+  findAllByRole<T extends HTMLElement = HTMLElement>(
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByRole<T>>;
+  getByTestId<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<GetByBoundAttribute<T>>;
+  getAllByTestId<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  queryByTestId<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<QueryByBoundAttribute<T>>;
+  queryAllByTestId<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+  ): ReturnType<AllByBoundAttribute<T>>;
+  findByTestId<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindByBoundAttribute<T>>;
+  findAllByTestId<T extends HTMLElement = HTMLElement>(
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ): ReturnType<FindAllByBoundAttribute<T>>;
+} & {
+  getByLabelText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement;
+  getAllByLabelText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement[];
+  queryByLabelText: (
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+  ) => HTMLElement | null;
+  queryAllByLabelText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement[];
+  findByLabelText: (
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByLabelText: (
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByPlaceholderText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement;
+  getAllByPlaceholderText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  queryByPlaceholderText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement | null;
+  queryAllByPlaceholderText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  findByPlaceholderText: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByPlaceholderText: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement;
+  getAllByText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement[];
+  queryByText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement | null;
+  queryAllByText: (id: Matcher, options?: SelectorMatcherOptions | undefined) => HTMLElement[];
+  findByText: (
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByText: (
+    id: Matcher,
+    options?: SelectorMatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByAltText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement;
+  getAllByAltText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  queryByAltText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement | null;
+  queryAllByAltText: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  findByAltText: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByAltText: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByTitle: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement;
+  getAllByTitle: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  queryByTitle: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement | null;
+  queryAllByTitle: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  findByTitle: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByTitle: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByDisplayValue: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement;
+  getAllByDisplayValue: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  queryByDisplayValue: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement | null;
+  queryAllByDisplayValue: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  findByDisplayValue: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByDisplayValue: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByRole: (role: ByRoleMatcher, options?: ByRoleOptions | undefined) => HTMLElement;
+  getAllByRole: (role: ByRoleMatcher, options?: ByRoleOptions | undefined) => HTMLElement[];
+  queryByRole: (role: ByRoleMatcher, options?: ByRoleOptions | undefined) => HTMLElement | null;
+  queryAllByRole: (role: ByRoleMatcher, options?: ByRoleOptions | undefined) => HTMLElement[];
+  findByRole: (
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByRole: (
+    role: ByRoleMatcher,
+    options?: ByRoleOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+  getByTestId: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement;
+  getAllByTestId: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  queryByTestId: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement | null;
+  queryAllByTestId: (id: Matcher, options?: MatcherOptions | undefined) => HTMLElement[];
+  findByTestId: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement>;
+  findAllByTestId: (
+    id: Matcher,
+    options?: MatcherOptions | undefined,
+    waitForElementOptions?: waitForOptions | undefined,
+  ) => Promise<HTMLElement[]>;
+} => within(screen.getByTestId("bottom-sheet-overlay"));
 
 /** 시트를 열고 개별 저장을 골라 받기 한 판을 굴린다. */
-const downloadIndividually = async () => {
+const downloadIndividually = async (): Promise<void> => {
   await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
   await userEvent.click(sheet().getByRole("radio", { name: /개별로 저장/ }));
   await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
 };
 
 /** 시트를 열고 zip 을 골라 받기 한 판을 굴린다. */
-const downloadAsZip = async () => {
+const downloadAsZip = async (): Promise<void> => {
   await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
   await userEvent.click(sheet().getByRole("radio", { name: /zip 일괄 다운로드/ }));
   await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
 };
 
 /** 시트를 열고 사진첩 저장을 골라 받기 한 판을 굴린다. */
-const downloadToPhotos = async () => {
+const downloadToPhotos = async (): Promise<void> => {
   await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
   await userEvent.click(sheet().getByRole("radio", { name: /사진첩에 저장/ }));
   await userEvent.click(sheet().getByRole("button", { name: "다운로드" }));
 };
 
 /** 공유 시트가 떠 있는 상태를 붙잡아 두고, 원하는 때에 닫히게 한다. */
-const holdShareSheet = () => {
-  let close: (result: ShareFilesResult) => void = () => {};
+const holdShareSheet = (): ((result: ShareFilesResult) => void) => {
+  let close: (result: ShareFilesResult) => void = (): void => {};
 
   shareFilesMock.mockImplementationOnce(
     () =>
@@ -216,7 +565,7 @@ describe("SelectionDownloadBar", () => {
    * 한쪽만 차오르면 받기가 멈춘 것으로 읽힌다 — 띠와 진행률 의미를 함께 내준다.
    */
   it("받는 동안 차오르는 띠를 진행률만큼 그린다", async () => {
-    let release = () => {};
+    let release = (): void => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });
@@ -385,7 +734,7 @@ describe("SelectionDownloadBar", () => {
     });
 
     it("받는 도중 갤러리를 떠나도 받기를 시작한 방으로 남긴다", async () => {
-      let release = () => {};
+      let release = (): void => {};
       const held = new Promise<void>((resolve) => {
         release = resolve;
       });

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { useEffect } from "react";
 
 import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
@@ -8,7 +8,12 @@ import { ROUTES } from "@/shared/config";
 import { takeLoginReturn } from "@/shared/lib";
 import { captureLoginCallback, completeLogin } from "../api/completeLogin";
 
-export const useCompleteLogin = () => {
+type CompleteLoginResult = UseMutationResult<string | null, Error, AbortSignal> & {
+  isLoading: boolean;
+  returnTo: string;
+};
+
+export const useCompleteLogin = (): CompleteLoginResult => {
   const client = useQueryClient();
   const mutation = useMutation({
     retry: false,

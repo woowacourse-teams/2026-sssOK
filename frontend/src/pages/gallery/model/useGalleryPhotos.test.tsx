@@ -1,3 +1,4 @@
+import type { RenderHookResult } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
@@ -11,10 +12,35 @@ import { useGalleryPhotos } from "./useGalleryPhotos";
 
 const HOST_ID = 10234;
 
-const serverPhotosOf = (items: GalleryItem[]) =>
-  items.flatMap((item) => (item.type === "server" ? [item.media] : []));
+const serverPhotosOf = (
+  items: GalleryItem[],
+): {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  thumbnailUrl: string | null;
+  displayUrl: string | null;
+  width: number | null;
+  height: number | null;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  status: "RESERVED" | "PROCESSING" | "READY" | "FAILED";
+  uploadedAt: string;
+  thumbnailUrlExpiresAt?: string | null | undefined;
+  displayUrlExpiresAt?: string | null | undefined;
+  likeCount?: number | undefined;
+  likedByMe?: boolean | undefined;
+}[] => items.flatMap((item) => (item.type === "server" ? [item.media] : []));
 
-const createWrapper = () => {
+const createWrapper = (): (({
+  children,
+}: {
+  children: ReactNode;
+}) => import("react").ReactElement) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   return function QueryClientTestWrapper({ children }: { children: ReactNode }) {
@@ -27,7 +53,24 @@ const renderGalleryPhotos = (initial: {
   selectedOption: PhotoFilter;
   selectedSort?: PhotoSort;
   uploadSlots?: GalleryItem[];
-}) =>
+}): RenderHookResult<
+  {
+    galleryItems: GalleryItem[];
+    allGalleryItems: GalleryItem[];
+    completedUploadIds: number[];
+    isProcessingPhotos: boolean;
+    totalCount: number;
+    folderCounts: Map<number, number>;
+    isPending: boolean;
+    isError: boolean;
+  },
+  {
+    selectedFolderId: number | null;
+    selectedOption: PhotoFilter;
+    selectedSort?: PhotoSort;
+    uploadSlots?: GalleryItem[];
+  }
+> =>
   renderHook(
     (filter) =>
       useGalleryPhotos({

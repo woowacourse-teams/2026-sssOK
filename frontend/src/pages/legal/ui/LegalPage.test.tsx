@@ -8,7 +8,7 @@ import { routes } from "@/app/routes";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 
-const renderPage = (path: string) => {
+const renderPage = (path: string): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(

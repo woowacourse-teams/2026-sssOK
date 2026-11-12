@@ -26,7 +26,7 @@ export const AdminHeader = ({ session }: AdminHeaderProps) => {
    *
    * 캐시도 같이 버린다. 남겨 두면 다른 관리자로 다시 들어왔을 때 앞 사람이 본 목록이 먼저 비친다.
    */
-  const logout = () => {
+  const logout = (): void => {
     removeAdminSession();
     queryClient.removeQueries({ queryKey: ["admin"] });
     navigate(ROUTES.adminLogin, { replace: true });

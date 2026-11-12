@@ -1,3 +1,5 @@
+import type { CreateFolderSource } from "@/pages/gallery/model/useCreateFolderAction";
+import type { RenderHookResult } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
@@ -20,7 +22,15 @@ const FOLDER: RoomFolder = {
 };
 
 /** 모달이 어떤 결말로 닫힐지 정해두고 훅을 띄운다 */
-const renderWithModalResult = (result: RoomFolder | null) => {
+const renderWithModalResult = (
+  result: RoomFolder | null,
+): RenderHookResult<
+  {
+    handleCreateFolder: (source: CreateFolderSource) => Promise<void>;
+    requestCreateFolder: () => Promise<RoomFolder | null>;
+  },
+  unknown
+> => {
   const queryClient = new QueryClient();
   const openModal = jest.fn().mockResolvedValue(result);
 

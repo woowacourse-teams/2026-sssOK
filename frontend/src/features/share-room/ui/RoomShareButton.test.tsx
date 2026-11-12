@@ -13,12 +13,12 @@ jest.mock("@/shared/lib/analytics", () => ({
 
 const ROOM_CODE = "7K93QX2S";
 
-const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+const openMenu = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   render(<RoomShareButton roomCode={ROOM_CODE} />);
   await user.click(screen.getByRole("button", { name: "방 공유 메뉴 열기" }));
 };
 
-const saveSession = (accessToken = "mock-token-10234") =>
+const saveSession = (accessToken = "mock-token-10234"): void =>
   saveRoomSession(ROOM_CODE, {
     accessToken,
     userId: 10234,

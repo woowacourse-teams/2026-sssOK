@@ -1,3 +1,4 @@
+import { ReissuedUploadSchema } from "./types";
 import { apiClient } from "@/shared/api";
 import type { ReissueUploadUrlRequest, ReissuedUpload } from "./types";
 
@@ -12,8 +13,9 @@ export const reissueUploadUrl = (
   mediaId: number,
   request: ReissueUploadUrlRequest,
   token: string,
-) => {
+): Promise<ReissuedUpload> => {
   return apiClient<ReissuedUpload>(`/rooms/${roomId}/media/${mediaId}/upload-url`, {
+    schema: ReissuedUploadSchema,
     method: "POST",
     token,
     headers: {

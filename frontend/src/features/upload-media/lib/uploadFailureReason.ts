@@ -15,4 +15,4 @@ const REASON_BY_CODE: Record<UploadFailureCode, string> = {
   FILE_SIZE_EXCEEDED: "용량 초과",
 };
 
-export const uploadFailureReasonOf = (code: UploadFailureCode) => REASON_BY_CODE[code];
+export const uploadFailureReasonOf = (code: UploadFailureCode): string => REASON_BY_CODE[code];

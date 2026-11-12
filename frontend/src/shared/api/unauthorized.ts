@@ -14,7 +14,7 @@ type UnauthorizedHandler = (token: string) => void;
 let handler: UnauthorizedHandler | null = null;
 
 /** 등록하고 정리 함수를 돌려준다. effect 의 cleanup 으로 그대로 쓴다. */
-export const setUnauthorizedHandler = (next: UnauthorizedHandler) => {
+export const setUnauthorizedHandler = (next: UnauthorizedHandler): (() => void) => {
   handler = next;
 
   return () => {
@@ -26,4 +26,4 @@ export const setUnauthorizedHandler = (next: UnauthorizedHandler) => {
 };
 
 /** 등록된 핸들러가 없으면 아무 일도 하지 않는다 — 인증을 쓰지 않는 화면도 있다. */
-export const notifyUnauthorized = (token: string) => handler?.(token);
+export const notifyUnauthorized = (token: string): void | undefined => handler?.(token);

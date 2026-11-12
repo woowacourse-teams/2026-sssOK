@@ -91,7 +91,7 @@ const LiveDownload = () => {
   const [targets, setTargets] = useState<DownloadTarget[]>([]);
 
   useEffect(() => {
-    const join = async () => {
+    const join = async (): Promise<void> => {
       // 받기 API 는 입장한 방에서만 열린다. 목도 같은 검사를 한다.
       await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
         body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),

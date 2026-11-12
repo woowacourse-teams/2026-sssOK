@@ -1,3 +1,7 @@
+import { OrganizeJobSchema } from "./types";
+import { OrganizeCurrentSchema } from "./types";
+import { OrganizeResultSchema } from "./types";
+import { OrganizeAppliedSchema } from "./types";
 import { apiClient } from "@/shared/api";
 import type {
   OrganizeApplied,
@@ -9,7 +13,7 @@ import type {
 } from "./types";
 
 const ROUTE = "/rooms/:roomId/organize-jobs";
-const basePath = (roomId: number) => `/rooms/${roomId}/organize-jobs`;
+const basePath = (roomId: number): string => `/rooms/${roomId}/organize-jobs`;
 
 interface RoomParams {
   roomId: number;
@@ -24,12 +28,14 @@ interface JobParams extends RoomParams {
  * 접수·재시도에 붙이는 중복 방지 키. 영숫자·`-`·`_` 16~64자.
  * 같은 요청을 다시 보낼 때는 같은 키를, 내용이 바뀌면 새 키를 쓴다.
  */
-export const createIdempotencyKey = () =>
+export const createIdempotencyKey = (): string =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 14)}`;
 
-const jsonHeaders = (idempotencyKey: string) => ({
+const jsonHeaders = (
+  idempotencyKey: string,
+): { "Content-Type": string; "Idempotency-Key": string } => ({
   "Content-Type": "application/json",
   "Idempotency-Key": idempotencyKey,
 });
@@ -40,8 +46,9 @@ export const startOrganizeJob = ({
   token,
   kind,
   idempotencyKey,
-}: RoomParams & { kind: OrganizeKind; idempotencyKey: string }) =>
+}: RoomParams & { kind: OrganizeKind; idempotencyKey: string }): Promise<OrganizeJob> =>
   apiClient<OrganizeJob>(basePath(roomId), {
+    schema: OrganizeJobSchema,
     method: "POST",
     token,
     headers: jsonHeaders(idempotencyKey),
@@ -55,8 +62,9 @@ export const startOrganizeJobByText = ({
   token,
   text,
   idempotencyKey,
-}: RoomParams & { text: string; idempotencyKey: string }) =>
+}: RoomParams & { text: string; idempotencyKey: string }): Promise<OrganizeJob> =>
   apiClient<OrganizeJob>(`${basePath(roomId)}/by-text`, {
+    schema: OrganizeJobSchema,
     method: "POST",
     token,
     headers: jsonHeaders(idempotencyKey),
@@ -65,20 +73,23 @@ export const startOrganizeJobByText = ({
   });
 
 /** 방이 사용 중인지와 내 작업을 함께 읽는다. 작업이 없어도 200 이다. */
-export const getCurrentOrganizeJob = ({ roomId, token }: RoomParams) =>
+export const getCurrentOrganizeJob = ({ roomId, token }: RoomParams): Promise<OrganizeCurrent> =>
   apiClient<OrganizeCurrent>(`${basePath(roomId)}/current`, {
+    schema: OrganizeCurrentSchema,
     token,
     errorTracking: { level: "warning", operation: "organize.current", route: `${ROUTE}/current` },
   });
 
-export const getOrganizeJob = ({ roomId, token, jobId }: JobParams) =>
+export const getOrganizeJob = ({ roomId, token, jobId }: JobParams): Promise<OrganizeJob> =>
   apiClient<OrganizeJob>(`${basePath(roomId)}/${jobId}`, {
+    schema: OrganizeJobSchema,
     token,
     errorTracking: { level: "warning", operation: "organize.get", route: `${ROUTE}/:jobId` },
   });
 
-export const getOrganizeResult = ({ roomId, token, jobId }: JobParams) =>
+export const getOrganizeResult = ({ roomId, token, jobId }: JobParams): Promise<OrganizeResult> =>
   apiClient<OrganizeResult>(`${basePath(roomId)}/${jobId}/result`, {
+    schema: OrganizeResultSchema,
     token,
     errorTracking: {
       level: "warning",
@@ -97,8 +108,12 @@ export const applyOrganizeJob = ({
   jobId,
   groups,
   idempotencyKey,
-}: JobParams & { groups: OrganizeApplyGroup[]; idempotencyKey: string }) =>
+}: JobParams & {
+  groups: OrganizeApplyGroup[];
+  idempotencyKey: string;
+}): Promise<OrganizeApplied> =>
   apiClient<OrganizeApplied>(`${basePath(roomId)}/${jobId}/apply`, {
+    schema: OrganizeAppliedSchema,
     method: "POST",
     token,
     headers: jsonHeaders(idempotencyKey),
@@ -107,8 +122,9 @@ export const applyOrganizeJob = ({
   });
 
 /** 분석을 멈추거나 완료된 결과의 검토를 포기한다. 이미 끝난 작업이면 그 상태를 그대로 돌려준다. */
-export const cancelOrganizeJob = ({ roomId, token, jobId }: JobParams) =>
+export const cancelOrganizeJob = ({ roomId, token, jobId }: JobParams): Promise<OrganizeJob> =>
   apiClient<OrganizeJob>(`${basePath(roomId)}/${jobId}/cancel`, {
+    schema: OrganizeJobSchema,
     method: "POST",
     token,
     errorTracking: {
@@ -124,8 +140,9 @@ export const retryOrganizeJob = ({
   token,
   jobId,
   idempotencyKey,
-}: JobParams & { idempotencyKey: string }) =>
+}: JobParams & { idempotencyKey: string }): Promise<OrganizeJob> =>
   apiClient<OrganizeJob>(`${basePath(roomId)}/${jobId}/retry`, {
+    schema: OrganizeJobSchema,
     method: "POST",
     token,
     headers: { "Idempotency-Key": idempotencyKey },

@@ -1,3 +1,4 @@
+import { RoomFolderSchema } from "../../../entities/room/model/types";
 import type { RoomFolder } from "@/entities/room";
 import { apiClient } from "@/shared/api";
 
@@ -7,8 +8,13 @@ interface CreateFolderParams {
   name: string;
 }
 
-export const createFolder = ({ roomId, accessToken, name }: CreateFolderParams) =>
+export const createFolder = ({
+  roomId,
+  accessToken,
+  name,
+}: CreateFolderParams): Promise<RoomFolder> =>
   apiClient<RoomFolder>(`/rooms/${roomId}/folders`, {
+    schema: RoomFolderSchema,
     method: "POST",
     token: accessToken,
     headers: { "Content-Type": "application/json" },

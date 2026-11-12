@@ -133,7 +133,7 @@ test("손잡이를 끌면 시트가 이동하고 80px 이상 내리면 애니메
   const handle = screen.getByTestId("bottom-sheet-handle");
   handle.setPointerCapture = jest.fn();
   const sheet = screen.getByRole("heading").parentElement!;
-  const pointer = (type: string, clientY: number) => {
+  const pointer = (type: string, clientY: number): void => {
     const event = new Event(type, { bubbles: true });
     Object.defineProperties(event, {
       pointerId: { value: 1 },

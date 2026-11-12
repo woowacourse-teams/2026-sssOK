@@ -52,12 +52,12 @@ export const GalleryOptions = ({
   const selectedSortLabel =
     SORT_OPTIONS.find((option) => option.value === selectedSort)?.label ?? "업로드 순";
 
-  const selectFilter = (option: PhotoFilter) => {
+  const selectFilter = (option: PhotoFilter): void => {
     onSelectOption(option);
     setOpenMenu(null);
   };
 
-  const selectSort = (sort: PhotoSort) => {
+  const selectSort = (sort: PhotoSort): void => {
     onSelectSort(sort);
     setOpenMenu(null);
   };

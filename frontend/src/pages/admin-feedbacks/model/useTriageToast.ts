@@ -4,7 +4,12 @@ import { useToast } from "@/shared/ui/toast";
 
 import { isApiError } from "@/shared/api";
 
-export const useTriageToast = (onUnauthorized: () => void) => {
+export const useTriageToast = (
+  onUnauthorized: () => void,
+): {
+  showChanged: (message: string) => () => void;
+  showFailed: (target: "\uC0C1\uD0DC" | "\uB2F4\uB2F9\uC790") => (error: unknown) => void;
+} => {
   const { showToast } = useToast();
 
   const showChanged = useCallback(

@@ -50,8 +50,8 @@ export const OnboardingPreview = () => {
   const { scale, fillWidth, fillHeight } = useFitScale(stageRef, SCENE_SIZE);
 
   /** 지금 장면만 시간을 흘린다. 장면에 들어올 때마다 새로 그려 처음부터 튼다. */
-  const sceneKey = (index: number) => (visibleScene === index ? `on-${round}` : "off");
-  const isRunning = (index: number) => !reducedMotion && visibleScene === index;
+  const sceneKey = (index: number): string => (visibleScene === index ? `on-${round}` : "off");
+  const isRunning = (index: number): boolean => !reducedMotion && visibleScene === index;
 
   return (
     <Preview>

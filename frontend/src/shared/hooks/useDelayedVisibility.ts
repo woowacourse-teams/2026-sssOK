@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
  * 금방 끝나는 로딩에 스피너를 바로 띄우면, 깜빡이기만 하고 사라져서 오히려 거슬리기 때문에
  * 로딩이 짧으면 스피너를 아예 안 보여주려고 쓴다.
  */
-export const useDelayedVisibility = (delayMs: number) => {
+export const useDelayedVisibility = (delayMs: number): boolean => {
   const [isVisible, setIsVisible] = useState(delayMs <= 0);
 
   useEffect(() => {

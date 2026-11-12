@@ -12,7 +12,7 @@ import { routes } from "@/app/routes";
 /** 목 핸들러가 받아들이는 계정을 그대로 가져온다 — 여기 다시 적으면 둘이 어긋난다. */
 const VALID = ADMIN_CREDENTIALS;
 
-const renderAt = (path: string = ROUTES.adminLogin) => {
+const renderAt = (path: string = ROUTES.adminLogin): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
   render(<RouterProvider router={router} />);
@@ -23,7 +23,7 @@ const renderAt = (path: string = ROUTES.adminLogin) => {
 const fillAndSubmit = async (
   user: ReturnType<typeof userEvent.setup>,
   { loginId, password }: { loginId: string; password: string },
-) => {
+): Promise<void> => {
   await user.type(screen.getByLabelText("아이디"), loginId);
   await user.type(screen.getByLabelText("비밀번호"), password);
   await user.click(screen.getByRole("button", { name: "로그인" }));

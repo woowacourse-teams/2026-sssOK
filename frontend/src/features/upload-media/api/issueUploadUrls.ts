@@ -1,3 +1,4 @@
+import { IssueUploadUrlsResponseSchema } from "./types";
 import { apiClient } from "@/shared/api";
 import type { IssueUploadUrlsRequest, IssueUploadUrlsResponse } from "./types";
 
@@ -7,8 +8,13 @@ import type { IssueUploadUrlsRequest, IssueUploadUrlsResponse } from "./types";
  * 파일 단위 실패는 예외로 던져지지 않고 응답의 `rejected` 로 갈라져 온다.
  * 방·권한 문제(403·410 등)만 `ApiError` 로 던져진다.
  */
-export const issueUploadUrls = (roomId: number, request: IssueUploadUrlsRequest, token: string) => {
+export const issueUploadUrls = (
+  roomId: number,
+  request: IssueUploadUrlsRequest,
+  token: string,
+): Promise<IssueUploadUrlsResponse> => {
   return apiClient<IssueUploadUrlsResponse>(`/rooms/${roomId}/media/upload-urls`, {
+    schema: IssueUploadUrlsResponseSchema,
     method: "POST",
     token,
     headers: {

@@ -5,7 +5,7 @@ import type { UploadResult } from "./types";
 const UPLOAD_FORMATS = ["jpeg", "png", "gif", "webp", "avif", "mp4", "webm", "mov"];
 
 /** 서버의 포맷 판별과 같이 확장자를 우선한다. 파일명 자체는 이벤트로 보내지 않는다. */
-const formatOf = (fileName: string, mimeType: string) => {
+const formatOf = (fileName: string, mimeType: string): string => {
   const extension = fileName
     ?.match(/\.([^.]+)$/)?.[1]
     .trim()
@@ -28,7 +28,7 @@ const formatOf = (fileName: string, mimeType: string) => {
 };
 
 /** 전송 전에 걸러진 파일도 실패에 포함한다. 전송 결과에는 이 파일들이 들어가지 않는다. */
-export const trackUploadSelectionRejected = (rejected: RejectedSelection[]) => {
+export const trackUploadSelectionRejected = (rejected: RejectedSelection[]): void => {
   const counts = new Map<SelectionRejectionCode, number>();
   rejected.forEach(({ code }) => counts.set(code, (counts.get(code) ?? 0) + 1));
 
@@ -51,7 +51,7 @@ export const trackUpload = (
   result: UploadResult,
   durationMs: number,
   room: AnalyticsRoomContext | null,
-) => {
+): void => {
   const uploadedCount = result.registered.length + result.alreadyRegistered;
   const failedCount = result.failed.length + result.rejected.length;
 
@@ -88,6 +88,6 @@ export const trackUpload = (
 };
 
 /** 결말을 만들지도 못하고 판 전체가 무너진 경우 (방·권한 문제 등) */
-export const trackUploadError = (fileCount: number, room: AnalyticsRoomContext | null) => {
+export const trackUploadError = (fileCount: number, room: AnalyticsRoomContext | null): void => {
   track("Photo Upload Failed", { reason: "REQUEST_FAILED", failed_count: fileCount }, room);
 };

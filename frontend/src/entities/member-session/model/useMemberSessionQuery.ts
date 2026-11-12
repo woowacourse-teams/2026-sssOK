@@ -1,3 +1,5 @@
+import type { MemberSession } from "../api/refreshMemberSession";
+import type { UseQueryResult } from "@tanstack/react-query";
 import { rememberTokenReplacement } from "@/shared/api/authRecovery";
 import { notifyUnauthorized } from "@/shared/api/unauthorized";
 import { queryOptions, useQuery } from "@tanstack/react-query";
@@ -7,7 +9,14 @@ import { refreshMemberSession } from "../api/refreshMemberSession";
 /** 로그인 완료 시에도 이 키에 서버가 발급한 회원 세션을 저장한다. */
 export const MEMBER_SESSION_QUERY_KEY = ["member-session"] as const;
 
-export const memberSessionQueryOptions = () =>
+export const memberSessionQueryOptions = (): ReturnType<
+  typeof queryOptions<
+    MemberSession | null,
+    Error,
+    MemberSession | null,
+    typeof MEMBER_SESSION_QUERY_KEY
+  >
+> =>
   queryOptions({
     queryKey: MEMBER_SESSION_QUERY_KEY,
     queryFn: async ({ client }) => {
@@ -39,4 +48,5 @@ export const memberSessionQueryOptions = () =>
     gcTime: Infinity,
   });
 
-export const useMemberSessionQuery = () => useQuery(memberSessionQueryOptions());
+export const useMemberSessionQuery = (): UseQueryResult<NoInfer<MemberSession | null>, Error> =>
+  useQuery(memberSessionQueryOptions());

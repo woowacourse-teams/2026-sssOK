@@ -3,7 +3,14 @@ import { useCallback, useState } from "react";
 import type { GalleryItem, Media } from "@/entities/media";
 import type { PendingMedia } from "@/features/upload-media";
 
-export const usePendingMedia = () => {
+export const usePendingMedia = (): {
+  uploadSlots: GalleryItem[];
+  addPendingMedia: ({ mediaId, file, folderIds }: PendingMedia) => void;
+  addProcessingMedia: (media: Media) => void;
+  removePendingMedia: (mediaIds: number[]) => void;
+  addPendingMediaToFolder: (mediaIds: number[], folderId: number) => void;
+  removePendingMediaFromFolder: (mediaIds: number[], folderId: number) => void;
+} => {
   const [uploadSlots, setUploadSlots] = useState<GalleryItem[]>([]);
 
   const addPendingMedia = useCallback(({ mediaId, file, folderIds }: PendingMedia) => {

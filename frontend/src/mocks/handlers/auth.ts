@@ -8,7 +8,7 @@ const FIRST_USER_ID = 10234;
 /** 새로고침해도 번호가 이어지도록 저장소에 둔다. 목 전용 값이라 앱은 읽지 않는다. */
 const COUNTER_KEY = "sssok.mock.nextUserId";
 
-const readNextUserId = () => Number(localStorage.getItem(COUNTER_KEY)) || FIRST_USER_ID;
+const readNextUserId = (): number => Number(localStorage.getItem(COUNTER_KEY)) || FIRST_USER_ID;
 
 /**
  * 인증할 때 받은 이름을 기억한다. 업로드 목이 등록 응답의 uploaderName 을 채우는 데 쓴다.
@@ -18,10 +18,10 @@ const nicknameByUserId = new Map<number, string>();
 let activeLinkCode: string | null = null;
 
 /** 인증을 거치지 않은 회원 번호면 null 이다. */
-export const nicknameOf = (userId: number) => nicknameByUserId.get(userId) ?? null;
+export const nicknameOf = (userId: number): string | null => nicknameByUserId.get(userId) ?? null;
 
 /** 테스트끼리 이름이 이어지지 않도록 되돌린다. */
-export const resetNicknames = () => {
+export const resetNicknames = (): void => {
   nicknameByUserId.clear();
   activeLinkCode = null;
 };

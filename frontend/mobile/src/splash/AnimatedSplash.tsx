@@ -9,7 +9,7 @@ import { WebView } from "react-native-webview";
 const TIMEOUT_MS = 3_000;
 const VIDEO_SOURCE = require("../../assets/splash.mp4");
 
-const createVideoHtml = (base64: string) => `<!doctype html>
+const createVideoHtml = (base64: string): string => `<!doctype html>
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
@@ -32,10 +32,10 @@ const createVideoHtml = (base64: string) => `<!doctype html>
 </body>
 </html>`;
 
-type AnimatedSplashProps = {
+interface AnimatedSplashProps {
   /** 서비스 WebView의 문서 로딩 완료 여부. API 완료를 의미하지 않는다. */
   webReady: boolean;
-};
+}
 
 export function AnimatedSplash({ webReady }: AnimatedSplashProps) {
   const [source, setSource] = useState<{ html: string } | null>(null);
@@ -55,7 +55,7 @@ export function AnimatedSplash({ webReady }: AnimatedSplashProps) {
   useEffect(() => {
     if (done) return;
     let cancelled = false;
-    const prepare = async () => {
+    const prepare = async (): Promise<void> => {
       // 앱에 번들된 영상을 읽어 HTML에 포함한다. 외부 URL이나 파일 접근 권한은 필요 없다.
       const asset = await Asset.fromModule(VIDEO_SOURCE).downloadAsync();
       if (!asset.localUri) throw new Error("Splash video is unavailable");

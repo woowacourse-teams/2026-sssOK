@@ -1,6 +1,6 @@
-import type { GalleryItem, MediaItem, PhotoFilter, PhotoSort } from "@/entities/media";
+import type { GalleryItem, Media, PhotoFilter, PhotoSort } from "@/entities/media";
 
-export const mergeGalleryItems = (photos: MediaItem[], uploadSlots: GalleryItem[]) => {
+export const mergeGalleryItems = (photos: Media[], uploadSlots: GalleryItem[]): GalleryItem[] => {
   const itemsById = new Map<number, GalleryItem>();
 
   for (const slot of uploadSlots) {
@@ -29,7 +29,7 @@ export const mergeGalleryItems = (photos: MediaItem[], uploadSlots: GalleryItem[
   return [...itemsById.values()];
 };
 
-export const countItemsByFolder = (items: GalleryItem[]) => {
+export const countItemsByFolder = (items: GalleryItem[]): Map<number, number> => {
   const counts = new Map<number, number>();
 
   for (const item of items) {
@@ -46,7 +46,7 @@ export const filterGalleryItems = (
   folderId: number | null,
   option: PhotoFilter,
   userId: number,
-) =>
+): GalleryItem[] =>
   items.filter((item) => {
     if (folderId !== null && !item.folderIds.includes(folderId)) return false;
 
@@ -57,7 +57,7 @@ export const filterGalleryItems = (
     return true;
   });
 
-export const sortGalleryItems = (items: GalleryItem[], sort: PhotoSort) => {
+export const sortGalleryItems = (items: GalleryItem[], sort: PhotoSort): GalleryItem[] => {
   if (sort === "upload") return items;
 
   return [...items].sort((left, right) => {

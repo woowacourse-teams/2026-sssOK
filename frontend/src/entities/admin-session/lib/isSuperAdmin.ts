@@ -4,4 +4,4 @@
  * `SUPER_ADMIN` 과 정확히 같을 때만 참이다. 모르는 역할에 슈퍼관리자 버튼을 열어 주면
  * 누를 때마다 403 을 받는 화면이 된다.
  */
-export const isSuperAdmin = (role: string) => role === "SUPER_ADMIN";
+export const isSuperAdmin = (role: string): boolean => role === "SUPER_ADMIN";

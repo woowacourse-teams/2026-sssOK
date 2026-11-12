@@ -1,7 +1,7 @@
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "../lib/mediaFileRules";
 import { selectMediaFiles } from "./selectMediaFiles";
 
-const fileOf = (name: string, size: number, type = "") => {
+const fileOf = (name: string, size: number, type = ""): File => {
   const file = new File(["x"], name, { type });
   Object.defineProperty(file, "size", { value: size });
 

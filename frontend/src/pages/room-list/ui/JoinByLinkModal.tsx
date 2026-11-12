@@ -19,7 +19,7 @@ export const JoinByLinkModal = ({ onClose }: JoinByLinkModalProps) => {
   const [link, setLink] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  const submit = () => {
+  const submit = (): void => {
     const code = parseRoomCode(link);
 
     if (!code) {

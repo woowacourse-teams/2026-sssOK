@@ -38,7 +38,7 @@ interface MediaViewerModalProps {
   onDeleted: (mediaId: number) => void;
 }
 
-const formatDate = (value: string) => {
+const formatDate = (value: string): string => {
   const date = new Date(value);
 
   return Number.isNaN(date.getTime())
@@ -72,10 +72,10 @@ export const MediaViewerModal = ({
   const previous = items[index - 1];
   const next = items[index + 1];
 
-  const movePrevious = () => {
+  const movePrevious = (): void => {
     if (previous) onChange(previous.mediaId);
   };
-  const moveNext = () => {
+  const moveNext = (): void => {
     if (next) onChange(next.mediaId);
   };
 
@@ -230,7 +230,7 @@ export const MediaViewerModal = ({
   );
 };
 
-const isVideoItem = (item: GalleryItem) =>
+const isVideoItem = (item: GalleryItem): boolean =>
   item.type === "local" ? item.file.type.startsWith("video/") : item.media.type === "VIDEO";
 
 const ViewerMedia = ({ item }: { item: GalleryItem }) =>
@@ -332,7 +332,7 @@ const ViewerFooter = ({
 
   useEffect(() => {
     if (!actionsOpen) return;
-    const closeOutside = (event: PointerEvent) => {
+    const closeOutside = (event: PointerEvent): void => {
       if (event.target instanceof Node && !actionsRef.current?.contains(event.target))
         setActionsOpen(false);
     };

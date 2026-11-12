@@ -6,13 +6,15 @@ import { loginNative } from "./loginNative";
 
 jest.mock("./nativeAuthBridge", () => ({ requestNativeLogin: jest.fn() }));
 const sdk = jest.mocked(requestNativeLogin);
-const session = () => ({
+const session = (): import("@/entities/member-session").MemberSession => ({
   memberStatus: "REGISTERED",
   userId: 1,
+  nickname: "회원",
+  refreshExpiresAt: "2099-01-01T00:00:00Z",
   accessToken: "service-token",
   expiresAt: new Date(Date.now() + 60_000).toISOString(),
 });
-const attempt = () => ({
+const attempt = (): { state: string; loginVerifier: string; nonce: string; expiresAt: string } => ({
   state: "s".repeat(43),
   loginVerifier: "v".repeat(43),
   nonce: "n".repeat(43),
@@ -34,6 +36,8 @@ it("카카오 SDK 토큰으로 웹뷰에서 COOKIE 로그인한다", async () =>
   );
   await expect(loginNative("kakao", new AbortController().signal)).resolves.toMatchObject({
     userId: 1,
+    nickname: "회원",
+    refreshExpiresAt: "2099-01-01T00:00:00Z",
   });
 });
 

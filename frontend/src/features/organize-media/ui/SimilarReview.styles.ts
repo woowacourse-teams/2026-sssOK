@@ -14,7 +14,7 @@ export const NameField = styled.form`
   padding-top: 10px;
 `;
 
-const nameBorderOf = ({ $filled, $error }: { $filled: boolean; $error: boolean }) => {
+const nameBorderOf = ({ $filled, $error }: { $filled: boolean; $error: boolean }): string => {
   if ($error) return `1.5px solid ${colors.borderDanger}`;
   return $filled ? `1.5px solid ${colors.borderPrimary}` : `1px solid ${colors.borderDefault}`;
 };

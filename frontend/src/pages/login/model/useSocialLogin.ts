@@ -10,7 +10,14 @@ import { startAppleLogin } from "../api/startAppleLogin";
 
 const startWebLogin = { kakao: startKakaoLogin, apple: startAppleLogin };
 
-export const useSocialLogin = () => {
+interface SocialLoginResult {
+  login: (provider: LoginProvider) => Promise<void>;
+  pendingProvider: LoginProvider | null;
+  isPending: boolean;
+  error: string;
+}
+
+export const useSocialLogin = (): SocialLoginResult => {
   const client = useQueryClient();
   const pending = useRef<AbortController | null>(null);
   const redirecting = useRef(false);
@@ -18,7 +25,7 @@ export const useSocialLogin = () => {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const restore = (event: PageTransitionEvent) => {
+    const restore = (event: PageTransitionEvent): void => {
       if (!event.persisted || !redirecting.current) return;
 
       pending.current?.abort();
@@ -36,7 +43,7 @@ export const useSocialLogin = () => {
     };
   }, []);
 
-  const login = async (provider: LoginProvider) => {
+  const login = async (provider: LoginProvider): Promise<void> => {
     if (pending.current) return;
     const controller = new AbortController();
     pending.current = controller;

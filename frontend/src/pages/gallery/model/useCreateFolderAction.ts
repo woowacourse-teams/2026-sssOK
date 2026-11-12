@@ -1,3 +1,4 @@
+import type { RoomFolder } from "@/entities/room/model/types";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { roomQueryKey } from "@/entities/room";
@@ -19,11 +20,14 @@ export const useCreateFolderAction = ({
   userId,
   selectFolder,
   clearSelection,
-}: UseCreateFolderActionParams) => {
+}: UseCreateFolderActionParams): {
+  handleCreateFolder: (source: CreateFolderSource) => Promise<void>;
+  requestCreateFolder: () => Promise<RoomFolder | null>;
+} => {
   const queryClient = useQueryClient();
   const { openModal } = useGalleryModal();
 
-  const requestCreateFolder = async () => {
+  const requestCreateFolder = async (): Promise<RoomFolder | null> => {
     const folder = await openModal({ type: "create-folder" });
     if (!folder) return null;
     await queryClient.invalidateQueries(
@@ -33,7 +37,7 @@ export const useCreateFolderAction = ({
     return folder;
   };
 
-  const handleCreateFolder = async (source: CreateFolderSource) => {
+  const handleCreateFolder = async (source: CreateFolderSource): Promise<void> => {
     track("Folder Create Started", { source });
     const folder = await requestCreateFolder();
     if (!folder) return;

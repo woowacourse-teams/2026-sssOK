@@ -28,14 +28,14 @@ interface GalleryMediaCardProps {
   onOpen?: (mediaId: number) => void;
 }
 
-const formatDuration = (duration: number) => {
+const formatDuration = (duration: number): string => {
   const minutes = Math.floor(duration / 60);
   const seconds = duration % 60;
 
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 };
 
-const createImageUrl = (item: GalleryItem) => {
+const createImageUrl = (item: GalleryItem): string => {
   if (item.type === "server") {
     return (
       item.media.thumbnailUrl ?? (item.media.type === "IMAGE" ? item.media.displayUrl : null) ?? ""

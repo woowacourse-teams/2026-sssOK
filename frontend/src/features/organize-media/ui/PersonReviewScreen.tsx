@@ -153,7 +153,7 @@ const Review = ({
   const conflict = conflictOf(review, folderNames);
 
   /** 다른 카드가 쓰는 이름이면 합칠지 먼저 묻는다. */
-  const pickName = (personId: string, name: string) => {
+  const pickName = (personId: string, name: string): void => {
     const owner = ownerOfName(review, personId, name);
     if (owner) {
       setPendingMerge({ personId, ownerId: owner.id, name });
@@ -163,13 +163,13 @@ const Review = ({
   };
 
   /** 직접 입력한 이름은 칩으로도 남기고, 늘 그 이름을 고른다. */
-  const typeName = (personId: string, name: string) => {
+  const typeName = (personId: string, name: string): void => {
     setTypedNames((current) => (current.includes(name) ? current : [...current, name]));
     const person = review.people.find((item) => item.id === personId);
     if (person?.name !== name) pickName(personId, name);
   };
 
-  const merge = ({ ownerId, personId, name }: PendingMerge) => {
+  const merge = ({ ownerId, personId, name }: PendingMerge): void => {
     const next = mergePeople(review, ownerId, personId);
     const owner = next.people.find((person) => person.id === ownerId);
     setReview(next);

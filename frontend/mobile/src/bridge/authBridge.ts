@@ -1,8 +1,5 @@
+import { AuthRequestSchema, type AuthRequest } from "./requestSchemas";
 import { authenticateWithSdk, isSdkLoginCancelled, type AuthProvider } from "./sdkAuth";
-
-type AuthRequest = {
-  requestId: string;
-} & ({ provider: "kakao" } | { provider: "apple"; nonce: string });
 
 export type AuthEvent = {
   requestId: string;
@@ -10,43 +7,24 @@ export type AuthEvent = {
 } & ({ status: "success"; credential: string } | { status: "cancelled" | "error" });
 
 const readAuthRequest = (raw: string): AuthRequest | null => {
-  let request: unknown;
   try {
-    request = JSON.parse(raw);
+    const result = AuthRequestSchema.safeParse(JSON.parse(raw));
+    return result.success ? result.data : null;
   } catch {
     return null;
   }
-  if (
-    !request ||
-    typeof request !== "object" ||
-    !("type" in request) ||
-    request.type !== "auth/login" ||
-    !("requestId" in request) ||
-    typeof request.requestId !== "string" ||
-    !/^[A-Za-z0-9-]{1,64}$/.test(request.requestId) ||
-    !("provider" in request)
-  )
-    return null;
-  const { requestId, provider } = request;
-  if (provider === "kakao") return { requestId, provider };
-  if (
-    provider === "apple" &&
-    "nonce" in request &&
-    typeof request.nonce === "string" &&
-    /^[A-Za-z0-9_-]{43}$/.test(request.nonce)
-  )
-    return { requestId, provider, nonce: request.nonce };
-  return null;
 };
 
 /** 메시지 검증·중복 실행 방지·응답 전달만 담당한다. */
-export const createAuthBridge = (emit: (event: AuthEvent) => void) => {
+export const createAuthBridge = (
+  emit: (event: AuthEvent) => void,
+): { handle(raw: string): boolean; cancelAll(): void } => {
   let busy = false;
   let generation = 0;
 
-  const authenticate = async (request: AuthRequest) => {
+  const authenticate = async (request: AuthRequest): Promise<void> => {
     const currentGeneration = generation;
-    const reply = (result: AuthEvent) => {
+    const reply = (result: AuthEvent): void => {
       if (currentGeneration === generation) emit(result);
     };
     const identity = { requestId: request.requestId, provider: request.provider };

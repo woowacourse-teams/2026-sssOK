@@ -1,3 +1,4 @@
+import type { UpdateRoomRequest } from "@/features/update-room/api/types";
 import { useState } from "react";
 
 import type { Room } from "@/entities/room";
@@ -7,14 +8,24 @@ import {
   type UpdateRoomFormValues,
 } from "./updateRoomForm";
 
-export const useUpdateRoomForm = (room: Room) => {
+export const useUpdateRoomForm = (
+  room: Room,
+): {
+  formValues: UpdateRoomFormValues;
+  updateField: (name: keyof UpdateRoomFormValues) => (value: string) => void;
+  request: UpdateRoomRequest;
+  isValid: boolean;
+  hasChanges: boolean;
+} => {
   const [formValues, setFormValues] = useState<UpdateRoomFormValues>(() =>
     createInitialUpdateRoomForm(room),
   );
 
-  const updateField = (name: keyof UpdateRoomFormValues) => (value: string) => {
-    setFormValues((previous) => ({ ...previous, [name]: value }));
-  };
+  const updateField =
+    (name: keyof UpdateRoomFormValues): ((value: string) => void) =>
+    (value: string) => {
+      setFormValues((previous) => ({ ...previous, [name]: value }));
+    };
 
   const request = createUpdateRoomRequest(formValues, room);
   const isValid = formValues.name.trim().length > 0;

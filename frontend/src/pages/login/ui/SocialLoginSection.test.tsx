@@ -20,7 +20,7 @@ const supportsNative = jest.mocked(supportsNativeLogin);
 const kakaoStart = jest.mocked(startKakaoLogin);
 const appleStart = jest.mocked(startAppleLogin);
 
-const createWrapper = () => {
+const createWrapper = (): ((props: { children: ReactNode }) => ReactNode) => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return function Wrapper({ children }: { children: ReactNode }) {
     return (

@@ -15,7 +15,7 @@ import { DownloadModeSheet } from "./DownloadModeSheet";
  */
 let restorePhone: (() => void) | null = null;
 
-const pretendToBePhone = () => {
+const pretendToBePhone = (): void => {
   // 이미 갈아끼운 상태다. 두 번 끼우면 되돌릴 원본을 잃는다.
   if (restorePhone !== null) {
     return;

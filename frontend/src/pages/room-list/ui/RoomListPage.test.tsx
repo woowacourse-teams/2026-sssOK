@@ -10,7 +10,7 @@ import { routes } from "@/app/routes";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 
-const renderRoomList = () => {
+const renderRoomList = (): ReturnType<typeof createMemoryRouter> => {
   server.use(
     http.post(`${API_BASE_URL}/auth/refresh`, () =>
       HttpResponse.json({
@@ -48,7 +48,7 @@ const renderRoomList = () => {
   return router;
 };
 
-const cardOf = async (name: string) =>
+const cardOf = async (name: string): Promise<HTMLElement> =>
   (await screen.findByRole("link", { name: new RegExp(name) })).closest("li") as HTMLElement;
 
 describe("방 목록 화면", () => {

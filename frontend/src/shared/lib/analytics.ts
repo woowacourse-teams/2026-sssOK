@@ -1,3 +1,4 @@
+import type { CaptureResult } from "posthog-js";
 import type { BeforeSendFn, PostHog } from "posthog-js";
 
 import { APP_VERSION, POSTHOG_HOST, POSTHOG_KEY } from "@/shared/config";
@@ -22,12 +23,12 @@ let roomContext: AnalyticsRoomContext | null = null;
  * PostHog `register` 로 두지 않는 이유 — 그건 기기에 저장돼 탭끼리 공유된다.
  * 두 탭에서 서로 다른 방을 열면 한쪽 이벤트에 다른 방 코드가 붙는다.
  */
-export const setAnalyticsRoom = (context: AnalyticsRoomContext | null) => {
+export const setAnalyticsRoom = (context: AnalyticsRoomContext | null): void => {
   roomContext = context;
 };
 
 /** 지금 방. 끝나는 데 오래 걸리는 작업은 시작할 때 이 값을 잡아 뒀다가 `track` 에 넘긴다. */
-export const getAnalyticsRoom = () => roomContext;
+export const getAnalyticsRoom = (): AnalyticsRoomContext | null => roomContext;
 
 /**
  * 이벤트를 보낸다. 배포 빌드가 아니면 아무 일도 하지 않는다.
@@ -40,7 +41,7 @@ export const track = <E extends AnalyticsEventName>(
   event: E,
   properties: AnalyticsEvents[E],
   room: AnalyticsRoomContext | null = roomContext,
-) => {
+): void => {
   if (process.env.NODE_ENV !== "production") {
     return;
   }
@@ -69,7 +70,7 @@ export const parseInternalParam = (search: string): boolean | null => {
 };
 
 /** 표시용 쿼리가 공유 링크에 딸려가지 않도록 주소창에서 지운다. */
-const removeInternalParam = () => {
+const removeInternalParam = (): void => {
   const url = new URL(window.location.href);
   url.searchParams.delete(INTERNAL_PARAM);
   window.history.replaceState(window.history.state, "", url);
@@ -79,7 +80,7 @@ const removeInternalParam = () => {
  * 팀원 기기 표시. register 한 속성은 PostHog 가 기기에 저장해 두고 이후 모든 이벤트에 붙인다.
  * PostHog 의 내부 인원 필터에서 `is_internal` 이 true 인 이벤트를 빼면 지표에서 제외된다.
  */
-const applyInternalFlag = (posthog: PostHog) => {
+const applyInternalFlag = (posthog: PostHog): void => {
   const internal = parseInternalParam(window.location.search);
   if (internal === null) return;
 
@@ -97,14 +98,14 @@ const applyInternalFlag = (posthog: PostHog) => {
  * `register` 로 두지 않는 이유 — 기기에 저장돼 탭끼리 공유된다. 배포 전에 열어 둔 탭은 옛 번들을
  * 돌리는데, 새로 연 탭이 버전을 덮어쓰면 옛 번들의 이벤트에 새 버전이 붙는다.
  */
-export const attachAppVersion: BeforeSendFn = (event) => {
+export const attachAppVersion: BeforeSendFn = (event): CaptureResult | null => {
   if (event) {
     event.properties[APP_VERSION_PROPERTY] = APP_VERSION;
   }
   return event;
 };
 
-export const initAnalytics = async () => {
+export const initAnalytics = async (): Promise<void> => {
   // 배포 빌드에서만 수집한다. 이 비교는 빌드 시점에 상수로 접혀서
   // 아래 동적 import 가 죽은 코드가 되고, 개발 번들에는 SDK 가 딸려가지 않는다.
   if (process.env.NODE_ENV !== "production") {
@@ -149,7 +150,7 @@ interface CaptureExceptionOptions {
 export const captureException = (
   error: unknown,
   { level, operation, method, route, status, code }: CaptureExceptionOptions,
-) => {
+): void => {
   if (!client) return;
 
   client.captureException(error, {

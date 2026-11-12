@@ -1,3 +1,6 @@
+import type { InfiniteData } from "@tanstack/react-query";
+import type { UseInfiniteQueryResult } from "@tanstack/react-query";
+import type { AdminFeedbackPage } from "@/entities/feedback/model/types";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { getAdminFeedbacks } from "../api/getAdminFeedbacks";
@@ -10,8 +13,10 @@ export const adminFeedbacksQueryKey = ["admin", "feedbacks"] as const;
  * 인증 정보인 token 은 queryKey 에 넣지 않는다 — 관리자 계정은 앱에 하나뿐이라
  * 캐시를 나눌 이유가 없고, 키에 넣으면 토큰이 devtools 에 그대로 드러난다.
  */
-export const useAdminFeedbacksQuery = (token: string) =>
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+export const useAdminFeedbacksQuery = (
+  token: string,
+): UseInfiniteQueryResult<InfiniteData<AdminFeedbackPage, unknown>, Error> =>
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- 인증 토큰은 캐시 식별자가 아니며 세션 변경 시 별도로 캐시를 정리한다
   useInfiniteQuery({
     queryKey: adminFeedbacksQueryKey,
     queryFn: ({ pageParam }) => getAdminFeedbacks({ token, cursor: pageParam }),

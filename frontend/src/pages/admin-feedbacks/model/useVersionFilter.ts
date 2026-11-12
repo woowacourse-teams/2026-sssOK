@@ -8,7 +8,14 @@ import { collectFrontendVersions, type AdminFeedback } from "@/entities/feedback
  * 서버에 버전 필터 파라미터가 없어서 **이미 불러온 페이지 안에서만** 거른다. 다음 페이지를
  * 불러오면 칩이 늘어날 수 있고, 거른 결과도 그때 함께 늘어난다.
  */
-export const useVersionFilter = (feedbacks: AdminFeedback[]) => {
+export const useVersionFilter = (
+  feedbacks: AdminFeedback[],
+): {
+  versions: string[];
+  selectedVersion: string | null;
+  visibleFeedbacks: AdminFeedback[];
+  toggleVersion: (version: string) => void;
+} => {
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
 
   const versions = useMemo(() => collectFrontendVersions(feedbacks), [feedbacks]);

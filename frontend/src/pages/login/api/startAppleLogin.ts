@@ -1,17 +1,22 @@
+import { z } from "zod";
+export const AppleLoginStartSchema = z.object({
+  authorizationUrl: z.string(),
+  state: z.string(),
+  loginVerifier: z.string(),
+  expiresAt: z.string(),
+});
 import { ApiError } from "@/shared/api";
 import { requestLoginStart } from "./requestLoginStart";
 
-interface AppleLoginStart {
-  authorizationUrl: string;
-  state: string;
-  loginVerifier: string;
-  expiresAt: string;
-}
+type AppleLoginStart = z.infer<typeof AppleLoginStartSchema>;
 
 /** 콜백에서 사용할 확인값을 같은 탭에 보관하고 Apple 인증 주소를 반환한다. */
 export const startAppleLogin = async (): Promise<string> => {
   sessionStorage.removeItem("sssok.oauth.apple");
-  const result = await requestLoginStart<AppleLoginStart>("/auth/oauth/apple/start");
+  const result = await requestLoginStart<AppleLoginStart>(
+    "/auth/oauth/apple/start",
+    AppleLoginStartSchema,
+  );
   let url: URL;
   try {
     url = new URL(result.authorizationUrl);

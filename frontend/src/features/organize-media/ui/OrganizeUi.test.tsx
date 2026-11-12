@@ -19,7 +19,12 @@ const jobOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob => ({
   ...overrides,
 });
 
-const barHandlers = () => ({
+const barHandlers = (): {
+  onCancel: ReturnType<typeof jest.fn>;
+  onReview: ReturnType<typeof jest.fn>;
+  onRetry: ReturnType<typeof jest.fn>;
+  onDismiss: ReturnType<typeof jest.fn>;
+} => ({
   onCancel: jest.fn(),
   onReview: jest.fn(),
   onRetry: jest.fn(),
@@ -198,7 +203,7 @@ describe("OrganizeStatusBar", () => {
 });
 
 describe("OrganizeStatusBar · 비슷한 사진", () => {
-  const similarOf = (overrides: Partial<MyOrganizeJob> = {}) =>
+  const similarOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob =>
     jobOf({ kind: "SIMILAR", ...overrides });
 
   it("묶는 중에는 묶기 진행률을 보여 준다", () => {

@@ -9,7 +9,19 @@ import { useRetryCountdown } from "./useRetryCountdown";
 const LOCK_NOTE =
   "로그인 실패가 여러 번 반복돼 잠시 막았어요. 시간이 지나면 다시 시도할 수 있어요.";
 
-export const useAdminLogin = () => {
+export const useAdminLogin = (): {
+  loginId: string;
+  password: string;
+  errorMessage: string;
+  lockNote: string;
+  isPending: boolean;
+  canSubmit: boolean;
+  isCountingDown: boolean;
+  remainingSeconds: number;
+  changeLoginId: (value: string) => void;
+  changePassword: (value: string) => void;
+  submit: () => Promise<void>;
+} => {
   const navigate = useNavigate();
   const { remainingSeconds, isCountingDown, start, clear } = useRetryCountdown();
 
@@ -21,7 +33,7 @@ export const useAdminLogin = () => {
   const isFilled = loginId.trim() !== "" && password !== "";
   const canSubmit = isFilled && !isPending && !isCountingDown;
 
-  const submit = async () => {
+  const submit = async (): Promise<void> => {
     if (!canSubmit) return;
 
     setIsPending(true);

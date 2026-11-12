@@ -1,19 +1,23 @@
+import { z } from "zod";
+import { AnonymousSessionSchema } from "../model/types";
+export const RefreshedSessionSchema = AnonymousSessionSchema.extend(
+  z.object({
+    memberStatus: z.union([z.literal("REGISTERED"), z.literal("ANONYMOUS")]),
+    refreshExpiresAt: z.string(),
+  }).shape,
+);
 import { rememberTokenReplacement } from "@/shared/api/authRecovery";
 import { apiClient, ApiError } from "@/shared/api";
 import { getRoomSession, saveRoomSession } from "../lib/roomSessionStorage";
-import type { AnonymousSession } from "../model/types";
 
-export interface RefreshedSession extends AnonymousSession {
-  memberStatus: "REGISTERED" | "ANONYMOUS";
-  refreshExpiresAt: string;
-}
+export type RefreshedSession = z.infer<typeof RefreshedSessionSchema>;
 
 let pending: Promise<RefreshedSession> | null = null;
 
 /** 초기 복원, 선제 갱신, 401 복구가 일회용 refresh 쿠키를 함께 사용한다. */
 export const refreshSession = (): Promise<RefreshedSession> => {
   if (pending) return pending;
-  const run = async () => {
+  const run = async (): Promise<RefreshedSession> => {
     const rooms = Object.keys(localStorage)
       .filter((key) => key.startsWith("sssok.auth:"))
       .map((key) => {
@@ -21,6 +25,7 @@ export const refreshSession = (): Promise<RefreshedSession> => {
         return { code, token: getRoomSession(code)?.accessToken };
       });
     const session = await apiClient<RefreshedSession>("/auth/refresh", {
+      schema: RefreshedSessionSchema,
       method: "POST",
       credentials: "include",
       headers: { "X-CSRF-Protection": "1" },

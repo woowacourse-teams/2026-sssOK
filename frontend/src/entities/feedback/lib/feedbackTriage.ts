@@ -16,15 +16,15 @@ export const FEEDBACK_ASSIGNEES: readonly { value: FeedbackAssignee; label: stri
 
 export const UNASSIGNED_LABEL = "담당 없음";
 
-export const feedbackStatusLabel = (status: FeedbackStatus) =>
+export const feedbackStatusLabel = (status: FeedbackStatus): string =>
   FEEDBACK_STATUSES.find(({ value }) => value === status)?.label ?? status;
 
-export const feedbackAssigneeLabel = (assignee: FeedbackAssignee | null) =>
+export const feedbackAssigneeLabel = (assignee: FeedbackAssignee | null): string =>
   assignee === null
     ? UNASSIGNED_LABEL
     : (FEEDBACK_ASSIGNEES.find(({ value }) => value === assignee)?.label ?? assignee);
 
-export const isFeedbackSettled = ({ status }: Pick<AdminFeedback, "status">) =>
+export const isFeedbackSettled = ({ status }: Pick<AdminFeedback, "status">): boolean =>
   status === "REFLECTED" || status === "ON_HOLD";
 
 /** 목록 정렬 순서. 탭 순서와 다르다. */
@@ -35,7 +35,7 @@ const SORT_ORDER: readonly FeedbackStatus[] = [
   "ON_HOLD",
 ];
 
-const statusRank = (status: FeedbackStatus) => {
+const statusRank = (status: FeedbackStatus): number => {
   const index = SORT_ORDER.indexOf(status);
 
   return index === -1 ? SORT_ORDER.length : index;

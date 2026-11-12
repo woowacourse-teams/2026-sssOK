@@ -1,3 +1,4 @@
+import type { DownloadOutcome } from "@/features/download-media/model/types";
 import { http, HttpResponse } from "msw";
 
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
@@ -29,21 +30,25 @@ const targetOf = (mediaId: number): DownloadTarget => ({
   mimeType: "image/jpeg",
 });
 
-const enterRoom = () =>
+const enterRoom = (): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const run = (targets: DownloadTarget[], mode: "individual" | "zip", signal?: AbortSignal) =>
+const run = (
+  targets: DownloadTarget[],
+  mode: "individual" | "zip",
+  signal?: AbortSignal,
+): Promise<DownloadOutcome> =>
   downloadMedia({ roomId: MOCK_ROOM_ID, targets, mode, token: TOKEN, signal });
 
 /** 단건 다운로드를 가로채 상태를 골라 내준다. 목 픽스처의 원본 URL 에 기대지 않는다. */
 const serveSingle = ({
   statusOf = () => 200,
   delayMs = 0,
-}: { statusOf?: (mediaId: number) => number; delayMs?: number } = {}) => {
+}: { statusOf?: (mediaId: number) => number; delayMs?: number } = {}): { peakOf: () => number } => {
   let running = 0;
   let peak = 0;
 
@@ -94,7 +99,7 @@ const serveSingle = ({
  * 가리키는데 테스트 환경에는 그 호스트가 없다. **여기서만** 바이트를 내준다 —
  * 전역 핸들러로 두면 브라우저에서 갤러리 썸네일까지 가짜가 된다.
  */
-const serveOriginals = () =>
+const serveOriginals = (): void =>
   server.use(
     http.get(
       "https://picsum.photos/seed/:seed/:width/:height",
@@ -302,7 +307,7 @@ describe("downloadMedia — 사진첩에 저장", () => {
     share: (data: { files: File[] }) => Promise<void> = async ({ files }) =>
       void shared.push(...files),
     targets: DownloadTarget[] = [targetOf(5000)],
-  ) => {
+  ): Promise<{ outcome: DownloadOutcome; shared: File[] }> => {
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
         const { mediaIds } = (await request.json()) as { mediaIds: number[] };
@@ -400,7 +405,7 @@ describe("downloadMedia — 사진첩에 저장", () => {
  * 개별 저장은 뒤엣것이 앞엣것을 덮고, 공유 시트에는 같은 이름 둘이 한 번에 넘어간다.
  */
 describe("downloadMedia — 이름이 겹치는 사진", () => {
-  const serveDuplicates = () =>
+  const serveDuplicates = (): void =>
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
         const { mediaIds } = (await request.json()) as { mediaIds: number[] };

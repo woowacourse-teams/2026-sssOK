@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, type RenderResult } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
@@ -20,7 +20,7 @@ const Entry = () => {
   return <p>{pathname + search}</p>;
 };
 
-const renderAtInvite = () =>
+const renderAtInvite = (): RenderResult =>
   render(
     <MemoryRouter initialEntries={["/join/ABCDEF23?linkCode=483920"]}>
       <Routes>

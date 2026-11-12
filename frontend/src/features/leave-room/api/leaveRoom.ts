@@ -5,7 +5,7 @@ interface LeaveRoomParams {
   accessToken?: string;
 }
 
-export const leaveRoom = ({ roomId, accessToken }: LeaveRoomParams) =>
+export const leaveRoom = ({ roomId, accessToken }: LeaveRoomParams): Promise<void> =>
   apiClient<void>(`/rooms/${roomId}/members/me`, {
     method: "DELETE",
     token: accessToken,

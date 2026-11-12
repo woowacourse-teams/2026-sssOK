@@ -1,3 +1,4 @@
+import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render as testingRender, screen } from "@testing-library/react";
@@ -39,7 +40,9 @@ const serverItem: GalleryItem = {
   folderIds: media.folderIds,
 };
 
-const render = (ui: ReactNode) => {
+const render = (
+  ui: ReactNode,
+): RenderResult<typeof import("@testing-library/dom/types/queries"), HTMLElement, HTMLElement> => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

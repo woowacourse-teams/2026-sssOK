@@ -9,7 +9,10 @@ jest.mock("../lib/prefersShareSheet", () => ({ prefersShareSheet: jest.fn() }));
 
 const prefersShareSheetMock = prefersShareSheet as jest.MockedFunction<typeof prefersShareSheet>;
 
-const renderSheet = ({ isPhone = false, count = 2 } = {}) => {
+const renderSheet = ({ isPhone = false, count = 2 } = {}): {
+  onSubmit: ReturnType<typeof jest.fn>;
+  onClose: ReturnType<typeof jest.fn>;
+} => {
   prefersShareSheetMock.mockReturnValue(isPhone);
 
   const onSubmit = jest.fn();
