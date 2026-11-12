@@ -64,6 +64,11 @@
       />
     </noscript>
     <link rel="stylesheet" href="/landing/styles.css" />
+    <script>
+      // 스크롤 위치가 곧 장면 시각이라, 새로고침하면 중간 장면이 아니라 첫 화면부터 다시 시작한다
+      history.scrollRestoration = "manual";
+      document.documentElement.classList.add("js-wait");
+    </script>
   </head>
   <body>
     <div class="bg" aria-hidden="true"></div>

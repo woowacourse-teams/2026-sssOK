@@ -1,14 +1,24 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { useEffect, useRef } from "react";
+import { Outlet, useNavigate } from "react-router-dom";
 
 import { useMemberSessionQuery } from "@/entities/member-session";
 import { ROUTES } from "@/shared/config";
+import { takeLoginReturn } from "@/shared/lib";
 import { PageSpinner } from "@/shared/ui/spinner";
 
-/** 이미 로그인한 회원은 로그인 화면 대신 방 목록으로 보낸다. */
 export const RedirectIfMember = () => {
   const session = useMemberSessionQuery();
+  const navigate = useNavigate();
+  const redirected = useRef(false);
+  const isMember = !!session.data && !session.isError;
 
-  if (session.isPending) return <PageSpinner label="로그인 확인 중" />;
-  if (session.data && !session.isError) return <Navigate to={ROUTES.rooms} replace />;
+  useEffect(() => {
+    if (isMember && !redirected.current) {
+      redirected.current = true;
+      navigate(takeLoginReturn() ?? ROUTES.rooms, { replace: true });
+    }
+  }, [isMember, navigate]);
+
+  if (session.isPending || isMember) return <PageSpinner label="로그인 확인 중" />;
   return <Outlet />;
 };

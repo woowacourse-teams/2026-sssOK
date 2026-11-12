@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.ssssok.app",
+      "sha256_cert_fingerprints": [
+        "B9:D5:55:CE:1D:00:5F:88:31:A0:B5:2B:73:7F:D2:24:A0:F9:93:22:44:06:4B:29:F3:15:C5:6A:A6:0B:D5:CA"
+      ]
+    }
+  }
+]

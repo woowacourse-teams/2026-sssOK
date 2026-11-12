@@ -313,8 +313,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
+  const selectedIdSet = new Set(selectedPhotoIds);
   const downloadTargets = galleryItems
-    .filter((item) => selectedPhotoIds.includes(item.mediaId))
+    .filter((item) => selectedIdSet.has(item.mediaId))
     .map((slot) => ({
       mediaId: slot.mediaId,
       fileName: slot.type === "local" ? slot.file.name : slot.media.fileName,
