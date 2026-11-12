@@ -39,6 +39,8 @@ public enum ErrorCode {
     INVALID_MEDIA_REPORT_REASON(400, "%s"),
     INVALID_MEDIA_REPORT_STATUS(400, "올바르지 않은 처리 상태입니다: %s"),
 
+    UPLOAD_VERIFICATION_UNAVAILABLE(503, "업로드 확인이 지연되고 있습니다. 잠시 후 다시 시도해주세요"),
+
     SOCIAL_AUTH_UNAVAILABLE(503, "소셜 인증 제공자에 연결할 수 없습니다. 잠시 후 다시 시도해주세요"),
 
     // 401 Unauthorized

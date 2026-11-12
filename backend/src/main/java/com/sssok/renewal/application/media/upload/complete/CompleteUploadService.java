@@ -1,9 +1,12 @@
 package com.sssok.renewal.application.media.upload.complete;
 
+import static com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics.Stage.*;
+
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.room.RoomNicknameReader;
 import com.sssok.renewal.application.media.upload.shared.UploadRoomValidator;
 import com.sssok.renewal.outgoing.database.UploadMemberRepository;
+import com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class CompleteUploadService {
+    private final UploadRegistrationMetrics metrics;
     private final UploadRoomValidator uploadRoomValidator;
     private final CompleteUploadValidator completeUploadValidator;
     private final RoomNicknameReader roomNicknameReader;
@@ -20,13 +24,18 @@ public class CompleteUploadService {
     private final ApplicationEventPublisher eventPublisher;
 
     public CompleteUploadResult complete(CompleteUploadCommand command) {
+        return metrics.total(command.mediaIds() == null ? 0 : command.mediaIds().size(), () -> completeMeasured(command),
+            result -> result.failed().size());
+    }
+
+    private CompleteUploadResult completeMeasured(CompleteUploadCommand command) {
         command.validate();
-        uploadRoomValidator.validate(command.roomId(), command.uploaderId());
-        ValidatedUploadedFiles validatedFiles = completeUploadValidator.validate(command);
-        String uploaderName = roomNicknameReader.read(command.roomId(), command.uploaderId());
-        List<MediaDetail> registeredMedia = mediaRegistrationService.register(
-            command.roomId(), validatedFiles.verifiedFiles(), uploaderName);
-        publishUploaded(command, uploaderName, registeredMedia.size());
+        metrics.measure(ACCESS, () -> uploadRoomValidator.validate(command.roomId(), command.uploaderId()));
+        ValidatedUploadedFiles validatedFiles = metrics.measure(VALIDATE, () -> completeUploadValidator.validate(command));
+        String uploaderName = metrics.measure(NICKNAME, () -> roomNicknameReader.read(command.roomId(), command.uploaderId()));
+        List<MediaDetail> registeredMedia = metrics.measure(REGISTRATION, () -> mediaRegistrationService.register(
+            command.roomId(), validatedFiles.verifiedFiles(), uploaderName));
+        metrics.measure(UPLOADED_PUBLISH, () -> publishUploaded(command, uploaderName, registeredMedia.size()));
         return new CompleteUploadResult(registeredMedia, validatedFiles.failedMedia());
     }
 

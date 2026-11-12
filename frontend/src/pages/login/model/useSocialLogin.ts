@@ -1,17 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 
 import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
 import { myRoomsQueryKey } from "@/entities/room";
-import { ROUTES } from "@/shared/config";
-import { takeLoginReturn } from "@/shared/lib";
 import { loginNative } from "./loginNative";
 import { supportsNativeLogin, type LoginProvider } from "./nativeAuthBridge";
 
 export const useSocialLogin = (provider: LoginProvider, startWebLogin: () => Promise<string>) => {
   const client = useQueryClient();
-  const navigate = useNavigate();
   const pending = useRef<AbortController | null>(null);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState("");
@@ -36,7 +32,6 @@ export const useSocialLogin = (provider: LoginProvider, startWebLogin: () => Pro
       controller.signal.throwIfAborted();
       client.setQueryData(MEMBER_SESSION_QUERY_KEY, session);
       client.removeQueries({ queryKey: myRoomsQueryKey });
-      navigate(takeLoginReturn() ?? ROUTES.rooms, { replace: true });
     } catch (error) {
       if (!controller.signal.aborted)
         setError(error instanceof Error ? error.message : "로그인을 완료하지 못했어요.");

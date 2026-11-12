@@ -45,13 +45,14 @@ jobs:
             app:
               - 'backend/**'
               - '!backend/monitoring/**'
+              - '!backend/deploy/**'
               - '!backend/docker-compose*.yml'
               - '!backend/nginx.conf'
               - '!backend/.env*'
               - '!backend/docs/**'
               - '!**/*.md'
             monitoring:
-              - '{backend/monitoring/**,backend/docker-compose*.yml,backend/nginx.conf,backend/.env*.example,.github/workflows/deploy-dev.yml,.github/workflows/deploy-prod.yml}'
+              - '{backend/monitoring/**,backend/deploy/**,backend/docker-compose*.yml,backend/nginx.conf,backend/.env*.example,.github/workflows/deploy-dev.yml,.github/workflows/deploy-prod.yml}'
               - '!backend/monitoring/central/**'
               - '!**/*.md'
             ci:
@@ -176,10 +177,13 @@ jobs:
         run: touch backend/.env
       - name: Compose 수집 설정 및 Nginx 문법 검증
         run: bash backend/monitoring/validate-dev-node.sh
-      - name: 개발 Nginx 설정 변경 감지 검증
+      - name: 개발 블루-그린 구성 검증
         run: python3 -B backend/monitoring/test-dev-nginx.py
-      - name: 운영 배포 후 검사 스크립트 문법 검증
-        run: bash -n backend/monitoring/check-prod-node.sh
+      - name: 배포 스크립트 문법 검증
+        run: |
+          bash -n backend/deploy/blue-green.sh
+          bash -n backend/monitoring/check-prod-node.sh
+          bash -n backend/monitoring/check-dev-node.sh
       - name: 배포 전 사설 IP 검사 검증
         run: python3 -B backend/monitoring/test-private-ip.py
 

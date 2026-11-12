@@ -17,12 +17,12 @@ class ThumbnailQueuePropertiesTest {
         assertThat(properties.imageWorkers()).isEqualTo(4);
         assertThat(properties.videoWorkers()).isEqualTo(2);
         assertThat(properties.maxAttempts()).isEqualTo(5);
-        assertThat(properties.lease()).isEqualTo(Duration.ofMinutes(2));
+        assertThat(properties.lease()).isEqualTo(Duration.ofSeconds(30));
         assertThat(properties.maxRuntime()).isEqualTo(Duration.ofMinutes(10));
         assertThat(properties.retryBase()).isEqualTo(Duration.ofSeconds(5));
         assertThat(properties.retryMax()).isEqualTo(Duration.ofMinutes(5));
         assertThat(properties.recoveryBatchSize()).isEqualTo(50);
-        assertThat(properties.heartbeatInterval()).isEqualTo(Duration.ofSeconds(40));
+        assertThat(properties.heartbeatInterval()).isEqualTo(Duration.ofSeconds(10));
     }
 
     @Test

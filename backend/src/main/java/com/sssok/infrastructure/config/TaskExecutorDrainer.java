@@ -31,6 +31,7 @@ public class TaskExecutorDrainer implements SmartLifecycle {
     // 작업이 다른 풀로 후속 작업을 넘기므로(썸네일 → 스토리지 정리 → 알림) 받는 쪽을 뒤에 둔다.
     // 여기 없는 풀은 마지막에 비운다.
     static final List<String> DRAIN_ORDER = List.of(
+        "uploadHeadTaskExecutor",
         "imageThumbnailTaskExecutor",
         "videoThumbnailTaskExecutor",
         "imageAnalysisTaskExecutor",
