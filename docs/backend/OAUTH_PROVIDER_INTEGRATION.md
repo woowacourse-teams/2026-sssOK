@@ -299,9 +299,7 @@ OAuth 로그인 진행 정보는 **쿠키 없는 단일 서버 메모리 캐시*
 
 브라우저는 교차 출처 `fetch`/XHR POST에 `Origin`을 보내고, 기본 `Referrer-Policy`(`strict-origin-when-cross-origin`)에서는 교차 출처에 출처만 담은 `Referer`도 보낸다. 따라서 dev 웹과 localhost에서 백엔드를 직접 호출하면 `Origin`으로 구분된다.
 
-`frontend/webpack.config.js`의 `API_PROXY=1` 개발 프록시는 `Origin`을 제거한다. `Referer`는 코드상 제거하지 않지만 프록시를 거쳐 실제로 도착하는지는 서버에서 확인해야 한다. 프록시에서 두 헤더가 모두 사라지면 백엔드만으로 출처를 구분할 수 없어 시작 요청이 거절되며, 이 경우 지원하지 않는다. 프론트 코드와 프록시 설정은 이 작업에서 바꾸지 않는다.
-
-> 실제 dev 서버·카카오 콘솔 설정 적용 후 (1) dev 웹, (2) localhost 직접 호출, (3) localhost 프록시 호출에서 도착한 `Origin`·`Referer`와 로그인 완료·refresh 결과를 이 절에 기록한다. 아직 확인하지 않았다.
+로컬 개발 서버는 API 프록시 없이 백엔드를 직접 호출한다. dev 웹과 localhost에서 로그인 완료·refresh 결과를 확인한다.
 
 애플 서명 검증 공개키는 고정된 Apple 키 주소에서 조회하고 1시간 캐시한다. 알 수 없는 kid에 대한 재조회는 1분 간격으로 제한한다. client secret은 설정된 PKCS#8 EC 개인키로 5분 유효한 ES256 JWT를 생성한다. 비밀 설정은 저장소에 커밋하지 않는다.
 

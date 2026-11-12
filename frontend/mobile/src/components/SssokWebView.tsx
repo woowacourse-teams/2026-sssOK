@@ -19,6 +19,7 @@ import {
 import { usePushNotifications, type PushEvent } from "../bridge/usePushNotifications";
 import { createAuthBridge } from "../bridge/authBridge";
 import { NATIVE_AUTH_PROVIDERS } from "../bridge/sdkAuth";
+import { getInviteEntryUrl } from "../config/inviteLink";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 import {
   canPersistCookies,
@@ -55,7 +56,12 @@ const isAllowedWebUrl = (url: string) => {
   }
 };
 
-export function SssokWebView() {
+type SssokWebViewProps = {
+  /** 첫 페이지가 다 뜨거나 오류 화면으로 넘어가면 부른다. 스플래시를 닫는 신호다. */
+  onReady?: () => void;
+};
+
+export function SssokWebView({ onReady }: SssokWebViewProps) {
   const webView = useRef<WebView<object>>(null);
   const downloadBridge = useRef<ReturnType<typeof createDownloadBridge>>(null);
   const authBridge = useRef<ReturnType<typeof createAuthBridge>>(null);
@@ -75,21 +81,7 @@ export function SssokWebView() {
     );
   }, []);
 
-  const openPushRoom = useCallback((notificationUrl: string) => {
-    let target: URL;
-    try {
-      target = new URL(notificationUrl, WEB_ORIGIN);
-    } catch {
-      return;
-    }
-    if (
-      target.origin !== WEB_ORIGIN ||
-      target.username ||
-      target.password ||
-      !/^\/rooms\/[A-Z2-9]{8}\/gallery$/.test(target.pathname)
-    )
-      return;
-    const url = target.href;
+  const openInternalUrl = useCallback((url: string) => {
     if (webView.current && loadedUrl.current && isWebOrigin(loadedUrl.current)) {
       webView.current.injectJavaScript(
         `if (location.origin === ${JSON.stringify(WEB_ORIGIN)} && location.href !== ${JSON.stringify(url)}) {
@@ -101,7 +93,47 @@ export function SssokWebView() {
       setSourceUrl(url);
     }
   }, []);
+  const openPushRoom = useCallback(
+    (notificationUrl: string) => {
+      let target: URL;
+      try {
+        target = new URL(notificationUrl, WEB_ORIGIN);
+      } catch {
+        return;
+      }
+      if (
+        target.origin !== WEB_ORIGIN ||
+        target.username ||
+        target.password ||
+        !/^\/rooms\/[A-Z2-9]{8}\/gallery$/.test(target.pathname)
+      )
+        return;
+      openInternalUrl(target.href);
+    },
+    [openInternalUrl],
+  );
   const requestPushToken = usePushNotifications(emitPush, openPushRoom, readCurrentRoom);
+
+  useEffect(() => {
+    let acceptInitial = true;
+    const openInvite = (url: string) => {
+      const entryUrl = getInviteEntryUrl(url, WEB_ORIGIN);
+      if (entryUrl) {
+        acceptInitial = false;
+        openInternalUrl(entryUrl);
+      }
+    };
+    const subscription = Linking.addEventListener("url", ({ url }) => openInvite(url));
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (acceptInitial && url) openInvite(url);
+      })
+      .catch(() => {});
+    return () => {
+      acceptInitial = false;
+      subscription.remove();
+    };
+  }, [openInternalUrl]);
 
   const rememberInternalUrl = (url: string) => {
     try {
@@ -119,6 +151,7 @@ export function SssokWebView() {
     downloadBridge.current?.cancelAll();
     authBridge.current?.cancelAll();
     setFailed(true);
+    onReady?.();
   };
 
   useEffect(() => {
@@ -242,6 +275,7 @@ export function SssokWebView() {
           onLoad={({ nativeEvent }) => {
             loadedUrl.current = nativeEvent.url;
           }}
+          onLoadEnd={() => onReady?.()}
           onNavigationStateChange={(state) => {
             rememberInternalUrl(state.url);
             canGoBack.current = state.canGoBack;
@@ -252,6 +286,7 @@ export function SssokWebView() {
           }}
           onContentProcessDidTerminate={() => showError()}
           onRenderProcessGone={() => showError()}
+          // 첫 로딩은 스플래시가 가리고, 이후 다시 불러올 때만 스피너가 보인다.
           startInLoadingState
           renderLoading={() => (
             <View style={[StyleSheet.absoluteFill, styles.message]}>

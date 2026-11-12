@@ -59,13 +59,21 @@ export const Text = styled.span`
   ${typography.caption2}
 `;
 
+/* 아이콘은 18px 이지만 손가락으로 누를 자리는 32px 로 둔다. 바 높이가 늘지 않게 위아래로 당긴다. */
 export const CloseButton = styled.button`
+  display: grid;
+  place-items: center;
   flex: none;
-  min-height: 24px;
+  width: 32px;
+  height: 32px;
+  margin: -7px -7px -7px 0;
   color: ${colors.textSecondary};
   border-radius: ${radius.full};
 
-  ${typography.caption2}
+  svg {
+    width: 18px;
+    height: 18px;
+  }
 
   &:hover {
     color: ${colors.textStrong};

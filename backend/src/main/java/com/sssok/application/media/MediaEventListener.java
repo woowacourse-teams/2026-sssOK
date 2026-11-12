@@ -1,7 +1,10 @@
 package com.sssok.application.media;
 
+import static com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics.Stage.CREATED_PUBLISH;
+
 import com.sssok.application.port.out.EventPublisherPort;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
+import com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -16,6 +19,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @RequiredArgsConstructor
 public class MediaEventListener {
 
+    private final UploadRegistrationMetrics metrics;
     private final EventPublisherPort eventPublisher;
     private final UploadFileRepository uploadFileRepository;
     private final MediaDetailAssembler mediaDetailAssembler;
@@ -23,7 +27,8 @@ public class MediaEventListener {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(MediaCreatedEvent event) {
-        eventPublisher.publish(event.roomId(), "media.created", event.media());
+        metrics.measure(CREATED_PUBLISH, () ->
+            eventPublisher.publish(event.roomId(), "media.created", event.media()));
     }
 
     // 썸네일이 붙어 목록에 실제로 그릴 수 있게 된 시점. 프론트는 media.created 로 자리를 잡아두고

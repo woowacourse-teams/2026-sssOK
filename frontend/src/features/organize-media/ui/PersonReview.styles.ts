@@ -133,12 +133,13 @@ export const PhotoRow = styled.button`
   }
 `;
 
-export const Thumbs = styled.span`
+export const Thumbs = styled.span<{ $dimmed?: boolean }>`
   display: grid;
   flex: 1;
   grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   min-width: 0;
+  opacity: ${({ $dimmed }) => ($dimmed ? 0.35 : 1)};
 `;
 
 export const Thumb = styled.span`
@@ -455,4 +456,33 @@ export const ConfirmBody = styled.div`
     line-height: 26px;
     color: ${colors.textStrong};
   }
+`;
+
+export const EmptiedButton = styled.button`
+  display: block;
+  width: 100%;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid ${colors.primary};
+    outline-offset: 4px;
+    border-radius: 10px;
+  }
+`;
+
+export const EmptiedTitle = styled.span`
+  display: block;
+  padding-top: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 20px;
+  color: ${colors.textStrong};
+`;
+
+export const EmptiedAction = styled.span`
+  display: block;
+  padding-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  color: ${colors.textAccent};
 `;

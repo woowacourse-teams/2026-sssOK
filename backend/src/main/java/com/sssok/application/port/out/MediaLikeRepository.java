@@ -18,5 +18,9 @@ public interface MediaLikeRepository {
 
     Set<Long> findLikedMediaIds(Long memberId, List<Long> mediaIds);
 
+    LikeSummary summarize(Long memberId, List<Long> mediaIds);
+
+    record LikeSummary(Map<Long, Long> counts, Set<Long> likedIds) {}
+
     void deleteAllByMediaIds(List<Long> mediaIds);
 }

@@ -37,7 +37,9 @@ if ! grep -E '^node_filesystem_avail_bytes\{[^}]*mountpoint="/"[,}]' "$metrics_f
   exit 1
 fi
 
-fetch_metrics http://app:8081/actuator/prometheus
+# 블루-그린 활성 칸은 배포 스크립트가 쓰는 nginx/upstream.conf 에서 읽는다.
+app_host=$(grep -oE 'server app(-blue|-green)?:8081' nginx/upstream.conf 2>/dev/null | head -n 1 | sed 's/^server //; s/:8081$//')
+fetch_metrics "http://${app_host:-app}:8081/actuator/prometheus"
 require_metric jvm_memory_used_bytes
 fetch_metrics http://alloy:12345/metrics
 require_metric loki_write_sent_entries_total
