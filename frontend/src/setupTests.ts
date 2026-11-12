@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 
+import { preloadLazyPages } from "./app/lazyPage";
 import { resetAdminLoginAttempts } from "./mocks/handlers/admin";
 import { resetNicknames } from "./mocks/handlers/auth";
 import { resetDownloadJobs } from "./mocks/handlers/download";
@@ -38,6 +39,9 @@ HTMLDialogElement.prototype.close = function close(): void {
 };
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+// 라우트를 통째로 그리는 테스트가 나눠 둔 페이지 코드를 받느라 찾기 대기 시간을 넘기지 않게 한다.
+// 느린 CI 에서는 모든 페이지 코드를 변환하는 데 기본 5초를 넘길 수 있다.
+beforeAll(() => preloadLazyPages(), 30_000);
 
 afterEach(() => {
   server.resetHandlers();

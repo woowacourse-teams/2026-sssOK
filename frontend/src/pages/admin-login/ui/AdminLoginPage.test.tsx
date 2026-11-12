@@ -32,10 +32,10 @@ const fillAndSubmit = async (
 describe("AdminLoginPage", () => {
   beforeEach(() => localStorage.clear());
 
-  it("기본 상태를 디자인대로 보여준다", () => {
+  it("기본 상태를 디자인대로 보여준다", async () => {
     renderAt();
 
-    expect(screen.getByText("관리자")).toBeInTheDocument();
+    expect(await screen.findByText("관리자")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "쏙 관리자 로그인" })).toBeInTheDocument();
     expect(screen.getByText("발급받은 관리자 계정으로 로그인해주세요.")).toBeInTheDocument();
     expect(screen.getByLabelText("아이디")).toBeInTheDocument();

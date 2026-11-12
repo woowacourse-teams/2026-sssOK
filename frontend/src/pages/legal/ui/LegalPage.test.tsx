@@ -22,7 +22,7 @@ const renderPage = (path: string): ReturnType<typeof createMemoryRouter> => {
 it.each([
   [ROUTES.privacy, "개인정보처리방침"],
   [ROUTES.terms, "이용약관"],
-])("%s는 로그인 없이 직접 열리고 세션 복원 요청을 보내지 않는다", (path, title) => {
+])("%s는 로그인 없이 직접 열리고 세션 복원 요청을 보내지 않는다", async (path, title) => {
   const refresh = jest.fn();
   server.use(
     http.post(`${API_BASE_URL}/auth/refresh`, () => {
@@ -32,7 +32,7 @@ it.each([
   );
   const router = renderPage(path);
   expect(router.state.location.pathname).toBe(path);
-  expect(screen.getByRole("heading", { level: 1, name: title })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument();
 
   expect(screen.getAllByRole("link", { name: "yundoll777@gmail.com" })[0]).toHaveAttribute(
     "href",
