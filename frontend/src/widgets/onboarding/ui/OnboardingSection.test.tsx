@@ -8,7 +8,7 @@ import { PREVIEW_STEP_DURATIONS_MS } from "../model/usePreviewStep";
 const [LINK_MS, UPLOAD_MS, DOWNLOAD_MS] = PREVIEW_STEP_DURATIONS_MS;
 import { OnboardingSection } from "./OnboardingSection";
 
-const renderSection = () => {
+const renderSection = (): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter([{ path: "*", element: <OnboardingSection /> }], {
     initialEntries: [ROUTES.home],
   });
@@ -16,7 +16,7 @@ const renderSection = () => {
   return router;
 };
 
-const mockReducedMotion = (matches: boolean) => {
+const mockReducedMotion = (matches: boolean): void => {
   Object.defineProperty(window, "matchMedia", {
     writable: true,
     configurable: true,
@@ -29,10 +29,10 @@ const mockReducedMotion = (matches: boolean) => {
   });
 };
 
-const stepButtons = () =>
+const stepButtons = (): HTMLElement[] =>
   within(screen.getByRole("list", { name: "쏙 사용 방법" })).getAllByRole("button");
 
-const currentStep = () =>
+const currentStep = (): number =>
   stepButtons().findIndex((button) => button.getAttribute("aria-current") === "step");
 
 describe("OnboardingSection", () => {

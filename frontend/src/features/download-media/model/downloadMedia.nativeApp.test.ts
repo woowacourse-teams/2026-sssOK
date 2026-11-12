@@ -1,3 +1,4 @@
+import type { DownloadOutcome } from "@/features/download-media/model/types";
 import { http, HttpResponse } from "msw";
 
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
@@ -32,13 +33,14 @@ interface SentMessage {
   file?: { id: number; url: string; fileName: string; mimeType: string };
 }
 
-const emit = (detail: object) => window.dispatchEvent(new CustomEvent("sssok:native", { detail }));
+const emit = (detail: object): boolean =>
+  window.dispatchEvent(new CustomEvent("sssok:native", { detail }));
 
 /**
  * 앱 웹뷰를 흉내 낸다. 웹이 보낸 메시지를 모으고, `respond` 가 앱의 답을 쏜다.
  * 답은 다음 틱에 보낸다 — 실제 앱도 메시지를 받은 뒤 비동기로 답한다.
  */
-const asNativeApp = (respond: (message: SentMessage) => void = () => {}) => {
+const asNativeApp = (respond: (message: SentMessage) => void = () => {}): SentMessage[] => {
   const sent: SentMessage[] = [];
 
   window.ReactNativeWebView = {
@@ -54,7 +56,7 @@ const asNativeApp = (respond: (message: SentMessage) => void = () => {}) => {
   return sent;
 };
 
-const serveBatch = (excluded: number[] = []) =>
+const serveBatch = (excluded: number[] = []): void =>
   server.use(
     http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request }) => {
       const { mediaIds } = (await request.json()) as { mediaIds: number[] };
@@ -74,7 +76,7 @@ const serveBatch = (excluded: number[] = []) =>
     }),
   );
 
-const run = (targets: DownloadTarget[], mode: DownloadMode, extra = {}) =>
+const run = (targets: DownloadTarget[], mode: DownloadMode, extra = {}): Promise<DownloadOutcome> =>
   downloadMedia({ roomId: MOCK_ROOM_ID, targets, mode, token: TOKEN, ...extra });
 
 beforeEach(() =>

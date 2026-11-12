@@ -65,11 +65,11 @@ export class ZipAbortedError extends Error {
 }
 
 /** DOS 형식 시각. 2초 단위라 홀수 초는 버려지는데, 규격이 그렇다. */
-const dosTimeOf = (date: Date) =>
+const dosTimeOf = (date: Date): number =>
   (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
 
 /** DOS 형식 날짜. 1980년이 0년이다. 그 이전 날짜는 표현할 수 없어 1980으로 눕힌다. */
-const dosDateOf = (date: Date) =>
+const dosDateOf = (date: Date): number =>
   (Math.max(date.getFullYear() - 1980, 0) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
 
 interface PlacedEntry {
@@ -80,7 +80,7 @@ interface PlacedEntry {
   offset: number;
 }
 
-const localHeaderOf = (entry: PlacedEntry, time: number, date: number) => {
+const localHeaderOf = (entry: PlacedEntry, time: number, date: number): Uint8Array<ArrayBuffer> => {
   const header = new Uint8Array(30 + entry.nameBytes.length);
   const view = new DataView(header.buffer);
 
@@ -102,7 +102,11 @@ const localHeaderOf = (entry: PlacedEntry, time: number, date: number) => {
   return header;
 };
 
-const centralDirectoryOf = (entries: PlacedEntry[], time: number, date: number) => {
+const centralDirectoryOf = (
+  entries: PlacedEntry[],
+  time: number,
+  date: number,
+): Uint8Array<ArrayBuffer> => {
   const size = entries.reduce((sum, entry) => sum + 46 + entry.nameBytes.length, 0);
   const directory = new Uint8Array(size);
   const view = new DataView(directory.buffer);
@@ -130,7 +134,11 @@ const centralDirectoryOf = (entries: PlacedEntry[], time: number, date: number) 
   return directory;
 };
 
-const endOfCentralDirectoryOf = (count: number, size: number, offset: number) => {
+const endOfCentralDirectoryOf = (
+  count: number,
+  size: number,
+  offset: number,
+): Uint8Array<ArrayBuffer> => {
   const record = new Uint8Array(22);
   const view = new DataView(record.buffer);
 

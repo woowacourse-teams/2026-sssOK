@@ -62,5 +62,5 @@ export const uploadErrorNoticeOf = (error: unknown): UploadErrorNotice => {
  * 나가는 쪽은 문구가 필요 없다 — 토스트를 띄워봐야 화면이 바뀌며 같이 사라지고,
  * 무슨 일인지는 입장 화면이 "만료된 방이에요" 로 말해준다.
  */
-const leavesRoom = (status: number, code: string) =>
+const leavesRoom = (status: number, code: string): boolean =>
   status === 410 || status === 401 || (status === 404 && code === "ROOM_NOT_FOUND");

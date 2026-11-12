@@ -35,7 +35,7 @@ export const RoomMenuButton = ({
 }: RoomMenuButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const selectMenu = (action?: () => void) => {
+  const selectMenu = (action?: () => void): void => {
     setIsOpen(false);
     action?.();
   };

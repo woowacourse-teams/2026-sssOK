@@ -1,3 +1,4 @@
+import type { JsonBodyType } from "msw";
 import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
@@ -15,19 +16,19 @@ import { hasFolder, hasJoinedRoom, mediaOfRoom, roomCodeOfId, roomStatusOfId } f
  * 실제 서버가 아직 `main` 에 없어서, 지금은 이 목이 유일하게 동작하는 계약이다.
  */
 
-const error = (status: number, code: string, message: string) =>
+const error = (status: number, code: string, message: string): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code, message }, { status });
 
 const TOKEN_PATTERN = /^Bearer mock-token-(\d+)$/;
 
-const memberIdOf = (authorization: string | null) => {
+const memberIdOf = (authorization: string | null): number | null => {
   const matched = authorization === null ? null : TOKEN_PATTERN.exec(authorization);
 
   return matched === null ? null : Number(matched[1]);
 };
 
 /** 업로드 목의 `guardRoom` 과 같은 검사다. 방·입장 여부를 먼저 거른다. */
-const guardRoom = (roomId: number, token: string) => {
+const guardRoom = (roomId: number, token: string): HttpResponse<JsonBodyType> | null => {
   const status = roomStatusOfId(roomId);
 
   if (status === null) {
@@ -46,7 +47,7 @@ const guardRoom = (roomId: number, token: string) => {
 };
 
 /** backend `DownloadFileNames.zipNameOf` 와 같은 형식이다. */
-const zipNameOf = (roomCode: string) => `ShareDrop_${roomCode}.zip`;
+const zipNameOf = (roomCode: string): string => `ShareDrop_${roomCode}.zip`;
 
 /** application.yml 의 `download.max-concurrent-jobs-per-requester: 3` 과 같은 값이다. */
 const MAX_CONCURRENT_JOBS = 3;
@@ -60,7 +61,7 @@ interface DownloadTargetBody {
   uploader?: string;
 }
 
-const isValidTarget = ({ mediaIds, folderId, uploader }: DownloadTargetBody) =>
+const isValidTarget = ({ mediaIds, folderId, uploader }: DownloadTargetBody): boolean =>
   (mediaIds === undefined) !== (folderId === undefined) &&
   (mediaIds === undefined || uploader === undefined);
 
@@ -92,7 +93,7 @@ const jobs = new Map<string, DownloadJob>();
 let jobSequence = 0;
 
 /** 스펙의 `dl_7d1e93` 형태를 흉내낸다. 실제 서버는 Long 을 쓴다 — 프론트는 그대로 URL 에만 싣는다. */
-const nextJobId = () => {
+const nextJobId = (): string => {
   jobSequence += 1;
 
   return `dl_${jobSequence.toString(16).padStart(6, "0")}`;
@@ -104,7 +105,10 @@ const nextJobId = () => {
  * 받다가 실패한 것은 건너뛴다. 원본 하나가 깨졌다고 잡 전체를 무너뜨리면 zip 흐름을
  * 확인할 수가 없다 — 실제 워커도 받은 것까지는 묶는다.
  */
-const runCompression = async (job: DownloadJob, sources: { name: string; url: string }[]) => {
+const runCompression = async (
+  job: DownloadJob,
+  sources: { name: string; url: string }[],
+): Promise<void> => {
   job.status = "RUNNING";
 
   const entries: { name: string; blob: Blob }[] = [];
@@ -135,10 +139,10 @@ const runCompression = async (job: DownloadJob, sources: { name: string; url: st
   }
 };
 
-const isActive = (job: DownloadJob) => job.status === "QUEUED" || job.status === "RUNNING";
+const isActive = (job: DownloadJob): boolean => job.status === "QUEUED" || job.status === "RUNNING";
 
 /** READY 로부터 보관 기간이 지났는지. 지나면 410 이고 실물도 놓아준다. */
-const expireIfStale = (job: DownloadJob) => {
+const expireIfStale = (job: DownloadJob): void => {
   if (job.status === "READY" && job.readyAt !== null && Date.now() - job.readyAt > RETENTION_MS) {
     job.status = "EXPIRED";
     job.blob = null;
@@ -424,7 +428,7 @@ export const downloadHandlers = [
   }),
 ];
 
-export const resetDownloadJobs = () => {
+export const resetDownloadJobs = (): void => {
   jobs.clear();
   jobSequence = 0;
 };

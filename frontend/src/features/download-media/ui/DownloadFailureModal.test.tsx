@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 
 import { DownloadFailureModal } from "./DownloadFailureModal";
 
-const renderModal = (props: Partial<Parameters<typeof DownloadFailureModal>[0]> = {}) => {
+const renderModal = (
+  props: Partial<Parameters<typeof DownloadFailureModal>[0]> = {},
+): { onRetry: ReturnType<typeof jest.fn>; onClose: ReturnType<typeof jest.fn> } => {
   const onRetry = jest.fn();
   const onClose = jest.fn();
 

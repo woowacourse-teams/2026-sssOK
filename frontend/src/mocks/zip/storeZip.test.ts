@@ -4,12 +4,13 @@ import { buildStoreZip, ZipAbortedError } from "./storeZip";
 /** 시각을 고정해야 헤더 바이트가 매번 같다. */
 const MODIFIED_AT = new Date(2026, 7, 27, 13, 45, 30);
 
-const bytesOf = async (blob: Blob) => new Uint8Array(await blob.arrayBuffer());
+const bytesOf = async (blob: Blob): Promise<Uint8Array<ArrayBuffer>> =>
+  new Uint8Array(await blob.arrayBuffer());
 
-const readUint32 = (bytes: Uint8Array, offset: number) =>
+const readUint32 = (bytes: Uint8Array, offset: number): number =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(offset, true);
 
-const readUint16 = (bytes: Uint8Array, offset: number) =>
+const readUint16 = (bytes: Uint8Array, offset: number): number =>
   new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint16(offset, true);
 
 const LOCAL_HEADER_SIGNATURE = 0x04034b50;

@@ -1,10 +1,13 @@
+import type { RenderResult } from "@testing-library/react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { UploadProgressBarProps } from "./UploadProgressBar";
 import { UploadProgressBar } from "./UploadProgressBar";
 
-const renderBar = (props: Partial<UploadProgressBarProps> = {}) =>
+const renderBar = (
+  props: Partial<UploadProgressBarProps> = {},
+): RenderResult<typeof import("@testing-library/dom/types/queries"), HTMLElement, HTMLElement> =>
   render(
     <UploadProgressBar
       completedCount={0}

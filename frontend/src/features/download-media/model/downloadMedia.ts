@@ -69,7 +69,7 @@ interface FetchedMedia {
  * iOS 가 이미지로 보지 않아 공유 시트에 **"이미지 저장" 항목이 아예 뜨지 않는다.**
  * `target.mimeType` 은 서버가 허용 목록과 대조해 정한 값이라 이쪽이 더 믿을 만하다.
  */
-const toFile = ({ blob, target, fileName }: FetchedMedia) =>
+const toFile = ({ blob, target, fileName }: FetchedMedia): File =>
   new File([blob], fileName, { type: target.mimeType || blob.type });
 
 /**
@@ -83,7 +83,7 @@ const fetchAll = async (
   { targets, signal, onProgress, onDownloaded }: DownloadMediaParams,
   issuedByMediaId: Map<number, BatchDownloadFile>,
   failed: FailedDownload[],
-) => {
+): Promise<{ fetched: FetchedMedia[]; aborted: boolean }> => {
   let aborted = false;
 
   const results = await runWithLimit(targets, DOWNLOAD_CONCURRENCY, async (target) => {

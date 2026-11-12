@@ -20,7 +20,7 @@ interface UploadButtonProps {
 export const UploadButton = ({ onSelect, hidden = false }: UploadButtonProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (event: ChangeEvent<HTMLInputElement>): void => {
     const input = event.target;
     const files = Array.from(input.files ?? []);
 

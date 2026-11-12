@@ -62,7 +62,7 @@ describe("FolderFilter", () => {
       createdAt: "2026-08-18T06:10:00Z",
       photoCount: 1,
     }));
-    const rectOf = (left: number, width: number) =>
+    const rectOf = (left: number, width: number): DOMRect =>
       ({ left, right: left + width, width, top: 0, bottom: 0, height: 0 }) as DOMRect;
     const spy = jest
       .spyOn(HTMLElement.prototype, "getBoundingClientRect")

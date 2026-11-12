@@ -1,11 +1,11 @@
 import { runWithLimit } from "./runWithLimit";
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number): Promise<unknown> => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** 마이크로태스크와 타이머가 한 바퀴 돌 틈을 준다. */
-const tick = () => sleep(0);
+const tick = (): Promise<unknown> => sleep(0);
 
-const deferred = () => {
+const deferred = (): { promise: Promise<void>; release: () => void } => {
   let release!: () => void;
   const promise = new Promise<void>((resolve) => {
     release = resolve;

@@ -2,7 +2,11 @@ import { readValidRoomSession } from "@/entities/session";
 import { useMemberSessionQuery } from "./useMemberSessionQuery";
 
 /** 회원은 메모리의 공통 세션, 비회원은 방별 익명 세션을 사용한다. */
-export const useRoomSession = (code: string) => {
+export const useRoomSession = (
+  code: string,
+): ReturnType<typeof useMemberSessionQuery> & {
+  session: import("@/entities/session").AnonymousSession | null;
+} => {
   const member = useMemberSessionQuery();
   return {
     ...member,

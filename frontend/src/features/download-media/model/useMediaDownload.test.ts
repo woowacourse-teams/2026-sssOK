@@ -1,3 +1,6 @@
+import type { DownloadMode } from "@/features/download-media/model/types";
+import type { DownloadProgressSnapshot } from "@/features/download-media/model/downloadProgress";
+import type { RenderHookResult } from "@testing-library/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 
@@ -22,14 +25,14 @@ const targetOf = (mediaId: number): DownloadTarget => ({
   mimeType: "image/jpeg",
 });
 
-const enterRoom = () =>
+const enterRoom = (): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const serveBytes = () =>
+const serveBytes = (): void =>
   server.use(
     // 개별 저장은 서명 URL 을 먼저 한 번에 받는다. 목에서는 아래 GET 이 그 자리다.
     http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
@@ -54,8 +57,8 @@ const serveBytes = () =>
   );
 
 /** 응답을 붙잡아 뒀다가 원할 때 내보낸다. 받는 중 상태를 손으로 붙잡기 위해서다. */
-const serveHeld = () => {
-  let release = () => {};
+const serveHeld = (): { release: () => void } => {
+  let release = (): void => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -87,8 +90,26 @@ const serveHeld = () => {
   return { release: () => release() };
 };
 
-const setup = (options: Parameters<typeof useMediaDownload>[0]) =>
-  renderHook(() => useMediaDownload(options));
+const setup = (
+  options: Parameters<typeof useMediaDownload>[0],
+): RenderHookResult<
+  {
+    progress: DownloadProgressSnapshot | null;
+    pendingShare: {
+      batchIndex: number;
+      batchCount: number;
+      nextCount: number;
+      savedCount: number;
+      remainingCount: number;
+    } | null;
+    isSharing: boolean;
+    start: (targets: DownloadTarget[], mode: DownloadMode) => Promise<void>;
+    share: () => Promise<void>;
+    dismissShare: () => void;
+    cancel: () => void;
+  },
+  unknown
+> => renderHook(() => useMediaDownload(options));
 
 beforeEach(enterRoom);
 

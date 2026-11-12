@@ -28,10 +28,10 @@ const HTML = `<!doctype html>
 <body>${MASCOT_HELLO_SVG}</body>
 </html>`;
 
-type AnimatedSplashProps = {
+interface AnimatedSplashProps {
   /** 뒤에 깔린 웹이 첫 화면을 다 그렸는지. */
   webReady: boolean;
-};
+}
 
 /**
  * 네이티브 스플래시는 정지 이미지만 띄울 수 있어서, 그 위에 같은 장면을 이어 받아 애니메이션을 재생한다.

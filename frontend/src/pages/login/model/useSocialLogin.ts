@@ -6,7 +6,10 @@ import { myRoomsQueryKey } from "@/entities/room";
 import { loginNative } from "./loginNative";
 import { supportsNativeLogin, type LoginProvider } from "./nativeAuthBridge";
 
-export const useSocialLogin = (provider: LoginProvider, startWebLogin: () => Promise<string>) => {
+export const useSocialLogin = (
+  provider: LoginProvider,
+  startWebLogin: () => Promise<string>,
+): { login: () => Promise<void>; isPending: boolean; error: string } => {
   const client = useQueryClient();
   const pending = useRef<AbortController | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -14,7 +17,7 @@ export const useSocialLogin = (provider: LoginProvider, startWebLogin: () => Pro
 
   useEffect(() => () => pending.current?.abort(), []);
 
-  const login = async () => {
+  const login = async (): Promise<void> => {
     if (pending.current) return;
     const controller = new AbortController();
     pending.current = controller;

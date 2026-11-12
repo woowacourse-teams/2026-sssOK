@@ -6,7 +6,7 @@ import { CreateRoomButton } from "./CreateRoomNavButton.styles";
 export const CreateRoomNavButton = () => {
   const navigate = useNavigate();
 
-  const handleClick = () => {
+  const handleClick = (): void => {
     navigate(ROUTES.createRoom);
   };
 

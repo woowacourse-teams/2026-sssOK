@@ -6,7 +6,7 @@ import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
 
 const HOST = "mock-token-10234";
 const MEMBER = "mock-token-12";
-const join = (token: string) =>
+const join = (token: string): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",

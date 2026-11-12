@@ -1,6 +1,6 @@
 export type LoginProvider = "kakao" | "apple";
 
-export const supportsNativeLogin = (provider: LoginProvider) =>
+export const supportsNativeLogin = (provider: LoginProvider): boolean =>
   !!window.ReactNativeWebView && window.sssokApp?.auth?.includes(provider) === true;
 
 interface NativeAuthResponse {
@@ -24,7 +24,7 @@ const isResponseForRequest = (
   "status" in result;
 
 // LAN의 HTTP 개발 주소에서도 사용할 수 있게 secure-context 전용 randomUUID 대신 사용한다.
-const createRequestId = () =>
+const createRequestId = (): string =>
   Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) =>
     byte.toString(16).padStart(2, "0"),
   ).join("");
@@ -38,16 +38,16 @@ export const requestNativeLogin = (
   new Promise((resolve, reject) => {
     signal.throwIfAborted();
     const requestId = createRequestId();
-    const cleanup = () => {
+    const cleanup = (): void => {
       window.clearTimeout(timer);
       window.removeEventListener("sssok:auth", handle);
       signal.removeEventListener("abort", abort);
     };
-    const abort = () => {
+    const abort = (): void => {
       cleanup();
       reject(new DOMException("Aborted", "AbortError"));
     };
-    const handle = (event: Event) => {
+    const handle = (event: Event): void => {
       const result: unknown = (event as CustomEvent).detail;
       if (!isResponseForRequest(result, requestId, provider)) return;
       cleanup();

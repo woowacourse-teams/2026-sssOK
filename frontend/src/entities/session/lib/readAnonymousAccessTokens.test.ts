@@ -1,6 +1,6 @@
 import { readAnonymousAccessTokens } from "./readAnonymousAccessTokens";
 
-const session = (accessToken: string, expiresAt: string) =>
+const session = (accessToken: string, expiresAt: string): string =>
   JSON.stringify({ accessToken, userId: 1, nickname: "익명", expiresAt });
 
 afterEach(() => localStorage.clear());

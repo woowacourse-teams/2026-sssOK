@@ -14,7 +14,7 @@
  */
 const RELEASE_DELAY_MS = 1000;
 
-export const saveBlob = (blob: Blob, fileName: string) => {
+export const saveBlob = (blob: Blob, fileName: string): void => {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
 

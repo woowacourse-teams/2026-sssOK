@@ -9,5 +9,5 @@ import type { Room } from "../model/types";
  * 방에 들어왔는지는 여기서 보지 않는다. 그건 입장 화면이 이미 가른 것이고,
  * 여기 섞으면 "정책 때문에 못 올린다" 와 "입장을 안 했다" 를 한 값으로 뭉개게 된다.
  */
-export const canUploadTo = (room: Pick<Room, "uploadPolicy" | "hostId">, userId: number) =>
+export const canUploadTo = (room: Pick<Room, "uploadPolicy" | "hostId">, userId: number): boolean =>
   room.uploadPolicy === "everyone" || room.hostId === userId;

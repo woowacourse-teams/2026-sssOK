@@ -1,6 +1,10 @@
 import { overallPercentOf, PERSON_STAGES, SIMILAR_STAGES } from "./overallProgress";
 
-const at = (stage: string, processed: number | null = null, total: number | null = null) => ({
+const at = (
+  stage: string,
+  processed: number | null = null,
+  total: number | null = null,
+): { stage: string; processed: number | null; total: number | null } => ({
   stage,
   processed,
   total,

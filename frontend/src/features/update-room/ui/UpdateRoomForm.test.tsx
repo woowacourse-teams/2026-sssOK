@@ -23,7 +23,7 @@ const room: Room = {
   folders: [],
 };
 
-const renderForm = (onSuccess = jest.fn()) => {
+const renderForm = (onSuccess = jest.fn()): ReturnType<typeof jest.fn> => {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });

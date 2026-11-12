@@ -37,11 +37,11 @@ const INITIAL_MY_ROOMS: MyRoom[] = [
 
 let leftRoomIds = new Set<number>();
 
-export const resetMyRooms = () => {
+export const resetMyRooms = (): void => {
   leftRoomIds = new Set();
 };
 
-const myRooms = () => INITIAL_MY_ROOMS.filter((room) => !leftRoomIds.has(room.roomId));
+const myRooms = (): MyRoom[] => INITIAL_MY_ROOMS.filter((room) => !leftRoomIds.has(room.roomId));
 
 export const myRoomsHandlers = [
   http.get(`${API_BASE_URL}/members/me/rooms`, () =>

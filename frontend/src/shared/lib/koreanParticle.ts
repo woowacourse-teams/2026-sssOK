@@ -4,7 +4,7 @@ const JONGSEONG_COUNT = 28;
 /** ㄹ 받침 뒤에는 '으로' 가 아니라 '로' 가 붙는다 (보류로). */
 const RIEUL = 8;
 
-export const withSubjectParticle = (word: string) => {
+export const withSubjectParticle = (word: string): string => {
   const code = word.charCodeAt(word.length - 1);
 
   if (Number.isNaN(code) || code < HANGUL_START || code > HANGUL_END) return `${word}(이)가`;
@@ -12,7 +12,7 @@ export const withSubjectParticle = (word: string) => {
   return (code - HANGUL_START) % JONGSEONG_COUNT === 0 ? `${word}가` : `${word}이`;
 };
 
-export const withDirectionParticle = (word: string) => {
+export const withDirectionParticle = (word: string): string => {
   const code = word.charCodeAt(word.length - 1);
 
   if (Number.isNaN(code) || code < HANGUL_START || code > HANGUL_END) return `${word}(으)로`;

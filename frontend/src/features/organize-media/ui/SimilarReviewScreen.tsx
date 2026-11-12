@@ -145,13 +145,13 @@ const Review = ({
   const conflict = similarConflictOf(review, folderNames);
 
   /** 이름을 다 쓰면, 같은 이름을 먼저 쓴 모음이 있을 때 합칠지 묻는다. */
-  const commitName = (cardId: string) => {
+  const commitName = (cardId: string): void => {
     const owner = similarOwnerOf(review, cardId);
     const name = owner && folderNameOf(owner);
     if (owner && name) setPendingMerge({ cardId, ownerId: owner.id, name });
   };
 
-  const merge = ({ cardId, ownerId, name }: PendingMerge) => {
+  const merge = ({ cardId, ownerId, name }: PendingMerge): void => {
     const next = mergePeople(review, ownerId, cardId);
     const owner = next.people.find((card) => card.id === ownerId);
     setReview(next);
@@ -165,7 +165,7 @@ const Review = ({
   };
 
   /** 합치지 않으면 방금 붙인 이름을 떼어 이름 없는 모음으로 돌린다. */
-  const cancelMerge = ({ cardId }: PendingMerge) => {
+  const cancelMerge = ({ cardId }: PendingMerge): void => {
     setReview((current) => renameCard(current, cardId, ""));
     setPendingMerge(null);
   };

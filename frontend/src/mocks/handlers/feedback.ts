@@ -1,3 +1,4 @@
+import type { JsonBodyType } from "msw";
 import { http, HttpResponse } from "msw";
 
 import type { AdminFeedback, FeedbackAssignee, FeedbackStatus } from "@/entities/feedback";
@@ -340,7 +341,7 @@ const createFeedbacks = (): AdminFeedback[] =>
 
 let FEEDBACKS = createFeedbacks();
 
-export const resetFeedbacks = () => {
+export const resetFeedbacks = (): void => {
   FEEDBACKS = createFeedbacks();
 };
 
@@ -349,20 +350,20 @@ const toPreview = (feedback: AdminFeedback): AdminFeedback =>
     ? { ...feedback, content: `${feedback.content.slice(0, PREVIEW_LENGTH)}...` }
     : feedback;
 
-const unauthorized = () =>
+const unauthorized = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다" }, { status: 401 });
 
 /** 관리자 토큰이 아니면 권한 판정 전에 토큰 단계에서 걸린다. */
-const isAdminRequest = (request: Request) =>
+const isAdminRequest = (request: Request): boolean =>
   request.headers.get("Authorization")?.startsWith("Bearer ") ?? false;
 
-const notFound = () =>
+const notFound = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json(
     { code: "FEEDBACK_NOT_FOUND", message: "존재하지 않는 의견입니다" },
     { status: 404 },
   );
 
-const invalidParameter = (name: string) =>
+const invalidParameter = (name: string): HttpResponse<JsonBodyType> =>
   HttpResponse.json(
     { code: "INVALID_REQUEST_PARAMETER", message: `${name} 값의 형식이 올바르지 않습니다` },
     { status: 400 },

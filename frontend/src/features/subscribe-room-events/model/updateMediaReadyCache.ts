@@ -16,7 +16,7 @@ export const updateMediaReadyCache = ({
   userId,
   media,
   replacedPending,
-}: Params) => {
+}: Params): void => {
   queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) => {
     if (!current) return current;
 

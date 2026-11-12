@@ -1,3 +1,5 @@
+import type { UseQueryResult } from "@tanstack/react-query";
+import type { AdminFeedback } from "@/entities/feedback/model/types";
 import { useQuery } from "@tanstack/react-query";
 
 import { isApiError } from "@/shared/api";
@@ -7,12 +9,15 @@ import { getAdminFeedback } from "../api/getAdminFeedback";
  * 목록 키(`["admin", "feedbacks"]`) 아래에 두지 않는다. 목록을 무효화할 때 열어 둔 상세까지
  * 같이 다시 부르게 되는데, 의견은 쓰고 나면 바뀌지 않아서 그럴 이유가 없다.
  */
-export const adminFeedbackQueryKey = (feedbackId: number) =>
+export const adminFeedbackQueryKey = (feedbackId: number): readonly ["admin", "feedback", number] =>
   ["admin", "feedback", feedbackId] as const;
 
 /** token 을 queryKey 에 넣지 않는 이유는 `useAdminFeedbacksQuery` 와 같다. */
-export const useAdminFeedbackQuery = (token: string, feedbackId: number) =>
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+export const useAdminFeedbackQuery = (
+  token: string,
+  feedbackId: number,
+): UseQueryResult<NoInfer<AdminFeedback>, Error> =>
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- 인증 토큰은 캐시 식별자가 아니며 세션 변경 시 별도로 캐시를 정리한다
   useQuery({
     queryKey: adminFeedbackQueryKey(feedbackId),
     queryFn: () => getAdminFeedback({ token, feedbackId }),

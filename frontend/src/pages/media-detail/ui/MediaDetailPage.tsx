@@ -32,7 +32,7 @@ import {
   Uploader,
 } from "./MediaDetailPage.styles";
 
-const formatDate = (value: string) => {
+const formatDate = (value: string): string => {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? ""
@@ -94,7 +94,7 @@ const MediaDetailContent = ({
     userId: session.userId,
     token: session.accessToken,
   });
-  const onBack = () => navigate(ROUTES.gallery(room.code), { replace: true });
+  const onBack = (): void | Promise<void> => navigate(ROUTES.gallery(room.code), { replace: true });
 
   const deleteMutation = useMutation({
     onError: (error) =>
@@ -225,7 +225,7 @@ export const MediaDetailPage = () => {
     userId: session?.userId,
     enabled: session !== null && isValidId,
   });
-  const onBack = () => navigate(ROUTES.gallery(code), { replace: true });
+  const onBack = (): void | Promise<void> => navigate(ROUTES.gallery(code), { replace: true });
 
   if (isSessionPending)
     return <DetailState message="로그인 정보를 불러오는 중이에요." onBack={onBack} isLoading />;

@@ -1,3 +1,4 @@
+import type { JsonBodyType } from "msw";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { screen, waitFor } from "@testing-library/react";
 import { render } from "../../test/renderWithToast";
@@ -17,10 +18,10 @@ const ROOM_CODE = "7K93QX2S";
 const OTHER_ROOM_CODE = "QRST6789";
 
 /** 토큰이 만료됐거나 서명이 맞지 않을 때 서버가 주는 응답이다. */
-const unauthorized = () =>
+const unauthorized = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code: "UNAUTHORIZED", message: "다시 접속해주세요" }, { status: 401 });
 
-const renderAt = (path: string) => {
+const renderAt = (path: string): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -365,7 +366,7 @@ describe("라우트", () => {
   });
 });
 
-const renderAtGallery = () => {
+const renderAtGallery = (): ReturnType<typeof createMemoryRouter> => {
   saveRoomSession(ROOM_CODE, {
     accessToken: "mock-token-10234",
     userId: 10234,

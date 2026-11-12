@@ -13,7 +13,7 @@ export const AppPushNotifications = () => {
   useEffect(() => {
     if (!accessToken || userId === undefined) return;
 
-    const handle = (event: Event) => {
+    const handle = (event: Event): void => {
       const detail: unknown = (event as CustomEvent<unknown>).detail;
       if (!detail || typeof detail !== "object" || !("type" in detail)) return;
 
@@ -23,9 +23,9 @@ export const AppPushNotifications = () => {
       }
     };
 
-    const requestToken = () =>
+    const requestToken = (): void | undefined =>
       window.ReactNativeWebView?.postMessage(JSON.stringify({ type: "push/request-token" }));
-    const onVisibilityChange = () => {
+    const onVisibilityChange = (): void => {
       if (document.visibilityState === "visible") requestToken();
     };
     window.addEventListener(NATIVE_PUSH_EVENT, handle);

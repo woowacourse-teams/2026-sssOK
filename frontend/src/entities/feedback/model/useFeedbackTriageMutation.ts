@@ -1,3 +1,5 @@
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { AdminFeedback } from "@/entities/feedback/model/types";
 import { useMutation, useQueryClient, type InfiniteData } from "@tanstack/react-query";
 
 import {
@@ -18,7 +20,12 @@ interface TriageVariables<K extends keyof FeedbackTriage> {
 export const useFeedbackTriageMutation = <K extends keyof FeedbackTriage>(
   field: K,
   request: (variables: TriageVariables<K>) => Promise<AdminFeedbackDetail>,
-) => {
+): UseMutationResult<
+  AdminFeedback,
+  Error,
+  TriageVariables<K>,
+  { previous: { [x: string]: AdminFeedback[K] } | undefined }
+> => {
   const queryClient = useQueryClient();
 
   return useMutation({

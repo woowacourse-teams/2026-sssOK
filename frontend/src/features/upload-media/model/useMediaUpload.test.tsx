@@ -1,3 +1,5 @@
+import type { UploadProgressSnapshot } from "@/features/upload-media/model/uploadProgress";
+import type { RenderHookResult } from "@testing-library/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 
@@ -15,10 +17,10 @@ jest.mock("@/shared/lib/analytics", () => ({
 
 const TOKEN = "mock-token-10234";
 
-const fileOf = (fileName: string, byteLength: number, type = "image/jpeg") =>
+const fileOf = (fileName: string, byteLength: number, type = "image/jpeg"): File =>
   new File(["x".repeat(byteLength)], fileName, { type });
 
-const enterRoom = () =>
+const enterRoom = (): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
@@ -32,8 +34,8 @@ const enterRoom = () =>
  * 가로챈 PUT 은 목이 업로드 바이트를 기록하지 못해 완료 등록이 실패로 떨어진다.
  * 그래서 이 헬퍼를 쓰는 검사는 등록 결과가 아니라 **진행 상태**만 본다.
  */
-const holdPuts = (shouldHold: (key: string) => boolean = () => true) => {
-  let open = () => {};
+const holdPuts = (shouldHold: (key: string) => boolean = () => true): { open: () => void } => {
+  let open = (): void => {};
   const opened = new Promise<void>((resolve) => {
     open = resolve;
   });
@@ -51,11 +53,22 @@ const holdPuts = (shouldHold: (key: string) => boolean = () => true) => {
   return { open: () => open() };
 };
 
-const renderUpload = (options: Partial<Parameters<typeof useMediaUpload>[0]> = {}) =>
-  renderHook(() => useMediaUpload({ roomId: MOCK_ROOM_ID, token: TOKEN, ...options }));
+const renderUpload = (
+  options: Partial<Parameters<typeof useMediaUpload>[0]> = {},
+): RenderHookResult<
+  {
+    progress: UploadProgressSnapshot | null;
+    start: (files: File[]) => Promise<void>;
+    cancel: () => void;
+  },
+  unknown
+> => renderHook(() => useMediaUpload({ roomId: MOCK_ROOM_ID, token: TOKEN, ...options }));
 
 /** `start` 는 판이 끝나야 풀린다. 도는 중을 보려면 기다리지 않고 손잡이만 받아둬야 한다. */
-const startUpload = (result: { current: ReturnType<typeof useMediaUpload> }, files: File[]) => {
+const startUpload = (
+  result: { current: ReturnType<typeof useMediaUpload> },
+  files: File[],
+): Promise<void> => {
   let running: Promise<void>;
 
   act(() => {

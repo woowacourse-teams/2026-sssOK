@@ -10,7 +10,7 @@ const KB = 1024;
 const MB = KB * 1024;
 const GB = MB * 1024;
 
-export const formatBytes = (bytes: number) => {
+export const formatBytes = (bytes: number): string => {
   if (bytes >= GB) {
     // 2.0GB 처럼 의미 없는 0 은 떼고 2GB 로 보여준다.
     return `${trimZero(bytes / GB)}GB`;
@@ -24,4 +24,4 @@ export const formatBytes = (bytes: number) => {
   return `${Math.max(Math.round(bytes / KB), 1)}KB`;
 };
 
-const trimZero = (value: number) => Number(value.toFixed(1)).toString();
+const trimZero = (value: number): string => Number(value.toFixed(1)).toString();

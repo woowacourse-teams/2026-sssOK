@@ -26,11 +26,11 @@ export const LoginPage = () => {
   const apple = useAppleLogin();
   const isPending = kakao.isPending || apple.isPending;
 
-  const handleKakaoLogin = () => {
+  const handleKakaoLogin = (): void => {
     if (!isPending) void kakao.login();
   };
 
-  const handleAppleLogin = () => {
+  const handleAppleLogin = (): void => {
     if (!isPending) void apple.login();
   };
 

@@ -5,7 +5,7 @@ import { canShareFiles, shareFiles } from "./shareFiles";
  * 개발 환경 브라우저에는 Web Share API 자체가 없어서, 이 검사가 #123 을 지키는 유일한 자리다.
  */
 
-const fileOf = (name = "IMG_0001.jpg") =>
+const fileOf = (name = "IMG_0001.jpg"): File =>
   new File([new Uint8Array(4)], name, { type: "image/jpeg" });
 
 /** 기기가 무엇을 지원하는지 흉내낸다. `undefined` 는 API 자체가 없는 기기다. */
@@ -15,12 +15,13 @@ const withNavigator = ({
 }: {
   canShare?: (data: { files: File[] }) => boolean;
   share?: (data: { files: File[] }) => Promise<void>;
-}) => {
+}): void => {
   Object.defineProperty(navigator, "canShare", { value: canShare, configurable: true });
   Object.defineProperty(navigator, "share", { value: share, configurable: true });
 };
 
-const abortError = () => Object.assign(new Error("사용자가 닫음"), { name: "AbortError" });
+const abortError = (): Error & { name: string } =>
+  Object.assign(new Error("사용자가 닫음"), { name: "AbortError" });
 
 afterEach(() => withNavigator({ canShare: undefined, share: undefined }));
 

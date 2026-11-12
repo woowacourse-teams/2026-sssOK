@@ -34,14 +34,18 @@ export const createPersonReview = (groups: OrganizeGroup[]): PersonReview => ({
 });
 
 /** 뺀 사진을 제외한, 폴더에 들어갈 사진. */
-export const includedPhotos = (person: ReviewPerson) =>
+export const includedPhotos = (person: ReviewPerson): MediaItem[] =>
   person.photos.filter((photo) => !person.excludedIds.includes(photo.mediaId));
 
-export const isEmptied = (person: ReviewPerson) =>
+export const isEmptied = (person: ReviewPerson): boolean =>
   person.photos.length > 0 && includedPhotos(person).length === 0;
 
 /** 이 이름을 이미 고른 다른 카드. 없으면 null 이다. */
-export const ownerOfName = (review: PersonReview, personId: string, name: string) =>
+export const ownerOfName = (
+  review: PersonReview,
+  personId: string,
+  name: string,
+): ReviewPerson | null =>
   review.people.find(
     (person) => person.id !== personId && !isEmptied(person) && person.name === name,
   ) ?? null;
@@ -58,7 +62,7 @@ const update = (
  * 카드에 이름을 붙인다. 이미 고른 이름을 다시 고르면 선택이 풀린다.
  * 다른 카드가 쓰는 이름인지는 부르는 쪽이 `ownerOfName` 으로 먼저 묻는다.
  */
-export const toggleName = (review: PersonReview, personId: string, name: string) =>
+export const toggleName = (review: PersonReview, personId: string, name: string): PersonReview =>
   update(review, personId, (person) => ({
     ...person,
     name: person.name === name ? null : name,
@@ -68,7 +72,11 @@ export const toggleName = (review: PersonReview, personId: string, name: string)
  * `sourceId` 카드를 `targetId` 카드에 합친다. 사진은 겹치지 않게 이어 붙이고,
  * 이름은 이미 그 이름을 가진 `targetId` 쪽을 따른다.
  */
-export const mergePeople = (review: PersonReview, targetId: string, sourceId: string) => {
+export const mergePeople = (
+  review: PersonReview,
+  targetId: string,
+  sourceId: string,
+): PersonReview => {
   const source = review.people.find((person) => person.id === sourceId);
   if (!source || targetId === sourceId) return review;
 
@@ -89,7 +97,11 @@ export const mergePeople = (review: PersonReview, targetId: string, sourceId: st
 };
 
 /** 사진을 빼거나, 뺀 사진을 다시 넣는다. */
-export const togglePhoto = (review: PersonReview, personId: string, mediaId: number) => {
+export const togglePhoto = (
+  review: PersonReview,
+  personId: string,
+  mediaId: number,
+): PersonReview => {
   const before = review.people.find((person) => person.id === personId);
   const next = update(review, personId, (person) => ({
     ...person,
@@ -110,7 +122,10 @@ export const togglePhoto = (review: PersonReview, personId: string, mediaId: num
 };
 
 /** 방에 이미 같은 이름의 폴더가 있어 이름을 바꿔야 하는 카드. 없으면 null 이다. */
-export const conflictOf = ({ people }: PersonReview, folderNames: readonly string[]) =>
+export const conflictOf = (
+  { people }: PersonReview,
+  folderNames: readonly string[],
+): ReviewPerson | null =>
   people.find(
     (person) => person.name !== null && !isEmptied(person) && folderNames.includes(person.name),
   ) ?? null;
@@ -122,7 +137,10 @@ export const conflictOf = ({ people }: PersonReview, folderNames: readonly strin
  * - 일부만 고름: 남는 사람 수를 알리고, 고른 사람 수만큼 폴더를 만든다
  * - 모두 고름: 안내 없이 폴더를 만든다
  */
-export const footerOf = (review: PersonReview, folderNames: readonly string[] = []) => {
+export const footerOf = (
+  review: PersonReview,
+  folderNames: readonly string[] = [],
+): { hint: string | null; submit: string; canSubmit: boolean } => {
   const conflict = conflictOf(review, folderNames);
   if (conflict) {
     return {

@@ -2,11 +2,17 @@ import { useState } from "react";
 
 import { INITIAL_CREATE_ROOM_FORM, type CreateRoomFormValues } from "./createRoomForm";
 
-export const useCreateRoomForm = () => {
+export const useCreateRoomForm = (): {
+  formValues: CreateRoomFormValues;
+  updateField: <K extends keyof CreateRoomFormValues>(
+    name: K,
+  ) => (value: CreateRoomFormValues[K]) => void;
+  isValid: boolean;
+} => {
   const [formValues, setFormValues] = useState<CreateRoomFormValues>(INITIAL_CREATE_ROOM_FORM);
 
   const updateField =
-    <K extends keyof CreateRoomFormValues>(name: K) =>
+    <K extends keyof CreateRoomFormValues>(name: K): ((value: CreateRoomFormValues[K]) => void) =>
     (value: CreateRoomFormValues[K]) => {
       setFormValues((previous) => ({ ...previous, [name]: value }));
     };

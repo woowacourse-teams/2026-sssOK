@@ -14,7 +14,9 @@ interface LeaveRoomModalProps {
   onSuccess: () => void;
 }
 
-const errorMessageOf = (error: unknown) =>
+const errorMessageOf = (
+  error: unknown,
+): "방장은 방에서 나갈 수 없어요." | "방에서 나가지 못했어요. 잠시 후 다시 시도해 주세요." =>
   error instanceof ApiError && error.code === "ROOM_HOST_CANNOT_LEAVE"
     ? "방장은 방에서 나갈 수 없어요."
     : "방에서 나가지 못했어요. 잠시 후 다시 시도해 주세요.";

@@ -1,3 +1,4 @@
+import type { UploadResult } from "@/features/upload-media/model/types";
 import { http, HttpResponse } from "msw";
 
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
@@ -15,18 +16,20 @@ jest.mock("../config", () => ({
 const TOKEN = "mock-token-10234";
 
 /** 내용 길이를 다르게 줘서, 어느 파일이 어느 URL 로 갔는지 바이트 수로 구별한다. */
-const fileOf = (fileName: string, byteLength: number, type = "image/jpeg") =>
+const fileOf = (fileName: string, byteLength: number, type = "image/jpeg"): File =>
   new File(["x".repeat(byteLength)], fileName, { type });
 
-const enterRoom = () =>
+const enterRoom = (): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
 
-const run = (files: File[], options: Partial<Parameters<typeof uploadFiles>[0]> = {}) =>
-  uploadFiles({ roomId: MOCK_ROOM_ID, token: TOKEN, files, ...options });
+const run = (
+  files: File[],
+  options: Partial<Parameters<typeof uploadFiles>[0]> = {},
+): Promise<UploadResult> => uploadFiles({ roomId: MOCK_ROOM_ID, token: TOKEN, files, ...options });
 
 interface PutRecord {
   key: string;
@@ -43,7 +46,10 @@ interface PutRecord {
 const interceptPuts = ({
   statusOf = () => 200,
   delayMs = 0,
-}: { statusOf?: (key: string) => number; delayMs?: number } = {}) => {
+}: { statusOf?: (key: string) => number; delayMs?: number } = {}): {
+  records: PutRecord[];
+  peakConcurrency: () => number;
+} => {
   const records: PutRecord[] = [];
   let running = 0;
   let peak = 0;
@@ -76,7 +82,7 @@ const interceptPuts = ({
 };
 
 /** 어떤 주소로 요청이 몇 번 나갔는지 센다. */
-const countRequests = (match: string) => {
+const countRequests = (match: string): { count: number } => {
   const counter = { count: 0 };
 
   server.events.on("request:start", ({ request }) => {

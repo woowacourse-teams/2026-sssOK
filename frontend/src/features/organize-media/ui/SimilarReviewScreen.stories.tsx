@@ -4,7 +4,7 @@ import type { MediaItem } from "@/entities/media";
 import type { OrganizeResult } from "../api/types";
 import { SimilarReviewScreen } from "./SimilarReviewScreen";
 
-const swatch = (hue: number, index: number) =>
+const swatch = (hue: number, index: number): string =>
   `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="hsl(${hue},45%,${62 + (index % 3) * 8}%)"/></svg>`,
   )}`;

@@ -1,3 +1,4 @@
+import type { RenderResult } from "@testing-library/react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -14,7 +15,11 @@ jest.mock("../lib/browserEntry", () => ({
 const openInviteAppMock = openInviteApp as jest.MockedFunction<typeof openInviteApp>;
 const isMobileBrowserMock = isMobileBrowser as jest.MockedFunction<typeof isMobileBrowser>;
 
-const renderAtInvite = () =>
+const renderAtInvite = (): RenderResult<
+  typeof import("@testing-library/dom/types/queries"),
+  HTMLElement,
+  HTMLElement
+> =>
   render(
     <MemoryRouter initialEntries={["/join/ABCDEF23?linkCode=483920"]}>
       <Routes>

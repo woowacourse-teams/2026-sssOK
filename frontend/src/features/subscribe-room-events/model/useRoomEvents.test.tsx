@@ -39,7 +39,13 @@ const renderRoomEvents = (callbacks: {
   onMediaCreated?: (media: Media) => void;
   onFoldersChanged?: () => void;
   onFolderDeleted?: (folderId: number) => void;
-}) => {
+}): {
+  source: FakeEventSource;
+  queryClient: QueryClient;
+  rerender: (props?: unknown) => void;
+  result: { current: void };
+  unmount: () => void;
+} => {
   const queryClient = new QueryClient();
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

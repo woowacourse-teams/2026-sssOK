@@ -25,7 +25,7 @@ export const RoomNotificationMenu = ({
   const queryClient = useQueryClient();
   const queryKey = ["room-notification-setting", roomId, userId] as const;
   // 캐시는 이용자 ID로 나누고 인증 토큰은 키에 넣지 않는다.
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- 인증 토큰은 캐시 식별자가 아니며 세션 변경 시 별도로 캐시를 정리한다
   const setting = useQuery({
     queryKey,
     queryFn: () => getNotificationSetting(roomId, accessToken),

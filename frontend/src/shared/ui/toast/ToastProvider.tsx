@@ -43,7 +43,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   // dialog의 최상위 레이어에서도 알림을 보여주고, 닫힌 뒤에는 본문으로 돌려놓는다.
   useLayoutEffect(() => {
     if (!toast) return;
-    const updateContainer = () => {
+    const updateContainer = (): void => {
       const dialogs = document.querySelectorAll("dialog[open]");
       const target = dialogs.item(dialogs.length - 1);
       setContainer(target);
@@ -67,7 +67,7 @@ export const ToastProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useToast = () => {
+export const useToast = (): ToastContextValue => {
   const context = useContext(ToastContext);
   if (!context) throw new Error("useToast는 ToastProvider 안에서 사용해야 합니다.");
   return context;

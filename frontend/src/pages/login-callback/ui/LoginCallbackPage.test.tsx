@@ -13,7 +13,14 @@ import { LoginCallbackPage } from "./LoginCallbackPage";
 
 const state = "s".repeat(43);
 const verifier = "v".repeat(43);
-const member = () => ({
+const member = (): {
+  accessToken: string;
+  userId: number;
+  nickname: string;
+  memberStatus: string;
+  expiresAt: string;
+  refreshExpiresAt: string;
+} => ({
   accessToken: "member-access",
   userId: 123,
   nickname: "회원",
@@ -22,7 +29,10 @@ const member = () => ({
   refreshExpiresAt: "2099-01-01T00:00:00Z",
 });
 
-const setup = (provider = "kakao", query = `code=provider-code&state=${state}`) => {
+const setup = (
+  provider = "kakao",
+  query = `code=provider-code&state=${state}`,
+): { client: QueryClient; router: ReturnType<typeof createMemoryRouter> } => {
   const path = `/app/auth/callback/${provider}`;
   history.replaceState(null, "", `${path}?${query}`);
   captureLoginCallback();

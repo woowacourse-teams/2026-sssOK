@@ -1,3 +1,4 @@
+import type { RenderResult } from "@testing-library/react";
 import { screen, waitFor } from "@testing-library/react";
 import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
@@ -20,7 +21,7 @@ jest.mock("../config", () => ({
 const TOKEN = "mock-token-10234";
 
 /** 고른 파일이 실제로 올라가므로, 발급이 403 으로 막히지 않게 먼저 방에 들어간다. */
-const enterRoom = () =>
+const enterRoom = (): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
@@ -34,10 +35,11 @@ const renderUploader = (
     hideButton?: boolean;
     canUpload?: boolean;
   } = {},
-) => render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} canUpload {...props} />);
+): RenderResult<typeof import("@testing-library/dom/types/queries"), HTMLElement, HTMLElement> =>
+  render(<MediaUploader roomId={MOCK_ROOM_ID} token={TOKEN} canUpload {...props} />);
 
 /** 발급을 배치 전체 실패로 답하게 한다. 방·권한·회선 문제가 전부 이 모양으로 온다. */
-const failIssueWith = (status: number, code: string, message: string) =>
+const failIssueWith = (status: number, code: string, message: string): void =>
   server.use(
     http.post(`${API_BASE_URL}/rooms/:roomId/media/upload-urls`, () =>
       HttpResponse.json({ code, message }, { status }),
@@ -50,7 +52,7 @@ const failIssueWith = (status: number, code: string, message: string) =>
  * 응답을 돌려주지 않으면 기본 핸들러로 넘어가 정상 업로드가 된다 — 가로채기만 하고
  * 목의 기록은 그대로 두려는 것이다. 목이 바이트를 기록해야 완료 등록이 통과한다.
  */
-const failUploadsOf = (extension: string) => {
+const failUploadsOf = (extension: string): string[] => {
   const keys: string[] = [];
 
   server.use(
@@ -69,8 +71,8 @@ const failUploadsOf = (extension: string) => {
 };
 
 /** 다음 PUT 들을 붙잡아 둔다. 목이 즉시 답하면 "올라가는 중" 인 화면을 볼 수가 없다. */
-const holdUploads = () => {
-  let release = () => {};
+const holdUploads = (): (() => void) => {
+  let release = (): void => {};
   const held = new Promise<void>((resolve) => {
     release = resolve;
   });
@@ -86,22 +88,24 @@ const holdUploads = () => {
   return () => release();
 };
 
-const failureHeading = () => screen.queryByRole("heading", { name: /못 올렸어요/ });
+const failureHeading = (): HTMLElement | null =>
+  screen.queryByRole("heading", { name: /못 올렸어요/ });
 
-const settled = () =>
+const settled = (): Promise<void> =>
   waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
 
-const fileOf = (name: string, size = 1024, type = "image/jpeg") => {
+const fileOf = (name: string, size = 1024, type = "image/jpeg"): File => {
   const file = new File(["x"], name, { type });
   Object.defineProperty(file, "size", { value: size });
 
   return file;
 };
 
-const getUploadButton = () => screen.getByRole("button", { name: UPLOAD_BUTTON_LABEL });
+const getUploadButton = (): HTMLElement =>
+  screen.getByRole("button", { name: UPLOAD_BUTTON_LABEL });
 
 /** 선택기는 접근성 트리에 없다. 버튼이 열어주는 자리라 DOM 에서 직접 집는다. */
-const getFileInput = () => {
+const getFileInput = (): HTMLInputElement => {
   const input = queryFileInput();
 
   if (input === null) throw new Error("파일 입력을 찾지 못했다");
@@ -109,7 +113,8 @@ const getFileInput = () => {
   return input;
 };
 
-const queryFileInput = () => document.querySelector<HTMLInputElement>('input[type="file"]');
+const queryFileInput = (): HTMLInputElement | null =>
+  document.querySelector<HTMLInputElement>('input[type="file"]');
 
 describe("MediaUploader", () => {
   beforeEach(enterRoom);

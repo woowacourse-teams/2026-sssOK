@@ -24,7 +24,7 @@ export const CreateRoomForm = ({ onSuccess }: CreateRoomFormProps) => {
     track("Room Create Started", {});
   }, []);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     mutate(formValues, { onSuccess });
   };

@@ -29,7 +29,7 @@ const LIMIT_TEXT = `이미지 ${formatBytes(MAX_IMAGE_BYTES)} · 영상 ${format
  * 시안에 있는 것은 용량 초과(`파일이 너무 커요`) 하나뿐이다. 형식 오류와 섞였을 때까지
  * `파일이 너무 커요` 라고 하면 절반은 거짓말이 되므로, 섞이면 두 경우를 다 덮는 말로 물러선다.
  */
-const titleOf = (rejected: RejectedSelection[]) => {
+const titleOf = (rejected: RejectedSelection[]): string => {
   const codes = new Set(rejected.map((one) => one.code));
 
   if (codes.size === 1 && codes.has("FILE_SIZE_EXCEEDED")) {

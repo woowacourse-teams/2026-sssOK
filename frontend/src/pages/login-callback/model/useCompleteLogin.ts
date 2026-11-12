@@ -7,7 +7,11 @@ import { removeRoomSession } from "@/entities/session";
 import { takeLoginReturn } from "@/shared/lib";
 import { captureLoginCallback, completeLogin } from "../api/completeLogin";
 
-export const useCompleteLogin = () => {
+export const useCompleteLogin = (): {
+  status: "success" | "error" | "pending";
+  error: string;
+  returnTo: string | null;
+} => {
   const client = useQueryClient();
   const [status, setStatus] = useState<"pending" | "success" | "error">("pending");
   const [error, setError] = useState("");

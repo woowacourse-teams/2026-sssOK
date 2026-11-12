@@ -11,7 +11,7 @@ import { copyRoomInviteLink } from "../lib/copyRoomInviteLink";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 import { RoomQrModal } from "./RoomQrModal";
 
-const copyPendingText = async (text: Promise<string>) => {
+const copyPendingText = async (text: Promise<string>): Promise<void> => {
   if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard.write === "function") {
     const blob = text.then((value) => new Blob([value], { type: "text/plain" }));
     await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
@@ -40,7 +40,7 @@ export const RoomShareButton = ({
   const copyRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
 
-  const closeMenu = () => {
+  const closeMenu = (): void => {
     setIsOpen(false);
     triggerRef.current?.focus();
   };
@@ -50,12 +50,12 @@ export const RoomShareButton = ({
 
     copyRef.current?.focus();
 
-    const handlePointerDown = (event: PointerEvent) => {
+    const handlePointerDown = (event: PointerEvent): void => {
       if (event.target instanceof Node && !anchorRef.current?.contains(event.target)) {
         setIsOpen(false);
       }
     };
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         event.preventDefault();
         setIsOpen(false);
@@ -71,7 +71,7 @@ export const RoomShareButton = ({
     };
   }, [isOpen]);
 
-  const copyGalleryLink = async () => {
+  const copyGalleryLink = async (): Promise<void> => {
     if (isCopying) return;
 
     closeCopyToast.current?.();
@@ -92,7 +92,7 @@ export const RoomShareButton = ({
     }
   };
 
-  const copyDeviceLink = async () => {
+  const copyDeviceLink = async (): Promise<void> => {
     if (isCreatingDeviceLink) return;
 
     closeCopyToast.current?.();
@@ -130,7 +130,7 @@ export const RoomShareButton = ({
     }
   };
 
-  const openQrModal = () => {
+  const openQrModal = (): void => {
     setIsOpen(false);
     setIsQrModalOpen(true);
   };

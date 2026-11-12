@@ -22,7 +22,9 @@ const member = {
   memberStatus: "REGISTERED",
   refreshExpiresAt: anonymous.expiresAt,
 };
-const wrapper = (client: QueryClient) =>
+const wrapper = (
+  client: QueryClient,
+): (({ children }: { children: ReactNode }) => import("react").ReactElement) =>
   function Provider({ children }: { children: ReactNode }) {
     return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
   };

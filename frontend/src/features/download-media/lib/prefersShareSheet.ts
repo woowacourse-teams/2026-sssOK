@@ -1,6 +1,6 @@
 import { canShareFiles } from "./shareFiles";
 
-const isIOSDevice = () => {
+const isIOSDevice = (): boolean => {
   const userAgent = navigator.userAgent;
 
   const isIPhone = userAgent.includes("iPhone");
@@ -22,7 +22,7 @@ const isIOSDevice = () => {
  * 공유 시트에 어떤 저장 기능이 있는지는 Web API로 확인할 수 없으므로
  * userAgent를 이용해 iOS를 구분한다.
  */
-export const prefersShareSheet = () => {
+export const prefersShareSheet = (): boolean => {
   if (typeof window === "undefined" || typeof navigator === "undefined") {
     return false;
   }

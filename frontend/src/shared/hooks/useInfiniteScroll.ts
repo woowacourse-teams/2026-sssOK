@@ -17,7 +17,7 @@ interface UseInfiniteScrollParams {
  * `enabled` 가 false 면 아예 붙이지 않는다. 불러오는 중에도 걸려 있으면 같은 페이지를
  * 여러 번 부른다 — 관찰자는 "이미 부른 적 있음" 을 알지 못한다.
  */
-export const useInfiniteScroll = ({ target, enabled, onReach }: UseInfiniteScrollParams) => {
+export const useInfiniteScroll = ({ target, enabled, onReach }: UseInfiniteScrollParams): void => {
   useEffect(() => {
     const element = target.current;
 

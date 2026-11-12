@@ -18,7 +18,7 @@ export const runWithLimit = async <T, R>(
    * 대기열에서 하나씩 집어 처리하다가 남은 게 없으면 끝난다.
    * 번호를 집고 올리는 사이에 `await` 가 없어서, 두 일꾼이 같은 번호를 집지 않는다.
    */
-  const worker = async () => {
+  const worker = async (): Promise<void> => {
     while (nextIndex < items.length) {
       const index = nextIndex;
       nextIndex += 1;

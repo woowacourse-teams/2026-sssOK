@@ -42,7 +42,7 @@ export const SimilarCard = ({
   const showsChip = folderName !== null && !isEditing && !needsRename;
 
   // 엔터·완료는 포커스만 뺀다. 칩으로 바꾸는 건 아래 blur 가 한다. 다른 곳을 눌러도 같다.
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     (event.currentTarget.elements.namedItem("folderName") as HTMLInputElement | null)?.blur();
   };
