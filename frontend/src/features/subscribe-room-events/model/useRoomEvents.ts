@@ -1,6 +1,7 @@
 import { z } from "zod";
-import { MediaSchema, MediaItemSchema } from "@/entities/media/model/types";
+import { MediaSchema } from "@/entities/media/model/types";
 import {
+  MediaReadyEventSchema,
   UploadRequestedEventSchema,
   MediaFoldersUpdatedEventSchema,
   MediaLikesUpdatedEventSchema,
@@ -151,7 +152,7 @@ export const useRoomEvents = ({
     };
 
     const handleMediaReady = (event: MessageEvent<string>): void => {
-      const media = readRoomEvent(MediaItemSchema, event.data);
+      const media = readRoomEvent(MediaReadyEventSchema, event.data);
       if (!media) return;
       updateMediaReadyCache({
         queryClient,

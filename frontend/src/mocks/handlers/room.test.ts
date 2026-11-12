@@ -30,18 +30,11 @@ describe("GET /rooms/{code} 목 핸들러", () => {
     expect(body.data.code).toBe(MOCK_ROOM_CODES.active);
   });
 
-  it("1일 방과 3일 방의 만료 시각을 각각 24시간과 72시간 뒤로 내려준다", async () => {
-    const now = Date.now();
-    const active = await (await getRoom(MOCK_ROOM_CODES.active)).json();
-    const second = await (await getRoom(MOCK_ROOM_CODES.second)).json();
-
-    const activeRemainingHours = (Date.parse(active.data.expiresAt) - now) / 3_600_000;
-    const secondRemainingHours = (Date.parse(second.data.expiresAt) - now) / 3_600_000;
-
-    expect(activeRemainingHours).toBeGreaterThan(23.99);
-    expect(activeRemainingHours).toBeLessThanOrEqual(24);
-    expect(secondRemainingHours).toBeGreaterThan(71.99);
-    expect(secondRemainingHours).toBeLessThanOrEqual(72);
+  it("방 응답은 폐기된 만료 시각을 포함하지 않는다", async () => {
+    for (const code of [MOCK_ROOM_CODES.active, MOCK_ROOM_CODES.second]) {
+      const body = await (await getRoom(code)).json();
+      expect(body.data).not.toHaveProperty("expiresAt");
+    }
   });
 
   it("만료된 방도 404 가 아니라 200 과 EXPIRED 상태로 내려준다", async () => {
@@ -390,10 +383,7 @@ describe("DELETE /rooms/{roomId} 목 핸들러", () => {
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual({
-      code: MOCK_ROOM_CODES.active,
-      status: "DELETED",
       deletedAt: "2026-08-18T07:00:00Z",
-      purgeAt: "2026-08-25T07:00:00Z",
     });
 
     const roomResponse = await getRoom(MOCK_ROOM_CODES.active);

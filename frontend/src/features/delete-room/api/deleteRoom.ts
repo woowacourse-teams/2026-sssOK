@@ -1,9 +1,6 @@
 import { z } from "zod";
 export const DeleteRoomResponseSchema = z.object({
-  code: z.string(),
-  status: z.literal("DELETED"),
   deletedAt: z.string(),
-  purgeAt: z.string(),
 });
 import { apiClient } from "@/shared/api";
 

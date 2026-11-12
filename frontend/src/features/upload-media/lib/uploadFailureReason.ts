@@ -12,7 +12,8 @@ const REASON_BY_CODE: Record<UploadFailureCode, string> = {
   UPLOAD_ABORTED: "취소함",
   UPLOAD_NOT_COMPLETED: "전송 미완료",
   MEDIA_NOT_FOUND: "찾을 수 없음",
-  FILE_SIZE_EXCEEDED: "용량 초과",
+  FILE_TOO_LARGE: "용량 초과",
+  UNSUPPORTED_MEDIA_TYPE: "지원 안 함",
 };
 
 export const uploadFailureReasonOf = (code: UploadFailureCode): string => REASON_BY_CODE[code];

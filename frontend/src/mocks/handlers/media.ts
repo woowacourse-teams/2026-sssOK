@@ -234,9 +234,7 @@ export const mediaHandlers = [
       likedByMe: mediaWithLike.likedByMe,
       takenAt: media.mediaId === 5012 ? "2026-08-17T14:02:11+09:00" : null,
       location:
-        media.mediaId === 5012
-          ? { latitude: 35.1587, longitude: 129.1604, name: "부산 해운대구" }
-          : null,
+        media.mediaId === 5012 ? { latitude: 35.1587, longitude: 129.1604, name: null } : null,
       canDelete: canDelete(media, auth),
     };
     return HttpResponse.json({ data });
