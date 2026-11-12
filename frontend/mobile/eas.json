@@ -23,6 +23,14 @@
         "EXPO_PUBLIC_WEB_URL": "https://www.ssssok.com/rooms"
       },
       "environment": "production"
+    },
+    "apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "autoIncrement": false,
+      "android": {
+        "buildType": "apk"
+      }
     }
   },
   "submit": {
