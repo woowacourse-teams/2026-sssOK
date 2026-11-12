@@ -89,7 +89,8 @@
     "react-dom": "^19.2.8",
     "react-error-boundary": "^6.1.6",
     "react-icons": "5.7.0",
-    "react-router-dom": "^7.18.2"
+    "react-router-dom": "^7.18.2",
+    "zod": "^4.6.7"
   },
   "msw": {
     "workerDirectory": [
