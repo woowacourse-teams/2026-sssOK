@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { isApiError } from "@/shared/api";
 import { colors, spacing, typography } from "@/shared/styles/tokens";
-import { HiBell, HiPhoto } from "react-icons/hi2";
+import { LuBell, LuImage } from "react-icons/lu";
 import { DropdownMenuItem } from "@/shared/ui/dropdown-menu";
 import { getNotificationSetting, requestPhotos, updateNotificationSetting } from "./api";
 
@@ -47,7 +47,7 @@ export const RoomNotificationMenu = ({
     <>
       <ToggleItem
         $muted={enabled === false}
-        icon={<HiBell />}
+        icon={<LuBell strokeWidth={1.9} aria-hidden="true" />}
         role="switch"
         aria-label="방 알림"
         aria-checked={enabled ?? false}
@@ -72,7 +72,7 @@ export const RoomNotificationMenu = ({
         <Notice role="alert">알림 설정을 바꾸지 못했어요. 다시 시도해 주세요.</Notice>
       )}
       <DropdownMenuItem
-        icon={<HiPhoto />}
+        icon={<LuImage strokeWidth={1.9} aria-hidden="true" />}
         disabled={enabled !== true || update.isPending || request.isPending}
         onClick={() => request.mutate()}
       >

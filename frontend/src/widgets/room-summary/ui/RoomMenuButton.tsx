@@ -1,12 +1,12 @@
 import { useState, type ReactNode } from "react";
 import {
-  HiAdjustmentsHorizontal,
-  HiEllipsisHorizontal,
-  HiFolderMinus,
-  HiFolderPlus,
-  HiPencilSquare,
-  HiTrash,
-} from "react-icons/hi2";
+  LuSlidersHorizontal,
+  LuEllipsis,
+  LuFolderX,
+  LuFolderPlus,
+  LuFolderPen,
+  LuTrash2,
+} from "react-icons/lu";
 import styled from "@emotion/styled";
 
 import { DropdownMenu, DropdownMenuDivider, DropdownMenuItem } from "@/shared/ui/dropdown-menu";
@@ -43,14 +43,14 @@ export const RoomMenuButton = ({
   return (
     <MenuContainer>
       <IconButton size="sm" aria-label="방 메뉴 열기" onClick={() => setIsOpen((open) => !open)}>
-        <HiEllipsisHorizontal />
+        <LuEllipsis strokeWidth={1.9} aria-hidden="true" />
       </IconButton>
 
       {isOpen && (
         <DropdownMenu onClose={() => setIsOpen(false)}>
           {isHost && (
             <DropdownMenuItem
-              icon={<HiAdjustmentsHorizontal />}
+              icon={<LuSlidersHorizontal strokeWidth={1.9} aria-hidden="true" />}
               onClick={() => selectMenu(onOpenSettings)}
             >
               방 설정
@@ -59,7 +59,7 @@ export const RoomMenuButton = ({
           {isHost && (
             <>
               <DropdownMenuItem
-                icon={<HiTrash />}
+                icon={<LuTrash2 strokeWidth={1.9} aria-hidden="true" />}
                 tone="danger"
                 onClick={() => selectMenu(onDeleteRoom)}
               >
@@ -68,18 +68,21 @@ export const RoomMenuButton = ({
               <DropdownMenuDivider />
             </>
           )}
-          <DropdownMenuItem icon={<HiFolderPlus />} onClick={() => selectMenu(onAddFolder)}>
+          <DropdownMenuItem
+            icon={<LuFolderPlus strokeWidth={1.9} aria-hidden="true" />}
+            onClick={() => selectMenu(onAddFolder)}
+          >
             폴더 추가
           </DropdownMenuItem>
           <DropdownMenuItem
-            icon={<HiPencilSquare />}
+            icon={<LuFolderPen strokeWidth={1.9} aria-hidden="true" />}
             disabled={!hasSelectedFolder || !onEditFolder}
             onClick={() => selectMenu(onEditFolder)}
           >
             폴더 설정
           </DropdownMenuItem>
           <DropdownMenuItem
-            icon={<HiFolderMinus />}
+            icon={<LuFolderX strokeWidth={1.9} aria-hidden="true" />}
             disabled={!hasSelectedFolder || !onDeleteFolder}
             onClick={() => selectMenu(onDeleteFolder)}
           >
