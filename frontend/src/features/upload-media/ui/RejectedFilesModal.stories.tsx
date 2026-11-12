@@ -8,14 +8,14 @@ const MB = 1024 * 1024;
 const unsupported = (fileName: string, mb: number): RejectedSelection => ({
   fileName,
   size: mb * MB,
-  code: "UNSUPPORTED_FILE_TYPE",
+  code: "UNSUPPORTED_MEDIA_TYPE",
   message: "이미지와 영상만 올릴 수 있어요",
 });
 
 const oversized = (fileName: string, mb: number): RejectedSelection => ({
   fileName,
   size: mb * MB,
-  code: "FILE_SIZE_EXCEEDED",
+  code: "FILE_TOO_LARGE",
   message: "이미지 최대 20MB 초과",
 });
 

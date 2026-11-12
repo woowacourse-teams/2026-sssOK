@@ -6,7 +6,7 @@ import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, maxBytesOf, mediaKindOf } from "../li
  * 화면은 "발급 전에 걸러진 것" 과 "발급이 거절한 것" 을 구분해 보여줄 이유가 없다 —
  * 둘 다 다시 눌러도 똑같이 실패하는, 재시도가 의미 없는 파일이다.
  */
-export type SelectionRejectionCode = "UNSUPPORTED_FILE_TYPE" | "FILE_SIZE_EXCEEDED";
+export type SelectionRejectionCode = "UNSUPPORTED_MEDIA_TYPE" | "FILE_TOO_LARGE";
 
 export interface RejectedSelection {
   fileName: string;
@@ -49,7 +49,7 @@ export const selectMediaFiles = (files: File[]): MediaSelection => {
       rejected.push({
         fileName: file.name,
         size: file.size,
-        code: "UNSUPPORTED_FILE_TYPE",
+        code: "UNSUPPORTED_MEDIA_TYPE",
         message: UNSUPPORTED_MESSAGE,
       });
       return;
@@ -59,7 +59,7 @@ export const selectMediaFiles = (files: File[]): MediaSelection => {
       rejected.push({
         fileName: file.name,
         size: file.size,
-        code: "FILE_SIZE_EXCEEDED",
+        code: "FILE_TOO_LARGE",
         message: OVERSIZED_MESSAGE[kind],
       });
       return;

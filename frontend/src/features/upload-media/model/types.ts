@@ -54,7 +54,8 @@ export type UploadFailureCode =
   /** 등록 시점에 스토리지에 객체가 없었다 */
   | "UPLOAD_NOT_COMPLETED"
   | "MEDIA_NOT_FOUND"
-  | "FILE_SIZE_EXCEEDED";
+  | "FILE_TOO_LARGE"
+  | "UNSUPPORTED_MEDIA_TYPE";
 
 export interface FailedUpload {
   /** 발급을 통과한 뒤에만 실패할 수 있어서 항상 값이 있다. */

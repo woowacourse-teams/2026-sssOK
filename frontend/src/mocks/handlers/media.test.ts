@@ -31,7 +31,7 @@ describe("미디어 단일 조회·삭제 및 다중 삭제 목", () => {
       mediaId: 5012,
       canDelete: false,
       takenAt: "2026-08-17T14:02:11+09:00",
-      location: { name: "부산 해운대구" },
+      location: { name: null },
     });
     expect(other).not.toHaveProperty("thumbnailUrl");
     const own = await getMedia({ roomId: MOCK_ROOM_ID, mediaId: 5006, token: MEMBER });

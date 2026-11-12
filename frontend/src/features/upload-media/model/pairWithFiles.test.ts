@@ -14,7 +14,7 @@ const issuedFor = (mediaId: number, fileName: string): IssuedUpload => ({
 
 const rejectedFor = (fileName: string): RejectedFile => ({
   fileName,
-  code: "UNSUPPORTED_FILE_TYPE",
+  code: "UNSUPPORTED_MEDIA_TYPE",
   message: "지원하지 않는 파일 형식입니다",
 });
 

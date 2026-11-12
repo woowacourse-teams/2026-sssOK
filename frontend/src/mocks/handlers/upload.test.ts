@@ -171,29 +171,29 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect(body.data.rejected).toEqual([
       {
         fileName: "아이폰-원본.heic",
-        code: "UNSUPPORTED_FILE_TYPE",
+        code: "UNSUPPORTED_MEDIA_TYPE",
         message: expect.any(String),
       },
     ]);
   });
 
-  it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_FILE_TYPE 이다", async () => {
+  it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_MEDIA_TYPE 이다", async () => {
     const body = await (await issueUploadUrls([file("확장자없음")])).json();
 
     expect(body.data.issued).toHaveLength(0);
-    expect(body.data.rejected[0].code).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(body.data.rejected[0].code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 
-  it("사진이 20MB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
+  it("사진이 20MB 를 넘으면 rejected FILE_TOO_LARGE 다", async () => {
     const body = await (await issueUploadUrls([file("원본.jpg", 20 * 1024 * 1024 + 1)])).json();
 
-    expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
+    expect(body.data.rejected[0].code).toBe("FILE_TOO_LARGE");
   });
 
-  it("영상이 1GB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
+  it("영상이 1GB 를 넘으면 rejected FILE_TOO_LARGE 다", async () => {
     const body = await (await issueUploadUrls([file("행사.mp4", 1024 * 1024 * 1024 + 1)])).json();
 
-    expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
+    expect(body.data.rejected[0].code).toBe("FILE_TOO_LARGE");
   });
 
   it("사진 20MB·영상 1GB 까지는 그대로 발급한다", async () => {
@@ -490,15 +490,15 @@ describe("POST /rooms/{roomId}/media — 완료 등록", () => {
     ]);
   });
 
-  it("이미 등록한 미디어를 다시 등록하면 failed UPLOAD_ALREADY_COMPLETED 다", async () => {
+  it("이미 등록한 미디어를 다시 등록하면 400 ILLEGAL_UPLOAD_STATUS 다", async () => {
     const issued = await issueOne();
 
     await putToR2(issued);
     await registerMedia([issued.mediaId]);
 
-    const body = await (await registerMedia([issued.mediaId])).json();
-
-    expect(body.data.failed[0].code).toBe("UPLOAD_ALREADY_COMPLETED");
+    const response = await registerMedia([issued.mediaId]);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("ILLEGAL_UPLOAD_STATUS");
   });
 
   it("남이 발급받은 mediaId 가 섞이면 요청 전체가 403 MEDIA_FORBIDDEN 이다", async () => {
@@ -625,13 +625,13 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
     expect((await response.json()).code).toBe("INVALID_PARAM");
   });
 
-  it("바뀐 크기가 한도를 넘으면 413 FILE_SIZE_EXCEEDED 다", async () => {
+  it("바뀐 크기가 한도를 넘으면 413 FILE_TOO_LARGE 다", async () => {
     const issued = await issueOne();
 
     const response = await reissueUploadUrl(issued.mediaId, { size: 20 * 1024 * 1024 + 1 });
 
     expect(response.status).toBe(413);
-    expect((await response.json()).code).toBe("FILE_SIZE_EXCEEDED");
+    expect((await response.json()).code).toBe("FILE_TOO_LARGE");
   });
 
   it("이미 등록이 끝난 미디어는 409 UPLOAD_ALREADY_COMPLETED 다", async () => {
