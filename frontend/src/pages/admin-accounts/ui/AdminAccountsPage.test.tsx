@@ -47,6 +47,7 @@ describe("AdminAccountsPage", () => {
     saveAdminSession(ADMIN);
     renderPage();
 
+    await screen.findByRole("heading", { name: "계정" });
     await within(main()).findByText("superadmin");
 
     expect(rows()).toHaveLength(4);
