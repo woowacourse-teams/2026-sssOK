@@ -11,7 +11,7 @@ import { RedirectIfMember } from "./RedirectIfMember";
 
 import { RequireAppRoomMember } from "./RequireMember";
 
-const renderLogin = (path: string = ROUTES.login) => {
+const renderLogin = (path: string = ROUTES.login): ReturnType<typeof createMemoryRouter> => {
   const client = new QueryClient();
   const router = createMemoryRouter(
     [
@@ -40,6 +40,7 @@ it("회원 복원 중에는 로그인 UI를 숨기고, 성공하면 방 목록�
         data: {
           accessToken: "member-token",
           memberStatus: "REGISTERED",
+          refreshExpiresAt: "2099-01-01T00:00:00Z",
           userId: 1,
           nickname: "회원",
           expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),
@@ -84,6 +85,7 @@ it.each([
         data: {
           accessToken: "member-token",
           memberStatus: "REGISTERED",
+          refreshExpiresAt: "2099-01-01T00:00:00Z",
           userId: 1,
           nickname: "회원",
           expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(),

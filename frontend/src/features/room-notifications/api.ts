@@ -1,23 +1,31 @@
+import { z } from "zod";
+export const NotificationSettingSchema = z.object({ enabled: z.boolean() });
 import { apiClient } from "@/shared/api";
 
-interface NotificationSetting {
-  enabled: boolean;
-}
+type NotificationSetting = z.infer<typeof NotificationSettingSchema>;
 
-const settingPath = (roomId: number) => `/rooms/${roomId}/notification-setting`;
+const settingPath = (roomId: number): string => `/rooms/${roomId}/notification-setting`;
 
-export const getNotificationSetting = (roomId: number, token: string) =>
-  apiClient<NotificationSetting>(settingPath(roomId), { token });
+export const getNotificationSetting = (
+  roomId: number,
+  token: string,
+): Promise<NotificationSetting> =>
+  apiClient<NotificationSetting>(settingPath(roomId), { schema: NotificationSettingSchema, token });
 
-export const updateNotificationSetting = (roomId: number, token: string, enabled: boolean) =>
+export const updateNotificationSetting = (
+  roomId: number,
+  token: string,
+  enabled: boolean,
+): Promise<NotificationSetting> =>
   apiClient<NotificationSetting>(settingPath(roomId), {
+    schema: NotificationSettingSchema,
     method: "PUT",
     token,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ enabled }),
   });
 
-export const requestPhotos = (roomId: number, token: string) =>
+export const requestPhotos = (roomId: number, token: string): Promise<void> =>
   apiClient<void>(`/rooms/${roomId}/upload-requests`, {
     method: "POST",
     token,

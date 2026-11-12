@@ -1,17 +1,22 @@
+import { z } from "zod";
+export const KakaoLoginStartSchema = z.object({
+  authorizationUrl: z.string(),
+  state: z.string(),
+  loginVerifier: z.string(),
+  expiresAt: z.string(),
+});
 import { ApiError } from "@/shared/api";
 import { requestLoginStart } from "./requestLoginStart";
 
-interface KakaoLoginStart {
-  authorizationUrl: string;
-  state: string;
-  loginVerifier: string;
-  expiresAt: string;
-}
+type KakaoLoginStart = z.infer<typeof KakaoLoginStartSchema>;
 
 /** 콜백에서 사용할 확인값을 같은 탭에 보관하고 카카오 인증 주소를 반환한다. */
 export const startKakaoLogin = async (): Promise<string> => {
   sessionStorage.removeItem("sssok.oauth.kakao");
-  const result = await requestLoginStart<KakaoLoginStart>("/auth/oauth/kakao/start");
+  const result = await requestLoginStart<KakaoLoginStart>(
+    "/auth/oauth/kakao/start",
+    KakaoLoginStartSchema,
+  );
   let url: URL;
   try {
     url = new URL(result.authorizationUrl);

@@ -11,8 +11,9 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-const reply = (detail: unknown) => window.dispatchEvent(new CustomEvent("sssok:auth", { detail }));
-const sentRequest = () =>
+const reply = (detail: unknown): boolean =>
+  window.dispatchEvent(new CustomEvent("sssok:auth", { detail }));
+const sentRequest = (): { requestId: string; provider: string; nonce?: string } =>
   JSON.parse((window.ReactNativeWebView!.postMessage as jest.Mock).mock.calls[0][0]);
 
 it("현재 요청과 제공자가 일치하는 결과만 수신한다", async () => {

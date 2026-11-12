@@ -1,8 +1,10 @@
+import { AnonymousSessionSchema } from "../model/types";
 import { apiClient } from "@/shared/api";
 import type { AnonymousSession, CreateAnonymousRequest } from "../model/types";
 
-export const createAnonymous = (request: CreateAnonymousRequest) => {
+export const createAnonymous = (request: CreateAnonymousRequest): Promise<AnonymousSession> => {
   return apiClient<AnonymousSession>("/auth/anonymous", {
+    schema: AnonymousSessionSchema,
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -1,15 +1,19 @@
+import { z } from "zod";
+import { MemberSessionSchema } from "../../../entities/member-session/api/refreshMemberSession";
+export const AppleLoginAttemptSchema = z.object({
+  state: z.string(),
+  loginVerifier: z.string(),
+  nonce: z.string(),
+  expiresAt: z.string(),
+});
 import type { MemberSession } from "@/entities/member-session";
 import { apiClient, ApiError } from "@/shared/api";
 
-export interface AppleLoginAttempt {
-  state: string;
-  loginVerifier: string;
-  nonce: string;
-  expiresAt: string;
-}
+export type AppleLoginAttempt = z.infer<typeof AppleLoginAttemptSchema>;
 
 export const startAppleNativeLogin = async (signal: AbortSignal): Promise<AppleLoginAttempt> => {
   const attempt = await apiClient<AppleLoginAttempt>("/auth/oauth/apple/native/start", {
+    schema: AppleLoginAttemptSchema,
     method: "POST",
     credentials: "omit",
     signal,
@@ -35,6 +39,7 @@ const requestSession = async (
   signal: AbortSignal,
 ): Promise<MemberSession> => {
   const session = await apiClient<MemberSession>(path, {
+    schema: MemberSessionSchema,
     method: "POST",
     credentials: "include",
     signal,
@@ -54,14 +59,17 @@ const requestSession = async (
   return session;
 };
 
-export const completeKakaoNativeLogin = (kakaoAccessToken: string, signal: AbortSignal) =>
+export const completeKakaoNativeLogin = (
+  kakaoAccessToken: string,
+  signal: AbortSignal,
+): Promise<MemberSession> =>
   requestSession("/auth/oauth/kakao/native/login", { kakaoAccessToken }, signal);
 
 export const completeAppleNativeLogin = (
   code: string,
   attempt: AppleLoginAttempt,
   signal: AbortSignal,
-) =>
+): Promise<MemberSession> =>
   requestSession(
     "/auth/oauth/apple/native/login",
     {

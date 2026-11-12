@@ -1,13 +1,22 @@
+import { z } from "zod";
+import { MediaSchema, MediaItemSchema } from "@/entities/media/model/types";
+import {
+  UploadRequestedEventSchema,
+  MediaFoldersUpdatedEventSchema,
+  MediaLikesUpdatedEventSchema,
+  OrganizeRoomChangedEventSchema,
+  OrganizeJobUpdatedEventSchema,
+} from "./roomEventTypes";
+import { readRoomEvent } from "./readRoomEvent";
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
-import { photosQueryKey, type Media, type MediaItem, type MediaList } from "@/entities/media";
+import { photosQueryKey, type Media, type MediaList } from "@/entities/media";
 import { API_BASE_URL } from "@/shared/config";
 import { captureException } from "@/shared/lib";
 import type {
   UploadRequestedEvent,
   MediaFoldersUpdatedEvent,
-  MediaLikesUpdatedEvent,
   OrganizeJobUpdatedEvent,
   OrganizeRoomChangedEvent,
 } from "./roomEventTypes";
@@ -47,7 +56,7 @@ export const useRoomEvents = ({
   onOrganizeRoomChanged,
   onOrganizeJobUpdated,
   onReconnected,
-}: UseRoomEventsParams) => {
+}: UseRoomEventsParams): void => {
   const queryClient = useQueryClient();
   const onUploadRequestedRef = useRef(onUploadRequested);
   useEffect(() => {
@@ -99,21 +108,21 @@ export const useRoomEvents = ({
     url.searchParams.set("token", token);
 
     const eventSource = new EventSource(url);
-    const reportRoom = (code: string | null) =>
+    const reportRoom = (code: string | null): void | undefined =>
       window.ReactNativeWebView?.postMessage(
         JSON.stringify({ type: "push/current-room", roomCode: code }),
       );
     let hasReportedConnectionError = false;
     let hasDisconnected = false;
 
-    const handleOpen = () => {
+    const handleOpen = (): void => {
       if (roomCode) reportRoom(roomCode);
       if (!hasDisconnected) return;
       hasDisconnected = false;
       onReconnectedRef.current?.();
     };
 
-    const handleConnectionError = () => {
+    const handleConnectionError = (): void => {
       if (roomCode) reportRoom(null);
       hasDisconnected = true;
       if (hasReportedConnectionError) return;
@@ -128,19 +137,22 @@ export const useRoomEvents = ({
       });
     };
 
-    const handleUploadRequested = (event: MessageEvent<string>) => {
-      const payload = JSON.parse(event.data) as UploadRequestedEvent;
+    const handleUploadRequested = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(UploadRequestedEventSchema, event.data);
+      if (!payload) return;
       if (payload.roomId === roomId && payload.requesterId !== userId)
         onUploadRequestedRef.current?.(payload);
     };
 
-    const handleMediaCreated = (event: MessageEvent<string>) => {
-      const media = JSON.parse(event.data) as Media;
+    const handleMediaCreated = (event: MessageEvent<string>): void => {
+      const media = readRoomEvent(MediaSchema, event.data);
+      if (!media) return;
       onMediaCreatedRef.current?.(media);
     };
 
-    const handleMediaReady = (event: MessageEvent<string>) => {
-      const media = JSON.parse(event.data) as MediaItem;
+    const handleMediaReady = (event: MessageEvent<string>): void => {
+      const media = readRoomEvent(MediaItemSchema, event.data);
+      if (!media) return;
       updateMediaReadyCache({
         queryClient,
         roomId,
@@ -150,30 +162,36 @@ export const useRoomEvents = ({
       });
     };
 
-    const handleMediaDeleted = (event: MessageEvent<string>) => {
-      const { mediaIds } = JSON.parse(event.data) as { mediaIds: number[] };
+    const handleMediaDeleted = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(z.object({ mediaIds: z.array(z.number()) }), event.data);
+      if (!payload) return;
+      const { mediaIds } = payload;
 
       updateMediaDeletedCache({ queryClient, roomId, userId, mediaIds });
       onMediaDeletedRef.current?.(mediaIds);
     };
 
-    const handleFoldersChanged = () => {
+    const handleFoldersChanged = (): void => {
       onFoldersChangedRef.current?.();
     };
 
-    const handleFolderDeleted = (event: MessageEvent<string>) => {
-      const { folderId } = JSON.parse(event.data) as { folderId: number };
+    const handleFolderDeleted = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(z.object({ folderId: z.number() }), event.data);
+      if (!payload) return;
+      const { folderId } = payload;
       onFolderDeletedRef.current?.(folderId);
     };
 
-    const handleMediaFoldersUpdated = (event: MessageEvent<string>) => {
-      const payload = JSON.parse(event.data) as MediaFoldersUpdatedEvent;
+    const handleMediaFoldersUpdated = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(MediaFoldersUpdatedEventSchema, event.data);
+      if (!payload) return;
 
       onMediaFoldersUpdatedRef.current?.(payload);
     };
 
-    const handleMediaLikesUpdated = (event: MessageEvent<string>) => {
-      const payload = JSON.parse(event.data) as MediaLikesUpdatedEvent;
+    const handleMediaLikesUpdated = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(MediaLikesUpdatedEventSchema, event.data);
+      if (!payload) return;
 
       queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) =>
         current
@@ -189,12 +207,14 @@ export const useRoomEvents = ({
       );
     };
 
-    const handleOrganizeRoomChanged = (event: MessageEvent<string>) => {
-      onOrganizeRoomChangedRef.current?.(JSON.parse(event.data) as OrganizeRoomChangedEvent);
+    const handleOrganizeRoomChanged = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(OrganizeRoomChangedEventSchema, event.data);
+      if (payload) onOrganizeRoomChangedRef.current?.(payload);
     };
 
-    const handleOrganizeJobUpdated = (event: MessageEvent<string>) => {
-      onOrganizeJobUpdatedRef.current?.(JSON.parse(event.data) as OrganizeJobUpdatedEvent);
+    const handleOrganizeJobUpdated = (event: MessageEvent<string>): void => {
+      const payload = readRoomEvent(OrganizeJobUpdatedEventSchema, event.data);
+      if (payload) onOrganizeJobUpdatedRef.current?.(payload);
     };
 
     eventSource.addEventListener("upload.requested", handleUploadRequested);

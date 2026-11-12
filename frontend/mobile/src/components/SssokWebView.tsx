@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -31,7 +32,7 @@ import {
 const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION}, auth: ${JSON.stringify(NATIVE_AUTH_PROVIDERS)} }; true;`;
 
 /** 브릿지 메시지는 쏙 웹에서 온 것만 받는다. 로그인 페이지(`AUTH_ORIGINS`)도 저장을 시킬 수 없다. */
-const isWebOrigin = (url: string) => {
+const isWebOrigin = (url: string): boolean => {
   try {
     return new URL(url).origin === WEB_ORIGIN;
   } catch {
@@ -47,7 +48,7 @@ const AUTH_ORIGINS = new Set([
   "https://idmsa.apple.com",
 ]);
 
-const isAllowedWebUrl = (url: string) => {
+const isAllowedWebUrl = (url: string): boolean => {
   try {
     const { origin } = new URL(url);
     return origin === WEB_ORIGIN || AUTH_ORIGINS.has(origin);
@@ -56,10 +57,10 @@ const isAllowedWebUrl = (url: string) => {
   }
 };
 
-type SssokWebViewProps = {
+interface SssokWebViewProps {
   /** 첫 페이지가 다 뜨거나 오류 화면으로 넘어가면 부른다. 스플래시를 닫는 신호다. */
   onReady?: () => void;
-};
+}
 
 export function SssokWebView({ onReady }: SssokWebViewProps) {
   const webView = useRef<WebView<object>>(null);
@@ -116,7 +117,7 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
 
   useEffect(() => {
     let acceptInitial = true;
-    const openInvite = (url: string) => {
+    const openInvite = (url: string): void => {
       const entryUrl = getInviteEntryUrl(url, WEB_ORIGIN);
       if (entryUrl) {
         acceptInitial = false;
@@ -135,7 +136,7 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
     };
   }, [openInternalUrl]);
 
-  const rememberInternalUrl = (url: string) => {
+  const rememberInternalUrl = (url: string): void => {
     try {
       if (new URL(url).origin === WEB_ORIGIN) lastInternalUrl.current = url;
     } catch {
@@ -143,7 +144,7 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
     }
   };
 
-  const showError = (url?: string) => {
+  const showError = (url?: string): void => {
     if (url) rememberInternalUrl(url);
     canGoBack.current = false;
     loadedUrl.current = null;
@@ -187,7 +188,7 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
     return () => subscription.remove();
   }, []);
 
-  const openExternal = (url: string) => {
+  const openExternal = (url: string): void => {
     try {
       const { protocol } = new URL(url);
       if (!["https:", "http:", "mailto:", "tel:"].includes(protocol)) return;
@@ -249,7 +250,9 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
             if (!isWebOrigin(nativeEvent.url)) return;
             if (authBridge.current?.handle(nativeEvent.data)) return;
             try {
-              const message = JSON.parse(nativeEvent.data);
+              const message = z
+                .object({ type: z.string(), roomCode: z.unknown().optional() })
+                .parse(JSON.parse(nativeEvent.data));
               if (message?.type === "push/current-room") {
                 currentRoomCode.current =
                   typeof message.roomCode === "string" && /^[A-Z2-9]{8}$/.test(message.roomCode)

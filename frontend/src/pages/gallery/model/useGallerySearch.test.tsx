@@ -1,9 +1,12 @@
+import type { SearchType } from "@/features/search-media/model/searchType";
+import type { Uploader } from "@/features/search-media/ui/SearchRequestField";
+import type { RenderHookResult } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import type { ReactNode } from "react";
 
-import type { GalleryItem, MediaItem } from "@/entities/media";
+import type { GalleryItem } from "@/entities/media";
 import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
@@ -18,8 +21,48 @@ jest.mock("@/shared/lib/analytics", () => ({
 const HOST_ID = 10234;
 
 const UPLOADER_IDS: Record<string, number> = { 해니: 1, 소이: 2, 소이2: 3, 지우: 4, 민수: 5 };
-const media = (mediaId: number, uploaderName = "해니") =>
-  ({ mediaId, uploaderName, uploaderId: UPLOADER_IDS[uploaderName] }) as MediaItem;
+const media = (
+  mediaId: number,
+  uploaderName = "해니",
+): {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  uploadedAt: string;
+  thumbnailUrl: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  status: "READY";
+  likeCount: number;
+  likedByMe: boolean;
+  thumbnailUrlExpiresAt?: string | null | undefined;
+  displayUrlExpiresAt?: string | null | undefined;
+} => ({
+  mediaId,
+  uploaderName,
+  uploaderId: UPLOADER_IDS[uploaderName],
+  type: "IMAGE",
+  fileName: "photo.jpg",
+  mimeType: "image/jpeg",
+  size: 100,
+  duration: null,
+  folderIds: [],
+  uploadedAt: "2026-11-01T00:00:00Z",
+  thumbnailUrl: "https://example.com/thumb.jpg",
+  displayUrl: "https://example.com/photo.jpg",
+  width: 100,
+  height: 100,
+  status: "READY",
+  likeCount: 0,
+  likedByMe: false,
+});
 const item = (mediaId: number, uploaderName?: string): GalleryItem => ({
   mediaId,
   type: "server",
@@ -27,7 +70,11 @@ const item = (mediaId: number, uploaderName?: string): GalleryItem => ({
   folderIds: [],
 });
 
-const createWrapper = () => {
+const createWrapper = (): (({
+  children,
+}: {
+  children: ReactNode;
+}) => import("react").ReactElement) => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 
   return function QueryClientTestWrapper({ children }: { children: ReactNode }) {
@@ -35,7 +82,31 @@ const createWrapper = () => {
   };
 };
 
-const renderGallerySearch = (items: GalleryItem[], allItems: GalleryItem[] = items) =>
+const renderGallerySearch = (
+  items: GalleryItem[],
+  allItems: GalleryItem[] = items,
+): RenderHookResult<
+  {
+    isSearchOpen: boolean;
+    isSearching: boolean;
+    appliedText: string | null;
+    uploaders: Uploader[];
+    searchType: SearchType;
+    query: string;
+    items: GalleryItem[];
+    isPending: boolean;
+    isError: boolean;
+    errorMessage: string;
+    openSearch: () => void;
+    changeSearchType: (nextSearchType: SearchType) => void;
+    search: (nextQuery: string) => void;
+    searchBy: (nextSearchType: SearchType, nextQuery: string) => void;
+    searchByUploader: (uploader: Pick<Uploader, "id" | "name">) => void;
+    closeSearch: () => void;
+    trackResultOpened: (mediaId: number) => void;
+  },
+  unknown
+> =>
   renderHook(
     () =>
       useGallerySearch({
@@ -48,7 +119,7 @@ const renderGallerySearch = (items: GalleryItem[], allItems: GalleryItem[] = ite
     { wrapper: createWrapper() },
   );
 
-const respondWith = (mediaIds: number[]) =>
+const respondWith = (mediaIds: number[]): void =>
   server.use(
     http.get(`${API_BASE_URL}/rooms/:roomId/media/all`, () =>
       HttpResponse.json({ data: { items: mediaIds.map((mediaId) => media(mediaId)) } }),

@@ -20,10 +20,22 @@ it.each([
       expect(request.headers.get("X-CSRF-Protection")).toBe("1");
       expect(request.credentials).toBe("include");
       expect(await request.json()).toEqual({ ...payload, refreshTokenDelivery: "COOKIE" });
-      return HttpResponse.json({ data: { accessToken: "token" } });
+      return HttpResponse.json({
+        data: {
+          accessToken: "token",
+          userId: 1,
+          nickname: "민수",
+          expiresAt: "2099-01-01T00:00:00Z",
+        },
+      });
     }),
   );
 
-  await expect(login()).resolves.toEqual({ accessToken: "token" });
+  await expect(login()).resolves.toEqual({
+    accessToken: "token",
+    userId: 1,
+    nickname: "민수",
+    expiresAt: "2099-01-01T00:00:00Z",
+  });
   expect(received).toBe(true);
 });

@@ -1,3 +1,4 @@
+import { AnonymousSessionSchema } from "../model/types";
 import type { AnonymousSession } from "../model/types";
 
 /**
@@ -7,9 +8,9 @@ import type { AnonymousSession } from "../model/types";
  */
 const ROOM_SESSION_KEY_PREFIX = "sssok.auth:";
 
-const getRoomSessionKey = (roomCode: string) => `${ROOM_SESSION_KEY_PREFIX}${roomCode}`;
+const getRoomSessionKey = (roomCode: string): string => `${ROOM_SESSION_KEY_PREFIX}${roomCode}`;
 
-export const saveRoomSession = (roomCode: string, session: AnonymousSession) => {
+export const saveRoomSession = (roomCode: string, session: AnonymousSession): void => {
   localStorage.setItem(getRoomSessionKey(roomCode), JSON.stringify(session));
 };
 
@@ -19,7 +20,7 @@ export const getRoomSession = (roomCode: string): AnonymousSession | null => {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as AnonymousSession;
+    return AnonymousSessionSchema.parse(JSON.parse(raw));
   } catch {
     // 손상된 값은 되살릴 방법이 없다. 그 방만 지우고 이름부터 다시 묻는다.
     localStorage.removeItem(getRoomSessionKey(roomCode));
@@ -28,7 +29,7 @@ export const getRoomSession = (roomCode: string): AnonymousSession | null => {
 };
 
 /** 이 방 세션만 지운다. 다른 방 세션은 그대로 둔다. */
-export const removeRoomSession = (roomCode: string) => {
+export const removeRoomSession = (roomCode: string): void => {
   localStorage.removeItem(getRoomSessionKey(roomCode));
 };
 
