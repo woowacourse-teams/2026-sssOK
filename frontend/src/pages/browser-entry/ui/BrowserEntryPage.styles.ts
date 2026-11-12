@@ -1,7 +1,6 @@
 import styled from "@emotion/styled";
 
-import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
-import { Button } from "@/shared/ui/button";
+import { colors, spacing, typography } from "@/shared/styles/tokens";
 
 export const Page = styled.main`
   display: flex;
@@ -9,6 +8,7 @@ export const Page = styled.main`
   flex-direction: column;
   width: 100%;
   padding: ${spacing[16]};
+  padding-bottom: calc(${spacing[16]} + env(safe-area-inset-bottom, 0px));
 `;
 
 export const Content = styled.div`
@@ -44,28 +44,4 @@ export const Actions = styled.div`
   flex-direction: column;
   gap: ${spacing[12]};
   width: 100%;
-`;
-
-export const ActionButton = styled(Button)`
-  height: 65px;
-  border: 0;
-  border-radius: ${radius[16]};
-  background-color: ${colors.primary};
-  color: ${colors.textInverse};
-  ${typography.label1}
-
-  @media (hover: hover) {
-    &:hover:not(:disabled) {
-      background-color: ${colors.primaryPressed};
-    }
-  }
-
-  &:active:not(:disabled) {
-    background-color: ${colors.primaryPressed};
-  }
-
-  &:focus-visible {
-    outline: 2px solid ${colors.primary};
-    outline-offset: 3px;
-  }
 `;
