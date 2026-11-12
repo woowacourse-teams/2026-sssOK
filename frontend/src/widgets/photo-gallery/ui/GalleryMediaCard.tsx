@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
 import { HiCheck, HiHeart, HiOutlineHeart, HiPlay } from "react-icons/hi2";
@@ -23,8 +23,9 @@ interface GalleryMediaCardProps {
   userId: number;
   token: string;
   isSelected: boolean;
-  onToggle: () => void;
-  onOpen?: () => void;
+  /** 카드마다 새 함수를 만들지 않도록 id 를 받는다. 갤러리가 같은 함수를 계속 넘겨야 memo 가 통한다. */
+  onToggle: (mediaId: number) => void;
+  onOpen?: (mediaId: number) => void;
 }
 
 const formatDuration = (duration: number) => {
@@ -89,7 +90,7 @@ const MediaLikeButton = ({
   );
 };
 
-export const GalleryMediaCard = ({
+const GalleryMediaCardView = ({
   item,
   roomId,
   userId,
@@ -141,7 +142,7 @@ export const GalleryMediaCard = ({
     <Card $selected={isSelected}>
       <CardButton
         type="button"
-        onClick={onOpen ?? onToggle}
+        onClick={() => (onOpen ?? onToggle)(item.mediaId)}
         aria-label={`${fileName} ${onOpen ? "크게 보기" : "선택하기"}`}
       >
         {isWaitingForPreview ? (
@@ -175,7 +176,7 @@ export const GalleryMediaCard = ({
       <SelectionMark
         type="button"
         $selected={isSelected}
-        onClick={onToggle}
+        onClick={() => onToggle(item.mediaId)}
         aria-label={`${fileName} 선택, ${isSelected ? "선택됨" : "선택 안 됨"}`}
         aria-pressed={isSelected}
       >
@@ -188,6 +189,9 @@ export const GalleryMediaCard = ({
     </Card>
   );
 };
+
+/** 사진 한 장을 고를 때 나머지 카드는 props 가 그대로라 다시 그리지 않는다. */
+export const GalleryMediaCard = memo(GalleryMediaCardView);
 
 const spin = keyframes`
   to {
