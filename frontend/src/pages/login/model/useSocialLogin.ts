@@ -1,11 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
 
 import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
 import { myRoomsQueryKey } from "@/entities/room";
-import { ROUTES } from "@/shared/config";
-import { takeLoginReturn } from "@/shared/lib";
 import { loginNative } from "./loginNative";
 import { supportsNativeLogin, type LoginProvider } from "./nativeAuthBridge";
 import { startKakaoLogin } from "../api/startKakaoLogin";
@@ -15,7 +12,6 @@ const startWebLogin = { kakao: startKakaoLogin, apple: startAppleLogin };
 
 export const useSocialLogin = () => {
   const client = useQueryClient();
-  const navigate = useNavigate();
   const pending = useRef<AbortController | null>(null);
   const redirecting = useRef(false);
   const [pendingProvider, setPendingProvider] = useState<LoginProvider | null>(null);
@@ -61,7 +57,6 @@ export const useSocialLogin = () => {
       controller.signal.throwIfAborted();
       client.setQueryData(MEMBER_SESSION_QUERY_KEY, session);
       client.removeQueries({ queryKey: myRoomsQueryKey });
-      navigate(takeLoginReturn() ?? ROUTES.rooms, { replace: true });
     } catch (error) {
       if (!controller.signal.aborted)
         setError(error instanceof Error ? error.message : "로그인을 완료하지 못했어요.");

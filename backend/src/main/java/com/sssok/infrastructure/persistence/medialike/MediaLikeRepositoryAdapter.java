@@ -4,6 +4,7 @@ import com.sssok.application.port.out.MediaLikeRepository;
 import com.sssok.domain.file.UploadStatus;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,6 +17,26 @@ import org.springframework.stereotype.Component;
 public class MediaLikeRepositoryAdapter implements MediaLikeRepository {
 
     private final MediaLikeJpaRepository jpaRepository;
+
+    @Override
+    public LikeSummary summarize(Long memberId, List<Long> mediaIds) {
+        if (mediaIds.isEmpty()) {
+            return new LikeSummary(Map.of(), Set.of());
+        }
+        if (memberId == null) {
+            return new LikeSummary(countByMediaIds(mediaIds), Set.of());
+        }
+        Map<Long, Long> counts = new HashMap<>();
+        Set<Long> likedIds = new HashSet<>();
+        for (Object[] row : jpaRepository.summarize(memberId, mediaIds)) {
+            long id = ((Number) row[0]).longValue();
+            counts.put(id, ((Number) row[1]).longValue());
+            if (Boolean.TRUE.equals(row[2])) {
+                likedIds.add(id);
+            }
+        }
+        return new LikeSummary(counts, likedIds);
+    }
 
     @Override
     public boolean likeIfStatusIn(Long mediaId, Long memberId, Collection<UploadStatus> statuses) {

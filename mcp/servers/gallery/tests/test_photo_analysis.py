@@ -9,6 +9,7 @@ import unittest
 from unittest.mock import patch
 
 import numpy as np
+import cv2
 
 from pipeline.photo_analysis import run
 
@@ -29,8 +30,8 @@ class PhotoAnalysisTests(unittest.TestCase):
         photos = []
         for index in range(2):
             pid = f'image_{index:06d}'
-            (output_dir / f'{pid}.jpg').write_bytes(b'prepared test image')
-            photos.append({'image_id': pid, 'source_filename': f'{index}.jpg'})
+            cv2.imwrite(str(output_dir / f'{pid}.jpg'), np.full((64, 64, 3), 50 + index * 100, np.uint8))
+            photos.append({'image_id': pid, 'source_filename': f'{index}.jpg', 'prepared_path': f'images/{pid}.jpg'})
         return photos, []
 
     def faces(self, photos, output, assets, progress):

@@ -34,6 +34,14 @@ public interface MediaLikeJpaRepository extends JpaRepository<MediaLikeJpaEntity
 
     long countByMediaId(Long mediaId);
 
+    @Query(value = """
+        SELECT media_id, count(*), bool_or(member_id = :memberId)
+        FROM media_like
+        WHERE media_id IN (:mediaIds)
+        GROUP BY media_id
+        """, nativeQuery = true)
+    List<Object[]> summarize(@Param("memberId") Long memberId, @Param("mediaIds") List<Long> mediaIds);
+
     @Query("select l.mediaId, count(l) from MediaLikeJpaEntity l where l.mediaId in :mediaIds group by l.mediaId")
     List<Object[]> countGroupByMediaIdIn(@Param("mediaIds") List<Long> mediaIds);
 
