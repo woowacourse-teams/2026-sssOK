@@ -160,7 +160,7 @@ describe("방 목록 화면", () => {
     expect(screen.getByRole("button", { name: "링크로 참여" })).toBeInTheDocument();
   });
 
-  it("붙여넣은 초대 링크로 들어가면 링크 입장 흐름으로 간다", async () => {
+  it("붙여넣은 초대 링크의 안내 화면에서 웹 참여로 방에 입장한다", async () => {
     const user = userEvent.setup();
     const router = renderRoomList();
 
@@ -174,6 +174,11 @@ describe("방 목록 화면", () => {
     await user.clear(input);
     await user.type(input, "https://ssok.app/join/7K93QX2S");
     await user.click(screen.getByRole("button", { name: "들어가기" }));
+
+    expect(router.state.location.pathname).toBe(ROUTES.roomInvite("7K93QX2S"));
+    expect(screen.getByRole("heading", { name: "쏙 방에 초대됐어요" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "웹에서 참여하기" }));
 
     expect(router.state.location.pathname).toBe(ROUTES.roomEntry("7K93QX2S"));
   });
