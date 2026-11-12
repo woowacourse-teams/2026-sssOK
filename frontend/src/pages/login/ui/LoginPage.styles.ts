@@ -9,17 +9,13 @@ export const Page = styled.main({
   alignItems: "center",
   padding: `calc(${spacing[24]} + env(safe-area-inset-top, 0px)) clamp(16px, 5vw, 24px) calc(${spacing[24]} + env(safe-area-inset-bottom, 0px))`,
   background: colors.backgroundDefault,
-});
-
-export const Content = styled.div({
-  flex: 1,
-  width: "100%",
-  maxWidth: 360,
-  minWidth: 0,
-  display: "flex",
-  flexDirection: "column",
   gap: spacing[32],
   textAlign: "center",
+  "& > *": {
+    width: "100%",
+    maxWidth: 360,
+    minWidth: 0,
+  },
 });
 
 export const Intro = styled.div({
@@ -75,7 +71,16 @@ export const Actions = styled.div({
   gap: spacing[12],
 });
 
-export const SocialButton = styled.button<{ $provider: "kakao" | "apple" }>(({ $provider }) => ({
+// 버튼 두 개(54px씩)와 간격을 로딩 중에도 유지한다.
+export const LoginControls = styled.div({
+  minHeight: 120,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  gap: spacing[12],
+});
+
+export const SocialButton = styled.button({
   ...typography.label3,
   fontFamily: "inherit",
   width: "100%",
@@ -87,8 +92,6 @@ export const SocialButton = styled.button<{ $provider: "kakao" | "apple" }>(({ $
   padding: `${spacing[12]} ${spacing[24]}`,
   border: 0,
   borderRadius: 12,
-  background: $provider === "kakao" ? "#FEE500" : "#000000",
-  color: $provider === "kakao" ? "rgba(0, 0, 0, 0.85)" : "#FFFFFF",
   cursor: "pointer",
   "& img, & svg": {
     display: "block",
@@ -99,12 +102,14 @@ export const SocialButton = styled.button<{ $provider: "kakao" | "apple" }>(({ $
   "&:disabled": { cursor: "wait" },
   '&[aria-busy="true"]': { opacity: 0.65 },
   "&:focus-visible": { outline: `3px solid ${colors.primary}`, outlineOffset: 4 },
-}));
+});
 
 export const Notice = styled.p({
   ...typography.caption1,
   color: colors.textSecondary,
-  minHeight: 20,
+  // 오류가 없을 때도 두 줄의 안내 공간을 확보한다.
+  minHeight: 40,
+  flexShrink: 0,
 });
 
 export const LegalLinks = styled.nav({

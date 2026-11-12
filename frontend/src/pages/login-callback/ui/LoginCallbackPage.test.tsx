@@ -94,6 +94,8 @@ it.each(["kakao", "apple"])(
       }),
     );
     const { client, router } = setup(provider);
+    expect(screen.getByRole("status")).toHaveTextContent("로그인 완료 중");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(location.search).toBe("");
     expect(await screen.findByText("방 목록 도착")).toBeInTheDocument();
     expect(client.getQueryData(MEMBER_SESSION_QUERY_KEY)).toMatchObject({
@@ -166,6 +168,26 @@ it.each([401, 500])("완료 API %s 실패는 재전송하지 않고 익명 세�
   );
   setup();
   expect(await screen.findByRole("alert")).toHaveTextContent("완료 실패");
+  expect(localStorage.getItem("sssok.auth:OLDROOM")).toBe("anonymous-session");
+  expect(calls).toBe(1);
+});
+
+it("완료 API 네트워크 실패도 자동 재시도 없이 안내하고 로그인부터 다시 시작하게 한다", async () => {
+  let calls = 0;
+  server.use(
+    http.post(`${API_BASE_URL}/auth/oauth/kakao/login`, () => {
+      calls++;
+      return HttpResponse.error();
+    }),
+  );
+  const { client } = setup();
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("네트워크 연결을 확인해주세요.");
+  expect(screen.getByRole("link", { name: "로그인 다시 시작하기" })).toHaveAttribute(
+    "href",
+    ROUTES.login,
+  );
+  expect(client.getQueryData(MEMBER_SESSION_QUERY_KEY)).toBeUndefined();
   expect(localStorage.getItem("sssok.auth:OLDROOM")).toBe("anonymous-session");
   expect(calls).toBe(1);
 });
