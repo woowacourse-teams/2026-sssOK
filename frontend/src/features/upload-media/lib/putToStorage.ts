@@ -28,9 +28,15 @@ export interface PutToStorageParams {
 export type PutToStorageResult =
   { type: "success" } | { type: "failure"; status: number } | { type: "aborted" };
 
-const isSuccessStatus = (status: number) => status >= 200 && status < 300;
+const isSuccessStatus = (status: number): boolean => status >= 200 && status < 300;
 
-export const putToStorage = ({ url, headers, file, signal, onProgress }: PutToStorageParams) =>
+export const putToStorage = ({
+  url,
+  headers,
+  file,
+  signal,
+  onProgress,
+}: PutToStorageParams): Promise<PutToStorageResult> =>
   new Promise<PutToStorageResult>((resolve) => {
     if (signal?.aborted) {
       // 앞선 파일이 올라가는 동안 이미 취소를 눌렀다. 요청을 시작할 이유가 없다.
@@ -39,10 +45,10 @@ export const putToStorage = ({ url, headers, file, signal, onProgress }: PutToSt
     }
 
     const xhr = new XMLHttpRequest();
-    const abortRequest = () => xhr.abort();
+    const abortRequest = (): void => xhr.abort();
 
     /** 한 요청은 한 번만 끝난다. 어느 경로로 끝나든 signal 에 걸어둔 청취자를 떼어낸다. */
-    const settle = (result: PutToStorageResult) => {
+    const settle = (result: PutToStorageResult): void => {
       signal?.removeEventListener("abort", abortRequest);
       resolve(result);
     };

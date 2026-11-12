@@ -1,3 +1,4 @@
+import { BatchDownloadSchema } from "./types";
 import { selectedMediaBody } from "@/entities/media";
 import { apiClient } from "@/shared/api";
 import type { BatchDownload } from "./types";
@@ -19,8 +20,13 @@ interface CreateBatchDownloadParams {
  *
  * 아직 처리 중인 미디어는 서버가 대상에서 뺀다 — 응답 `files` 가 고른 장수보다 적을 수 있다.
  */
-export const createBatchDownload = ({ roomId, token, mediaIds }: CreateBatchDownloadParams) =>
+export const createBatchDownload = ({
+  roomId,
+  token,
+  mediaIds,
+}: CreateBatchDownloadParams): Promise<BatchDownload> =>
   apiClient<BatchDownload>(`/rooms/${roomId}/downloads/batch`, {
+    schema: BatchDownloadSchema,
     method: "POST",
     token,
     headers: { "Content-Type": "application/json" },

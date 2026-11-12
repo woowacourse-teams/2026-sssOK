@@ -21,7 +21,7 @@ export const UpdateRoomForm = ({ room, accessToken, onSuccess }: UpdateRoomFormP
   const { formValues, updateField, request, isValid, hasChanges } = useUpdateRoomForm(room);
   const updateRoomMutation = useUpdateRoomMutation({ roomId: room.roomId, accessToken });
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     updateRoomMutation.mutate(request, { onSuccess });
   };

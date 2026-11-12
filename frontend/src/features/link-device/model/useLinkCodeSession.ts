@@ -4,7 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { loginWithLinkCode, saveRoomSession } from "@/entities/session";
 import { isAppWebView, track } from "@/shared/lib";
 
-export const useLinkCodeSession = (roomCode: string) => {
+export const useLinkCodeSession = (roomCode: string): { isLinking: boolean } => {
   const [searchParams, setSearchParams] = useSearchParams();
   // 앱에서는 현재 로그인한 회원으로 참여한다. 기기 연결로 익명 인증을 교환하지 않는다.
   const linkCode = isAppWebView() ? null : searchParams.get("linkCode");

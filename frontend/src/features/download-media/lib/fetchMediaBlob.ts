@@ -30,7 +30,8 @@ export interface FetchMediaBlobParams {
 export type FetchMediaBlobResult =
   { type: "success"; blob: Blob } | { type: "failure"; status: number } | { type: "aborted" };
 
-const isAbortError = (error: unknown) => error instanceof Error && error.name === "AbortError";
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "AbortError";
 
 export const fetchMediaBlob = async ({
   url,

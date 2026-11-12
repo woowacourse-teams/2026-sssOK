@@ -15,7 +15,19 @@ jest.mock("../config", () => ({
 const TOKEN = "mock-token-10234";
 const JOB_ID = "dl_000001";
 
-const progressOf = (status: DownloadJobStatus, progress: number) => ({
+const progressOf = (
+  status: DownloadJobStatus,
+  progress: number,
+): {
+  jobId: string;
+  status: "EXPIRED" | "READY" | "FAILED" | "QUEUED" | "RUNNING";
+  progress: number;
+  mediaCount: number;
+  fileName: string;
+  downloadUrl: string | null;
+  expiresAt: null;
+  failureReason: string | null;
+} => ({
   jobId: JOB_ID,
   status,
   progress,
@@ -30,7 +42,7 @@ const progressOf = (status: DownloadJobStatus, progress: number) => ({
  * 되물을 때마다 다음 상태를 하나씩 내준다. 마지막에 닿으면 그 자리에 머문다 —
  * 폴링이 멈추지 않으면 그 사실이 `calls` 로 드러난다.
  */
-const serveSequence = (sequence: ReturnType<typeof progressOf>[]) => {
+const serveSequence = (sequence: ReturnType<typeof progressOf>[]): number[] => {
   const calls: number[] = [];
 
   server.use(
@@ -46,7 +58,19 @@ const serveSequence = (sequence: ReturnType<typeof progressOf>[]) => {
   return calls;
 };
 
-const run = (signal?: AbortSignal, onProgress?: (p: { progress: number }) => void) =>
+const run = (
+  signal?: AbortSignal,
+  onProgress?: (p: { progress: number }) => void,
+): Promise<{
+  jobId: string;
+  status: "EXPIRED" | "READY" | "FAILED" | "QUEUED" | "RUNNING";
+  progress: number;
+  mediaCount: number;
+  fileName: string;
+  downloadUrl: string | null;
+  expiresAt: string | null;
+  failureReason: string | null;
+} | null> =>
   pollDownloadJob({ roomId: MOCK_ROOM_ID, jobId: JOB_ID, token: TOKEN, signal, onProgress });
 
 describe("pollDownloadJob", () => {

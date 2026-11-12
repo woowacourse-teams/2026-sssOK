@@ -6,7 +6,7 @@ import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
 
 const HOST = "mock-token-10234";
 const MEMBER = "mock-token-12";
-const join = (token: string) =>
+const join = (token: string): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
@@ -31,7 +31,7 @@ describe("미디어 단일 조회·삭제 및 다중 삭제 목", () => {
       mediaId: 5012,
       canDelete: false,
       takenAt: "2026-08-17T14:02:11+09:00",
-      location: { name: "부산 해운대구" },
+      location: { name: null },
     });
     expect(other).not.toHaveProperty("thumbnailUrl");
     const own = await getMedia({ roomId: MOCK_ROOM_ID, mediaId: 5006, token: MEMBER });

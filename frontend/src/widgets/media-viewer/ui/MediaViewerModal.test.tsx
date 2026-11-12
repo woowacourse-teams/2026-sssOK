@@ -1,3 +1,4 @@
+import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { screen, waitFor } from "@testing-library/react";
@@ -57,7 +58,13 @@ const items: GalleryItem[] = [
   { mediaId: 12, type: "server", media: mediaOf(12, "second.jpg"), folderIds: [] },
 ];
 
-const renderViewer = (viewerItems = items) => {
+const renderViewer = (
+  viewerItems = items,
+): {
+  onClose: ReturnType<typeof jest.fn>;
+  onChange: ReturnType<typeof jest.fn>;
+  onDeleted: ReturnType<typeof jest.fn>;
+} => {
   const onClose = jest.fn();
   const onChange = jest.fn();
   const onDeleted = jest.fn();
@@ -219,7 +226,11 @@ describe("MediaViewerModal", () => {
     },
   };
 
-  const renderModal = () =>
+  const renderModal = (): RenderResult<
+    typeof import("@testing-library/dom/types/queries"),
+    HTMLElement,
+    HTMLElement
+  > =>
     render(
       <QueryClientProvider client={new QueryClient()}>
         <MediaViewerModal
@@ -296,7 +307,7 @@ describe("라이트박스 단일 다운로드", () => {
     },
   };
 
-  const serveSingle = () =>
+  const serveSingle = (): void =>
     server.use(
       http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, ({ params }) =>
         HttpResponse.json({
@@ -319,7 +330,9 @@ describe("라이트박스 단일 다운로드", () => {
     );
 
   /** iOS 공유 시트 자리. 넘긴 구현대로 열리거나 거절된다. */
-  const mockShare = (share: (data: { files: File[] }) => Promise<void>) => {
+  const mockShare = (
+    share: (data: { files: File[] }) => Promise<void>,
+  ): jest.Mock<Promise<void>, [data: { files: File[] }], unknown> => {
     const shareMock = jest.fn(share);
 
     Object.defineProperty(navigator, "canShare", { value: () => true, configurable: true });
@@ -328,11 +341,12 @@ describe("라이트박스 단일 다운로드", () => {
     return shareMock;
   };
 
-  const domException = (name: string) => Object.assign(new Error(name), { name });
+  const domException = (name: string): Error & { name: string } =>
+    Object.assign(new Error(name), { name });
 
-  const renderViewer = (viewerItem: GalleryItem = item) => {
+  const renderViewer = (viewerItem: GalleryItem = item): void => {
     const queryClient = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
-    const wrapper = ({ children }: { children: ReactNode }) => (
+    const wrapper = ({ children }: { children: ReactNode }): import("react").ReactElement => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
 
@@ -466,7 +480,10 @@ describe("모바일 좌우 절반 터치", () => {
     },
   });
 
-  const renderViewer = (activeMediaId: number, items = [itemOf(1), itemOf(2), itemOf(3)]) => {
+  const renderViewer = (
+    activeMediaId: number,
+    items = [itemOf(1), itemOf(2), itemOf(3)],
+  ): { onChange: ReturnType<typeof jest.fn> } => {
     const onChange = jest.fn();
 
     render(

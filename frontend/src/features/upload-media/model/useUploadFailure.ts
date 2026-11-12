@@ -12,7 +12,13 @@ import type { FailedUpload, UploadResult } from "./types";
  * 재시도로 돌린 판도 끝나면 `settle` 로 돌아온다. 그래서 또 깨진 게 있으면 모달이 다시 뜨고,
  * 전부 올라갔으면 그대로 닫힌다 — 몇 번을 돌든 같은 규칙 하나로 정해진다.
  */
-export const useUploadFailure = () => {
+export const useUploadFailure = (): {
+  failures: FailedUpload[];
+  files: File[];
+  isOpen: boolean;
+  settle: (result: UploadResult) => void;
+  close: () => void;
+} => {
   const [failures, setFailures] = useState<FailedUpload[]>([]);
 
   /**
@@ -21,9 +27,9 @@ export const useUploadFailure = () => {
    * 성공분은 건드리지 않는다. 이미 서버에 등록이 끝나 갤러리에 있는 것이라,
    * 실패가 있다고 해서 무를 것이 아니다 (#74 완료 조건).
    */
-  const settle = (result: UploadResult) => setFailures(retryableFailuresOf(result.failed));
+  const settle = (result: UploadResult): void => setFailures(retryableFailuresOf(result.failed));
 
-  const close = () => setFailures([]);
+  const close = (): void => setFailures([]);
 
   return {
     /** 모달이 파일명과 사유를 여기서 읽는다. 모달의 N 도 이 길이다 */

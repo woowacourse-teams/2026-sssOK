@@ -1,3 +1,4 @@
+import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render as testingRender, screen } from "@testing-library/react";
@@ -28,7 +29,9 @@ const photo: MediaItem = {
   likedByMe: false,
 };
 
-const render = (ui: ReactNode) => {
+const render = (
+  ui: ReactNode,
+): RenderResult<typeof import("@testing-library/dom/types/queries"), HTMLElement, HTMLElement> => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -70,7 +73,13 @@ describe("PhotoGallery", () => {
     beforeEach(() => jest.useFakeTimers());
     afterEach(() => jest.useRealTimers());
 
-    const renderPending = (expectedPhotoCount?: number) =>
+    const renderPending = (
+      expectedPhotoCount?: number,
+    ): RenderResult<
+      typeof import("@testing-library/dom/types/queries"),
+      HTMLElement,
+      HTMLElement
+    > =>
       render(
         <PhotoGallery
           items={[]}
@@ -85,7 +94,7 @@ describe("PhotoGallery", () => {
         />,
       );
 
-    const countSkeletonCards = (container: HTMLElement) => {
+    const countSkeletonCards = (container: HTMLElement): number => {
       act(() => jest.advanceTimersByTime(SPINNER_DELAY_MS));
 
       return container.querySelector("[aria-hidden]")?.children.length ?? 0;

@@ -21,7 +21,7 @@ export const AdminLoginPage = () => {
     submit,
   } = useAdminLogin();
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     void submit();
   };

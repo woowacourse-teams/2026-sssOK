@@ -4,4 +4,4 @@
  *
  * 요청 모양은 이 한 곳에서만 정한다.
  */
-export const selectedMediaBody = (mediaIds: number[]) => ({ mediaIds });
+export const selectedMediaBody = (mediaIds: number[]): { mediaIds: number[] } => ({ mediaIds });

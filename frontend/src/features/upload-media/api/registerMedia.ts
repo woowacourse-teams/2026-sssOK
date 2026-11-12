@@ -1,3 +1,4 @@
+import { RegisterMediaResponseSchema } from "./types";
 import { apiClient } from "@/shared/api";
 import type { RegisterMediaRequest, RegisterMediaResponse } from "./types";
 
@@ -7,8 +8,13 @@ import type { RegisterMediaRequest, RegisterMediaResponse } from "./types";
  * 미디어 단위 실패는 응답의 `failed` 로 갈라져 온다. 그중 `UPLOAD_ALREADY_COMPLETED` 는
  * 실패가 아니라 이미 올라간 것이므로, 부르는 쪽이 성공으로 합쳐야 한다.
  */
-export const registerMedia = (roomId: number, request: RegisterMediaRequest, token: string) => {
+export const registerMedia = (
+  roomId: number,
+  request: RegisterMediaRequest,
+  token: string,
+): Promise<RegisterMediaResponse> => {
   return apiClient<RegisterMediaResponse>(`/rooms/${roomId}/media`, {
+    schema: RegisterMediaResponseSchema,
     method: "POST",
     token,
     headers: {

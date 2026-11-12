@@ -118,7 +118,7 @@ export const MediaUploader = ({
    * 그래도 한 번 더 보는 건 **고르기와 재시도가 둘 다 이리로 모이기 때문**이다 —
    * 나중에 세 번째 길이 붙어도 서버까지 가서 403 을 받아오지는 않는다.
    */
-  const start = (files: File[]) => {
+  const start = (files: File[]): void => {
     if (!canUpload || files.length === 0 || upload.progress !== null) return;
 
     closeUploadToast.current?.();
@@ -136,7 +136,7 @@ export const MediaUploader = ({
    * 결정할 것이 없어서(다시 눌러도 거절된다) 확인을 기다릴 이유가 없고, 기다리게 하면
    * 멀쩡한 27장이 모달을 닫을 때까지 멈춰 선다.
    */
-  const handleSelect = (next: MediaSelection) => {
+  const handleSelect = (next: MediaSelection): void => {
     if (!canUpload) return;
 
     trackUploadSelectionRejected(next.rejected);
@@ -144,7 +144,7 @@ export const MediaUploader = ({
     start(next.accepted);
   };
 
-  const handleRetry = () => {
+  const handleRetry = (): void => {
     const targets = failure.files;
 
     // 모달을 먼저 치운다. 그 자리를 진행 바가 대신한다 — 첫 업로드 때와 같은 화면이다.

@@ -40,7 +40,7 @@ export const EditFolderBottomSheet = ({
       : "폴더 이름을 수정하지 못했어요."
     : "";
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (!trimmedName || mutation.isPending) return;
     mutation.mutate(trimmedName);

@@ -39,7 +39,16 @@ export const useGalleryPhotos = ({
   initialTotalCount,
   initialFolders,
   uploadSlots = EMPTY_UPLOAD_SLOTS,
-}: UseGalleryPhotosParams) => {
+}: UseGalleryPhotosParams): {
+  galleryItems: GalleryItem[];
+  allGalleryItems: GalleryItem[];
+  completedUploadIds: number[];
+  isProcessingPhotos: boolean;
+  totalCount: number;
+  folderCounts: Map<number, number>;
+  isPending: boolean;
+  isError: boolean;
+} => {
   const photosQuery = usePhotosQuery({
     roomId,
     token: accessToken,

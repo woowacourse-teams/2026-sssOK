@@ -20,7 +20,7 @@ interface FitScaleOptions {
 export const useFitScale = (
   ref: RefObject<HTMLElement | null>,
   { width, height, padding, max }: FitScaleOptions,
-) => {
+): { scale: number; fillWidth: number; fillHeight: number } => {
   const [fit, setFit] = useState({ scale: 1, fillWidth: width, fillHeight: height });
 
   useEffect(() => {

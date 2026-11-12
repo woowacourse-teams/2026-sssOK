@@ -1,3 +1,4 @@
+import type { JsonBodyType } from "msw";
 import { delay, http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
@@ -139,7 +140,7 @@ let nextMediaId = 5013;
 let nextKeySequence = 1;
 
 /** 테스트끼리 발급 기록과 번호가 이어지지 않도록 되돌린다. */
-export const resetUploads = () => {
+export const resetUploads = (): void => {
   mediaById.clear();
   mediaIdByStorageKey.clear();
   resetRegisteredMedia();
@@ -147,7 +148,7 @@ export const resetUploads = () => {
   nextKeySequence = 1;
 };
 
-const extensionOf = (fileName: string) => {
+const extensionOf = (fileName: string): string => {
   const lastDot = fileName.lastIndexOf(".");
 
   if (lastDot === -1) {
@@ -160,17 +161,17 @@ const extensionOf = (fileName: string) => {
     .toLowerCase();
 };
 
-const mimeTypeOf = (fileName: string) => MIME_TYPES[extensionOf(fileName)];
+const mimeTypeOf = (fileName: string): string => MIME_TYPES[extensionOf(fileName)];
 
-const maxBytesOf = (mimeType: string) =>
+const maxBytesOf = (mimeType: string): number =>
   mimeType.startsWith("image/") ? IMAGE_MAX_BYTES : VIDEO_MAX_BYTES;
 
 /** backend `StorageKey.generate` 와 같은 모양이다. 목은 UUID 대신 순번을 써서 값이 예측된다. */
-const generateStorageKey = (roomId: number, fileName: string) =>
+const generateStorageKey = (roomId: number, fileName: string): string =>
   `rooms/${roomId}/mock-upload-${nextKeySequence++}.${extensionOf(fileName)}`;
 
 /** `X-Amz-Date` 는 `20260826T053000Z` 형태의 ISO8601 basic 표기다. */
-const formatAmzDate = (date: Date) =>
+const formatAmzDate = (date: Date): string =>
   date
     .toISOString()
     .replace(/\.\d+Z$/, "Z")
@@ -178,7 +179,7 @@ const formatAmzDate = (date: Date) =>
 
 const AMZ_DATE_PATTERN = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/;
 
-const parseAmzDate = (value: string | null) => {
+const parseAmzDate = (value: string | null): number | null => {
   const matched = value === null ? null : AMZ_DATE_PATTERN.exec(value);
 
   if (matched === null) {
@@ -194,7 +195,7 @@ const parseAmzDate = (value: string | null) => {
  * 만료는 URL 자체에 적혀 있다. 실제 R2 도 발급 후에는 바꿀 수 없는 값이라
  * 목도 별도 상태 대신 URL 을 그대로 읽는다.
  */
-const isExpired = (url: URL) => {
+const isExpired = (url: URL): boolean => {
   const issuedAt = parseAmzDate(url.searchParams.get("X-Amz-Date"));
   const ttlSeconds = Number(url.searchParams.get("X-Amz-Expires"));
 
@@ -205,7 +206,7 @@ const isExpired = (url: URL) => {
   return Date.now() > issuedAt + ttlSeconds * 1000;
 };
 
-const buildUploadUrl = (storageKey: string, issuedAt: Date) => {
+const buildUploadUrl = (storageKey: string, issuedAt: Date): string => {
   const query = new URLSearchParams({
     "X-Amz-Algorithm": "AWS4-HMAC-SHA256",
     "X-Amz-Date": formatAmzDate(issuedAt),
@@ -218,20 +219,29 @@ const buildUploadUrl = (storageKey: string, issuedAt: Date) => {
   return `${MOCK_R2_BASE_URL}/${storageKey}?${query}`;
 };
 
-const storageKeyOf = (url: URL) =>
+const storageKeyOf = (url: URL): string =>
   decodeURIComponent(url.pathname.slice(`/${MOCK_R2_BUCKET}/`.length));
 
 /**
  * 표식이 든 이름으로 처음 발급할 때만 과거 시각으로 서명한다.
  * 재발급본은 멀쩡해야 재시도 성공까지 확인할 수 있다.
  */
-const signedAtFor = (media: MockMedia, now: Date) =>
+const signedAtFor = (media: MockMedia, now: Date): Date =>
   media.expiredUrl && media.retryCount === 0
     ? new Date(now.getTime() - PRESIGNED_TTL_SECONDS * 2 * 1000)
     : now;
 
 /** 발급·재발급 응답이 공유하는 모양. `headers` 를 그대로 PUT 에 실으면 된다. */
-const issuedPayload = (media: MockMedia) => ({
+const issuedPayload = (
+  media: MockMedia,
+): {
+  mediaId: number;
+  fileName: string;
+  uploadUrl: string;
+  method: string;
+  headers: { "Content-Type": string };
+  expiresIn: number;
+} => ({
   mediaId: media.mediaId,
   fileName: media.fileName,
   uploadUrl: buildUploadUrl(media.storageKey, signedAtFor(media, new Date())),
@@ -240,13 +250,13 @@ const issuedPayload = (media: MockMedia) => ({
   expiresIn: PRESIGNED_TTL_SECONDS,
 });
 
-const error = (status: number, code: string, message: string) =>
+const error = (status: number, code: string, message: string): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code, message }, { status });
 
 const TOKEN_PATTERN = /^Bearer mock-token-(\d+)$/;
 
 /** 목 토큰은 `mock-token-{userId}` 형태다. 회원 번호를 알아야 업로더를 가릴 수 있다. */
-const memberIdOf = (authorization: string | null) => {
+const memberIdOf = (authorization: string | null): number | null => {
   const matched = authorization === null ? null : TOKEN_PATTERN.exec(authorization);
 
   return matched === null ? null : Number(matched[1]);
@@ -257,7 +267,11 @@ const memberIdOf = (authorization: string | null) => {
  * 스펙의 실패 표에는 없지만 개요의 "권한: 참여자" 를 그대로 강제한다 —
  * 입장을 건너뛴 업로드는 실제 서버에서도 403 이다.
  */
-const guardRoom = (roomId: number, memberId: number, token: string) => {
+const guardRoom = (
+  roomId: number,
+  memberId: number,
+  token: string,
+): HttpResponse<JsonBodyType> | null => {
   const status = roomStatusOfId(roomId);
 
   if (status === null) {
@@ -288,7 +302,7 @@ const guardRoom = (roomId: number, memberId: number, token: string) => {
 
 interface RejectedFile {
   fileName: string;
-  code: "FILE_SIZE_EXCEEDED" | "UNSUPPORTED_FILE_TYPE" | "INVALID_PARAM";
+  code: "FILE_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_PARAM";
   message: string;
 }
 
@@ -312,7 +326,7 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
   if (mimeType === undefined) {
     return {
       fileName,
-      code: "UNSUPPORTED_FILE_TYPE",
+      code: "UNSUPPORTED_MEDIA_TYPE",
       message: `지원하지 않는 파일 형식입니다: ${fileName}`,
     };
   }
@@ -320,7 +334,7 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
   if (file.size > maxBytesOf(mimeType)) {
     return {
       fileName,
-      code: "FILE_SIZE_EXCEEDED",
+      code: "FILE_TOO_LARGE",
       message: mimeType.startsWith("image/")
         ? "사진은 20MB까지 올릴 수 있어요."
         : "영상은 1GB까지 올릴 수 있어요.",
@@ -334,13 +348,53 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
  * 목은 파일 바이트를 해석하지 않아 실제 치수를 모른다.
  * 갤러리 격자를 짜려면 값이 있어야 해서 타입별 고정 더미값을 준다.
  */
-const dimensionsOf = (mimeType: string) =>
+const dimensionsOf = (
+  mimeType: string,
+):
+  | { width: number; height: number; duration: null }
+  | { width: number; height: number; duration: number } =>
   mimeType.startsWith("image/")
     ? { width: 4032, height: 3024, duration: null }
     : { width: 1920, height: 1080, duration: 32 };
 
 /** 공통 Media 객체. 등록 응답과 (나중에 붙을) 목록 조회가 같은 모양을 쓴다. */
-const mediaPayload = (media: MockMedia) => ({
+const mediaPayload = (
+  media: MockMedia,
+):
+  | {
+      folderIds: number[];
+      uploaderId: number;
+      uploaderName: string;
+      status: MediaStatus;
+      uploadedAt: string;
+      width: number;
+      height: number;
+      duration: null;
+      mediaId: number;
+      type: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      thumbnailUrl: null;
+      displayUrl: null;
+    }
+  | {
+      folderIds: number[];
+      uploaderId: number;
+      uploaderName: string;
+      status: MediaStatus;
+      uploadedAt: string;
+      width: number;
+      height: number;
+      duration: number;
+      mediaId: number;
+      type: string;
+      fileName: string;
+      mimeType: string;
+      size: number;
+      thumbnailUrl: null;
+      displayUrl: null;
+    } => ({
   mediaId: media.mediaId,
   type: media.mimeType.startsWith("image/") ? "IMAGE" : "VIDEO",
   fileName: media.fileName,
@@ -361,7 +415,7 @@ const mediaPayload = (media: MockMedia) => ({
  * 올라온 사진을 화면이 읽을 수 있는 주소로 바꾼다.
  * jsdom 에는 `createObjectURL` 이 없어서, 테스트에서는 null 로 물러난다.
  */
-const objectUrlOf = (blob: Blob | null) =>
+const objectUrlOf = (blob: Blob | null): string | null =>
   blob !== null && typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : null;
 
 /**
@@ -559,6 +613,18 @@ export const uploadHandlers = [
       return error(403, "MEDIA_FORBIDDEN", "본인이 발급받은 업로드가 아닙니다");
     }
 
+    // backend StoredFile.startProcessing은 이미 등록된 파일의 상태 전이를 요청 전체 오류로 처리한다.
+    if (
+      mediaIds.some((id) => {
+        const media = mediaById.get(id);
+        return (
+          media?.roomId === roomId && (media.status === "PROCESSING" || media.status === "READY")
+        );
+      })
+    ) {
+      return error(400, "ILLEGAL_UPLOAD_STATUS", "이미 등록된 미디어의 상태를 변경할 수 없습니다");
+    }
+
     const registered: ReturnType<typeof mediaPayload>[] = [];
     const failed: { mediaId: number; code: string; message: string }[] = [];
 
@@ -570,16 +636,6 @@ export const uploadHandlers = [
           mediaId,
           code: "MEDIA_NOT_FOUND",
           message: "업로드 요청을 찾을 수 없습니다",
-        });
-        continue;
-      }
-
-      // 스펙에는 없지만 재시도로 두 번 불릴 수 있어 목이 먼저 막아둔다.
-      if (media.status === "PROCESSING" || media.status === "READY") {
-        failed.push({
-          mediaId,
-          code: "UPLOAD_ALREADY_COMPLETED",
-          message: "이미 등록이 끝난 파일입니다",
         });
         continue;
       }
@@ -599,7 +655,7 @@ export const uploadHandlers = [
       if (media.uploadedBytes > maxBytesOf(media.mimeType)) {
         failed.push({
           mediaId,
-          code: "FILE_SIZE_EXCEEDED",
+          code: "FILE_TOO_LARGE",
           message: "파일 용량이 허용 크기를 초과했습니다",
         });
         continue;
@@ -663,7 +719,7 @@ export const uploadHandlers = [
         }
 
         if (size > maxBytesOf(media.mimeType)) {
-          return error(413, "FILE_SIZE_EXCEEDED", "파일 용량 제한을 초과했습니다");
+          return error(413, "FILE_TOO_LARGE", "파일 용량 제한을 초과했습니다");
         }
 
         media.size = size;

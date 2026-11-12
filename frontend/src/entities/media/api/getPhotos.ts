@@ -1,3 +1,4 @@
+import { MediaListSchema } from "../model/types";
 import { apiClient } from "@/shared/api";
 import type { MediaList } from "../model/types";
 
@@ -8,8 +9,9 @@ interface GetPhotosParams {
 
 // 방의 미디어를 페이지 없이 전부 받는다.
 
-export const getPhotos = ({ roomId, token }: GetPhotosParams) =>
+export const getPhotos = ({ roomId, token }: GetPhotosParams): Promise<MediaList> =>
   apiClient<MediaList>(`/rooms/${roomId}/media/all`, {
+    schema: MediaListSchema,
     token,
     errorTracking: {
       level: "error",

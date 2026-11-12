@@ -1,3 +1,4 @@
+import teamTypescript from "./eslint-rules/typescript.cjs";
 // For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
 import storybook from "eslint-plugin-storybook";
 
@@ -12,7 +13,15 @@ import tanstackQuery from "@tanstack/eslint-plugin-query";
 
 export default tseslint.config(
   // ignore
-  { ignores: ["dist/**", "coverage/**", "storybook-static/**", "mobile/**"] },
+  {
+    ignores: [
+      "dist/**",
+      "coverage/**",
+      "storybook-static/**",
+      "mobile/**",
+      "public/mockServiceWorker.js",
+    ],
+  },
 
   // src 기본 규칙
   {
@@ -28,6 +37,27 @@ export default tseslint.config(
     settings: { react: { version: "detect" } },
   },
 
+  {
+    files: ["src/**/*.{ts,tsx}", ".storybook/**/*.{ts,tsx}", "e2e/**/*.ts"],
+    plugins: { team: teamTypescript, "@typescript-eslint": tseslint.plugin },
+    languageOptions: { parser: tseslint.parser },
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+      "@typescript-eslint/consistent-type-definitions": ["error", "interface"],
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-expect-error": "allow-with-description",
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          minimumDescriptionLength: 10,
+        },
+      ],
+      "team/explicit-return-type": "error",
+      "team/exception-description": "error",
+    },
+  },
   // TanStack Query 규칙
   ...tanstackQuery.configs["flat/recommended"],
 

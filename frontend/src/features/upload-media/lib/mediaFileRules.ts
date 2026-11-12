@@ -32,7 +32,7 @@ export const mediaKindOf = (fileName: string): MediaKind | null => {
   return null;
 };
 
-export const maxBytesOf = (kind: MediaKind) =>
+export const maxBytesOf = (kind: MediaKind): number =>
   kind === "IMAGE" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES;
 
 const extensionOf = (fileName: string): string | null => {

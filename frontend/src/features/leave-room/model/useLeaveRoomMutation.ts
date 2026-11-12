@@ -1,3 +1,4 @@
+import type { UseMutationResult } from "@tanstack/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { myRoomsQueryKey, type MyRoom } from "@/entities/room";
@@ -13,7 +14,7 @@ export const useLeaveRoomMutation = ({
   roomId,
   accessToken,
   onSuccess,
-}: UseLeaveRoomMutationParams) => {
+}: UseLeaveRoomMutationParams): UseMutationResult<void, Error, void, unknown> => {
   const queryClient = useQueryClient();
 
   return useMutation({

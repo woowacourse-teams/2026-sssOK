@@ -8,7 +8,7 @@ import { includedPhotos, isEmptied, type PersonReview, type ReviewPerson } from 
  */
 
 /** 폴더 이름이 될 값. 비었으면 이름을 안 붙인 모음이다. */
-export const folderNameOf = (card: ReviewPerson) => card.name?.trim() || null;
+export const folderNameOf = (card: ReviewPerson): string | null => card.name?.trim() || null;
 
 /** 입력칸 글자를 모음 이름으로 둔다. 공백뿐이면 이름을 지운다. */
 export const renameCard = (review: PersonReview, cardId: string, value: string): PersonReview => ({
@@ -18,7 +18,7 @@ export const renameCard = (review: PersonReview, cardId: string, value: string):
 });
 
 /** 이 모음과 같은 이름을 먼저 쓴 다른 모음. 없으면 null 이다. 이름을 다 쓴 뒤 합칠지 물을 때 쓴다 (AI-S3b). */
-export const similarOwnerOf = ({ people }: PersonReview, cardId: string) => {
+export const similarOwnerOf = ({ people }: PersonReview, cardId: string): ReviewPerson | null => {
   const self = people.find((card) => card.id === cardId);
   const folderName = self && !isEmptied(self) ? folderNameOf(self) : null;
   if (folderName === null) return null;
@@ -30,7 +30,10 @@ export const similarOwnerOf = ({ people }: PersonReview, cardId: string) => {
 };
 
 /** 방에 이미 같은 이름의 폴더가 있는 모음. 없으면 null 이다. */
-export const similarConflictOf = ({ people }: PersonReview, folderNames: readonly string[]) =>
+export const similarConflictOf = (
+  { people }: PersonReview,
+  folderNames: readonly string[],
+): ReviewPerson | null =>
   people.find((card) => {
     const name = folderNameOf(card);
     return name !== null && !isEmptied(card) && folderNames.includes(name);
@@ -65,7 +68,10 @@ export const similarApplyGroupsOf = (people: readonly ReviewPerson[]): OrganizeA
  * - 일부만 이름을 붙임: 남는 모음 수를 알리고, 만들 폴더 수를 버튼에 적는다
  * - 모두 이름을 붙임: 안내 없이 폴더를 만든다
  */
-export const similarFooterOf = (review: PersonReview, folderNames: readonly string[] = []) => {
+export const similarFooterOf = (
+  review: PersonReview,
+  folderNames: readonly string[] = [],
+): { hint: string | null; submit: string; canSubmit: boolean } => {
   const conflict = similarConflictOf(review, folderNames);
   if (conflict) {
     return {

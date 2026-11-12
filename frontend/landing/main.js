@@ -63,21 +63,33 @@ const film = $("film");
 const stage = $("stage");
 // 맨 앞 단톡방 구간(스크롤 초): 스크롤할 때마다 메시지가 한 줄씩 올라오고, 다 나온 뒤에야 다음 장면으로 넘어간다
 const CHAT_LEN = 1.5;
-const FILM_END = SCROLL_END + CHAT_LEN;
+// 폰 폭: 첫 화면엔 헤드라인 아래로 단톡방 윗부분만 보이고, 스크롤하면 헤드라인이 빠지며 단톡방이 위로 올라와
+// 화면을 세로로 길게 채운다. 그 올라오는 데 쓰는 스크롤(초). 메시지는 다 올라온 뒤부터 스크롤로 넘긴다
+const CHAT_RISE = matchMedia("(max-width: 760px)").matches ? 0.45 : 0;
+const FILM_END = SCROLL_END + CHAT_LEN + CHAT_RISE;
 let chatS = 0;
 // 단톡방은 처음엔 저절로 한 줄씩 올라오다가(CHAT_GAP 초마다), 스크롤을 시작하면 그때부터 스크롤로 넘긴다.
 // 스크롤을 시작한 순간까지 올라온 만큼(chatBase)은 그대로 두고, 남은 메시지만 스크롤 구간에 나눠 싣는다.
 // 남은 게 적을수록 단톡방 구간도 짧아진다 (다 나온 뒤면 0.25초만 머물고 다음 장면으로)
 const CHAT_GAP = 0.6;
-const CHAT_STEPS = 7; // 처음 깔린 대화 세 줄(CHAT_PRE) 뒤로 하나씩 올라올 메시지 수 (CHAT 은 모두 10개)
+const CHAT_STEPS = 8; // 처음 깔린 대화 두 줄(CHAT_PRE) 뒤로 올라올 메시지 수 (CHAT 은 모두 10개)
 let chatBase = null;
 let chatStep = 0;
+// 폰 폭에선 첫 화면에 단톡방이 없으니 저절로 올라오지 않는다. 올라왔을 때 위가 휑하지 않게
+// 다섯 줄(CHAT_PRE + 2)이 깔린 채로 나타나고, 나머지는 스크롤로 넘긴다
 const autoChatStep = () =>
   reduceMotion
     ? CHAT_STEPS
-    : clamp(((performance.now() - introT0) / 1000 - 0.9) / CHAT_GAP, 0, CHAT_STEPS);
+    : CHAT_RISE
+      ? 2
+      : clamp(((performance.now() - introT0) / 1000 - 0.9) / CHAT_GAP, 0, CHAT_STEPS);
 const chatLen = () =>
-  chatBase === null ? CHAT_LEN : 0.25 + ((CHAT_LEN - 0.25) * (CHAT_STEPS - chatBase)) / CHAT_STEPS;
+  CHAT_RISE +
+  (chatBase === null
+    ? CHAT_LEN
+    : 0.25 + ((CHAT_LEN - 0.25) * (CHAT_STEPS - chatBase)) / CHAT_STEPS);
+// 단톡방이 위로 올라온 정도 (0 = 첫 화면, 1 = 화면을 다 채움). 넓은 화면은 늘 1
+let chatRise = 1;
 film.style.setProperty("--secs", FILM_END);
 
 function show(el, o, y = 0, extra = "") {
@@ -507,7 +519,7 @@ const introEls = INTRO_TEXT.map((t) => {
     (t.hero ? `<h2 class="title">${t.title}</h2>` : `<p class="title">${t.title}</p>`) +
     (t.desc ? `<p class="desc">${t.desc}</p>` : "") +
     // 무슨 서비스인지 한 문장으로 푼다
-    (t.hero ? `<p class="hero-lead">다 같이 올리고, <b>내 사진만</b> 쏙 골라가요</p>` : "") +
+    (t.hero ? `<p class="hero-lead">다 같이 올리고, 내 사진만 쏙 골라가요</p>` : "") +
     (t.cta
       ? `<div class="hero-ctas">` +
         `<a class="cta hero-cta" href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=hero">사진 모을 링크 만들기</a>` +
@@ -610,7 +622,7 @@ const CHAT = [
   ["나", "잠시 나 찍은 사진 왜케 많아 ㅠㅠ"],
   ["나", "어떻게 다 보내 ㅠㅠ"],
 ];
-const CHAT_PRE = 3;
+const CHAT_PRE = 2;
 const CHAT_BASE = CHAT.length;
 // 프로필은 모두 기본 프로필(실루엣), 사람마다 바탕색만 다르게 해 구분한다
 const SILHOUETTE = `<svg viewBox="0 0 38 38"><circle cx="19" cy="15" r="6.5" /><path d="M7 34c1.5-7 6.3-10 12-10s10.5 3 12 10z" /></svg>`;
@@ -698,10 +710,32 @@ function spot(el) {
 let M = null;
 function measure() {
   const W = stage.clientWidth;
-  const H = stage.clientHeight;
+  // 무대는 아래로 더 길 수 있다(--stage-extra). 장면은 묶어 둔 화면 높이 안에 짠다
+  const H =
+    stage.clientHeight -
+    (parseFloat(getComputedStyle(stage).getPropertyValue("--stage-extra")) || 0);
   const mobile = W <= 760;
   const sr = stage.getBoundingClientRect();
   const base = mobile ? "translateX(-50%)" : "translate(-50%, -50%)";
+  // 폰 폭: 장면마다 글 길이가 달라도 화면 짜임은 같게 둔다. 글은 모두 머리글 아래 같은 자리에서 시작하고,
+  // 폰은 가장 긴 글 아래로 TX_GAP 만큼 띄운 자리에서 화면 아래까지 채운다 (폭이 좁으면 폭에 맞춘다)
+  const TX_GAP = 30;
+  const sceneTexts = [introEls[1], ...textEls];
+  sceneTexts.forEach((el) => (el.style.top = ""));
+  [phone, $("phoneShell")].forEach((el) => el.style.removeProperty("--ph"));
+  if (mobile) {
+    const txTop = sceneTexts[0].offsetTop;
+    const txH = Math.max(...sceneTexts.map((el) => el.offsetHeight));
+    // 태그('2 · 사람별로 나누기' 같은 칩)가 없는 장면 글은 그만큼 짧아 폰과의 사이가 벌어진다.
+    // 태그 자리만큼 내려서, 작은 글·제목이 태그 있는 장면과 같은 줄에 오게 한다
+    const tagged = sceneTexts.find((el) => el.querySelector(".tag") && el.querySelector(".kicker"));
+    const tagSpace = tagged ? tagged.querySelector(".kicker").offsetTop : 0;
+    sceneTexts.forEach((el) => {
+      if (!el.querySelector(".tag")) el.style.top = `${txTop + tagSpace}px`;
+    });
+    const ph = Math.min((W - 64) / 0.462, H * 0.982 - (txTop + txH + TX_GAP));
+    [phone, $("phoneShell")].forEach((el) => el.style.setProperty("--ph", `${ph}px`));
+  }
   phone.style.transform = base;
   const pr = phone.getBoundingClientRect();
   stage.style.setProperty("--pl", `${pr.left - sr.left}px`);
@@ -875,10 +909,21 @@ function measure() {
       return { x: inner.x + r.x, y: inner.y + r.y, s: r.w };
     }),
   );
+  // 폰 폭 첫 화면엔 헤드라인만 두고, 단톡방은 CSS 자리(화면을 다 채운 자리)에서 화면 아래 밖으로 내려 둔다.
+  // 스크롤하면 그 자리로 올라온다 (그림자까지 가리게 조금 더 내린다)
+  // (사진방으로 바뀌는 중이면 단톡방에 인라인 top 이 남아 있으니 잠깐 지우고 CSS 자리를 잰다)
+  const chatEl = $("chat");
+  const chatTopInline = chatEl.style.top;
+  chatEl.style.top = "";
+  const chatDrop = mobile ? H - chatEl.offsetTop + 40 : 0;
+  chatEl.style.top = chatTopInline;
+  // 검색 카드는 폰보다 조금 아래에서 시작해, 제목과 화면 아래 사이 가운데 쪽에 둔다
+  $("sp").style.top = mobile ? `${pr.top - sr.top + 60}px` : "";
   M = {
     W,
     H,
     mobile,
+    chatDrop,
     base,
     inner,
     em,
@@ -1269,6 +1314,11 @@ function renderScene(T) {
   renderTap(T);
 
   // 마지막
+  if (M.mobile) {
+    $("end").style.top = `${M.H * 0.5 - stage.getBoundingClientRect().top}px`;
+  } else {
+    $("end").style.top = "";
+  }
   show($("end"), L >= 15.9 ? 1 : 0, 0, "translateY(-50%)");
   const pop = (el, a, b, from = 0.7) => {
     const p = ease(seg(L, a, b));
@@ -1310,6 +1360,7 @@ function renderIntro(T) {
   if (T < 0.03) {
     upT0 = null;
     ghostFrom = null;
+    chatEls.forEach((el) => delete el.dataset.ghost);
   } else if (upT0 === null && T >= 0.05) upT0 = performance.now();
   const U = reduceMotion
     ? UP_FULL
@@ -1319,6 +1370,8 @@ function renderIntro(T) {
       );
   introU = U;
 
+  // 폰 폭: 단톡방이 올라오는 만큼 헤드라인은 위로 빠진다 (넓은 화면은 그대로)
+  const heroOut = CHAT_RISE ? chatRise : 0;
   INTRO_TEXT.forEach((t, i) => {
     // '1 · 링크로 모으기' 글은 단톡방이 사진방으로 바뀌기 시작할 때(MS) 먼저 뜨고, 그다음 갤러리가 드러난다
     const inA = i === 1 ? ease(seg(U, MS, MS + 0.35)) : 0;
@@ -1326,12 +1379,12 @@ function renderIntro(T) {
     const o =
       i === 1
         ? Math.min(inA, 1 - seg(T, t.c, t.c + 0.3))
-        : Math.min(life(T, t.a, t.a + 0.3, t.c, t.c + 0.3), 1 - seg(U, 0.05, 0.4));
+        : Math.min(life(T, t.a, t.a + 0.3, t.c, t.c + 0.3), 1 - seg(U, 0.05, 0.4), 1 - heroOut);
     show(
       introEls[i],
       o,
-      (1 - (i === 1 ? inA : ease(seg(T, t.a, t.a + 0.3)))) * 20,
-      M.mobile ? "" : "translateY(-50%)",
+      (1 - (i === 1 ? inA : ease(seg(T, t.a, t.a + 0.3)))) * 20 - (i === 0 ? heroOut * 48 : 0),
+      M.mobile && i !== 0 ? "" : "translateY(-50%)",
     );
   });
   // 첫 화면 연출 도중에 스크롤하면 바로 마지막 상태로 넘긴다
@@ -1339,7 +1392,8 @@ function renderIntro(T) {
   const E = introE();
   show(
     $("hint"),
-    Math.min(ease(seg(E, 1.0, 1.3)), 1 - seg(chatS + T, 0.05, 0.3)),
+    // 폰 폭에선 올라오는 단톡방 위에 겹치지 않게 스크롤하자마자 걷는다
+    Math.min(ease(seg(E, 1.0, 1.3)), 1 - seg(chatS + T, 0.02, CHAT_RISE ? 0.1 : 0.3)),
     0,
     "translateX(-50%)",
   );
@@ -1493,7 +1547,12 @@ function renderChat(E, T, S) {
     ].forEach((k) => (chat.style[k] = ""));
   if (m <= 0) {
     clear();
-    show(chat, o, (1 - ease(seg(E, 0.15, 0.6))) * 30, M.mobile ? "" : "translate(-50%, -50%)");
+    show(
+      chat,
+      o,
+      (1 - ease(seg(E, 0.15, 0.6))) * 30 + M.chatDrop * (1 - chatRise),
+      M.mobile ? "" : "translate(-50%, -50%)",
+    );
   } else {
     // 제자리(덮어쓴 값을 지우고 잰다) → 폰 화면
     if (!M.chatRest) {
@@ -1585,8 +1644,6 @@ function renderChat(E, T, S) {
     // 단톡방 말풍선은 모두 사진 조각이 이어받는다 (앞의 평범한 대화도, 요청도)
     const isReq = g >= 0;
     el.dataset.req = isReq ? "1" : "";
-    const bub = el.querySelector("p");
-    bub.style.visibility = U > 0 && isReq ? "hidden" : "";
     // 위 끝에 닿은 메시지는 반쯤 잘린 채 머리줄 밑에 남지 않게, 닿는 순간 짧게 흐려져 사라진다
     const edge = clamp((y + 8) / 14);
     const mo = (g < 0 ? 0 : k === 0 ? p : 1) * msgFade * edge;
@@ -1605,6 +1662,7 @@ function renderChat(E, T, S) {
         const r = b.getBoundingClientRect();
         const cs = getComputedStyle(b);
         return {
+          el,
           x: r.left - sr.left,
           y: r.top - sr.top,
           w: r.width,
@@ -1628,15 +1686,26 @@ function renderChat(E, T, S) {
         };
       })
       .filter((g) => g.on)
-      .sort((a, b) => a.top - b.top)
-      .slice(0, setP.length);
+      .sort((a, b) => a.top - b.top);
     const N = setP.length;
+    ghostFrom = ghostFrom.slice(0, N);
+    ghostFrom.forEach((F) => (F.el.dataset.ghost = "1"));
     const G = ghostFrom.length;
     // 앉을 칸: 위 말풍선부터 차례로 ('G 장 올라온 뒤' 배치에서 차 있는 칸들).
     // 같은 줄 두 칸에서는 말풍선이 있던 쪽 칸으로 간다 (내 말풍선=오른쪽 → 오른쪽 칸). 서로 길이 엇갈리지 않게
     const S_G = Math.floor((N - G) / 2);
     const off = N - G - 2 * S_G;
-    ghostFrom.forEach((F, i) => (F.cell = i + off));
+    // 말풍선은 모두 사진이 되어 폰으로 들어간다. 다만 폰 화면에 보이는 칸은 몇 줄뿐이라,
+    // 보이는 칸(VIS)에 위에서부터 고르게 나눠 앉힌다 (넘치는 칸으로 가면 화면 아래로 빠져 잘린다).
+    // 한 칸에 둘 이상 겹쳐 들어가면 모두 그 칸의 사진을 들고 있어 바뀌는 순간이 티 나지 않는다
+    const VIS = [];
+    for (let c = off; c < off + G; c++) {
+      // 아래 끝이 조금(칸 높이의 1/4 까지) 잘리는 줄은 보이는 칸으로 친다
+      if (M.cell(c).y + M.th * 0.75 > M.inner.h - M.gridTop) break;
+      VIS.push(c);
+    }
+    if (!VIS.length) VIS.push(off);
+    ghostFrom.forEach((F, i) => (F.cell = VIS[Math.floor((i * VIS.length) / G)]));
     for (let i = 0; i + 1 < G; i++) {
       const a = ghostFrom[i];
       const b = ghostFrom[i + 1];
@@ -1654,6 +1723,10 @@ function renderChat(E, T, S) {
       el.append(t, setP[F.cell + 2 * S_G].querySelector(".pic").cloneNode(true));
     });
   }
+  // 사진이 된 말풍선은 조각이 이어받으니 숨긴다
+  chatEls.forEach((el) => {
+    el.querySelector("p").style.visibility = U > 0 && ghostFrom && el.dataset.ghost ? "hidden" : "";
+  });
 }
 
 // 머리글 '링크 만들기': 첫 화면 버튼이 사라지기 시작하면 바로 뜨고, 마지막 장면(버튼이 따로 있다)에선 숨는다
@@ -1754,7 +1827,7 @@ function render(T) {
 const tocItems = [...document.querySelectorAll("#toc button")];
 tocItems.forEach((btn) => {
   btn.addEventListener("click", () => {
-    const travel = film.offsetHeight - innerHeight;
+    const travel = film.offsetHeight - stage.offsetHeight;
     const go = Math.max(0, toScroll(+btn.dataset.go));
     scrollTo({
       top: film.offsetTop + (travel * (go + chatLen())) / FILM_END,
@@ -1793,34 +1866,97 @@ $("headerMenu").append(...[...$("startMenu").content.children].map((n) => n.clon
 });
 
 // ── 시간 흐름: 스크롤 위치만으로 정한다 ──
+// 무대가 붙어 있는(sticky) 동안의 스크롤 길이 = 타임라인 길이. 무대가 화면보다 길 수 있어 무대 높이로 뺀다
 function scrollT() {
-  const travel = film.offsetHeight - innerHeight;
+  const travel = film.offsetHeight - stage.offsetHeight;
   if (travel <= 0) return 0;
   return clamp(-film.getBoundingClientRect().top / travel) * FILM_END;
 }
 
 let lastT = -1;
 function frame() {
+  followSvh();
   // 앞 단톡방 구간은 장면 시각을 0 에 묶어 두고, 그 안의 스크롤은 채팅에만 쓴다
   const raw = scrollT();
   if (chatBase === null && raw > 0.01) chatBase = autoChatStep();
   const len = chatLen();
   chatS = Math.min(raw, len);
+  chatRise = CHAT_RISE ? inOut(clamp(chatS / CHAT_RISE)) : 1;
+  const msgS = Math.max(0, chatS - CHAT_RISE);
+  const msgLen = len - CHAT_RISE;
   chatStep =
     chatBase === null
       ? autoChatStep()
-      : chatBase + clamp(chatS / Math.max(len - 0.25, 1e-6)) * (CHAT_STEPS - chatBase);
+      : chatBase + clamp(msgS / Math.max(msgLen - 0.25, 1e-6)) * (CHAT_STEPS - chatBase);
   const T = Math.max(0, raw - len);
   // 첫 화면 연출이 재생되는 동안은 스크롤이 없어도 매 프레임 그린다
   const playing = (!introSkip && introE() < INTRO_LEN + 0.2) || (T < INTRO && !reduceMotion);
   if (raw !== lastT || playing) {
     render(T);
     lastT = raw;
+    document.documentElement.classList.remove("js-wait");
   }
   requestAnimationFrame(frame);
 }
 
+// 폰 폭: 장면은 지금 보이는 화면 높이(innerHeight)에 맞춰 짠다(--svh).
+// 사파리처럼 스크롤하면 주소창이 접혀 화면이 길어지는 브라우저에서, 작은 화면 높이에 묶어 두면 아래가 크게 비고
+// 폰 그림도 작아 보인다. 그래서 화면이 눈에 띄게(40px 넘게) 길어지면 그 높이로 부드럽게 늘이고, 그 뒤로는 줄이지 않는다
+const svhProbe = Object.assign(document.createElement("div"), { ariaHidden: "true" });
+svhProbe.style.cssText =
+  "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
+document.body.append(svhProbe);
+let lockW = 0;
+let lockH = 0;
+let scrollVhW = 0;
+let svhTarget = 0;
+let svhCur = 0;
+// 주소창이 접히고 펴질 때 장면 높이를 몇 프레임에 걸쳐 따라가게 한다
+function followSvh() {
+  if (svhCur === svhTarget) return;
+  const d = svhTarget - svhCur;
+  svhCur = Math.abs(d) < 0.02 || reduceMotion ? svhTarget : svhCur + d * 0.12;
+  document.documentElement.style.setProperty("--svh", `${svhCur}px`);
+  M = null;
+  tabsKey = "";
+  lastT = -1;
+}
+function lockViewport() {
+  const w = innerWidth;
+  const mobile = w <= 760;
+  const h = mobile ? innerHeight : Math.min(svhProbe.offsetHeight || innerHeight, innerHeight);
+  // 폰 폭은 화면이 길어질 때만 따라간다 (주소창이 접힐 때). 다시 펴질 때 줄이면 스크롤 방향에 따라
+  // 폰 크기가 달라 보여서, 한 번 길어진 뒤엔 그 크기를 유지한다 (폭이 바뀌면 처음부터 다시)
+  const changed = w !== lockW || (mobile ? h > lockH + 40 : h !== lockH);
+  if (!changed) return false;
+  lockW = w;
+  lockH = h;
+  const root = document.documentElement.style;
+  if (mobile) {
+    root.setProperty("--stage-extra", "80px");
+    svhTarget = h / 100;
+    // 처음·회전 때는 바로 맞추고, 주소창이 접히고 펴질 때는 frame() 에서 부드럽게 늘이고 줄인다
+    // (한 번에 바꾸면 단톡방·폰이 짧은 직사각형이었다가 갑자기 길어진다)
+    if (w !== scrollVhW) {
+      scrollVhW = w;
+      svhCur = svhTarget;
+      root.setProperty("--svh", `${svhCur}px`);
+      // 스크롤 길이는 폭이 바뀔 때(처음·회전)만 다시 정한다
+      root.setProperty("--scroll-vh", `${h / 100}px`);
+    }
+  } else {
+    root.removeProperty("--svh");
+    root.removeProperty("--stage-extra");
+    root.removeProperty("--scroll-vh");
+    scrollVhW = 0;
+    svhCur = svhTarget = 0;
+  }
+  return true;
+}
+lockViewport();
 addEventListener("resize", () => {
+  if (innerWidth <= 760 && !lockViewport()) return;
+  lockViewport();
   M = null;
   tabsKey = "";
   lastT = -1;

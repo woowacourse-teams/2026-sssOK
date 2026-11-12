@@ -1,3 +1,5 @@
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { DeleteFolderResponse } from "@/features/delete-folder/api/deleteFolder";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
@@ -20,7 +22,12 @@ export const useDeleteFolderMutation = ({
   folderId,
   accessToken,
   onError,
-}: UseDeleteFolderMutationParams) => {
+}: UseDeleteFolderMutationParams): UseMutationResult<
+  DeleteFolderResponse,
+  Error,
+  void,
+  { previousRoom: Room | undefined; previousPhotos: MediaList | undefined }
+> => {
   const queryClient = useQueryClient();
   const roomKey = roomQueryKey(roomCode, userId);
   const photosKey = photosQueryKey(roomId, userId);

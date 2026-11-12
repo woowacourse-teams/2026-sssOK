@@ -20,7 +20,7 @@ const sessionOf = (adminId: number, name: string, role: string): AdminSession =>
 const SUPER_ADMIN = sessionOf(1, "마이찬", "SUPER_ADMIN");
 const ADMIN = sessionOf(4, "해니", "ADMIN");
 
-const renderPage = () => {
+const renderPage = (): ReturnType<typeof createMemoryRouter> => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [ROUTES.adminAccounts] });
 
@@ -33,12 +33,12 @@ const renderPage = () => {
   return router;
 };
 
-const respondWith = (status: number, body: Record<string, unknown>) => {
+const respondWith = (status: number, body: Record<string, unknown>): void => {
   server.use(http.get(`${API_BASE_URL}/admin/accounts`, () => HttpResponse.json(body, { status })));
 };
 
-const main = () => screen.getByRole("main");
-const rows = () => within(main()).getAllByRole("row").slice(1);
+const main = (): HTMLElement => screen.getByRole("main");
+const rows = (): HTMLElement[] => within(main()).getAllByRole("row").slice(1);
 
 describe("AdminAccountsPage", () => {
   beforeEach(() => localStorage.clear());
@@ -47,6 +47,7 @@ describe("AdminAccountsPage", () => {
     saveAdminSession(ADMIN);
     renderPage();
 
+    await screen.findByRole("heading", { name: "계정" });
     await within(main()).findByText("superadmin");
 
     expect(rows()).toHaveLength(4);

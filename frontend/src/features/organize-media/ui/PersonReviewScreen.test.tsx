@@ -6,8 +6,29 @@ import type { MediaItem } from "@/entities/media";
 import type { OrganizeResult } from "../api/types";
 import { PersonReviewScreen } from "./PersonReviewScreen";
 
-const photo = (mediaId: number) =>
-  ({ mediaId, fileName: `IMG_${mediaId}.jpg`, thumbnailUrl: `/t/${mediaId}.webp` }) as MediaItem;
+const photo = (
+  mediaId: number,
+): {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  uploadedAt: string;
+  thumbnailUrl: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  status: "READY";
+  likeCount: number;
+  likedByMe: boolean;
+  thumbnailUrlExpiresAt?: string | null | undefined;
+  displayUrlExpiresAt?: string | null | undefined;
+} => ({ mediaId, fileName: `IMG_${mediaId}.jpg`, thumbnailUrl: `/t/${mediaId}.webp` }) as MediaItem;
 
 const resultOf = (sizes: number[]): OrganizeResult => {
   let next = 1;
@@ -32,7 +53,7 @@ const renderScreen = ({
   folderNames = [] as string[],
   isSubmitting = false,
   submitError = null as string | null,
-} = {}) => {
+} = {}): { onSubmit: ReturnType<typeof jest.fn>; onDismissError: ReturnType<typeof jest.fn> } => {
   const onSubmit = jest.fn();
   const onDismissError = jest.fn();
   render(
@@ -52,7 +73,7 @@ const renderScreen = ({
   return { onSubmit, onDismissError };
 };
 
-const cards = () => screen.getAllByRole("listitem");
+const cards = (): HTMLElement[] => screen.getAllByRole("listitem");
 
 describe("PersonReviewScreen", () => {
   it("찾은 사람 수와 안내를 보여 주고, 사진 줄 마지막 칸에 남은 장수를 올린다", () => {

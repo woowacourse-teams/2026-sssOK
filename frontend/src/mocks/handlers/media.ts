@@ -1,3 +1,4 @@
+import type { JsonBodyType } from "msw";
 import { http, HttpResponse } from "msw";
 
 import { findRoomCodeByToken } from "@/entities/session/lib/roomSessionStorage";
@@ -18,10 +19,10 @@ import {
   roomStatusOfId,
 } from "./room";
 
-const error = (status: number, code: string, message: string) =>
+const error = (status: number, code: string, message: string): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code, message }, { status });
 
-const authorize = (request: Request, roomId: number) => {
+const authorize = (request: Request, roomId: number): number | HttpResponse<JsonBodyType> => {
   const authorization = request.headers.get("Authorization");
   const match = authorization?.match(/^Bearer mock-token-(\d+)$/);
   if (!authorization || !match) return error(401, "UNAUTHORIZED", "인증이 필요합니다.");
@@ -37,17 +38,18 @@ const authorize = (request: Request, roomId: number) => {
 };
 
 // backend FilePermissionPolicy: 업로더 본인 또는 방장만 삭제할 수 있다.
-const canDelete = (media: GalleryMedia, memberId: number) =>
+const canDelete = (media: GalleryMedia, memberId: number): boolean =>
   media.uploaderId === memberId || memberId === MOCK_HOST_ID;
-const notFound = () => error(404, "MEDIA_NOT_FOUND", "미디어를 찾을 수 없습니다.");
-const forbidden = () =>
+const notFound = (): HttpResponse<JsonBodyType> =>
+  error(404, "MEDIA_NOT_FOUND", "미디어를 찾을 수 없습니다.");
+const forbidden = (): HttpResponse<JsonBodyType> =>
   error(403, "MEDIA_FORBIDDEN", "다른 사람이 올린 파일이라 삭제할 수 없습니다");
 
 // 삭제 상한
 const MAX_DELETE_COUNT = 500;
 
 // 중복은 요청 순서대로 걷어낸다.
-const selectedIdsOf = (body: Record<string, unknown>) => {
+const selectedIdsOf = (body: Record<string, unknown>): number[] | null => {
   if (!Array.isArray(body.mediaIds)) return null;
   const ids: unknown[] = body.mediaIds;
   if (!ids.every((id) => typeof id === "number" && Number.isSafeInteger(id) && id > 0)) {
@@ -232,9 +234,7 @@ export const mediaHandlers = [
       likedByMe: mediaWithLike.likedByMe,
       takenAt: media.mediaId === 5012 ? "2026-08-17T14:02:11+09:00" : null,
       location:
-        media.mediaId === 5012
-          ? { latitude: 35.1587, longitude: 129.1604, name: "부산 해운대구" }
-          : null,
+        media.mediaId === 5012 ? { latitude: 35.1587, longitude: 129.1604, name: null } : null,
       canDelete: canDelete(media, auth),
     };
     return HttpResponse.json({ data });

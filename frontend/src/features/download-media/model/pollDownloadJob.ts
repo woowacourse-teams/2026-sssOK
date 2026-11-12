@@ -13,7 +13,7 @@ import type { DownloadJobProgress } from "../api/types";
 /** 더 물어봐도 소용없는 상태. 여기 닿으면 폴링이 끝난다. */
 const SETTLED = ["READY", "FAILED", "EXPIRED"] as const;
 
-const isSettled = (progress: DownloadJobProgress) =>
+const isSettled = (progress: DownloadJobProgress): boolean =>
   (SETTLED as readonly string[]).includes(progress.status);
 
 export interface PollDownloadJobParams {

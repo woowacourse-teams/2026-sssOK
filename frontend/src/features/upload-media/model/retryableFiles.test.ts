@@ -35,13 +35,13 @@ describe("retryableFilesOf", () => {
   });
 
   it("한도를 넘은 파일은 재시도 대상이 아니다 — 몇 번을 올려도 같은 자리에서 걸린다", () => {
-    expect(retryableFilesOf([failureOf("FILE_SIZE_EXCEEDED")])).toEqual([]);
+    expect(retryableFilesOf([failureOf("FILE_TOO_LARGE")])).toEqual([]);
   });
 
   it("섞여 있으면 재시도할 것만 순서대로 남긴다", () => {
     const broken = failureOf("UPLOAD_FAILED", "첫째.jpg");
     const aborted = failureOf("UPLOAD_ABORTED", "둘째.jpg");
-    const oversized = failureOf("FILE_SIZE_EXCEEDED", "셋째.jpg");
+    const oversized = failureOf("FILE_TOO_LARGE", "셋째.jpg");
     const notCompleted = failureOf("UPLOAD_NOT_COMPLETED", "넷째.jpg");
 
     expect(retryableFilesOf([broken, aborted, oversized, notCompleted])).toEqual([

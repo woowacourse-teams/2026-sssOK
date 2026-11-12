@@ -1,3 +1,4 @@
+import { z } from "zod";
 /**
  * 쏙 앱(`frontend/mobile`)의 웹뷰에 저장을 맡긴다.
  *
@@ -25,13 +26,13 @@ declare global {
   }
 }
 
-export const isNativeApp = () =>
+export const isNativeApp = (): boolean =>
   typeof window !== "undefined" &&
   window.ReactNativeWebView !== undefined &&
   (window.sssokApp?.download ?? 0) >= 1;
 
 /** 낱장이 사진첩으로 가는지. 앱은 기기와 상관없이, 브라우저는 iOS 공유 시트를 쓸 때만이다. */
-export const savesToPhotoLibrary = () => isNativeApp() || prefersShareSheet();
+export const savesToPhotoLibrary = (): boolean => isNativeApp() || prefersShareSheet();
 
 export interface NativeFile {
   id: number;
@@ -49,15 +50,23 @@ export interface NativeFailure {
 type NativeRequest =
   { type: "download/save"; files: NativeFile[] } | { type: "download/share"; file: NativeFile };
 
-type NativeEvent =
-  | { type: "download/progress"; requestId: string; id: number; loaded: number; total: number }
-  | { type: "download/saved"; requestId: string; id: number }
-  | {
-      type: "download/done";
-      requestId: string;
-      result: "completed" | "permissionDenied" | "cancelled";
-      failed: NativeFailure[];
-    };
+const identity = { requestId: z.string() };
+const NativeEventSchema = z.discriminatedUnion("type", [
+  z.object({
+    ...identity,
+    type: z.literal("download/progress"),
+    id: z.number(),
+    loaded: z.number(),
+    total: z.number(),
+  }),
+  z.object({ ...identity, type: z.literal("download/saved"), id: z.number() }),
+  z.object({
+    ...identity,
+    type: z.literal("download/done"),
+    result: z.enum(["completed", "permissionDenied", "cancelled"]),
+    failed: z.array(z.object({ id: z.number(), status: z.number() })),
+  }),
+]);
 
 export type NativeDownloadResult =
   | { type: "completed"; failed: NativeFailure[] }
@@ -74,12 +83,13 @@ interface NativeDownloadParams {
 
 let sequence = 0;
 
-const post = (message: object) => window.ReactNativeWebView?.postMessage(JSON.stringify(message));
+const post = (message: object): void | undefined =>
+  window.ReactNativeWebView?.postMessage(JSON.stringify(message));
 
 const requestNative = (
   request: NativeRequest,
   { signal, onProgress, onSaved }: NativeDownloadParams,
-) =>
+): Promise<NativeDownloadResult> =>
   new Promise<NativeDownloadResult>((resolve) => {
     if (signal?.aborted) {
       resolve({ type: "aborted" });
@@ -91,20 +101,22 @@ const requestNative = (
     // 판이 겹치거나 취소한 판의 답이 늦게 와도 섞이지 않게, 판마다 번호를 붙인다.
     const requestId = `${Date.now()}-${sequence}`;
 
-    const settle = (result: NativeDownloadResult) => {
+    const settle = (result: NativeDownloadResult): void => {
       window.removeEventListener(NATIVE_EVENT, listen);
       signal?.removeEventListener("abort", abort);
       resolve(result);
     };
 
     // 이미 사진첩에 들어간 것은 되돌리지 않는다. 앱에는 남은 것만 그만두라고 알린다.
-    const abort = () => {
+    const abort = (): void => {
       post({ type: "download/cancel", requestId });
       settle({ type: "aborted" });
     };
 
-    const listen = (event: Event) => {
-      const detail = (event as CustomEvent<NativeEvent>).detail;
+    const listen = (event: Event): void => {
+      const parsed = NativeEventSchema.safeParse((event as CustomEvent<unknown>).detail);
+      if (!parsed.success) return;
+      const detail = parsed.data;
 
       if (detail?.requestId !== requestId) return;
 
@@ -133,9 +145,13 @@ const requestNative = (
   });
 
 /** 사진·영상을 사진첩에 넣는다. 실패한 것만 `failed` 로 돌아오고 나머지는 저장된 것이다. */
-export const saveToPhotoLibrary = (files: NativeFile[], params: NativeDownloadParams = {}) =>
-  requestNative({ type: "download/save", files }, params);
+export const saveToPhotoLibrary = (
+  files: NativeFile[],
+  params: NativeDownloadParams = {},
+): Promise<NativeDownloadResult> => requestNative({ type: "download/save", files }, params);
 
 /** 파일 하나를 받아 공유 시트로 넘긴다. zip 처럼 사진첩에 들어갈 수 없는 파일에 쓴다. */
-export const shareFromNativeApp = (file: NativeFile, params: NativeDownloadParams = {}) =>
-  requestNative({ type: "download/share", file }, params);
+export const shareFromNativeApp = (
+  file: NativeFile,
+  params: NativeDownloadParams = {},
+): Promise<NativeDownloadResult> => requestNative({ type: "download/share", file }, params);

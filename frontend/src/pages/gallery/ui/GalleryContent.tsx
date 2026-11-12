@@ -70,7 +70,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [receivedRequest, setReceivedRequest] = useState<{ title: string; body: string } | null>(
     null,
   );
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- 인증 토큰은 캐시 식별자가 아니며 세션 변경 시 별도로 캐시를 정리한다
   const notificationSetting = useQuery({
     queryKey: ["room-notification-setting", room.roomId, userId],
     queryFn: () => getNotificationSetting(room.roomId, accessToken),
@@ -105,7 +105,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     rawMediaId && /^[1-9]\d*$/.test(rawMediaId) && Number.isSafeInteger(Number(rawMediaId))
       ? Number(rawMediaId)
       : null;
-  const setActiveMediaId = (mediaId: number | null) => {
+  const setActiveMediaId = (mediaId: number | null): void => {
     if (mediaId === null && location.state?.galleryViewer) {
       navigate(-1);
       return;
@@ -118,7 +118,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       state: activeMediaId === null ? { galleryViewer: true } : location.state,
     });
   };
-  const closeMediaViewerAfterDelete = () => {
+  const closeMediaViewerAfterDelete = (): void => {
     const next = new URLSearchParams(searchParams);
     next.delete("media");
     setSearchParams(next, { replace: true, state: null });
@@ -216,7 +216,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
    * 정리를 시작하기 전에 장수 한도를 먼저 본다. 시트에서 방식까지 고른 뒤에 막히면 헛걸음이라서다.
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
    */
-  const beginOrganize = (open: () => void) => {
+  const beginOrganize = (open: () => void): void => {
     const limit =
       isPending || isError ? null : organizeLimitOf(countAnalyzablePhotos(allGalleryItems));
     if (limit) setOrganizeLimit(limit);
@@ -299,7 +299,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   });
 
   /** 검토 화면에서 고른 그룹으로 폴더를 만든다. 끝나면 폴더 목록을 다시 받아 처음 만든 폴더 탭을 연다. 실패하면 화면에 남는다. */
-  const applyReview = async (groups: Parameters<typeof organize.apply>[0]) => {
+  const applyReview = async (groups: Parameters<typeof organize.apply>[0]): Promise<void> => {
     const applied = await organize.apply(groups);
     if (!applied) return;
     setReviewKind(null);
@@ -313,8 +313,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 고른 순서가 아니라 **화면에 보이는 순서**로 넘긴다. 압축을 풀었을 때 파일이
   // 갤러리와 같은 차례로 놓여야, 고른 순서를 기억하지 못하는 사용자가 헤매지 않는다.
+  const selectedIdSet = new Set(selectedPhotoIds);
   const downloadTargets = galleryItems
-    .filter((item) => selectedPhotoIds.includes(item.mediaId))
+    .filter((item) => selectedIdSet.has(item.mediaId))
     .map((slot) => ({
       mediaId: slot.mediaId,
       fileName: slot.type === "local" ? slot.file.name : slot.media.fileName,

@@ -32,7 +32,7 @@ export const trackDownloadStarted = (
     source,
     room,
   }: { mode: DownloadMode; source: AnalyticsDownloadSource; room: AnalyticsRoomContext | null },
-) =>
+): void =>
   track(
     "Photo Download Started",
     {
@@ -51,7 +51,7 @@ export const trackDownloadStarted = (
  * 넣으면 `saved` 로 한 번 더 끝나서, 여기서도 세면 같은 판이 두 번 잡힌다.
  * 취소·닫기는 받은 것도 실패한 것도 아니라 남기지 않는다.
  */
-export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
+export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun): void => {
   const durationMs = Math.round(run.durationMs);
 
   switch (outcome.type) {
@@ -104,7 +104,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun) => {
 /**
  * 묶음 하나를 공유 시트로 넘긴 결과를 남긴다.
  */
-export const trackShareBatch = (batch: ShareBatchResult, room: AnalyticsRoomContext | null) =>
+export const trackShareBatch = (batch: ShareBatchResult, room: AnalyticsRoomContext | null): void =>
   track(
     "Photo Share Batch Settled",
     {

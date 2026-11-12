@@ -1,3 +1,4 @@
+import type { UseQueryResult } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
 
 import { getPhotos } from "../api/getPhotos";
@@ -18,14 +19,18 @@ const MIN_REFRESH_INTERVAL_MS = 30 * 1000;
  * 목록을 다시 불러와야 하는 쪽(업로드 직후 등)도 같은 키를 써야 한다.
  * 키를 손으로 다시 적으면 한쪽만 바뀌었을 때 갱신이 조용히 안 먹는다.
  */
-export const photosQueryKey = (roomId: number, userId: number) => ["photos", roomId, userId];
+export const photosQueryKey = (roomId: number, userId: number): (string | number)[] => [
+  "photos",
+  roomId,
+  userId,
+];
 
 /**
  * 썸네일 서명 URL 중 가장 먼저 끊기는 것에 맞춰 다음 조회 시점을 잡는다.
  * 목록을 한 번에 받으니 페이지를 넘기며 새 URL 을 받던 기회가 없다.
  * 그대로 두면 오래 켜 둔 갤러리의 썸네일이 한꺼번에 깨진다.
  */
-const untilThumbnailRefresh = (data: MediaList | undefined, now: number) => {
+const untilThumbnailRefresh = (data: MediaList | undefined, now: number): number | null => {
   const expiries = (data?.items ?? [])
     .map((item) => (item.thumbnailUrlExpiresAt ? Date.parse(item.thumbnailUrlExpiresAt) : NaN))
     .filter((time) => Number.isFinite(time));
@@ -35,22 +40,29 @@ const untilThumbnailRefresh = (data: MediaList | undefined, now: number) => {
   return Math.min(...expiries) - now - THUMBNAIL_REFRESH_MARGIN_MS;
 };
 
-export const untilThumbnailsExpire = (data: MediaList | undefined, now = Date.now()) => {
+export const untilThumbnailsExpire = (
+  data: MediaList | undefined,
+  now = Date.now(),
+): number | false => {
   const remaining = untilThumbnailRefresh(data, now);
   if (remaining === null) return false;
 
   return Math.max(remaining, MIN_REFRESH_INTERVAL_MS);
 };
 
-export const shouldRefetchOnFocus = (data: MediaList | undefined, now = Date.now()) => {
+export const shouldRefetchOnFocus = (data: MediaList | undefined, now = Date.now()): boolean => {
   const remaining = untilThumbnailRefresh(data, now);
 
   return remaining !== null && remaining <= 0;
 };
 
-export const usePhotosQuery = ({ roomId, token, userId }: UsePhotosQueryParams) =>
+export const usePhotosQuery = ({
+  roomId,
+  token,
+  userId,
+}: UsePhotosQueryParams): UseQueryResult<NoInfer<MediaList>, Error> =>
   // userId로 사용자별 캐시를 나누므로 인증 정보인 token은 queryKey에 노출하지 않는다.
-  // eslint-disable-next-line @tanstack/query/exhaustive-deps
+  // eslint-disable-next-line @tanstack/query/exhaustive-deps -- 인증 토큰은 캐시 식별자가 아니며 세션 변경 시 별도로 캐시를 정리한다
   useQuery({
     queryKey: photosQueryKey(roomId, userId),
     queryFn: () => getPhotos({ roomId, token }),

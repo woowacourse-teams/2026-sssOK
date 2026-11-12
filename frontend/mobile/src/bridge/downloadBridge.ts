@@ -1,3 +1,4 @@
+import { parseDownloadRequest, type BridgeFile, type BridgeRequest } from "./requestSchemas";
 import { File, Paths } from "expo-file-system";
 import { Asset, requestPermissionsAsync } from "expo-media-library";
 import * as Sharing from "expo-sharing";
@@ -18,13 +19,6 @@ const CONCURRENCY = 3;
 /** 진행률을 웹에 알리는 최소 간격(ms). 매 청크마다 웹뷰에 스크립트를 넣으면 화면이 버벅인다. */
 const PROGRESS_INTERVAL_MS = 200;
 
-interface BridgeFile {
-  id: number;
-  url: string;
-  fileName: string;
-  mimeType: string;
-}
-
 interface Failure {
   id: number;
   status: number;
@@ -40,15 +34,8 @@ export type BridgeEvent =
       failed: Failure[];
     };
 
-type BridgeRequest =
-  | { type: "download/save"; requestId: string; files: BridgeFile[] }
-  | { type: "download/share"; requestId: string; file: BridgeFile }
-  | { type: "download/cancel"; requestId: string };
-
-const isString = (value: unknown): value is string => typeof value === "string";
-
 /** 서명 URL 만 받는다. 로컬 HTTP 는 웹 주소(`config/web.ts`)와 같이 개발 모드에서만 연다. */
-const isAllowedUrl = (url: string) => {
+const isAllowedUrl = (url: string): boolean => {
   try {
     const { protocol } = new URL(url);
 
@@ -58,58 +45,27 @@ const isAllowedUrl = (url: string) => {
   }
 };
 
-const isBridgeFile = (value: unknown): value is BridgeFile => {
-  const file = value as BridgeFile | null;
-
-  return (
-    typeof file?.id === "number" &&
-    isString(file.url) &&
-    isAllowedUrl(file.url) &&
-    isString(file.fileName) &&
-    isString(file.mimeType)
-  );
-};
-
-/** 웹에서 온 값은 믿지 않는다. 모양이 어긋나면 통째로 버린다. */
-const parseRequest = (data: string): BridgeRequest | null => {
-  try {
-    const message = JSON.parse(data) as Partial<BridgeRequest> & Record<string, unknown>;
-
-    if (!isString(message.requestId)) return null;
-
-    if (message.type === "download/cancel") return message as BridgeRequest;
-
-    if (
-      message.type === "download/save" &&
-      Array.isArray(message.files) &&
-      message.files.every(isBridgeFile)
-    ) {
-      return message as BridgeRequest;
-    }
-
-    if (message.type === "download/share" && isBridgeFile(message.file)) {
-      return message as BridgeRequest;
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-};
+/** 잘못된 요청은 실행하지 않는다. */
+const parseRequest = (data: string): BridgeRequest | null =>
+  parseDownloadRequest(data, isAllowedUrl);
 
 /** 네이티브 다운로드는 상태 코드를 메시지로만 알려준다 ("response has status 403"). 없으면 회선 실패로 본다. */
-const statusOf = (error: unknown) => {
+const statusOf = (error: unknown): number => {
   const matched = error instanceof Error ? /status:? (\d{3})/.exec(error.message) : null;
 
   return matched === null ? 0 : Number(matched[1]);
 };
 
 /** 경로를 벗어나는 글자만 막는다. 이름은 사진첩·공유 시트에 그대로 보인다. */
-const safeNameOf = (fileName: string) => fileName.replace(/[/\\]/g, "_") || "file";
+const safeNameOf = (fileName: string): string => fileName.replace(/[/\\]/g, "_") || "file";
 
-const runWithLimit = async <T>(items: T[], limit: number, task: (item: T) => Promise<void>) => {
+const runWithLimit = async <T>(
+  items: T[],
+  limit: number,
+  task: (item: T) => Promise<void>,
+): Promise<void> => {
   let next = 0;
-  const worker = async () => {
+  const worker = async (): Promise<void> => {
     while (next < items.length) {
       const item = items[next];
 
@@ -121,7 +77,9 @@ const runWithLimit = async <T>(items: T[], limit: number, task: (item: T) => Pro
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
 };
 
-export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
+export const createDownloadBridge = (
+  send: (event: BridgeEvent) => void,
+): { handle: (data: string) => void; cancelAll: () => void } => {
   const running = new Map<string, AbortController>();
 
   /**
@@ -133,7 +91,7 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
     index: number,
     file: BridgeFile,
     signal: AbortSignal,
-  ) => {
+  ): Promise<File> => {
     let lastSentAt = 0;
     const destination = new File(
       Paths.cache,
@@ -160,7 +118,7 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
     });
   };
 
-  const removeQuietly = (file: File | undefined) => {
+  const removeQuietly = (file: File | undefined): void => {
     try {
       if (file?.exists) file.delete();
     } catch {
@@ -168,7 +126,11 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
     }
   };
 
-  const save = async (requestId: string, files: BridgeFile[], signal: AbortSignal) => {
+  const save = async (
+    requestId: string,
+    files: BridgeFile[],
+    signal: AbortSignal,
+  ): Promise<void> => {
     // 읽기 권한은 필요 없다. 쓰기만 요청해야 "모든 사진 접근" 을 묻지 않는다.
     // 종류(photo·video)는 넘기지 않는다. 쓰기 전용이면 쓰이지 않고, 안드로이드 Expo Go 는 넘기는 순간 예외를 던진다.
     const permission = await requestPermissionsAsync(true);
@@ -209,7 +171,7 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
   };
 
   /** 사용자가 시트를 닫아도 실패가 아니다. 무엇을 골랐는지는 OS 가 알려주지 않는다. */
-  const share = async (requestId: string, file: BridgeFile, signal: AbortSignal) => {
+  const share = async (requestId: string, file: BridgeFile, signal: AbortSignal): Promise<void> => {
     let downloaded: File | undefined;
 
     try {
@@ -231,7 +193,7 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
     }
   };
 
-  const handle = (data: string) => {
+  const handle = (data: string): void => {
     const request = parseRequest(data);
 
     if (request === null) return;
@@ -266,7 +228,7 @@ export const createDownloadBridge = (send: (event: BridgeEvent) => void) => {
   };
 
   /** 웹뷰가 죽거나 화면이 내려가면 받던 것을 모두 그만둔다. 답을 받을 페이지가 없다. */
-  const cancelAll = () => {
+  const cancelAll = (): void => {
     running.forEach((controller) => controller.abort());
     running.clear();
   };

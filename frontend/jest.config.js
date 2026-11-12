@@ -4,6 +4,7 @@ module.exports = {
   roots: ["<rootDir>/src", "<rootDir>/cloudfront"],
   moduleFileExtensions: ["ts", "tsx", "js", "jsx", "mjs"],
   testMatch: ["**/?(*.)+(spec|test).[jt]s?(x)"],
+  testPathIgnorePatterns: ["/node_modules/", "\\.integration\\.test\\.[jt]sx?$"],
   transform: {
     "^.+\\.[cm]?[jt]sx?$": "babel-jest",
   },

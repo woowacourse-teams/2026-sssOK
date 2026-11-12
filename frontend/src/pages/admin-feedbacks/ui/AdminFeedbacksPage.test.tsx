@@ -1,3 +1,4 @@
+import type { UserEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
 import { render } from "../../../../test/renderWithToast";
@@ -20,7 +21,7 @@ const ADMIN_SESSION = {
   expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
 };
 
-const renderPage = () => {
+const renderPage = (): ReturnType<typeof createMemoryRouter> => {
   const queryClient = new QueryClient({
     // 실패를 그대로 화면까지 올려야 한다 — 재시도하면 에러 상태를 볼 수 없다.
     defaultOptions: { queries: { retry: false } },
@@ -36,22 +37,22 @@ const renderPage = () => {
   return router;
 };
 
-const respondWith = (status: number, body: Record<string, unknown>) => {
+const respondWith = (status: number, body: Record<string, unknown>): void => {
   server.use(
     http.get(`${API_BASE_URL}/admin/feedbacks`, () => HttpResponse.json(body, { status })),
   );
 };
 
 /** 첫 페이지가 다 그려질 때까지 기다린다. */
-const waitForFirstPage = async () => {
+const waitForFirstPage = async (): Promise<void> => {
   await screen.findByText(
     "사진 30장 올리는데 5분 넘게 걸렸어요. 중간에 멈춘 줄 알고 몇 번이나 껐다 켰습니다.",
   );
 };
 
-const chips = () => screen.getAllByRole("button", { name: /^fe-v/ });
+const chips = (): HTMLElement[] => screen.getAllByRole("button", { name: /^fe-v/ });
 
-const scrollToEnd = async () => {
+const scrollToEnd = async (): Promise<void> => {
   await act(async () => {
     triggerIntersection();
   });
@@ -225,7 +226,7 @@ describe("AdminFeedbacksPage", () => {
   describe("의견 상세", () => {
     const LONG_CONTENT_START = "업로드 중에 화면을 끄면 다시 처음부터 올라가요.";
 
-    const respondDetailWith = (status: number, body: Record<string, unknown>) => {
+    const respondDetailWith = (status: number, body: Record<string, unknown>): void => {
       server.use(
         http.get(`${API_BASE_URL}/admin/feedbacks/:feedbackId`, () =>
           HttpResponse.json(body, { status }),
@@ -233,7 +234,9 @@ describe("AdminFeedbacksPage", () => {
       );
     };
 
-    const openFeedback = async (content: RegExp | string) => {
+    const openFeedback = async (
+      content: RegExp | string,
+    ): Promise<{ user: UserEvent; dialog: HTMLElement }> => {
       const user = userEvent.setup();
 
       renderPage();
@@ -367,7 +370,7 @@ describe("AdminFeedbacksPage", () => {
   describe("담당자·처리 상태 (#562)", () => {
     const ZIP = "다운로드 눌렀는데 zip이 안 열려요";
 
-    const rowOf = (content: string) => {
+    const rowOf = (content: string): HTMLElement => {
       const row = screen
         .getAllByRole("listitem")
         .find((item) => item.textContent?.includes(content));
@@ -377,13 +380,13 @@ describe("AdminFeedbacksPage", () => {
       return row;
     };
 
-    const statusButton = (content: string) =>
+    const statusButton = (content: string): HTMLElement =>
       within(rowOf(content)).getByRole("button", { name: /^처리 상태 바꾸기/ });
 
-    const assigneeButton = (content: string) =>
+    const assigneeButton = (content: string): HTMLElement =>
       within(rowOf(content)).getByRole("button", { name: /^담당자 바꾸기/ });
 
-    const capturePatches = () => {
+    const capturePatches = (): { url: string; body: unknown }[] => {
       const patches: { url: string; body: unknown }[] = [];
 
       server.events.on("request:start", async ({ request }) => {
@@ -395,7 +398,7 @@ describe("AdminFeedbacksPage", () => {
       return patches;
     };
 
-    const tab = (name: string) =>
+    const tab = (name: string): HTMLElement =>
       screen.getByRole("button", { name: new RegExp(`^${name} \\d+건$`) });
 
     it("각 의견에 담당자와 처리 상태를 보여준다", async () => {

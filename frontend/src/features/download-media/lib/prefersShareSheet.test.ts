@@ -14,7 +14,7 @@ interface DeviceOptions {
   maxTouchPoints?: number;
 }
 
-const asDevice = ({ userAgent, fileShare, maxTouchPoints = 0 }: DeviceOptions) => {
+const asDevice = ({ userAgent, fileShare, maxTouchPoints = 0 }: DeviceOptions): void => {
   Object.defineProperty(navigator, "userAgent", {
     configurable: true,
     value: userAgent,

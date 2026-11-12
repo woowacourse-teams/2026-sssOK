@@ -98,16 +98,16 @@ export const withZipBytes = (
   { loaded, total }: { loaded: number; total: number },
 ): DownloadProgressState => ({ ...state, zipBytes: { loaded, total } });
 
-const clampPercent = (percent: number) => Math.min(Math.max(percent, 0), 100);
+const clampPercent = (percent: number): number => Math.min(Math.max(percent, 0), 100);
 
-export const loadedBytesOf = (state: DownloadProgressState) =>
+export const loadedBytesOf = (state: DownloadProgressState): number =>
   Object.values(state.loadedByMediaId).reduce((sum, loaded) => sum + loaded, 0);
 
 /**
  * 0~100 의 정수. **파일 수가 아니라 바이트 기준이다** — 업로드 바와 같은 이유로,
  * 3.4MB 사진과 80MB 영상을 같은 한 장으로 세면 바가 영상 구간에서 통째로 멈춘다.
  */
-export const percentOf = (state: DownloadProgressState) => {
+export const percentOf = (state: DownloadProgressState): number => {
   // 묶인 zip 을 받는 중이라면 그쪽이 지금 움직이는 유일한 값이다. 압축 진행률보다 뒤에 오므로
   // 먼저 본다 — 이걸 뒤에 두면 100% 로 끝난 `zipPercent` 에 가려 바가 다시 멈춘다.
   if (state.zipBytes !== null) {

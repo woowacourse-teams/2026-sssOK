@@ -1,3 +1,4 @@
+import type { UploadProgressSnapshot } from "./uploadProgress";
 import { useRef, useState } from "react";
 
 import { getAnalyticsRoom, track } from "@/shared/lib";
@@ -49,7 +50,11 @@ export const useMediaUpload = ({
   onPreviewReady,
   onSettled,
   onError,
-}: UseMediaUploadOptions) => {
+}: UseMediaUploadOptions): {
+  progress: UploadProgressSnapshot | null;
+  start: (files: File[]) => Promise<void>;
+  cancel: () => void;
+} => {
   const [progress, setProgress] = useState<UploadProgressState | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   /**
@@ -59,7 +64,7 @@ export const useMediaUpload = ({
    */
   const runIdRef = useRef(0);
 
-  const start = async (files: File[]) => {
+  const start = async (files: File[]): Promise<void> => {
     // 이미 한 판이 돌고 있다. 두 판을 겹치면 진행 바가 어느 쪽을 세는지 알 수 없다.
     if (files.length === 0 || abortRef.current !== null) {
       return;
@@ -71,8 +76,8 @@ export const useMediaUpload = ({
     runIdRef.current += 1;
 
     const runId = runIdRef.current;
-    const isCurrent = () => runIdRef.current === runId;
-    const update = (next: (state: UploadProgressState) => UploadProgressState) =>
+    const isCurrent = (): boolean => runIdRef.current === runId;
+    const update = (next: (state: UploadProgressState) => UploadProgressState): void =>
       setProgress((current) => (current === null || !isCurrent() ? current : next(current)));
 
     // 발급 왕복을 기다리지 않고 먼저 띄운다. 장수와 바이트는 잠정값이다.
@@ -135,7 +140,7 @@ export const useMediaUpload = ({
    * "올린 것을 무르는" 게 아니다 (#73 완료 조건). 그 왕복을 기다리느라 바를 남겨두면
    * 사용자는 취소가 안 먹은 걸로 본다.
    */
-  const cancel = () => {
+  const cancel = (): void => {
     abortRef.current?.abort();
     abortRef.current = null;
     runIdRef.current += 1;

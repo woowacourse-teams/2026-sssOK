@@ -6,8 +6,29 @@ import type { MediaItem } from "@/entities/media";
 import type { OrganizeResult } from "../api/types";
 import { SimilarReviewScreen } from "./SimilarReviewScreen";
 
-const photo = (mediaId: number) =>
-  ({ mediaId, fileName: `IMG_${mediaId}.jpg`, thumbnailUrl: `/t/${mediaId}.webp` }) as MediaItem;
+const photo = (
+  mediaId: number,
+): {
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  uploadedAt: string;
+  thumbnailUrl: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  status: "READY";
+  likeCount: number;
+  likedByMe: boolean;
+  thumbnailUrlExpiresAt?: string | null | undefined;
+  displayUrlExpiresAt?: string | null | undefined;
+} => ({ mediaId, fileName: `IMG_${mediaId}.jpg`, thumbnailUrl: `/t/${mediaId}.webp` }) as MediaItem;
 
 const resultOf = (sizes: number[]): OrganizeResult => {
   let next = 1;
@@ -36,7 +57,7 @@ const renderScreen = (
   sizes = [9, 5, 2],
   folderNames: string[] = [],
   { isSubmitting, submitError }: ScreenOptions = {},
-) => {
+): { onSubmit: ReturnType<typeof jest.fn>; onDismissError: ReturnType<typeof jest.fn> } => {
   const onSubmit = jest.fn();
   const onDismissError = jest.fn();
   render(
@@ -170,7 +191,7 @@ describe("SimilarReviewScreen", () => {
   });
 
   describe("이름 겹침", () => {
-    const nameInputs = () => screen.getAllByRole("textbox", { name: "폴더 이름" });
+    const nameInputs = (): HTMLElement[] => screen.getAllByRole("textbox", { name: "폴더 이름" });
 
     it("다른 모음과 같은 이름을 붙이면 합칠지 묻고, 합치면 모음 수가 줄고 합친 장수를 알린다", async () => {
       const user = userEvent.setup();

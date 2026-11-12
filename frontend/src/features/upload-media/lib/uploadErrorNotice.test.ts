@@ -4,7 +4,7 @@ import { UPLOAD_FALLBACK_MESSAGE, uploadErrorNoticeOf } from "./uploadErrorNotic
 describe("uploadErrorNoticeOf", () => {
   /** 사용자가 할 수 있는 일이 다르면 문구도 달라야 한다. */
   it("아는 사유는 사유마다 다른 말로 알린다", () => {
-    const messageOf = (status: number, code: string) =>
+    const messageOf = (status: number, code: string): string =>
       uploadErrorNoticeOf(new ApiError(status, code, "서버 문장")).message;
 
     expect(messageOf(403, "UPLOAD_NOT_ALLOWED")).toBe("방장만 사진을 올릴 수 있어요.");

@@ -1,3 +1,4 @@
+import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render as testingRender, screen } from "@testing-library/react";
@@ -39,7 +40,9 @@ const serverItem: GalleryItem = {
   folderIds: media.folderIds,
 };
 
-const render = (ui: ReactNode) => {
+const render = (
+  ui: ReactNode,
+): RenderResult<typeof import("@testing-library/dom/types/queries"), HTMLElement, HTMLElement> => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
@@ -115,6 +118,53 @@ describe("GalleryMediaCard", () => {
       "src",
       media.displayUrl,
     );
+  });
+
+  it("이미 썸네일을 보여 주던 카드는 URL이 갱신돼도 미리 받지 않고 src만 바꾼다", () => {
+    const originalImage = globalThis.Image;
+    const imageConstructor = jest.fn();
+
+    class MockImage {
+      src = "";
+      onload: (() => void) | null = null;
+
+      constructor() {
+        imageConstructor();
+      }
+    }
+
+    Object.defineProperty(globalThis, "Image", { configurable: true, value: MockImage });
+
+    const refreshedUrl = "https://cdn.example.com/photo-thumbnail.jpg?signature=refreshed";
+    const { rerender } = render(
+      <GalleryMediaCard
+        item={serverItem}
+        roomId={1}
+        userId={1}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
+    );
+    const thumbnail = screen.getByRole("img", { name: media.fileName });
+
+    rerender(
+      <GalleryMediaCard
+        item={{ ...serverItem, media: { ...media, thumbnailUrl: refreshedUrl } }}
+        roomId={1}
+        userId={1}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
+    );
+
+    expect(imageConstructor).not.toHaveBeenCalled();
+    expect(screen.getByRole("img", { name: media.fileName })).toBe(thumbnail);
+    expect(thumbnail).toHaveAttribute("src", refreshedUrl);
+    expect(thumbnail).toHaveAttribute("loading", "lazy");
+
+    Object.defineProperty(globalThis, "Image", { configurable: true, value: originalImage });
   });
 
   it("서버 썸네일이 준비될 때까지 같은 카드에서 로컬 미리보기를 유지한다", () => {

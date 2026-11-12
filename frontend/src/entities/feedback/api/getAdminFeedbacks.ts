@@ -1,3 +1,4 @@
+import { AdminFeedbackPageSchema } from "../model/types";
 import { apiClient } from "@/shared/api";
 import type { AdminFeedbackPage } from "../model/types";
 
@@ -9,7 +10,11 @@ interface GetAdminFeedbacksParams {
   size?: number;
 }
 
-export const getAdminFeedbacks = ({ token, cursor, size }: GetAdminFeedbacksParams) => {
+export const getAdminFeedbacks = ({
+  token,
+  cursor,
+  size,
+}: GetAdminFeedbacksParams): Promise<AdminFeedbackPage> => {
   const query = new URLSearchParams();
 
   // 안 보낸 것과 "빈 값을 보낸 것" 은 다르다 — 빈 값은 서버가 400 으로 돌려준다.
@@ -18,5 +23,8 @@ export const getAdminFeedbacks = ({ token, cursor, size }: GetAdminFeedbacksPara
 
   const search = query.toString();
 
-  return apiClient<AdminFeedbackPage>(`/admin/feedbacks${search ? `?${search}` : ""}`, { token });
+  return apiClient<AdminFeedbackPage>(`/admin/feedbacks${search ? `?${search}` : ""}`, {
+    schema: AdminFeedbackPageSchema,
+    token,
+  });
 };

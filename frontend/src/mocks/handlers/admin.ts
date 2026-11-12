@@ -54,13 +54,13 @@ let failureCount = 0;
 let lockedUntil: number | null = null;
 
 /** 테스트끼리 실패 횟수가 이어지지 않도록 되돌린다. */
-export const resetAdminLoginAttempts = () => {
+export const resetAdminLoginAttempts = (): void => {
   failureCount = 0;
   lockedUntil = null;
 };
 
 /** 429 를 바로 재현하고 싶을 때 쓴다 — 실패를 다섯 번 흉내 내지 않아도 된다. */
-export const lockAdminLogin = (seconds: number) => {
+export const lockAdminLogin = (seconds: number): void => {
   lockedUntil = Date.now() + seconds * 1000;
 };
 

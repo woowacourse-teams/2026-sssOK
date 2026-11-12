@@ -4,7 +4,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { ROUTES } from "@/shared/config";
 import { RoomClosedPage } from "./RoomClosedPage";
 
-const renderPage = () => {
+const renderPage = (): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(
     [
       { path: ROUTES.closedRoom, element: <RoomClosedPage /> },

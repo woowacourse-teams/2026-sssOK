@@ -15,7 +15,12 @@ export const PREVIEW_STEP_DURATIONS_MS = [3100, 2300, 3600] as const;
  * `step` 이 `null` 이고, 그때는 세 단계를 한꺼번에 정적으로 보여준다.
  * `round` 는 단계를 고를 때마다 바뀌어, 진행 막대와 장면을 처음부터 다시 트는 데 쓴다.
  */
-export const usePreviewStep = () => {
+export const usePreviewStep = (): {
+  step: number | null;
+  goTo: (next: number) => void;
+  round: number;
+  reducedMotion: boolean;
+} => {
   const stepCount = PREVIEW_STEP_DURATIONS_MS.length;
   const reducedMotion = usePrefersReducedMotion();
   const [step, setStep] = useState(0);
@@ -31,7 +36,7 @@ export const usePreviewStep = () => {
     return () => window.clearTimeout(timer);
   }, [reducedMotion, stepCount, step, round]);
 
-  const goTo = (next: number) => {
+  const goTo = (next: number): void => {
     setStep(next);
     setHasPicked(true);
     setRound((current) => current + 1);

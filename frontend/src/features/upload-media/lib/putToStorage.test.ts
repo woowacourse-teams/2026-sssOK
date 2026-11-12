@@ -11,7 +11,7 @@ interface Issued {
 }
 
 /** 업로드는 참여자만 부를 수 있어서 모든 흐름이 입장부터 시작한다. */
-const enterRoom = async () => {
+const enterRoom = async (): Promise<void> => {
   await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
@@ -32,7 +32,7 @@ const issueOne = async (fileName = "제주-해변.jpg"): Promise<Issued> => {
   return (await response.json()).data.issued[0] as Issued;
 };
 
-const imageFile = (fileName = "제주-해변.jpg") =>
+const imageFile = (fileName = "제주-해변.jpg"): File =>
   new File(["사진 바이트"], fileName, { type: "image/jpeg" });
 
 describe("putToStorage", () => {

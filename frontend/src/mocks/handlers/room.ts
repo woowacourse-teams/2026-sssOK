@@ -1,3 +1,5 @@
+import type { JsonBodyType } from "msw";
+import type { RoomFolder } from "@/entities/room/model/types";
 import { http, HttpResponse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
@@ -17,7 +19,6 @@ import {
  * backend 의 RoomCode 값 객체와 같은 규칙이다.
  */
 const ROOM_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
-const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
 
 /** 시나리오별 고정 코드. 테스트와 수동 확인에서 함께 쓴다. */
 export const MOCK_ROOM_CODES = {
@@ -49,25 +50,6 @@ const ROOM_IDS: Record<string, number> = {
   [MOCK_ROOM_CODES.purged]: 5036,
 };
 
-const ROOM_EXPIRY_HOURS: Record<string, 24 | 72> = {
-  [MOCK_ROOM_CODES.active]: 24,
-  [MOCK_ROOM_CODES.second]: 72,
-  [MOCK_ROOM_CODES.hostOnly]: 24,
-};
-
-const createRoomExpiresAt = () => {
-  const now = Date.now();
-
-  return Object.fromEntries(
-    Object.entries(ROOM_EXPIRY_HOURS).map(([code, expiryHours]) => [
-      code,
-      new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
-    ]),
-  ) as Record<string, string>;
-};
-
-let roomExpiresAt = createRoomExpiresAt();
-
 /**
  * 방마다 가진 폴더. backend `RoomFolderResponse` 와 같은 모양이다.
  * 업로드 목이 발급 요청의 folderIds 를 이 목록과 대조한다.
@@ -85,7 +67,7 @@ const ROOM_FOLDERS: Record<
 };
 const DETACHED_PHOTO_COUNTS: Record<string, number> = {};
 
-const foldersOf = (code: string) => ROOM_FOLDERS[code] ?? [];
+const foldersOf = (code: string): RoomFolder[] => ROOM_FOLDERS[code] ?? [];
 
 /** 기본 방(active)의 폴더 번호. 테스트와 수동 확인이 쓴다. */
 export const MOCK_FOLDER_IDS = foldersOf(MOCK_ROOM_CODES.active).map((folder) => folder.id);
@@ -98,13 +80,13 @@ const UPLOAD_POLICIES: Record<string, "everyone" | "host"> = {
   [MOCK_ROOM_CODES.hostOnly]: "host",
 };
 
-const uploadPolicyOf = (code: string) => UPLOAD_POLICIES[code] ?? "everyone";
+const uploadPolicyOf = (code: string): "everyone" | "host" => UPLOAD_POLICIES[code] ?? "everyone";
 
 /** 기본 방(active) 번호. 업로드 목과 수동 확인이 이 방을 쓴다. */
 export const MOCK_ROOM_ID = ROOM_IDS[MOCK_ROOM_CODES.active];
 
 /** 방 번호 → 코드. zip 파일명이 코드를 쓴다 (`ShareDrop_{roomCode}.zip`). */
-export const roomCodeOfId = (roomId: number) =>
+export const roomCodeOfId = (roomId: number): string | null =>
   Object.entries(ROOM_IDS).find(([, id]) => id === roomId)?.[0] ?? null;
 
 /** 들어갈 수 있는 방. 만료·삭제된 방은 여기 없다. */
@@ -114,13 +96,13 @@ const ACTIVE_ROOM_CODES = [
   MOCK_ROOM_CODES.hostOnly,
 ] as string[];
 
-const isActiveRoomCode = (code: string) => ACTIVE_ROOM_CODES.includes(code);
+const isActiveRoomCode = (code: string): boolean => ACTIVE_ROOM_CODES.includes(code);
 
-const codeOfRoomId = (roomId: number) =>
+const codeOfRoomId = (roomId: number): string | null =>
   Object.keys(ROOM_IDS).find((code) => ROOM_IDS[code] === roomId) ?? null;
 
 /** 업로드처럼 방 번호로 들어오는 요청이 열려 있는 방을 가리키는지 본다. */
-export const isActiveRoomId = (roomId: number) =>
+export const isActiveRoomId = (roomId: number): boolean =>
   ACTIVE_ROOM_CODES.some((code) => ROOM_IDS[code] === roomId);
 
 /**
@@ -150,14 +132,14 @@ export const roomStatusOfId = (roomId: number): RoomStatus | null => {
 };
 
 /** 업로드 목이 발급 요청의 folderIds 를 확인할 때 쓴다. 모르는 방이면 폴더도 없다. */
-export const hasFolder = (roomId: number, folderId: number) => {
+export const hasFolder = (roomId: number, folderId: number): boolean => {
   const code = codeOfRoomId(roomId);
 
   return code !== null && foldersOf(code).some((folder) => folder.id === folderId);
 };
 
 /** 방 번호로 업로드 권한을 본다. 모르는 번호면 null 이다. */
-export const uploadPolicyOfId = (roomId: number) => {
+export const uploadPolicyOfId = (roomId: number): "everyone" | "host" | null => {
   const code = codeOfRoomId(roomId);
 
   return code === null ? null : uploadPolicyOf(code);
@@ -173,17 +155,32 @@ interface ActiveRoomOverrides {
   name?: string;
   status?: RoomStatus;
   uploadPolicy?: "everyone" | "host";
-  expiresAt?: string;
 }
 
 let activeRoomOverrides: ActiveRoomOverrides = {};
 
-const room = (code: string, status: RoomStatus, joined = false) => {
+const room = (
+  code: string,
+  status: RoomStatus,
+  joined = false,
+): {
+  roomId: number;
+  code: string;
+  name: string;
+  status: RoomStatus;
+  hostId: number;
+  hostName: string;
+  uploadPolicy: "everyone" | "host";
+  joined: boolean;
+  createdAt: string;
+  photoCount: number;
+  folders: { photoCount: number; id: number; name: string; createdAt: string }[];
+} => {
   const roomId = ROOM_IDS[code];
   const uploaded = registeredMediaOf(roomId);
   const seeded = roomId === MOCK_ROOM_ID ? mediaItems : [];
-  const countChange = (folderId?: number) => {
-    const inFolder = (media: MockMedia) =>
+  const countChange = (folderId?: number): number => {
+    const inFolder = (media: MockMedia): boolean =>
       folderId === undefined || media.folderIds.includes(folderId);
     return (
       uploaded.filter(inFolder).length -
@@ -201,11 +198,8 @@ const room = (code: string, status: RoomStatus, joined = false) => {
     hostName: "민수",
     uploadPolicy: uploadPolicyOf(code),
     joined,
+    myNickname: joined ? "민수" : null,
     createdAt: "2026-08-18T05:30:00Z",
-    expiresAt:
-      status === "ACTIVE"
-        ? roomExpiresAt[code]
-        : new Date(Date.now() - 24 * HOUR_IN_MILLISECONDS).toISOString(),
     /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
     photoCount: Math.max(
       0,
@@ -385,25 +379,25 @@ const readJoinedRooms = (): Set<string> => {
   }
 };
 
-const writeJoinedRooms = (rooms: Set<string>) =>
+const writeJoinedRooms = (rooms: Set<string>): void =>
   localStorage.setItem(JOINED_ROOMS_KEY, JSON.stringify([...rooms]));
 
 /** 토큰마다 따로 센다. 방 번호로 남겨야 조회 핸들러와 키가 맞는다. */
-const joinKey = (token: string, roomId: number) => `${token}:${roomId}`;
+const joinKey = (token: string, roomId: number): string => `${token}:${roomId}`;
 
 /**
  * 방에 있는 미디어 전부. **이번 세션에 올린 것이 앞에 온다** —
  * 갤러리는 최신순이고, 방금 올린 사진이 맨 위여야 한다.
  * 다운로드 목도 mediaId 로 원본을 찾을 때 이걸 쓴다.
  */
-export const mediaOfRoom = (roomId: number) =>
+export const mediaOfRoom = (roomId: number): GalleryMedia[] =>
   (roomId === MOCK_ROOM_ID
     ? [...registeredMediaOf(roomId), ...mediaItems]
     : registeredMediaOf(roomId)
   ).filter((media) => !isDeletedMedia(roomId, media.mediaId));
 
 /** 이 방에 같은 이름의 폴더가 있는지. 정리 반영 목이 충돌을 미리 거른다. */
-export const hasFolderNamed = (roomId: number, name: string) => {
+export const hasFolderNamed = (roomId: number, name: string): boolean => {
   const code = codeOfRoomId(roomId);
   return code !== null && foldersOf(code).some((folder) => folder.name === name);
 };
@@ -412,7 +406,11 @@ export const hasFolderNamed = (roomId: number, name: string) => {
  * 폴더를 만들고 사진을 담는다. 정리 반영 목이 쓴다.
  * 방 조회는 이번 세션에 올린 사진만 폴더 사진 수에 더해 세므로, 처음부터 있던 사진 수만 저장해 둔다.
  */
-export const createFolderWithMedia = (roomId: number, name: string, mediaIds: number[]) => {
+export const createFolderWithMedia = (
+  roomId: number,
+  name: string,
+  mediaIds: number[],
+): RoomFolder | null => {
   const code = codeOfRoomId(roomId);
   if (code === null) return null;
 
@@ -432,14 +430,13 @@ export const createFolderWithMedia = (roomId: number, name: string, mediaIds: nu
 };
 
 /** 테스트끼리 입장 기록이 이어지지 않도록 되돌린다. */
-export const resetJoinedRooms = () => localStorage.removeItem(JOINED_ROOMS_KEY);
+export const resetJoinedRooms = (): void => localStorage.removeItem(JOINED_ROOMS_KEY);
 
-export const resetRoomHandlers = () => {
+export const resetRoomHandlers = (): void => {
   resetJoinedRooms();
   resetDeletedMedia();
   resetMediaLikes();
   activeRoomOverrides = {};
-  roomExpiresAt = createRoomExpiresAt();
   ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
   DETACHED_PHOTO_COUNTS[MOCK_ROOM_CODES.active] = 0;
 };
@@ -449,7 +446,7 @@ const DEFAULT_MEDIA_PAGE_SIZE = 30;
 const MAX_MEDIA_PAGE_SIZE = 100;
 const UPLOADER_FILTERS = ["ALL", "ME", "OTHERS"];
 
-const invalidParameter = (name: string) =>
+const invalidParameter = (name: string): HttpResponse<JsonBodyType> =>
   HttpResponse.json(
     { code: "INVALID_REQUEST_PARAMETER", message: `${name} 값의 형식이 올바르지 않습니다` },
     { status: 400 },
@@ -459,7 +456,7 @@ const invalidParameter = (name: string) =>
  * 커서가 묶이는 조회 조건. 실제 서버는 이것을 서명해 넣지만 목은 읽을 수 있게 그대로 둔다.
  * `폴더|업로더|회원|마지막 mediaId` 모양이다.
  */
-const cursorScopeOf = (folderId: number | null, uploader: string, memberId: number) =>
+const cursorScopeOf = (folderId: number | null, uploader: string, memberId: number): string =>
   `${folderId ?? "all"}|${uploader}|${memberId}`;
 
 const splitCursor = (cursor: string): [string, number | null] => {
@@ -472,7 +469,7 @@ const splitCursor = (cursor: string): [string, number | null] => {
   ];
 };
 
-const unauthorized = () =>
+const unauthorized = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code: "UNAUTHORIZED", message: "인증이 필요합니다." }, { status: 401 });
 
 /** 목 인증(`POST /auth/anonymous`)이 내주는 토큰 모양. */
@@ -486,17 +483,17 @@ const TOKEN_PATTERN = /^Bearer mock-token-\d+$/;
  * 헤더가 아예 없는 것은 여기서 가리지 않는다. 방 조회처럼 비로그인도 부를 수 있는 API 가 있어
  * "안 보낸 것" 과 "잘못 보낸 것" 의 처리가 다르다.
  */
-const isBrokenToken = (authorization: string | null) =>
+const isBrokenToken = (authorization: string | null): boolean =>
   authorization !== null && !TOKEN_PATTERN.test(authorization);
 
-const roomNotFound = () =>
+const roomNotFound = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json(
     { code: "ROOM_NOT_FOUND", message: "존재하지 않는 방입니다." },
     { status: 404 },
   );
 
 /** 업로드처럼 참여자만 부를 수 있는 API 가 입장 여부를 확인할 때 쓴다. */
-export const hasJoinedRoom = (token: string, roomId: number) =>
+export const hasJoinedRoom = (token: string, roomId: number): boolean =>
   readJoinedRooms().has(joinKey(token, roomId));
 
 export const roomHandlers = [
@@ -850,8 +847,10 @@ export const roomHandlers = [
           hostId: MOCK_HOST_ID,
           hostName: "민수",
           createdAt: new Date(now).toISOString(),
-          expiresAt: new Date(now + 24 * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
+          status: "ACTIVE",
+          joined: true,
+          myNickname: "민수",
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,
           folders: [],
@@ -904,10 +903,7 @@ export const roomHandlers = [
 
     return HttpResponse.json({
       data: {
-        code: MOCK_ROOM_CODES.active,
-        status: "DELETED",
         deletedAt: "2026-08-18T07:00:00Z",
-        purgeAt: "2026-08-25T07:00:00Z",
       },
     });
   }),

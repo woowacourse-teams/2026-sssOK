@@ -71,18 +71,47 @@ jobs:
       - name: ESLint 검사
         run: pnpm lint
 
+      - name: TypeScript 타입 검사
+        run: pnpm type-check
+
+      - name: 팀 린트 규칙 테스트
+        run: node --test eslint-rules/*.test.cjs
+
       - name: 테스트
         run: pnpm test --ci
 
-      - name: 타입 검사 및 프로덕션 빌드
+      - name: 프로덕션 빌드
         env:
           # CI 산출물은 배포하지 않는다. 설정 누락 검증을 통과할 비라우팅 주소만 주입한다.
           API_BASE_URL: https://example.invalid/api/v1
-        run: pnpm build
+        run: pnpm exec webpack --mode production
+
+  mobile-ci:
+    name: 모바일 타입 및 린트 검증
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: frontend/mobile/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm type-check
+      - run: pnpm lint
 
   ci-ok:
     name: 프론트엔드 CI 결과
-    needs: [ changes, frontend-ci ]
+    needs: [changes, frontend-ci, mobile-ci]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -91,8 +120,16 @@ jobs:
       # 체크가 안 생겨 머지가 막힌다.
       - name: 결과 판정
         run: |
-          if [ "${{ needs.frontend-ci.result }}" = "failure" ]; then
+          if [ "${{ needs.changes.result }}" != "success" ]; then
+            echo "::error::변경 경로 확인 실패"
+            exit 1
+          fi
+          if [ "${{ needs.frontend-ci.result }}" != "success" ] && [ "${{ needs.frontend-ci.result }}" != "skipped" ]; then
             echo "::error::프론트엔드 검증 실패"
+            exit 1
+          fi
+          if [ "${{ needs.mobile-ci.result }}" != "success" ] && [ "${{ needs.mobile-ci.result }}" != "skipped" ]; then
+            echo "::error::모바일 검증 실패"
             exit 1
           fi
           echo "통과 (frontend 변경 여부: ${{ needs.changes.outputs.frontend }}, 결과: ${{ needs.frontend-ci.result }})"

@@ -10,7 +10,7 @@ import { routes } from "@/app/routes";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
 
-const renderRoomList = () => {
+const renderRoomList = (): ReturnType<typeof createMemoryRouter> => {
   server.use(
     http.post(`${API_BASE_URL}/auth/refresh`, () =>
       HttpResponse.json({
@@ -48,7 +48,7 @@ const renderRoomList = () => {
   return router;
 };
 
-const cardOf = async (name: string) =>
+const cardOf = async (name: string): Promise<HTMLElement> =>
   (await screen.findByRole("link", { name: new RegExp(name) })).closest("li") as HTMLElement;
 
 describe("방 목록 화면", () => {
@@ -157,22 +157,33 @@ describe("방 목록 화면", () => {
       await screen.findByRole("heading", { name: "아직 들어간 방이 없어요" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "방 만들기" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "링크로 참여" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "링크·코드로 참여" })).toBeInTheDocument();
   });
 
-  it("붙여넣은 초대 링크로 들어가면 링크 입장 흐름으로 간다", async () => {
+  it("붙여넣은 초대 링크로 안내 화면 없이 방 입장 화면에 들어간다", async () => {
     const user = userEvent.setup();
     const router = renderRoomList();
 
-    await user.click(await screen.findByRole("button", { name: "링크로 참여" }));
+    await user.click(await screen.findByRole("button", { name: "링크·코드로 참여" }));
 
-    const input = screen.getByLabelText("초대 링크");
+    const input = screen.getByLabelText("방 코드 또는 초대 링크");
     await user.type(input, "https://example.com/nope");
     await user.click(screen.getByRole("button", { name: "들어가기" }));
-    expect(screen.getByText(/쏙 초대 링크가 아니에요/)).toBeInTheDocument();
+    expect(screen.getByText("방 코드나 링크를 다시 확인해 주세요.")).toBeInTheDocument();
 
     await user.clear(input);
     await user.type(input, "https://ssok.app/join/7K93QX2S");
+    await user.click(screen.getByRole("button", { name: "들어가기" }));
+
+    expect(router.state.location.pathname).toBe(ROUTES.roomEntry("7K93QX2S"));
+  });
+
+  it("소문자로 입력한 방 코드로도 방 입장 화면에 들어간다", async () => {
+    const user = userEvent.setup();
+    const router = renderRoomList();
+
+    await user.click(await screen.findByRole("button", { name: "링크·코드로 참여" }));
+    await user.type(screen.getByLabelText("방 코드 또는 초대 링크"), "7k93qx2s");
     await user.click(screen.getByRole("button", { name: "들어가기" }));
 
     expect(router.state.location.pathname).toBe(ROUTES.roomEntry("7K93QX2S"));

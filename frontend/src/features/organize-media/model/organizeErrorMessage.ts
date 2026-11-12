@@ -27,7 +27,7 @@ export const ORGANIZE_ERROR_CODES = {
   resultExpired: "ORGANIZE_RESULT_EXPIRED",
 } as const;
 
-export const waitText = (seconds: number) => {
+export const waitText = (seconds: number): string => {
   if (seconds < 60) return `${Math.max(1, Math.ceil(seconds))}초`;
   const minutes = Math.ceil(seconds / 60);
   return minutes < 60 ? `${minutes}분` : `${Math.ceil(minutes / 60)}시간`;
@@ -35,7 +35,7 @@ export const waitText = (seconds: number) => {
 
 const FALLBACK = "정리를 시작하지 못했어요. 잠시 뒤 다시 시도해 주세요.";
 
-export const organizeErrorMessage = (error: unknown) => {
+export const organizeErrorMessage = (error: unknown): string => {
   if (!isApiError(error)) return FALLBACK;
 
   switch (error.code) {
@@ -66,7 +66,7 @@ export const organizeErrorMessage = (error: unknown) => {
 };
 
 /** 작업을 멈추거나 결과를 취소하지 못했을 때 보여 줄 문구. 네트워크 탓이면 연결을 먼저 확인하게 한다. */
-export const cancelErrorMessage = (error: unknown, fallback: string) =>
+export const cancelErrorMessage = (error: unknown, fallback: string): string =>
   isApiError(error) && error.status === 0 ? "네트워크 연결을 확인해 주세요." : fallback;
 
 const APPLY_FALLBACK = "폴더를 만들지 못했어요. 다시 시도해 주세요.";
@@ -75,7 +75,7 @@ const APPLY_FALLBACK = "폴더를 만들지 못했어요. 다시 시도해 주�
  * 반영이 끝난 것으로 봐야 하는 거절. 이미 반영됐거나 검토할 수 없게 돼, 다시 눌러도 같은 답이 온다.
  * 이때는 화면을 붙잡지 않고 현재 상태를 다시 읽는다.
  */
-export const isApplyClosed = (error: unknown) =>
+export const isApplyClosed = (error: unknown): boolean =>
   isApiError(error) &&
   (
     [
@@ -87,7 +87,15 @@ export const isApplyClosed = (error: unknown) =>
   ).includes(error.code);
 
 /** 폴더 반영을 거절당했을 때 검토 화면에 띄울 문구. 서버는 어느 경우에도 일부만 반영하지 않는다. */
-export const applyErrorMessage = (error: unknown) => {
+export const applyErrorMessage = (
+  error: unknown,
+):
+  | "네트워크 연결을 확인해 주세요."
+  | "폴더를 만들지 못했어요. 다시 시도해 주세요."
+  | "같은 이름의 폴더가 이미 있어요. 이름을 바꿔 주세요."
+  | "그사이 지워진 사진이 있어요. 결과를 다시 불러와 주세요."
+  | "이미 폴더로 만든 결과예요."
+  | "확인할 수 있는 시간이 지났어요. 다시 정리해 주세요." => {
   if (!isApiError(error)) return APPLY_FALLBACK;
 
   switch (error.code) {

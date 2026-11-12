@@ -9,7 +9,12 @@ interface Params {
   mediaIds: number[];
 }
 
-export const updateMediaDeletedCache = ({ queryClient, roomId, userId, mediaIds }: Params) => {
+export const updateMediaDeletedCache = ({
+  queryClient,
+  roomId,
+  userId,
+  mediaIds,
+}: Params): void => {
   const deletedIds = new Set(mediaIds);
 
   queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) =>

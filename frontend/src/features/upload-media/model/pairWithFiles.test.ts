@@ -1,7 +1,7 @@
 import type { IssuedUpload, RejectedFile } from "../api/types";
 import { pairWithFiles } from "./pairWithFiles";
 
-const file = (fileName: string) => new File(["사진"], fileName, { type: "image/jpeg" });
+const file = (fileName: string): File => new File(["사진"], fileName, { type: "image/jpeg" });
 
 const issuedFor = (mediaId: number, fileName: string): IssuedUpload => ({
   mediaId,
@@ -14,12 +14,12 @@ const issuedFor = (mediaId: number, fileName: string): IssuedUpload => ({
 
 const rejectedFor = (fileName: string): RejectedFile => ({
   fileName,
-  code: "UNSUPPORTED_FILE_TYPE",
+  code: "UNSUPPORTED_MEDIA_TYPE",
   message: "지원하지 않는 파일 형식입니다",
 });
 
 /** 어떤 파일이 어떤 mediaId 로 갔는지만 본다. */
-const pairsOf = (...args: Parameters<typeof pairWithFiles>) =>
+const pairsOf = (...args: Parameters<typeof pairWithFiles>): (string | number)[][] =>
   pairWithFiles(...args).map((target) => [target.file.name, target.issued.mediaId]);
 
 describe("pairWithFiles", () => {

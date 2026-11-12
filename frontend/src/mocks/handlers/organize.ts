@@ -1,3 +1,5 @@
+import type { JsonBodyType } from "msw";
+import type { HttpHandler } from "msw";
 import { http, HttpResponse, sse } from "msw";
 
 import { API_BASE_URL } from "@/shared/config";
@@ -43,12 +45,12 @@ const jobs = new Map<string, MockJob>();
 let sequence = 0;
 
 const TOKEN_PATTERN = /^(?:Bearer )?mock-token-(\d+)$/;
-const memberIdOf = (token: string | null) => {
+const memberIdOf = (token: string | null): number | null => {
   const matched = token === null ? null : TOKEN_PATTERN.exec(token);
   return matched === null ? null : Number(matched[1]);
 };
 
-const error = (status: number, code: string, message: string) =>
+const error = (status: number, code: string, message: string): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code, message }, { status });
 
 const scenarioOf = (): Scenario => {
@@ -71,7 +73,11 @@ const STAGES: Record<MockJob["kind"], readonly string[]> = {
   SIMILAR: ["downloading_photos", "extracting_scene_features", "matching_similar_photos"],
 };
 
-const progressOf = (kind: MockJob["kind"], processed: number, total: number) => {
+const progressOf = (
+  kind: MockJob["kind"],
+  processed: number,
+  total: number,
+): { stage: string; processed: number; total: number; unit: string } => {
   const stages = STAGES[kind];
   const size = Math.ceil(total / stages.length);
   const index = Math.min(stages.length - 1, Math.floor(processed / size));
@@ -83,7 +89,29 @@ const progressOf = (kind: MockJob["kind"], processed: number, total: number) => 
 const WAITING = { stage: "waiting", processed: null, total: null, unit: null };
 
 /** 지금 시각의 작업 상태. 버전은 상태·처리 수가 바뀔 때마다 커지도록 계산한다. */
-const snapshot = (job: MockJob, now = Date.now()) => {
+const snapshot = (
+  job: MockJob,
+  now = Date.now(),
+): {
+  retryable: boolean;
+  retryAvailableAt: null;
+  reviewExpiresAt: string | null;
+  resultExpiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  failureCode?: string | undefined;
+  progress?:
+    | { stage: string; processed: number; total: number; unit: string }
+    | { stage: string; processed: null; total: null; unit: null }
+    | undefined;
+  jobId: string;
+  status: "READY" | "FAILED" | "QUEUED" | "RUNNING" | "CANCELED" | "APPLIED";
+  kind: "PERSON" | "SIMILAR";
+  photoCount: number;
+  excludedCount: number;
+  attempt: number;
+  jobVersion: number;
+} => {
   const total = job.photoIds.length;
   const elapsed = now - job.startedAt;
   const stopAt = job.scenario === "fail" ? Math.round(total * 0.55) : total;
@@ -138,18 +166,24 @@ const snapshot = (job: MockJob, now = Date.now()) => {
 };
 
 /** READY 는 검토 기한 동안 방을 점유한다. */
-const holdsRoom = (job: MockJob) => {
+const holdsRoom = (job: MockJob): boolean => {
   const { status } = snapshot(job);
   return status === "QUEUED" || status === "RUNNING" || status === "READY";
 };
 
-const roomJobs = (roomId: number) => [...jobs.values()].filter((job) => job.roomId === roomId);
-const roomBusyOf = (roomId: number) => roomJobs(roomId).some(holdsRoom);
+const roomJobs = (roomId: number): MockJob[] =>
+  [...jobs.values()].filter((job) => job.roomId === roomId);
+const roomBusyOf = (roomId: number): boolean => roomJobs(roomId).some(holdsRoom);
 /** 방 점유가 바뀔 때마다 오르는 버전. 목은 작업마다 점유 시작·해제를 한 번씩 센다. */
-const roomVersionOf = (roomId: number) =>
+const roomVersionOf = (roomId: number): number =>
   roomJobs(roomId).reduce((sum, job) => sum + (holdsRoom(job) ? 1 : 2), 0);
 
-const guard = (request: Request, roomId: number) => {
+const guard = (
+  request: Request,
+  roomId: number,
+):
+  | { denied: HttpResponse<JsonBodyType>; memberId?: undefined }
+  | { memberId: number; denied?: undefined } => {
   const token = request.headers.get("Authorization");
   const memberId = memberIdOf(token);
   if (token === null || memberId === null) {
@@ -162,7 +196,13 @@ const guard = (request: Request, roomId: number) => {
 };
 
 /** 없는 작업·다른 방·다른 사람의 작업은 모두 404 다. */
-const myJobOf = (request: Request, roomId: number, jobId: string) => {
+const myJobOf = (
+  request: Request,
+  roomId: number,
+  jobId: string,
+):
+  | { denied: HttpResponse<JsonBodyType> | undefined; job?: undefined }
+  | { job: MockJob; denied?: undefined } => {
   const checked = guard(request, roomId);
   if ("denied" in checked) return { denied: checked.denied };
   const job = jobs.get(jobId);
@@ -172,7 +212,11 @@ const myJobOf = (request: Request, roomId: number, jobId: string) => {
   return { job };
 };
 
-const startJob = (request: Request, roomId: number, kind: MockJob["kind"]) => {
+const startJob = (
+  request: Request,
+  roomId: number,
+  kind: MockJob["kind"],
+): HttpResponse<JsonBodyType> | undefined => {
   const checked = guard(request, roomId);
   if ("denied" in checked) return checked.denied;
   if (!request.headers.get("Idempotency-Key")) {
@@ -217,7 +261,7 @@ const startJob = (request: Request, roomId: number, kind: MockJob["kind"]) => {
 
 const BASE = `${API_BASE_URL}/rooms/:roomId/organize-jobs`;
 
-export const resetOrganizeJobs = () => {
+export const resetOrganizeJobs = (): void => {
   jobs.clear();
   sequence = 0;
 };
@@ -393,7 +437,7 @@ export const organizeHandlers = [
  * 방 SSE. 지금까지 목은 방 SSE 를 흉내내지 않았다. 정리 이벤트 두 가지만 보낸다.
  * EventSource 가 없는 jest 에서는 msw 가 핸들러를 만들지 못해 브라우저 워커에만 붙인다.
  */
-export const createRoomEventHandler = () =>
+export const createRoomEventHandler = (): HttpHandler =>
   sse<{ "organize.room.changed": string; "organize.job.updated": string }>(
     `${API_BASE_URL}/rooms/:roomId/events`,
     ({ client, request, params }) => {
@@ -403,7 +447,7 @@ export const createRoomEventHandler = () =>
       let lastRoomVersion = -1;
       const lastJobVersions = new Map<string, number>();
 
-      const tick = () => {
+      const tick = (): void => {
         const roomVersion = roomVersionOf(roomId);
         if (roomVersion !== lastRoomVersion) {
           lastRoomVersion = roomVersion;

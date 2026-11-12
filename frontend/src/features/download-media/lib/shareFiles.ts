@@ -13,7 +13,7 @@
  * `navigator.share` 가 있어도 **파일**은 못 받는 기기가 있어서(맥 크롬 등),
  * 실제 파일로 `canShare` 를 물어봐야 한다. 빈 배열로 물으면 항상 거짓이라 표본을 하나 넣는다.
  */
-export const canShareFiles = () => {
+export const canShareFiles = (): boolean => {
   if (typeof navigator === "undefined" || typeof navigator.canShare !== "function") {
     return false;
   }
@@ -35,13 +35,14 @@ export type ShareFilesResult =
   /** 사용자 제스처가 만료돼 시트를 열지 못했다. 탭 한 번을 더 받으면 열린다. */
   | { type: "blocked" };
 
-const isAbortError = (error: unknown) => error instanceof Error && error.name === "AbortError";
+const isAbortError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "AbortError";
 
 /**
  * 사파리는 제스처가 만료된 뒤의 `share` 를 `NotAllowedError` 로 거절한다.
  * 여러 장을 받느라 몇 초가 걸리면 전체 선택에서 거의 항상 여기에 닿는다.
  */
-const isNotAllowedError = (error: unknown) =>
+const isNotAllowedError = (error: unknown): boolean =>
   error instanceof Error && error.name === "NotAllowedError";
 
 /**

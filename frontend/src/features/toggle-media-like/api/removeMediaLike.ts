@@ -1,3 +1,4 @@
+import { MediaLikeResponseSchema } from "./types";
 import { apiClient } from "@/shared/api";
 import type { MediaLikeResponse } from "./types";
 
@@ -7,8 +8,13 @@ interface RemoveMediaLikeParams {
   token: string;
 }
 
-export const removeMediaLike = ({ roomId, mediaId, token }: RemoveMediaLikeParams) =>
+export const removeMediaLike = ({
+  roomId,
+  mediaId,
+  token,
+}: RemoveMediaLikeParams): Promise<MediaLikeResponse> =>
   apiClient<MediaLikeResponse>(`/rooms/${roomId}/media/${mediaId}/likes`, {
+    schema: MediaLikeResponseSchema,
     method: "DELETE",
     token,
     errorTracking: {

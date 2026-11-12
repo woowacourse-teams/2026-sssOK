@@ -17,7 +17,9 @@ const formValues = {
   uploadPolicy: "host",
 } satisfies CreateRoomFormValues;
 
-const createWrapper = (member?: MemberSession) => {
+const createWrapper = (
+  member?: MemberSession,
+): (({ children }: { children: ReactNode }) => import("react").ReactElement) => {
   const queryClient = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -46,7 +48,20 @@ describe("useCreateRoomMutation", () => {
       }),
       http.post(`${API_BASE_URL}/rooms`, async ({ request }) => {
         create(request.headers.get("Authorization"), await request.json());
-        return HttpResponse.json({ data: { code: "TESTROOM" } }, { status: 201 });
+        return HttpResponse.json(
+          {
+            data: {
+              code: "TESTROOM",
+              roomId: 5031,
+              name: "테스트 방",
+              hostId: 10234,
+              hostName: "민수",
+              createdAt: "2026-11-01T00:00:00Z",
+              uploadPolicy: "everyone",
+            },
+          },
+          { status: 201 },
+        );
       }),
     );
     const member: MemberSession = {
@@ -123,7 +138,20 @@ describe("useCreateRoomMutation", () => {
           uploadPolicy: formValues.uploadPolicy,
           nickname: formValues.nickname,
         });
-        return HttpResponse.json({ data: { code: "TESTROOM" } }, { status: 201 });
+        return HttpResponse.json(
+          {
+            data: {
+              code: "TESTROOM",
+              roomId: 5031,
+              name: "테스트 방",
+              hostId: 10234,
+              hostName: "민수",
+              createdAt: "2026-11-01T00:00:00Z",
+              uploadPolicy: "everyone",
+            },
+          },
+          { status: 201 },
+        );
       }),
     );
     const { result } = renderHook(() => useCreateRoomMutation(), { wrapper: createWrapper() });

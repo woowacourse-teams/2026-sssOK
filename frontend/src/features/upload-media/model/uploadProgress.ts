@@ -77,14 +77,14 @@ export const withUploaded = (
   },
 });
 
-export const loadedBytesOf = (state: UploadProgressState) =>
+export const loadedBytesOf = (state: UploadProgressState): number =>
   Object.values(state.loadedByMediaId).reduce((sum, loaded) => sum + loaded, 0);
 
 /**
  * 0~100 의 정수. **파일 수가 아니라 바이트 기준이다** (#73 완료 조건) —
  * 3.4MB 사진과 80MB 영상을 같은 한 장으로 세면 바가 영상 구간에서 통째로 멈춘다.
  */
-export const percentOf = (state: UploadProgressState) => {
+export const percentOf = (state: UploadProgressState): number => {
   if (state.totalBytes <= 0) {
     return 0;
   }

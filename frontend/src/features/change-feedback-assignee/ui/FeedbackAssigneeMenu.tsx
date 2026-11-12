@@ -1,3 +1,4 @@
+import type { ReactElement } from "react";
 import { useState } from "react";
 import { HiChevronDown } from "react-icons/hi2";
 
@@ -36,7 +37,7 @@ export const FeedbackAssigneeMenu = ({
   const [open, setOpen] = useState(false);
   const { mutate } = useChangeFeedbackAssignee(token);
 
-  const choose = (assignee: FeedbackAssignee | null) => {
+  const choose = (assignee: FeedbackAssignee | null): void => {
     setOpen(false);
 
     if (assignee === feedback.assignee) return;
@@ -55,7 +56,7 @@ export const FeedbackAssigneeMenu = ({
     );
   };
 
-  const item = (value: FeedbackAssignee | null, label: string) => (
+  const item = (value: FeedbackAssignee | null, label: string): ReactElement => (
     <DropdownMenuItem
       key={value ?? "none"}
       role="menuitemradio"

@@ -7,7 +7,12 @@ import { useCallback, useEffect, useState } from "react";
  * 1초마다 오지 않고(탭이 백그라운드로 가면 더 크게 밀린다), 뺄셈으로 세면 그 오차가 그대로
  * 쌓여 실제보다 늦게 풀린다. 마감 시각을 붙들고 있으면 몇 번을 건너뛰든 남은 초는 항상 맞다.
  */
-export const useRetryCountdown = () => {
+export const useRetryCountdown = (): {
+  remainingSeconds: number;
+  isCountingDown: boolean;
+  start: (seconds: number | undefined) => boolean;
+  clear: () => void;
+} => {
   const [deadline, setDeadline] = useState<number | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 

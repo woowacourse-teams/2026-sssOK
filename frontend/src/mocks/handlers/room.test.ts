@@ -3,21 +3,22 @@ import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "./room";
 
 const TOKEN = "Bearer mock-token-10234";
 
-const getRoom = (code: string, token?: string) =>
+const getRoom = (code: string, token?: string): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${code}`, token ? { headers: { Authorization: token } } : undefined);
 
 const joinRoom = (
   token: string,
   roomId: number = MOCK_ROOM_ID,
   code: string = MOCK_ROOM_CODES.active,
-) =>
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/members`, {
     method: "POST",
     headers: { Authorization: token },
     body: JSON.stringify({ code }),
   });
 
-const roomIdOf = async (code: string) => (await (await getRoom(code)).json()).data.roomId as number;
+const roomIdOf = async (code: string): Promise<number> =>
+  (await (await getRoom(code)).json()).data.roomId as number;
 
 describe("GET /rooms/{code} 목 핸들러", () => {
   it("활성 방은 200 과 ACTIVE 상태를 내려준다", async () => {
@@ -29,18 +30,11 @@ describe("GET /rooms/{code} 목 핸들러", () => {
     expect(body.data.code).toBe(MOCK_ROOM_CODES.active);
   });
 
-  it("1일 방과 3일 방의 만료 시각을 각각 24시간과 72시간 뒤로 내려준다", async () => {
-    const now = Date.now();
-    const active = await (await getRoom(MOCK_ROOM_CODES.active)).json();
-    const second = await (await getRoom(MOCK_ROOM_CODES.second)).json();
-
-    const activeRemainingHours = (Date.parse(active.data.expiresAt) - now) / 3_600_000;
-    const secondRemainingHours = (Date.parse(second.data.expiresAt) - now) / 3_600_000;
-
-    expect(activeRemainingHours).toBeGreaterThan(23.99);
-    expect(activeRemainingHours).toBeLessThanOrEqual(24);
-    expect(secondRemainingHours).toBeGreaterThan(71.99);
-    expect(secondRemainingHours).toBeLessThanOrEqual(72);
+  it("방 응답은 폐기된 만료 시각을 포함하지 않는다", async () => {
+    for (const code of [MOCK_ROOM_CODES.active, MOCK_ROOM_CODES.second]) {
+      const body = await (await getRoom(code)).json();
+      expect(body.data).not.toHaveProperty("expiresAt");
+    }
   });
 
   it("만료된 방도 404 가 아니라 200 과 EXPIRED 상태로 내려준다", async () => {
@@ -247,7 +241,7 @@ describe("POST /rooms/{roomId}/members 목 핸들러", () => {
 });
 
 describe("GET /rooms/{roomId}/media 목 핸들러", () => {
-  const listMedia = (query = "", token = TOKEN) =>
+  const listMedia = (query = "", token = TOKEN): Promise<Response> =>
     fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media${query}`, {
       headers: { Authorization: token },
     });
@@ -389,10 +383,7 @@ describe("DELETE /rooms/{roomId} 목 핸들러", () => {
 
     expect(response.status).toBe(200);
     expect(body.data).toEqual({
-      code: MOCK_ROOM_CODES.active,
-      status: "DELETED",
       deletedAt: "2026-08-18T07:00:00Z",
-      purgeAt: "2026-08-25T07:00:00Z",
     });
 
     const roomResponse = await getRoom(MOCK_ROOM_CODES.active);

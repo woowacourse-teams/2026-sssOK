@@ -1,3 +1,4 @@
+import { AdminSessionSchema } from "../model/types";
 import type { AdminSession } from "../model/types";
 
 /**
@@ -9,7 +10,7 @@ import type { AdminSession } from "../model/types";
  */
 const ADMIN_SESSION_KEY = "sssok.admin";
 
-export const saveAdminSession = (session: AdminSession) => {
+export const saveAdminSession = (session: AdminSession): void => {
   localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(session));
 };
 
@@ -19,7 +20,7 @@ export const getAdminSession = (): AdminSession | null => {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as AdminSession;
+    return AdminSessionSchema.parse(JSON.parse(raw));
   } catch {
     // 손상된 값은 되살릴 방법이 없다. 지우고 로그인부터 다시 밟게 한다.
     localStorage.removeItem(ADMIN_SESSION_KEY);
@@ -27,7 +28,7 @@ export const getAdminSession = (): AdminSession | null => {
   }
 };
 
-export const removeAdminSession = () => {
+export const removeAdminSession = (): void => {
   localStorage.removeItem(ADMIN_SESSION_KEY);
 };
 

@@ -10,12 +10,12 @@
  */
 
 /** 경로 구분자와 제어 문자만 막는다. 한글·이모지는 그대로 둔다 — zip 은 UTF-8 을 싣는다. */
-// eslint-disable-next-line no-control-regex
+// eslint-disable-next-line no-control-regex -- ZIP 파일명에 포함된 제어 문자를 제거하기 위한 정규식
 const UNSAFE = /[\x00-\x1f/\\:*?"<>|]/g;
 
 const FALLBACK_NAME = "media";
 
-const sanitize = (name: string) => {
+const sanitize = (name: string): string => {
   const cleaned = name.replace(UNSAFE, "_").trim();
 
   // `..` 만 남으면 압축 해제 도구에 따라 상위 경로로 해석된다.
@@ -37,7 +37,7 @@ const splitExtension = (name: string): [string, string] => {
  * 대소문자를 무시하고 비교한다. `photo.JPG` 와 `photo.jpg` 는 윈도우·맥에서 같은 파일이라,
  * zip 안에서만 다르면 푸는 순간 하나가 사라진다.
  */
-export const zipFileNames = (names: string[]) => {
+export const zipFileNames = (names: string[]): string[] => {
   const taken = new Set<string>();
 
   return names.map((name) => {

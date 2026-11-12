@@ -69,7 +69,7 @@ const TARGETS = [
   { mediaId: 3, fileName: "영상.mp4", size: 92 * MB },
 ];
 
-const initialState = () => withTargets(startUploadProgress([]), TARGETS);
+const initialState = (): UploadProgressState => withTargets(startUploadProgress([]), TARGETS);
 
 /**
  * 실제 진행을 흉내 내 바가 차오르는 것을 눈으로 본다.
@@ -125,7 +125,7 @@ const UploadSimulation = () => {
     return () => clearInterval(timer);
   }, [isRunning]);
 
-  const restart = () => {
+  const restart = (): void => {
     cursor.current = { index: 0, loaded: 0 };
     setState(initialState());
   };

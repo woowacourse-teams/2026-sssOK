@@ -8,28 +8,28 @@ const TOKEN = "Bearer mock-token-10234";
 const OTHER_TOKEN = "Bearer mock-token-99";
 
 /** 다운로드는 참여자만 할 수 있다. 목은 입장한 방을 기억하므로 먼저 들어가야 한다. */
-const join = (token = TOKEN) =>
+const join = (token = TOKEN): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
     headers: { Authorization: token },
   });
 
-const downloadOne = (mediaId: number, token: string | null = TOKEN) =>
+const downloadOne = (mediaId: number, token: string | null = TOKEN): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/media/${mediaId}`, {
     // 브라우저는 302 를 자동으로 따라가지만, 여기서는 Location 자체를 확인해야 한다.
     redirect: "manual",
     headers: token === null ? undefined : { Authorization: token },
   });
 
-const createJob = (body: object, token = TOKEN) =>
+const createJob = (body: object, token = TOKEN): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/zip`, {
     method: "POST",
     headers: { Authorization: token, "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
-const jobStatus = (jobId: string, token = TOKEN) =>
+const jobStatus = (jobId: string, token = TOKEN): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/downloads/zip/${jobId}`, {
     headers: { Authorization: token },
   });
@@ -38,14 +38,16 @@ const jobStatus = (jobId: string, token = TOKEN) =>
  * 목 워커가 원본을 실제로 받아 zip 을 만든다. 테스트에서 바깥 망을 타면 안 되므로
  * 원본 자리에 작은 바이트를 세워둔다.
  */
-const stubOriginals = () =>
+const stubOriginals = (): void =>
   server.use(
     http.get("https://picsum.photos/*", () => HttpResponse.arrayBuffer(new ArrayBuffer(64))),
     http.get("https://cdn.example.com/*", () => HttpResponse.arrayBuffer(new ArrayBuffer(64))),
   );
 
 /** READY 나 FAILED 가 될 때까지 기다린다. 목은 금방 끝나서 몇 번이면 충분하다. */
-const waitForSettled = async (jobId: string) => {
+const waitForSettled = async (
+  jobId: string,
+): Promise<import("@/features/download-media/api/types").DownloadJobProgress> => {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const body = await (await jobStatus(jobId)).json();
 
@@ -60,7 +62,7 @@ const waitForSettled = async (jobId: string) => {
 };
 
 /** 갤러리 목록의 첫 이미지. B-6 대상으로 쓴다. */
-const anImageId = async () => {
+const anImageId = async (): Promise<number> => {
   const body = await (
     await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media`, {
       headers: { Authorization: TOKEN },
@@ -235,7 +237,7 @@ describe("압축 결과", () => {
 
     const { data: job } = await (await createJob({ mediaIds: [await anImageId()] })).json();
     const settled = await waitForSettled(job.jobId);
-    const zip = new Uint8Array(await (await fetch(settled.downloadUrl)).arrayBuffer());
+    const zip = new Uint8Array(await (await fetch(settled.downloadUrl!)).arrayBuffer());
 
     // local file header 로 시작해야 압축 도구가 연다.
     expect(new DataView(zip.buffer).getUint32(0, true)).toBe(0x04034b50);

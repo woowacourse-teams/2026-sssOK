@@ -16,16 +16,23 @@ interface UseGalleryRefreshParams {
  * 기본값(`cancelRefetch: true`)이면 뒤에 온 쪽이 앞 요청을 취소하고 새로 보내, 서버는
  * 같은 조회를 두 번 처리한다. 진행 중인 요청이 있으면 그 결과를 같이 기다린다.
  */
-export const useGalleryRefresh = ({ roomCode, roomId, userId }: UseGalleryRefreshParams) => {
+export const useGalleryRefresh = ({
+  roomCode,
+  roomId,
+  userId,
+}: UseGalleryRefreshParams): {
+  refreshRoom: () => Promise<void>;
+  refreshPhotos: () => Promise<void>;
+} => {
   const queryClient = useQueryClient();
 
-  const refreshRoom = () =>
+  const refreshRoom = (): Promise<void> =>
     queryClient.invalidateQueries(
       { queryKey: roomQueryKey(roomCode, userId), exact: true },
       { cancelRefetch: false },
     );
 
-  const refreshPhotos = () =>
+  const refreshPhotos = (): Promise<void> =>
     queryClient.invalidateQueries(
       { queryKey: photosQueryKey(roomId, userId), exact: true },
       { cancelRefetch: false },

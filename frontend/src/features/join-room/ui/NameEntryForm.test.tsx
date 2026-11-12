@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 
 import { MAX_NAME_LENGTH, NameEntryForm } from "./NameEntryForm";
 
-const getNameInput = () => screen.getByRole("textbox", { name: "표시할 이름" });
-const getSubmitButton = () => screen.getByRole("button", { name: /^입장하기/ });
+const getNameInput = (): HTMLElement => screen.getByRole("textbox", { name: "표시할 이름" });
+const getSubmitButton = (): HTMLElement => screen.getByRole("button", { name: /^입장하기/ });
 
 describe("NameEntryForm", () => {
   it("이름 입력 자리표시자와 글자 수를 보여준다", () => {

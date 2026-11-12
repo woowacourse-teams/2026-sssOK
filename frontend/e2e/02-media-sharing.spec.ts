@@ -27,7 +27,7 @@ test("사진을 올리고 정리하고 내려받기 · E04–E09", async ({ user
   await test.step("E04 · A 업로드가 열린 B 갤러리에 자동 반영되고 상세 사진 일치", async () => {
     const urlBeforeUpload = b.url();
     let navigations = 0;
-    const onNavigation = () => {
+    const onNavigation = (): void => {
       navigations += 1;
     };
     b.on("domcontentloaded", onNavigation);

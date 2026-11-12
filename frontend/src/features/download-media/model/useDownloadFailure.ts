@@ -34,7 +34,7 @@ export interface DownloadFailureState {
  * **사유가 하나일 때만 그 사유를 말한다.** 404 와 409 가 섞였는데 "아직 처리 중이에요" 라고
  * 하면 절반은 거짓말이 된다. 섞였으면 공통 문구로 물러선다.
  */
-const messageOfFailures = (failed: FailedDownload[]) => {
+const messageOfFailures = (failed: FailedDownload[]): string => {
   const statuses = new Set(failed.map((one) => one.status));
   const [only] = [...statuses];
 
@@ -42,7 +42,7 @@ const messageOfFailures = (failed: FailedDownload[]) => {
 };
 
 /** 다시 받아볼 만한 것만 남긴다. 없는 사진(404)은 다시 받아도 없다. */
-const retryTargetsOf = (failed: FailedDownload[], targets: DownloadTarget[]) => {
+const retryTargetsOf = (failed: FailedDownload[], targets: DownloadTarget[]): DownloadTarget[] => {
   const retryableIds = new Set(
     failed.filter((one) => isRetryableStatus(one.status)).map((one) => one.mediaId),
   );
@@ -50,7 +50,12 @@ const retryTargetsOf = (failed: FailedDownload[], targets: DownloadTarget[]) => 
   return targets.filter((target) => retryableIds.has(target.mediaId));
 };
 
-export const useDownloadFailure = () => {
+export const useDownloadFailure = (): {
+  failure: DownloadFailureState | null;
+  settle: (outcome: DownloadOutcome, targets: DownloadTarget[], mode: DownloadMode) => void;
+  fail: (message: string, targets: DownloadTarget[], mode: DownloadMode) => void;
+  close: () => void;
+} => {
   const [failure, setFailure] = useState<DownloadFailureState | null>(null);
 
   /**
@@ -59,7 +64,11 @@ export const useDownloadFailure = () => {
    * 취소(`aborted`)와 시트를 닫은 것(`dismissed`)은 실패가 아니다 — 사용자가 스스로 그만둔
    * 것에 실패 모달을 띄우면 안 된다. 이미 저장된 것도 되돌리지 않는다.
    */
-  const settle = (outcome: DownloadOutcome, targets: DownloadTarget[], mode: DownloadMode) => {
+  const settle = (
+    outcome: DownloadOutcome,
+    targets: DownloadTarget[],
+    mode: DownloadMode,
+  ): void => {
     if (outcome.type === "failed") {
       setFailure({
         message: outcome.reason,
@@ -86,10 +95,10 @@ export const useDownloadFailure = () => {
   };
 
   /** 결말을 만들지도 못하고 튄 예외. 원인을 알 수 없으니 재시도만 내준다. */
-  const fail = (message: string, targets: DownloadTarget[], mode: DownloadMode) =>
+  const fail = (message: string, targets: DownloadTarget[], mode: DownloadMode): void =>
     setFailure({ message, count: 0, targets, mode });
 
-  const close = () => setFailure(null);
+  const close = (): void => setFailure(null);
 
   return { failure, settle, fail, close };
 };
