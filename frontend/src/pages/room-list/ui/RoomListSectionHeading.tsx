@@ -27,7 +27,7 @@ export const RoomListSectionHeading = () => {
       <HeaderActions>
         <Button variant="default" size="lg" onClick={() => setIsJoinModalOpen(true)}>
           <HiLink aria-hidden="true" />
-          링크로 참여
+          링크·코드로 참여
         </Button>
         <Button variant="primary" size="lg" onClick={() => navigate(ROUTES.createRoom)}>
           <HiPlus aria-hidden="true" />방 만들기
