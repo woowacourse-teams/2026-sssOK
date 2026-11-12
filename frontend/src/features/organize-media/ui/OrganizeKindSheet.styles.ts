@@ -4,14 +4,14 @@ import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
 import similarCardMask from "../assets/similar-card-mask.svg";
 
-/* 정리 방식 선택 시트(558:5390)의 카드·썸네일. 시트 틀은 `OrganizeSheet.styles` 에 있다. */
+/* 정리 방식 선택 시트(558:5390)의 카드·썸네일. 시트 틀은 공용 `BottomSheet`를 사용한다. */
 
 export const Options = styled.div`
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: ${spacing[8]};
   width: 100%;
-  padding: ${spacing[16]} 0;
+  padding: 0 0 ${spacing[16]};
 `;
 
 /** 카드 전체가 라디오 하나다. 숨긴 input 이 선택 상태의 기준이다. */

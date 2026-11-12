@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { DownloadModeSheet } from "./DownloadModeSheet";
@@ -111,6 +111,8 @@ describe("DownloadModeSheet", () => {
     // 시트는 바깥을 눌러 닫는다 (`BottomSheet` 참고).
     await userEvent.click(screen.getByTestId("bottom-sheet-overlay"));
 
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.animationEnd(screen.getByRole("heading").parentElement!);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
   });
