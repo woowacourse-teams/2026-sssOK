@@ -1,0 +1,10 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["NLCYSABF9N.com.ssssok.app"],
+        "components": [{ "/": "/join/*" }]
+      }
+    ]
+  }
+}

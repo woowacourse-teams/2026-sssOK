@@ -19,6 +19,7 @@ import {
 import { usePushNotifications, type PushEvent } from "../bridge/usePushNotifications";
 import { createAuthBridge } from "../bridge/authBridge";
 import { NATIVE_AUTH_PROVIDERS } from "../bridge/sdkAuth";
+import { getInviteEntryUrl } from "../config/inviteLink";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 import {
   canPersistCookies,
@@ -80,21 +81,7 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
     );
   }, []);
 
-  const openPushRoom = useCallback((notificationUrl: string) => {
-    let target: URL;
-    try {
-      target = new URL(notificationUrl, WEB_ORIGIN);
-    } catch {
-      return;
-    }
-    if (
-      target.origin !== WEB_ORIGIN ||
-      target.username ||
-      target.password ||
-      !/^\/rooms\/[A-Z2-9]{8}\/gallery$/.test(target.pathname)
-    )
-      return;
-    const url = target.href;
+  const openInternalUrl = useCallback((url: string) => {
     if (webView.current && loadedUrl.current && isWebOrigin(loadedUrl.current)) {
       webView.current.injectJavaScript(
         `if (location.origin === ${JSON.stringify(WEB_ORIGIN)} && location.href !== ${JSON.stringify(url)}) {
@@ -106,7 +93,47 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
       setSourceUrl(url);
     }
   }, []);
+  const openPushRoom = useCallback(
+    (notificationUrl: string) => {
+      let target: URL;
+      try {
+        target = new URL(notificationUrl, WEB_ORIGIN);
+      } catch {
+        return;
+      }
+      if (
+        target.origin !== WEB_ORIGIN ||
+        target.username ||
+        target.password ||
+        !/^\/rooms\/[A-Z2-9]{8}\/gallery$/.test(target.pathname)
+      )
+        return;
+      openInternalUrl(target.href);
+    },
+    [openInternalUrl],
+  );
   const requestPushToken = usePushNotifications(emitPush, openPushRoom, readCurrentRoom);
+
+  useEffect(() => {
+    let acceptInitial = true;
+    const openInvite = (url: string) => {
+      const entryUrl = getInviteEntryUrl(url, WEB_ORIGIN);
+      if (entryUrl) {
+        acceptInitial = false;
+        openInternalUrl(entryUrl);
+      }
+    };
+    const subscription = Linking.addEventListener("url", ({ url }) => openInvite(url));
+    void Linking.getInitialURL()
+      .then((url) => {
+        if (acceptInitial && url) openInvite(url);
+      })
+      .catch(() => {});
+    return () => {
+      acceptInitial = false;
+      subscription.remove();
+    };
+  }, [openInternalUrl]);
 
   const rememberInternalUrl = (url: string) => {
     try {
