@@ -6,7 +6,7 @@ import { RouteErrorPage } from "./RouteErrorPage";
 
 const LoadedPage = () => <h1>불러온 화면</h1>;
 
-const renderLazy = (load: () => Promise<{ LoadedPage: typeof LoadedPage }>) => {
+const renderLazy = (load: () => Promise<{ LoadedPage: typeof LoadedPage }>): void => {
   const router = createMemoryRouter(
     [
       {

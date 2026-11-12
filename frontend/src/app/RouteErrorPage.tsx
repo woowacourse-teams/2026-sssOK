@@ -6,7 +6,7 @@ import { colors, spacing, typography } from "@/shared/styles/tokens";
 import { Button } from "@/shared/ui/button";
 
 /** 배포로 파일 이름(contenthash)이 바뀌어 이전 화면 코드를 받지 못한 경우다. */
-const isChunkLoadError = (error: unknown) =>
+const isChunkLoadError = (error: unknown): boolean =>
   error instanceof Error &&
   (error.name === "ChunkLoadError" || /Loading (CSS )?chunk .+ failed/.test(error.message));
 
