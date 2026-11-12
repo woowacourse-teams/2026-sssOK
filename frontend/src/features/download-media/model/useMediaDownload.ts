@@ -1,3 +1,4 @@
+import type { DownloadProgressSnapshot } from "@/features/download-media/model/downloadProgress";
 import { useRef, useState } from "react";
 
 import { shareFiles, type ShareFilesResult } from "../lib/shareFiles";
@@ -58,7 +59,17 @@ export interface PendingShareSnapshot {
   remainingCount: number;
 }
 
-const snapshotOfShare = ({ batches, batchCount, savedCount }: PendingShare) => ({
+const snapshotOfShare = ({
+  batches,
+  batchCount,
+  savedCount,
+}: PendingShare): {
+  batchIndex: number;
+  batchCount: number;
+  nextCount: number;
+  savedCount: number;
+  remainingCount: number;
+} => ({
   batchIndex: batchCount - batches.length + 1,
   batchCount,
   nextCount: batches[0].length,
@@ -78,7 +89,21 @@ export const useMediaDownload = ({
   onSettled,
   onError,
   onShareBatch,
-}: UseMediaDownloadOptions) => {
+}: UseMediaDownloadOptions): {
+  progress: DownloadProgressSnapshot | null;
+  pendingShare: {
+    batchIndex: number;
+    batchCount: number;
+    nextCount: number;
+    savedCount: number;
+    remainingCount: number;
+  } | null;
+  isSharing: boolean;
+  start: (targets: DownloadTarget[], mode: DownloadMode) => Promise<void>;
+  share: () => Promise<void>;
+  dismissShare: () => void;
+  cancel: () => void;
+} => {
   const [progress, setProgress] = useState<DownloadProgressState | null>(null);
   const [pendingShare, setPendingShare] = useState<PendingShare | null>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -95,7 +120,7 @@ export const useMediaDownload = ({
    */
   const runIdRef = useRef(0);
 
-  const start = async (targets: DownloadTarget[], mode: DownloadMode) => {
+  const start = async (targets: DownloadTarget[], mode: DownloadMode): Promise<void> => {
     // 이미 한 판이 돌고 있다. 두 판을 겹치면 진행 바가 어느 쪽을 세는지 알 수 없다.
     if (targets.length === 0 || abortRef.current !== null) {
       return;
@@ -107,8 +132,8 @@ export const useMediaDownload = ({
     runIdRef.current += 1;
 
     const runId = runIdRef.current;
-    const isCurrent = () => runIdRef.current === runId;
-    const update = (next: (state: DownloadProgressState) => DownloadProgressState) =>
+    const isCurrent = (): boolean => runIdRef.current === runId;
+    const update = (next: (state: DownloadProgressState) => DownloadProgressState): void =>
       setProgress((current) => (current === null || !isCurrent() ? current : next(current)));
 
     setPendingShare(null);
@@ -166,7 +191,7 @@ export const useMediaDownload = ({
    * `share()` 성공은 "시트에서 어떤 동작을 끝까지 했다" 는 뜻이다. [이미지 저장]이 아닌
    * 동작(파일에 저장·AirDrop 등)도 똑같이 성공으로 오지만, 어느 쪽인지 알 길이 없어 저장으로 본다.
    */
-  const share = async () => {
+  const share = async (): Promise<void> => {
     if (pendingShare === null || isSharingRef.current) {
       return;
     }
@@ -215,7 +240,7 @@ export const useMediaDownload = ({
    * 남은 묶음을 버린다. 사진첩에 더 넣지 않기로 한 경우다.
    * 이미 넘긴 묶음이 있으면 그만큼은 저장된 것이라 그 장수로 판을 끝낸다.
    */
-  const dismissShare = () => {
+  const dismissShare = (): void => {
     if (pendingShare === null || isSharingRef.current) {
       return;
     }
@@ -237,7 +262,7 @@ export const useMediaDownload = ({
    * 이미 저장이 시작된 파일은 되돌리지 않는다 — 중단은 "아직 안 받은 것을 그만두는" 것이지
    * "받은 것을 무르는" 게 아니다. 브라우저 다운로드 목록에 들어간 것은 그쪽에서 취소한다.
    */
-  const cancel = () => {
+  const cancel = (): void => {
     abortRef.current?.abort();
     abortRef.current = null;
     runIdRef.current += 1;

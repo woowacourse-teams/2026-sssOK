@@ -13,12 +13,12 @@ jest.mock("@/shared/lib/analytics", () => ({
 
 const ROOM_CODE = "7K93QX2S";
 
-const openMenu = async (user: ReturnType<typeof userEvent.setup>) => {
+const openMenu = async (user: ReturnType<typeof userEvent.setup>): Promise<void> => {
   render(<RoomShareButton roomCode={ROOM_CODE} />);
   await user.click(screen.getByRole("button", { name: "방 공유 메뉴 열기" }));
 };
 
-const saveSession = (accessToken = "mock-token-10234") =>
+const saveSession = (accessToken = "mock-token-10234"): void =>
   saveRoomSession(ROOM_CODE, {
     accessToken,
     userId: 10234,
@@ -60,6 +60,7 @@ describe("RoomShareButton 공유 이벤트", () => {
 
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByTitle("현재 방 참여 QR 코드")).toBeInTheDocument();
+    expect(screen.getByText("7K93 QX2S")).toBeInTheDocument();
   });
 
   it("다른 기기에서 이어하기 링크를 복사하면 기기 연결 링크 복사를 남긴다", async () => {

@@ -17,7 +17,9 @@ const sessionWith = (role: string): AdminSession => ({
   expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
 });
 
-const renderAt = (path: string) => {
+const renderAt = (
+  path: string,
+): { router: ReturnType<typeof createMemoryRouter>; queryClient: QueryClient } => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
@@ -30,7 +32,7 @@ const renderAt = (path: string) => {
   return { router, queryClient };
 };
 
-const header = () => screen.getByRole("banner");
+const header = (): HTMLElement => screen.getByRole("banner");
 
 describe("관리자 헤더", () => {
   beforeEach(() => localStorage.clear());

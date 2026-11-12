@@ -1,3 +1,8 @@
+import { z } from "zod";
+export const CreateFeedbackResponseSchema = z.object({
+  feedbackId: z.number(),
+  createdAt: z.string(),
+});
 import { apiClient } from "@/shared/api";
 
 interface CreateFeedbackParams {
@@ -6,13 +11,15 @@ interface CreateFeedbackParams {
   content: string;
 }
 
-export interface CreateFeedbackResponse {
-  feedbackId: number;
-  createdAt: string;
-}
+export type CreateFeedbackResponse = z.infer<typeof CreateFeedbackResponseSchema>;
 
-export const createFeedback = ({ roomId, accessToken, content }: CreateFeedbackParams) =>
+export const createFeedback = ({
+  roomId,
+  accessToken,
+  content,
+}: CreateFeedbackParams): Promise<CreateFeedbackResponse> =>
   apiClient<CreateFeedbackResponse>(`/rooms/${roomId}/feedbacks`, {
+    schema: CreateFeedbackResponseSchema,
     method: "POST",
     token: accessToken,
     headers: { "Content-Type": "application/json" },

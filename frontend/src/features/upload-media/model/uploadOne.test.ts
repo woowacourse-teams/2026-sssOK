@@ -1,3 +1,4 @@
+import type { UploadOneResult } from "@/features/upload-media/model/uploadOne";
 import { http, HttpResponse } from "msw";
 
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
@@ -17,9 +18,9 @@ jest.mock("../config", () => ({
 
 const TOKEN = "mock-token-10234";
 
-const imageFile = (fileName: string) => new File(["사진"], fileName, { type: "image/jpeg" });
+const imageFile = (fileName: string): File => new File(["사진"], fileName, { type: "image/jpeg" });
 
-const enterRoom = async () => {
+const enterRoom = async (): Promise<void> => {
   await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
@@ -27,7 +28,16 @@ const enterRoom = async () => {
   });
 };
 
-const issueOne = async (fileName: string) => {
+const issueOne = async (
+  fileName: string,
+): Promise<{
+  mediaId: number;
+  fileName: string;
+  uploadUrl: string;
+  method: string;
+  headers: Record<string, string>;
+  expiresIn: number;
+}> => {
   await enterRoom();
 
   const { issued } = await issueUploadUrls(
@@ -46,7 +56,7 @@ const issueOne = async (fileName: string) => {
  * 그리고 MSW 가 `XMLHttpRequest` 를 자기 클래스로 갈아끼우며 `send` 를 덮어써서,
  * 프로토타입 스파이로는 횟수를 셀 수 없다. 그래서 핸들러 쪽에서 센다.
  */
-const interceptPut = (status: number) => {
+const interceptPut = (status: number): { count: number } => {
   const puts = { count: 0 };
 
   server.use(
@@ -60,7 +70,10 @@ const interceptPut = (status: number) => {
   return puts;
 };
 
-const run = (issued: Awaited<ReturnType<typeof issueOne>>, signal?: AbortSignal) =>
+const run = (
+  issued: Awaited<ReturnType<typeof issueOne>>,
+  signal?: AbortSignal,
+): Promise<UploadOneResult> =>
   uploadOne({
     roomId: MOCK_ROOM_ID,
     token: TOKEN,

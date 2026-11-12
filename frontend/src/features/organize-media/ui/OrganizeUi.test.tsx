@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import type { MyOrganizeJob } from "../model/useOrganizeJob";
@@ -19,7 +19,12 @@ const jobOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob => ({
   ...overrides,
 });
 
-const barHandlers = () => ({
+const barHandlers = (): {
+  onCancel: ReturnType<typeof jest.fn>;
+  onReview: ReturnType<typeof jest.fn>;
+  onRetry: ReturnType<typeof jest.fn>;
+  onDismiss: ReturnType<typeof jest.fn>;
+} => ({
   onCancel: jest.fn(),
   onReview: jest.fn(),
   onRetry: jest.fn(),
@@ -198,7 +203,7 @@ describe("OrganizeStatusBar", () => {
 });
 
 describe("OrganizeStatusBar · 비슷한 사진", () => {
-  const similarOf = (overrides: Partial<MyOrganizeJob> = {}) =>
+  const similarOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob =>
     jobOf({ kind: "SIMILAR", ...overrides });
 
   it("묶는 중에는 묶기 진행률을 보여 준다", () => {
@@ -249,10 +254,13 @@ describe("OrganizeCancelSheet", () => {
     expect(screen.getByRole("dialog", { name: "사진 묶기를 멈출까요?" })).toBeInTheDocument();
     expect(screen.getByText("지금까지 묶은 결과는 사라져요.")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "계속 묶기" }));
-    expect(onKeepGoing).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "멈추기" }));
-    expect(onStop).toHaveBeenCalled();
+    expect(onStop).toHaveBeenCalledTimes(1);
+
+    await userEvent.click(screen.getByRole("button", { name: "계속 묶기" }));
+    expect(onKeepGoing).not.toHaveBeenCalled();
+    fireEvent.animationEnd(screen.getByRole("heading").parentElement!);
+    expect(onKeepGoing).toHaveBeenCalled();
   });
 
   it("멈추기와 계속 나누기를 나눠 부른다", async () => {
@@ -260,12 +268,14 @@ describe("OrganizeCancelSheet", () => {
     const onKeepGoing = jest.fn();
     render(<OrganizeCancelSheet onStop={onStop} onKeepGoing={onKeepGoing} />);
 
-    await userEvent.click(screen.getByRole("button", { name: "계속 나누기" }));
-    expect(onKeepGoing).toHaveBeenCalled();
-    expect(onStop).not.toHaveBeenCalled();
-
     await userEvent.click(screen.getByRole("button", { name: "멈추기" }));
     expect(onStop).toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "계속 나누기" }));
+    expect(onKeepGoing).not.toHaveBeenCalled();
+    fireEvent.animationEnd(screen.getByRole("heading").parentElement!);
+    expect(onKeepGoing).toHaveBeenCalled();
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   it("결과를 닫을 때는 결과를 버린다는 문구로 묻는다", async () => {
@@ -275,11 +285,13 @@ describe("OrganizeCancelSheet", () => {
 
     expect(screen.getByRole("dialog", { name: "정리한 결과를 취소할까요?" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "결과 남겨 두기" }));
-    expect(onKeepGoing).toHaveBeenCalled();
-    expect(onStop).not.toHaveBeenCalled();
-
     await userEvent.click(screen.getByRole("button", { name: "취소하기" }));
     expect(onStop).toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "결과 남겨 두기" }));
+    expect(onKeepGoing).not.toHaveBeenCalled();
+    fireEvent.animationEnd(screen.getByRole("heading").parentElement!);
+    expect(onKeepGoing).toHaveBeenCalled();
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 });

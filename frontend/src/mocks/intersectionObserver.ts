@@ -46,7 +46,7 @@ class MockIntersectionObserver {
   readonly thresholds: readonly number[] = [];
 }
 
-export const installIntersectionObserverMock = () => {
+export const installIntersectionObserverMock = (): void => {
   Object.defineProperty(globalThis, "IntersectionObserver", {
     writable: true,
     configurable: true,
@@ -55,7 +55,7 @@ export const installIntersectionObserverMock = () => {
 };
 
 /** 관찰 중인 대상이 모두 화면에 들어왔다고 알린다. */
-export const triggerIntersection = () => {
+export const triggerIntersection = (): void => {
   // 부르는 쪽이 disconnect 하며 목록을 줄일 수 있어 복사본을 돈다.
   [...registered].forEach(({ callback, targets }) => {
     const entries = [...targets].map(
@@ -66,6 +66,6 @@ export const triggerIntersection = () => {
   });
 };
 
-export const resetIntersectionObservers = () => {
+export const resetIntersectionObservers = (): void => {
   registered.length = 0;
 };

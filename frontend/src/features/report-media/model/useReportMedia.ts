@@ -1,3 +1,4 @@
+import type { UseMutationResult } from "@tanstack/react-query";
 import { useMutation } from "@tanstack/react-query";
 import { useParams } from "react-router-dom";
 
@@ -13,7 +14,10 @@ export const useReportMedia = ({
   roomId: number;
   mediaId: number;
   onSuccess: () => void;
-}) => {
+}): UseMutationResult<Awaited<ReturnType<typeof reportMedia>>, Error, ReportReason> & {
+  canReport: boolean;
+  sessionError: string | null;
+} => {
   const { code = "" } = useParams();
   const { session, isPending, isError } = useRoomSession(code);
   const mutation = useMutation({

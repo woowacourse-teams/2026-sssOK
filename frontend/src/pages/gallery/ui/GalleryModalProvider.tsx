@@ -13,9 +13,9 @@ interface Props {
 export const GalleryModalProvider = ({ children }: Props) => {
   const [activeModal, setActiveModal] = useState<GalleryModal | null>(null);
 
-  const openModal = (modal: GalleryModalRequest) =>
+  const openModal = (modal: GalleryModalRequest): Promise<RoomFolder | null> =>
     new Promise<RoomFolder | null>((resolve) => {
-      const resolveModal = (folder: RoomFolder | null) => {
+      const resolveModal = (folder: RoomFolder | null): void => {
         resolve(folder);
         setActiveModal(null);
       };
@@ -23,7 +23,7 @@ export const GalleryModalProvider = ({ children }: Props) => {
       setActiveModal({ ...modal, resolve: resolveModal });
     });
 
-  const closeModal = () => {
+  const closeModal = (): void => {
     activeModal?.resolve(null);
   };
 

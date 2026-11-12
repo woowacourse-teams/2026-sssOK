@@ -1,3 +1,4 @@
+import type { UserEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -18,7 +19,11 @@ beforeEach(() => {
     isError: false,
   } as ReturnType<typeof useRoomSession>);
 });
-const setup = () => {
+const setup = (): {
+  onClose: ReturnType<typeof jest.fn>;
+  onSubmit: ReturnType<typeof jest.fn>;
+  user: UserEvent;
+} => {
   const onClose = jest.fn();
   const onSubmit = jest.fn();
   render(

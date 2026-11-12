@@ -61,9 +61,9 @@ interface JoinedRoomDropdownProps extends RoomDropdownProps {
 
 const JoinedRoomDropdown = ({ room, ...dropdownProps }: JoinedRoomDropdownProps) => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const closeLeaveModal = () => setIsLeaveModalOpen(false);
+  const closeLeaveModal = (): void => setIsLeaveModalOpen(false);
 
-  const openLeaveModal = () => {
+  const openLeaveModal = (): void => {
     dropdownProps.onCloseMenu();
     setIsLeaveModalOpen(true);
   };
@@ -97,9 +97,9 @@ const RoomLeaveConfirmation = (
 export const RoomCardMenu = ({ room, isMenuOpen, onOpenChange }: RoomCardMenuProps) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const closeMenu = () => onOpenChange(false);
+  const closeMenu = (): void => onOpenChange(false);
 
-  const copyInviteLink = async () => {
+  const copyInviteLink = async (): Promise<void> => {
     closeMenu();
     try {
       await copyRoomInviteLink(room.code);

@@ -74,7 +74,7 @@ describe("배포 빌드일 때", () => {
   });
 
   // 모듈이 들고 있는 SDK·대기열·방 정보를 테스트마다 새로 시작한다
-  const loadFresh = () => {
+  const loadFresh = (): typeof import("./analytics") => {
     let analytics!: typeof import("./analytics");
     jest.isolateModules(() => {
       analytics = jest.requireActual("./analytics");

@@ -9,7 +9,7 @@ const TICK_MS = 50;
  * 장면이 돌지 않을 때(지나간 장면, 움직임을 줄인 환경)는 무한대를 돌려줘
  * 마지막 모습(완료 토스트)에 멈춰 있게 한다. 장면을 다시 틀려면 부르는 쪽이 새로 그린다.
  */
-export const useSceneClock = (running: boolean) => {
+export const useSceneClock = (running: boolean): number => {
   const [startedAt] = useState(() => performance.now());
   const [now, setNow] = useState(startedAt);
 
@@ -24,5 +24,5 @@ export const useSceneClock = (running: boolean) => {
 };
 
 /** `from` 부터 `to` 까지 0→100 으로 오르는 진행률 */
-export const progressBetween = (elapsed: number, from: number, to: number) =>
+export const progressBetween = (elapsed: number, from: number, to: number): number =>
   Math.round(Math.min(Math.max((elapsed - from) / (to - from), 0), 1) * 100);

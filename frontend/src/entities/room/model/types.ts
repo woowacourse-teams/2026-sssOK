@@ -1,34 +1,43 @@
-export type RoomStatus = "ACTIVE" | "EXPIRED" | "DELETED" | "PURGED";
+import { z } from "zod";
+export const MyRoomSchema = z.object({
+  roomId: z.number(),
+  code: z.string(),
+  name: z.string(),
+  isHost: z.boolean(),
+  mediaCount: z.number(),
+  memberCount: z.number(),
+  thumbnailUrl: z.union([z.string(), z.null()]),
+});
+export const RoomStatusSchema = z.union([
+  z.literal("ACTIVE"),
+  z.literal("EXPIRED"),
+  z.literal("DELETED"),
+  z.literal("PURGED"),
+]);
+export const RoomFolderSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  createdAt: z.string(),
+  photoCount: z.number(),
+});
+export const RoomSchema = z.object({
+  roomId: z.number(),
+  code: z.string(),
+  name: z.string(),
+  status: RoomStatusSchema,
+  hostId: z.number(),
+  hostName: z.string(),
+  createdAt: z.string(),
+  uploadPolicy: z.union([z.literal("everyone"), z.literal("host")]),
+  joined: z.boolean(),
+  myNickname: z.union([z.string(), z.null()]).optional(),
+  photoCount: z.number(),
+  folders: z.array(RoomFolderSchema),
+});
+export type RoomStatus = z.infer<typeof RoomStatusSchema>;
 
-export interface RoomFolder {
-  id: number;
-  name: string;
-  createdAt: string;
-  photoCount: number;
-}
+export type RoomFolder = z.infer<typeof RoomFolderSchema>;
 
-export interface Room {
-  roomId: number;
-  code: string;
-  name: string;
-  status: RoomStatus;
-  hostId: number;
-  hostName: string;
-  createdAt: string;
-  expiresAt: string;
-  uploadPolicy: "everyone" | "host";
-  joined: boolean;
-  myNickname?: string | null;
-  photoCount: number;
-  folders: RoomFolder[];
-}
+export type Room = z.infer<typeof RoomSchema>;
 
-export interface MyRoom {
-  roomId: number;
-  code: string;
-  name: string;
-  isHost: boolean;
-  mediaCount: number;
-  memberCount: number;
-  thumbnailUrl: string | null;
-}
+export type MyRoom = z.infer<typeof MyRoomSchema>;

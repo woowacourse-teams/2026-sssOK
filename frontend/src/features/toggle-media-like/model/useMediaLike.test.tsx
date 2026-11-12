@@ -1,3 +1,4 @@
+import type { UseMutationResult } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -20,13 +21,23 @@ const media = {
   likedByMe: false,
 } as MediaItem;
 
-const setup = () => {
+const setup = (): {
+  queryClient: QueryClient;
+  result: {
+    current: UseMutationResult<
+      { mediaId: number; liked: boolean; likeCount: number },
+      Error,
+      boolean,
+      { previousLike: { likeCount: number; likedByMe: boolean } | undefined }
+    >;
+  };
+} => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
   queryClient.setQueryData<MediaList>(photosKey, { items: [media] });
 
-  const wrapper = ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }): import("react").ReactElement => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
@@ -37,12 +48,12 @@ const setup = () => {
   return { queryClient, result };
 };
 
-const currentMedia = (queryClient: QueryClient) =>
+const currentMedia = (queryClient: QueryClient): MediaList["items"][number] | undefined =>
   queryClient.getQueryData<MediaList>(photosKey)?.items[0];
 
 describe("useMediaLike", () => {
   it("PUT 응답 전에 목록 캐시의 좋아요를 먼저 반영한다", async () => {
-    let respond: () => void = () => undefined;
+    let respond: () => void = (): undefined => undefined;
     server.use(
       http.put(
         `${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`,
@@ -73,7 +84,7 @@ describe("useMediaLike", () => {
   });
 
   it("DELETE 실패 시 재조회하지 않고 변경 전 목록 캐시로 되돌린다", async () => {
-    let respond: () => void = () => undefined;
+    let respond: () => void = (): undefined => undefined;
     server.use(
       http.delete(
         `${API_BASE_URL}/rooms/:roomId/media/:mediaId/likes`,

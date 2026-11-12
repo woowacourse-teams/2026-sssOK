@@ -1,13 +1,20 @@
+import { z } from "zod";
+export const ReportReasonSchema = z.union([
+  z.literal("INAPPROPRIATE_CONTENT"),
+  z.literal("PRIVACY_VIOLATION"),
+  z.literal("COPYRIGHT_VIOLATION"),
+  z.literal("HARASSMENT"),
+]);
+export const ReportMediaResponseSchema = z.object({
+  mediaId: z.number(),
+  reason: ReportReasonSchema,
+  reportedAt: z.string(),
+});
 import { apiClient } from "@/shared/api";
 
-export type ReportReason =
-  "INAPPROPRIATE_CONTENT" | "PRIVACY_VIOLATION" | "COPYRIGHT_VIOLATION" | "HARASSMENT";
+export type ReportReason = z.infer<typeof ReportReasonSchema>;
 
-interface ReportMediaResponse {
-  mediaId: number;
-  reason: ReportReason;
-  reportedAt: string;
-}
+type ReportMediaResponse = z.infer<typeof ReportMediaResponseSchema>;
 
 export const reportMedia = ({
   roomId,
@@ -19,8 +26,9 @@ export const reportMedia = ({
   mediaId: number;
   token: string;
   reason: ReportReason;
-}) =>
+}): Promise<ReportMediaResponse> =>
   apiClient<ReportMediaResponse>(`/rooms/${roomId}/media/${mediaId}/reports`, {
+    schema: ReportMediaResponseSchema,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     token,

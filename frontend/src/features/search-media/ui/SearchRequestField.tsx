@@ -107,7 +107,7 @@ export const SearchRequestField = ({
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const close = () => {
+  const close = (): void => {
     setIsOpen(false);
     setMode(null);
     setDraft("");
@@ -115,7 +115,7 @@ export const SearchRequestField = ({
 
   useEffect(() => {
     if (!isOpen) return;
-    const closeOutside = (event: PointerEvent) => {
+    const closeOutside = (event: PointerEvent): void => {
       if (wrapRef.current?.contains(event.target as Node)) return;
       setIsOpen(false);
       setMode(null);
@@ -125,20 +125,22 @@ export const SearchRequestField = ({
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [isOpen]);
 
-  const open = () => {
+  const open = (): void => {
     if (isOpen) return;
     setIsOpen(true);
     onOpen?.();
   };
 
-  const runAndClose = (run: () => void) => () => {
-    run();
-    close();
-    inputRef.current?.blur();
-  };
+  const runAndClose =
+    (run: () => void): (() => void) =>
+    () => {
+      run();
+      close();
+      inputRef.current?.blur();
+    };
 
-  const resolve = (name: string) => (name === "나" ? myNickname : name);
-  const uploadedBy = (uploader: Uploader) =>
+  const resolve = (name: string): string => (name === "나" ? myNickname : name);
+  const uploadedBy = (uploader: Uploader): string =>
     `${uploader.isMe ? "내가" : withSubjectParticle(uploader.name)} 올린 사진 찾기`;
 
   const organizeAction: Action[] = [

@@ -1,3 +1,4 @@
+import type { UseMutationResult } from "@tanstack/react-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
@@ -35,14 +36,27 @@ const photos = {
   ] as unknown as MediaItem[],
 } as MediaList;
 
-const setup = (onError = jest.fn()) => {
+const setup = (
+  onError = jest.fn(),
+): {
+  queryClient: QueryClient;
+  result: {
+    current: UseMutationResult<
+      { deletedFolderId: number; detachedPhotoCount: number },
+      Error,
+      void,
+      { previousRoom: Room | undefined; previousPhotos: MediaList | undefined }
+    >;
+  };
+  onError: ReturnType<typeof jest.fn>;
+} => {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false } },
   });
   queryClient.setQueryData(roomKey, room);
   queryClient.setQueryData(photosKey, photos);
 
-  const wrapper = ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }): import("react").ReactElement => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
   const { result } = renderHook(
@@ -61,12 +75,12 @@ const setup = (onError = jest.fn()) => {
   return { queryClient, result, onError };
 };
 
-const folderIdsOf = (queryClient: QueryClient) =>
+const folderIdsOf = (queryClient: QueryClient): number[][] | undefined =>
   queryClient.getQueryData<MediaList>(photosKey)?.items.map((item) => item.folderIds);
 
 describe("useDeleteFolderMutation", () => {
   it("응답을 기다리지 않고 폴더와 사진의 폴더 연결을 캐시에서 먼저 뺀다", async () => {
-    let respond: () => void = () => undefined;
+    let respond: () => void = (): undefined => undefined;
     server.use(
       http.delete(
         `${API_BASE_URL}/rooms/:roomId/folders/:folderId`,

@@ -1,3 +1,5 @@
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { MediaLikeResponse } from "@/features/toggle-media-like/api/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { photosQueryKey, type MediaList } from "@/entities/media";
@@ -12,11 +14,22 @@ interface UseMediaLikeParams {
   token: string;
 }
 
-export const useMediaLike = ({ roomId, mediaId, userId, token }: UseMediaLikeParams) => {
+export const useMediaLike = ({
+  roomId,
+  mediaId,
+  userId,
+  token,
+}: UseMediaLikeParams): UseMutationResult<
+  MediaLikeResponse,
+  Error,
+  boolean,
+  { previousLike: { likeCount: number; likedByMe: boolean } | undefined }
+> => {
   const queryClient = useQueryClient();
   const photosKey = photosQueryKey(roomId, userId);
-  const updatePhotos = (update: (current: MediaList | undefined) => MediaList | undefined) =>
-    queryClient.setQueryData<MediaList>(photosKey, update);
+  const updatePhotos = (
+    update: (current: MediaList | undefined) => MediaList | undefined,
+  ): NoInfer<MediaList> | undefined => queryClient.setQueryData<MediaList>(photosKey, update);
 
   return useMutation({
     mutationFn: (shouldLike: boolean) =>

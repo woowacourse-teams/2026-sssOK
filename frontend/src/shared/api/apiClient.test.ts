@@ -1,3 +1,5 @@
+import type { JsonBodyType } from "msw";
+import { z } from "zod";
 import { http, HttpResponse } from "msw";
 
 import { server } from "@/mocks/server";
@@ -6,7 +8,7 @@ import { ApiError } from "./ApiError";
 import { apiClient } from "./apiClient";
 import { setUnauthorizedHandler } from "./unauthorized";
 
-const unauthorizedResponse = () =>
+const unauthorizedResponse = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code: "UNAUTHORIZED", message: "다시 접속해주세요" }, { status: 401 });
 
 describe("apiClient", () => {
@@ -59,7 +61,9 @@ describe("apiClient", () => {
       }),
     );
 
-    await expect(apiClient("/api-test")).resolves.toEqual({ name: "제주 여행" });
+    await expect(apiClient("/api-test", { schema: z.unknown() })).resolves.toEqual({
+      name: "제주 여행",
+    });
   });
 
   it("200 이지만 우리 형식이 아닌 응답은 ApiError 로 던진다", async () => {
@@ -67,7 +71,7 @@ describe("apiClient", () => {
       http.get(`${API_BASE_URL}/api-test`, () => HttpResponse.html("<!doctype html><html></html>")),
     );
 
-    await expect(apiClient("/api-test")).rejects.toMatchObject({
+    await expect(apiClient("/api-test", { schema: z.unknown() })).rejects.toMatchObject({
       status: 200,
       code: "INVALID_RESPONSE",
     });
@@ -80,7 +84,9 @@ describe("apiClient", () => {
       }),
     );
 
-    await expect(apiClient("/api-test", { token: "test-token" })).resolves.toEqual({
+    await expect(
+      apiClient("/api-test", { schema: z.unknown(), token: "test-token" }),
+    ).resolves.toEqual({
       authorization: "Bearer test-token",
     });
   });
@@ -98,7 +104,7 @@ describe("apiClient", () => {
       }),
     );
 
-    await expect(apiClient("/api-test")).rejects.toEqual(
+    await expect(apiClient("/api-test", { schema: z.unknown() })).rejects.toEqual(
       expect.objectContaining<Partial<ApiError>>({
         name: "ApiError",
         status: 500,
@@ -115,7 +121,7 @@ describe("apiClient", () => {
   describe("401 알림", () => {
     let dispose: (() => void) | null = null;
 
-    const listen = () => {
+    const listen = (): ReturnType<typeof jest.fn> => {
       const handler = jest.fn();
 
       dispose = setUnauthorizedHandler(handler);
@@ -133,7 +139,9 @@ describe("apiClient", () => {
       const onUnauthorized = listen();
       server.use(http.get(`${API_BASE_URL}/api-test`, unauthorizedResponse));
 
-      await expect(apiClient("/api-test", { token: "dead-token" })).rejects.toMatchObject({
+      await expect(
+        apiClient("/api-test", { schema: z.unknown(), token: "dead-token" }),
+      ).rejects.toMatchObject({
         status: 401,
       });
 
@@ -144,7 +152,9 @@ describe("apiClient", () => {
       listen();
       server.use(http.get(`${API_BASE_URL}/api-test`, unauthorizedResponse));
 
-      await expect(apiClient("/api-test", { token: "dead-token" })).rejects.toMatchObject({
+      await expect(
+        apiClient("/api-test", { schema: z.unknown(), token: "dead-token" }),
+      ).rejects.toMatchObject({
         status: 401,
         code: "UNAUTHORIZED",
         message: "다시 접속해주세요",
@@ -156,7 +166,9 @@ describe("apiClient", () => {
       const onUnauthorized = listen();
       server.use(http.get(`${API_BASE_URL}/api-test`, unauthorizedResponse));
 
-      await expect(apiClient("/api-test")).rejects.toMatchObject({ status: 401 });
+      await expect(apiClient("/api-test", { schema: z.unknown() })).rejects.toMatchObject({
+        status: 401,
+      });
 
       expect(onUnauthorized).not.toHaveBeenCalled();
     });
@@ -173,11 +185,46 @@ describe("apiClient", () => {
         ),
       );
 
-      await expect(apiClient("/api-test", { token: "live-token" })).rejects.toMatchObject({
+      await expect(
+        apiClient("/api-test", { schema: z.unknown(), token: "live-token" }),
+      ).rejects.toMatchObject({
         status: 403,
       });
 
       expect(onUnauthorized).not.toHaveBeenCalled();
     });
+  });
+});
+
+it.each([null, {}, { name: 123 }, { name: "정상", count: "1" }])(
+  "data 외피가 있어도 스키마를 위반하면 INVALID_RESPONSE: %j",
+  async (data) => {
+    server.use(http.get(`${API_BASE_URL}/contract-test`, () => HttpResponse.json({ data })));
+    await expect(
+      apiClient("/contract-test", { schema: z.object({ name: z.string(), count: z.number() }) }),
+    ).rejects.toMatchObject({ code: "INVALID_RESPONSE" });
+  },
+);
+
+it("유효한 데이터만 반환하고 서버의 추가 필드는 내부로 전달하지 않는다", async () => {
+  server.use(
+    http.get(`${API_BASE_URL}/contract-test`, () =>
+      HttpResponse.json({ data: { name: "정상", extra: "추가" } }),
+    ),
+  );
+  await expect(
+    apiClient("/contract-test", { schema: z.object({ name: z.string() }) }),
+  ).resolves.toEqual({ name: "정상" });
+});
+
+it("오류 응답의 필드 타입이 잘못되어도 기본 오류로 처리한다", async () => {
+  server.use(
+    http.get(`${API_BASE_URL}/contract-test`, () =>
+      HttpResponse.json({ code: 123, message: { private: "value" } }, { status: 500 }),
+    ),
+  );
+  await expect(apiClient("/contract-test", { schema: z.string() })).rejects.toMatchObject({
+    code: "UNKNOWN_ERROR",
+    message: "API 요청에 실패했습니다.",
   });
 });

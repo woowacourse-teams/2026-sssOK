@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
@@ -18,11 +19,18 @@ const session = {
   expiresAt: "2099-01-01T00:00:00Z",
   refreshExpiresAt: "2099-02-01T00:00:00Z",
 };
-const setup = (anonymous = false) => {
+const setup = (
+  anonymous = false,
+): {
+  rerender: (props?: unknown) => void;
+  result: { current: string };
+  unmount: () => void;
+  client: QueryClient;
+} => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   if (anonymous) saveRoomSession("ROOM", session);
   else client.setQueryData(MEMBER_SESSION_QUERY_KEY, session);
-  const wrapper = ({ children }: { children: ReactNode }) => (
+  const wrapper = ({ children }: { children: ReactNode }): import("react").ReactElement => (
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/rooms/ROOM/gallery"]}>{children}</MemoryRouter>
     </QueryClientProvider>
@@ -43,8 +51,13 @@ const setup = (anonymous = false) => {
   );
   return { client, ...hook };
 };
-const request = () =>
-  apiClient("/recovery-test", { method: "POST", token: "old", body: JSON.stringify({ value: 1 }) });
+const request = (): Promise<unknown> =>
+  apiClient("/recovery-test", {
+    schema: z.unknown(),
+    method: "POST",
+    token: "old",
+    body: JSON.stringify({ value: 1 }),
+  });
 afterEach(() => {
   localStorage.clear();
   delete window.ReactNativeWebView;
@@ -192,7 +205,9 @@ it("관리자 토큰은 회원·익명 재발급을 하지 않는다", async () 
     }),
     http.get(`${API_BASE_URL}/admin/accounts`, () => new HttpResponse(null, { status: 401 })),
   );
-  await expect(apiClient("/admin/accounts", { token: "admin-token" })).rejects.toMatchObject({
+  await expect(
+    apiClient("/admin/accounts", { schema: z.unknown(), token: "admin-token" }),
+  ).rejects.toMatchObject({
     status: 401,
   });
   expect(refresh).not.toHaveBeenCalled();

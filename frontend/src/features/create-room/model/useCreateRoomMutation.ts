@@ -1,3 +1,4 @@
+import type { UseMutationResult } from "@tanstack/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { memberSessionQueryOptions } from "@/entities/member-session";
@@ -7,7 +8,12 @@ import { createRoom } from "../api/createRoom";
 import type { CreateRoomResponse } from "../api/types";
 import type { CreateRoomFormValues } from "./createRoomForm";
 
-export const useCreateRoomMutation = () => {
+export const useCreateRoomMutation = (): UseMutationResult<
+  CreateRoomResponse,
+  Error,
+  CreateRoomFormValues,
+  unknown
+> => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (values: CreateRoomFormValues): Promise<CreateRoomResponse> => {

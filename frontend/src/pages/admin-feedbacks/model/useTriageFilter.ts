@@ -1,3 +1,5 @@
+import type { SetStateAction } from "react";
+import type { Dispatch } from "react";
 import { useMemo, useState } from "react";
 
 import {
@@ -14,7 +16,16 @@ export type AssigneeFilter = "ALL" | FeedbackAssignee | null;
 export type StatusTab = "ALL" | FeedbackStatus;
 
 /** 서버에 필터·정렬 파라미터가 없어 이미 불러온 페이지 안에서만 거르고 센다. */
-export const useTriageFilter = (feedbacks: AdminFeedback[]) => {
+export const useTriageFilter = (
+  feedbacks: AdminFeedback[],
+): {
+  statusTab: StatusTab;
+  setStatusTab: Dispatch<SetStateAction<StatusTab>>;
+  assigneeFilter: AssigneeFilter;
+  setAssigneeFilter: Dispatch<SetStateAction<AssigneeFilter>>;
+  counts: Record<StatusTab, number>;
+  visibleFeedbacks: AdminFeedback[];
+} => {
   const [statusTab, setStatusTab] = useState<StatusTab>("ALL");
   const [assigneeFilter, setAssigneeFilter] = useState<AssigneeFilter>("ALL");
 

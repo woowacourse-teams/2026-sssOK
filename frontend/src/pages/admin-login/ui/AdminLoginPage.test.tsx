@@ -12,7 +12,7 @@ import { routes } from "@/app/routes";
 /** 목 핸들러가 받아들이는 계정을 그대로 가져온다 — 여기 다시 적으면 둘이 어긋난다. */
 const VALID = ADMIN_CREDENTIALS;
 
-const renderAt = (path: string = ROUTES.adminLogin) => {
+const renderAt = (path: string = ROUTES.adminLogin): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
   render(<RouterProvider router={router} />);
@@ -23,7 +23,7 @@ const renderAt = (path: string = ROUTES.adminLogin) => {
 const fillAndSubmit = async (
   user: ReturnType<typeof userEvent.setup>,
   { loginId, password }: { loginId: string; password: string },
-) => {
+): Promise<void> => {
   await user.type(screen.getByLabelText("아이디"), loginId);
   await user.type(screen.getByLabelText("비밀번호"), password);
   await user.click(screen.getByRole("button", { name: "로그인" }));
@@ -32,10 +32,10 @@ const fillAndSubmit = async (
 describe("AdminLoginPage", () => {
   beforeEach(() => localStorage.clear());
 
-  it("기본 상태를 디자인대로 보여준다", () => {
+  it("기본 상태를 디자인대로 보여준다", async () => {
     renderAt();
 
-    expect(screen.getByText("관리자")).toBeInTheDocument();
+    expect(await screen.findByText("관리자")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "쏙 관리자 로그인" })).toBeInTheDocument();
     expect(screen.getByText("발급받은 관리자 계정으로 로그인해주세요.")).toBeInTheDocument();
     expect(screen.getByLabelText("아이디")).toBeInTheDocument();

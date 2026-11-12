@@ -8,4 +8,4 @@
  * 여기 값은 미리보기 전용이고, 서버가 규칙을 바꾸면 시트 문구만 어긋난다.
  * (backend `DownloadFileNames.zipNameOf` 와 같은 형식)
  */
-export const zipArchiveName = (roomCode: string) => `ShareDrop_${roomCode}.zip`;
+export const zipArchiveName = (roomCode: string): string => `ShareDrop_${roomCode}.zip`;

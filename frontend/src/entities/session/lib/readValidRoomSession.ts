@@ -1,7 +1,7 @@
 import type { AnonymousSession } from "../model/types";
 import { getRoomSession, removeRoomSession } from "./roomSessionStorage";
 
-const isExpired = (expiresAt: string, now: Date) => {
+const isExpired = (expiresAt: string, now: Date): boolean => {
   const expiry = new Date(expiresAt).getTime();
 
   return Number.isNaN(expiry) || expiry <= now.getTime();

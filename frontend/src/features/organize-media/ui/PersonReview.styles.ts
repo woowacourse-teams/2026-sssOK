@@ -19,7 +19,7 @@ const PLACEHOLDER = "#757575";
  * iOS 는 16px 보다 작은 입력창에 포커스하면 화면을 확대하고 되돌리지 않는다.
  * 터치 기기에서는 16px 로 두고 줄여 그려 시안 크기(14px)로 보이게 한다 (SearchRequestField 와 같은 방법).
  */
-const touchSafeFont = (width: string) => `
+const touchSafeFont = (width: string): string => `
   @media (pointer: coarse) {
     width: calc(${width} * 16 / 14);
     /* 줄여 그려도 자리는 원래 폭만큼 차지하므로, 늘어난 만큼 오른쪽 여백을 당긴다. */

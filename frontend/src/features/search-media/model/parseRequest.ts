@@ -17,13 +17,13 @@ const ORGANIZE =
 const UNSUPPORTED = /연속|잘\s*나온|베스트|흔들|눈\s*감|날짜별|장소별|지워|지우기|삭제|옮겨/;
 const UPLOADED = /올린|올려/;
 
-const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
  * 글 안에서 아는 이름을 찾는다. 이름은 문장 어디에 있어도 되고 조사가 붙어도 된다.
  * 긴 이름부터 맞춰야 '하루나' 가 있을 때 '하루' 로 잘못 잡지 않는다.
  */
-export const findName = (text: string, names: string[]) => {
+export const findName = (text: string, names: string[]): string | undefined => {
   const candidates = [...new Set([...names, ...(names.includes("나") ? SELF_ALIASES : [])])]
     .filter((name) => name.length > 0)
     .sort((a, b) => b.length - a.length);

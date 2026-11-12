@@ -1,3 +1,12 @@
+import type { OrganizeRoomChangedEvent } from "@/features/subscribe-room-events/model/roomEventTypes";
+import type { OrganizeJobState } from "@/features/organize-media/api/types";
+import type { OrganizeRequest } from "@/features/organize-media/model/useOrganizeJob";
+import type { OrganizeLimit } from "@/features/organize-media/model/analyzablePhotos";
+import type { OrganizeApplied } from "@/features/organize-media/api/types";
+import type { OrganizeApplyGroup } from "@/features/organize-media/api/types";
+import type { OrganizeResult } from "@/features/organize-media/api/types";
+import type { MyOrganizeJob } from "@/features/organize-media/model/useOrganizeJob";
+import type { RenderHookResult } from "@testing-library/react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 
@@ -30,9 +39,11 @@ const jobOf = (overrides: Partial<OrganizeJob> = {}): OrganizeJob => ({
 const serve = ({
   current = { roomBusy: false, roomVersion: 1, myJob: null },
   groupCount = 6,
-}: { current?: OrganizeCurrent; groupCount?: number } = {}) => {
+}: { current?: OrganizeCurrent; groupCount?: number } = {}): {
+  requests: { path: string; body: unknown; key: string | null }[];
+} => {
   const requests: { path: string; body: unknown; key: string | null }[] = [];
-  const record = async (request: Request) => {
+  const record = async (request: Request): Promise<void> => {
     requests.push({
       path: new URL(request.url).pathname.replace(/^.*organize-jobs/, ""),
       body: await request.json().catch(() => null),
@@ -80,9 +91,41 @@ const serve = ({
   return { requests };
 };
 
-const render = () => renderHook(() => useOrganizeJob({ roomId: ROOM_ID, token: "mock-token-1" }));
+const render = (): RenderHookResult<
+  {
+    notice: MyOrganizeJob | null;
+    isRunning: boolean;
+    isStarting: boolean;
+    blockedReason: string | null;
+    isGroupCountLoading: boolean;
+    review:
+      | { readonly state: "loading"; readonly result?: undefined }
+      | { readonly state: "failed"; readonly result?: undefined }
+      | { readonly state: "ready"; readonly result: OrganizeResult }
+      | null;
+    reloadResult: () => void;
+    apply: (groups: OrganizeApplyGroup[]) => Promise<OrganizeApplied | null>;
+    isApplying: boolean;
+    applyError: string | null;
+    clearApplyError: () => void;
+    error: string | null;
+    clearError: () => void;
+    limit: OrganizeLimit | null;
+    clearLimit: () => void;
+    start: (request: OrganizeRequest) => Promise<void>;
+    retry: () => Promise<void>;
+    cancel: () => Promise<void>;
+    dismiss: () => void;
+    resync: () => Promise<void>;
+    applyJobUpdate: (
+      event: OrganizeJobState | { jobId: string; jobVersion: number; status: string },
+    ) => void;
+    applyRoomChange: ({ roomVersion, busy }: OrganizeRoomChangedEvent) => void;
+  },
+  unknown
+> => renderHook(() => useOrganizeJob({ roomId: ROOM_ID, token: "mock-token-1" }));
 
-const settle = () => act(async () => {});
+const settle = (): Promise<void> => act(async () => {});
 
 beforeEach(() => sessionStorage.clear());
 
@@ -505,7 +548,7 @@ describe("useOrganizeJob", () => {
       myJob: jobOf({ status: "READY", jobVersion: 5 }),
     };
 
-    const serveApply = (respond: () => Response) => {
+    const serveApply = (respond: () => Response): { body: unknown; key: string | null }[] => {
       const applies: { body: unknown; key: string | null }[] = [];
       server.use(
         http.post(`${BASE}/:jobId/apply`, async ({ request }) => {
@@ -655,7 +698,7 @@ describe("useOrganizeJob", () => {
   });
   it("SSE 가 접수 응답보다 먼저 와도 분석 대상 장수를 잃지 않는다", async () => {
     serve();
-    let release: () => void = () => {};
+    let release: () => void = (): void => {};
     const held = new Promise<void>((resolve) => {
       release = resolve;
     });

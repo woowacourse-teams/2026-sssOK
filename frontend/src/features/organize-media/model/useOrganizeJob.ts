@@ -87,9 +87,9 @@ const limitOf = (cause: unknown): OrganizeLimit | null => {
 
 const VISIBLE_STATUSES: readonly string[] = ["QUEUED", "RUNNING", "READY", "FAILED"];
 
-const dismissedKey = (roomId: number) => `organize-dismissed:${roomId}`;
+const dismissedKey = (roomId: number): string => `organize-dismissed:${roomId}`;
 
-const readDismissed = (roomId: number) => {
+const readDismissed = (roomId: number): string | null => {
   try {
     return sessionStorage.getItem(dismissedKey(roomId));
   } catch {
@@ -97,7 +97,7 @@ const readDismissed = (roomId: number) => {
   }
 };
 
-const writeDismissed = (roomId: number, jobId: string) => {
+const writeDismissed = (roomId: number, jobId: string): void => {
   try {
     sessionStorage.setItem(dismissedKey(roomId), jobId);
   } catch {
@@ -141,7 +141,39 @@ const mergeJob = (current: TrackedJob | null, next: IncomingJob): TrackedJob | n
  * - 진행 바와 결과 알림은 시작한 사람에게만 보인다. 다른 사람의 작업은 `roomBusy` 로만 알 수 있어서
  *   이름 없이 "다른 사람이 정리하고 있어요" 로 막는다.
  */
-export const useOrganizeJob = ({ roomId, token }: UseOrganizeJobParams) => {
+export const useOrganizeJob = ({
+  roomId,
+  token,
+}: UseOrganizeJobParams): {
+  notice: MyOrganizeJob | null;
+  isRunning: boolean;
+  isStarting: boolean;
+  blockedReason: string | null;
+  isGroupCountLoading: boolean;
+  review:
+    | { readonly state: "loading"; readonly result?: undefined }
+    | { readonly state: "failed"; readonly result?: undefined }
+    | { readonly state: "ready"; readonly result: OrganizeResult }
+    | null;
+  reloadResult: () => void;
+  apply: (groups: OrganizeApplyGroup[]) => Promise<OrganizeApplied | null>;
+  isApplying: boolean;
+  applyError: string | null;
+  clearApplyError: () => void;
+  error: string | null;
+  clearError: () => void;
+  limit: OrganizeLimit | null;
+  clearLimit: () => void;
+  start: (request: OrganizeRequest) => Promise<void>;
+  retry: () => Promise<void>;
+  cancel: () => Promise<void>;
+  dismiss: () => void;
+  resync: () => Promise<void>;
+  applyJobUpdate: (
+    event: OrganizeJobState | { jobId: string; jobVersion: number; status: string },
+  ) => void;
+  applyRoomChange: ({ roomVersion, busy }: OrganizeRoomChangedEvent) => void;
+} => {
   const [job, setJob] = useState<TrackedJob | null>(null);
   const [room, setRoom] = useState({ busy: false, version: -1 });
   /** READY 작업의 검토용 결과. 읽지 못했으면 `result` 가 null 이다. */

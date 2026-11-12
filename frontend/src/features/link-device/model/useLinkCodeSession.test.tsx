@@ -1,3 +1,4 @@
+import type { RenderHookResult } from "@testing-library/react";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -14,7 +15,7 @@ jest.mock("@/shared/lib/analytics", () => ({
 
 const ROOM_CODE = "7K93QX2S";
 
-const renderAt = (linkCode: string) => {
+const renderAt = (linkCode: string): RenderHookResult<{ isLinking: boolean }, unknown> => {
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <MemoryRouter initialEntries={[`/rooms/${ROOM_CODE}?linkCode=${linkCode}`]}>
       {children}

@@ -7,7 +7,7 @@ import { ORGANIZE_PHOTO_LIMIT } from "../config";
  * 서버는 동영상·GIF·처리 중인 사진을 빼고 센다(`excludedCount`). 갤러리 전체 장수로 세면
  * 동영상이 섞인 방에서 한도를 넘었다고 잘못 막게 된다. 아직 올리는 중인 사진도 뺀다.
  */
-export const countAnalyzablePhotos = (items: GalleryItem[]) =>
+export const countAnalyzablePhotos = (items: GalleryItem[]): number =>
   items.filter(
     (item) =>
       item.type === "server" &&
@@ -17,10 +17,11 @@ export const countAnalyzablePhotos = (items: GalleryItem[]) =>
   ).length;
 
 /** 정리 대상이 될 사진 파일인지. 동영상·GIF 는 서버가 빼므로 기다리지 않는다. */
-const isPhotoFile = (mimeType: string) => mimeType.startsWith("image/") && mimeType !== "image/gif";
+const isPhotoFile = (mimeType: string): boolean =>
+  mimeType.startsWith("image/") && mimeType !== "image/gif";
 
 /** 아이폰은 파일 타입을 빈 문자열로 줄 때가 있어서, 그때는 확장자로 본다. */
-const isLocalPhoto = (file: File) =>
+const isLocalPhoto = (file: File): boolean =>
   file.type ? isPhotoFile(file.type) : /\.(jpe?g|png|heic|heif)$/i.test(file.name);
 
 /**
@@ -32,7 +33,7 @@ const isLocalPhoto = (file: File) =>
  * 갤러리는 썸네일이 없는 서버 항목을 그리지 않으므로, 그린 목록이 아니라 서버 목록 원본과
  * 올리는 중인 자리를 함께 넘겨야 한다.
  */
-export const hasProcessingPhotos = (items: GalleryItem[]) =>
+export const hasProcessingPhotos = (items: GalleryItem[]): boolean =>
   items.some((item) =>
     item.type === "local"
       ? isLocalPhoto(item.file)

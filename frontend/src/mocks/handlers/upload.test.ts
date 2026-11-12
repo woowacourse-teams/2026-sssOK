@@ -7,7 +7,7 @@ const HOST_TOKEN = "Bearer mock-token-10234";
 /** 방장이 아닌 참여자 토큰. */
 const GUEST_TOKEN = "Bearer mock-token-10235";
 
-const jsonHeaders = (token: string) => ({
+const jsonHeaders = (token: string): { "Content-Type": string; Authorization: string } => ({
   "Content-Type": "application/json",
   Authorization: token,
 });
@@ -22,13 +22,17 @@ interface Issued {
 }
 
 /** 이름·크기만 다르게 준 요청 파일. 목은 확장자와 크기만 본다. */
-const file = (fileName: string, size = 2 * 1024 * 1024, mimeType = "image/jpeg") => ({
+const file = (
+  fileName: string,
+  size = 2 * 1024 * 1024,
+  mimeType = "image/jpeg",
+): { fileName: string; mimeType: string; size: number } => ({
   fileName,
   mimeType,
   size,
 });
 
-const roomIdOf = async (code: string) =>
+const roomIdOf = async (code: string): Promise<number> =>
   (await (await fetch(`${API_BASE_URL}/rooms/${code}`)).json()).data.roomId as number;
 
 /** 업로드는 참여자만 부를 수 있어서 모든 흐름이 입장부터 시작한다. */
@@ -36,7 +40,7 @@ const enterRoom = async (
   roomId = MOCK_ROOM_ID,
   token = HOST_TOKEN,
   code: string = MOCK_ROOM_CODES.active,
-) => {
+): Promise<number> => {
   await fetch(`${API_BASE_URL}/rooms/${roomId}/members`, {
     method: "POST",
     headers: { Authorization: token },
@@ -55,14 +59,17 @@ interface IssueOptions {
 const issueUploadUrls = (
   files: ReturnType<typeof file>[],
   { token = HOST_TOKEN, roomId = MOCK_ROOM_ID, folderIds }: IssueOptions = {},
-) =>
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/media/upload-urls`, {
     method: "POST",
     headers: jsonHeaders(token),
     body: JSON.stringify(folderIds === undefined ? { files } : { files, folderIds }),
   });
 
-const issueOne = async (target = file("제주-해변.jpg"), options: IssueOptions = {}) => {
+const issueOne = async (
+  target = file("제주-해변.jpg"),
+  options: IssueOptions = {},
+): Promise<Issued> => {
   const body = await (await issueUploadUrls([target], options)).json();
 
   return body.data.issued[0] as Issued;
@@ -71,10 +78,18 @@ const issueOne = async (target = file("제주-해변.jpg"), options: IssueOption
 const BYTES = new Uint8Array([1, 2, 3]);
 
 /** headers 를 넘기지 않으면 발급받은 헤더를 그대로 싣는다 — 정상 흐름이 기본값이다. */
-const putToR2 = (issued: Issued, headers: Record<string, string> = issued.headers, body = BYTES) =>
+const putToR2 = (
+  issued: Issued,
+  headers: Record<string, string> = issued.headers,
+  body = BYTES,
+): Promise<Response> =>
   fetch(issued.uploadUrl, { method: "PUT", headers, body: body as BodyInit | null });
 
-const registerMedia = (mediaIds: number[], token = HOST_TOKEN, roomId = MOCK_ROOM_ID) =>
+const registerMedia = (
+  mediaIds: number[],
+  token = HOST_TOKEN,
+  roomId = MOCK_ROOM_ID,
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/media`, {
     method: "POST",
     headers: jsonHeaders(token),
@@ -88,7 +103,7 @@ const reissueUploadUrl = (
     roomId = MOCK_ROOM_ID,
     size,
   }: { token?: string; roomId?: number; size?: number } = {},
-) =>
+): Promise<Response> =>
   fetch(`${API_BASE_URL}/rooms/${roomId}/media/${mediaId}/upload-url`, {
     method: "POST",
     headers: jsonHeaders(token),
@@ -96,7 +111,7 @@ const reissueUploadUrl = (
   });
 
 /** 발급받은 적 없는 키를 가리키는 URL. 쿼리(서명·만료)는 진짜 것을 그대로 쓴다. */
-const withUnknownKey = (uploadUrl: string) =>
+const withUnknownKey = (uploadUrl: string): string =>
   uploadUrl.replace(/\/rooms\/\d+\/[^?]+/, `/rooms/${MOCK_ROOM_ID}/발급한적없음.jpg`);
 
 beforeEach(async () => {
@@ -156,29 +171,29 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
     expect(body.data.rejected).toEqual([
       {
         fileName: "아이폰-원본.heic",
-        code: "UNSUPPORTED_FILE_TYPE",
+        code: "UNSUPPORTED_MEDIA_TYPE",
         message: expect.any(String),
       },
     ]);
   });
 
-  it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_FILE_TYPE 이다", async () => {
+  it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_MEDIA_TYPE 이다", async () => {
     const body = await (await issueUploadUrls([file("확장자없음")])).json();
 
     expect(body.data.issued).toHaveLength(0);
-    expect(body.data.rejected[0].code).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(body.data.rejected[0].code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 
-  it("사진이 20MB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
+  it("사진이 20MB 를 넘으면 rejected FILE_TOO_LARGE 다", async () => {
     const body = await (await issueUploadUrls([file("원본.jpg", 20 * 1024 * 1024 + 1)])).json();
 
-    expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
+    expect(body.data.rejected[0].code).toBe("FILE_TOO_LARGE");
   });
 
-  it("영상이 1GB 를 넘으면 rejected FILE_SIZE_EXCEEDED 다", async () => {
+  it("영상이 1GB 를 넘으면 rejected FILE_TOO_LARGE 다", async () => {
     const body = await (await issueUploadUrls([file("행사.mp4", 1024 * 1024 * 1024 + 1)])).json();
 
-    expect(body.data.rejected[0].code).toBe("FILE_SIZE_EXCEEDED");
+    expect(body.data.rejected[0].code).toBe("FILE_TOO_LARGE");
   });
 
   it("사진 20MB·영상 1GB 까지는 그대로 발급한다", async () => {
@@ -475,15 +490,15 @@ describe("POST /rooms/{roomId}/media — 완료 등록", () => {
     ]);
   });
 
-  it("이미 등록한 미디어를 다시 등록하면 failed UPLOAD_ALREADY_COMPLETED 다", async () => {
+  it("이미 등록한 미디어를 다시 등록하면 400 ILLEGAL_UPLOAD_STATUS 다", async () => {
     const issued = await issueOne();
 
     await putToR2(issued);
     await registerMedia([issued.mediaId]);
 
-    const body = await (await registerMedia([issued.mediaId])).json();
-
-    expect(body.data.failed[0].code).toBe("UPLOAD_ALREADY_COMPLETED");
+    const response = await registerMedia([issued.mediaId]);
+    expect(response.status).toBe(400);
+    expect((await response.json()).code).toBe("ILLEGAL_UPLOAD_STATUS");
   });
 
   it("남이 발급받은 mediaId 가 섞이면 요청 전체가 403 MEDIA_FORBIDDEN 이다", async () => {
@@ -610,13 +625,13 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
     expect((await response.json()).code).toBe("INVALID_PARAM");
   });
 
-  it("바뀐 크기가 한도를 넘으면 413 FILE_SIZE_EXCEEDED 다", async () => {
+  it("바뀐 크기가 한도를 넘으면 413 FILE_TOO_LARGE 다", async () => {
     const issued = await issueOne();
 
     const response = await reissueUploadUrl(issued.mediaId, { size: 20 * 1024 * 1024 + 1 });
 
     expect(response.status).toBe(413);
-    expect((await response.json()).code).toBe("FILE_SIZE_EXCEEDED");
+    expect((await response.json()).code).toBe("FILE_TOO_LARGE");
   });
 
   it("이미 등록이 끝난 미디어는 409 UPLOAD_ALREADY_COMPLETED 다", async () => {
@@ -656,7 +671,7 @@ describe("POST /rooms/{roomId}/media/{mediaId}/upload-url — 재발급", () => 
  * 여기가 끊기면 화면에서는 "올렸는데 갤러리에 아무것도 안 생기는" 것으로 보인다.
  */
 describe("등록한 미디어가 갤러리 목록에 나타난다", () => {
-  const listMedia = (roomId = MOCK_ROOM_ID, token = HOST_TOKEN) =>
+  const listMedia = (roomId = MOCK_ROOM_ID, token = HOST_TOKEN): Promise<Response> =>
     fetch(`${API_BASE_URL}/rooms/${roomId}/media`, { headers: { Authorization: token } });
 
   /** 픽스처로 미리 들어 있는 장수. 등록분은 이 위에 쌓인다. 첫 페이지(30장)보다 많다. */

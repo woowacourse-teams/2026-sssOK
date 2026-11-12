@@ -18,18 +18,23 @@ const STORAGE_KEY = "sssok:push-device-token";
 let pending = Promise.resolve();
 let endingAccessToken: string | undefined;
 
-const enqueue = (run: () => Promise<void>) => {
+const enqueue = (run: () => Promise<void>): Promise<void> => {
   const result = pending.then(run);
   pending = result.catch(() => {});
   return result;
 };
 
-const readDevice = () => {
-  const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
-  return isDeviceToken(value) ? value : null;
+const readDevice = (): DeviceToken | null => {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+    return isDeviceToken(value) ? value : null;
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+    return null;
+  }
 };
 
-const updateToken = (method: "POST" | "DELETE", accessToken: string, body: object) =>
+const updateToken = (method: "POST" | "DELETE", accessToken: string, body: object): Promise<void> =>
   apiClient<void>("/device-tokens", {
     method,
     token: accessToken,
@@ -39,7 +44,7 @@ const updateToken = (method: "POST" | "DELETE", accessToken: string, body: objec
     signal: AbortSignal.timeout(8000),
   });
 
-export const registerDeviceToken = (accessToken: string, device: DeviceToken) =>
+export const registerDeviceToken = (accessToken: string, device: DeviceToken): Promise<void> =>
   enqueue(async () => {
     if (accessToken === endingAccessToken) return;
     const previous = readDevice();
@@ -54,7 +59,10 @@ export const registerDeviceToken = (accessToken: string, device: DeviceToken) =>
     await updateToken("POST", accessToken, { token: device.token, platform: device.platform });
   });
 
-export const endPushSession = (accessToken: string, endSession: () => Promise<void>) =>
+export const endPushSession = (
+  accessToken: string,
+  endSession: () => Promise<void>,
+): Promise<void> =>
   enqueue(async () => {
     const device = readDevice();
     endingAccessToken = accessToken;

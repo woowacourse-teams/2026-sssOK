@@ -1,3 +1,4 @@
+import type { MemberSession } from "@/entities/member-session/api/refreshMemberSession";
 import {
   completeAppleNativeLogin,
   completeKakaoNativeLogin,
@@ -6,7 +7,10 @@ import {
 import { requestNativeLogin, type LoginProvider } from "./nativeAuthBridge";
 
 /** 준비 → SDK 인증 → 서버 로그인을 순서대로 조율한다. 인증값은 함수 실행 중에만 보관한다. */
-export const loginNative = async (provider: LoginProvider, signal: AbortSignal) => {
+export const loginNative = async (
+  provider: LoginProvider,
+  signal: AbortSignal,
+): Promise<MemberSession | null> => {
   if (provider === "kakao") {
     const token = await requestNativeLogin("kakao", signal);
     return token === null ? null : completeKakaoNativeLogin(token, signal);

@@ -1,3 +1,5 @@
+import type { UserEvent } from "@testing-library/user-event";
+import type { RenderResult } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -14,7 +16,9 @@ jest.mock("@/shared/lib/analytics", () => ({
   track: jest.fn(),
 }));
 
-const renderForm = (props: ComponentProps<typeof CreateRoomForm> = {}) => {
+const renderForm = (
+  props: ComponentProps<typeof CreateRoomForm> = {},
+): RenderResult<typeof import("@testing-library/dom/types/queries"), HTMLElement, HTMLElement> => {
   const queryClient = new QueryClient({
     defaultOptions: {
       mutations: { retry: false },
@@ -28,7 +32,7 @@ const renderForm = (props: ComponentProps<typeof CreateRoomForm> = {}) => {
   return render(<CreateRoomForm {...props} />, { wrapper: QueryClientTestWrapper });
 };
 
-const fillRequiredFields = async () => {
+const fillRequiredFields = async (): Promise<UserEvent> => {
   const user = userEvent.setup();
 
   await user.type(screen.getByRole("textbox", { name: "방 제목" }), "제주 여행");

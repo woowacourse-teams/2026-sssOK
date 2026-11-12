@@ -7,16 +7,19 @@ import { reissueUploadUrl } from "./reissueUploadUrl";
 
 const TOKEN = "mock-token-10234";
 
-const requestFile = (fileName: string, size = 1024) => ({
+const requestFile = (
+  fileName: string,
+  size = 1024,
+): { fileName: string; mimeType: string; size: number } => ({
   fileName,
   mimeType: "image/jpeg",
   size,
 });
 
-const imageFile = (fileName: string) => new File(["사진"], fileName, { type: "image/jpeg" });
+const imageFile = (fileName: string): File => new File(["사진"], fileName, { type: "image/jpeg" });
 
 /** 업로드는 참여자만 부를 수 있어서 모든 흐름이 입장부터 시작한다. */
-const enterRoom = async () => {
+const enterRoom = async (): Promise<void> => {
   await fetch(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/members`, {
     body: JSON.stringify({ code: MOCK_ROOM_CODES.active }),
     method: "POST",
@@ -39,7 +42,7 @@ describe("issueUploadUrls", () => {
     // 거절된 자리를 건너뛰고 원본 순서가 유지된다 — 짝짓기가 이 순서에 기댄다.
     expect(issued.map((one) => one.fileName)).toEqual(["첫째.jpg", "둘째.jpg"]);
     expect(rejected).toEqual([
-      expect.objectContaining({ fileName: "메모.txt", code: "UNSUPPORTED_FILE_TYPE" }),
+      expect.objectContaining({ fileName: "메모.txt", code: "UNSUPPORTED_MEDIA_TYPE" }),
     ]);
   });
 

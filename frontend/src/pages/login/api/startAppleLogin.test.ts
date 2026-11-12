@@ -5,7 +5,12 @@ import { API_BASE_URL } from "@/shared/config";
 import { startAppleLogin } from "./startAppleLogin";
 
 const state = "s".repeat(43);
-const response = () => ({
+const response = (): {
+  authorizationUrl: string;
+  state: string;
+  loginVerifier: string;
+  expiresAt: string;
+} => ({
   authorizationUrl: `https://appleid.apple.com/auth/authorize?state=${state}`,
   state,
   loginVerifier: "v".repeat(43),

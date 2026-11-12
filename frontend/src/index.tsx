@@ -6,7 +6,7 @@ import { MOCK_MODE } from "@/shared/config";
 import { initAnalytics } from "@/shared/lib";
 import { GlobalStyles } from "@/shared/styles/GlobalStyles";
 
-async function enableMocking() {
+async function enableMocking(): Promise<void> {
   // 배포 빌드에는 목이 아예 없다. 이 비교는 빌드 시점에 상수로 접혀서
   // 아래 동적 import 가 죽은 코드가 되고, 목 번들이 딸려가지 않는다.
   if (process.env.NODE_ENV !== "development" || MOCK_MODE === "off") {
@@ -23,7 +23,7 @@ async function enableMocking() {
   }
 }
 
-async function bootstrap() {
+async function bootstrap(): Promise<void> {
   captureLoginCallback();
   // 수집 준비를 기다리느라 첫 화면이 늦으면 안 된다. 실패해도 앱은 떠야 한다.
   initAnalytics().catch((error) => console.error("[PostHog] 초기화에 실패했습니다.", error));

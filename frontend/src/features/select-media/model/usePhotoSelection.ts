@@ -7,7 +7,16 @@ import { PhotoSelectionContext } from "./PhotoSelectionContext";
 /**
  * 고른 사진의 id 만 들고 있는다. 서버에도 이 id 그대로 보낸다.
  */
-export const usePhotoSelection = (visiblePhotoIds: number[]) => {
+export const usePhotoSelection = (
+  visiblePhotoIds: number[],
+): {
+  selectedPhotoIds: number[];
+  isAllSelected: boolean;
+  togglePhoto: (photoId: number) => void;
+  removePhotos: (photoIds: number[]) => void;
+  toggleAllPhotos: () => void;
+  clearSelection: () => void;
+} => {
   const shared = useContext(PhotoSelectionContext);
   // 단독 사용(스토리·단위 테스트)은 로컬 상태로 동작한다.
   const [localIds, setLocalIds] = useState<ReadonlySet<number>>(() => new Set());
@@ -21,13 +30,13 @@ export const usePhotoSelection = (visiblePhotoIds: number[]) => {
 
   // 아무것도 안 고른 상태에서 처음 고르는 순간이 선택의 시작
   // 상태 갱신 함수 안에서 보내지 않는다. 개발 모드에서 두 번 불려 두 번 남는다.
-  const trackSelectionStart = () => {
+  const trackSelectionStart = (): void => {
     if (selectedIds.size === 0) {
       track("Photo Selection Started", {});
     }
   };
 
-  const togglePhoto = (photoId: number) => {
+  const togglePhoto = (photoId: number): void => {
     trackSelectionStart();
     setSelectedIds((current) => {
       const next = new Set(current);
@@ -36,20 +45,20 @@ export const usePhotoSelection = (visiblePhotoIds: number[]) => {
       return next;
     });
   };
-  const removePhotos = (photoIds: number[]) =>
+  const removePhotos = (photoIds: number[]): void =>
     setSelectedIds((current) => {
       if (!photoIds.some((id) => current.has(id))) return current;
       const next = new Set(current);
       photoIds.forEach((id) => next.delete(id));
       return next;
     });
-  const toggleAllPhotos = () => {
+  const toggleAllPhotos = (): void => {
     if (!isAllSelected && visiblePhotoIds.length > 0) {
       trackSelectionStart();
     }
     setSelectedIds(isAllSelected ? new Set() : new Set(visiblePhotoIds));
   };
-  const clearSelection = () => setSelectedIds(new Set());
+  const clearSelection = (): void => setSelectedIds(new Set());
 
   return {
     selectedPhotoIds,

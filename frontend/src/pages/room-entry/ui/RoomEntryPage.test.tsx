@@ -21,7 +21,9 @@ jest.mock("@/shared/lib/analytics", () => ({
 const FUTURE = "2099-01-01T00:00:00Z";
 const PAST = "2020-01-01T00:00:00Z";
 
-const session = (expiresAt: string) => ({
+const session = (
+  expiresAt: string,
+): { accessToken: string; userId: number; nickname: string; expiresAt: string } => ({
   accessToken: "mock-token-99999",
   userId: 10234,
   nickname: "민수",
@@ -31,9 +33,9 @@ const session = (expiresAt: string) => ({
 const GALLERY_TEXT = "갤러리 도착";
 
 /** MSW 가 넘겨주는 request.url 은 언제나 절대 URL 이다. 베이스가 상대경로여도 맞춰 볼 수 있게 푼다. */
-const absolute = (path: string) => new URL(path, location.href).href;
+const absolute = (path: string): string => new URL(path, location.href).href;
 
-const renderAt = (code: string, state?: unknown, member?: MemberSession) => {
+const renderAt = (code: string, state?: unknown, member?: MemberSession): void => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -54,7 +56,7 @@ const renderAt = (code: string, state?: unknown, member?: MemberSession) => {
   );
 };
 
-const getSubmitButton = () => screen.getByRole("button", { name: /^입장하기/ });
+const getSubmitButton = (): HTMLElement => screen.getByRole("button", { name: /^입장하기/ });
 
 beforeEach(() => localStorage.clear());
 
@@ -79,12 +81,33 @@ describe("RoomEntryPage", () => {
       http.get(`${API_BASE_URL}/rooms/:code`, ({ request }) => {
         expect(request.headers.get("Authorization")).toBe("Bearer member-token");
         return HttpResponse.json({
-          data: { roomId: 5031, code: MOCK_ROOM_CODES.active, status: "ACTIVE", joined },
+          data: {
+            roomId: 5031,
+            code: MOCK_ROOM_CODES.active,
+            status: "ACTIVE",
+            joined,
+            name: "테스트 방",
+            hostId: 10234,
+            hostName: "호스트",
+            createdAt: FUTURE,
+            expiresAt: FUTURE,
+            uploadPolicy: "everyone",
+            photoCount: 0,
+            folders: [],
+          },
         });
       }),
       http.post(`${API_BASE_URL}/rooms/5031/members`, async ({ request }) => {
         join(request.headers.get("Authorization"), await request.json());
-        return HttpResponse.json({ data: {} });
+        return HttpResponse.json({
+          data: {
+            roomId: 5031,
+            userId: 10234,
+            displayName: "민수",
+            hostId: 10234,
+            joinedAt: FUTURE,
+          },
+        });
       }),
     );
     renderAt(MOCK_ROOM_CODES.active, undefined, member);
@@ -142,7 +165,18 @@ describe("RoomEntryPage", () => {
             url: request.url,
             authorization: request.headers.get("Authorization"),
           };
-          return HttpResponse.json({ data: { roomId: 5031 } }, { status: 201 });
+          return HttpResponse.json(
+            {
+              data: {
+                roomId: 5031,
+                userId: 10234,
+                displayName: "민수",
+                hostId: 10234,
+                joinedAt: FUTURE,
+              },
+            },
+            { status: 201 },
+          );
         }),
       );
       const user = userEvent.setup();

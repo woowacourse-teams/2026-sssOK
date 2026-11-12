@@ -9,6 +9,7 @@
     "@react-native-seoul/kakao-login": "^6.0.4",
     "expo": "~58.0.19",
     "expo-apple-authentication": "~58.0.2",
+    "expo-asset": "58.0.18",
     "expo-build-properties": "~58.0.12",
     "expo-dev-client": "~58.0.18",
     "expo-file-system": "~58.0.11",
@@ -19,7 +20,8 @@
     "react": "19.3.0",
     "react-native": "0.88.0",
     "react-native-safe-area-context": "~5.10.1",
-    "react-native-webview": "14.0.1"
+    "react-native-webview": "14.0.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",

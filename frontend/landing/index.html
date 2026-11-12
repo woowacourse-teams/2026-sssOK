@@ -46,11 +46,29 @@
          app-argument 는 넣지 않는다 (열면 앱 홈으로 간다) -->
     <meta name="apple-itunes-app" content="app-id=6828711923" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <!-- 외부 CSS 를 다 받을 때까지 첫 화면이 멈추지 않도록 미리 받기만 하고, 받은 뒤 스타일로 붙인다.
+         그동안은 시스템 글꼴로 그린다. JS 가 꺼져 있으면 noscript 쪽이 그대로 불러온다 -->
     <link
-      rel="stylesheet"
+      rel="preload"
+      as="style"
       href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+      />
+    </noscript>
     <link rel="stylesheet" href="/landing/styles.css" />
+    <script>
+      // 스크롤 위치가 곧 장면 시각이라, 새로고침하면 중간 장면이 아니라 첫 화면부터 다시 시작한다
+      history.scrollRestoration = "manual";
+      document.documentElement.classList.add("js-wait");
+    </script>
   </head>
   <body>
     <div class="bg" aria-hidden="true"></div>

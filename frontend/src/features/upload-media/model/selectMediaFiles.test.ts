@@ -1,7 +1,7 @@
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES } from "../lib/mediaFileRules";
 import { selectMediaFiles } from "./selectMediaFiles";
 
-const fileOf = (name: string, size: number, type = "") => {
+const fileOf = (name: string, size: number, type = ""): File => {
   const file = new File(["x"], name, { type });
   Object.defineProperty(file, "size", { value: size });
 
@@ -27,7 +27,7 @@ describe("selectMediaFiles", () => {
       {
         fileName: "b.txt",
         size: 10,
-        code: "UNSUPPORTED_FILE_TYPE",
+        code: "UNSUPPORTED_MEDIA_TYPE",
         message: "이미지와 영상만 올릴 수 있어요",
       },
     ]);
@@ -38,7 +38,7 @@ describe("selectMediaFiles", () => {
     const { accepted, rejected } = selectMediaFiles([fileOf("IMG_0001.HEIC", 1024, "image/jpeg")]);
 
     expect(accepted).toEqual([]);
-    expect(rejected[0].code).toBe("UNSUPPORTED_FILE_TYPE");
+    expect(rejected[0].code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 
   it("mimeType 이 비어 있어도 확장자가 맞으면 통과시킨다", () => {
@@ -55,7 +55,7 @@ describe("selectMediaFiles", () => {
       {
         fileName: "big.png",
         size: MAX_IMAGE_BYTES + 1,
-        code: "FILE_SIZE_EXCEEDED",
+        code: "FILE_TOO_LARGE",
         message: "이미지 최대 20MB 초과",
       },
     ]);
@@ -72,7 +72,7 @@ describe("selectMediaFiles", () => {
       {
         fileName: "big.mp4",
         size: MAX_VIDEO_BYTES + 1,
-        code: "FILE_SIZE_EXCEEDED",
+        code: "FILE_TOO_LARGE",
         message: "영상 최대 1GB 초과",
       },
     ]);

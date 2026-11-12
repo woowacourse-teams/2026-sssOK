@@ -5,7 +5,7 @@ export const setMyMediaLike = (
   current: MediaList | undefined,
   mediaId: number,
   likedByMe: boolean,
-) => {
+): MediaList | undefined => {
   if (!current) return current;
 
   return {
@@ -25,7 +25,7 @@ export const setMyMediaLike = (
 export const setMediaLikeResponse = (
   current: MediaList | undefined,
   response: MediaLikeResponse,
-) => {
+): MediaList | undefined => {
   if (!current) return current;
 
   return {

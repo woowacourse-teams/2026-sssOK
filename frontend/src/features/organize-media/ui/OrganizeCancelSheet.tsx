@@ -1,8 +1,7 @@
-import { useId } from "react";
-import { createPortal } from "react-dom";
+import { BottomSheet } from "@/shared/ui/bottom-sheet";
 
 import type { OrganizeKind } from "../api/types";
-import { Body, Dialog, Handle, Later, Overlay, Stop, Submit, Title } from "./OrganizeSheet.styles";
+import { Body, Later, Stop, Submit } from "./OrganizeSheet.styles";
 
 /** `running` 은 나누는 중에 멈출 때, `result` 는 다 나눈 결과 알림을 닫을 때다. */
 type OrganizeCancelKind = "running" | "result";
@@ -60,29 +59,22 @@ export const OrganizeCancelSheet = ({
   onKeepGoing,
   onStop,
 }: OrganizeCancelSheetProps) => {
-  const titleId = useId();
   const copy = COPY[organizeKind][kind];
   const StopButton = organizeKind === "SIMILAR" ? Stop : Later;
 
-  return createPortal(
-    <Overlay data-testid="organize-cancel-overlay" onClick={onKeepGoing}>
-      <Dialog
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Handle aria-hidden="true" />
-        <Title id={titleId}>{copy.title}</Title>
-        <Body>{copy.body}</Body>
-        <Submit type="button" onClick={onKeepGoing}>
-          {copy.keep}
-        </Submit>
-        <StopButton type="button" onClick={onStop}>
-          {copy.stop}
-        </StopButton>
-      </Dialog>
-    </Overlay>,
-    document.body,
+  return (
+    <BottomSheet title={copy.title} variant="action" onClose={onKeepGoing}>
+      {(close) => (
+        <>
+          <Body>{copy.body}</Body>
+          <Submit type="button" onClick={close}>
+            {copy.keep}
+          </Submit>
+          <StopButton type="button" onClick={onStop}>
+            {copy.stop}
+          </StopButton>
+        </>
+      )}
+    </BottomSheet>
   );
 };

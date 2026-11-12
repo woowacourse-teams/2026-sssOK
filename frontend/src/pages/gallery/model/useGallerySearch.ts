@@ -21,7 +21,7 @@ interface PendingSubmission {
   startedAt: number;
 }
 
-const filterByNickname = (items: GalleryItem[], query: string) => {
+const filterByNickname = (items: GalleryItem[], query: string): GalleryItem[] => {
   const keyword = query.toLowerCase();
   return items.filter(
     (item) =>
@@ -30,7 +30,7 @@ const filterByNickname = (items: GalleryItem[], query: string) => {
 };
 
 // 목록에서 고른 사람은 이름이 겹쳐도 그 사람 사진만 보여야 해서 id 로 거른다.
-const filterByUploaderId = (items: GalleryItem[], uploaderId: number) =>
+const filterByUploaderId = (items: GalleryItem[], uploaderId: number): GalleryItem[] =>
   items.filter((item) => item.type === "server" && item.media.uploaderId === uploaderId);
 
 // 방에 사진을 올린 사람과 장수 -> 올린 사람으로 찾을 때 고를 수 있는 목록이다.
@@ -56,7 +56,25 @@ export const useGallerySearch = ({
   userId,
   items,
   allItems,
-}: UseGallerySearchParams) => {
+}: UseGallerySearchParams): {
+  isSearchOpen: boolean;
+  isSearching: boolean;
+  appliedText: string | null;
+  uploaders: Uploader[];
+  searchType: SearchType;
+  query: string;
+  items: GalleryItem[];
+  isPending: boolean;
+  isError: boolean;
+  errorMessage: string;
+  openSearch: () => void;
+  changeSearchType: (nextSearchType: SearchType) => void;
+  search: (nextQuery: string) => void;
+  searchBy: (nextSearchType: SearchType, nextQuery: string) => void;
+  searchByUploader: (uploader: Pick<Uploader, "id" | "name">) => void;
+  closeSearch: () => void;
+  trackResultOpened: (mediaId: number) => void;
+} => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchType, setSearchType] = useState<SearchType>("keyword");
   const [query, setQuery] = useState("");
@@ -130,7 +148,7 @@ export const useGallerySearch = ({
       ? "지금은 사진 검색을 쓸 수 없어요."
       : "사진을 검색하지 못했어요. 다시 시도해 주세요.";
 
-  const resetQuery = () => {
+  const resetQuery = (): void => {
     pendingRef.current = null;
     setQuery("");
     setUploaderId(null);

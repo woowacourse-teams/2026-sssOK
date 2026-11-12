@@ -1,12 +1,14 @@
 import type { QueryClient } from "@tanstack/react-query";
 
-import { photosQueryKey, type MediaItem, type MediaList } from "@/entities/media";
+import { photosQueryKey, type MediaList } from "@/entities/media";
+
+import type { MediaReadyEvent } from "./roomEventTypes";
 
 interface Params {
   queryClient: QueryClient;
   roomId: number;
   userId: number;
-  media: MediaItem;
+  media: MediaReadyEvent;
   replacedPending: boolean;
 }
 
@@ -16,7 +18,7 @@ export const updateMediaReadyCache = ({
   userId,
   media,
   replacedPending,
-}: Params) => {
+}: Params): void => {
   queryClient.setQueryData<MediaList>(photosQueryKey(roomId, userId), (current) => {
     if (!current) return current;
 
@@ -24,12 +26,14 @@ export const updateMediaReadyCache = ({
     if (exists) {
       return {
         ...current,
-        items: current.items.map((item) => (item.mediaId === media.mediaId ? media : item)),
+        items: current.items.map((item) =>
+          item.mediaId === media.mediaId ? { ...media, likedByMe: item.likedByMe ?? false } : item,
+        ),
       };
     }
     // 내가 올린 것은 미리보기 자리가 이미 있다. 목록에 또 넣으면 두 장으로 보인다.
     if (replacedPending) return current;
 
-    return { ...current, items: [media, ...current.items] };
+    return { ...current, items: [{ ...media, likedByMe: false }, ...current.items] };
   });
 };

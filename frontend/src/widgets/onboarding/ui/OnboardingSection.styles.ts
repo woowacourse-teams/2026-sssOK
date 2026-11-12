@@ -1,3 +1,4 @@
+import type { SerializedStyles } from "@emotion/react";
 import { css, keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
 
@@ -18,7 +19,7 @@ const fadeUp = keyframes`
  * 처음 들어왔을 때 헤드라인 → 미리보기 → 버튼 순으로 짧게 나타나 읽는 순서를 잡아 준다.
  * 다 합쳐 0.65초 안에 끝나 "3초 안에 이해" 를 늦추지 않는다.
  */
-const enter = (delayMs: number) => css`
+const enter = (delayMs: number): SerializedStyles => css`
   animation: ${fadeUp} 400ms cubic-bezier(0.22, 0.61, 0.36, 1) ${delayMs}ms both;
 
   @media (prefers-reduced-motion: reduce) {

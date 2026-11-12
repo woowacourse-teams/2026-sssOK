@@ -1,3 +1,4 @@
+import type { UserEvent } from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -10,7 +11,7 @@ import { AccountSettingsPage } from "./AccountSettingsPage";
 jest.mock("@/features/manage-account", () => ({ manageAccount: jest.fn() }));
 const request = jest.mocked(manageAccount);
 
-const setup = () => {
+const setup = (): { client: QueryClient; user: UserEvent } => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   client.setQueryData(MEMBER_SESSION_QUERY_KEY, {
     accessToken: "member-token",

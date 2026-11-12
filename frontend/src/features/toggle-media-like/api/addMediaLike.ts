@@ -1,3 +1,4 @@
+import { MediaLikeResponseSchema } from "./types";
 import { apiClient } from "@/shared/api";
 import type { MediaLikeResponse } from "./types";
 
@@ -7,8 +8,13 @@ interface AddMediaLikeParams {
   token: string;
 }
 
-export const addMediaLike = ({ roomId, mediaId, token }: AddMediaLikeParams) =>
+export const addMediaLike = ({
+  roomId,
+  mediaId,
+  token,
+}: AddMediaLikeParams): Promise<MediaLikeResponse> =>
   apiClient<MediaLikeResponse>(`/rooms/${roomId}/media/${mediaId}/likes`, {
+    schema: MediaLikeResponseSchema,
     method: "PUT",
     token,
     errorTracking: {

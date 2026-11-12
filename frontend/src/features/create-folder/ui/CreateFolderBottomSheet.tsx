@@ -37,7 +37,7 @@ export const CreateFolderBottomSheet = ({
       : "폴더를 만들지 못했어요."
     : "";
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (!trimmedName || mutation.isPending) return;
     mutation.mutate(trimmedName);

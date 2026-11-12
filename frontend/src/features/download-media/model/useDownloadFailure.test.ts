@@ -1,3 +1,6 @@
+import type { DownloadMode } from "@/features/download-media/model/types";
+import type { DownloadOutcome } from "@/features/download-media/model/types";
+import type { DownloadFailureState } from "@/features/download-media/model/useDownloadFailure";
 import { act, renderHook } from "@testing-library/react";
 
 import { useDownloadFailure } from "./useDownloadFailure";
@@ -12,7 +15,16 @@ const targetOf = (mediaId: number): DownloadTarget => ({
 
 const TARGETS = [targetOf(1), targetOf(2), targetOf(3)];
 
-const settled = (outcome: Parameters<ReturnType<typeof useDownloadFailure>["settle"]>[0]) => {
+const settled = (
+  outcome: Parameters<ReturnType<typeof useDownloadFailure>["settle"]>[0],
+): {
+  current: {
+    failure: DownloadFailureState | null;
+    settle: (outcome: DownloadOutcome, targets: DownloadTarget[], mode: DownloadMode) => void;
+    fail: (message: string, targets: DownloadTarget[], mode: DownloadMode) => void;
+    close: () => void;
+  };
+} => {
   const { result } = renderHook(() => useDownloadFailure());
 
   act(() => result.current.settle(outcome, TARGETS, "individual"));

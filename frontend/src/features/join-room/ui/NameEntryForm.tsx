@@ -28,7 +28,7 @@ export const NameEntryForm = ({ onSubmit, isPending = false }: NameEntryFormProp
         : "입장하기. 이름을 입력해야 입장할 수 있어요."
       : "입장하기";
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
 
     if (!canSubmit) return;

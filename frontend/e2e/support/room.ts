@@ -25,7 +25,7 @@ export async function createRoom(page: Page): Promise<TestRoom> {
   return { name, gallery, code };
 }
 
-export async function copyInvite(page: Page, room: TestRoom) {
+export async function copyInvite(page: Page, room: TestRoom): Promise<string> {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"], {
     origin: new URL(page.url()).origin,
   });
@@ -38,7 +38,7 @@ export async function copyInvite(page: Page, room: TestRoom) {
   return invite;
 }
 
-export async function joinRoom(page: Page, invite: string, nickname = "게스트B") {
+export async function joinRoom(page: Page, invite: string, nickname = "게스트B"): Promise<void> {
   await page.goto(invite);
   await expect(page.getByRole("textbox", { name: "표시할 이름", exact: true })).toBeVisible();
   await page.getByRole("textbox", { name: "표시할 이름", exact: true }).fill(nickname);
@@ -49,7 +49,10 @@ export async function joinRoom(page: Page, invite: string, nickname = "게스트
   ).toBeVisible();
 }
 
-export async function prepareRoom(a: Page, b: Page) {
+export async function prepareRoom(
+  a: Page,
+  b: Page,
+): Promise<{ invite: string; name: string; gallery: string; code: string }> {
   const room = await createRoom(a);
   const invite = await copyInvite(a, room);
   await joinRoom(b, invite);
@@ -58,7 +61,7 @@ export async function prepareRoom(a: Page, b: Page) {
   return { ...room, invite };
 }
 
-export async function roomMenu(page: Page, item: string) {
+export async function roomMenu(page: Page, item: string): Promise<void> {
   await page.getByRole("button", { name: "방 메뉴 열기", exact: true }).click();
   await page.getByRole("button", { name: item, exact: true }).click();
 }

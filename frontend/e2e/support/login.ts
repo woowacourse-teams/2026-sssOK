@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { expect, type Page } from "@playwright/test";
 
-export async function loginAsA(page: Page) {
+export async function loginAsA(page: Page): Promise<void> {
   if (existsSync(".env.local")) process.loadEnvFile(".env.local");
   const email = process.env.E2E_KAKAO_EMAIL;
   const password = process.env.E2E_KAKAO_PASSWORD;

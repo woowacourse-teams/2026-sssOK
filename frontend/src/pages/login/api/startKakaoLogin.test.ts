@@ -5,14 +5,19 @@ import { API_BASE_URL } from "@/shared/config";
 import { startKakaoLogin } from "./startKakaoLogin";
 
 const state = "s".repeat(43);
-const response = () => ({
+const response = (): {
+  authorizationUrl: string;
+  state: string;
+  loginVerifier: string;
+  expiresAt: string;
+} => ({
   authorizationUrl: `https://kauth.kakao.com/oauth/authorize?state=${state}`,
   state,
   loginVerifier: "v".repeat(43),
   expiresAt: new Date(Date.now() + 300_000).toISOString(),
 });
 
-const anonymous = (accessToken: string, expiresAt: string) =>
+const anonymous = (accessToken: string, expiresAt: string): string =>
   JSON.stringify({ accessToken, userId: 1, nickname: "익명", expiresAt });
 
 afterEach(() => {

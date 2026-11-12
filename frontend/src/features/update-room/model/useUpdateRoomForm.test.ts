@@ -11,7 +11,6 @@ const room: Room = {
   hostId: 10234,
   hostName: "민수",
   createdAt: "2026-08-18T05:30:00Z",
-  expiresAt: "2026-08-19T05:30:00Z",
   uploadPolicy: "everyone",
   joined: true,
   photoCount: 0,

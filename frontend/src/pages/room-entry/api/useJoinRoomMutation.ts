@@ -1,3 +1,5 @@
+import type { UseMutationResult } from "@tanstack/react-query";
+import type { RoomMember } from "@/pages/room-entry/api/joinRoom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { memberSessionQueryOptions } from "@/entities/member-session";
@@ -11,7 +13,10 @@ interface EnterRoomVariables {
 }
 
 /** 회원은 기존 토큰으로 입장하고, 비회원만 익명 인증한다. */
-export const useJoinRoomMutation = (roomCode: string, onSuccess: () => void) => {
+export const useJoinRoomMutation = (
+  roomCode: string,
+  onSuccess: () => void,
+): UseMutationResult<RoomMember, Error, EnterRoomVariables, unknown> => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ nickname, roomId }: EnterRoomVariables) => {

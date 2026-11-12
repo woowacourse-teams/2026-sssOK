@@ -26,7 +26,7 @@ export const AccountSettingsPage = () => {
   const mutation = useMutation({
     mutationFn: (selected: Action) => {
       if (!session) throw new Error("로그인 정보를 확인해 주세요.");
-      const endSession = () => manageAccount(selected, session.accessToken);
+      const endSession = (): Promise<void> => manageAccount(selected, session.accessToken);
       return isAppWebView() ? endPushSession(session.accessToken, endSession) : endSession();
     },
     onSuccess: async () => {
@@ -38,7 +38,7 @@ export const AccountSettingsPage = () => {
     },
     retry: false,
   });
-  const close = () => {
+  const close = (): void => {
     if (mutation.isPending) return;
     setAction(null);
     mutation.reset();

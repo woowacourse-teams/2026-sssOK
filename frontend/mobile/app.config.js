@@ -49,6 +49,7 @@ module.exports = ({ config }) => {
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "expo-apple-authentication",
+      "expo-asset",
       ["@react-native-seoul/kakao-login", { kakaoAppKey: "49e12318151676c430bd253609755519" }],
       "./plugins/withKakaoSceneDelegate",
       [
@@ -56,6 +57,8 @@ module.exports = ({ config }) => {
         {
           ios: { useFrameworks: "dynamic" },
           android: {
+            extraProguardRules:
+              "-keep class androidx.work.impl.WorkDatabase_Impl { public <init>(); }",
             usesCleartextTraffic: environment === "development",
             extraMavenRepos: ["https://devrepo.kakao.com/nexus/content/groups/public/"],
           },

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { DownloadModeSheet } from "./DownloadModeSheet";
@@ -9,7 +9,10 @@ jest.mock("../lib/prefersShareSheet", () => ({ prefersShareSheet: jest.fn() }));
 
 const prefersShareSheetMock = prefersShareSheet as jest.MockedFunction<typeof prefersShareSheet>;
 
-const renderSheet = ({ isPhone = false, count = 2 } = {}) => {
+const renderSheet = ({ isPhone = false, count = 2 } = {}): {
+  onSubmit: ReturnType<typeof jest.fn>;
+  onClose: ReturnType<typeof jest.fn>;
+} => {
   prefersShareSheetMock.mockReturnValue(isPhone);
 
   const onSubmit = jest.fn();
@@ -111,6 +114,8 @@ describe("DownloadModeSheet", () => {
     // 시트는 바깥을 눌러 닫는다 (`BottomSheet` 참고).
     await userEvent.click(screen.getByTestId("bottom-sheet-overlay"));
 
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.animationEnd(screen.getByRole("heading").parentElement!);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onSubmit).not.toHaveBeenCalled();
   });

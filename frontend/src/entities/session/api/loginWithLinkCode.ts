@@ -1,8 +1,10 @@
+import { AnonymousSessionSchema } from "../model/types";
 import { apiClient } from "@/shared/api";
 import type { AnonymousSession } from "../model/types";
 
-export const loginWithLinkCode = (linkCode: string) =>
+export const loginWithLinkCode = (linkCode: string): Promise<AnonymousSession> =>
   apiClient<AnonymousSession>("/auth/link", {
+    schema: AnonymousSessionSchema,
     method: "POST",
     headers: { "Content-Type": "application/json", "X-CSRF-Protection": "1" },
     credentials: "include",

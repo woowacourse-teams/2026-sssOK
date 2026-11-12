@@ -13,6 +13,7 @@ import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
 import { useToast } from "@/shared/ui/toast";
+import { isNativeApp } from "../lib/nativeApp";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
 import { trackDownload, trackDownloadStarted, trackShareBatch } from "../model/trackDownload";
@@ -76,7 +77,7 @@ const STATUS_TEXT: Record<DownloadPhase, string> = {
 };
 
 /** 방식마다 끝난 자리가 다르다. 사진첩인지, 낱장 파일인지, 압축 파일 하나인지 말해준다. */
-const doneMessageOf = (mode: DownloadMode, count: number) =>
+const doneMessageOf = (mode: DownloadMode, count: number): string =>
   ({
     share: `${count}장을 사진첩에 저장했어요.`,
     individual: `${count}장을 저장했어요.`,
@@ -89,7 +90,11 @@ const doneMessageOf = (mode: DownloadMode, count: number) =>
  * 한 묶음이라도 넘긴 뒤에는 "왜 또 눌러야 하는지" 가 보여야 한다 — 저장한 장수와 남은 장수를
  * 함께 말하고, 버튼도 같은 동작의 반복이 아니라 이어지는 다음 단계로 읽히게 쓴다.
  */
-const shareBarTextOf = ({ nextCount, savedCount, remainingCount }: PendingShareSnapshot) =>
+const shareBarTextOf = ({
+  nextCount,
+  savedCount,
+  remainingCount,
+}: PendingShareSnapshot): { summary: string; action: string } =>
   savedCount === 0
     ? {
         summary: `${remainingCount}장 준비됨`,
@@ -147,7 +152,7 @@ export const SelectionDownloadBar = ({
     startedAt: 0,
     receivedMs: null,
   });
-  const trackRun = (outcome: DownloadOutcome) => {
+  const trackRun = (outcome: DownloadOutcome): void => {
     const run = trackedRunRef.current;
     const elapsedMs = performance.now() - run.startedAt;
 
@@ -198,7 +203,7 @@ export const SelectionDownloadBar = ({
       onShareBatch: (batch) => trackShareBatch(batch, trackedRunRef.current.room),
     });
 
-  const startWith = (mode: DownloadMode, only: DownloadTarget[] = targets) => {
+  const startWith = (mode: DownloadMode, only: DownloadTarget[] = targets): void => {
     setSheetOpen(false);
     closeFailure();
     setLastRun({ targets: only, mode });
@@ -298,7 +303,10 @@ export const SelectionDownloadBar = ({
                   </SelectionCheck>
                   <Count>{targets.length}개</Count>
                 </SelectionSummary>
-                <DownloadButton type="button" onClick={() => setSheetOpen(true)}>
+                <DownloadButton
+                  type="button"
+                  onClick={() => (isNativeApp() ? startWith("share") : setSheetOpen(true))}
+                >
                   <LuDownload />
                   다운로드
                 </DownloadButton>

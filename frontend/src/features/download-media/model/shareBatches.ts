@@ -17,5 +17,5 @@ export const toShareBatches = <T>(items: T[], size = SHARE_BATCH_SIZE): T[][] =>
 };
 
 /** 몇 번 나눠 넘기게 되는지. 저장 방식 시트가 미리 알려주는 데 쓴다. */
-export const shareBatchCountOf = (count: number, size = SHARE_BATCH_SIZE) =>
+export const shareBatchCountOf = (count: number, size = SHARE_BATCH_SIZE): number =>
   Math.ceil(count / size);

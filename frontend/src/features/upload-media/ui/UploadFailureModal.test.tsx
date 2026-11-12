@@ -12,7 +12,9 @@ const failureOf = (fileName: string, code: UploadFailureCode = "UPLOAD_FAILED"):
   file: new File([], fileName),
 });
 
-const renderModal = (failures = [failureOf("IMG_3390.png"), failureOf("movie_02.mov")]) => {
+const renderModal = (
+  failures = [failureOf("IMG_3390.png"), failureOf("movie_02.mov")],
+): { onRetry: ReturnType<typeof jest.fn>; onClose: ReturnType<typeof jest.fn> } => {
   const onRetry = jest.fn();
   const onClose = jest.fn();
 

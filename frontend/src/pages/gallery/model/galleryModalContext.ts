@@ -3,20 +3,20 @@ import type { RoomFolder } from "@/entities/room";
 
 export type GalleryModalRequest = Omit<GalleryModal, "resolve">;
 
-export type GalleryModal = {
+export interface GalleryModal {
   type: "create-folder";
   resolve: (result: RoomFolder | null) => void;
-};
+}
 
-type GalleryModalContextValue = {
+interface GalleryModalContextValue {
   activeModal: GalleryModal | null;
   openModal: (modal: GalleryModalRequest) => Promise<RoomFolder | null>;
   closeModal: () => void;
-};
+}
 
 export const GalleryModalContext = createContext<GalleryModalContextValue | null>(null);
 
-export const useGalleryModal = () => {
+export const useGalleryModal = (): GalleryModalContextValue => {
   const context = useContext(GalleryModalContext);
 
   if (!context) {

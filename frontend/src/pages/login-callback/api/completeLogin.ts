@@ -1,13 +1,25 @@
+import { z } from "zod";
+const LoginAttemptSchema = z.object({
+  state: z.string(),
+  loginVerifier: z.string(),
+  expiresAt: z.string(),
+});
+import { MemberSessionSchema } from "../../../entities/member-session/api/refreshMemberSession";
 import type { MemberSession } from "@/entities/member-session";
 import { apiClient, ApiError } from "@/shared/api";
 
 type Provider = "kakao" | "apple";
-type Callback = { provider: Provider; code: string | null; state: string | null; invalid: boolean };
+interface Callback {
+  provider: Provider;
+  code: string | null;
+  state: string | null;
+  invalid: boolean;
+}
 let callback: Callback | null = null;
 let completion: Promise<MemberSession> | null = null;
 
 /** 분석 도구 실행 전에 인증값을 주소에서 지우고 메모리에만 보관한다. */
-export const captureLoginCallback = () => {
+export const captureLoginCallback = (): void => {
   const match = /^\/app\/auth\/callback\/(kakao|apple)$/.exec(location.pathname);
   if (!match || !location.search) return;
   const params = new URLSearchParams(location.search);
@@ -35,7 +47,7 @@ const complete = async (): Promise<MemberSession> => {
   }
   let attempt: { state: string; loginVerifier: string; expiresAt: string };
   try {
-    attempt = JSON.parse(raw);
+    attempt = LoginAttemptSchema.parse(JSON.parse(raw));
   } catch {
     throw new Error("로그인 요청을 확인하지 못했어요. 다시 로그인해주세요.");
   }
@@ -50,6 +62,7 @@ const complete = async (): Promise<MemberSession> => {
     throw new Error("로그인 요청이 만료됐거나 일치하지 않아요. 다시 로그인해주세요.");
 
   const session = await apiClient<MemberSession>(`/auth/oauth/${received.provider}/login`, {
+    schema: MemberSessionSchema,
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", "X-CSRF-Protection": "1" },
@@ -73,4 +86,4 @@ const complete = async (): Promise<MemberSession> => {
 };
 
 /** StrictMode 재실행도 같은 요청을 공유한다. 실패한 인가 코드를 자동 재전송하지 않는다. */
-export const completeLogin = () => (completion ??= complete());
+export const completeLogin = (): Promise<MemberSession> => (completion ??= complete());

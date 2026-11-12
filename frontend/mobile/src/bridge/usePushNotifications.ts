@@ -14,12 +14,16 @@ import { useCallback, useEffect, useRef } from "react";
 import { AppState, NativeModules, PermissionsAndroid, Platform } from "react-native";
 
 // 이전 개발 APK에서도 오류 없이 열리게 한다. 시스템 알림 표시는 새 APK부터 지원된다.
-const loadNotifee = () =>
+const loadNotifee = (): Promise<typeof import("@notifee/react-native")> | Promise<null> =>
   NativeModules.NotifeeApiModule ? import("@notifee/react-native") : Promise.resolve(null);
 
-export type PushEvent = { type: "token"; token: string; platform: "ios" | "android" };
+export interface PushEvent {
+  type: "token";
+  token: string;
+  platform: "ios" | "android";
+}
 
-const getNativeMessaging = () => {
+const getNativeMessaging = (): ReturnType<typeof getMessaging> | null => {
   try {
     return getApps().length > 0 ? getMessaging() : null;
   } catch {
@@ -28,7 +32,7 @@ const getNativeMessaging = () => {
   }
 };
 
-const allowNotifications = async (messaging: ReturnType<typeof getMessaging>) => {
+const allowNotifications = async (messaging: ReturnType<typeof getMessaging>): Promise<boolean> => {
   if (Platform.OS === "ios") {
     const status = await requestPermission(messaging);
     return status === AuthorizationStatus.AUTHORIZED || status === AuthorizationStatus.PROVISIONAL;
@@ -40,7 +44,7 @@ const allowNotifications = async (messaging: ReturnType<typeof getMessaging>) =>
   return Platform.OS === "android";
 };
 
-const roomCodeOf = (message: RemoteMessage | null) => {
+const roomCodeOf = (message: RemoteMessage | null): string | null => {
   const code = message?.data?.roomCode;
   return typeof code === "string" && /^[a-zA-Z0-9]{1,32}$/.test(code) ? code : null;
 };
@@ -49,7 +53,7 @@ export const usePushNotifications = (
   emit: (event: PushEvent) => void,
   openRoom: (url: string) => void,
   readCurrentRoom: () => string | null,
-) => {
+): (() => void) => {
   const tokenRequest = useRef<Promise<string | null> | null>(null);
   const tokenAllowed = useRef(false);
   const sendToken = useCallback(
@@ -68,12 +72,12 @@ export const usePushNotifications = (
     let openedMessageId: string | undefined;
     let pendingUrl: string | null = null;
     let removeLocalPress: (() => void) | undefined;
-    const openNotification = (url: unknown) => {
+    const openNotification = (url: unknown): void => {
       if (!active || typeof url !== "string") return;
       if (AppState.currentState === "active") openRoom(url);
       else pendingUrl = url;
     };
-    const handleOpen = (message: RemoteMessage | null) => {
+    const handleOpen = (message: RemoteMessage | null): void => {
       const url = message?.data?.url;
       if (
         !active ||

@@ -19,7 +19,7 @@ interface MediaCardProps {
   onOpen?: () => void;
 }
 
-const formatDuration = (duration: number) => {
+const formatDuration = (duration: number): string => {
   const minutes = Math.floor(duration / 60);
   const seconds = duration % 60;
 

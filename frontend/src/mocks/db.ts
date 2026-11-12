@@ -34,10 +34,10 @@ export interface GalleryMedia {
  * 목은 올라온 바이트를 해석하지 않아 실제 썸네일을 만들 수 없다.
  * 씨앗만 `mediaId` 로 고정해서, 같은 미디어는 언제 봐도 같은 그림이 나오게 한다.
  */
-export const thumbnailUrlOf = (mediaId: number) =>
+export const thumbnailUrlOf = (mediaId: number): string =>
   `https://picsum.photos/seed/sssok-${mediaId}/600/700`;
 
-export const displayUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO") =>
+export const displayUrlOf = (mediaId: number, type: "IMAGE" | "VIDEO"): string =>
   type === "VIDEO"
     ? `https://cdn.example.com/rooms/1024/${mediaId}.mp4`
     : `https://picsum.photos/seed/sssok-${mediaId}/1200/1400`;
@@ -47,9 +47,31 @@ const registeredByRoom = new Map<number, GalleryMedia[]>();
 const deletedIdsByRoom = new Map<number, Set<number>>();
 const likedMembersByMedia = new Map<string, Set<number>>();
 
-const mediaLikeKey = (roomId: number, mediaId: number) => `${roomId}:${mediaId}`;
+const mediaLikeKey = (roomId: number, mediaId: number): string => `${roomId}:${mediaId}`;
 
-export const mediaWithLikeState = (roomId: number, media: GalleryMedia, memberId: number) => {
+export const mediaWithLikeState = (
+  roomId: number,
+  media: GalleryMedia,
+  memberId: number,
+): {
+  likeCount: number;
+  likedByMe: boolean;
+  mediaId: number;
+  type: "IMAGE" | "VIDEO";
+  fileName: string;
+  mimeType: string;
+  size: number;
+  thumbnailUrl: string;
+  displayUrl: string;
+  width: number;
+  height: number;
+  duration: number | null;
+  folderIds: number[];
+  uploaderId: number;
+  uploaderName: string;
+  status: "READY";
+  uploadedAt: string;
+} => {
   const likedMembers = likedMembersByMedia.get(mediaLikeKey(roomId, media.mediaId));
 
   return {
@@ -59,29 +81,29 @@ export const mediaWithLikeState = (roomId: number, media: GalleryMedia, memberId
   };
 };
 
-export const addMediaLike = (roomId: number, mediaId: number, memberId: number) => {
+export const addMediaLike = (roomId: number, mediaId: number, memberId: number): void => {
   const key = mediaLikeKey(roomId, mediaId);
   const likedMembers = likedMembersByMedia.get(key) ?? new Set<number>();
   likedMembers.add(memberId);
   likedMembersByMedia.set(key, likedMembers);
 };
 
-export const removeMediaLike = (roomId: number, mediaId: number, memberId: number) => {
+export const removeMediaLike = (roomId: number, mediaId: number, memberId: number): void => {
   likedMembersByMedia.get(mediaLikeKey(roomId, mediaId))?.delete(memberId);
 };
 
-export const resetMediaLikes = () => likedMembersByMedia.clear();
+export const resetMediaLikes = (): void => likedMembersByMedia.clear();
 
-export const isDeletedMedia = (roomId: number, mediaId: number) =>
+export const isDeletedMedia = (roomId: number, mediaId: number): boolean =>
   deletedIdsByRoom.get(roomId)?.has(mediaId) ?? false;
 
-export const markMediaDeleted = (roomId: number, mediaId: number) => {
+export const markMediaDeleted = (roomId: number, mediaId: number): void => {
   const ids = deletedIdsByRoom.get(roomId) ?? new Set<number>();
   ids.add(mediaId);
   deletedIdsByRoom.set(roomId, ids);
 };
 
-export const resetDeletedMedia = () => deletedIdsByRoom.clear();
+export const resetDeletedMedia = (): void => deletedIdsByRoom.clear();
 
 /**
  * 완료 등록이 끝난 미디어를 목록에 올린다.
@@ -89,24 +111,25 @@ export const resetDeletedMedia = () => deletedIdsByRoom.clear();
  * 실제 서버라면 워커가 파생 URL 을 만든 **뒤에야** 목록에 뜬다. 목에는 워커가 없어서
  * 등록과 동시에 올린다 — 안 그러면 올린 사진이 갤러리에 영영 나타나지 않는다.
  */
-export const addRegisteredMedia = (roomId: number, media: GalleryMedia) => {
+export const addRegisteredMedia = (roomId: number, media: GalleryMedia): void => {
   registeredByRoom.set(roomId, [media, ...(registeredByRoom.get(roomId) ?? [])]);
 };
 
-export const registeredMediaOf = (roomId: number) => registeredByRoom.get(roomId) ?? [];
+export const registeredMediaOf = (roomId: number): GalleryMedia[] =>
+  registeredByRoom.get(roomId) ?? [];
 
 /**
  * 올린 사진은 `blob:` 주소로 들어온다. 문서가 살아 있는 한 계속 잡고 있어서,
  * 버릴 때 같이 풀어주지 않으면 그 바이트가 메모리에 남는다.
  */
-const revokeIfObjectUrl = (url: string) => {
+const revokeIfObjectUrl = (url: string): void => {
   if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") {
     URL.revokeObjectURL(url);
   }
 };
 
 /** 테스트끼리 등록 기록이 이어지지 않도록 되돌린다. */
-export const resetRegisteredMedia = () => {
+export const resetRegisteredMedia = (): void => {
   for (const mediaList of registeredByRoom.values()) {
     mediaList.forEach(({ thumbnailUrl, displayUrl }) => {
       revokeIfObjectUrl(thumbnailUrl);

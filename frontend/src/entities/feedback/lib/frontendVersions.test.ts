@@ -15,7 +15,7 @@ const feedbackWith = (frontendVersion: string | null): AdminFeedback => ({
   createdAt: "2026-09-16T08:41:00Z",
 });
 
-const versionsOf = (versions: (string | null)[]) =>
+const versionsOf = (versions: (string | null)[]): string[] =>
   collectFrontendVersions(versions.map(feedbackWith));
 
 describe("collectFrontendVersions", () => {

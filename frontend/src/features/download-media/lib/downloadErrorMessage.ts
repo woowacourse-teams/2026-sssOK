@@ -31,17 +31,17 @@ export const DOWNLOAD_FALLBACK_MESSAGE = "받지 못했어요";
  */
 const RETRYABLE_STATUSES = [0, 409, 410, 429];
 
-export const downloadMessageOfStatus = (status: number) =>
+export const downloadMessageOfStatus = (status: number): string =>
   MESSAGE_BY_STATUS[status] ?? DOWNLOAD_FALLBACK_MESSAGE;
 
-export const isRetryableStatus = (status: number) => RETRYABLE_STATUSES.includes(status);
+export const isRetryableStatus = (status: number): boolean => RETRYABLE_STATUSES.includes(status);
 
 /**
  * 던져진 예외에서 문구를 뽑는다. `ApiError` 가 아니면 상태 코드를 알 수 없으니
  * 기본 문구로 떨어뜨린다 — 원인 모를 실패에 그럴듯한 사유를 붙이지 않는다.
  */
-export const downloadMessageOfError = (error: unknown) =>
+export const downloadMessageOfError = (error: unknown): string =>
   isApiError(error) ? downloadMessageOfStatus(error.status) : DOWNLOAD_FALLBACK_MESSAGE;
 
-export const isRetryableError = (error: unknown) =>
+export const isRetryableError = (error: unknown): boolean =>
   isApiError(error) ? isRetryableStatus(error.status) : true;

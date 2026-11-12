@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { createPortal } from "react-dom";
+import { BottomSheet } from "@/shared/ui/bottom-sheet";
 
 import { isAppWebView } from "@/shared/lib";
 
@@ -26,7 +26,7 @@ import {
   ThumbArt,
   ThumbFrame,
 } from "./OrganizeKindSheet.styles";
-import { Dialog, Handle, Later, Overlay, Submit, Title } from "./OrganizeSheet.styles";
+import { Later, Submit } from "./OrganizeSheet.styles";
 
 interface KindOption {
   kind: OrganizeKind;
@@ -88,71 +88,63 @@ export const OrganizeKindSheet = ({
 }: OrganizeKindSheetProps) => {
   const [kind, setKind] = useState<OrganizeKind>("PERSON");
   const name = useId();
-  const titleId = useId();
   const current = KINDS.find((option) => option.kind === kind) ?? KINDS[0];
   // 장수 한도는 시트를 열기 전에 확인한다(`organizeLimitOf`). 여기까지 왔으면 시작할 수 있다.
 
-  return createPortal(
-    <Overlay data-testid="organize-kind-overlay" onClick={onClose}>
-      <Dialog
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <Handle aria-hidden="true" />
-        <Title id={titleId}>어떻게 정리할까요?</Title>
+  return (
+    <BottomSheet title="어떻게 정리할까요?" variant="action" onClose={onClose}>
+      {(close) => (
+        <>
+          <Options role="radiogroup" aria-label="정리 방식">
+            {KINDS.map(({ kind: value, label, cta, ready }) => {
+              const isSelected = kind === value;
+              return (
+                <Option key={value} $disabled={!ready}>
+                  <input
+                    type="radio"
+                    name={name}
+                    value={value}
+                    aria-label={cta}
+                    checked={isSelected}
+                    disabled={!ready}
+                    onChange={() => setKind(value)}
+                  />
+                  <ThumbFrame aria-hidden="true">
+                    <Thumb $selected={isSelected}>
+                      <ThumbArt $blurred={!ready}>
+                        <KindThumb kind={value} />
+                      </ThumbArt>
+                      {isSelected && (
+                        <CheckMark>
+                          <img src={checkIcon} alt="" width={14} height={14} />
+                        </CheckMark>
+                      )}
+                      {!ready && <Soon>준비 중</Soon>}
+                    </Thumb>
+                  </ThumbFrame>
+                  <Label $selected={isSelected}>{label}</Label>
+                </Option>
+              );
+            })}
+          </Options>
 
-        <Options role="radiogroup" aria-labelledby={titleId}>
-          {KINDS.map(({ kind: value, label, cta, ready }) => {
-            const isSelected = kind === value;
-            return (
-              <Option key={value} $disabled={!ready}>
-                <input
-                  type="radio"
-                  name={name}
-                  value={value}
-                  aria-label={cta}
-                  checked={isSelected}
-                  disabled={!ready}
-                  onChange={() => setKind(value)}
-                />
-                <ThumbFrame aria-hidden="true">
-                  <Thumb $selected={isSelected}>
-                    <ThumbArt $blurred={!ready}>
-                      <KindThumb kind={value} />
-                    </ThumbArt>
-                    {isSelected && (
-                      <CheckMark>
-                        <img src={checkIcon} alt="" width={14} height={14} />
-                      </CheckMark>
-                    )}
-                    {!ready && <Soon>준비 중</Soon>}
-                  </Thumb>
-                </ThumbFrame>
-                <Label $selected={isSelected}>{label}</Label>
-              </Option>
-            );
-          })}
-        </Options>
+          {isGuest && (
+            <Notice>
+              {/* 웹에서는 로그인할 곳이 앱이라 설치를 권하고, 앱 안에서는 로그인을 권한다. */}
+              {isAppWebView()
+                ? "로그인하지 않으면 AI 정리는 한 번만 체험할 수 있어요."
+                : "앱을 설치하지 않으면 AI 정리는 한 번만 체험할 수 있어요."}
+            </Notice>
+          )}
 
-        {isGuest && (
-          <Notice>
-            {/* 웹에서는 로그인할 곳이 앱이라 설치를 권하고, 앱 안에서는 로그인을 권한다. */}
-            {isAppWebView()
-              ? "로그인하지 않으면 AI 정리는 한 번만 체험할 수 있어요."
-              : "앱을 설치하지 않으면 AI 정리는 한 번만 체험할 수 있어요."}
-          </Notice>
-        )}
-
-        <Submit type="button" disabled={isStarting} onClick={() => onStart(current.kind)}>
-          {current.cta}
-        </Submit>
-        <Later type="button" onClick={onClose}>
-          다음에 할게요
-        </Later>
-      </Dialog>
-    </Overlay>,
-    document.body,
+          <Submit type="button" disabled={isStarting} onClick={() => onStart(current.kind)}>
+            {current.cta}
+          </Submit>
+          <Later type="button" onClick={close}>
+            다음에 할게요
+          </Later>
+        </>
+      )}
+    </BottomSheet>
   );
 };

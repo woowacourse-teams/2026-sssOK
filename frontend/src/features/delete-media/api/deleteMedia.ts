@@ -6,7 +6,7 @@ interface DeleteMediaParams {
   token: string;
 }
 
-export const deleteMedia = ({ roomId, mediaId, token }: DeleteMediaParams) =>
+export const deleteMedia = ({ roomId, mediaId, token }: DeleteMediaParams): Promise<void> =>
   apiClient<void>(`/rooms/${roomId}/media/${mediaId}`, {
     method: "DELETE",
     token,

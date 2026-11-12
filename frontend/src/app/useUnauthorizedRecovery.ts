@@ -1,3 +1,4 @@
+import type { AnonymousSession } from "@/entities/session/model/types";
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -19,20 +20,22 @@ import {
 import { ROUTES } from "@/shared/config";
 
 /** 공통 인증 복구에 세션 저장소와 플랫폼별 화면 이동을 연결한다. */
-export const useUnauthorizedRecovery = () => {
+export const useUnauthorizedRecovery = (): void => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   useEffect(() => {
     let active = true;
-    const current = (token: string) => {
+    const current = (
+      token: string,
+    ): { session: AnonymousSession; roomCode: string | null } | null => {
       const member = queryClient.getQueryData<MemberSession | null>(MEMBER_SESSION_QUERY_KEY);
       if (member?.accessToken === token) return { session: member, roomCode: null };
       const roomCode = findRoomCodeByToken(token);
       const session = roomCode === null ? null : getRoomSession(roomCode);
       return session ? { session, roomCode } : null;
     };
-    const fail = (token: string) => {
+    const fail = (token: string): void => {
       if (!active) return;
       const context = current(token);
       if (!context) return;

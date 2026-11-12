@@ -1,3 +1,8 @@
+import { z } from "zod";
+export const DeleteFolderResponseSchema = z.object({
+  deletedFolderId: z.number(),
+  detachedPhotoCount: z.number(),
+});
 import { apiClient } from "@/shared/api";
 
 interface DeleteFolderParams {
@@ -6,13 +11,15 @@ interface DeleteFolderParams {
   accessToken: string;
 }
 
-export interface DeleteFolderResponse {
-  deletedFolderId: number;
-  detachedPhotoCount: number;
-}
+export type DeleteFolderResponse = z.infer<typeof DeleteFolderResponseSchema>;
 
-export const deleteFolder = ({ roomId, folderId, accessToken }: DeleteFolderParams) =>
+export const deleteFolder = ({
+  roomId,
+  folderId,
+  accessToken,
+}: DeleteFolderParams): Promise<DeleteFolderResponse> =>
   apiClient<DeleteFolderResponse>(`/rooms/${roomId}/folders/${folderId}`, {
+    schema: DeleteFolderResponseSchema,
     method: "DELETE",
     token: accessToken,
   });

@@ -34,7 +34,7 @@ export const FeedbackStatusMenu = ({
   const [open, setOpen] = useState(false);
   const { mutate } = useChangeFeedbackStatus(token);
 
-  const choose = (status: FeedbackStatus) => {
+  const choose = (status: FeedbackStatus): void => {
     setOpen(false);
 
     if (status === feedback.status) return;

@@ -8,7 +8,13 @@ import { useGalleryRefresh } from "./useGalleryRefresh";
 
 const ROOM = { roomCode: "7K93QX2S", roomId: 3, userId: 10234 };
 
-const renderWithQueries = () => {
+const renderWithQueries = (): {
+  getRoom: ReturnType<typeof jest.fn>;
+  getPhotos: ReturnType<typeof jest.fn>;
+  rerender: (props?: unknown) => void;
+  result: { current: { refreshRoom: () => Promise<void>; refreshPhotos: () => Promise<void> } };
+  unmount: () => void;
+} => {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const getRoom = jest.fn().mockResolvedValue({});
   const getPhotos = jest.fn().mockResolvedValue({ items: [] });

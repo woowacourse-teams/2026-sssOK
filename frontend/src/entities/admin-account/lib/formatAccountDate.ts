@@ -18,7 +18,7 @@ export const formatAccountDate = (createdAt: string): string | null => {
   if (Number.isNaN(time)) return null;
 
   const parts = formatter.formatToParts(new Date(time));
-  const read = (type: Intl.DateTimeFormatPartTypes) =>
+  const read = (type: Intl.DateTimeFormatPartTypes): string =>
     parts.find((part) => part.type === type)?.value ?? "";
 
   return `${read("year")}-${read("month")}-${read("day")}`;

@@ -10,7 +10,7 @@ import {
 
 const MB = 1024 * 1024;
 
-const fileOf = (fileName: string, size: number) => {
+const fileOf = (fileName: string, size: number): File => {
   const file = new File(["x"], fileName, { type: "image/jpeg" });
 
   // File 은 내용으로만 크기가 정해진다. 3MB 짜리 문자열을 만들 이유가 없어 값만 바꿔 끼운다.
@@ -19,13 +19,20 @@ const fileOf = (fileName: string, size: number) => {
   return file;
 };
 
-const targetOf = (mediaId: number, size: number) => ({
+const targetOf = (
+  mediaId: number,
+  size: number,
+): { mediaId: number; fileName: string; size: number } => ({
   mediaId,
   fileName: `photo-${mediaId}.jpg`,
   size,
 });
 
-const progressOf = (mediaId: number, loaded: number, total: number) => ({
+const progressOf = (
+  mediaId: number,
+  loaded: number,
+  total: number,
+): { mediaId: number; fileName: string; loaded: number; total: number } => ({
   mediaId,
   fileName: `photo-${mediaId}.jpg`,
   loaded,
