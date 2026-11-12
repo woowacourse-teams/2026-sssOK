@@ -19,7 +19,6 @@ import {
  * backend 의 RoomCode 값 객체와 같은 규칙이다.
  */
 const ROOM_CODE_PATTERN = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/;
-const HOUR_IN_MILLISECONDS = 60 * 60 * 1000;
 
 /** 시나리오별 고정 코드. 테스트와 수동 확인에서 함께 쓴다. */
 export const MOCK_ROOM_CODES = {
@@ -50,25 +49,6 @@ const ROOM_IDS: Record<string, number> = {
   [MOCK_ROOM_CODES.hostOnly]: 5035,
   [MOCK_ROOM_CODES.purged]: 5036,
 };
-
-const ROOM_EXPIRY_HOURS: Record<string, 24 | 72> = {
-  [MOCK_ROOM_CODES.active]: 24,
-  [MOCK_ROOM_CODES.second]: 72,
-  [MOCK_ROOM_CODES.hostOnly]: 24,
-};
-
-const createRoomExpiresAt = (): Record<string, string> => {
-  const now = Date.now();
-
-  return Object.fromEntries(
-    Object.entries(ROOM_EXPIRY_HOURS).map(([code, expiryHours]) => [
-      code,
-      new Date(now + expiryHours * HOUR_IN_MILLISECONDS).toISOString(),
-    ]),
-  ) as Record<string, string>;
-};
-
-let roomExpiresAt = createRoomExpiresAt();
 
 /**
  * 방마다 가진 폴더. backend `RoomFolderResponse` 와 같은 모양이다.
@@ -175,7 +155,6 @@ interface ActiveRoomOverrides {
   name?: string;
   status?: RoomStatus;
   uploadPolicy?: "everyone" | "host";
-  expiresAt?: string;
 }
 
 let activeRoomOverrides: ActiveRoomOverrides = {};
@@ -194,7 +173,6 @@ const room = (
   uploadPolicy: "everyone" | "host";
   joined: boolean;
   createdAt: string;
-  expiresAt: string;
   photoCount: number;
   folders: { photoCount: number; id: number; name: string; createdAt: string }[];
 } => {
@@ -220,11 +198,8 @@ const room = (
     hostName: "민수",
     uploadPolicy: uploadPolicyOf(code),
     joined,
+    myNickname: joined ? "민수" : null,
     createdAt: "2026-08-18T05:30:00Z",
-    expiresAt:
-      status === "ACTIVE"
-        ? roomExpiresAt[code]
-        : new Date(Date.now() - 24 * HOUR_IN_MILLISECONDS).toISOString(),
     /** 폴더 소속과 무관한 방 전체 사진 수. 갓 만든 방은 0 이다. */
     photoCount: Math.max(
       0,
@@ -462,7 +437,6 @@ export const resetRoomHandlers = (): void => {
   resetDeletedMedia();
   resetMediaLikes();
   activeRoomOverrides = {};
-  roomExpiresAt = createRoomExpiresAt();
   ROOM_FOLDERS[MOCK_ROOM_CODES.active] = INITIAL_ROOM_FOLDERS.map((folder) => ({ ...folder }));
   DETACHED_PHOTO_COUNTS[MOCK_ROOM_CODES.active] = 0;
 };
@@ -873,8 +847,10 @@ export const roomHandlers = [
           hostId: MOCK_HOST_ID,
           hostName: "민수",
           createdAt: new Date(now).toISOString(),
-          expiresAt: new Date(now + 24 * HOUR_IN_MILLISECONDS).toISOString(),
           uploadPolicy,
+          status: "ACTIVE",
+          joined: true,
+          myNickname: "민수",
           // 갓 만든 방이라 사진도 폴더도 없다.
           photoCount: 0,
           folders: [],
@@ -927,10 +903,7 @@ export const roomHandlers = [
 
     return HttpResponse.json({
       data: {
-        code: MOCK_ROOM_CODES.active,
-        status: "DELETED",
         deletedAt: "2026-08-18T07:00:00Z",
-        purgeAt: "2026-08-25T07:00:00Z",
       },
     });
   }),

@@ -54,7 +54,11 @@ export const MediaDetailSchema = MediaSchema.omit({ thumbnailUrl: true }).extend
   z.object({
     takenAt: z.union([z.string(), z.null()]),
     location: z.union([
-      z.object({ latitude: z.number(), longitude: z.number(), name: z.string() }),
+      z.object({
+        latitude: z.number(),
+        longitude: z.number(),
+        name: z.union([z.string(), z.null()]),
+      }),
       z.null(),
     ]),
     canDelete: z.boolean(),

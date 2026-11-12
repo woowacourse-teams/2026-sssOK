@@ -11,8 +11,8 @@ export const IssuedUploadSchema = z.object({
 export const RejectedFileSchema = z.object({
   fileName: z.string(),
   code: z.union([
-    z.literal("FILE_SIZE_EXCEEDED"),
-    z.literal("UNSUPPORTED_FILE_TYPE"),
+    z.literal("FILE_TOO_LARGE"),
+    z.literal("UNSUPPORTED_MEDIA_TYPE"),
     z.literal("INVALID_PARAM"),
   ]),
   message: z.string(),
@@ -27,7 +27,8 @@ export const FailedRegistrationSchema = z.object({
     z.literal("MEDIA_NOT_FOUND"),
     z.literal("UPLOAD_NOT_COMPLETED"),
     z.literal("UPLOAD_ALREADY_COMPLETED"),
-    z.literal("FILE_SIZE_EXCEEDED"),
+    z.literal("FILE_TOO_LARGE"),
+    z.literal("UNSUPPORTED_MEDIA_TYPE"),
   ]),
   message: z.string(),
 });

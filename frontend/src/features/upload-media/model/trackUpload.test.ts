@@ -36,7 +36,7 @@ const rejected = (
   fileName: string,
 ): {
   fileName: string;
-  code: "FILE_SIZE_EXCEEDED" | "UNSUPPORTED_FILE_TYPE" | "INVALID_PARAM";
+  code: "FILE_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_PARAM";
   message: string;
 } => ({ fileName }) as RejectedFile;
 

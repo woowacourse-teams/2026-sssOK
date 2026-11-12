@@ -32,11 +32,11 @@ const LIMIT_TEXT = `이미지 ${formatBytes(MAX_IMAGE_BYTES)} · 영상 ${format
 const titleOf = (rejected: RejectedSelection[]): string => {
   const codes = new Set(rejected.map((one) => one.code));
 
-  if (codes.size === 1 && codes.has("FILE_SIZE_EXCEEDED")) {
+  if (codes.size === 1 && codes.has("FILE_TOO_LARGE")) {
     return "파일이 너무 커요";
   }
 
-  if (codes.size === 1 && codes.has("UNSUPPORTED_FILE_TYPE")) {
+  if (codes.size === 1 && codes.has("UNSUPPORTED_MEDIA_TYPE")) {
     return "올릴 수 없는 형식이에요";
   }
 
@@ -60,7 +60,7 @@ export const RejectedFilesModal = ({ rejected, onClose }: RejectedFilesModalProp
         <FileReasonList
           items={rejected.map(({ fileName, size, code }) => ({
             fileName: `${fileName} · ${formatBytes(size)}`,
-            reason: code === "FILE_SIZE_EXCEEDED" ? "용량 초과" : "지원 안 함",
+            reason: code === "FILE_TOO_LARGE" ? "용량 초과" : "지원 안 함",
           }))}
         />
 

@@ -302,7 +302,7 @@ const guardRoom = (
 
 interface RejectedFile {
   fileName: string;
-  code: "FILE_SIZE_EXCEEDED" | "UNSUPPORTED_FILE_TYPE" | "INVALID_PARAM";
+  code: "FILE_TOO_LARGE" | "UNSUPPORTED_MEDIA_TYPE" | "INVALID_PARAM";
   message: string;
 }
 
@@ -326,7 +326,7 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
   if (mimeType === undefined) {
     return {
       fileName,
-      code: "UNSUPPORTED_FILE_TYPE",
+      code: "UNSUPPORTED_MEDIA_TYPE",
       message: `지원하지 않는 파일 형식입니다: ${fileName}`,
     };
   }
@@ -334,7 +334,7 @@ const rejectionOf = (file: UploadUrlRequestFile): RejectedFile | null => {
   if (file.size > maxBytesOf(mimeType)) {
     return {
       fileName,
-      code: "FILE_SIZE_EXCEEDED",
+      code: "FILE_TOO_LARGE",
       message: mimeType.startsWith("image/")
         ? "사진은 20MB까지 올릴 수 있어요."
         : "영상은 1GB까지 올릴 수 있어요.",
@@ -613,6 +613,18 @@ export const uploadHandlers = [
       return error(403, "MEDIA_FORBIDDEN", "본인이 발급받은 업로드가 아닙니다");
     }
 
+    // backend StoredFile.startProcessing은 이미 등록된 파일의 상태 전이를 요청 전체 오류로 처리한다.
+    if (
+      mediaIds.some((id) => {
+        const media = mediaById.get(id);
+        return (
+          media?.roomId === roomId && (media.status === "PROCESSING" || media.status === "READY")
+        );
+      })
+    ) {
+      return error(400, "ILLEGAL_UPLOAD_STATUS", "이미 등록된 미디어의 상태를 변경할 수 없습니다");
+    }
+
     const registered: ReturnType<typeof mediaPayload>[] = [];
     const failed: { mediaId: number; code: string; message: string }[] = [];
 
@@ -624,16 +636,6 @@ export const uploadHandlers = [
           mediaId,
           code: "MEDIA_NOT_FOUND",
           message: "업로드 요청을 찾을 수 없습니다",
-        });
-        continue;
-      }
-
-      // 스펙에는 없지만 재시도로 두 번 불릴 수 있어 목이 먼저 막아둔다.
-      if (media.status === "PROCESSING" || media.status === "READY") {
-        failed.push({
-          mediaId,
-          code: "UPLOAD_ALREADY_COMPLETED",
-          message: "이미 등록이 끝난 파일입니다",
         });
         continue;
       }
@@ -653,7 +655,7 @@ export const uploadHandlers = [
       if (media.uploadedBytes > maxBytesOf(media.mimeType)) {
         failed.push({
           mediaId,
-          code: "FILE_SIZE_EXCEEDED",
+          code: "FILE_TOO_LARGE",
           message: "파일 용량이 허용 크기를 초과했습니다",
         });
         continue;
@@ -717,7 +719,7 @@ export const uploadHandlers = [
         }
 
         if (size > maxBytesOf(media.mimeType)) {
-          return error(413, "FILE_SIZE_EXCEEDED", "파일 용량 제한을 초과했습니다");
+          return error(413, "FILE_TOO_LARGE", "파일 용량 제한을 초과했습니다");
         }
 
         media.size = size;

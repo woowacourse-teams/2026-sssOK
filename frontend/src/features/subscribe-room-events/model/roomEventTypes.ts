@@ -1,4 +1,9 @@
 import { z } from "zod";
+import { MediaItemSchema } from "@/entities/media/model/types";
+
+// backend MediaDetail은 SSE에서 사용자별 likedByMe를 @JsonIgnore로 제외한다.
+export const MediaReadyEventSchema = MediaItemSchema.omit({ likedByMe: true });
+export type MediaReadyEvent = z.infer<typeof MediaReadyEventSchema>;
 import { RoomFolderSchema } from "../../../entities/room/model/types";
 export const MediaFoldersUpdatedEventSchema = z.object({
   roomId: z.number(),

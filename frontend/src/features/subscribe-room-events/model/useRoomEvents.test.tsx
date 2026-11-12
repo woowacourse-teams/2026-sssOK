@@ -212,3 +212,52 @@ it("사진 요청은 다른 참여자의 현재 방 이벤트만 전달하고 �
   act(() => source.emit("upload.requested", event));
   expect(onUploadRequested).toHaveBeenCalledTimes(1);
 });
+
+describe("실제 백엔드 media.ready SSE 계약", () => {
+  it.each([true, false])(
+    "likedByMe가 없어도 미리보기를 갱신하고 기존 좋아요(%s)를 보존한다",
+    (likedByMe) => {
+      const { source, queryClient } = renderRoomEvents({});
+      queryClient.setQueryData<MediaList>(photosQueryKey(1, 10234), {
+        items: [{ ...processingMedia, likeCount: 0, likedByMe }],
+      });
+      const ready = {
+        ...processingMedia,
+        status: "READY",
+        thumbnailUrl: "https://example.com/ready.jpg",
+        width: 1200,
+        height: 800,
+        likeCount: 3,
+      };
+      act(() => source.emit("media.ready", ready));
+      expect(queryClient.getQueryData<MediaList>(photosQueryKey(1, 10234))?.items[0]).toMatchObject(
+        {
+          status: "READY",
+          thumbnailUrl: ready.thumbnailUrl,
+          likedByMe,
+          likeCount: 3,
+        },
+      );
+    },
+  );
+
+  it("새 미디어도 likedByMe 없는 SSE로 목록에 추가한다", () => {
+    const { source, queryClient } = renderRoomEvents({});
+    queryClient.setQueryData<MediaList>(photosQueryKey(1, 10234), { items: [] });
+    act(() =>
+      source.emit("media.ready", {
+        ...processingMedia,
+        status: "READY",
+        thumbnailUrl: "https://example.com/ready.jpg",
+        width: 1200,
+        height: 800,
+        likeCount: 0,
+      }),
+    );
+    expect(queryClient.getQueryData<MediaList>(photosQueryKey(1, 10234))?.items[0]).toMatchObject({
+      mediaId: 10,
+      status: "READY",
+      likedByMe: false,
+    });
+  });
+});

@@ -128,7 +128,7 @@ describe("uploadFiles", () => {
     });
 
     expect(onRejected).toHaveBeenCalledWith([
-      expect.objectContaining({ fileName: "메모.txt", code: "UNSUPPORTED_FILE_TYPE" }),
+      expect.objectContaining({ fileName: "메모.txt", code: "UNSUPPORTED_MEDIA_TYPE" }),
     ]);
   });
 

@@ -42,7 +42,7 @@ describe("issueUploadUrls", () => {
     // 거절된 자리를 건너뛰고 원본 순서가 유지된다 — 짝짓기가 이 순서에 기댄다.
     expect(issued.map((one) => one.fileName)).toEqual(["첫째.jpg", "둘째.jpg"]);
     expect(rejected).toEqual([
-      expect.objectContaining({ fileName: "메모.txt", code: "UNSUPPORTED_FILE_TYPE" }),
+      expect.objectContaining({ fileName: "메모.txt", code: "UNSUPPORTED_MEDIA_TYPE" }),
     ]);
   });
 

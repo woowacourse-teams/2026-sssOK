@@ -28,7 +28,6 @@ export const RoomSchema = z.object({
   hostId: z.number(),
   hostName: z.string(),
   createdAt: z.string(),
-  expiresAt: z.string(),
   uploadPolicy: z.union([z.literal("everyone"), z.literal("host")]),
   joined: z.boolean(),
   myNickname: z.union([z.string(), z.null()]).optional(),

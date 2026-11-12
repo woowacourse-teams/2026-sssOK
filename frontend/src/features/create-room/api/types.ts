@@ -6,7 +6,6 @@ export const CreateRoomResponseSchema = z.object({
   hostId: z.number(),
   hostName: z.string(),
   createdAt: z.string(),
-  expiresAt: z.string(),
   uploadPolicy: z.union([z.literal("everyone"), z.literal("host")]),
 });
 export interface CreateRoomRequest {

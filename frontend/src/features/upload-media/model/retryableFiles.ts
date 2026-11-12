@@ -5,10 +5,14 @@ import type { FailedUpload, UploadFailureCode } from "./types";
  *
  * - `UPLOAD_ABORTED` — 사용자가 직접 취소를 눌렀다. 실패가 아니다.
  *   "예기치 못한 이유로 실패했어요" 라고 되받으면 자기가 누른 취소를 사고로 읽는다.
- * - `FILE_SIZE_EXCEEDED` — 파일 자체가 한도를 넘었다. `rejected` 와 같은 성질이라
+ * - `FILE_TOO_LARGE` — 파일 자체가 한도를 넘었다. `rejected` 와 같은 성질이라
  *   같은 파일을 몇 번을 올려도 같은 자리에서 걸린다.
  */
-const NOT_RETRYABLE: readonly UploadFailureCode[] = ["UPLOAD_ABORTED", "FILE_SIZE_EXCEEDED"];
+const NOT_RETRYABLE: readonly UploadFailureCode[] = [
+  "UPLOAD_ABORTED",
+  "FILE_TOO_LARGE",
+  "UNSUPPORTED_MEDIA_TYPE",
+];
 
 /**
  * 실패분에서 다시 올릴 원본만 추린다. **실패 모달의 N 이 이 길이다** (#74) —
