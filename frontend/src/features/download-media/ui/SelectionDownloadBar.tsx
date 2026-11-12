@@ -13,6 +13,7 @@ import { type AnalyticsRoomContext, getAnalyticsRoom } from "@/shared/lib";
 import { FloatingBar } from "@/shared/ui/floating-bar";
 import { IconButton } from "@/shared/ui/icon-button";
 import { useToast } from "@/shared/ui/toast";
+import { isNativeApp } from "../lib/nativeApp";
 import { downloadMessageOfError } from "../lib/downloadErrorMessage";
 import { useDownloadFailure } from "../model/useDownloadFailure";
 import { trackDownload, trackDownloadStarted, trackShareBatch } from "../model/trackDownload";
@@ -302,7 +303,10 @@ export const SelectionDownloadBar = ({
                   </SelectionCheck>
                   <Count>{targets.length}개</Count>
                 </SelectionSummary>
-                <DownloadButton type="button" onClick={() => setSheetOpen(true)}>
+                <DownloadButton
+                  type="button"
+                  onClick={() => (isNativeApp() ? startWith("share") : setSheetOpen(true))}
+                >
                   <LuDownload />
                   다운로드
                 </DownloadButton>
