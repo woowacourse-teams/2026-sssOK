@@ -1,87 +1,112 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
+import { Asset } from "expo-asset";
+import { File } from "expo-file-system";
 import * as SplashScreen from "expo-splash-screen";
-import { useVideoPlayer, VideoView } from "expo-video";
-import { useEventListener } from "expo";
+import { WebView } from "react-native-webview";
 
-/** 첨부 영상(3초)이 중간에 잘리지 않도록 끝까지 표시한다. */
-const MIN_VISIBLE_MS = 3_000;
-/** 웹이나 영상이 준비되지 않더라도 스플래시에 갇히지 않도록 한다. */
+/** 영상 준비·재생을 포함해 최대 3초만 가린다. */
 const TIMEOUT_MS = 3_000;
-const BACKGROUND = "#FFFFFF";
 const VIDEO_SOURCE = require("../../assets/splash.mp4");
 
+const createVideoHtml = (base64: string) => `<!doctype html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #fff; }
+  video { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+</style>
+</head>
+<body>
+<video id="splash" muted playsinline webkit-playsinline preload="auto" disablepictureinpicture></video>
+<script>
+  const video = document.getElementById('splash');
+  const send = (event) => window.ReactNativeWebView.postMessage(event);
+  video.muted = true;
+  video.addEventListener('ended', () => send('ended'));
+  video.addEventListener('error', () => send('error'));
+  video.src = 'data:video/mp4;base64,${base64}';
+  video.play().catch(() => send('error'));
+</script>
+</body>
+</html>`;
+
 type AnimatedSplashProps = {
-  /** 뒤에 깔린 웹이 첫 화면을 다 그렸는지. */
+  /** 서비스 WebView의 문서 로딩 완료 여부. API 완료를 의미하지 않는다. */
   webReady: boolean;
 };
 
-/** 정적 스플래시를 먼저 닫아 Android에서도 영상 프레임을 그릴 수 있도록 한다. */
 export function AnimatedSplash({ webReady }: AnimatedSplashProps) {
-  const player = useVideoPlayer(VIDEO_SOURCE, (player) => {
-    player.muted = true;
-    player.loop = false;
-  });
-  const [shownAt, setShownAt] = useState<number | null>(null);
+  const [source, setSource] = useState<{ html: string } | null>(null);
+  const [ended, setEnded] = useState(false);
   const [done, setDone] = useState(false);
-  const started = useRef(false);
 
-  const dismiss = useCallback(() => setDone(true), []);
-
-  useEventListener(player, "statusChange", ({ status }) => {
-    if (status === "error") {
-      SplashScreen.hide();
-      dismiss();
-    }
-  });
+  const dismiss = useCallback(() => {
+    SplashScreen.hide();
+    setDone(true);
+  }, []);
 
   useEffect(() => {
-    if (done) player.pause();
-  }, [done, player]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      SplashScreen.hide();
-      dismiss();
-    }, TIMEOUT_MS);
+    const timer = setTimeout(dismiss, TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [dismiss]);
 
   useEffect(() => {
-    if (!webReady || shownAt === null) return;
-    const timer = setTimeout(dismiss, Math.max(0, MIN_VISIBLE_MS - (Date.now() - shownAt)));
-    return () => clearTimeout(timer);
-  }, [webReady, shownAt, dismiss]);
+    if (done) return;
+    let cancelled = false;
+    const prepare = async () => {
+      // 앱에 번들된 영상을 읽어 HTML에 포함한다. 외부 URL이나 파일 접근 권한은 필요 없다.
+      const asset = await Asset.fromModule(VIDEO_SOURCE).downloadAsync();
+      if (!asset.localUri) throw new Error("Splash video is unavailable");
+      const base64 = await new File(asset.localUri).base64();
+      if (!cancelled) setSource({ html: createVideoHtml(base64) });
+    };
+    void prepare().catch(() => {
+      if (!cancelled) dismiss();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [done, dismiss]);
 
-  if (done) return null;
+  if (done || (ended && webReady)) return null;
 
   return (
     <View
       style={[StyleSheet.absoluteFill, styles.overlay]}
       accessible
       accessibilityLabel="쏙 불러오는 중"
-      onLayout={() => {
-        if (started.current) return;
-        started.current = true;
-        SplashScreen.hide();
-        player.play();
-      }}
+      // 정적 스플래시가 WebView의 화면 그리기를 막지 않도록 먼저 닫는다.
+      onLayout={() => SplashScreen.hide()}
     >
-      <VideoView
-        player={player}
-        style={styles.video}
-        contentFit="contain"
-        nativeControls={false}
-        surfaceType="textureView"
-        onFirstFrameRender={() => {
-          setShownAt((prev) => prev ?? Date.now());
-        }}
-      />
+      {source && (
+        <WebView
+          source={source}
+          originWhitelist={["*"]}
+          style={styles.video}
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          allowsFullscreenVideo={false}
+          allowsPictureInPictureMediaPlayback={false}
+          scrollEnabled={false}
+          bounces={false}
+          overScrollMode="never"
+          contentInsetAdjustmentBehavior="never"
+          onMessage={({ nativeEvent }) => {
+            if (nativeEvent.data === "ended") setEnded(true);
+            if (nativeEvent.data === "error") dismiss();
+          }}
+          onError={dismiss}
+          onContentProcessDidTerminate={dismiss}
+          onRenderProcessGone={dismiss}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { backgroundColor: BACKGROUND },
-  video: { flex: 1, backgroundColor: BACKGROUND },
+  overlay: { backgroundColor: "#FFFFFF" },
+  video: { flex: 1, backgroundColor: "#FFFFFF" },
 });

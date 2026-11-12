@@ -49,7 +49,7 @@ module.exports = ({ config }) => {
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
       "expo-apple-authentication",
-      "expo-video",
+      "expo-asset",
       ["@react-native-seoul/kakao-login", { kakaoAppKey: "49e12318151676c430bd253609755519" }],
       "./plugins/withKakaoSceneDelegate",
       [
