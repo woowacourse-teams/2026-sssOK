@@ -560,6 +560,62 @@ describe("SelectionDownloadBar", () => {
     expect(screen.getByText("2개를 어떻게 받을까요?")).toBeInTheDocument();
   });
 
+  it("다운로드 브리지를 지원하는 앱에서는 선택 시트 없이 사진첩 저장을 시작한다", async () => {
+    serveSingle();
+    const postMessage = jest.fn((message: string) => {
+      const request = JSON.parse(message);
+      if (request.type !== "download/save") return;
+      for (const file of request.files) {
+        window.dispatchEvent(
+          new CustomEvent("sssok:native", {
+            detail: { type: "download/saved", requestId: request.requestId, id: file.id },
+          }),
+        );
+      }
+      window.dispatchEvent(
+        new CustomEvent("sssok:native", {
+          detail: {
+            type: "download/done",
+            requestId: request.requestId,
+            result: "completed",
+            failed: [],
+          },
+        }),
+      );
+    });
+    window.ReactNativeWebView = { postMessage };
+    window.sssokApp = { download: 1 };
+    try {
+      const { onClearSelection } = renderBar([targetOf(5000), targetOf(5001)]);
+      await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+
+      expect(screen.queryByTestId("bottom-sheet-overlay")).not.toBeInTheDocument();
+      await waitFor(() => expect(onClearSelection).toHaveBeenCalledTimes(1));
+      expect(postMessage).toHaveBeenCalledTimes(1);
+      expect(JSON.parse(postMessage.mock.calls[0][0])).toMatchObject({
+        type: "download/save",
+        files: [{ id: 5000 }, { id: 5001 }],
+      });
+    } finally {
+      delete window.ReactNativeWebView;
+      delete window.sssokApp;
+    }
+  });
+
+  it("다운로드 브리지를 지원하지 않는 구버전 앱은 선택 시트를 유지한다", async () => {
+    const postMessage = jest.fn();
+    window.ReactNativeWebView = { postMessage };
+    try {
+      renderBar([targetOf(5000)]);
+      await userEvent.click(screen.getByRole("button", { name: /다운로드/ }));
+
+      expect(screen.getByText("1개를 어떻게 받을까요?")).toBeInTheDocument();
+      expect(postMessage).not.toHaveBeenCalled();
+    } finally {
+      delete window.ReactNativeWebView;
+    }
+  });
+
   /**
    * 숫자만 있는 바는 폰에서 거의 안 읽힌다. 업로드 바와 같은 자리에 같은 알약으로 뜨는데
    * 한쪽만 차오르면 받기가 멈춘 것으로 읽힌다 — 띠와 진행률 의미를 함께 내준다.
