@@ -23,6 +23,7 @@ import { screen, waitFor, waitForElementToBeRemoved, within } from "@testing-lib
 import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import type { ReactElement } from "react";
 
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
@@ -715,6 +716,95 @@ describe("SelectionDownloadBar", () => {
 
     expect(await screen.findByText("찾을 수 없어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "재시도" })).not.toBeInTheDocument();
+  });
+
+  /**
+   * 결말을 알리는 콜백은 다운로드를 누른 렌더의 것이다. 이번 판을 상태로 들고 있으면
+   * 그 콜백에는 이전 판이 보여, 첫 판은 재시도가 사라지고 이후 판은 한 판씩 밀린다 (#827).
+   */
+  describe("재시도 대상은 이번 판에서 못 받은 것이다", () => {
+    /** 요청마다 고른 ID 를 남기고, `failing` 에 든 사진만 응답 없이 끊는다. */
+    const serveFailing = (failing: Set<number>): number[][] => {
+      const requested: number[][] = [];
+
+      server.use(
+        http.post(`${API_BASE_URL}/rooms/:roomId/downloads/batch`, async ({ request, params }) => {
+          const { mediaIds } = (await request.json()) as { mediaIds: number[] };
+
+          requested.push(mediaIds);
+
+          return HttpResponse.json({
+            data: {
+              files: mediaIds.map((mediaId) => ({
+                mediaId,
+                fileName: `IMG_${mediaId}.jpg`,
+                downloadUrl: `${API_BASE_URL}/rooms/${params.roomId}/downloads/media/${mediaId}`,
+                expiresAt: new Date(Date.now() + 300_000).toISOString(),
+              })),
+            },
+          });
+        }),
+
+        http.get(`${API_BASE_URL}/rooms/:roomId/downloads/media/:mediaId`, ({ params }) =>
+          failing.has(Number(params.mediaId))
+            ? HttpResponse.error()
+            : new HttpResponse(new Blob(["bytes"]), { headers: { "Content-Type": "image/jpeg" } }),
+        ),
+      );
+
+      return requested;
+    };
+
+    const barOf = (targets: DownloadTarget[]): ReactElement => (
+      <SelectionDownloadBar
+        targets={targets}
+        roomId={MOCK_ROOM_ID}
+        roomCode="7K93QX2S"
+        roomPhotoCount={10}
+        token={TOKEN}
+        onClearSelection={jest.fn()}
+      />
+    );
+
+    it("첫 판에서 응답을 못 받은 사진이 섞이면 재시도를 내준다", async () => {
+      serveFailing(new Set([5001]));
+
+      renderBar([targetOf(5000), targetOf(5001)]);
+
+      await downloadIndividually();
+
+      expect(await screen.findByText("앗, 1장을 못 받았어요")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "재시도" })).toBeInTheDocument();
+    });
+
+    it("재시도는 못 받은 사진만 다시 받는다", async () => {
+      const failing = new Set([5001]);
+      const requested = serveFailing(failing);
+
+      renderBar([targetOf(5000), targetOf(5001), targetOf(5002)]);
+
+      await downloadIndividually();
+      await userEvent.click(await screen.findByRole("button", { name: "재시도" }));
+
+      await waitFor(() => expect(requested).toHaveLength(2));
+      expect(requested[1]).toEqual([5001]);
+    });
+
+    it("이어서 다른 사진을 받으면 재시도 대상도 그 판의 것이다", async () => {
+      const requested = serveFailing(new Set([6001]));
+      const { rerender } = render(barOf([targetOf(5000)]));
+
+      await downloadIndividually();
+      expect(await screen.findByText("1장을 저장했어요.")).toBeInTheDocument();
+
+      rerender(barOf([targetOf(6000), targetOf(6001)]));
+
+      await downloadIndividually();
+      await userEvent.click(await screen.findByRole("button", { name: "재시도" }));
+
+      await waitFor(() => expect(requested).toHaveLength(3));
+      expect(requested[2]).toEqual([6001]);
+    });
   });
 
   it("폰에서는 시트가 사진첩 항목을 내준다", async () => {

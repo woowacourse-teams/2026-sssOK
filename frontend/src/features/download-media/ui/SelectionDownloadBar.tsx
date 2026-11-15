@@ -125,16 +125,12 @@ export const SelectionDownloadBar = ({
     close: closeFailure,
   } = useDownloadFailure();
   /**
-   * 방금 굴린 판이 무엇이었는지. 재시도가 같은 방식으로 다시 받아야 하는데,
-   * 그때는 이미 선택이 풀렸을 수도 있어 `targets` 만으로는 되짚을 수 없다.
-   */
-  const [lastRun, setLastRun] = useState<{ targets: DownloadTarget[]; mode: DownloadMode }>({
-    targets: [],
-    mode: "individual",
-  });
-  /**
-   * 이벤트에 남길 이번 판. `lastRun` 은 상태라 `start` 를 부른 렌더의 콜백에서는
-   * 아직 이전 판을 가리킨다 — 그대로 쓰면 첫 판이 빈 판으로, 이후 판이 한 판씩 밀려 기록된다.
+   * 지금 굴리는 판. 재시도 대상과 이벤트가 모두 이 값을 본다 — 재시도는 같은 방식으로
+   * 다시 받아야 하는데, 그때는 이미 선택이 풀렸을 수도 있어 `targets` 만으로는 되짚을 수 없다.
+   *
+   * 상태가 아니라 ref 인 이유: `start` 는 버튼을 누른 렌더의 콜백을 쥐고 끝까지 간다.
+   * 상태로 두면 그 콜백 안에서는 아직 이전 판을 가리켜, 첫 판은 빈 판이 되고(재시도가 사라진다)
+   * 이후 판은 한 판씩 밀린다 (#827).
    */
   const trackedRunRef = useRef<{
     targets: DownloadTarget[];
@@ -178,7 +174,7 @@ export const SelectionDownloadBar = ({
       roomId,
       token,
       onSettled: (outcome) => {
-        settleFailure(outcome, lastRun.targets, lastRun.mode);
+        settleFailure(outcome, trackedRunRef.current.targets, trackedRunRef.current.mode);
         trackRun(outcome);
 
         // 저장까지 끝났으면 알리고 고른 상태를 풀어준다. 실패가 섞였거나 탭이 한 번 더 필요하면
@@ -198,7 +194,7 @@ export const SelectionDownloadBar = ({
       onError: (error) => {
         const reason = downloadMessageOfError(error);
         trackRun({ type: "failed", reason, isRetryable: false });
-        failWith(reason, lastRun.targets, lastRun.mode);
+        failWith(reason, trackedRunRef.current.targets, trackedRunRef.current.mode);
       },
       onShareBatch: (batch) => trackShareBatch(batch, trackedRunRef.current.room),
     });
@@ -206,7 +202,6 @@ export const SelectionDownloadBar = ({
   const startWith = (mode: DownloadMode, only: DownloadTarget[] = targets): void => {
     setSheetOpen(false);
     closeFailure();
-    setLastRun({ targets: only, mode });
     trackedRunRef.current = {
       targets: only,
       mode,
