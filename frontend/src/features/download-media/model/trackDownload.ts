@@ -1,5 +1,5 @@
 import { type AnalyticsDownloadSource, type AnalyticsRoomContext, track } from "@/shared/lib";
-import type { DownloadMode, DownloadOutcome, DownloadTarget } from "./types";
+import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } from "./types";
 import type { ShareBatchResult } from "./useMediaDownload";
 
 interface DownloadRun {
@@ -23,6 +23,17 @@ interface DownloadRun {
   /** 받기를 시작한 방. 끝나기 전에 갤러리를 떠나도 그 방으로 남긴다. */
   room: AnalyticsRoomContext | null;
 }
+
+/**
+ * 못 받은 것들의 상태 코드와 단계. 알림만 보고도 어느 경로에서 실패했는지 가르려고 남긴다.
+ * 단계는 앱에서 받은 판만 알 수 있다 — 브라우저에서 받은 판은 `web` 으로 둔다.
+ */
+const failureBreakdownOf = (
+  failed: FailedDownload[],
+): { failed_statuses: number[]; failed_stages: string[] } => ({
+  failed_statuses: failed.map((one) => one.status),
+  failed_stages: failed.map((one) => one.stage ?? "web"),
+});
 
 /** 받기 한 판을 시작했을 때. 끝난 판과 견줘 완료율과 도중에 그만둔 비율을 본다. */
 export const trackDownloadStarted = (
@@ -63,6 +74,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun): void 
           source: run.source,
           photo_count: outcome.savedCount,
           failed_count: outcome.failed.length,
+          ...failureBreakdownOf(outcome.failed),
           total_count: run.roomPhotoCount,
           is_select_all: run.isSelectAll,
           duration_ms: durationMs,
@@ -78,6 +90,7 @@ export const trackDownload = (outcome: DownloadOutcome, run: DownloadRun): void 
           source: run.source,
           reason: "all_failed",
           failed_count: outcome.failed.length,
+          ...failureBreakdownOf(outcome.failed),
           duration_ms: durationMs,
         },
         run.room,

@@ -752,6 +752,8 @@ describe("SelectionDownloadBar", () => {
             source: "gallery",
             photo_count: 2,
             failed_count: 0,
+            failed_statuses: [],
+            failed_stages: [],
             total_count: 10,
             is_select_all: true,
             duration_ms: expect.any(Number),
