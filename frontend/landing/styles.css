@@ -64,7 +64,7 @@ em {
   position: relative;
   height: calc(var(--secs) * var(--per) + calc(var(--svh, 1svh) * 100) + var(--stage-extra, 0px));
   /* 장면 1초당 스크롤 길이. 작을수록 같은 스크롤에 장면이 빨리 지나간다 */
-  --per: calc(var(--svh, 1svh) * 105);
+  --per: calc(var(--svh, 1svh) * 150);
 }
 
 /* --stage-extra: 폰 폭에선 무대를 묶어 둔 화면 높이보다 아래로 더 길게 둔다. 브라우저 바가 접혀 화면이 길어져도
@@ -503,6 +503,13 @@ a.start-opt:focus-visible {
   letter-spacing: -0.02em;
 }
 
+/* 링크 옆 AI 정리 버튼: 주황 반짝임을 칠하고, 끝을 살짝 둥글린다 */
+.g-title .ai {
+  fill: var(--primary);
+  stroke: var(--primary);
+  stroke-width: 1.1;
+}
+
 .g-search {
   display: flex;
   align-items: center;
@@ -651,14 +658,30 @@ a.start-opt:focus-visible {
 
 .g-filter .all {
   margin: 0;
+  /* 앱 SelectAllButton 처럼 고르기 전엔 회색 글씨 */
+  color: var(--sub);
 }
 
+/* 전체 선택 표시: 실제 앱 SelectMark 처럼 회색 테두리 동그라미 안에 회색 체크 (고르면 주황 바탕 + 흰 체크) */
 .ring {
-  display: inline-block;
+  display: inline-grid;
+  place-items: center;
   width: 1.4em;
   height: 1.4em;
   border-radius: 50%;
-  border: 1.5px solid var(--line);
+  border: 1px solid #c9c9c9;
+  color: #c9c9c9;
+  vertical-align: middle;
+}
+
+.ring svg {
+  width: 0.87em;
+  height: 0.87em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .g-grid {
@@ -669,6 +692,27 @@ a.start-opt:focus-visible {
 .gset {
   position: absolute;
   inset: 0;
+}
+
+/* 사진 올리기 전 빈 상태: 실제 앱 StateMessage 처럼 사진 칸 자리(목록 위쪽~화면 아래) 가운데에 회색 본문 글씨.
+   top 은 main.js 가 사진 칸 시작 자리에 맞춘다. 사진이 한 장이라도 들어오면 사라진다 */
+.g-empty {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  padding: 2em 1em;
+  color: var(--sub);
+  font-size: 0.95em;
+  font-weight: 500;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.g-empty.off {
+  opacity: 0;
 }
 
 /* 사진 칸: 오른쪽 위 선택 동그라미, 왼쪽 아래 올린 사람, 오른쪽 아래 좋아요 */
@@ -707,20 +751,32 @@ a.start-opt:focus-visible {
   background-repeat: no-repeat;
 }
 
+/* 사진 칸 위 표시는 실제 앱 GalleryMediaCard(MediaCard.styles.ts)와 같게 맞춘다.
+   앱 px 을 1em ≈ 15.5px 로 옮겼고, 글자 크기를 바꾼 요소는 자기 글자 크기 기준 em 이다 */
+
+/* 선택 동그라미: 26px, 위·오른쪽 8px. 안 고르면 흰 바탕 + 회색 테두리·회색 체크, 고르면 주황 바탕 + 흰 체크 */
 .chk {
   position: absolute;
-  top: 0.5em;
-  right: 0.5em;
+  top: 0.52em;
+  right: 0.52em;
   display: grid;
   place-items: center;
-  width: 1.45em;
-  height: 1.45em;
+  width: 1.68em;
+  height: 1.68em;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.95);
-  background: color-mix(in srgb, var(--primary) calc(var(--on, 0) * 100%), rgba(26, 22, 18, 0.12));
-  color: #fff;
-  font-size: 0.8em;
-  font-weight: 900;
+  border: 1px solid color-mix(in srgb, var(--primary) calc(var(--on, 0) * 100%), #c9c9c9);
+  background: color-mix(in srgb, var(--primary) calc(var(--on, 0) * 100%), #fff);
+  color: color-mix(in srgb, #fff calc(var(--on, 0) * 100%), #c9c9c9);
+}
+
+.chk svg {
+  width: 0.97em;
+  height: 0.97em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .gt.sel::after {
@@ -731,37 +787,54 @@ a.start-opt:focus-visible {
   border-radius: inherit;
 }
 
+/* 올린 사람: 11px 굵은 글자, 높이 22px 흰 알약 (내 사진은 주황 알약), 왼쪽 아래 8px */
 .upl {
   position: absolute;
-  left: 0.55em;
-  bottom: 0.55em;
-  padding: 0.12em 0.55em;
+  left: 0.727em;
+  bottom: 0.727em;
+  max-width: calc(100% - 1.45em);
+  height: 2em;
+  padding: 0.27em 0.82em;
+  overflow: hidden;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  font-size: 0.66em;
+  background: rgba(255, 255, 255, 0.94);
+  color: #4a4843;
+  font-size: 0.71em;
   font-weight: 700;
+  line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.upl.mine {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* 좋아요: 오른쪽 아래 8px, 높이 28px 어두운 알약, 하트 17px + 11px 굵은 숫자 */
 .hrt {
   position: absolute;
-  right: 0.55em;
-  bottom: 0.55em;
+  right: 0.727em;
+  bottom: 0.727em;
   display: flex;
   align-items: center;
-  gap: 0.25em;
-  padding: 0.15em 0.55em;
+  gap: 0.36em;
+  min-width: 3.82em;
+  height: 2.55em;
+  padding: 0.36em 0.73em;
   border-radius: 999px;
-  background: rgba(26, 22, 18, 0.5);
+  background: rgba(26, 22, 18, 0.58);
   color: #fff;
-  font-size: 0.7em;
+  font-size: 0.71em;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .hrt .ico {
-  width: 1.05em;
-  height: 1.05em;
-  stroke-width: 2.2;
+  flex: none;
+  width: 1.55em;
+  height: 1.55em;
+  stroke-width: 2;
 }
 
 .fab {
@@ -816,103 +889,59 @@ a.start-opt:focus-visible {
   background: var(--line);
 }
 
-.sheet h3 {
-  margin-bottom: 0.85em;
-  font-size: 1.2em;
-  font-weight: 800;
-}
-
-.kinds {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5em;
-}
-
-.kind {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4em;
-}
-
-.kthumb {
-  position: relative;
+/* 머리글: 제목·설명 두 줄 + 오른쪽 얼굴 세 개 (앱 시안 기준 20px 제목, 14px 설명, 아래 24px) */
+.k-head {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.5em;
-  height: 4.35em;
-  border-radius: 0.77em;
-  background: var(--subtle);
+  padding-bottom: 1.52em;
 }
 
-.kind.on .kthumb {
-  box-shadow: inset 0 0 0 2px var(--primary);
+.k-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25em;
+  min-width: 0;
 }
 
-.kthumb .av {
-  width: 2.2em;
-  height: 2.2em;
+.sheet h3 {
+  font-size: 1.27em;
+  font-weight: 800;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.k-text p {
+  color: var(--sub);
+  font-size: 0.89em;
+  font-weight: 500;
+  line-height: 1.43;
+}
+
+/* 얼굴 세 개: 24px 칸을 5px 씩 겹치고 흰 테두리를 두른다 */
+.k-crowd {
+  display: flex;
+  flex: none;
+}
+
+.k-crowd .av {
+  width: 1.52em;
+  height: 1.52em;
   border-radius: 50%;
   overflow: hidden;
-  box-shadow: 0 0 0 2px #fff;
+  box-shadow:
+    0 0 0 1.5px #fff,
+    0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
-.kthumb .av img {
+.k-crowd .av + .av {
+  margin-left: -0.32em;
+}
+
+.k-crowd .av img {
   width: 100%;
   height: 100%;
-}
-
-.kthumb .scene {
-  position: absolute;
-  width: 4.2em;
-  height: 3.7em;
-}
-
-.kthumb .scene img {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.kthumb .scene img + img {
-  left: 0.1em;
-  top: 0.15em;
-  width: 3.95em;
-  height: 3.45em;
-}
-
-.kcheck {
-  position: absolute;
-  top: -0.45em;
-  right: -0.45em;
-  display: grid;
-  place-items: center;
-  width: 1.4em;
-  height: 1.4em;
-  border-radius: 50%;
-  background: var(--primary);
-}
-
-.kind:not(.on) .kcheck {
-  display: none;
-}
-
-.kcheck img {
-  width: 0.9em;
-  height: 0.9em;
-  filter: brightness(10);
-}
-
-.kind span {
-  font-size: 0.9em;
-  font-weight: 700;
-  color: var(--text);
-}
-
-.kind.on span {
-  color: var(--primary);
 }
 
 .btn {
@@ -925,6 +954,11 @@ a.start-opt:focus-visible {
   color: #fff;
   font-size: 1em;
   font-weight: 700;
+}
+
+/* 확인 시트에선 머리글 아래 여백(24px)이 버튼 위 간격이다 */
+.sheet .btn {
+  margin-top: 0;
 }
 
 .btn-ghost {
@@ -1282,19 +1316,8 @@ a.start-opt:focus-visible {
   pointer-events: none;
 }
 
-.tap .cur,
-.inv-tap .cur {
-  position: absolute;
-  left: -0.2em;
-  top: -0.14em;
-  width: 1.55em;
-  height: 1.7em;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.3));
-  transform: scale(var(--press, 1));
-  transform-origin: 0.2em 0.14em;
-}
-
-.tap .finger {
+.tap .finger,
+.inv-tap .finger {
   position: absolute;
   left: -1.1em;
   top: -1.1em;
@@ -1436,7 +1459,7 @@ a.start-opt:focus-visible {
   margin-top: calc(var(--svh, 1svh) * 6);
 }
 
-/* 두 버튼은 높이·글씨 크기를 같게 두고, 우선순위는 색(주황 > 검정)으로만 나눈다 */
+/* 첫 화면 버튼은 '사진 모을 링크 만들기' 하나라, 한 줄 글자 가로 배치·가운데 정렬로 둔다 */
 .hero-ctas .cta {
   box-sizing: border-box;
   height: 2.9em;
@@ -1444,23 +1467,11 @@ a.start-opt:focus-visible {
   justify-content: center;
   font-size: clamp(14px, 1.2vw, 20px);
   min-width: 11.4em;
-}
-
-/* 두 버튼 모두 한 줄 글자라 가로 배치·가운데 정렬로 맞춘다 */
-.hero-ctas .cta,
-.hero-ctas .cta.store {
   flex-direction: row;
   align-items: center;
   border: 0;
   font-family: inherit;
   cursor: pointer;
-}
-
-/* 앱 메뉴는 버튼 바로 아래 왼쪽 맞춤으로 연다 */
-.hero-app .start-menu {
-  left: 0;
-  right: auto;
-  text-align: left;
 }
 
 .share {
@@ -1516,7 +1527,8 @@ a.start-opt:focus-visible {
   display: flex;
   flex-direction: column;
   width: min(390px, 34vw);
-  height: min(calc(var(--svh, 1svh) * 80), 720px);
+  /* 요청("다들 사진 좀 보내줘~")부터 쏙 링크까지 한 화면에 다 들어오는 높이 */
+  height: min(calc(var(--svh, 1svh) * 93), 800px);
   border-radius: 24px;
   background: #b2c7d9;
   overflow: hidden;
@@ -1529,99 +1541,9 @@ a.start-opt:focus-visible {
   visibility: hidden;
 }
 
-/* 쏙 초대 링크 카드: 카톡 링크 미리보기 모양 (흰 카드 · 위에 큰 그림 · 아래 제목/설명/주소) */
-.invite {
-  left: calc((var(--pl) + var(--pr)) / 2);
-  top: 50%;
-  z-index: 6;
-  width: min(300px, 26vw);
-  opacity: 0;
-  visibility: hidden;
-}
-
-.inv-card {
-  overflow: hidden;
-  border-radius: 18px;
-  background: #fff;
-  box-shadow:
-    0 30px 60px -24px rgba(43, 33, 27, 0.5),
-    0 0 0 1px rgba(26, 22, 18, 0.06);
-}
-
-.inv-og {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1200 / 630;
-  object-fit: cover;
-}
-
-.inv-body {
-  display: grid;
-  gap: 4px;
-  padding: 12px 14px 14px;
-}
-
-.inv-body strong {
-  color: #1a1a1a;
-  font-size: 15px;
-  font-weight: 800;
-}
-
-.inv-body p {
-  margin: 0;
-  color: #5b544d;
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.inv-body small {
-  color: #9a928a;
-  font-size: 11.5px;
-}
-
+/* 단톡방 링크를 누르는 손가락: 폰 안 누름 표시와 같은 크기 (자리는 main.js 가 정한다) */
 .inv-tap {
-  left: 50%;
-  top: 48%;
-  font-size: 18px;
-}
-
-/* 친구가 링크로 들어올 때 폰 옆에 뜨는 말풍선 (앱 화면이 아니라 설명용) */
-.join {
-  position: absolute;
-  z-index: 18;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 14px 7px 7px;
-  border-radius: 999px;
-  background: #fff;
-  box-shadow: 0 12px 28px -12px rgba(43, 33, 27, 0.45);
-  color: #1a1a1a;
-  font-size: 13.5px;
-  font-weight: 700;
-  white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-}
-
-.join .av {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  overflow: hidden;
-  border-radius: 9px;
-  background: var(--av);
-}
-
-.join .av svg {
-  width: 100%;
-  height: 100%;
-  fill: rgba(255, 255, 255, 0.92);
-}
-
-.join b {
-  color: var(--primary);
+  font-size: 15px;
 }
 
 .chat-head {
@@ -1719,7 +1641,8 @@ a.start-opt:focus-visible {
 /* 말풍선: 길면 카톡처럼 말풍선 안에서 줄을 바꾼다 (단어 중간에서 끊지 않게) */
 .msg p {
   position: relative;
-  max-width: 230px;
+  /* "한꺼번에 다운로드 받을 수 있는 방법 없나"가 '없나'만 떨어지지 않고 한 줄에 들어가는 폭 */
+  max-width: 272px;
   padding: 7px 10px;
   border-radius: 14px;
   background: #fff;
@@ -1743,7 +1666,7 @@ a.start-opt:focus-visible {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 2px;
-  width: 6.4em;
+  width: 5.6em;
 }
 
 /* 3장은 카톡처럼 가로로 나란히 한 줄 */
@@ -1767,8 +1690,8 @@ a.start-opt:focus-visible {
 
 .msg p.pics.blur img,
 .ghost .gin.blur img {
-  filter: blur(2.6px) saturate(0.85) contrast(0.9);
-  transform: scale(1.08);
+  filter: blur(0.5px) saturate(0.94) contrast(0.96);
+  transform: scale(1.02);
 }
 
 /* 조각 안의 사진은 원래 말풍선과 같은 격자로 시작한다 (한 장 / 2×2 / 3칸) */
@@ -2472,7 +2395,7 @@ a.start-opt:focus-visible {
   .film {
     /* 스크롤 길이는 처음 잰 화면 높이(--scroll-vh)로 고정한다. 주소창이 접혀 장면을 다시 짜도
        같은 스크롤 위치가 같은 장면을 가리키게 (--svh 로 하면 다시 짤 때 장면이 앞뒤로 튄다) */
-    --per: calc(var(--scroll-vh, var(--svh, 1svh)) * 92);
+    --per: calc(var(--scroll-vh, var(--svh, 1svh)) * 130);
   }
 
   .hint {
@@ -2574,11 +2497,6 @@ a.start-opt:focus-visible {
     font-size: 17.5px;
   }
 
-  /* App Store 는 머리글 '링크 만들기' 메뉴에 있으니 폰 폭 첫 화면에선 웹 버튼 하나만 */
-  .hero-app {
-    display: none;
-  }
-
   /* 폰 폭 글씨: 제목은 한 줄이 화면 폭을 넘지 않는 선(33px)까지, 나머지는 읽기 편한 크기로 */
   /* 폰 그림을 조금이라도 크게 두려고 장면 글은 한 단계 줄인다 */
   .title {
@@ -2659,24 +2577,6 @@ a.start-opt:focus-visible {
 }
 
 @media (max-width: 760px) {
-  .invite {
-    left: 50%;
-    top: calc(var(--svh, 1svh) * 50);
-    width: min(300px, 78vw);
-  }
-
-  .join {
-    gap: 6px;
-    padding: 5px 11px 5px 5px;
-    font-size: 11px;
-  }
-
-  .join .av {
-    width: 20px;
-    height: 20px;
-    border-radius: 7px;
-  }
-
   /* 폰 폭 단톡방: 실제 카톡처럼 세로로 길게, 머리글 아래부터 화면 끝까지 채운다.
      이 자리는 다 올라온 뒤의 자리이고, 첫 화면에선 main.js 가 화면 아래 밖으로 내려 둔다 */
   .chat {
@@ -2723,4 +2623,658 @@ a.start-opt:focus-visible {
   .tx.hero > * {
     animation: none;
   }
+}
+
+/* ③ 받기: '전체 선택'을 누르면 앱처럼 주황 바탕에 흰 체크가 된다 (글자도 주황) */
+.g-filter .all.on {
+  color: var(--primary);
+}
+
+.g-filter .all.on .ring {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+
+/* 해결: 단톡방 마지막 말풍선 = 내가 올린 쏙 링크 (카톡 링크 미리보기 모양) */
+.msg p.link,
+.msg.mine p.link {
+  /* 카톡 링크 미리보기처럼 말풍선보다 넓게 (일반 말풍선의 max-width 230px 를 풀어 준다) */
+  width: 15.5em;
+  max-width: none;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  transition: box-shadow 0.1s;
+}
+
+.msg p.link img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1200 / 630;
+  object-fit: cover;
+}
+
+.msg p.link .lk-body {
+  display: grid;
+  gap: 1px;
+  padding: 6px 9px 7px;
+}
+
+.msg p.link b {
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.msg p.link .lk-desc {
+  color: #5b544d;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.msg p.link .lk-url {
+  color: #9a928a;
+  font-size: 10.5px;
+}
+
+/* 원본으로 받기: 카톡으로 받은 사진 vs 쏙 원본 (폰 오른쪽 가장자리에 걸쳐 뜬다. 폭은 main.js 가 정한다) */
+.cmp {
+  z-index: 18;
+  display: flex;
+  gap: 12px;
+  padding: 12px 12px 10px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 24px 50px -22px rgba(43, 33, 27, 0.5);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.cmp figure {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+/* 사진 틀: 흐림이 틀 밖(아래 글자)으로 번지지 않게 여기서 자른다 */
+.cmp .ph {
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border-radius: 14px;
+}
+
+.cmp img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cmp img.blur {
+  filter: blur(0.7px) saturate(0.94) contrast(0.96);
+  transform: scale(1.03);
+}
+
+.cmp figcaption {
+  margin-top: 8px;
+  color: #6b635b;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cmp figcaption b {
+  color: var(--primary);
+}
+
+@media (max-width: 760px) {
+  .cmp {
+    width: min(300px, calc(100vw - 48px));
+  }
+}
+
+/* 내 사진만 받기: 사람별 폴더 카드 (폰 옆) */
+.fcard {
+  position: absolute;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 8px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 14px 32px -16px rgba(43, 33, 27, 0.45);
+  outline: 2px solid transparent;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: outline-color 0.15s;
+}
+
+.fcard.on {
+  outline-color: var(--primary);
+}
+
+/* 고르지 않은 폴더는 바탕은 그대로 두고 내용만 흐린다 (바탕까지 비치면 뒤 사진과 겹쳐 보인다) */
+.fcard.off > * {
+  filter: grayscale(0.7);
+  opacity: 0.45;
+}
+
+.fcard .f-ava {
+  position: relative;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.fcard .f-tx {
+  display: grid;
+  min-width: 52px;
+  line-height: 1.25;
+}
+
+.fcard .f-tx b {
+  color: #1a1a1a;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.fcard .f-tx span {
+  color: var(--primary);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.fcard .f-th {
+  display: flex;
+  gap: 4px;
+}
+
+.fcard .f-th > span {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+@media (max-width: 760px) {
+  .fcard {
+    gap: 8px;
+    padding: 6px 8px 6px 6px;
+  }
+
+  .fcard .f-ava {
+    width: 32px;
+    height: 32px;
+  }
+
+  .fcard .f-th > span {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* ① 링크 만들기: 쏙 '방 만들기' 화면 (앱 전환으로 들어온다) */
+.make {
+  z-index: 3;
+  overflow: hidden;
+  visibility: hidden;
+}
+
+.mk-form {
+  position: absolute;
+  /* 바탕화면에서 앞으로 띄운 쏙 아이콘(z-index 1)보다 위 */
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1em;
+  padding: 3.4em 1.15em 0;
+  background: #fff;
+}
+
+/* 사진방 '올리기' → 폰 기본 사진 선택기 (아이폰 시트 모양: 위 여백을 두고 아래에서 올라온다) */
+.pk-dim {
+  position: absolute;
+  inset: 0;
+  z-index: 21;
+  background: rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.picker {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 3.4em;
+  bottom: 0;
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.9em 0.9em 0 0;
+  background: #fff;
+  overflow: hidden;
+  transform: translateY(105%);
+  visibility: hidden;
+}
+
+.pk-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0.85em 0.9em 0.7em;
+  color: #007aff;
+  font-size: 0.92em;
+}
+
+.pk-add {
+  justify-self: end;
+  font-weight: 700;
+  color: #b8b8bd;
+}
+
+.pk-add.on {
+  color: #007aff;
+}
+
+.pk-seg {
+  display: flex;
+  padding: 0.15em;
+  border-radius: 0.55em;
+  background: #ececf0;
+  color: #1a1a1a;
+  font-size: 0.85em;
+}
+
+.pk-seg i {
+  padding: 0.25em 1.1em;
+  border-radius: 0.45em;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.pk-seg i.on {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.pk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+}
+
+.pk-cell {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #eee;
+}
+
+.pk-cell .pic {
+  container-type: size;
+}
+
+/* 고른 사진: 파란 동그라미에 고른 순서 (아이폰 사진 선택기처럼) */
+.pk-chk {
+  position: absolute;
+  z-index: 1;
+  right: 0.3em;
+  bottom: 0.3em;
+  display: grid;
+  place-items: center;
+  /* 숫자가 테두리에 닿지 않게: 글자를 작게, 동그라미는 넉넉히, 줄 높이는 1로 정확히 가운데 */
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  background: #007aff;
+  color: #fff;
+  font-size: 0.62em;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transform: scale(0);
+}
+
+.pk-cell.sel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.pk-foot {
+  margin-top: auto;
+  padding: 0.8em 0 2em;
+  border-top: 1px solid #ececf0;
+  color: #1a1a1a;
+  font-size: 0.82em;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 앱이 열리는 동안 보이는 쏙 로고 화면 (자리·크기는 main.js 가 아이콘 → 화면 전체로 늘린다) */
+.mk-splash {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #fff;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.mk-splash img {
+  height: auto;
+}
+
+.mk-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  margin-bottom: 0.4em;
+  font-size: 1.1em;
+}
+
+.mk-head strong {
+  font-weight: 800;
+}
+
+.mk-f {
+  display: grid;
+  gap: 0.45em;
+}
+
+.mk-f > span {
+  color: #4a443e;
+  font-size: 0.85em;
+  font-weight: 700;
+}
+
+.mk-in {
+  display: flex;
+  align-items: center;
+  min-height: 2.9em;
+  padding: 0 0.95em;
+  border: 1.25px solid #e5ded1;
+  border-radius: 0.8em;
+  color: #1a1a1a;
+  font-size: 0.95em;
+  font-weight: 700;
+}
+
+.mk-in em {
+  color: #b5ada4;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.mk-in .caret {
+  margin: 0 0.2em 0 1px;
+}
+
+.mk-seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4em;
+}
+
+.mk-seg i {
+  display: grid;
+  place-items: center;
+  min-height: 2.6em;
+  border: 1.25px solid #e5ded1;
+  border-radius: 0.8em;
+  color: #6b635b;
+  font-size: 0.88em;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.mk-seg i.on {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.mk-go {
+  margin-top: 0.6em;
+}
+
+.make .p-toast {
+  opacity: 0;
+}
+
+/* 폰 폭: 단톡방이 화면을 채우는 동안 사용 단계는 이름표(① 링크 만들기 등)만 보인다 */
+.tx.chip-only > :not(.tag) {
+  visibility: hidden;
+}
+
+/* 폰 바탕화면: 아이폰 홈 화면처럼 검은 바탕, 네 칸 아이콘 격자, 폴더, 아래 독 */
+.os-home {
+  position: absolute;
+  inset: 0;
+  padding: 3.6em 0.95em 0;
+  background: #000;
+}
+
+.os-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 0.95em;
+}
+
+.os-app {
+  display: grid;
+  justify-items: center;
+  gap: 0.3em;
+  color: #fff;
+  font-size: 0.62em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.os-app > i,
+.os-dock > i {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 5.6em;
+  height: 5.6em;
+  overflow: hidden;
+  border-radius: 1.3em;
+  background: var(--c, #2c2c2e);
+  font-size: 1em;
+  font-style: normal;
+}
+
+/* 이모지 그림은 아이콘 안에서 크게 */
+.os-app > i:not(.os-folder, .os-cal, .ssok) {
+  font-size: 2.3em;
+  width: 2.43em;
+  height: 2.43em;
+  border-radius: 0.56em;
+}
+
+.os-app > i.ssok img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 캘린더: 요일 + 날짜 */
+.os-cal {
+  align-content: center;
+  gap: 0;
+  background: #fff !important;
+  color: #1a1a1a;
+  width: 2.53em !important;
+  height: 2.53em !important;
+  border-radius: 0.59em !important;
+  font-size: 2.2em !important;
+  font-weight: 300;
+  line-height: 1;
+}
+
+.os-cal small {
+  color: #ff3b30;
+  font-size: 0.32em;
+  font-weight: 700;
+}
+
+/* 폴더: 어두운 반투명 칸 안에 작은 앱 아홉 개 */
+.os-folder {
+  grid-template-columns: repeat(3, 1fr);
+  align-content: center;
+  gap: 0.35em;
+  padding: 0.8em;
+  background: rgba(118, 118, 128, 0.35) !important;
+}
+
+.os-folder b {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 0.3em;
+  background: var(--c);
+}
+
+.os-dock {
+  position: absolute;
+  left: 0.6em;
+  right: 0.6em;
+  bottom: 1.2em;
+  display: flex;
+  justify-content: space-evenly;
+  padding: 0.75em 0.4em;
+  border-radius: 1.7em;
+  background: rgba(118, 118, 128, 0.32);
+}
+
+.os-dock > i {
+  overflow: visible;
+  width: 2.48em;
+  height: 2.48em;
+  border-radius: 0.57em;
+  font-size: 1.4em;
+}
+
+/* 메시지 앱의 안 읽은 수 */
+.os-badge::after {
+  content: attr(data-n);
+  position: absolute;
+  top: -0.3em;
+  right: -0.35em;
+  min-width: 1.2em;
+  padding: 0.1em 0.3em;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 0.42em;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 바탕화면이 보일 땐 상태 표시줄 글자를 흰색으로 */
+.phone.os-dark .sbar {
+  color: #fff;
+}
+
+/* 바탕화면에서 쏙 강조: 손가락이 다가오는 동안(--focus 0 → 1) 다른 아이콘은 흐려지고,
+   쏙 아이콘에는 주황 빛이 돈다 */
+.os-app:not(.is-ssok),
+.os-dock {
+  opacity: calc(1 - var(--focus, 0) * 0.65);
+}
+
+.os-app.is-ssok {
+  position: relative;
+  z-index: 1;
+  font-weight: 800;
+}
+
+.os-app.is-ssok > i {
+  /* 크기는 그대로 두고(키우면 아래 이름을 덮고 누르는 자리가 어긋난다) 얇은 흰 테두리와 주황 빛으로만 띄운다 */
+  box-shadow:
+    0 0 0 calc(var(--focus, 0) * 2px) rgba(255, 255, 255, 0.9),
+    0 0 calc(var(--focus, 0) * 22px) calc(var(--focus, 0) * 4px) rgba(246, 109, 59, 0.75);
+  /* 누르는 순간(--press 0 → 1 → 0) 아이콘이 꾹 눌려 작아지고 살짝 어두워진다 */
+  transform: scale(calc(1 - var(--press, 0) * 0.12));
+  filter: brightness(calc(1 - var(--press, 0) * 0.3));
+}
+
+/* 쏙 푸시 알림: 아이폰 알림 배너 모양으로 폰 옆에 쌓인다 */
+.push {
+  position: absolute;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  width: 268px;
+  padding: 0.75em 0.9em;
+  border-radius: 1.35em;
+  background: rgba(250, 248, 245, 0.96);
+  box-shadow: 0 0.8em 2em -0.6em rgba(43, 33, 27, 0.35);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  font-size: 15px;
+  opacity: 0;
+  visibility: hidden;
+  transform-origin: 0 0;
+}
+
+@media (max-width: 760px) {
+  .push {
+    width: min(320px, calc(100vw - 48px));
+    font-size: 13px;
+    transform-origin: 50% 0;
+  }
+}
+
+.push img {
+  flex: none;
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 0.6em;
+}
+
+.push div {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.push p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  font-size: 0.8em;
+}
+
+.push p b {
+  font-weight: 800;
+}
+
+.push p small {
+  color: #8a837c;
+  font-size: 0.9em;
+}
+
+.push span {
+  display: block;
+  /* 알림 문장은 한 줄로 (넘치면 말줄임) */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #1a1a1a;
+  font-size: 0.82em;
+  word-break: keep-all;
 }
