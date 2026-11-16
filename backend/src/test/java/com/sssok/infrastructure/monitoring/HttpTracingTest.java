@@ -9,7 +9,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.AppenderBase;
 import com.sssok.common.logging.RequestLoggingFilter;
 import org.slf4j.LoggerFactory;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -57,8 +57,10 @@ class HttpTracingTest {
         }
     };
 
-    @BeforeAll
-    static void captureAccessLogs() {
+    @BeforeEach
+    void captureAccessLogs() {
+        // Spring Boot의 로깅 초기화가 끝난 뒤 등록해야 테스트 실행 순서에 따라 제거되지 않는다.
+        ACCESS_TRACE_IDS.clear();
         ACCESS_LOGS.start();
         ((Logger) LoggerFactory.getLogger(RequestLoggingFilter.class)).addAppender(ACCESS_LOGS);
     }
