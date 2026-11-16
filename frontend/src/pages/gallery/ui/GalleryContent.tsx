@@ -211,6 +211,15 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     organize.blockedReason ??
     (isProcessingPhotos ? "사진을 처리하고 있어요.\n조금만 기다려 주세요." : null);
   /**
+   * 기다리면 풀리는 막힘은 버튼에 지금 하는 일을 적는다. 결과 확인 대기는 기다려도 풀리지 않아
+   * 원래 문구를 둔다.
+   */
+  const organizeBusyLabel = organize.isOrganizing
+    ? "정리하는 중..."
+    : organize.blockedReason === null && isProcessingPhotos
+      ? "사진 처리하는 중..."
+      : null;
+  /**
    * 정리를 시작하기 전에 장수 한도를 먼저 본다. 확인 시트에서 시작을 누른 뒤에 막히면 헛걸음이라서다.
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
    */
@@ -580,7 +589,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           isGuest={!memberSession.data}
           isStarting={organize.isStarting}
           blockedReason={organizeBlockedReason}
-          isOrganizing={organize.isOrganizing}
+          busyLabel={organizeBusyLabel}
           onClose={() => setIsOrganizeSheetOpen(false)}
           onStart={() => {
             setIsOrganizeSheetOpen(false);

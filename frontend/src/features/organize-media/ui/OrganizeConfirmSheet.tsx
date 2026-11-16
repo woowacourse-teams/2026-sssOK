@@ -13,8 +13,8 @@ interface OrganizeConfirmSheetProps {
   isStarting?: boolean;
   /** 지금 시작할 수 없는 까닭. 있으면 안내 문구 자리에 보이고 정리 버튼을 막는다. */
   blockedReason?: string | null;
-  /** 방에서 정리가 돌고 있다. 막힌 버튼에 시작 문구 대신 진행 중이라고 적는다. */
-  isOrganizing?: boolean;
+  /** 기다리면 풀리는 막힘(정리·사진 처리 중)일 때 버튼에 시작 문구 대신 적을 말. */
+  busyLabel?: string | null;
   onStart: () => void;
   onClose: () => void;
 }
@@ -51,7 +51,7 @@ export const OrganizeConfirmSheet = ({
   isGuest,
   isStarting = false,
   blockedReason = null,
-  isOrganizing = false,
+  busyLabel = null,
   onStart,
   onClose,
 }: OrganizeConfirmSheetProps) => (
@@ -65,7 +65,7 @@ export const OrganizeConfirmSheet = ({
     {(close) => (
       <Actions>
         <Submit type="button" disabled={isStarting || blockedReason !== null} onClick={onStart}>
-          {isOrganizing ? "정리하는 중..." : "얼굴 분석하고 정리하기"}
+          {busyLabel ?? "얼굴 분석하고 정리하기"}
         </Submit>
         <Later type="button" onClick={close}>
           다음에 할게요
