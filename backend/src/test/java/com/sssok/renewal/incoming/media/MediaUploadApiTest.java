@@ -26,6 +26,7 @@ import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
 import com.sssok.renewal.application.auth.AuthResult;
+import com.sssok.renewal.application.media.upload.complete.MediaUploadedEvent;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
 import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.AcceptanceTest;
@@ -231,6 +232,30 @@ class MediaUploadApiTest extends PostgresContainerSupport {
             .andExpect(jsonPath("$.data.registered[0].status").value("PROCESSING"))
             .andExpect(jsonPath("$.data.registered[0].type").value("IMAGE"))
             .andExpect(jsonPath("$.data.registered[0].uploaderName").value("가현"));
+    }
+
+    @Test
+    void 완료_등록_응답을_잃고_재요청해도_같은_미디어를_성공으로_반환한다() throws Exception {
+        Long mediaId = issuedMediaId(issue(oneImage()).andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString());
+        given(fileStorage.findUploaded(any())).willReturn(Optional.of(new UploadedObject(SIZE, MIME)));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(post("/api/v1/rooms/{roomId}/media", roomId)
+                    .header("Authorization", token)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(Map.of("mediaIds", List.of(mediaId)))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.registered.length()").value(1))
+                .andExpect(jsonPath("$.data.registered[0].mediaId").value(mediaId))
+                .andExpect(jsonPath("$.data.registered[0].status").value("PROCESSING"))
+                .andExpect(jsonPath("$.data.failed").isEmpty());
+        }
+        assertThat(events.stream(MediaCreatedEvent.class).count()).isEqualTo(1);
+        assertThat(events.stream(MediaUploadedEvent.class).count())
+            .isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject("select count(*) from thumbnail_job where media_id = ?",
+            Long.class, mediaId)).isEqualTo(1);
+        Mockito.verify(fileStorage).findUploaded(any());
     }
 
     @Test
