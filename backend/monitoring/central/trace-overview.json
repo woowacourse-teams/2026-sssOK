@@ -1,0 +1,572 @@
+{
+  "id": null,
+  "uid": "sssok-trace-overview",
+  "title": "sssOK Trace Overview",
+  "tags": [
+    "sssOK",
+    "tracing"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "refresh": "",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "custom",
+        "query": "dev,prod",
+        "current": {
+          "text": "dev",
+          "value": "dev"
+        },
+        "options": [
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": true
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "백엔드",
+      "type": "link",
+      "url": "/d/sssok-central-backend?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "업로드 단계",
+      "type": "link",
+      "url": "/d/sssok-upload-stages?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "미디어 전송",
+      "type": "link",
+      "url": "/d/sssok-central-media?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그",
+      "type": "link",
+      "url": "/d/sssok-central-logs?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "호스트",
+      "type": "link",
+      "url": "/d/sssok-host-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "전체 요청에서 상세 원인까지",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**상단 그래프는 Prometheus의 전체 요청 메트릭**, 아래 표는 Tempo에 저장된 표본입니다. 샘플링·보관 기간 때문에 트레이스 개수와 요청 수는 다릅니다.\n\n기본 조회 15분 / 자동 새로고침 끔 / 검색당 최대 20건입니다. 전체 트레이스 또는 느린·오류 검색 중 필요한 표를 펼치세요. HTTP 기본 추적은 제공되며 업로드 내부 단계는 #843 배포 후 보입니다. SQL·외부 호출 전체가 자동 계측되는 구성은 아닙니다."
+      }
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "reqps",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval]))",
+          "legendFormat": "요청/초",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "요청량",
+      "type": "timeseries",
+      "description": "상태 검사(/health), Actuator, 장기 SSE 요청은 제외한다. 최근 요청이 없으면 오류율·p95가 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          },
+          "unit": "percent",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "100 * (sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\",status=~\"5..\"}[$__rate_interval])) or (0 * sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval])))) / (sum(rate(http_server_requests_seconds_count{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval])) > 0)",
+          "legendFormat": "5xx 비율",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "5xx 응답 비율",
+      "type": "timeseries",
+      "description": "상태 검사(/health), Actuator, 장기 SSE 요청은 제외한다. 최근 요청이 없으면 오류율·p95가 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval])))",
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "p95 응답 시간",
+      "type": "timeseries",
+      "description": "상태 검사(/health), Actuator, 장기 SSE 요청은 제외한다. 최근 요청이 없으면 오류율·p95가 비어 있을 수 있다."
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "unit": "s",
+          "noValue": "데이터 없음",
+          "min": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "topk(5, histogram_quantile(0.95, sum by (le,uri,method) (rate(http_server_requests_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\",uri!~\"/actuator.*|/health|/api/v1/rooms/[^/]+/events\"}[$__rate_interval]))))",
+          "legendFormat": "{{method}} {{uri}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "API별 p95 · 각 시점 상위 5개",
+      "type": "timeseries",
+      "description": "선택 환경의 URI 템플릿·HTTP 메서드별 p95. 매 시점 상위 5개이므로 기간 전체 범례는 5개보다 많을 수 있다. 요청이 적으면 값이 불안정하고 요청이 없으면 비어 있을 수 있다. SSE는 제외한다."
+    },
+    {
+      "id": 19,
+      "title": "전체 백엔드",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 20,
+          "title": "전체 백엔드 · 최대 20개 트레이스",
+          "type": "table",
+          "gridPos": {
+            "x": 0,
+            "y": 21,
+            "w": 24,
+            "h": 9
+          },
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "description": "검색 결과는 전체 집계나 느린 순위가 아닙니다. trace ID를 클릭해 전체 흐름을 확인하세요. duration 조건은 개별 span 기준입니다.",
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "traceql",
+              "query": "{ resource.service.name = \"sssok-backend\" && resource.deployment.environment = \"$environment\" }",
+              "limit": 20,
+              "tableType": "traces"
+            }
+          ],
+          "options": {
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "느린 구간 · 1초 초과",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 22,
+          "title": "느린 구간 · 1초 초과 · 최대 20개 트레이스",
+          "type": "table",
+          "gridPos": {
+            "x": 0,
+            "y": 22,
+            "w": 24,
+            "h": 9
+          },
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "description": "검색 결과는 전체 집계나 느린 순위가 아닙니다. trace ID를 클릭해 전체 흐름을 확인하세요. duration 조건은 개별 span 기준입니다.",
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "traceql",
+              "query": "{ resource.service.name = \"sssok-backend\" && resource.deployment.environment = \"$environment\" && duration > 1s }",
+              "limit": 20,
+              "tableType": "traces"
+            }
+          ],
+          "options": {
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "title": "오류 구간",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 24,
+          "title": "오류 구간 · 최대 20개 트레이스",
+          "type": "table",
+          "gridPos": {
+            "x": 0,
+            "y": 23,
+            "w": 24,
+            "h": 9
+          },
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "description": "검색 결과는 전체 집계나 느린 순위가 아닙니다. trace ID를 클릭해 전체 흐름을 확인하세요. duration 조건은 개별 span 기준입니다.",
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "traceql",
+              "query": "{ resource.service.name = \"sssok-backend\" && resource.deployment.environment = \"$environment\" && status = error }",
+              "limit": 20,
+              "tableType": "traces"
+            }
+          ],
+          "options": {
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "업로드 후처리",
+      "type": "row",
+      "collapsed": true,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      },
+      "panels": [
+        {
+          "id": 26,
+          "title": "업로드 후처리 · 최대 20개 트레이스",
+          "type": "table",
+          "gridPos": {
+            "x": 0,
+            "y": 24,
+            "w": 24,
+            "h": 9
+          },
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
+          "description": "검색 결과는 전체 집계나 느린 순위가 아닙니다. trace ID를 클릭해 전체 흐름을 확인하세요. duration 조건은 개별 span 기준입니다.",
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "traceql",
+              "query": "{ resource.service.name = \"sssok-backend\" && resource.deployment.environment = \"$environment\" && name = \"upload.processing\" }",
+              "limit": 20,
+              "tableType": "traces"
+            }
+          ],
+          "options": {
+            "showHeader": true
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          }
+        }
+      ]
+    }
+  ]
+}

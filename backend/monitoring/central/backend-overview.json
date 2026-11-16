@@ -47,6 +47,22 @@
       "includeVars": false,
       "targetBlank": true,
       "tooltip": "RDS 지표는 AWS에서 조회합니다. 시간 범위는 콘솔에서 별도로 맞추세요."
+    },
+    {
+      "title": "업로드 단계",
+      "type": "link",
+      "url": "/d/sssok-upload-stages?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "전체 트레이스",
+      "type": "link",
+      "url": "/d/sssok-trace-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
     }
   ],
   "panels": [
