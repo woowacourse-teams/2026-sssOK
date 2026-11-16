@@ -34,6 +34,8 @@ describe("trackDownload", () => {
         source: "gallery",
         photo_count: 5,
         failed_count: 0,
+        failed_statuses: [],
+        failed_stages: [],
         total_count: 20,
         is_select_all: false,
         duration_ms: 1234,
@@ -63,6 +65,8 @@ describe("trackDownload", () => {
         source: "gallery",
         photo_count: 19,
         failed_count: 1,
+        failed_statuses: [0],
+        failed_stages: ["web"],
         total_count: 20,
         is_select_all: true,
         duration_ms: 1234,
@@ -92,8 +96,38 @@ describe("trackDownload", () => {
         source: "gallery",
         reason: "all_failed",
         failed_count: 2,
+        failed_statuses: [0, 0],
+        failed_stages: ["web", "web"],
         duration_ms: 1234,
       },
+      ROOM,
+    );
+  });
+
+  it("앱에서 못 받은 것은 상태 코드와 단계를 함께 남긴다", () => {
+    trackDownload(
+      {
+        type: "saved",
+        savedCount: 55,
+        failed: [
+          { ...failure(1), stage: "save" },
+          { ...failure(2), stage: "download" },
+        ],
+      },
+      {
+        mode: "share",
+        source: "gallery",
+        selectedCount: 57,
+        roomPhotoCount: 57,
+        isSelectAll: true,
+        durationMs: 1000,
+        room: ROOM,
+      },
+    );
+
+    expect(track).toHaveBeenCalledWith(
+      "Photo Downloaded",
+      expect.objectContaining({ failed_statuses: [0, 0], failed_stages: ["save", "download"] }),
       ROOM,
     );
   });
