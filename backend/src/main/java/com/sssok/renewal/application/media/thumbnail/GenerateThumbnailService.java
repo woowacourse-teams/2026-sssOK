@@ -22,8 +22,6 @@ import com.sssok.domain.file.UploadStatus;
 import com.sssok.infrastructure.config.DerivativeImageProperties.Variant;
 import com.sssok.infrastructure.config.DerivativeImageProperties;
 import com.sssok.renewal.outgoing.config.VideoProperties;
-import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
-import io.micrometer.core.instrument.Timer;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,19 +45,7 @@ public class GenerateThumbnailService {
 
     private final ThumbnailMediaStorage mediaStorage;
 
-    private final MediaProcessingMetrics metrics;
-
-    public void generate(ThumbnailClaim claimedJob, Source source) {
-        Timer.Sample processingTimer = metrics.start();
-        Result processingResult = Result.RETRYABLE;
-        try {
-            processingResult = generateAttempt(claimedJob);
-        } finally {
-            metrics.completed(processingTimer, claimedJob.kind(), source, processingResult);
-        }
-    }
-
-    private Result generateAttempt(ThumbnailClaim claimedJob) {
+    public Result generate(ThumbnailClaim claimedJob, Source source) {
         if (thumbnailJobService.renewLease(claimedJob) != ThumbnailJobService.Heartbeat.RENEWED) {
             return Result.SKIPPED;
         }
