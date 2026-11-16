@@ -19,7 +19,7 @@ spring:
       request-timeout: -1
 
   task:
-    # ZIP 압축·스토리지 정리·알림용 공용 워커
+    # 스토리지 정리·알림용 공용 워커
     execution:
       thread-name-prefix: media-worker-
       pool:
@@ -219,6 +219,9 @@ download:
   sweep-cron: "0 */10 * * * *"
   # QUEUED·RUNNING 인데 이 시간 동안 진행 기록이 없으면 실패로 닫는다.
   stale-after: 30m
+  compression:
+    workers: ${DOWNLOAD_COMPRESSION_WORKERS:8}
+    queue-capacity: ${DOWNLOAD_COMPRESSION_QUEUE_CAPACITY:100}
 
 springdoc:
   swagger-ui:
