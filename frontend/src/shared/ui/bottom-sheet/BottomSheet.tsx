@@ -144,6 +144,13 @@ const Overlay = styled.dialog`
   padding: 0;
   border: 0;
   color: inherit;
+  /*
+   * 모달 dialog 는 기본이 overflow: auto 다. 열릴 때 아래에서 올라오는 시트가 바깥으로 넘쳐
+   * 스크롤이 생기고, 첫 버튼에 포커스가 가며 그쪽으로 스크롤됐다가 되돌아와 시트가 튀어 보인다.
+   * 넘치는 내용은 시트 안에서 스크롤하므로 바깥은 막는다.
+   * hidden 은 포커스 이동 같은 코드 스크롤을 막지 못해 clip 을 쓴다.
+   */
+  overflow: clip;
   overscroll-behavior: none;
 
   &::backdrop {
