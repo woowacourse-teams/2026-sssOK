@@ -26,7 +26,7 @@ const SEND_AT = [2.7, 3.1]; // 단톡방에 남은 두 메시지("그냥 여기 
 const LINK_TAP = 3.45;
 // 첫 장면 뒤 장면들. len = 그 장면에 쓰는 스크롤 길이(초)
 const STORY = [
-  { id: "save", len: 2.8 },
+  { id: "save", len: 2.5 },
   // 사람별: 정리 방식 시트가 올라와 '얼굴 분석해서 정리하기'를 누르기까지 (사람별 장면 시각 0.2 → 2.2)
   { id: "person", len: 0.9 },
   // 폴더가 생긴 뒤 '나' 탭을 눌러 내 사진만 남는다 (renderMeFolder)
@@ -674,23 +674,23 @@ function renderGallery(S) {
 // ③ 받기: 전체 선택 → 다운로드 → "86장을 원본 그대로 저장했어요"
 const SAVE_TAPS = [
   [0.35, "all"],
-  [1.15, "selDl"],
+  [0.85, "selDl"],
 ];
 function renderSave(h) {
-  const off = seg(h, 1.3, 1.45);
+  const off = seg(h, 1.0, 1.15);
   setP.forEach((el, k) => {
     const on = seg(h, 0.4 + k * 0.02, 0.48 + k * 0.02) * (1 - off);
     chks[k].style.setProperty("--on", on);
     el.classList.toggle("sel", on > 0.5);
   });
-  $("gAll").classList.toggle("on", within(h, 0.4, 1.3));
-  const selUp = ease(seg(h, 0.45, 0.65)) - ease(seg(h, 1.25, 1.45));
+  $("gAll").classList.toggle("on", within(h, 0.4, 1.0));
+  const selUp = ease(seg(h, 0.45, 0.65)) - ease(seg(h, 0.95, 1.15));
   $("selbar").style.transform = `translateY(${(1 - selUp) * 180}%)`;
   $("selN").textContent = Math.round(86 * seg(h, 0.4, 0.75));
-  $("saveToast").style.opacity = life(h, 1.4, 1.55, PH.save.len - 0.3, PH.save.len - 0.1);
+  $("saveToast").style.opacity = life(h, 1.1, 1.25, PH.save.len - 0.3, PH.save.len - 0.1);
   // 저장한 뒤: 카톡으로 받은 깨진 사진과 쏙 원본을 나란히 보여 준다 (첫 화면 "사진 쫌 깨져있는데??"의 답)
   const cmp = $("cmp");
-  const ca = ease(seg(h, 1.55, 1.85));
+  const ca = ease(seg(h, 1.25, 1.55));
   const P = M.pill(0);
   // 넓은 화면: 폰 오른쪽 가장자리에 살짝 걸쳐 띄우고, 남는 오른쪽 자리를 다 써서 넓게 (최대 460px)
   if (P.center) {
@@ -1604,7 +1604,7 @@ function autoStops() {
     len + uToT(MAKE_TOAST[2]), // ① 방을 만들고 "공유 링크를 복사했어요."
     len + uToT(SEND_AT[1] + 0.15), // ② 단톡방에 링크를 보냄
     len + INTRO - 0.45, // ③ 사진을 골라 올리고 친구들 사진까지 다 모임
-    len + PH.save.start + 2.3, // ④ 원본 비교 카드
+    len + PH.save.start + 2.0, // ④ 원본 비교 카드
     len + PH.me.start + PH.me.len - 0.1, // ⑤ 내 사진만
     FILM_END, // 끝
   ];
