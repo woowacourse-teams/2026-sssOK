@@ -5,6 +5,10 @@ import static com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics.St
 import com.sssok.application.media.MediaCreatedEvent;
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.media.MediaUrlResolver;
+import com.sssok.application.port.out.MediaLikeRepository;
+import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
+import com.sssok.renewal.application.media.upload.exception.MediaNotFoundException;
+import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.renewal.application.media.thumbnail.ThumbnailJobService;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
@@ -14,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -31,47 +36,85 @@ public class MediaRegistrationService {
     private final UploadFolderRepository uploadFolderRepository;
     private final MediaUrlResolver mediaUrlResolver;
     private final ApplicationEventPublisher eventPublisher;
+    private final MediaLikeRepository mediaLikeRepository;
 
     // 스토리지 검증은 호출 전에 끝낸다. 파일 상태와 썸네일 작업은 함께 커밋하거나 롤백한다.
     @Transactional
-    public List<MediaDetail> register(Long roomId, List<StoredFile> verifiedFiles, String uploaderName) {
+    public RegistrationResult register(Long roomId, List<StoredFile> verifiedFiles, String uploaderName) {
         if (verifiedFiles.isEmpty()) {
-            return List.of();
+            return new RegistrationResult(List.of(), 0);
         }
         List<Long> mediaIds = verifiedFiles.stream().map(StoredFile::getId).toList();
         Map<Long, List<Long>> folderIdsByMediaId = metrics.measure(FOLDERS,
             () -> uploadFolderRepository.findFolderIdsByMedia(mediaIds));
-
-        List<StoredFile> processingFiles = metrics.measure(FILE_WRITE, () -> registerForProcessing(mediaIds));
-        List<MediaDetail> registeredMedia = new ArrayList<>();
-        for (StoredFile processingFile : processingFiles) {
-            List<Long> mediaFolderIds = folderIdsByMediaId.getOrDefault(processingFile.getId(), List.of());
-            registeredMedia.add(metrics.measure(RESPONSE,
-                () -> toMediaDetail(processingFile, uploaderName, mediaFolderIds)));
-        }
-        publishMediaCreatedEvents(roomId, registeredMedia);
-        return registeredMedia;
+        RegistrationFiles registration = metrics.measure(FILE_WRITE,
+            () -> registerForProcessing(roomId, verifiedFiles));
+        MediaLikeRepository.LikeSummary likes = loadExistingLikes(registration, verifiedFiles.getFirst().getUploaderId());
+        List<MediaDetail> details = toDetails(registration.registered(), uploaderName, folderIdsByMediaId, likes);
+        publishMediaCreatedEvents(roomId, details.stream()
+            .filter(media -> registration.isNew(media.mediaId())).toList());
+        return new RegistrationResult(details, registration.newlyRegisteredIds().size());
     }
 
-    // 검증 이후 상태가 바뀔 수 있으므로 ID 순서로 한 번에 잠금을 잡고 최신 파일을 다시 읽는다.
-    private List<StoredFile> registerForProcessing(List<Long> mediaIds) {
-        Map<Long, StoredFile> lockedFiles = uploadFileRepository.findAllForRegistration(mediaIds).stream()
+    // 신규 파일의 좋아요는 아직 없다. 재요청에 포함된 기존 파일만 현재 값을 읽는다.
+    private MediaLikeRepository.LikeSummary loadExistingLikes(RegistrationFiles registration, Long uploaderId) {
+        List<Long> existingIds = registration.registered().stream().map(StoredFile::getId)
+            .filter(id -> !registration.isNew(id)).toList();
+        return existingIds.isEmpty()
+            ? new MediaLikeRepository.LikeSummary(Map.of(), Set.of())
+            : mediaLikeRepository.summarize(uploaderId, existingIds);
+    }
+
+    private List<MediaDetail> toDetails(List<StoredFile> files, String uploaderName,
+                                       Map<Long, List<Long>> folderIdsByMediaId,
+                                       MediaLikeRepository.LikeSummary likes) {
+        return files.stream().map(file -> metrics.measure(RESPONSE, () -> {
+            List<Long> folderIds = folderIdsByMediaId.getOrDefault(file.getId(), List.of());
+            String nickname = file.getUploaderNickname() == null ? uploaderName : file.getUploaderNickname();
+            return MediaDetail.of(file, nickname, folderIds, mediaUrlResolver.resolve(file),
+                likes.counts().getOrDefault(file.getId(), 0L), likes.likedIds().contains(file.getId()));
+        })).toList();
+    }
+
+    // 동시 요청도 최신 상태로 판정하도록 ID 순서로 잠근 뒤 신규·기존 등록을 구분한다.
+    private RegistrationFiles registerForProcessing(Long roomId, List<StoredFile> verifiedFiles) {
+        List<Long> ids = verifiedFiles.stream().map(StoredFile::getId).toList();
+        Map<Long, StoredFile> lockedFiles = uploadFileRepository.findAllForRegistration(ids).stream()
             .collect(Collectors.toMap(StoredFile::getId, Function.identity()));
-        List<StoredFile> processing = new ArrayList<>(mediaIds.size());
-        for (Long id : mediaIds) {
-            StoredFile file = Optional.ofNullable(lockedFiles.get(id)).orElseThrow();
-            file.startProcessing(); // 중복 ID는 기존처럼 상태 오류를 내고 요청 전체를 롤백한다.
-            processing.add(uploadFileRepository.save(file));
+        List<StoredFile> registered = new ArrayList<>();
+        List<StoredFile> newlyRegistered = new ArrayList<>();
+        for (StoredFile verified : verifiedFiles) {
+            StoredFile file = Optional.ofNullable(lockedFiles.get(verified.getId()))
+                .filter(found -> found.getRoomId().equals(roomId))
+                .orElseThrow(MediaNotFoundException::new);
+            if (!file.isUploadedBy(verified.getUploaderId())) {
+                throw new MediaForbiddenException();
+            }
+            if (!file.getStatus().isVisible()) {
+                // HEAD를 생략한 등록 완료분이 그 사이 FAILED로 바뀌면 다시 검증해야 한다.
+                if (verified.getStatus().isVisible()) {
+                    throw new UploadVerificationUnavailableException();
+                }
+                file.startProcessing();
+                file = uploadFileRepository.save(file);
+                newlyRegistered.add(file);
+            }
+            registered.add(file);
         }
-        thumbnailJobService.enqueueAll(processing);
-        return processing;
+        if (!newlyRegistered.isEmpty()) {
+            thumbnailJobService.enqueueAll(newlyRegistered);
+        }
+        return new RegistrationFiles(registered,
+            newlyRegistered.stream().map(StoredFile::getId).collect(Collectors.toSet()));
     }
 
-    private MediaDetail toMediaDetail(StoredFile processingFile, String uploaderName, List<Long> folderIds) {
-        String originalNickname = processingFile.getUploaderNickname();
-        return MediaDetail.of(processingFile, originalNickname == null ? uploaderName : originalNickname, folderIds,
-            mediaUrlResolver.resolve(processingFile), 0, false);
+    private record RegistrationFiles(List<StoredFile> registered, Set<Long> newlyRegisteredIds) {
+        boolean isNew(Long mediaId) {
+            return newlyRegisteredIds.contains(mediaId);
+        }
     }
+
+    public record RegistrationResult(List<MediaDetail> registered, int newlyRegisteredCount) { }
 
     private void publishMediaCreatedEvents(Long roomId, List<MediaDetail> registeredMedia) {
         // 이벤트는 현재 트랜잭션에 등록하고, 기존 AFTER_COMMIT 리스너가 커밋 후 SSE로 발행한다.

@@ -1,13 +1,24 @@
 package com.sssok.renewal.application.media.upload.complete;
 
+import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
+
 import com.sssok.application.media.MediaDetail;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.ProcessedMedia;
+import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.UploadStatus;
-import com.sssok.domain.file.exception.IllegalUploadStatusException;
 import com.sssok.domain.room.Room;
+import com.sssok.infrastructure.persistence.medialike.MediaLikeJpaEntity;
+import com.sssok.infrastructure.persistence.medialike.MediaLikeJpaRepository;
 import com.sssok.infrastructure.realtime.RoomEventJpaEntity;
 import com.sssok.infrastructure.realtime.RoomEventJpaRepository;
 import com.sssok.renewal.application.auth.AnonymousAuthService;
@@ -15,14 +26,14 @@ import com.sssok.renewal.application.media.upload.exception.InvalidUploadRequest
 import com.sssok.renewal.application.media.upload.exception.MediaForbiddenException;
 import com.sssok.renewal.application.media.upload.exception.UploadNotAllowedException;
 import com.sssok.renewal.application.media.upload.exception.UploadVerificationUnavailableException;
-import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
-import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
-import com.sssok.renewal.outgoing.database.ThumbnailJobRepository;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
 import com.sssok.renewal.domain.media.thumbnail.status.ThumbnailJobStatus;
-import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.domain.media.upload.UploadRejectionReason;
+import com.sssok.renewal.outgoing.database.ThumbnailJobJpaRepository;
+import com.sssok.renewal.outgoing.database.ThumbnailJobRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage.UploadedObject;
+import com.sssok.renewal.outgoing.storage.FileStorage;
 import com.sssok.support.H2IntegrationTest;
 import java.time.Duration;
 import java.time.Instant;
@@ -34,19 +45,17 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.event.ApplicationEvents;
+import org.springframework.test.context.event.RecordApplicationEvents;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
-import static com.sssok.support.UploadSizePolicyFixture.SIZE_POLICY;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willReturn;
+import org.springframework.transaction.support.TransactionTemplate;
 
 
 // Repository + Service 통합 테스트 (H2). 스토리지에 무엇이 올라와 있는지는 목으로 정해두고,
 // 그 결과에 따라 등록이 갈리는지를 본다.
 @H2IntegrationTest
+@RecordApplicationEvents
 @TestPropertySource(properties =
     "spring.datasource.url=jdbc:h2:mem:complete-upload-contract;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
 class CompleteUploadServiceTest {
@@ -78,6 +87,15 @@ class CompleteUploadServiceTest {
 
     @Autowired
     ThumbnailJobRepository thumbnailJobs;
+
+    @Autowired
+    ApplicationEvents events;
+    @Autowired
+    PlatformTransactionManager transactionManager;
+    @Autowired
+    MediaRegistrationService registrationService;
+    @Autowired
+    MediaLikeJpaRepository likes;
 
     private Long hostId;
     private Long roomId;
@@ -227,25 +245,174 @@ class CompleteUploadServiceTest {
     }
 
     @Test
-    void 뒤쪽_상태_전이가_실패하면_앞쪽_파일과_작업도_롤백한다() {
+    void 등록_트랜잭션이_롤백되면_파일과_작업도_롤백한다() {
         StoredFile first = reserved(hostId);
         StoredFile second = reserved(hostId);
-        second.startProcessing();
-        fileRepository.save(second);
-        uploadedAs(SIZE, MIME);
-        assertThatThrownBy(() -> complete(roomId, hostId, List.of(first.getId(), second.getId())))
-            .isInstanceOf(IllegalUploadStatusException.class);
-        assertNoRegistration(first);
-        assertThat(thumbnailJobRepository.findById(second.getId())).isEmpty();
+        new TransactionTemplate(transactionManager).executeWithoutResult(status -> {
+            registrationService.register(roomId, List.of(first, second), "가현");
+            status.setRollbackOnly();
+        });
+        assertNoRegistration(first, second);
     }
 
     @Test
-    void 중복_ID는_기존처럼_상태_전이_실패로_전체_롤백한다() {
+    void 같은_요청의_중복_ID는_첫_등장_순서대로_한번만_등록한다() {
+        StoredFile first = reserved(hostId);
+        StoredFile second = reserved(hostId);
+        uploadedAs(SIZE, MIME);
+        CompleteUploadResult result = complete(roomId, hostId,
+            List.of(second.getId(), first.getId(), second.getId()));
+        assertThat(result.registered()).extracting(MediaDetail::mediaId)
+            .containsExactly(second.getId(), first.getId());
+        assertThat(result.failed()).isEmpty();
+        assertCreatedCount(2);
+        assertThat(events.stream(MediaUploadedEvent.class).count()).isEqualTo(1);
+        Mockito.verify(fileStorage, Mockito.times(2)).findUploaded(any());
+    }
+
+    @Test
+    void 처리중_재요청은_HEAD와_작업과_이벤트를_반복하지_않는다() {
         StoredFile file = reserved(hostId);
         uploadedAs(SIZE, MIME);
-        assertThatThrownBy(() -> complete(roomId, hostId, List.of(file.getId(), file.getId())))
-            .isInstanceOf(IllegalUploadStatusException.class);
-        assertNoRegistration(file);
+        complete(roomId, hostId, List.of(file.getId()));
+        ThumbnailJob job = thumbnailJobs.findById(file.getId()).orElseThrow();
+        Instant now = Instant.parse("2026-01-01T00:00:00Z");
+        job.claim(now, now.plusSeconds(30));
+        job.retry(now.plusSeconds(60), "TEMPORARY_ERROR");
+        thumbnailJobs.save(job);
+        Mockito.clearInvocations(fileStorage);
+        given(fileStorage.findUploaded(any())).willThrow(new UploadVerificationUnavailableException());
+
+        CompleteUploadResult retried = complete(roomId, hostId, List.of(file.getId()));
+
+        assertThat(retried.registered()).extracting(MediaDetail::status).containsExactly("PROCESSING");
+        assertThat(retried.failed()).isEmpty();
+        Mockito.verify(fileStorage, Mockito.never()).findUploaded(any());
+        ThumbnailJob preserved = thumbnailJobs.findById(file.getId()).orElseThrow();
+        assertThat(preserved.getStatus().name()).isEqualTo("RETRY_WAIT");
+        assertThat(preserved.getAttempts()).isEqualTo(1);
+        assertThat(preserved.getAvailableAt()).isEqualTo(now.plusSeconds(60));
+        assertCreatedCount(1);
+        assertThat(events.stream(MediaUploadedEvent.class).count()).isEqualTo(1);
+    }
+
+    @Test
+    void 준비완료_재요청은_현재_파생본과_좋아요를_반환한다() {
+        StoredFile file = reserved(hostId);
+        uploadedAs(SIZE, MIME);
+        complete(roomId, hostId, List.of(file.getId()));
+        StoredFile ready = fileRepository.findById(file.getId()).orElseThrow();
+        ready.completeProcessing(ProcessedMedia.ofImage(new StorageKey("thumbnail.jpg"),
+            new StorageKey("preview.jpg"), 1200, 900, null, null));
+        fileRepository.save(ready);
+        likes.save(new MediaLikeJpaEntity(null, file.getId(), hostId));
+        Mockito.clearInvocations(fileStorage);
+
+        given(fileStorage.presignGet(any(), anyString(), anyString(), any(Duration.class)))
+            .willAnswer(call -> "https://storage.example.com/" + ((StorageKey) call.getArgument(0)).value());
+        MediaDetail retried = complete(roomId, hostId, List.of(file.getId())).registered().getFirst();
+
+        assertThat(retried.status()).isEqualTo("READY");
+        assertThat(retried.width()).isEqualTo(1200);
+        assertThat(retried.thumbnailUrl()).isNotNull();
+        assertThat(retried.displayUrl()).contains("preview.jpg");
+        assertThat(retried.likeCount()).isEqualTo(1);
+        assertThat(retried.likedByMe()).isTrue();
+        Mockito.verify(fileStorage, Mockito.never()).findUploaded(any());
+        assertCreatedCount(1);
+        assertThat(events.stream(MediaUploadedEvent.class).count()).isEqualTo(1);
+    }
+
+    @Test
+    void 기존_신규_실패가_섞여도_신규만_등록하고_요청_순서를_보존한다() {
+        StoredFile existing = reserved(hostId);
+        StoredFile fresh = reserved(hostId);
+        StoredFile absent = reserved(hostId);
+        uploadedAs(SIZE, MIME);
+        complete(roomId, hostId, List.of(existing.getId()));
+        given(fileStorage.findUploaded(absent.getStorageKey())).willReturn(Optional.empty());
+        Mockito.clearInvocations(fileStorage);
+
+        CompleteUploadResult result = complete(roomId, hostId,
+            List.of(fresh.getId(), existing.getId(), absent.getId(), -1L));
+
+        assertThat(result.registered()).extracting(MediaDetail::mediaId)
+            .containsExactly(fresh.getId(), existing.getId());
+        assertThat(result.failed()).containsExactly(
+            FailedMedia.of(absent.getId(), UploadRejectionReason.UPLOAD_NOT_COMPLETED),
+            FailedMedia.of(-1L, UploadRejectionReason.MEDIA_NOT_FOUND));
+        Mockito.verify(fileStorage, Mockito.never()).findUploaded(existing.getStorageKey());
+        assertCreatedCount(2);
+        assertThat(events.stream(MediaUploadedEvent.class).count()).isEqualTo(2);
+        assertThat(thumbnailJobRepository.findAllById(List.of(existing.getId(), fresh.getId(), absent.getId())))
+            .hasSize(2);
+    }
+
+    @Test
+    void 다른_방의_등록완료_파일은_재요청으로_가져올_수_없다() {
+        StoredFile file = reserved(hostId);
+        uploadedAs(SIZE, MIME);
+        complete(roomId, hostId, List.of(file.getId()));
+        Long otherRoom = createRoomService.create(hostId, "다른 방", null).room().getId();
+        CompleteUploadResult result = complete(otherRoom, hostId, List.of(file.getId()));
+        assertThat(result.registered()).isEmpty();
+        assertThat(result.failed()).containsExactly(FailedMedia.of(file.getId(), UploadRejectionReason.MEDIA_NOT_FOUND));
+        assertCreatedCount(1);
+    }
+
+    @Test
+    void 남의_등록완료_파일도_재요청할_수_없다() {
+        StoredFile file = reserved(hostId);
+        uploadedAs(SIZE, MIME);
+        complete(roomId, hostId, List.of(file.getId()));
+        Long guest = anonymousAuthService.authenticate("민수").userId();
+        assertThatThrownBy(() -> complete(roomId, guest, List.of(file.getId())))
+            .isInstanceOf(MediaForbiddenException.class);
+        assertCreatedCount(1);
+    }
+
+    @Test
+    void 삭제된_파일은_재요청으로_복원하지_않는다() {
+        StoredFile file = reserved(hostId);
+        fileRepository.deleteAllByIdIn(List.of(file.getId()));
+        CompleteUploadResult result = complete(roomId, hostId, List.of(file.getId()));
+        assertThat(result.registered()).isEmpty();
+        assertThat(result.failed()).containsExactly(FailedMedia.of(file.getId(), UploadRejectionReason.MEDIA_NOT_FOUND));
+        assertThat(fileRepository.findById(file.getId())).isEmpty();
+    }
+
+    @Test
+    void FAILED는_성공으로_간주하지_않고_실물을_재검증한다() {
+        StoredFile file = reserved(hostId);
+        file.failUpload();
+        fileRepository.save(file);
+        given(fileStorage.findUploaded(any())).willReturn(Optional.empty());
+        assertThat(complete(roomId, hostId, List.of(file.getId())).registered()).isEmpty();
+        assertThat(fileRepository.findById(file.getId()).orElseThrow().getStatus()).isEqualTo(UploadStatus.FAILED);
+        uploadedAs(SIZE, MIME);
+        assertThat(complete(roomId, hostId, List.of(file.getId())).registered())
+            .extracting(MediaDetail::status).containsExactly("PROCESSING");
+        assertCreatedCount(1);
+    }
+
+    @Test
+    void HEAD를_생략한_파일이_잠금_전에_FAILED로_바뀌면_전체_롤백한다() {
+        StoredFile first = reserved(hostId);
+        StoredFile second = reserved(hostId);
+        second.startProcessing();
+        StoredFile verified = fileRepository.save(second);
+        second.failUpload();
+        fileRepository.save(second);
+
+        assertThatThrownBy(() -> registrationService.register(roomId, List.of(first, verified), "가현"))
+            .isInstanceOf(UploadVerificationUnavailableException.class);
+        assertNoRegistration(first);
+        assertThat(fileRepository.findById(second.getId()).orElseThrow().getStatus()).isEqualTo(UploadStatus.FAILED);
+    }
+
+    private void assertCreatedCount(int count) {
+        assertThat(roomEventJpaRepository.findByRoomIdAndIdGreaterThanOrderById(roomId, 0L))
+            .filteredOn(event -> event.getEventType().equals("media.created")).hasSize(count);
     }
 
     @Test

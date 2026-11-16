@@ -1,5 +1,6 @@
 package com.sssok.renewal.outgoing.monitoring;
 
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -21,6 +22,7 @@ public class DownloadProcessingMetrics {
             processing(result);
         }
         waiting();
+        rejectedCounter();
     }
 
     public Timer.Sample start() {
@@ -41,6 +43,14 @@ public class DownloadProcessingMetrics {
         } finally {
             active.decrementAndGet();
         }
+    }
+
+    public void rejected() {
+        rejectedCounter().increment();
+    }
+
+    private Counter rejectedCounter() {
+        return Counter.builder("sssok.download.rejected").register(registry);
     }
 
     private Timer processing(String result) {
