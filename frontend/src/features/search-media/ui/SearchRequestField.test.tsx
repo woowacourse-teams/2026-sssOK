@@ -38,28 +38,16 @@ const renderField = (
 const input = (): HTMLElement => screen.getByRole("searchbox", { name: "사진 찾기·정리 요청" });
 
 describe("SearchRequestField", () => {
-  it("입력창을 누르면 정리와 찾는 방법을 고르는 패널을 연다", async () => {
+  it("입력창을 누르면 찾는 방법을 고르는 패널을 열고, 자동 정리 항목은 보이지 않는다", async () => {
     const user = userEvent.setup();
     renderField();
 
     await user.click(input());
 
     expect(screen.getByText("원하는 걸 눌러 주세요")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "자동으로 정리하기" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /자동으로 정리하기/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사진 내용으로 찾기" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "올린 사람으로 찾기" })).toBeInTheDocument();
-  });
-
-  it("자동으로 정리하기를 누르면 정리를 요청하고 패널을 닫는다", async () => {
-    const user = userEvent.setup();
-    const onOrganize = jest.fn();
-    renderField({ onOrganize });
-
-    await user.click(input());
-    await user.click(screen.getByRole("button", { name: "자동으로 정리하기" }));
-
-    expect(onOrganize).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("region", { name: "요청 패널" })).not.toBeInTheDocument();
   });
 
   it("사진 내용으로 찾기를 고르면 예시 안내를 보여 주고, 입력한 글로 찾는다", async () => {
@@ -117,7 +105,7 @@ describe("SearchRequestField", () => {
     await user.click(input());
     await user.type(input(), "소이 나온 사진{Enter}");
 
-    expect(screen.getByText("사람별로 나눈 뒤에 찾을 수 있어요.")).toBeInTheDocument();
+    expect(screen.getByText(/사람별로 나눈 뒤에 찾을 수 있어요\./)).toBeInTheDocument();
     expect(onSearchKeyword).not.toHaveBeenCalled();
   });
 
@@ -151,29 +139,15 @@ describe("SearchRequestField", () => {
 
     expect(screen.queryByRole("region", { name: "요청 패널" })).not.toBeInTheDocument();
   });
-  it("정리 중이면 자동으로 정리하기를 막고 까닭을 보여 준다", async () => {
+  it("정리를 바라는 문장에는 헤더의 ✨ 버튼을 안내하고 정리 항목을 보이지 않는다", async () => {
     const user = userEvent.setup();
-    const onOrganize = jest.fn();
-    renderField({ onOrganize, organizeBlockedReason: "하루 님이 정리하고 있어요" });
-
-    await user.click(input());
-    const organize = screen.getByRole("button", { name: /자동으로 정리하기/ });
-
-    expect(organize).toBeDisabled();
-    expect(screen.getByText("하루 님이 정리하고 있어요")).toBeInTheDocument();
-    await user.click(organize);
-    expect(onOrganize).not.toHaveBeenCalled();
-  });
-
-  it("정리를 바라는 문장은 시트를 거치지 않고 그 문장으로 시작한다", async () => {
-    const user = userEvent.setup();
-    const onOrganize = jest.fn();
-    const onOrganizeText = jest.fn();
-    renderField({ onOrganize, onOrganizeText });
+    renderField();
 
     await user.type(input(), "사람별로 나눠 줘{Enter}");
 
-    expect(onOrganizeText).toHaveBeenCalledWith("사람별로 나눠 줘");
-    expect(onOrganize).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("방 제목 옆 ✨ 버튼으로 사람별로 정리할 수 있어요."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /자동으로 정리하기/ })).not.toBeInTheDocument();
   });
 });

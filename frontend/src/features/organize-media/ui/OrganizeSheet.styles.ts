@@ -16,9 +16,41 @@ export const Submit = styled.button`
     background: ${colors.primaryPressed};
   }
 
+  /* 막힌 정리 버튼(AI-1b · 817:3121). 회색 바탕에 흐린 글자다. */
   &:disabled {
-    background: ${colors.disabled};
+    background: #edebe7;
+    color: #a8a49d;
     cursor: not-allowed;
+  }
+`;
+
+/** 확인 시트 버튼 묶음. 제목 덩어리와 24px 떨어진다(AI-1 · 814:2726 아래 여백). */
+export const Actions = styled.div`
+  padding-top: ${spacing[24]};
+`;
+
+/** 제목 옆 얼굴 그림. 24px 칸 세 개가 5px씩 겹친다(814:2727). */
+export const Crowd = styled.span`
+  display: flex;
+  flex: none;
+`;
+
+export const Avatar = styled.span`
+  position: relative;
+  flex: none;
+  width: 24px;
+  height: 24px;
+
+  &:not(:last-of-type) {
+    margin-right: -5px;
+  }
+
+  /* 그림자 몫으로 칸보다 14.22% 크게 그린다. */
+  > img {
+    position: absolute;
+    inset: -14.22%;
+    display: block;
+    max-width: none;
   }
 `;
 
@@ -32,26 +64,6 @@ export const Later = styled.button`
   color: ${colors.textSecondary};
 `;
 
-/**
- * 버리는 쪽 테두리 버튼(비슷한 사진 G-S3b · 660:2731). 테두리·색은 공용 Button 의 default 와 같고,
- * 크기는 위 주황 버튼(`Submit`)과 맞춘다. 두 버튼은 8px 띄운다.
- */
-export const Stop = styled.button`
-  width: 100%;
-  height: 56px;
-  margin-top: ${spacing[8]};
-  border: 1.25px solid ${colors.borderDefault};
-  border-radius: ${radius[16]};
-  background: ${colors.backgroundDefault};
-  font-size: 16px;
-  font-weight: 700;
-  color: ${colors.textStrong};
-
-  &:active {
-    background: ${colors.interactiveHover};
-  }
-`;
-
 /** 제목 아래 본문 한 줄(G-3b). 15px, 위 6px·아래 20px 여백. */
 export const Body = styled.p`
   width: 100%;
@@ -60,4 +72,6 @@ export const Body = styled.p`
   font-weight: 500;
   line-height: 22px;
   color: ${colors.textPrimary};
+  /* 낱말 중간에서 줄이 바뀌지 않게 한다. */
+  word-break: keep-all;
 `;

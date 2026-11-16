@@ -4,7 +4,6 @@ import {
   HiArrowUpTray,
   HiChevronRight,
   HiMagnifyingGlass,
-  HiSparkles,
   HiUsers,
   HiXMark,
 } from "react-icons/hi2";
@@ -48,6 +47,7 @@ const MODES: Record<Mode, { label: string; icon: ReactNode; placeholder: string;
 
 const PLACEHOLDER = "어떤 사진을 찾거나 정리할까요?";
 const SELF_WORDS = ["나", "내"];
+const ORGANIZE_GUIDE = "방 제목 옆 ✨ 버튼으로 사람별로 정리할 수 있어요.";
 
 export interface Uploader {
   id: number;
@@ -77,12 +77,6 @@ interface SearchRequestFieldProps {
   onSearchKeyword: (query: string) => void;
   onSearchUploader: (uploader: Uploader) => void;
   onOpenFolder: (folderId: number) => void;
-  /** 정리 방식 선택을 연다. */
-  onOrganize?: () => void;
-  /** 정리를 바라는 문장을 그대로 넘겨 바로 시작한다. 없으면 정리 방식 선택을 연다. */
-  onOrganizeText?: (text: string) => void;
-  /** 정리 중이라 새로 시작할 수 없는 까닭. 있으면 '자동으로 정리하기' 를 막고 이 글을 보여 준다. */
-  organizeBlockedReason?: string | null;
   onClear: () => void;
 }
 
@@ -96,9 +90,6 @@ export const SearchRequestField = ({
   onSearchKeyword,
   onSearchUploader,
   onOpenFolder,
-  onOrganize,
-  onOrganizeText,
-  organizeBlockedReason = null,
   onClear,
 }: SearchRequestFieldProps) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -143,16 +134,6 @@ export const SearchRequestField = ({
   const uploadedBy = (uploader: Uploader): string =>
     `${uploader.isMe ? "내가" : withSubjectParticle(uploader.name)} 올린 사진 찾기`;
 
-  const organizeAction: Action[] = [
-    {
-      key: "organize",
-      icon: <HiSparkles />,
-      label: "자동으로 정리하기",
-      description: organizeBlockedReason ?? undefined,
-      disabled: organizeBlockedReason !== null,
-      run: () => onOrganize?.(),
-    },
-  ];
   const uploaderAction = (uploader: Uploader, description: string): Action => ({
     key: `uploader-${uploader.id}`,
     icon: <HiArrowUpTray />,
@@ -195,36 +176,25 @@ export const SearchRequestField = ({
     if (!request) {
       return {
         title: "원하는 걸 눌러 주세요",
-        actions: [
-          ...organizeAction,
-          ...(Object.keys(MODES) as Mode[]).map((key) => ({
-            key: `mode-${key}`,
-            icon: MODES[key].icon,
-            label: MODES[key].label,
-            run: () => {
-              setMode(key);
-              inputRef.current?.focus();
-            },
-            keepOpen: true,
-          })),
-        ],
+        actions: (Object.keys(MODES) as Mode[]).map((key) => ({
+          key: `mode-${key}`,
+          icon: MODES[key].icon,
+          label: MODES[key].label,
+          run: () => {
+            setMode(key);
+            inputRef.current?.focus();
+          },
+          keepOpen: true,
+        })),
       };
     }
 
     switch (request.type) {
       case "organize":
-        // 정리를 바라는 문장이면 시트를 거치지 않고 그 문장으로 바로 시작한다.
-        return onOrganizeText
-          ? {
-              actions: organizeAction.map((action) => ({
-                ...action,
-                description: action.description ?? "요청한 대로 바로 시작",
-                run: () => onOrganizeText(text),
-              })),
-            }
-          : { actions: organizeAction };
+        // 정리는 검색창이 아니라 방 제목 옆 ✨ 버튼에서 시작한다.
+        return { note: ORGANIZE_GUIDE, actions: [] };
       case "unsupported":
-        return { note: "이 요청은 아직 못 해요.", actions: organizeAction };
+        return { note: "이 요청은 아직 못 해요.", actions: [] };
       case "person": {
         const name = resolve(request.name);
         const folder = folders.find((candidate) => candidate.name === name);
@@ -241,7 +211,7 @@ export const SearchRequestField = ({
               ],
             }
           : // 폴더가 아직 없는 사람 이름은 사진 내용 검색으로 넘기지 않고 나누기를 먼저 권한다.
-            { note: "사람별로 나눈 뒤에 찾을 수 있어요.", actions: organizeAction };
+            { note: `사람별로 나눈 뒤에 찾을 수 있어요. ${ORGANIZE_GUIDE}`, actions: [] };
       }
       case "uploader": {
         const name = resolve(request.name);
