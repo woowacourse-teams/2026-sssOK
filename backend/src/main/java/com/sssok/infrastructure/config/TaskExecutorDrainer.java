@@ -35,6 +35,7 @@ public class TaskExecutorDrainer implements SmartLifecycle {
         "imageThumbnailTaskExecutor",
         "videoThumbnailTaskExecutor",
         "imageAnalysisTaskExecutor",
+        "downloadCompressionTaskExecutor",
         "applicationTaskExecutor",
         "roomNotificationTaskExecutor"
     );

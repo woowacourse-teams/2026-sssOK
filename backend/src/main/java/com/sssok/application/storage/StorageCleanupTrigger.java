@@ -16,7 +16,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 // 다른 스레드로 넘기는 이유: 사용자 기준 삭제 완료는 DB 행이 지워진 시점이다. 응답이 스토리지
 // 왕복을 기다릴 이유가 없다.
 //
-// @Async 대신 실행기를 직접 받는 이유: 이 풀은 썸네일·zip 워커와 공용이라 가득 찰 수 있고,
+// @Async 대신 실행기를 직접 받는 이유: 이 풀은 공용이라 가득 찰 수 있고,
 // 그때 작업 제출은 TaskRejectedException 으로 거부된다. @Async 는 제출이 프록시 안에서
 // 일어나 이 거부를 잡을 자리가 없다. 거부는 실패가 아니라 "나중에 한다"로 다뤄야 하는 경우다
 // — 대기열 행은 이미 커밋돼 있어 OrphanObjectSweeper 가 그대로 회수한다.
@@ -34,7 +34,7 @@ public class StorageCleanupTrigger {
     private final AsyncTaskExecutor taskExecutor;
 
     // application.yml 의 spring.task.execution 풀이 스프링 부트가 자동 등록하는 빈 이름
-    // "applicationTaskExecutor" 로 노출된다 (DownloadJobEventListener 와 같은 풀).
+    // "applicationTaskExecutor" 로 노출된다.
     public StorageCleanupTrigger(PurgeOrphanObjectsService purgeOrphanObjectsService,
                                  @Qualifier("applicationTaskExecutor") AsyncTaskExecutor taskExecutor) {
         this.purgeOrphanObjectsService = purgeOrphanObjectsService;

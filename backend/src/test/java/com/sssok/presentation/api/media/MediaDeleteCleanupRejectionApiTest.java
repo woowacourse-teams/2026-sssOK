@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
-// 정리 작업은 썸네일·zip 워커와 공용 풀(applicationTaskExecutor)을 나눠 쓴다.
+// 정리 작업은 공용 풀(applicationTaskExecutor)을 쓴다.
 // 그 풀이 가득 차면 AFTER_COMMIT 에서의 작업 제출이 TaskRejectedException 으로 거부된다.
 //
 // 그때도 삭제 자체는 이미 커밋됐으므로 응답은 성공이어야 하고, 지우지 못한 키는 회수 배치가
