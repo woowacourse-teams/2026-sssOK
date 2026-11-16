@@ -88,6 +88,16 @@ class DownloadJobTest {
         }
 
         @Test
+        void QUEUED에서_바로_FAILED로_전이한다() {
+            DownloadJob job = create();
+
+            job.markFailed("압축을 시작하지 못했습니다");
+
+            assertThat(job.getStatus()).isEqualTo(FailedDownloadJobStatus.INSTANCE);
+            assertThat(job.getFailureReason()).isEqualTo("압축을 시작하지 못했습니다");
+        }
+
+        @Test
         void QUEUED에서_바로_READY로는_전이할_수_없다() {
             DownloadJob job = create();
 
