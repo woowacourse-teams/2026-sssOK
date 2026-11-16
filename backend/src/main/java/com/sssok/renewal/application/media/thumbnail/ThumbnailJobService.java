@@ -40,7 +40,7 @@ public class ThumbnailJobService {
         boolean needsNewJob = jobRepository.findById(file.getId())
             .map(job -> job.getStatus().isFailed()).orElse(true);
         if (needsNewJob) {
-            jobRepository.save(new ThumbnailJob(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), clock.instant()));
+            jobRepository.enqueue(new ThumbnailJob(file.getId(), ThumbnailKind.of(file.getMediaType().isVideo()), clock.instant()));
         }
     }
 
@@ -59,7 +59,8 @@ public class ThumbnailJobService {
             jobRepository.save(job);
             log.info("썸네일 작업 선점 mediaId={} claimToken={} attempt={}",
                 job.getMediaId(), job.getClaimToken(), job.getAttempts());
-            return new ThumbnailClaim(job.getMediaId(), kind, job.getClaimToken(), job.getAttempts(), now);
+            return new ThumbnailClaim(job.getMediaId(), kind, job.getClaimToken(), job.getAttempts(), now,
+                job.getAvailableAt(), job.getTraceContext());
         });
     }
 
