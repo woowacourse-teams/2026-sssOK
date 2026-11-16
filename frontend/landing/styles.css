@@ -327,6 +327,14 @@ a.start-opt:focus-visible {
   color: var(--page-sub);
 }
 
+/* 사용 단계 글의 회색 보조 문구는 제목 위(① '사진 보내 달라는 말이 나오면')든 아래(②~⑤ 설명)든
+   같은 글씨로 보이게 설명 줄(.desc)과 크기·굵기·줄 높이를 맞춘다 */
+.tx .kicker {
+  font-size: clamp(17px, 1.45vw, 23px);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
 /* ── 폰. 안쪽 화면은 실제 앱을 375px 기준으로 옮겨 em 으로 줄인다 (1em ≈ 앱의 15.6px) ── */
 .phone,
 .phone-shell {
@@ -2505,12 +2513,18 @@ a.start-opt:focus-visible {
 
   .desc {
     margin-top: 0.45em;
-    font-size: 14.5px;
+    font-size: 18px;
     line-height: 1.5;
   }
 
   .kicker {
     font-size: 18px;
+  }
+
+  /* 사용 단계 글: 제목 위 회색 줄도 설명 줄과 같은 크기 */
+  .tx .kicker {
+    font-size: 18px;
+    line-height: 1.5;
   }
 
   .tag {
@@ -2817,6 +2831,39 @@ a.start-opt:focus-visible {
     width: 34px;
     height: 34px;
   }
+}
+
+/* 폰 폭 폴더 칩: 얼굴·이름·장수만 한 줄에 담은 작은 알약 (썸네일은 빼서 사진 위에 사진이 겹치지 않게).
+   main.js(renderFolderChips)가 알림 위에 가로로 늘어놓고, 폴더 탭으로 날려 보낸다 */
+.fcard.chip {
+  gap: 5px;
+  padding: 3px 9px 3px 3px;
+  border-radius: 999px;
+  outline: 0;
+}
+
+.fcard.chip .f-th {
+  display: none;
+}
+
+.fcard.chip .f-ava {
+  width: 22px;
+  height: 22px;
+}
+
+.fcard.chip .f-tx {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fcard.chip .f-tx b {
+  font-size: 12px;
+}
+
+.fcard.chip .f-tx span {
+  font-size: 11px;
 }
 
 /* ① 링크 만들기: 쏙 '방 만들기' 화면 (앱 전환으로 들어온다) */

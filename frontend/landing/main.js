@@ -30,7 +30,8 @@ const STORY = [
   // 사람별: 정리 방식 시트가 올라와 '얼굴 분석해서 정리하기'를 누르기까지 (사람별 장면 시각 0.2 → 2.2)
   { id: "person", len: 0.9 },
   // 폴더가 생긴 뒤 '나' 탭을 눌러 내 사진만 남는다 (renderMeFolder)
-  { id: "me", len: 1.15 },
+  // 폰 폭은 폴더 칩이 탭으로 날아 들어가는 시간만큼 길다 (renderFolderChips)
+  { id: "me", len: matchMedia("(max-width: 760px)").matches ? 1.3 : 1.15 },
   { id: "end", len: 1.6 },
 ];
 {
@@ -245,11 +246,13 @@ function renderTabs(list, active, total) {
           `<span class="${i === active ? "on" : ""} ${cls} ${cls && pop}">${name}<i>${i === 0 ? total : n}</i></span>`,
       )
       .join("") + `<span class="add">${icon("folder")}폴더 추가</span>`;
-  // 고른 탭이 '폴더 추가' 버튼 밑에 가리면, 앱처럼 탭 줄을 왼쪽으로 밀어 다 보이게 한다
+  // 고른 탭이 '폴더 추가' 버튼 밑에 가리면, 앱처럼 탭 줄을 왼쪽으로 밀어 다 보이게 한다.
+  // 사람 폴더가 막 생긴 뒤(아직 '전체')에도 곧 누를 마지막 폴더 탭('나')이 가리지 않게 미리 민다
   const tabs = [...$("gTabs").children];
   const add = tabs.pop();
-  const on = tabs[active];
-  const over = active > 0 ? on.offsetLeft + on.offsetWidth + 12 - add.offsetLeft : 0;
+  const target = active > 0 ? active : tabs.length - 1;
+  const on = tabs[target];
+  const over = target > 0 ? on.offsetLeft + on.offsetWidth + 12 - add.offsetLeft : 0;
   tabs.forEach((t) => (t.style.transform = over > 0 ? `translateX(${-over}px)` : ""));
 }
 
@@ -276,7 +279,9 @@ const INTRO_TEXT = [
     desc: "앱이 없어도<br />링크만 누르면 바로 들어와요.",
   },
   {
-    u: [LINK_TAP + 0.1, Infinity],
+    // 링크를 누른 직후엔 아직 단톡방 말풍선이 걷히는 중이라, 단톡방이 사진방 화면으로 바뀌기 시작할 때(MS = 4.2) 띄운다.
+    // MS 는 이 아래에서 정의되므로 같은 시각을 LINK_TAP 기준으로 적는다
+    u: [LINK_TAP + 0.75, Infinity],
     c: INTRO - 0.05,
     tag: "③ 다 같이 올리기",
     // '링크'는 ②에서 이미 말했으니, 여기선 결과(각자 찍은 사진이 한곳에)만 말한다
@@ -571,14 +576,39 @@ function measure() {
   // (사진방으로 바뀌는 중이면 단톡방에 인라인 top 이 남아 있으니 잠깐 지우고 CSS 자리를 잰다)
   const chatEl = $("chat");
   const chatTopInline = chatEl.style.top;
+  const chatHeightInline = chatEl.style.height;
   chatEl.style.top = "";
+  chatEl.style.height = "";
   const chatDrop = mobile ? H - chatEl.offsetTop + 40 : 0;
+  // 폰 폭 ② 단계에서 단톡방 위쪽을 글 높이만큼 줄일 때의 기준 자리·높이
+  const chatTop0 = chatEl.offsetTop;
+  const chatH0 = chatEl.offsetHeight;
+  // 폰 폭 ②·③: 단톡방 위 빈자리에 두 단계 글을 같은 자리(② 글 위치)로 이어서 보인다.
+  // 그 자리를 비우려고 단톡방 위쪽을 줄일 길이(sendNeed)와, ③ 글을 ② 자리로 올릴 길이(galShift)를 잰다
+  const layoutTop = (el) => {
+    let y = 0;
+    for (let n = el; n && n !== stage; n = n.offsetParent) y += n.offsetTop;
+    return y;
+  };
+  const sendEl = introEls[INTRO_TEXT.findIndex((t) => t.tag === "② 단톡방에 보내기")];
+  const galEl = introEls[INTRO_TEXT.findIndex((t) => t.tag === "③ 다 같이 올리기")];
+  const sendTop = layoutTop(sendEl);
+  const galShift = sendTop - layoutTop(galEl);
+  const sendNeed = mobile
+    ? Math.max(0, sendTop + Math.max(sendEl.offsetHeight, galEl.offsetHeight) + 14 - chatTop0)
+    : 0;
   chatEl.style.top = chatTopInline;
+  chatEl.style.height = chatHeightInline;
+  FOLDER_SHOW = mobile ? 0.36 : 0.15;
   M = {
     W,
     H,
     mobile,
     chatDrop,
+    chatTop0,
+    chatH0,
+    sendNeed,
+    galShift,
     base,
     inner,
     em,
@@ -772,32 +802,84 @@ const folderEls = PEOPLE.map((p, i) => {
   });
   return $("joins").appendChild(el);
 });
-// 폴더 카드가 다 생겨난 뒤에 '나' 탭을 누른다 (renderMeFolder 의 시각을 이만큼 늦춘다)
-const FOLDER_SHOW = 0.15;
+// 폴더 카드가 다 생겨난 뒤에 '나' 탭을 누른다 (renderMeFolder 의 시각을 이만큼 늦춘다).
+// 폰 폭은 칩이 폴더 탭으로 날아 들어가는 시간만큼 더 늦춘다 (measure 가 정한다)
+let FOLDER_SHOW = 0.15;
 function renderFolders(h) {
+  const P = M.pill(0);
+  if (P.center) {
+    renderFolderChips(h);
+    return;
+  }
   const meOn = h >= FOLDER_SHOW + 0.46;
   folderEls.forEach((el, i) => {
-    const P = M.pill(0);
-    const gap = P.center ? 70 : 84;
+    el.classList.remove("chip");
     el.style.left = `${P.x}px`;
-    el.style.top = `${P.y - (P.center ? 0 : M.H * 0.04) + i * gap}px`;
+    el.style.top = `${P.y - M.H * 0.04 + i * 84}px`;
     const a = ease(seg(h, 0.04 + i * 0.06, 0.22 + i * 0.06));
-    // 폰 폭은 카드가 사진을 가리니, '나' 폴더를 연 뒤엔 걷는다
-    const out = P.center ? seg(h, FOLDER_SHOW + 0.74, FOLDER_SHOW + 0.94) : 0;
-    show(
-      el,
-      a * (1 - out),
-      (1 - a) * 14,
-      `${P.center ? "translateX(-50%) " : ""}scale(${meOn && i === 2 ? 1.06 : 1})`,
-    );
+    show(el, a, (1 - a) * 14, `scale(${meOn && i === 2 ? 1.06 : 1})`);
     el.classList.toggle("on", meOn && i === 2);
     el.classList.toggle("off", meOn && i !== 2);
+  });
+}
+
+// 폰 폭: 사람별 폴더를 작은 칩 세 개(얼굴·이름·장수)로 '폴더 3개를 만들었어요' 알림 위에 가로 한 줄로 띄우고,
+// 잠깐 보인 뒤 하나씩 폰 안 탭 줄의 제 폴더 탭(민지·서연·나)으로 작아지며 날아 들어간다. 닿는 순간 탭이 톡 튄다
+function renderFolderChips(h) {
+  const sr = stage.getBoundingClientRect();
+  const toast = $("folderToast").getBoundingClientRect();
+  const tabs = [...$("gTabs").children];
+  const gap = 4;
+  folderEls.forEach((el) => {
+    el.classList.add("chip");
+    el.classList.remove("on", "off");
+  });
+  // 칩 줄이 폰 화면 폭(양옆 10px 여백)보다 넓으면 줄 전체를 그만큼 줄여 화면 안에 맞춘다
+  const raw = folderEls.map((el) => el.offsetWidth);
+  const fit = Math.min(
+    1,
+    (M.inner.w - 20) / (raw.reduce((sum, w) => sum + w, 0) + gap * (raw.length - 1)),
+  );
+  const widths = raw.map((w) => w * fit);
+  const total = widths.reduce((sum, w) => sum + w, 0) + gap * (folderEls.length - 1);
+  // 폰 폭에선 알림·카드의 가운데 자리(P.x)가 폰 화면 가운데다
+  let x = M.pill(0).x - total / 2;
+  folderEls.forEach((el, i) => {
+    const w = widths[i];
+    const ch = el.offsetHeight * fit;
+    const y = toast.top - sr.top - 10 - ch;
+    // 줄인 만큼(fit) 칩 왼쪽 위를 기준으로 줄어든 자리에 그린다
+    el.style.left = `${x - (raw[i] - w) / 2}px`;
+    el.style.top = `${y}px`;
+    el.style.transformOrigin = "50% 50%";
+    const a = ease(seg(h, 0.04 + i * 0.05, 0.19 + i * 0.05));
+    const flyAt = 0.34 + i * 0.05;
+    const f = inOut(seg(h, flyAt, flyAt + 0.18));
+    // 날아갈 곳: 탭 줄에서 같은 사람의 폴더 탭 (0번은 '전체')
+    const tab = tabs[i + 1];
+    let dx = 0;
+    let dy = 0;
+    if (tab) {
+      const r = tab.getBoundingClientRect();
+      dx = r.left - sr.left + r.width / 2 - (x + w / 2);
+      dy = r.top - sr.top + r.height / 2 - (y + ch / 2);
+      // 닿는 순간 탭이 톡 커졌다 돌아온다
+      const end = flyAt + 0.18;
+      tab.style.scale = 1 + 0.18 * (seg(h, end - 0.03, end) - seg(h, end, end + 0.1));
+    }
+    const o = a * (1 - seg(f, 0.75, 1));
+    el.style.opacity = o;
+    el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+    el.style.transform = `translate(${dx * f}px, ${dy * f + (1 - a) * 10 - (el.offsetHeight - ch) / 2}px) scale(${fit * (0.9 + 0.1 * a) * (1 - 0.72 * f)})`;
+    x += w + gap;
   });
 }
 
 // ── 첫 장면 '모으기': 찰칵 → 사진이 흩어짐 → 쏙 폰으로 모여 갤러리에 쌓임 (T 는 스크롤 시각) ──
 // 첫 장면 상태: 시계 U, 말풍선 조각이 출발한 자리(처음 한 번 잰다)
 let introU = 0;
+// 폰 폭 ② 단계에서 단톡방 위쪽을 줄이는 길이(px). renderIntro 가 정하고 renderChat 이 쓴다
+let sendPush = 0;
 let ghostFrom = null;
 function renderIntro(T) {
   const N = setP.length;
@@ -817,25 +899,51 @@ function renderIntro(T) {
   // 폰 폭: 단톡방이 화면을 꽉 채우는 동안(앱 전환 중 제외)엔 단계 글이 단톡방 위에 겹치니 단계 이름표만 띄운다
   const appSw = inOut(seg(U, APP_IN[0], APP_IN[1])) - inOut(seg(U, APP_OUT[0], APP_OUT[1]));
   const chipOnly = M.mobile && U < SWAP[1] && appSw < 0.5;
+  // 폰 폭: ② 글이 들어오는 동안 단톡방 위쪽이 줄어들고, ③ 을 지나 사진방 화면으로 바뀔 때까지 그대로 둔다
+  const sendIn = INTRO_TEXT.find((t) => t.tag === "② 단톡방에 보내기").u[0];
+  const galIn = INTRO_TEXT.find((t) => t.tag === "③ 다 같이 올리기").u[0];
+  sendPush = M.sendNeed * ease(seg(U, sendIn, sendIn + 0.3));
   INTRO_TEXT.forEach((t, i) => {
-    introEls[i].classList.toggle("chip-only", !!t.u && chipOnly);
+    // ② 단톡방에 보내기는 처음부터 끝까지 단톡방 안의 장면이라, 이름표만 두면 폰 폭에선 제목·설명이 한 번도 안 보인다.
+    // 그래서 ②·③ 은 글을 다 보이고, 그 대신 단톡방 위쪽을 글 높이만큼 줄여 둔다(sendPush).
+    // ③ 글은 ② 글이 있던 자리에 이어서 뜨고, 폰 화면이 둘러지는 동안 제자리로 내려간다
+    const isGal = M.mobile && t.tag === "③ 다 같이 올리기";
+    const isTop = isGal || (M.mobile && t.tag === "② 단톡방에 보내기");
+    introEls[i].classList.toggle("chip-only", !!t.u && chipOnly && !isTop);
     // 사용 단계 글은 시계 U 로 뜨고 빠진다. 마지막 단계는 첫 장면이 끝날 때(t.c) 빠진다
     const inA = t.u ? ease(seg(U, t.u[0], t.u[0] + 0.3)) : 0;
     // 첫 화면 헤드라인은 스크롤을 조금만 해도(시계가 흐르면) 빠진다
     const o = t.u
       ? Math.min(
           inA,
-          // 마지막 단계는 빠지는 시각이 없다 (Infinity + 0.25 - Infinity 는 NaN 이 된다)
-          Number.isFinite(t.u[1]) ? 1 - seg(U, t.u[1], t.u[1] + 0.25) : 1,
+          // 마지막 단계는 빠지는 시각이 없다 (Infinity + 0.25 - Infinity 는 NaN 이 된다).
+          // 폰 폭 ② 는 단톡방 위 빈자리가 비지 않게 ③ 글이 들어오기 직전까지 남았다가, 다 사라진 뒤 ③ 이 뜬다
+          // (둘이 겹쳐 비치면 글씨가 뒤섞여 보인다)
+          isTop && !isGal
+            ? 1 - seg(U, galIn - 0.25, galIn)
+            : Number.isFinite(t.u[1])
+              ? 1 - seg(U, t.u[1], t.u[1] + 0.25)
+              : 1,
           t.c ? 1 - seg(T, t.c, t.c + 0.3) : 1,
         )
       : Math.min(life(T, t.a, t.a + 0.3, t.c, t.c + 0.3), 1 - seg(U, 0.05, 0.3), 1 - heroOut);
     show(
       introEls[i],
       o,
-      (1 - (t.u ? inA : ease(seg(T, t.a, t.a + 0.3)))) * 20 - (i === 0 ? heroOut * 48 : 0),
+      (1 - (t.u ? inA : ease(seg(T, t.a, t.a + 0.3)))) * 20 -
+        (i === 0 ? heroOut * 48 : 0) +
+        (isGal ? M.galShift * (1 - inOut(seg(U, SWAP[0], SWAP[1]))) : 0),
       M.mobile && i !== 0 ? "" : "translateY(-50%)",
     );
+    // 폰 폭에서 이름표만 보일 때: 단계마다 글 길이가 달라 이름표가 단톡방 바로 위에 붙거나 겹친다.
+    // 위 '링크 만들기' 버튼과 단톡방 사이 한가운데로 옮겨 위아래 간격을 같게 둔다
+    if (t.u && chipOnly && !isTop && o > 0.001) {
+      const tag = introEls[i].querySelector(".tag").getBoundingClientRect();
+      const above = $("startBtn").getBoundingClientRect().bottom;
+      const below = $("chat").getBoundingClientRect().top;
+      const shift = (above + below) / 2 - (tag.top + tag.bottom) / 2;
+      introEls[i].style.transform += ` translateY(${shift}px)`;
+    }
   });
   // 첫 화면 연출 도중에 스크롤하면 바로 마지막 상태로 넘긴다
   if (T > 0.02) introSkip = true;
@@ -903,14 +1011,31 @@ function renderIntro(T) {
   const top = P.center ? M.inner.y + M.em * 0.6 : M.inner.y + M.inner.h * 0.2;
   pushEls.forEach((el, i) => {
     const a = pushIn[i];
-    // 나보다 나중에 온 알림만큼 아래로 밀린다
+    // 나보다 나중에 온 알림 수(들어오는 중이면 소수)
     const below = pushIn.slice(i + 1).reduce((sum, b) => sum + b, 0);
+    if (P.center) {
+      // 폰 폭: 아래로 늘어놓으면 폰 화면 위쪽 절반을 가린다. 아이폰 알림처럼 최신 알림만 또렷하게 두고,
+      // 먼저 온 알림은 그 뒤에 한 칸마다 9px 아래로·6% 작게 겹쳐 두 장까지만 비친다(세 번째부터는 사라진다)
+      const depth = Math.min(below, 3);
+      const o = a * (1 - pushOut) * clamp(3 - depth);
+      el.style.left = `${P.x}px`;
+      el.style.top = `${top + Math.min(depth, 2) * 9 - (1 - a) * 18}px`;
+      el.style.zIndex = 18 + i;
+      el.style.transformOrigin = "50% 0";
+      el.style.transform = `translateX(-50%) scale(${1 - 0.06 * Math.min(depth, 2)})`;
+      el.style.opacity = o;
+      el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+      return;
+    }
+    // 넓은 화면: 폰 오른쪽에 나보다 나중에 온 알림만큼 아래로 밀려 나란히 쌓인다
     const y = top + below * (el.offsetHeight + 10) - (1 - a) * 18;
     el.style.left = `${P.x}px`;
     el.style.top = `${y}px`;
+    el.style.zIndex = "";
+    el.style.transformOrigin = "";
     el.style.opacity = a * (1 - pushOut);
     el.style.visibility = a * (1 - pushOut) <= 0.001 ? "hidden" : "visible";
-    el.style.transform = P.center ? "translateX(-50%)" : "";
+    el.style.transform = "";
   });
 
   // 말풍선 조각: 말풍선 자리에서 글자가 지워지며 작은 사진으로 바뀌고(PH) → 틀이 바뀌는 동안 가까운 갤러리 칸으로 들어가 앉는다.
@@ -1049,9 +1174,11 @@ function renderMake(U) {
     return;
   }
   const chat = $("chat");
-  chat.style.transform += ` translateX(${-sw * 58}%) scale(${1 - sw * 0.08})`;
-  // 단톡방은 옆으로 밀린 채 반투명하게 남아, 카톡에서 잠깐 나왔다는 게 보이게 한다
-  chat.style.opacity = +chat.style.opacity * (1 - sw * 0.6);
+  // 단톡방은 옆으로 밀린 채 반투명하게 남아, 카톡에서 잠깐 나왔다는 게 보이게 한다.
+  // 폰 폭에선 단톡방이 화면을 꽉 채워서, 조금만 밀면 단계 글과 폰 뒤에 겹쳐 보인다 → 화면 밖까지 밀고 거의 지운다
+  const slide = M.mobile ? 100 : 58;
+  chat.style.transform += ` translateX(${-sw * slide}%) scale(${1 - sw * 0.08})`;
+  chat.style.opacity = +chat.style.opacity * (1 - sw * (M.mobile ? 0.95 : 0.6));
   phone.style.opacity = sw;
   phone.style.visibility = "visible";
   phone.style.transform = `${M.base} translateX(${(1 - sw) * 58}%) scale(${0.92 + sw * 0.08})`;
@@ -1179,6 +1306,11 @@ function renderChat(E, T, S) {
       (1 - ease(seg(E, 0.15, 0.6))) * 30 + M.chatDrop * (1 - chatRise),
       M.mobile ? "" : "translate(-50%, -50%)",
     );
+    // 폰 폭 ②: 아래(링크 말풍선·입력칸)는 그대로 두고 위쪽만 내려, 비운 자리에 ② 제목·설명을 보인다
+    if (M.mobile && sendPush > 0.5) {
+      chat.style.top = `${M.chatTop0 + sendPush}px`;
+      chat.style.height = `${M.chatH0 - sendPush}px`;
+    }
   } else {
     // 제자리(덮어쓴 값을 지우고 잰다) → 폰 화면
     if (!M.chatRest) {
@@ -1193,7 +1325,10 @@ function renderChat(E, T, S) {
         h: r.height,
       };
     }
-    const A = M.chatRest;
+    // 폰 폭에선 ② 에서 줄여 둔 단톡방(위쪽이 sendNeed 만큼 내려온 자리)에서 폰 화면으로 바뀐다
+    const A = M.mobile
+      ? { ...M.chatRest, y: M.chatRest.y + M.sendNeed, h: M.chatRest.h - M.sendNeed }
+      : M.chatRest;
     const B = M.inner;
     chat.style.right = "auto";
     chat.style.bottom = "auto";
@@ -1595,7 +1730,7 @@ function playTo(to, maxSec = Infinity, span = null) {
 const AUTO_SPEED = 0.35; // 1초에 흐르는 스크롤 시각 (작을수록 느리다)
 const AUTO_FAST = 1.6; // ④ 원본으로 받기·⑤ 내 사진만 받기 구간만 이만큼 더 빠르게 흐른다
 const AUTO_RESUME = 350; // 아래로 스크롤하고 손을 뗀 뒤(관성이 멈춘 뒤) 다시 저절로 흐르기까지 (ms)
-const AUTO_START = 700; // 첫 화면에서 저절로 시작하기까지 (ms)
+const AUTO_START = 2200; // 첫 화면에서 저절로 시작하기까지 (ms). 첫 화면 글·버튼이 다 나타난(약 1.3초) 뒤 잠깐 머문다
 function autoStops() {
   if (chatBase === null) chatBase = autoChatStep();
   const len = chatLen();
