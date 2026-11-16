@@ -1673,7 +1673,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "executor_queued_tasks{job=\"sssok-backend\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "expr": "executor_queued_tasks{job=\"sssok-backend\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
           "legendFormat": "{{name}} 대기",
           "range": true,
           "editorMode": "code"
@@ -1746,14 +1746,14 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "executor_active_threads{job=\"sssok-backend\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "expr": "executor_active_threads{job=\"sssok-backend\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
           "legendFormat": "{{name}} 활성",
           "range": true,
           "editorMode": "code"
         },
         {
           "refId": "B",
-          "expr": "executor_pool_max_threads{job=\"sssok-backend\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "expr": "executor_pool_max_threads{job=\"sssok-backend\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
           "legendFormat": "{{name}} 최대",
           "range": true,
           "editorMode": "code"
@@ -1826,7 +1826,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+          "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
           "legendFormat": "{{name}} 남은 슬롯",
           "range": true,
           "editorMode": "code"
