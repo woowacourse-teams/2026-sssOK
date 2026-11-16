@@ -73,7 +73,7 @@ logging:
     # dev·prod 에는 영향이 없다 — 구조화 인코더가 콘솔 패턴 자체를 대체하고, 거기서는
     # requestId 가 이미 독립 필드로 나간다. application-local.yml 이 아니라 여기 두는 건
     # 그 파일이 gitignore 대상(개발자별 파일)이라 팀에 전달되지 않기 때문이다.
-    correlation: "[%X{requestId:-}] "
+    correlation: "[%X{requestId:-} %X{traceId:-} %X{spanId:-}] "
 
 cors:
   # 브라우저에서 API를 호출할 수 있는 오리진. 콤마로 구분한다.
@@ -226,6 +226,29 @@ springdoc:
     tags-sorter: alpha
 
 management:
+  tracing:
+    enabled: ${TRACING_ENABLED:false}
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.05}
+    propagation:
+      type: W3C
+    opentelemetry:
+      export:
+        max-queue-size: 512
+        max-batch-size: 64
+        schedule-delay: 1s
+        timeout: 2s
+  otlp:
+    tracing:
+      export:
+        enabled: ${TRACING_ENABLED:false}
+      endpoint: ${TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+      connect-timeout: 1s
+      timeout: 2s
+  opentelemetry:
+    resource-attributes:
+      "[service.name]": sssok-backend
+      "[deployment.environment]": ${TRACING_ENVIRONMENT:local}
   server:
     # 일반 API 포트(8080)와 분리한다. 기존 Prometheus는 Docker 내부 app:8081로 접근한다.
     # 개발은 호스트 Nginx용 loopback 포트도 사용한다. 중앙에는 지표 경로만 제한적으로 연결한다.
