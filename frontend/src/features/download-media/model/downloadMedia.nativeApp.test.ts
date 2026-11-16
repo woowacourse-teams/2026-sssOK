@@ -4,12 +4,17 @@ import { http, HttpResponse } from "msw";
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { captureException } from "@/shared/lib";
 import { PHOTO_PERMISSION_DENIED_MESSAGE } from "../lib/downloadErrorMessage";
 import { saveBlob } from "../lib/saveBlob";
 import { downloadMedia } from "./downloadMedia";
 import type { DownloadMode, DownloadTarget } from "./types";
 
 jest.mock("../lib/saveBlob", () => ({ saveBlob: jest.fn() }));
+jest.mock("@/shared/lib", () => ({
+  ...jest.requireActual("@/shared/lib"),
+  captureException: jest.fn(),
+}));
 
 jest.mock("../config", () => ({
   ...jest.requireActual("../config"),
@@ -166,6 +171,77 @@ describe("downloadMedia — 앱 웹뷰", () => {
         { mediaId: 2, fileName: "IMG_2.jpg", status: 403 },
       ],
     });
+  });
+
+  /**
+   * 앱은 상태 코드가 없는 실패를 모두 0 으로 넘긴다. 단계가 없으면 받기가 끊긴 것과
+   * 사진첩이 거절한 것을 가를 수 없고, 웹이 남기지 않으면 원인이 어디에도 없다.
+   */
+  it("앱이 알려준 단계를 실패에 싣고 원래 메시지로 예외를 남긴다", async () => {
+    serveBatch();
+    asNativeApp(({ requestId }) =>
+      emit({
+        type: "download/done",
+        requestId,
+        result: "completed",
+        failed: [
+          { id: 1, status: 0, stage: "save", message: "PHPhotosErrorDomain error 3302" },
+          { id: 2, status: 0, stage: "download", message: "The network connection was lost." },
+        ],
+      }),
+    );
+
+    const outcome = await run([targetOf(1), targetOf(2), targetOf(3)], "share");
+
+    expect(outcome).toEqual({
+      type: "saved",
+      savedCount: 1,
+      failed: [
+        { mediaId: 1, fileName: "IMG_1.jpg", status: 0, stage: "save" },
+        { mediaId: 2, fileName: "IMG_2.jpg", status: 0, stage: "download" },
+      ],
+    });
+    expect(captureException).toHaveBeenCalledWith(
+      new Error("PHPhotosErrorDomain error 3302"),
+      expect.objectContaining({
+        operation: "download.native_save",
+        status: 0,
+        code: "NATIVE_SAVE_FAILED",
+      }),
+    );
+    expect(captureException).toHaveBeenCalledWith(
+      new Error("The network connection was lost."),
+      expect.objectContaining({ code: "NATIVE_DOWNLOAD_FAILED" }),
+    );
+  });
+
+  it("단계를 모르는 예전 앱이나 모르는 단계가 와도 답을 버리지 않는다", async () => {
+    serveBatch();
+    asNativeApp(({ requestId }) =>
+      emit({
+        type: "download/done",
+        requestId,
+        result: "completed",
+        failed: [
+          { id: 1, status: 0 },
+          { id: 2, status: 0, stage: "teleport" },
+        ],
+      }),
+    );
+
+    const outcome = await run([targetOf(1), targetOf(2)], "share");
+
+    expect(outcome).toEqual({
+      type: "empty",
+      failed: [
+        { mediaId: 1, fileName: "IMG_1.jpg", status: 0 },
+        { mediaId: 2, fileName: "IMG_2.jpg", status: 0 },
+      ],
+    });
+    expect(captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ code: "NATIVE_UNKNOWN_FAILED" }),
+    );
   });
 
   it("사진첩 권한을 거절하면 다시 눌러도 같은 실패로 알린다", async () => {

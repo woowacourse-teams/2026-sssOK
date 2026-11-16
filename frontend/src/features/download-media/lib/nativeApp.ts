@@ -9,6 +9,7 @@ import { z } from "zod";
  * 메시지 형식의 짝은 `frontend/mobile/src/bridge/downloadBridge.ts` 에 있다. 한쪽을 바꾸면 다른 쪽도 고친다.
  */
 
+import { captureException } from "@/shared/lib";
 import { prefersShareSheet } from "./prefersShareSheet";
 
 /** 앱이 진행·결과를 알릴 때 `window` 에 쏘는 이벤트 이름. */
@@ -41,10 +42,24 @@ export interface NativeFile {
   mimeType: string;
 }
 
+/**
+ * 앱 안에서 어느 단계가 실패했는지. 앱은 상태 코드가 없는 실패를 모두 0 으로 넘겨서,
+ * 이 값이 없으면 받기가 끊긴 것과 사진첩이 거절한 것을 가를 수 없다.
+ *
+ * - `download` 스토리지에서 받다가 실패했다.
+ * - `save`     받은 파일을 사진첩에 넣다가 실패했다.
+ * - `share`    받은 파일을 공유 시트로 넘기다가 실패했다.
+ */
+export type NativeFailureStage = "download" | "save" | "share";
+
 export interface NativeFailure {
   id: number;
   /** 0 이면 응답 자체를 못 받은 것이다. `FailedDownload.status` 와 같은 규칙이다. */
   status: number;
+  /** 단계를 넘기기 전의 앱 빌드에서는 비어 있다. */
+  stage?: NativeFailureStage;
+  /** 앱이 받은 원래 에러 메시지. */
+  message?: string;
 }
 
 type NativeRequest =
@@ -64,7 +79,15 @@ const NativeEventSchema = z.discriminatedUnion("type", [
     ...identity,
     type: z.literal("download/done"),
     result: z.enum(["completed", "permissionDenied", "cancelled"]),
-    failed: z.array(z.object({ id: z.number(), status: z.number() })),
+    failed: z.array(
+      z.object({
+        id: z.number(),
+        status: z.number(),
+        // 모르는 단계가 와도 답 전체를 버리지 않는다. 버리면 진행 바가 영영 남는다.
+        stage: z.enum(["download", "save", "share"]).optional().catch(undefined),
+        message: z.string().optional().catch(undefined),
+      }),
+    ),
   }),
 ]);
 
@@ -155,3 +178,18 @@ export const shareFromNativeApp = (
   file: NativeFile,
   params: NativeDownloadParams = {},
 ): Promise<NativeDownloadResult> => requestNative({ type: "download/share", file }, params);
+
+/**
+ * 앱에서 난 실패를 PostHog 예외로 남긴다. 웹이 직접 받는 경로는 `fetchMediaBlob` 이 남기지만,
+ * 앱 경로는 웹에 결과만 오므로 여기서 남기지 않으면 원인이 어디에도 없다.
+ */
+export const reportNativeFailure = (
+  { status, stage, message }: NativeFailure,
+  operation: "download.native_save" | "download.native_share",
+): void =>
+  captureException(new Error(message ?? "앱에서 파일을 저장하지 못했습니다."), {
+    level: "error",
+    operation,
+    status,
+    code: `NATIVE_${(stage ?? "unknown").toUpperCase()}_FAILED`,
+  });

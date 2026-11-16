@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import {
   DOWNLOAD_FALLBACK_MESSAGE,
-  downloadMessageOfStatus,
+  downloadMessageOfFailure,
   isRetryableStatus,
 } from "../lib/downloadErrorMessage";
 import type { DownloadMode, DownloadOutcome, DownloadTarget, FailedDownload } from "./types";
@@ -35,10 +35,10 @@ export interface DownloadFailureState {
  * 하면 절반은 거짓말이 된다. 섞였으면 공통 문구로 물러선다.
  */
 const messageOfFailures = (failed: FailedDownload[]): string => {
-  const statuses = new Set(failed.map((one) => one.status));
-  const [only] = [...statuses];
+  const messages = new Set(failed.map(downloadMessageOfFailure));
+  const [only] = [...messages];
 
-  return statuses.size === 1 ? downloadMessageOfStatus(only) : DOWNLOAD_FALLBACK_MESSAGE;
+  return messages.size === 1 ? only : DOWNLOAD_FALLBACK_MESSAGE;
 };
 
 /** 다시 받아볼 만한 것만 남긴다. 없는 사진(404)은 다시 받아도 없다. */

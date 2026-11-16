@@ -49,6 +49,10 @@ export interface AnalyticsEvents {
     source: AnalyticsDownloadSource;
     photo_count: number;
     failed_count: number;
+    /** 못 받은 것마다의 상태 코드. 0 은 응답을 못 받은 것이다. */
+    failed_statuses?: number[];
+    /** 못 받은 것마다의 단계 (`download`·`save`·`share`, 브라우저 경로는 `web`) */
+    failed_stages?: string[];
     /** 방 전체 장수. 고른 장수와 비교해 골라 받기(H5)를 본다. */
     total_count: number;
     is_select_all: boolean;
@@ -62,6 +66,9 @@ export interface AnalyticsEvents {
     source: AnalyticsDownloadSource;
     reason: string;
     failed_count: number;
+    /** 한 장씩 실패를 셀 수 있는 판만 있다. 판 전체가 무너진 경우는 없다. */
+    failed_statuses?: number[];
+    failed_stages?: string[];
     duration_ms: number;
   };
   /**
