@@ -64,6 +64,20 @@ describe("OrganizeConfirmSheet", () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
+  it("사진을 처리하는 중이면 기다려 달라고 안내하고 원래 버튼 문구로 막는다", () => {
+    render(
+      <OrganizeConfirmSheet
+        isGuest={false}
+        blockedReason={"사진을 처리하고 있어요.\n조금만 기다려 주세요."}
+        onStart={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("사진을 처리하고 있어요. 조금만 기다려 주세요.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "얼굴 분석하고 정리하기" })).toBeDisabled();
+  });
+
   it("방에서 정리가 돌고 있으면 막힌 버튼에 정리하는 중이라고 적는다", () => {
     render(
       <OrganizeConfirmSheet

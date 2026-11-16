@@ -208,7 +208,8 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   }
   /** 사진 처리가 다 끝나야 정리할 수 있다. 진행 중인 정리 같은 다른 사유가 있으면 그쪽을 먼저 보인다. */
   const organizeBlockedReason =
-    organize.blockedReason ?? (isProcessingPhotos ? "사진을 처리하고 있어요" : null);
+    organize.blockedReason ??
+    (isProcessingPhotos ? "사진을 처리하고 있어요.\n조금만 기다려 주세요." : null);
   /**
    * 정리를 시작하기 전에 장수 한도를 먼저 본다. 확인 시트에서 시작을 누른 뒤에 막히면 헛걸음이라서다.
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).

@@ -351,6 +351,8 @@ const Description = styled.p`
   line-height: 20px;
   color: ${colors.textSecondary};
   word-break: keep-all;
+  /* 문구 안의 줄바꿈(\n)을 그대로 살린다. */
+  white-space: pre-line;
 `;
 
 /* action 은 제목 아래 간격이 시트마다 달라(6px·24px) 내용 쪽에서 정한다. */
