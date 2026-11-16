@@ -57,6 +57,9 @@ def stop():
   cid=None
 
 def verify():
+ sources = {d['uid']: d for d in json.loads(api('GET','/api/datasources').stdout)}
+ assert sources['tempo']['url'] == 'http://sssok-tempo:3200'
+ assert sources['loki']['jsonData']['derivedFields'][0]['url'] == '${__value.raw}'
  for _ in range(30):
   data=json.loads(api('GET','/api/search?type=dash-db').stdout)
   if {d['uid'] for d in data}==set(expected):break

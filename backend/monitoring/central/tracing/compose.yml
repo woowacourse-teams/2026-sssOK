@@ -1,0 +1,27 @@
+# 중앙 6개 서비스의 배포·복구와 독립적으로 켜고 끄는 시험용 저장소.
+name: sssok-tracing
+services:
+  tempo:
+    image: grafana/tempo:3.1.0
+    restart: "no"
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 2.0
+    environment:
+      GOMEMLIMIT: 384MiB
+    command: ["-config.file=/etc/tempo.yml"]
+    volumes:
+      - ./tempo.yml:/etc/tempo.yml:ro
+      - tempo-data:/var/tempo
+    networks:
+      central:
+        aliases: [sssok-tempo]
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: "2"}
+networks:
+  central:
+    external: true
+    name: sssok-monitoring_default
+volumes:
+  tempo-data:
