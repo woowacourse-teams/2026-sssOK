@@ -32,7 +32,7 @@ import static org.mockito.BDDMockito.given;
 
 
 // 일부러 @Transactional을 안 쓴다 — CreateDownloadJobService가 QUEUED로 잡을 만드는 트랜잭션이
-// 실제로 커밋돼야 @TransactionalEventListener(AFTER_COMMIT)가 발화하고, 그래야 별도 스레드(media-worker)에서
+// 실제로 커밋돼야 @TransactionalEventListener(AFTER_COMMIT)가 발화하고, 그래야 별도 스레드(media-worker-zip)에서
 // 도는 DownloadJobEventListener/DownloadCompressionWorker까지 실제로 확인할 수 있다.
 // 테스트가 끝나면 데이터를 직접 지운다(자동 롤백이 없으므로).
 @H2IntegrationTest
