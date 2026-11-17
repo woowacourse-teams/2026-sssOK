@@ -101,9 +101,6 @@ export const Panel = styled.div`
   box-shadow: ${shadow.modal};
 `;
 
-
-
-
 export const Item = styled.button`
   display: flex;
   align-items: center;
