@@ -150,7 +150,9 @@ export const BottomSheet = ({
             {title}
           </Title>
         )}
-        <Body variant={variant}>{typeof children === "function" ? children(requestClose) : children}</Body>
+        <Body variant={variant}>
+          {typeof children === "function" ? children(requestClose) : children}
+        </Body>
       </Sheet>
     </Overlay>,
     document.body,
@@ -200,7 +202,7 @@ const Sheet = styled.div<{ variant: "form" | "action"; hasHandle: boolean; isClo
   overscroll-behavior: contain;
   /* action 은 피그마 정리 시트(558:5390 · 560:177) 기준: 위 10px, 좌우·아래 20px. */
   padding: ${({ hasHandle, variant }) =>
-      hasHandle ? (variant === "form" ? "12px" : "10px") : "44px"}
+    hasHandle ? (variant === "form" ? "12px" : "10px") : "44px"}
     ${({ variant }) => (variant === "form" ? "30px" : "20px")}
     calc(
       ${({ variant }) => (variant === "form" ? "54px" : "20px")} + env(safe-area-inset-bottom, 0px)

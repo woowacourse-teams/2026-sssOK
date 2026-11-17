@@ -104,7 +104,9 @@ describe("OrganizeConfirmSheet", () => {
     );
 
     expect(screen.getByRole("button", { name: "정리하는 중..." })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "얼굴 분석하고 정리하기" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "얼굴 분석하고 정리하기" }),
+    ).not.toBeInTheDocument();
   });
 
   it("로그인하지 않았으면 기본 안내 대신 한 번만 체험할 수 있다고 알린다", () => {
