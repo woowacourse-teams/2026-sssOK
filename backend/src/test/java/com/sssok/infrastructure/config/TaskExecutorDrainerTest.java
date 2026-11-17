@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -44,15 +46,16 @@ class TaskExecutorDrainerTest {
         assertThat(done).hasValue(5);
     }
 
-    @Test
-    void 컨텍스트를_닫을_때_앞_풀_작업이_넘긴_후속_작업도_거절되지_않는다() {
+    @ParameterizedTest
+    @ValueSource(strings = {"roomNotificationTaskExecutor", "imageDerivativeUploadTaskExecutor"})
+    void 컨텍스트를_닫을_때_앞_풀_작업이_넘긴_후속_작업도_거절되지_않는다(String downstreamExecutor) {
         AtomicInteger notified = new AtomicInteger();
         AtomicInteger rejected = new AtomicInteger();
         try (AnnotationConfigApplicationContext app = startContext(Duration.ofSeconds(5),
-            "imageThumbnailTaskExecutor", "roomNotificationTaskExecutor")) {
+            "imageThumbnailTaskExecutor", downstreamExecutor)) {
             ThreadPoolTaskExecutor thumbnail = app.getBean("imageThumbnailTaskExecutor", ThreadPoolTaskExecutor.class);
             ThreadPoolTaskExecutor notification =
-                app.getBean("roomNotificationTaskExecutor", ThreadPoolTaskExecutor.class);
+                app.getBean(downstreamExecutor, ThreadPoolTaskExecutor.class);
             thumbnail.execute(() -> {
                 sleep(100);
                 try {

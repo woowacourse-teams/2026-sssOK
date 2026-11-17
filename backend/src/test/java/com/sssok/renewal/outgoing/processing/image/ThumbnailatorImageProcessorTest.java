@@ -42,7 +42,11 @@ class ThumbnailatorImageProcessorTest {
     private static final DerivativeSpec PREVIEW =
         new DerivativeSpec(1600, DerivativeFormat.WEBP, 0.85f);
 
-    private final ThumbnailatorImageProcessor processor = new ThumbnailatorImageProcessor(new ImageDerivativeOperations());
+    private final ThumbnailatorImageProcessor processor = createProcessor();
+
+    protected ThumbnailatorImageProcessor createProcessor() {
+        return new ThumbnailatorImageProcessor(new ImageDerivativeOperations());
+    }
 
     // ImageIO 로 만든 이미지에는 EXIF 가 없다. 실제 업로드의 상당수가 이렇다.
     @Test
