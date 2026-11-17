@@ -8,16 +8,30 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
-@RequiredArgsConstructor
 public class ThumbnailatorImageProcessor {
     private final ImageDerivativeOperations operations;
+    private final Optional<ImageDerivativeEngine> libvips;
+
+    public ThumbnailatorImageProcessor(ImageDerivativeOperations operations) {
+        this(operations, Optional.empty());
+    }
+
+    @Autowired
+    public ThumbnailatorImageProcessor(ImageDerivativeOperations operations,
+                                       Optional<ImageDerivativeEngine> libvips) {
+        this.operations = operations;
+        this.libvips = libvips;
+    }
 
     public Optional<DerivedImages> derive(byte[] source, DerivativeSpec thumbnail,
                                           DerivativeSpec preview) {
+        if (libvips.isPresent() && libvips.get().supports(source, thumbnail, preview)) {
+            return Optional.of(libvips.get().derive(source, thumbnail, preview));
+        }
         ExifOrientation orientation = operations.readOrientation(source);
         int requiredWidth = preview == null ? thumbnail.maxWidth()
             : Math.max(thumbnail.maxWidth(), preview.maxWidth());

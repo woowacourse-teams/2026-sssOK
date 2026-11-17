@@ -33,6 +33,7 @@ public class TaskExecutorDrainer implements SmartLifecycle {
     static final List<String> DRAIN_ORDER = List.of(
         "uploadHeadTaskExecutor",
         "imageThumbnailTaskExecutor",
+        "imageDerivativeUploadTaskExecutor",
         "videoThumbnailTaskExecutor",
         "imageAnalysisTaskExecutor",
         "downloadCompressionTaskExecutor",
