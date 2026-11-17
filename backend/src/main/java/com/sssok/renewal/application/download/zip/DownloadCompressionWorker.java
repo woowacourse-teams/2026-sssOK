@@ -20,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
+import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.extern.slf4j.Slf4j;
@@ -107,6 +108,8 @@ public class DownloadCompressionWorker {
             DownloadFileNames.deduplicate(targets.stream().map(StoredFile::getOriginalFileName).toList());
 
         ZipOutputStream zipOut = new ZipOutputStream(out);
+        // 사진·영상은 이미 압축된 형식이라 기본 수준으로 더 줄어드는 양이 거의 없다. 가장 빠른 수준으로 CPU 를 아낀다.
+        zipOut.setLevel(Deflater.BEST_SPEED);
         long processedBytes = 0;
         int lastReportedProgress = -1;
         try (SourcePrefetcher<StoredFile> sources = SourcePrefetcher.start(targets,
