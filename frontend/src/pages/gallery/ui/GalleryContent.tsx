@@ -387,9 +387,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         searchField={
           <SearchRequestField
             appliedText={search.appliedText}
-            folders={room.folders}
             uploaders={search.uploaders}
-            myNickname={room.myNickname ?? nickname}
             onOpen={search.openSearch}
             onSearchKeyword={(query) => {
               selectFolder(null);
@@ -399,11 +397,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             onSearchUploader={(uploader) => {
               selectFolder(null);
               search.searchByUploader(uploader);
-              clearSelection();
-            }}
-            onOpenFolder={(folderId) => {
-              search.closeSearch();
-              selectFolder(folderId);
               clearSelection();
             }}
             onClear={() => {

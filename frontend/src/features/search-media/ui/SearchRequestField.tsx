@@ -1,14 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import {
-  HiArrowLeft,
-  HiArrowUpTray,
-  HiChevronRight,
-  HiMagnifyingGlass,
-  HiUsers,
-  HiXMark,
-} from "react-icons/hi2";
+import { HiArrowUpTray, HiChevronRight, HiMagnifyingGlass, HiXMark } from "react-icons/hi2";
 
-import { withSubjectParticle } from "@/shared/lib";
+import { withDirectionParticle, withSubjectParticle } from "@/shared/lib";
 
 import { parseRequest } from "../model/parseRequest";
 import { MAX_SEARCH_QUERY_LENGTH, normalizeSearchQuery } from "../model/searchQuery";
@@ -20,34 +13,14 @@ import {
   IconAction,
   Input,
   Item,
-  ModeHead,
-  Note,
   Panel,
-  PanelTitle,
   Wrap,
 } from "./SearchRequestField.styles";
 
-type Mode = "keyword" | "uploader";
-
-const MODES: Record<Mode, { label: string; icon: ReactNode; placeholder: string; guide: string }> =
-  {
-    keyword: {
-      label: "사진 내용으로 찾기",
-      icon: <HiMagnifyingGlass />,
-      placeholder: "예: 바다에서 찍은 사진",
-      guide: "찾고 싶은 사진 내용을 입력해 주세요",
-    },
-    uploader: {
-      label: "올린 사람으로 찾기",
-      icon: <HiArrowUpTray />,
-      placeholder: "예: 소이",
-      guide: "올린 사람의 이름을 입력해 주세요",
-    },
-  };
-
-const PLACEHOLDER = "어떤 사진을 찾거나 정리할까요?";
+const PLACEHOLDER = "사진 내용이나 이름으로 검색해 보세요";
 const SELF_WORDS = ["나", "내"];
-const ORGANIZE_GUIDE = "방 제목 옆 ✨ 버튼으로 사람별로 정리할 수 있어요.";
+/** 이름 일부만 쳤을 때 먼저 보여 줄 사람 수. 사람이 많은 방에서도 패널이 길어지지 않게 한다. */
+const MAX_UPLOADER_SUGGESTIONS = 3;
 
 export interface Uploader {
   id: number;
@@ -62,45 +35,50 @@ interface Action {
   label: string;
   description?: string;
   run: () => void;
-  /** 찾는 방법을 고르는 줄처럼 누른 뒤에도 패널을 열어 두는 줄. */
-  keepOpen?: boolean;
-  disabled?: boolean;
 }
 
 interface SearchRequestFieldProps {
   /** 결과를 보는 동안 입력창에 남겨 둘 글. 결과가 없으면 null 이다. */
   appliedText: string | null;
-  folders: { id: number; name: string }[];
   uploaders: Uploader[];
-  myNickname: string;
   onOpen?: () => void;
   onSearchKeyword: (query: string) => void;
   onSearchUploader: (uploader: Uploader) => void;
-  onOpenFolder: (folderId: number) => void;
   onClear: () => void;
 }
 
-// 갤러리 입력창
+/** 입력한 글에 맞는 올린 사람. 글 속 이름을 먼저, 이름 일부가 맞는 사람을 그다음에 둔다. */
+const matchUploaders = (text: string, uploaders: Uploader[]): Uploader[] => {
+  const named = parseRequest(text, [...uploaders.map((uploader) => uploader.name), "나"])?.name;
+  const lower = text.toLowerCase();
+
+  const isMatch = (uploader: Uploader): boolean =>
+    (uploader.isMe && (SELF_WORDS.includes(text) || named === "나")) ||
+    uploader.name === named ||
+    uploader.name.toLowerCase().includes(lower);
+
+  return uploaders
+    .filter(isMatch)
+    .sort((a, b) => Number(b.name === named) - Number(a.name === named))
+    .slice(0, MAX_UPLOADER_SUGGESTIONS);
+};
+
+// 갤러리 검색창
 export const SearchRequestField = ({
   appliedText,
-  folders,
   uploaders,
-  myNickname,
   onOpen,
   onSearchKeyword,
   onSearchUploader,
-  onOpenFolder,
   onClear,
 }: SearchRequestFieldProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [mode, setMode] = useState<Mode | null>(null);
   const [draft, setDraft] = useState("");
   const wrapRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const close = (): void => {
     setIsOpen(false);
-    setMode(null);
     setDraft("");
   };
 
@@ -109,7 +87,6 @@ export const SearchRequestField = ({
     const closeOutside = (event: PointerEvent): void => {
       if (wrapRef.current?.contains(event.target as Node)) return;
       setIsOpen(false);
-      setMode(null);
       setDraft("");
     };
     document.addEventListener("pointerdown", closeOutside);
@@ -130,102 +107,30 @@ export const SearchRequestField = ({
       inputRef.current?.blur();
     };
 
-  const resolve = (name: string): string => (name === "나" ? myNickname : name);
-  const uploadedBy = (uploader: Uploader): string =>
-    `${uploader.isMe ? "내가" : withSubjectParticle(uploader.name)} 올린 사진 찾기`;
-
-  const uploaderAction = (uploader: Uploader, description: string): Action => ({
-    key: `uploader-${uploader.id}`,
-    icon: <HiArrowUpTray />,
-    label: uploadedBy(uploader),
-    description,
-    run: () => onSearchUploader(uploader),
-  });
-  const keywordAction = (query: string, description?: string): Action => ({
-    key: "keyword",
-    icon: <HiMagnifyingGlass />,
-    label: `‘${query}’ 사진 찾기`,
-    description,
-    run: () => onSearchKeyword(query),
-  });
-
-  const content = ((): { title?: string; note?: string; actions: Action[] } => {
-    const text = normalizeSearchQuery(draft);
-
-    if (mode === "keyword") {
-      return text ? { actions: [keywordAction(text)] } : { note: MODES.keyword.guide, actions: [] };
-    }
-
-    if (mode === "uploader") {
-      if (!text) return { note: MODES.uploader.guide, actions: [] };
-      const isSelf = SELF_WORDS.includes(text);
-      const matches = uploaders.filter((uploader) =>
-        isSelf ? uploader.isMe : uploader.name.toLowerCase().includes(text.toLowerCase()),
-      );
-      return matches.length
-        ? { actions: matches.map((uploader) => uploaderAction(uploader, `${uploader.count}장`)) }
-        : { note: `‘${text}’ 이름으로 올린 사진이 없어요`, actions: [] };
-    }
-
-    const request = parseRequest(text, [
-      ...folders.map((folder) => folder.name),
-      ...uploaders.map((uploader) => uploader.name),
-      "나",
-    ]);
-
-    if (!request) {
-      return {
-        title: "원하는 걸 눌러 주세요",
-        actions: (Object.keys(MODES) as Mode[]).map((key) => ({
-          key: `mode-${key}`,
-          icon: MODES[key].icon,
-          label: MODES[key].label,
-          run: () => {
-            setMode(key);
-            inputRef.current?.focus();
-          },
-          keepOpen: true,
+  const text = normalizeSearchQuery(draft);
+  // 글을 입력했을 때만 제안 줄을 보여 준다. 비어 있으면 패널을 그리지 않는다.
+  const actions: Action[] = text
+    ? [
+        ...matchUploaders(text, uploaders).map((uploader) => ({
+          key: `uploader-${uploader.id}`,
+          icon: <HiArrowUpTray />,
+          label: `${uploader.isMe ? "내가" : withSubjectParticle(uploader.name)} 올린 사진 보기`,
+          description: `${uploader.count}장을 올렸어요`,
+          run: () => onSearchUploader(uploader),
         })),
-      };
-    }
-
-    switch (request.type) {
-      case "organize":
-        // 정리는 검색창이 아니라 방 제목 옆 ✨ 버튼에서 시작한다.
-        return { note: ORGANIZE_GUIDE, actions: [] };
-      case "unsupported":
-        return { note: "이 요청은 아직 못 해요.", actions: [] };
-      case "person": {
-        const name = resolve(request.name);
-        const folder = folders.find((candidate) => candidate.name === name);
-        return folder
-          ? {
-              actions: [
-                {
-                  key: "folder",
-                  icon: <HiUsers />,
-                  label: `${name} 폴더 보기`,
-                  description: "사람별 폴더로 이동",
-                  run: () => onOpenFolder(folder.id),
-                },
-              ],
-            }
-          : // 폴더가 아직 없는 사람 이름은 사진 내용 검색으로 넘기지 않고 나누기를 먼저 권한다.
-            { note: `사람별로 나눈 뒤에 찾을 수 있어요. ${ORGANIZE_GUIDE}`, actions: [] };
-      }
-      case "uploader": {
-        const name = resolve(request.name);
-        const uploader = uploaders.find((candidate) => candidate.name === name);
-        return uploader
-          ? { actions: [uploaderAction(uploader, "올린 사람으로 찾기")] }
-          : { note: `‘${name}’ 이름으로 올린 사진이 없어요`, actions: [] };
-      }
-      case "keyword":
-        return { actions: [keywordAction(request.query, "사진 내용으로 찾기")] };
-    }
-  })();
+        {
+          key: "keyword",
+          icon: <HiMagnifyingGlass />,
+          // 조사는 따옴표 밖에 붙인다: ‘민수’로, ‘바다 사진’으로
+          label: `‘${text}’${withDirectionParticle(text).slice(text.length)} 검색하기`,
+          description: "사진 내용으로 찾아요",
+          run: () => onSearchKeyword(text),
+        },
+      ]
+    : [];
 
   const isActive = isOpen || appliedText !== null;
+  const isPanelOpen = isOpen && actions.length > 0;
 
   return (
     <Wrap ref={wrapRef}>
@@ -234,24 +139,21 @@ export const SearchRequestField = ({
         $active={isActive}
         onSubmit={(event) => {
           event.preventDefault();
-          // 입력한 글에 맞는 줄이 바로 있을 때만 첫 줄을 실행한다.
-          // 안내 문구 아래 줄은 다른 길을 권하는 것이라 Enter 로 실행하지 않는다.
-          const [first] = content.actions;
-          if (normalizeSearchQuery(draft) && !content.note && first && !first.disabled)
-            runAndClose(first.run)();
+          const [first] = actions;
+          if (first) runAndClose(first.run)();
         }}
       >
         <BarIcon $active={isActive} aria-hidden="true">
-          {mode === "uploader" ? <HiArrowUpTray /> : <HiMagnifyingGlass />}
+          <HiMagnifyingGlass />
         </BarIcon>
         <Input
           ref={inputRef}
           type="search"
           enterKeyHint="search"
-          aria-label="사진 찾기·정리 요청"
-          aria-expanded={isOpen}
+          aria-label="사진 검색"
+          aria-expanded={isPanelOpen}
           aria-controls="search-request-panel"
-          placeholder={mode ? MODES[mode].placeholder : PLACEHOLDER}
+          placeholder={PLACEHOLDER}
           value={isOpen ? draft : (appliedText ?? "")}
           maxLength={MAX_SEARCH_QUERY_LENGTH}
           onFocus={open}
@@ -267,7 +169,7 @@ export const SearchRequestField = ({
         {isActive && (
           <IconAction
             type="button"
-            aria-label="요청 닫기·검색어 지우기"
+            aria-label="검색 닫기·검색어 지우기"
             onClick={() => {
               close();
               if (appliedText !== null) onClear();
@@ -278,33 +180,10 @@ export const SearchRequestField = ({
         )}
       </Bar>
 
-      {isOpen && (
-        <Panel id="search-request-panel" aria-label="요청 패널" role="region">
-          {mode && (
-            <ModeHead>
-              <IconAction
-                type="button"
-                aria-label="찾는 방법 다시 고르기"
-                onClick={() => {
-                  setMode(null);
-                  setDraft("");
-                  inputRef.current?.focus();
-                }}
-              >
-                <HiArrowLeft />
-              </IconAction>
-              <p>{MODES[mode].label}</p>
-            </ModeHead>
-          )}
-          {content.title && <PanelTitle>{content.title}</PanelTitle>}
-          {content.note && <Note>{content.note}</Note>}
-          {content.actions.map((action) => (
-            <Item
-              key={action.key}
-              type="button"
-              disabled={action.disabled}
-              onClick={action.keepOpen ? action.run : runAndClose(action.run)}
-            >
+      {isPanelOpen && (
+        <Panel id="search-request-panel" aria-label="검색 제안" role="region">
+          {actions.map((action) => (
+            <Item key={action.key} type="button" onClick={runAndClose(action.run)}>
               <Glyph aria-hidden="true">{action.icon}</Glyph>
               <span>
                 <strong>{action.label}</strong>

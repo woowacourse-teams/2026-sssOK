@@ -10,24 +10,20 @@ const renderField = (
 ): {
   onSearchKeyword: ReturnType<typeof jest.fn>;
   onSearchUploader: ReturnType<typeof jest.fn>;
-  onOpenFolder: ReturnType<typeof jest.fn>;
   onClear: ReturnType<typeof jest.fn>;
 } => {
   const handlers = {
     onSearchKeyword: jest.fn(),
     onSearchUploader: jest.fn(),
-    onOpenFolder: jest.fn(),
     onClear: jest.fn(),
   };
   render(
     <SearchRequestField
       appliedText={null}
-      folders={[{ id: 7, name: "하루" }]}
       uploaders={[
         { id: 2, name: "소이", count: 21, isMe: false },
         { id: 1, name: "해니", count: 9, isMe: true },
       ]}
-      myNickname="해니"
       {...handlers}
       {...props}
     />,
@@ -35,97 +31,103 @@ const renderField = (
   return handlers;
 };
 
-const input = (): HTMLElement => screen.getByRole("searchbox", { name: "사진 찾기·정리 요청" });
+const input = (): HTMLElement => screen.getByRole("searchbox", { name: "사진 검색" });
+const panel = (): HTMLElement | null => screen.queryByRole("region", { name: "검색 제안" });
+const suggestions = (): string[] =>
+  screen
+    .getAllByRole("button")
+    .map((button) => button.querySelector("strong")?.textContent)
+    .filter((label): label is string => Boolean(label));
 
 describe("SearchRequestField", () => {
-  it("입력창을 누르면 찾는 방법을 고르는 패널을 열고, 자동 정리 항목은 보이지 않는다", async () => {
+  it("사진 내용과 이름으로 찾을 수 있다고 안내한다", () => {
+    renderField();
+
+    expect(input()).toHaveAttribute("placeholder", "사진 내용이나 이름으로 검색해 보세요");
+  });
+
+  it("입력창을 눌러도 글을 입력하기 전에는 패널을 열지 않는다", async () => {
     const user = userEvent.setup();
     renderField();
 
     await user.click(input());
 
-    expect(screen.getByText("원하는 걸 눌러 주세요")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /자동으로 정리하기/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "사진 내용으로 찾기" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "올린 사람으로 찾기" })).toBeInTheDocument();
+    expect(panel()).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "검색 닫기·검색어 지우기" })).toBeInTheDocument();
   });
 
-  it("사진 내용으로 찾기를 고르면 예시 안내를 보여 주고, 입력한 글로 찾는다", async () => {
+  it("올린 사람 이름을 입력하면 그 사람이 올린 사진을 먼저, 내용 검색을 다음에 제안한다", async () => {
     const user = userEvent.setup();
-    const { onSearchKeyword } = renderField();
+    renderField();
 
-    await user.click(input());
-    await user.click(screen.getByRole("button", { name: "사진 내용으로 찾기" }));
-    expect(input()).toHaveAttribute("placeholder", "예: 바다에서 찍은 사진");
+    await user.type(input(), "소이");
 
-    await user.type(input(), "  바다에서   찍은 사진{Enter}");
-
-    expect(onSearchKeyword).toHaveBeenCalledWith("바다에서 찍은 사진");
-    expect(screen.queryByRole("region", { name: "요청 패널" })).not.toBeInTheDocument();
+    expect(suggestions()).toEqual(["소이가 올린 사진 보기", "‘소이’로 검색하기"]);
+    expect(screen.getByText("21장을 올렸어요")).toBeInTheDocument();
   });
 
-  it("올린 사람으로 찾기는 이름이 맞는 사람과 장수를 보여 준다", async () => {
+  it("이름 일부만 입력해도 맞는 사람을 제안한다", async () => {
     const user = userEvent.setup();
     const { onSearchUploader } = renderField();
 
-    await user.click(input());
-    await user.click(screen.getByRole("button", { name: "올린 사람으로 찾기" }));
     await user.type(input(), "소");
-    await user.click(screen.getByRole("button", { name: /소이가 올린 사진 찾기/ }));
+    await user.click(screen.getByRole("button", { name: /소이가 올린 사진/ }));
 
     expect(onSearchUploader).toHaveBeenCalledWith(expect.objectContaining({ id: 2, name: "소이" }));
+    expect(panel()).not.toBeInTheDocument();
   });
 
-  it("올린 사람이 없으면 안내 문구를 보여 준다", async () => {
+  it("'나' 를 입력하면 내가 올린 사진을 제안한다", async () => {
     const user = userEvent.setup();
     renderField();
 
-    await user.click(input());
-    await user.click(screen.getByRole("button", { name: "올린 사람으로 찾기" }));
-    await user.type(input(), "수진");
+    await user.type(input(), "나");
 
-    expect(screen.getByText("‘수진’ 이름으로 올린 사진이 없어요")).toBeInTheDocument();
+    expect(suggestions()[0]).toBe("내가 올린 사진 보기");
   });
 
-  it("폴더가 있는 사람 이름을 입력하면 그 폴더로 보낸다", async () => {
-    const user = userEvent.setup();
-    const { onOpenFolder } = renderField();
-
-    await user.click(input());
-    await user.type(input(), "사진 중에 하루 나온 거");
-    await user.click(screen.getByRole("button", { name: /하루 폴더 보기/ }));
-
-    expect(onOpenFolder).toHaveBeenCalledWith(7);
-  });
-
-  it("폴더가 없는 사람 이름이면 나눈 뒤에 찾을 수 있다고 안내한다", async () => {
+  it("이름과 맞지 않는 글은 내용 검색 한 줄만 보여 주고, Enter 로 찾는다", async () => {
     const user = userEvent.setup();
     const { onSearchKeyword } = renderField();
 
-    await user.click(input());
-    await user.type(input(), "소이 나온 사진{Enter}");
+    await user.type(input(), "  바다에서   찍은 사진");
+    expect(suggestions()).toEqual(["‘바다에서 찍은 사진’으로 검색하기"]);
+    expect(screen.getByText("사진 내용으로 찾아요")).toBeInTheDocument();
 
-    expect(screen.getByText(/사람별로 나눈 뒤에 찾을 수 있어요\./)).toBeInTheDocument();
+    await user.keyboard("{Enter}");
+
+    expect(onSearchKeyword).toHaveBeenCalledWith("바다에서 찍은 사진");
+    expect(panel()).not.toBeInTheDocument();
+  });
+
+  it("Enter 는 첫 줄을 실행한다", async () => {
+    const user = userEvent.setup();
+    const { onSearchUploader, onSearchKeyword } = renderField();
+
+    await user.type(input(), "소이{Enter}");
+
+    expect(onSearchUploader).toHaveBeenCalledWith(expect.objectContaining({ id: 2 }));
     expect(onSearchKeyword).not.toHaveBeenCalled();
   });
 
-  it("아직 못 하는 요청은 안내만 한다", async () => {
+  it("정리나 아직 못 하는 요청처럼 보이는 글도 안내 없이 내용 검색으로 제안한다", async () => {
     const user = userEvent.setup();
     renderField();
 
-    await user.click(input());
-    await user.type(input(), "잘 나온 사진 골라줘");
+    await user.type(input(), "사람별로 나눠 줘");
 
-    expect(screen.getByText("이 요청은 아직 못 해요.")).toBeInTheDocument();
+    expect(suggestions()).toEqual(["‘사람별로 나눠 줘’로 검색하기"]);
+    expect(screen.queryByText(/✨/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/아직 못 해요/)).not.toBeInTheDocument();
   });
 
-  it("결과를 보는 동안 입력창에 검색어를 남기고, X 로 지운다", async () => {
+  it("결과를 보는 동안 입력창에 적용한 글을 남기고, X 로 지운다", async () => {
     const user = userEvent.setup();
-    const { onClear } = renderField({ appliedText: "소이" });
+    const { onClear } = renderField({ appliedText: "소이가 올린 사진" });
 
-    expect(input()).toHaveValue("소이");
+    expect(input()).toHaveValue("소이가 올린 사진");
 
-    await user.click(screen.getByRole("button", { name: "요청 닫기·검색어 지우기" }));
+    await user.click(screen.getByRole("button", { name: "검색 닫기·검색어 지우기" }));
 
     expect(onClear).toHaveBeenCalledTimes(1);
   });
@@ -134,20 +136,9 @@ describe("SearchRequestField", () => {
     const user = userEvent.setup();
     renderField();
 
-    await user.click(input());
+    await user.type(input(), "소이");
     await user.keyboard("{Escape}");
 
-    expect(screen.queryByRole("region", { name: "요청 패널" })).not.toBeInTheDocument();
-  });
-  it("정리를 바라는 문장에는 헤더의 ✨ 버튼을 안내하고 정리 항목을 보이지 않는다", async () => {
-    const user = userEvent.setup();
-    renderField();
-
-    await user.type(input(), "사람별로 나눠 줘{Enter}");
-
-    expect(
-      screen.getByText("방 제목 옆 ✨ 버튼으로 사람별로 정리할 수 있어요."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /자동으로 정리하기/ })).not.toBeInTheDocument();
+    expect(panel()).not.toBeInTheDocument();
   });
 });
