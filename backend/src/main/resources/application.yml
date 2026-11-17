@@ -226,6 +226,8 @@ download:
   compression:
     workers: ${DOWNLOAD_COMPRESSION_WORKERS:8}
     queue-capacity: ${DOWNLOAD_COMPRESSION_QUEUE_CAPACITY:100}
+    # 압축 한 건이 미리 겹쳐 열어 둘 다음 원본 수. 0 이면 미리 열지 않는다(#666)
+    prefetch-depth: ${DOWNLOAD_COMPRESSION_PREFETCH_DEPTH:3}
 
 springdoc:
   swagger-ui:
