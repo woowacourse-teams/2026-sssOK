@@ -1,7 +1,6 @@
 package com.sssok.benchmark;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.core.LauncherDiscoveryRequestBuilder;
 import org.junit.platform.launcher.core.LauncherFactory;
@@ -17,10 +16,6 @@ public class NativeImageTestRunner {
             DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.image.ImageProcessorConfigurationTest"),
             DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractorTest")
         );
-        if (Arrays.asList(args).contains("--include-cli")) {
-            request.selectors(DiscoverySelectors.selectClass(
-                "com.sssok.renewal.outgoing.processing.image.LibvipsCliImageProcessorTest"));
-        }
         LauncherFactory.create().execute(request.build(), listener);
         var summary = listener.getSummary();
         summary.printTo(new PrintWriter(System.out, true));
