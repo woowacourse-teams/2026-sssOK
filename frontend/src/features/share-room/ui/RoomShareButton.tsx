@@ -75,6 +75,8 @@ export const RoomShareButton = ({
     if (isCopying) return;
 
     closeCopyToast.current?.();
+    // 시트를 닫았을 때 메뉴가 남지 않게 누르자마자 닫는다.
+    closeMenu();
     setIsCopying(true);
     try {
       const channel = await shareRoomInviteLink(roomCode);
@@ -85,7 +87,6 @@ export const RoomShareButton = ({
         // 공유 시트가 결과를 보여 주므로 토스트를 띄우지 않는다.
         track("Invite Share Sheet Opened", { channel });
       }
-      closeMenu();
     } catch {
       track("Invite Link Copied", { is_success: false });
       closeCopyToast.current = showToast({
