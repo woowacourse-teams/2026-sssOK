@@ -9,10 +9,13 @@ from pathlib import Path
 
 import numpy as np
 
-from .person_grouping import build_face_groups, match_bodies
+from .person_grouping import FACE_CONTRADICTION_FLOOR, FACE_CONTRADICTION_MIN_SHARPNESS, build_face_groups, match_bodies
 from .photo_duplicates import independent_photos
+from .small_face_recovery import recover_small_faces
+from .late_face_recovery import propose_late_faces, filter_conflicting_bodies
+from .exposure_recovery import recover_exposure_faces, filter_uncertain_detector_bodies
 
-PIPELINE_VERSION = '1.1.0-subject-evidence'
+PIPELINE_VERSION = '1.1.6-exposure-candidate'
 POLICY = {
     'face_detector': 'YuNet', 'face_features': 'SFace', 'body_detector': 'SSDLite320 MobileNetV3',
     'body_features': 'OSNet-x1.0 MSMT17, full body, no flip', 'face_detection_score': .75,
@@ -22,8 +25,30 @@ POLICY = {
     'body_attachment': {'top2_mean': .60, 'margin': .06, 'min_score': .8,
                         'min_area_ratio': .03, 'min_relative_area': .35,
                         'min_assignment_photos': 2, 'min_competitor_photos': 1,
+                        'known_face_overlap_guard': '80% face coverage outside accepted anchor blocks body',
+                        'face_contradiction': {'max_seed_similarity_below': FACE_CONTRADICTION_FLOOR,
+                                               'quality': 'single contained face passing seed quality except sharpness',
+                                               'min_sharpness_if_seed_failed': FACE_CONTRADICTION_MIN_SHARPNESS,
+                                               'min_independent_seed_photos': 2},
                         'references': 'frozen face-anchored bodies from different images'},
     'new_body_references': False, 'group_ids': 'run scoped',
+    'exposure_recovery': {'methods': ['stretch', 'clahe', 'gamma'],
+                          'mean_similarity': .65, 'margin': .15,
+                          'min_independent_seed_photos': 2,
+                          'new_references': False, 'reject_conflicting_variants': True},
+    'additional_body_veto': {'min_detector_score': .85, 'max_seed_similarity_below': .30,
+                             'min_sharpness': 40, 'single_contained_face': True},
+    'late_face_recovery': {'min_sharpness': 30, 'min_mean_similarity': .50,
+                           'min_margin': .15, 'independent_seed_photos': 2,
+                           'new_references': False, 'after_body_matching': True},
+    'low_contrast_recovery': {'min_contrast': 12, 'min_sharpness': 30,
+                              'min_size': 64, 'min_detector_score': .90,
+                              'min_mean_similarity': .60, 'min_margin': .15,
+                              'independent_seed_photos': 2},
+    'native_face_recovery': {'max_source_edge': 3200, 'min_native_face_size': 32,
+                             'scope': 'unassigned photo, no detected face, exactly one body and one native face',
+                             'min_independent_seed_photos': 2, 'mean': .45, 'best': .55, 'margin': .12,
+                             'new_references': False},
     'seed_recovery': {'min_face_size': 32, 'min_body_area': .04,
                       'min_relative_body_area': .50, 'min_body_score': .80},
     'duplicate_evidence': 'whole-frame mean <=1.5 and worst 8x8 tile <=6, 96x96 RGB',
@@ -112,7 +137,31 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
         body_features = extract_body_features(bodies, photos, output, assets, job.update)
         np.savez_compressed(output / 'body-features.npz', features=body_features)
         job.update('matching_bodies')
-        additions, pending_bodies = match_bodies(bodies, body_features, faces, groups, photo_identities=photo_identities)
+        additions, pending_bodies = match_bodies(
+            bodies, body_features, faces, groups, photo_identities=photo_identities,
+            face_features=face_features)
+        face_features, recovery = recover_small_faces(
+            photos, output, assets, faces, face_features, bodies, groups, additions, photo_identities)
+        if recovery['accepted']:
+            np.savez_compressed(output / 'face-features.npz', features=face_features)
+        # Keep body reference pools frozen. Recovered faces may reject a
+        # conflicting body proposal but never become anchors or new references.
+        late_faces = propose_late_faces(faces, face_features, groups, photo_identities)
+        additions, rejected_bodies = filter_conflicting_bodies(additions, bodies, faces, late_faces)
+        pending_bodies.extend(rejected_bodies)
+        for proposal in late_faces:
+            groups[proposal['group']]['face_ids'].append(proposal['face_id'])
+        additions, uncertain_bodies = filter_uncertain_detector_bodies(
+            additions, bodies, faces, face_features, groups, photo_identities)
+        pending_bodies.extend(uncertain_bodies)
+        face_features, additions, exposure = recover_exposure_faces(
+            photos, output, assets, faces, face_features, bodies, groups, additions, photo_identities)
+        pending_bodies.extend(exposure['rejected_bodies'])
+        if exposure['accepted']:
+            np.savez_compressed(output / 'face-features.npz', features=face_features)
+        recovered_ids = {fid for g in groups for fid in g['face_ids']}
+        face_evidence['pending_faces'] = [p for p in face_evidence['pending_faces']
+                                          if p['face_id'] not in recovered_ids]
         result_groups = []
         for gi, group in enumerate(groups):
             face_ids = sorted({faces[fid]['image_id'] for fid in group['face_ids']})
@@ -123,7 +172,8 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
                            for pid in face_ids]
             memberships += [{'image_id': a['image_id'], 'method': 'body', 'body_id': a['body_id'],
                              'score': a['score'], 'margin': a['margin'],
-                             'reference_body_ids': a['reference_body_ids']} for a in attached]
+                             'reference_body_ids': a['reference_body_ids']} for a in attached
+                            if a['image_id'] not in face_ids]
             result_groups.append({**group, 'face_image_ids': face_ids, 'body_additions': attached,
                                   'image_ids': image_ids, 'memberships': memberships})
         assigned = {pid for g in result_groups for pid in g['image_ids']}
@@ -142,7 +192,9 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
                             'Group IDs are scoped to this run; no cross-run identity matching.',
                             'Unassigned photos and pending person detections are different.']}
         evidence = {'faces': faces, 'bodies': bodies, 'face_grouping': face_evidence, 'photo_identities': photo_identities,
-                    'pending_bodies': pending_bodies, 'body_additions': additions}
+                    'pending_bodies': pending_bodies, 'body_additions': additions,
+                    'native_face_recovery': recovery, 'late_face_recovery': late_faces,
+                    'exposure_recovery': exposure}
         job.update('exporting')
         write_json(output / 'evidence.json', evidence)
         manifest['photos'] = photos
