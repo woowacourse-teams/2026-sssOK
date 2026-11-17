@@ -12,7 +12,12 @@ import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import lombok.RequiredArgsConstructor;
@@ -51,11 +56,13 @@ public class DownloadCompressionWorker {
 
         // 스토리지 연결 실패도 FAILED 로 넘기려고 try 안에서 연다. 밖에 두면 잡이 RUNNING 에 남는다.
         AbortableOutputStream out = null;
+        CompressionStageClock clock = new CompressionStageClock();
         try {
             List<StoredFile> targets = loadTargets(jobId);
-            out = fileStorage.openUploadStream(zipStorageKey, ZIP_CONTENT_TYPE);
-            writeZip(out, targets, jobId);
+            out = clock.openUpload(() -> fileStorage.openUploadStream(zipStorageKey, ZIP_CONTENT_TYPE));
+            writeZip(out, targets, jobId, clock);
             downloadJobTransitions.markReady(jobId, zipStorageKey);
+            recordStages(jobId, clock);
             return true;
         } catch (Exception e) {
             if (out != null) {
@@ -74,7 +81,8 @@ public class DownloadCompressionWorker {
     }
 
     // 실패 때 close() 가 미완성 업로드를 완료하려 하므로 try-with-resources 를 쓰지 않는다. 실패는 호출부가 abort() 한다.
-    private void writeZip(AbortableOutputStream out, List<StoredFile> targets, Long jobId) throws IOException {
+    private void writeZip(AbortableOutputStream out, List<StoredFile> targets, Long jobId,
+                          CompressionStageClock clock) throws IOException {
         long totalBytes = targets.stream().mapToLong(file -> file.getFileSize().bytes()).sum();
         List<String> entryNames =
             DownloadFileNames.deduplicate(targets.stream().map(StoredFile::getOriginalFileName).toList());
@@ -84,20 +92,36 @@ public class DownloadCompressionWorker {
         int lastReportedProgress = -1;
         for (int i = 0; i < targets.size(); i++) {
             StoredFile file = targets.get(i);
-            zipOut.putNextEntry(new ZipEntry(entryNames.get(i)));
-            try (InputStream in = fileStorage.openDownloadStream(file.getStorageKey())) {
-                in.transferTo(zipOut);
+            String entryName = entryNames.get(i);
+            try (InputStream in = clock.openSource(() -> fileStorage.openDownloadStream(file.getStorageKey()))) {
+                clock.write(() -> {
+                    zipOut.putNextEntry(new ZipEntry(entryName));
+                    in.transferTo(zipOut);
+                    zipOut.closeEntry();
+                });
             }
-            zipOut.closeEntry();
+            clock.fileDone();
 
             processedBytes += file.getFileSize().bytes();
             int progress = totalBytes == 0 ? 100 : (int) (processedBytes * 100 / totalBytes);
             if (progress != lastReportedProgress) {
-                downloadJobTransitions.updateProgress(jobId, progress);
+                int reported = progress;
+                clock.progress(() -> downloadJobTransitions.updateProgress(jobId, reported));
                 lastReportedProgress = progress;
             }
         }
-        zipOut.close();
+        clock.write(zipOut::close);
+    }
+
+    // 장당 시간이 어디에 쓰였는지 잡마다 남긴다. 성공한 잡만 남겨 장당 평균이 실패로 흐려지지 않게 한다.
+    private void recordStages(Long jobId, CompressionStageClock clock) {
+        Map<CompressionStageClock.Stage, Duration> elapsed = clock.elapsed();
+        Map<String, Duration> byStage = new LinkedHashMap<>();
+        elapsed.forEach((stage, duration) -> byStage.put(stage.name().toLowerCase(Locale.ROOT), duration));
+        metrics.compressionStages(byStage, clock.files());
+        log.info("zip 압축 구간 jobId={}, files={}, {}", jobId, clock.files(), byStage.entrySet().stream()
+            .map(entry -> entry.getKey() + "=" + entry.getValue().toMillis() + "ms")
+            .collect(Collectors.joining(", ")));
     }
 
     private String failureReasonOf(Exception e) {

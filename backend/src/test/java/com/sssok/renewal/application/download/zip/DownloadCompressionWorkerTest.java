@@ -123,6 +123,25 @@ class DownloadCompressionWorkerTest {
     }
 
     @Test
+    void 성공하면_압축_구간별_시간과_압축한_파일_수를_남긴다() {
+        double filesBefore = registry.find("sssok.download.compression.files").counter() == null
+            ? 0 : registry.get("sssok.download.compression.files").counter().count();
+        Long mediaA = media("a.jpg", "hello-a".getBytes(StandardCharsets.UTF_8));
+        Long mediaB = media("b.jpg", "hello-b".getBytes(StandardCharsets.UTF_8));
+        DownloadJob job = job(List.of(mediaA, mediaB), 14L);
+        given(fileStorage.openUploadStream(any(), eq("application/zip")))
+            .willReturn(capturing(new ByteArrayOutputStream()));
+
+        downloadCompressionWorker.compress(job.getId());
+
+        assertThat(registry.get("sssok.download.compression.stage").timers())
+            .extracting(timer -> timer.getId().getTag("stage"))
+            .contains("open", "read", "deflate", "upload", "progress");
+        assertThat(registry.get("sssok.download.compression.files").counter().count() - filesBefore)
+            .isEqualTo(2);
+    }
+
+    @Test
     void MP4_MOV_WEBM_원본_바이트를_zip에_그대로_보존한다() throws IOException {
         byte[] mp4 = {(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x18,
             (byte) 0x66, (byte) 0x74, (byte) 0x79, (byte) 0x70};
