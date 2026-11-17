@@ -97,6 +97,31 @@ public class UploadTracing {
         }
     }
 
+    public void nativeExecution(boolean diagnostics) {
+        Span current = tracer.currentSpan();
+        if (current != null) {
+            current.tag("image.engine", "libvips")
+                .tag("image.execution", diagnostics ? "materialized_diagnostic" : "fused");
+        }
+    }
+
+    /** Native monotonic duration anchored to wall time; diagnostics are never mixed with normal timers. */
+    public void nativeStage(Stage stage, String variant, long startMicros, long durationMicros, boolean success) {
+        var builder = tracer.spanBuilder().name("upload.processing." + lower(stage))
+            .tag("image.engine", "libvips").tag("image.execution", "materialized_diagnostic")
+            .tag("image.variant", variant).tag("processing.outcome", success ? "success" : "error")
+            .startTimestamp(startMicros, java.util.concurrent.TimeUnit.MICROSECONDS);
+        Span current = tracer.currentSpan();
+        if (current != null) builder.setParent(current.context());
+        else builder.setNoParent();
+        Span span = builder.start();
+        if (!success) span.error(new IllegalStateException("Native image stage failed"));
+        span.end(startMicros + durationMicros, java.util.concurrent.TimeUnit.MICROSECONDS);
+        Timer.builder("sssok.upload.native.diagnostic.stage")
+            .tags("stage", lower(stage), "variant", variant, "outcome", success ? "success" : "error")
+            .register(registry).record(durationMicros, java.util.concurrent.TimeUnit.MICROSECONDS);
+    }
+
     private Span.Builder parent(ThumbnailTraceContext context) {
         if (context == null || context.traceparent() == null) {
             // 복구 작업처럼 문맥이 없으면 스케줄러의 트레이스에 연결하지 않는다.

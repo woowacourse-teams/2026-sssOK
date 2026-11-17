@@ -30,7 +30,8 @@ W3C `traceparent`·`tracestate`를 저장한다. HTTP 응답이 끝난 뒤 다�
 
 ## 계측 코드와 비즈니스 코드의 분리
 
-비즈니스 서비스·HEAD 워커·이미지 처리기는 `UploadTracing`을 주입하거나 호출하지 않는다.
+비즈니스 서비스·HEAD 워커·Java 이미지 처리기는 `UploadTracing`을 주입하거나 호출하지 않는다.
+JNI는 프록시로 C 내부를 감쌀 수 없으므로 `LibvipsImageProcessor`가 네이티브 측정값을 전달한다.
 `UploadTracingAspect`가 모니터링 계층에서 대상 메서드를 감싸고, `UploadTracing`이 span과 메트릭을 기록한다.
 기존 등록 메트릭 클래스도 트레이싱 의존성 없이 유지한다.
 
@@ -105,3 +106,44 @@ OOM, 기존 모니터링 장애)을 유지한다.
 
 파일명·저장 경로·서명 URL·사용자 ID·촬영 정보·baggage를 span/메트릭에 추가하지 않는다.
 예외는 분류 이름만 기록하며 원본 예외 메시지는 트레이스로 내보내지 않는다.
+
+
+## JNI 상세 구간 진단 (#557)
+
+`MEDIA_IMAGE_NATIVE_STAGE_DIAGNOSTICS=true`로 재시작하면 JPEG→WebP 네이티브 경로의 실제 연산을
+구간별로 확정하고 `derive`의 자식 span으로 기록한다. 기본값은 `false`이며 기존 fused 경로를 유지한다.
+Java fallback에는 영향을 주지 않는다. 트레이스 수집·샘플링 설정은 별도로 필요하다.
+
+| span / variant | 이미지당 개수 | 실제 포함 범위 |
+| --- | ---: | --- |
+| orientation / source | 1 | JPEG 헤더, 방향 판독, 입력 치수 검증 (방향 변환은 아래 shared에 포함) |
+| decode / source | 1 | JPEG shrink-on-load 디코딩과 메모리 확정 |
+| resize / shared | 1 | 색공간 처리, 방향 보정, 공통 출력 크기 조정과 메모리 확정 |
+| resize / thumbnail, preview | 각각 1 | 출력별 linear 리사이즈와 메모리 확정 |
+| encode / thumbnail, preview | 각각 1 | WebP 압축 및 결과 버퍼 생성 (Java byte[] 복사는 제외) |
+
+프리뷰가 없으면 프리뷰의 resize/encode span도 없다. 원본→JNI 입력 복사·출력→Java 복사와
+자원 정리는 `derive` 전체에 포함되지만 세부 span 합에는 포함되지 않는다. JNI monotonic clock으로
+기간을 측정하고 native 진입의 wall clock에 맞춘다. 실패한 단계도 종료 시각과 error를 기록한다.
+
+**이 모드는 관측 비용이 없는 타이머 추가가 아니다.** libvips는 lazy 파이프라인이므로 원래 경로는
+디코딩·리사이즈를 엮어 실행하고, 출력 리사이즈도 WebP 저장 시 실행한다. 이를 순수 단계로 나누려면
+중간 픽셀을 메모리에 확정해야 한다. 진단 모드의 시간과 메모리를 배포된 fused 경로의 값으로 대체하지 않는다.
+JPEG 선축소 계수는 libvips 8.18의 정책과 맞추며, 라이브러리 버전 변경 시 출력 동일성을 다시 검증한다.
+
+모든 네이티브 `derive`에 `image.engine=libvips`, `image.execution=fused|materialized_diagnostic`를 기록한다.
+진단 하위 span에도 engine/execution/variant를 붙이며 메트릭은
+`sssok_upload_native_diagnostic_stage_seconds{stage,variant,outcome}`로 분리한다.
+일반 `sssok_upload_processing_stage_seconds`의 decode/resize/encode 통계에 섞지 않는다.
+
+전후 비교는 같은 입력·자원으로 다음 두 묶음을 수집한다.
+
+1. 일반 모드 20/100/200장: 이전 Java 기준선과 READY·큐·다운로드·derive·PUT·완료/알림 및 CPU·메모리 비교.
+2. 진단 모드 20/100/200장: 상세 decode/resize/encode, 출력 정합성, 일반 모드 대비 계측 비용 비교.
+
+Java resize는 출력당 2개, JNI 진단 resize는 shared 포함 3개이므로 span당 평균만 직접 비교하지 않는다.
+이미지별 resize 합계와 variant별 통계를 함께 표시한다. 부모/자식 또는 병렬 PUT을 합산하지 않는다.
+현재 dev 배포(b45978f7)에는 이 진단 모드가 없으므로 후속 코드 머지·배포 후 수행해야 한다.
+
+근거: [libvips copy_memory](https://www.libvips.org/API/current/method.Image.copy_memory.html),
+[libvips 8.18.2 thumbnail 구현](https://github.com/libvips/libvips/blob/v8.18.2/libvips/resample/thumbnail.c).
