@@ -78,6 +78,18 @@ class PhotoAnalysisTests(unittest.TestCase):
         self.assertEqual(job['progress']['counts'], result['counts'])
         self.assertFalse(list(self.output.glob('*.tmp')))
 
+    def test_recovered_face_does_not_duplicate_existing_body_membership(self):
+        addition = {'group': 0, 'image_id': 'image_000000', 'body_id': 0,
+                    'score': .8, 'margin': .2, 'reference_body_ids': [1, 2]}
+        with patch('pipeline.photo_analysis.match_bodies', return_value=([addition], [])), \
+                patch('pipeline.photo_analysis.filter_conflicting_bodies', return_value=([addition], [])), \
+                patch('pipeline.photo_analysis.filter_uncertain_detector_bodies', return_value=([addition], [])):
+            result = self.analyze()
+        members = result['groups'][0]['memberships']
+        self.assertEqual(2, len(members))
+        self.assertEqual({'image_000000', 'image_000001'}, {m['image_id'] for m in members})
+        self.assertTrue(all(m['method'] == 'face' for m in members))
+
     def test_existing_result_is_not_overwritten(self):
         self.analyze()
         before = (self.output / 'result.json').read_bytes()

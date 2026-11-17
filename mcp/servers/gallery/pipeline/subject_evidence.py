@@ -16,6 +16,19 @@ class SubjectPolicy:
 DEFAULT_SUBJECT_POLICY = SubjectPolicy()
 
 
+def contains_face(body, face):
+    """Face coverage alone is evidence of overlap, not a reliable body anchor."""
+    if body['image_id'] != face['image_id']:
+        return False
+    fx, fy, fw, fh = face['bbox']
+    x1, y1, x2, y2 = body['bbox']
+    if min(fw, fh, x2 - x1, y2 - y1) <= 0:
+        return False
+    ix = max(0, min(fx + fw, x2) - max(fx, x1))
+    iy = max(0, min(fy + fh, y2) - max(fy, y1))
+    return ix * iy / (fw * fh) >= .8
+
+
 def face_body_evidence(faces, bodies):
     """Only unambiguous, one-face-to-one-body geometry can establish a subject."""
     links, ambiguous = {}, set()
@@ -32,9 +45,7 @@ def face_body_evidence(faces, bodies):
             bw, bh = x2 - x1, y2 - y1
             if min(bw, bh) <= 0:
                 continue
-            ix = max(0, min(fx + fw, x2) - max(fx, x1))
-            iy = max(0, min(fy + fh, y2) - max(fy, y1))
-            if ix * iy / (fw * fh) < .8 or not 0 <= (cy - y1) / bh <= .5:
+            if not contains_face(body, face) or not 0 <= (cy - y1) / bh <= .5:
                 continue
             cost = abs(cx - (x1 + x2) / 2) / bw + abs((cy - y1) / bh - .15)
             options.append((cost, body['body_id']))

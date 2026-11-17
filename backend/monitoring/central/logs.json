@@ -39,6 +39,22 @@
       "keepTime": true,
       "includeVars": false,
       "targetBlank": false
+    },
+    {
+      "title": "업로드 단계",
+      "type": "link",
+      "url": "/d/sssok-upload-stages?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "전체 트레이스",
+      "type": "link",
+      "url": "/d/sssok-trace-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
     }
   ],
   "panels": [

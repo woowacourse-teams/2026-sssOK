@@ -5,7 +5,10 @@ from collections import Counter
 
 import numpy as np
 
-from .subject_evidence import DEFAULT_SUBJECT_POLICY, face_body_evidence, seed_eligibility
+from .subject_evidence import DEFAULT_SUBJECT_POLICY, contains_face, face_body_evidence, seed_eligibility
+
+FACE_CONTRADICTION_FLOOR = .40
+FACE_CONTRADICTION_MIN_SHARPNESS = 40.
 
 
 def build_face_groups(faces, features, *, bodies=(), photo_identities=None,
@@ -133,6 +136,13 @@ def anchor_bodies(bodies, faces, groups):
         if fid in face_group:
             by_id[bid]['anchor_faces'].append(fid)
     for body in bodies:
+        # A cropped portrait can contain a known face below the head region.
+        # Failed anchor geometry must not turn that face into an unknown person.
+        contained = {f['face_id'] for f in faces
+                     if f['face_id'] in face_group and contains_face(body, f)}
+        if contained - set(body['anchor_faces']):
+            body.update(anchor_group=None, anchor_status='ambiguous_face_body_overlap')
+            continue
         matches = {face_group[fid] for fid in body['anchor_faces']}
         if len(matches) == 1 and len(body['anchor_faces']) == 1:
             body.update(anchor_group=next(iter(matches)), anchor_status='face_locked')
@@ -140,8 +150,35 @@ def anchor_bodies(bodies, faces, groups):
             body['anchor_status'] = 'ambiguous_face_body_overlap'
 
 
-def match_bodies(bodies, features, faces, groups, *, photo_identities=None):
-    independent_ids = photo_identities or {b['image_id']: b['image_id'] for b in bodies}
+def body_face_contradiction(body, faces, face_features, group, independent_ids):
+    """Clear face evidence may veto clothing, but never establishes a new identity."""
+    if face_features is None:
+        return None
+    contained = [f for f in faces if contains_face(body, f)]
+    # Do not interpret an occluded/profile face or a multi-person crop as a veto.
+    if len(contained) != 1:
+        return None
+    face = contained[0]
+    quality = face['quality']
+    failures = set(quality['seed_failures'])
+    # A moderately blurred face can reject clothing; it cannot seed or join a group.
+    if quality.get('sharpness', 0.) >= FACE_CONTRADICTION_MIN_SHARPNESS:
+        failures.discard('sharpness')
+    if failures:
+        return None
+    references = [fid for fid in group.get('seed_face_ids', [])
+                  if independent_ids[faces[fid]['image_id']] != independent_ids[face['image_id']]]
+    if len({independent_ids[faces[fid]['image_id']] for fid in references}) < 2:
+        return None
+    best = max(float(face_features[face['face_id']] @ face_features[fid]) for fid in references)
+    # A possible match to even one seed is enough to keep the body proposal.
+    if best < FACE_CONTRADICTION_FLOOR:
+        return {'face_id': face['face_id'], 'best_face_similarity': best}
+    return None
+
+
+def match_bodies(bodies, features, faces, groups, *, photo_identities=None, face_features=None):
+    independent_ids = photo_identities or {item['image_id']: item['image_id'] for item in [*bodies, *faces]}
     anchor_bodies(bodies, faces, groups)
     similarity = features @ features.T
     references = [[b['body_id'] for b in bodies if b['anchor_group'] == gi
@@ -187,6 +224,12 @@ def match_bodies(bodies, features, faces, groups, *, photo_identities=None):
         if best['score'] < .60 or margin < .06:
             pending.append({'body_id': bid, 'reason': 'insufficient_similarity_or_margin',
                             'best_group': best['group'], 'score': best['score'], 'margin': margin})
+            continue
+        contradiction = body_face_contradiction(
+            body, faces, face_features, groups[best['group']], independent_ids)
+        if contradiction is not None:
+            pending.append({'body_id': bid, 'reason': 'conflicting_face_features',
+                            'best_group': best['group'], **contradiction})
             continue
         proposals.append({'body_id': bid, 'image_id': pid, **best, 'margin': margin})
     occupied = [set(x) for x in face_photos]

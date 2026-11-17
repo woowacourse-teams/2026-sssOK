@@ -1,9 +1,25 @@
 # syntax=docker/dockerfile:1
 
-# JAR은 CI가 러너에서 네이티브로 미리 빌드해서 build/libs/ 에 놓는다.
-# (컴파일을 이미지 안에서 하면 arm64 크로스 빌드 시 QEMU 에뮬레이션으로
-#  수 배 느려지기 때문에, 컴파일과 이미지 조립을 분리했다.)
-FROM eclipse-temurin:21-jre-alpine
+# JNI 연결 계층만 빌드한다. 컴파일러와 헤더는 최종 이미지에 포함하지 않는다.
+FROM eclipse-temurin:21-jdk-alpine AS native-build
+RUN apk add --no-cache build-base pkgconf vips-dev
+COPY src/main/native/sssok_vips.c /native/sssok_vips.c
+RUN cc -O2 -fPIC -shared -Wall -Wextra -Werror \
+    -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" \
+    /native/sssok_vips.c -o /native/libsssok_vips.so $(pkg-config --cflags --libs vips) -lm
+
+FROM eclipse-temurin:21-jre-alpine AS image-runtime
+RUN apk add --no-cache ffmpeg vips
+COPY --from=native-build /native/libsssok_vips.so /opt/sssok/native/libsssok_vips.so
+ENV JAVA_TOOL_OPTIONS="-Djava.library.path=/opt/sssok/native"
+
+# 운영과 같은 런타임에서 실제 JNI/Java/영상 계약을 검증한다.
+FROM image-runtime AS native-test
+COPY build/native-image-test /tests
+RUN java -Xmx512m -cp '/tests/classes:/tests/lib/*' com.sssok.benchmark.NativeImageTestRunner
+
+# JAR은 기존 CI 러너에서 빌드한다.
+FROM image-runtime
 
 # 배포 파이프라인이 넘기는 버전 식별자. 값이 없으면 unknown 으로 둬서 로컬 빌드도 그대로 된다.
 ARG RELEASE_VERSION=unknown
@@ -22,11 +38,6 @@ LABEL org.opencontainers.image.version="${BACKEND_VERSION}" \
 
 WORKDIR /app
 
-# 영상 썸네일용. 자바 라이브러리 대신 실행 파일을 쓰는 이유는, 자바 의존성이 늘지 않고
-# 깨진 영상에 디코더가 죽어도 별도 프로세스라 서버가 멀쩡하기 때문이다.
-# ffprobe 도 같은 패키지에 들어 있다 — 원본 크기와 재생시간을 읽는 데 쓴다.
-RUN apk add --no-cache ffmpeg
-
 RUN addgroup -S app && adduser -S app -G app
 
 COPY --chown=app:app build/libs/*.jar app.jar
@@ -35,6 +46,7 @@ USER app
 EXPOSE 8080
 
 # 컨테이너 메모리 한도에 맞춰 힙을 잡는다.
-ENV JAVA_OPTS="-XX:MaxRAMPercentage=75.0 -Duser.timezone=Asia/Seoul"
+ENV MEDIA_IMAGE_PROCESSOR=libvips
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=50.0 -Duser.timezone=Asia/Seoul"
 
 ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]

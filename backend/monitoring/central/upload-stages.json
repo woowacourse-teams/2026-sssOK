@@ -1,0 +1,518 @@
+{
+  "id": null,
+  "uid": "sssok-upload-stages",
+  "title": "sssOK Upload Stages",
+  "tags": [
+    "sssOK",
+    "tracing"
+  ],
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "refresh": "",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "환경",
+        "type": "custom",
+        "query": "dev,prod",
+        "current": {
+          "text": "dev",
+          "value": "dev"
+        },
+        "options": [
+          {
+            "text": "dev",
+            "value": "dev",
+            "selected": true
+          },
+          {
+            "text": "prod",
+            "value": "prod",
+            "selected": false
+          }
+        ],
+        "multi": false,
+        "includeAll": false,
+        "hide": 0,
+        "skipUrlSync": false
+      }
+    ]
+  },
+  "annotations": {
+    "list": []
+  },
+  "links": [
+    {
+      "title": "백엔드",
+      "type": "link",
+      "url": "/d/sssok-central-backend?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "전체 트레이스",
+      "type": "link",
+      "url": "/d/sssok-trace-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "미디어 전송",
+      "type": "link",
+      "url": "/d/sssok-central-media?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "로그",
+      "type": "link",
+      "url": "/d/sssok-central-logs?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "호스트",
+      "type": "link",
+      "url": "/d/sssok-host-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "업로드 병목을 읽는 순서",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**등록 → 큐 대기 → 후처리 단계** 순서로 비교하세요. 단위는 초이며 평균값입니다. 부모·자식 단계는 시간이 겹치므로 합산하지 않습니다.\n\n후처리 단계·큐 대기는 **#843 배포 후 실제 작업 발생 시** 나타납니다. 데이터 없음은 미배포·무호출·수집 중단일 수 있으며 0초가 아닙니다. 브라우저 → R2 원본 전송은 포함하지 않습니다. 상단 **전체 트레이스**에서 개별 요청을 확인하세요."
+      }
+    },
+    {
+      "id": 2,
+      "title": "완료 등록 · 단계별 평균",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "중첩 단계 포함. total과 registration 및 하위 단계를 합산하지 않습니다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage) (rate(sssok_upload_registration_duration_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (stage) (rate(sssok_upload_registration_duration_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{stage}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "완료 등록 · 단계별 호출량",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage,outcome) (rate(sssok_upload_registration_duration_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval]))",
+          "legendFormat": "{{stage}} · {{outcome}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "후처리 · 단계별 평균",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "히스토그램이 없어 p95가 아닌 평균입니다. derive/complete와 하위 단계는 중첩됩니다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage) (rate(sssok_upload_processing_stage_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (stage) (rate(sssok_upload_processing_stage_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{stage}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "후처리 · 단계별 예외 발생량",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "예외 발생 기준입니다. 정상 반환한 업무 실패는 처리 결과 패널로 확인하세요.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage) (rate(sssok_upload_processing_stage_seconds_count{job=\"sssok-backend\",environment=\"$environment\",outcome=\"error\"}[$__rate_interval]))",
+          "legendFormat": "{{stage}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "큐 대기 · 첫 시도 / 재시도 평균",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "available_at부터 선점까지. 재시도 백오프 및 선점 이후 실행기 대기는 제외합니다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind,attempt) (rate(sssok_upload_queue_wait_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (kind,attempt) (rate(sssok_upload_queue_wait_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{kind}} · {{attempt}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "후처리 · 단계별 호출량",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 20,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (stage,outcome) (rate(sssok_upload_processing_stage_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval]))",
+          "legendFormat": "{{stage}} · {{outcome}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "후처리 · 결과별 평균 실행 시간",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind,result) (rate(sssok_media_processing_seconds_sum{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) / (sum by (kind,result) (rate(sssok_media_processing_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{kind}} · {{result}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "후처리 · 결과별 처리량",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind,result) (rate(sssok_media_processing_seconds_count{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval]))",
+          "legendFormat": "{{kind}} · {{result}}",
+          "range": true
+        }
+      ]
+    }
+  ]
+}
