@@ -102,7 +102,6 @@
 | [배포 가이드](./docs/deployment/DEPLOYMENT.md) | dev·prod 환경, 배포·롤백, DB 마이그레이션 |
 | [백엔드 기술 문서](./docs/backend/) | 성능 측정, 업로드·썸네일 대기열, OAuth 등 |
 | [MCP 서버](./mcp/README.md) | 사진 분류 흐름, 서버 계약, 배포 |
-| [트러블슈팅](./docs/troubleshooting/TROUBLESHOOTING.md) | 증상·원인·해결 순서로 정리한 기록 |
 
 <details>
 <summary><b>브랜치와 배포 흐름</b></summary>
