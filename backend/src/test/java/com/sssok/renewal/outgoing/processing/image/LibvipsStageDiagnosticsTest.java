@@ -68,6 +68,12 @@ class LibvipsStageDiagnosticsTest extends LibvipsImageProcessorTest {
             }
             parent.end();
             assertThat(recording.spans).hasSize(8);
+            assertThat(recording.spans.subList(0, 7)).extracting(span -> span.getName() + ":"
+                + span.getAttributes().get(AttributeKey.stringKey("image.variant")))
+                .containsExactly("upload.processing.orientation:source", "upload.processing.decode:source",
+                    "upload.processing.resize:shared", "upload.processing.resize:thumbnail",
+                    "upload.processing.encode:thumbnail", "upload.processing.resize:preview",
+                    "upload.processing.encode:preview");
             var root = recording.spans.getLast();
             long previousEnd = root.getStartEpochNanos();
             for (var span : recording.spans.subList(0, 7)) {
@@ -93,6 +99,27 @@ class LibvipsStageDiagnosticsTest extends LibvipsImageProcessorTest {
             assertThat(recording.spans).hasSize(1);
             assertThat(recording.spans.getFirst().getStatus().getStatusCode()).isEqualTo(StatusCode.ERROR);
             assertThat(recording.tracer.currentSpan()).isNull();
+        }
+    }
+
+    @Test
+    void 프리뷰가_없으면_실행한_다섯_구간만_기록한다() throws Exception {
+        try (var recording = new RecordingUploadTracing()) {
+            new LibvipsImageProcessor(recording.tracing, true).derive(jpeg(800, 600),
+                new DerivativeSpec(400, DerivativeFormat.WEBP, .8f), null);
+            assertThat(recording.spans).hasSize(5).allSatisfy(span ->
+                assertThat(span.getAttributes().get(AttributeKey.stringKey("image.variant")))
+                    .isNotEqualTo("preview"));
+        }
+    }
+
+    @Test
+    void 일반_모드는_상세_진단_span과_메트릭을_만들지_않는다() throws Exception {
+        try (var recording = new RecordingUploadTracing()) {
+            new LibvipsImageProcessor(recording.tracing, false).derive(jpeg(800, 600),
+                new DerivativeSpec(400, DerivativeFormat.WEBP, .8f), null);
+            assertThat(recording.spans).isEmpty();
+            assertThat(recording.registry.getMeters()).isEmpty();
         }
     }
 

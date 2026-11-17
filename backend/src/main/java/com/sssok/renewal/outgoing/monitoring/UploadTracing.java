@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -110,16 +111,21 @@ public class UploadTracing {
         var builder = tracer.spanBuilder().name("upload.processing." + lower(stage))
             .tag("image.engine", "libvips").tag("image.execution", "materialized_diagnostic")
             .tag("image.variant", variant).tag("processing.outcome", success ? "success" : "error")
-            .startTimestamp(startMicros, java.util.concurrent.TimeUnit.MICROSECONDS);
+            .startTimestamp(startMicros, TimeUnit.MICROSECONDS);
         Span current = tracer.currentSpan();
-        if (current != null) builder.setParent(current.context());
-        else builder.setNoParent();
+        if (current != null) {
+            builder.setParent(current.context());
+        } else {
+            builder.setNoParent();
+        }
         Span span = builder.start();
-        if (!success) span.error(new IllegalStateException("Native image stage failed"));
-        span.end(startMicros + durationMicros, java.util.concurrent.TimeUnit.MICROSECONDS);
+        if (!success) {
+            span.error(new IllegalStateException("Native image stage failed"));
+        }
+        span.end(startMicros + durationMicros, TimeUnit.MICROSECONDS);
         Timer.builder("sssok.upload.native.diagnostic.stage")
             .tags("stage", lower(stage), "variant", variant, "outcome", success ? "success" : "error")
-            .register(registry).record(durationMicros, java.util.concurrent.TimeUnit.MICROSECONDS);
+            .register(registry).record(durationMicros, TimeUnit.MICROSECONDS);
     }
 
     private Span.Builder parent(ThumbnailTraceContext context) {

@@ -31,7 +31,7 @@ W3C `traceparent`·`tracestate`를 저장한다. HTTP 응답이 끝난 뒤 다�
 ## 계측 코드와 비즈니스 코드의 분리
 
 비즈니스 서비스·HEAD 워커·Java 이미지 처리기는 `UploadTracing`을 주입하거나 호출하지 않는다.
-JNI는 프록시로 C 내부를 감쌀 수 없으므로 `LibvipsImageProcessor`가 네이티브 측정값을 전달한다.
+JNI는 프록시로 C 내부를 감쌀 수 없으므로 `NativeImageDiagnostics`가 네이티브 측정값을 해석해 전달한다.
 `UploadTracingAspect`가 모니터링 계층에서 대상 메서드를 감싸고, `UploadTracing`이 span과 메트릭을 기록한다.
 기존 등록 메트릭 클래스도 트레이싱 의존성 없이 유지한다.
 
@@ -109,6 +109,11 @@ OOM, 기존 모니터링 장애)을 유지한다.
 
 
 ## JNI 상세 구간 진단 (#557)
+
+`LibvipsImageProcessor`는 입력 검증·네이티브 호출·결과 변환만 담당한다.
+`NativeImageDiagnostics`는 진단 배열의 생명주기와 단계/출력별 span 매핑을 담당하고,
+`UploadTracing`은 span과 메트릭을 기록한다. Java와 C의 단계 슬롯·필드 이름으로 전송 규약을 명시한다.
+C에서는 공통 픽셀 준비와 측정 결과 반환을 분리하고 각 함수가 할당한 이미지의 참조를 정리한다.
 
 `MEDIA_IMAGE_NATIVE_STAGE_DIAGNOSTICS=true`로 재시작하면 JPEG→WebP 네이티브 경로의 실제 연산을
 구간별로 확정하고 `derive`의 자식 span으로 기록한다. 기본값은 `false`이며 기존 fused 경로를 유지한다.
