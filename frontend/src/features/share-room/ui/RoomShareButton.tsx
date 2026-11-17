@@ -7,7 +7,7 @@ import { track } from "@/shared/lib";
 import { IconButton } from "@/shared/ui/icon-button";
 import { useToast } from "@/shared/ui/toast";
 import { issueLinkCode } from "../api/issueLinkCode";
-import { copyRoomInviteLink } from "../lib/copyRoomInviteLink";
+import { shareRoomInviteLink } from "../lib/shareRoomInviteLink";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 import { RoomQrModal } from "./RoomQrModal";
 
@@ -71,15 +71,20 @@ export const RoomShareButton = ({
     };
   }, [isOpen]);
 
-  const copyGalleryLink = async (): Promise<void> => {
+  const shareGalleryLink = async (): Promise<void> => {
     if (isCopying) return;
 
     closeCopyToast.current?.();
     setIsCopying(true);
     try {
-      await copyRoomInviteLink(roomCode);
-      track("Invite Link Copied", { is_success: true });
-      closeCopyToast.current = showToast({ message: "공유 링크를 복사했어요.", tone: "success" });
+      const channel = await shareRoomInviteLink(roomCode);
+      if (channel === "clipboard") {
+        track("Invite Link Copied", { is_success: true });
+        closeCopyToast.current = showToast({ message: "공유 링크를 복사했어요.", tone: "success" });
+      } else {
+        // 공유 시트가 결과를 보여 주므로 토스트를 띄우지 않는다.
+        track("Invite Share Sheet Opened", { channel });
+      }
       closeMenu();
     } catch {
       track("Invite Link Copied", { is_success: false });
@@ -179,7 +184,7 @@ export const RoomShareButton = ({
               role="menuitem"
               tabIndex={-1}
               aria-disabled={isCopying}
-              onClick={() => void copyGalleryLink()}
+              onClick={() => void shareGalleryLink()}
             >
               <HiLink aria-hidden="true" />
               <span>

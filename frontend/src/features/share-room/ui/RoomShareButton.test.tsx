@@ -52,6 +52,29 @@ describe("RoomShareButton 공유 이벤트", () => {
     expect(track).toHaveBeenCalledWith("Invite Link Copied", { is_success: false });
   });
 
+  it("공유 시트로 넘기면 복사 토스트 없이 공유 시트 열림을 남긴다", async () => {
+    const user = userEvent.setup();
+    const share = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => ({ matches: query === "(pointer: coarse)" }),
+    });
+    try {
+      await openMenu(user);
+
+      await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+
+      expect(share).toHaveBeenCalledWith({ url: `${window.location.origin}/join/${ROOM_CODE}` });
+      expect(track).toHaveBeenCalledWith("Invite Share Sheet Opened", { channel: "web" });
+      expect(screen.queryByText("공유 링크를 복사했어요.")).not.toBeInTheDocument();
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+      Object.defineProperty(window, "matchMedia", { value: undefined, configurable: true });
+    }
+  });
+
   it("현재 방 주소를 담은 QR 코드 모달을 연다", async () => {
     const user = userEvent.setup();
     await openMenu(user);
