@@ -12,6 +12,7 @@ public class NativeImageTestRunner {
         var listener = new SummaryGeneratingListener();
         var request = LauncherDiscoveryRequestBuilder.request().selectors(
             DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.image.LibvipsImageProcessorTest"),
+            DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.image.LibvipsStageDiagnosticsTest"),
             DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessorTest"),
             DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.image.ImageProcessorConfigurationTest"),
             DiscoverySelectors.selectClass("com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractorTest")

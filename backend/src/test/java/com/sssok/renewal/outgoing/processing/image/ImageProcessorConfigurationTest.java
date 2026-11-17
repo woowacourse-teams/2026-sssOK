@@ -7,6 +7,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class ImageProcessorConfigurationTest {
     private final ApplicationContextRunner context = new ApplicationContextRunner()
+        .withBean(com.sssok.renewal.outgoing.monitoring.UploadTracing.class,
+            () -> org.mockito.Mockito.mock(com.sssok.renewal.outgoing.monitoring.UploadTracing.class))
         .withUserConfiguration(ImageDerivativeOperations.class, LibvipsImageProcessor.class,
             ThumbnailatorImageProcessor.class);
 
