@@ -1,102 +1,141 @@
 <div align="center">
-  <img src="./.github/assets/sssOK-logo.png" width="160" alt="sssOK 로고">
+  <img src="./.github/assets/sssok-icon.png" width="120" alt="쏙 아이콘">
 
-  # sssOK
+  # 쏙 sssOK
 
-  **쏙** — 링크 하나로 여는 이미지·영상 공유 공간
+  ### 사진 보내달라는 말, 이제 그만!
+
+  링크 하나로 다 같이 모으고, 내 사진만 원본 그대로 쏙 받아 가요.
+
+  <a href="https://www.ssssok.com/"><img src="https://img.shields.io/badge/웹에서_바로_열기-FF6B35?style=for-the-badge&logo=googlechrome&logoColor=white" height="40" alt="웹에서 쏙 열기" /></a>
+  <a href="https://apps.apple.com/kr/app/%EC%8F%99-%ED%95%A8%EA%BB%98-%EB%AA%A8%EC%9C%BC%EB%8A%94-%EC%82%AC%EC%A7%84/id6828711923"><img src="https://img.shields.io/badge/App_Store-000000?style=for-the-badge&logo=apple&logoColor=white" height="40" alt="App Store에서 쏙 다운로드" /></a>
 </div>
 
-앱 설치, 번호 교환, 계정 생성 없이 링크 하나로 모여 사진과 영상을 나눠 갖고, 모임이 끝난 뒤에도 다시 꺼내 볼 수 있는 가벼운 공유 서비스를 지향합니다.
+## 서비스 소개
 
-- **설치 없이 즉시 입장** — 앱 설치, 회원가입 없이 링크만으로 접속
-- **기한 없는 공유 공간** — 모임·행사가 끝나도 방이 사라지지 않아, 방장이 지우기 전까지 사진을 다시 볼 수 있음
-- **간편한 사진/영상 공유** — 번호 교환 없이도 그 자리에서 바로 나눠 가짐
+<h3 align="left">모임이 끝나면 꼭 나오는 말, “사진 좀 보내 줘~”</h3>
 
-## 프로젝트 구조
+<p align="left"><b>쏙</b>은 링크 하나로 다 같이 찍은 사진을 <b>원본 그대로</b> 한곳에 모으는 사진 공유 서비스예요.</p>
 
-```
-.
-├── backend/    # 백엔드 서버
-├── frontend/   # 프론트엔드 앱
-└── docs/       # 협업 문서
-    ├── collaboration/   # 커밋 컨벤션, 이슈·브랜치·PR 규칙
-    ├── deployment/      # 배포 가이드
-    ├── troubleshooting/ # 트러블슈팅 기록
-    └── requirements/    # PRD, 기능 명세 등 요구사항 문서
-```
 
-## 개발 환경
+| 단톡방에서는 | 쏙에서는 |
+| :--- | :--- |
+| 용량 때문에 나눠서 보내고 | **링크 하나**에 다 같이 올려요 |
+| 받고 보니 화질은 깨져 있고 | **원본 그대로** 한 번에 저장해요 |
+| 여러 사진 중에 내가 나온 사진은 찾기 힘들고 | **내 사진만** 골라 받아요 |
+| 다른 앱으로 옮기려면 설치·가입부터 하고 | **앱·가입 없이** 링크만 누르면 들어와요 |
 
-### Frontend
+### 이렇게 써요
 
-```bash
-cd frontend
-pnpm install
-pnpm start
-```
+<table>
+  <tr>
+    <td width="50%"><b>① 링크 만들기</b><br>쏙에서 방 하나 만들고 단톡방에 링크만 올려요.</td>
+    <td width="50%"><b>② 다 같이 올리기</b><br>각자 찍은 사진이 한곳에 쏙! 따로 보내 달라고 안 해도 돼요.</td>
+  </tr>
+  <tr>
+    <td><img src="./.github/assets/service/step-make.png" alt="쏙에서 방 하나 만들기"></td>
+    <td><img src="./.github/assets/service/step-gather.png" alt="각자 찍은 사진이 한곳에 모인 갤러리"></td>
+  </tr>
+  <tr>
+    <td><b>③ 원본으로 받기</b><br>카톡처럼 깨지지 않게, 다 모이면 원본 그대로 한 번에 저장해요.</td>
+    <td><b>④ 내 사진만 받기</b><br>AI가 사람별로 사진을 나눠 줘서, 버튼 한 번으로 내가 나온 사진만 받아요.</td>
+  </tr>
+  <tr>
+    <td><img src="./.github/assets/service/step-original.png" alt="카톡으로 받은 사진과 쏙 원본 화질 비교"></td>
+    <td><img src="./.github/assets/service/step-mine.png" alt="사람별 폴더로 내 사진만 골라 받기"></td>
+  </tr>
+</table>
 
-`pnpm start` 는 기본 API 서버에 연결한다. 로컬 백엔드를 연결하려면 `API_BASE_URL`을 지정하고,
-서버 없이 화면을 확인하려면 `pnpm start:mock`을 사용한다. 실행 모드와 API 주소는
-[백엔드 API 연동](./docs/frontend/BACKEND_INTEGRATION.md)에서 확인한다.
+<p align="center"><b>다음 모임엔 “사진 보내 줘” 대신, 링크 하나만 보내 봐요!</b></p>
+
+## 기술 스택
+
+### Frontend & App (iOS · Android)
+
+<img src="./.github/assets/stack/frontend.png" width="830" alt="TypeScript, React 19, TanStack Query, React Router, Webpack, Jest, Playwright, Storybook, React Native, Expo">
 
 ### Backend
 
-백엔드는 Java 21과 Gradle을 사용한다. 로컬 실행에 필요한 프로필·환경 변수와 운영용 Compose 구성은
-[배포 가이드](./docs/deployment/DEPLOYMENT.md)를 기준으로 맞춘다. 민감한 값이 든 `.env`는 저장소에
-추가하지 않는다.
+<img src="./.github/assets/stack/backend.png" width="830" alt="Java 21, Spring Boot 3.5, Spring Data JPA, PostgreSQL, Flyway, JUnit 5, Testcontainers, k6">
 
-## 환경과 배포 흐름
+### AI · 사진 분류
+
+<img src="./.github/assets/stack/ai.png" width="830" alt="Python, MCP, PyTorch, OpenCV, OpenAI">
+
+### Infrastructure & CI/CD
+
+<img src="./.github/assets/stack/infra.png" width="830" alt="Amazon EC2, Amazon RDS, Amazon S3, CloudFront, Cloudflare R2, Docker, Nginx, GitHub Actions, GHCR, EAS Build">
+
+### Monitoring
+
+<img src="./.github/assets/stack/monitoring.png" width="830" alt="Prometheus, Loki, Grafana, Alertmanager, OpenTelemetry, Discord">
+
+## 아키텍처
+
+<a href="./.github/assets/sssok-architecture-diagram.png"><img src="./.github/assets/sssok-architecture-diagram.png" width="100%" alt="쏙 프로젝트 아키텍처"></a>
+
+| 배포 대상 | 흐름 |
+| :--- | :--- |
+| 웹 | `deploy` → CodePipeline → CodeBuild → S3 → CloudFront |
+| 백엔드 | `develop`·`deploy` → GitHub Actions → GHCR 이미지 → EC2 (Nginx Blue/Green 무중단 전환) |
+| 사진 분류 MCP | GitHub Actions 수동 실행 → GHCR 이미지 → MCP 전용 EC2 |
+| 모니터링 서버 | GitHub Actions 수동 실행 → 중앙 모니터링 EC2 |
+| 앱 | EAS Build → iOS: App Store · Android: APK·App Bundle 빌드 |
+
+## 프로젝트 구조
+
+| 폴더 | 내용 |
+| :--- | :--- |
+| [frontend](frontend/) | React 웹, 랜딩 페이지, CloudFront 함수 |
+| [frontend/mobile](frontend/mobile/) | Expo 기반 iOS·Android 앱 셸 (WebView · 로그인 · 푸시 · 사진 저장) |
+| [backend](backend/) | Spring Boot API 서버, 배포·모니터링 구성, k6 부하 시험 |
+| [mcp](mcp/) | 사람별·비슷한 사진 분류 MCP 서버 (Python) |
+| [docs](docs/) | 요구사항, 협업 규칙, 배포 가이드, 성능 개선 기록 |
+| [.github](.github/) | GitHub Actions 워크플로, 이슈·PR 템플릿 |
+
+## 개발 문서
+
+| 문서 | 내용 |
+| :--- | :--- |
+| [요구사항](./docs/requirements/) | PRD, 기능 명세, 화면 정의서 — [PRD.md](./docs/requirements/PRD.md)부터 |
+| [커밋 컨벤션](./docs/collaboration/COMMIT_CONVENTION.md) · [이슈](./docs/collaboration/ISSUE_GUIDE.md) · [브랜치](./docs/collaboration/BRANCH_STRATEGY.md) · [PR](./docs/collaboration/PR_GUIDE.md) | 협업 규칙 |
+| [배포 가이드](./docs/deployment/DEPLOYMENT.md) | dev·prod 환경, 배포·롤백, DB 마이그레이션 |
+| [백엔드 기술 문서](./docs/backend/) | 성능 측정, 업로드·썸네일 대기열, OAuth 등 |
+| [MCP 서버](./mcp/README.md) | 사진 분류 흐름, 서버 계약, 배포 |
+| [트러블슈팅](./docs/troubleshooting/TROUBLESHOOTING.md) | 증상·원인·해결 순서로 정리한 기록 |
+
+<details>
+<summary><b>브랜치와 배포 흐름</b></summary>
+<br>
 
 ```mermaid
 flowchart LR
     W[작업 브랜치] -->|PR · 리뷰 · CI| D[develop]
-    D -->|backend 변경 머지| DEV[dev EC2\n개발 DB]
+    D -->|backend 변경 머지| DEV[dev 서버]
     D -->|릴리즈 PR| M[main]
     M -->|운영 배포 PR| P[deploy]
-    P --> PROD[prod EC2\n운영 DB]
+    P --> PROD[운영 서버]
 ```
 
-- `develop`은 프론트엔드·백엔드가 함께 통합되는 개발 기준선이다.
-- 백엔드 변경이 `develop`에 머지되면 dev 서버로 자동 배포된다.
-- 운영 반영은 `develop → main → deploy`의 두 번의 PR 승격을 거친다.
-- 환경별 서버 설정과 롤백 절차는 [배포 가이드](./docs/deployment/DEPLOYMENT.md), 작업 단위 규칙은
-  [브랜치 전략](./docs/collaboration/BRANCH_STRATEGY.md)을 따른다.
+- 이슈 → `develop`에서 브랜치 → 커밋 → `develop` 대상 PR (리뷰 1명 + CI 통과 후 머지)
+- 운영 반영은 `develop → main → deploy` 두 번의 PR 승격을 거쳐요.
+- `hotfix`만 `main`에서 분기해 `main`으로 PR을 보내고, 같은 변경을 `develop`에도 반영해요.
 
-## 문서 안내
-
-새로 합류한 개발자는 아래 문서를 먼저 읽어주세요.
-
-| 문서 | 내용 |
-| --- | --- |
-| [커밋 컨벤션](./docs/collaboration/COMMIT_CONVENTION.md) | 커밋 메시지 타입 및 작성 규칙 |
-| [이슈 전략](./docs/collaboration/ISSUE_GUIDE.md) | 라벨, 템플릿, 이슈 작성 규칙 |
-| [브랜치 전략](./docs/collaboration/BRANCH_STRATEGY.md) | 브랜치 종류, 네이밍, 워크플로우 |
-| [PR 규칙](./docs/collaboration/PR_GUIDE.md) | PR 생성 조건, 리뷰, 머지 조건 |
-| [배포 가이드](./docs/deployment/DEPLOYMENT.md) | dev·prod 환경 구성, 배포·롤백, DB 마이그레이션 |
-| [트러블슈팅 기록](./docs/troubleshooting/TROUBLESHOOTING.md) | 증상·원인·해결 순서로 정리한 문제 해결 기록 |
-| [백엔드 API 연동](./docs/frontend/BACKEND_INTEGRATION.md) | 서버 주소, 실행 모드, 아직 목으로 메운 구멍 |
-| [요구사항 문서](./docs/requirements/) | PRD, 기능 명세, 화면 정의서 — [PRD.md](./docs/requirements/PRD.md)부터 시작 |
-
-## 개발 워크플로우 요약
-
-1. [이슈](./docs/collaboration/ISSUE_GUIDE.md) 생성 (담당자·라벨·영역 지정)
-2. `develop`에서 [브랜치 전략](./docs/collaboration/BRANCH_STRATEGY.md)에 따라 작업 브랜치 생성
-3. [커밋 컨벤션](./docs/collaboration/COMMIT_CONVENTION.md)에 맞게 작업 + 커밋
-4. [PR 규칙](./docs/collaboration/PR_GUIDE.md)에 따라 `develop` 대상 PR 생성 → 리뷰 → CI 통과 → 머지
-5. 운영 반영이 필요하면 `develop → main → deploy` 순서로 별도 릴리즈 PR을 생성
-
-`hotfix`만 예외적으로 `main`에서 분기해 `main`으로 PR을 보낸 뒤, 같은 변경을 `develop`에도 반영한다.
+</details>
 
 ## 팀원
 
-### Frontend
-
-| <img src="https://github.com/janghw0126.png" width="100"> | <img src="https://github.com/yundol777.png" width="100"> |
-| :---: | :---: |
-| [해니](https://github.com/janghw0126) | [윤돌](https://github.com/yundol777) |
-
-### Backend
-
-| <img src="https://github.com/Uechann.png" width="100"> | <img src="https://github.com/gahyeonnni.png" width="100"> |
-| :---: | :---: |
-| [마이찬](https://github.com/Uechann) | [현미밥](https://github.com/gahyeonnni) |
+<table>
+  <tr>
+    <td align="center"><img src="https://github.com/Uechann.png" width="120" alt="마이찬 GitHub 프로필" /></td>
+    <td align="center"><img src="https://github.com/yundol777.png" width="120" alt="윤돌 GitHub 프로필" /></td>
+    <td align="center"><img src="https://github.com/janghw0126.png" width="120" alt="해니 GitHub 프로필" /></td>
+    <td align="center"><img src="https://github.com/gahyeonnni.png" width="120" alt="현미밥 GitHub 프로필" /></td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://github.com/Uechann"><b>마이찬</b></a><br>Backend</td>
+    <td align="center"><a href="https://github.com/yundol777"><b>윤돌</b></a><br>Frontend</td>
+    <td align="center"><a href="https://github.com/janghw0126"><b>해니</b></a><br>Frontend</td>
+    <td align="center"><a href="https://github.com/gahyeonnni"><b>현미밥</b></a><br>Backend</td>
+  </tr>
+</table>
