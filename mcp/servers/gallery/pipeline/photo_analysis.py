@@ -9,15 +9,16 @@ from pathlib import Path
 
 import numpy as np
 
-from .person_grouping import FACE_CONTRADICTION_FLOOR, FACE_CONTRADICTION_MIN_SHARPNESS, build_face_groups, match_bodies
+from .person_grouping import FACE_CONTRADICTION_FLOOR, FACE_CONTRADICTION_MIN_SHARPNESS, build_face_groups, match_bodies, body_feature_ids
 from .photo_duplicates import independent_photos
 from .small_face_recovery import recover_small_faces
 from .late_face_recovery import propose_late_faces, filter_conflicting_bodies
 from .exposure_recovery import recover_exposure_faces, filter_uncertain_detector_bodies
 
-PIPELINE_VERSION = '1.1.6-exposure-candidate'
+PIPELINE_VERSION = '1.1.7-selective-body-features'
 POLICY = {
     'face_detector': 'YuNet', 'face_features': 'SFace', 'body_detector': 'SSDLite320 MobileNetV3',
+    'body_feature_selection': 'all anchor references and eligible unanchored candidates only',
     'body_features': 'OSNet-x1.0 MSMT17, full body, no flip', 'face_detection_score': .75,
     'seed_average_similarity': .45, 'seed_pair_floor': .25, 'seed_min_photos': 2,
     'initial_face_attachment': {'mean': .45, 'best': .55, 'margin': .08},
@@ -133,8 +134,13 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
         errors.extend(body_errors)
         groups, face_evidence = build_face_groups(
             faces, face_features, bodies=bodies, photo_identities=photo_identities)
-        job.update('extracting_body_features', bodies=len(bodies))
-        body_features = extract_body_features(bodies, photos, output, assets, job.update)
+        selected_body_ids = body_feature_ids(bodies, faces, groups)
+        job.update('extracting_body_features', bodies=len(bodies), processed=0, total=len(selected_body_ids))
+        # Zero rows are never consulted by matching; keep existing body-ID indexing.
+        body_features = np.zeros((len(bodies), 512), dtype=np.float32)
+        if selected_body_ids:
+            body_features[selected_body_ids] = extract_body_features(
+                [bodies[bid] for bid in selected_body_ids], photos, output, assets, job.update)
         np.savez_compressed(output / 'body-features.npz', features=body_features)
         job.update('matching_bodies')
         additions, pending_bodies = match_bodies(
@@ -191,7 +197,7 @@ def run(input_dir, output, assets_root, threads=4, progress=None):
                   'notes': ['No identity annotations or previous experiment outputs loaded.',
                             'Group IDs are scoped to this run; no cross-run identity matching.',
                             'Unassigned photos and pending person detections are different.']}
-        evidence = {'faces': faces, 'bodies': bodies, 'face_grouping': face_evidence, 'photo_identities': photo_identities,
+        evidence = {'computed_body_feature_ids': selected_body_ids, 'faces': faces, 'bodies': bodies, 'face_grouping': face_evidence, 'photo_identities': photo_identities,
                     'pending_bodies': pending_bodies, 'body_additions': additions,
                     'native_face_recovery': recovery, 'late_face_recovery': late_faces,
                     'exposure_recovery': exposure}
