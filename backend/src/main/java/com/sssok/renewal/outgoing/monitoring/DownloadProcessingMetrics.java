@@ -6,6 +6,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.stereotype.Component;
 
@@ -47,6 +48,15 @@ public class DownloadProcessingMetrics {
 
     public void rejected() {
         rejectedCounter().increment();
+    }
+
+    // 압축 한 건의 구간별 시간(#666). 장당 평균은 구간 합을 압축한 파일 수로 나눠 본다.
+    public void compressionStages(Map<String, Duration> elapsedByStage, int files) {
+        elapsedByStage.forEach((stage, elapsed) -> Timer.builder("sssok.download.compression.stage")
+            .tag("stage", stage)
+            .register(registry)
+            .record(elapsed));
+        Counter.builder("sssok.download.compression.files").register(registry).increment(files);
     }
 
     private Counter rejectedCounter() {
