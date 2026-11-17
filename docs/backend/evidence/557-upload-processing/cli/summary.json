@@ -1,0 +1,259 @@
+{
+  "conditions": {
+    "platform": "local Docker Linux ARM64 Alpine",
+    "cpus": 2,
+    "memory_mib": 1536,
+    "heap_mib": 512,
+    "vips": "8.18.2",
+    "warmup_batches": 1,
+    "measured_batches_per_process": 3,
+    "batch_size": 20,
+    "independent_processes_per_condition": 2,
+    "reversed_engine_order": true,
+    "r2_db_queue_excluded": true,
+    "cli_temp_file_io_and_process_start_included": true,
+    "memory_metric": "cgroup memory.peak for entire run including warmup, output samples, JVM, children and page cache"
+  },
+  "successes": 720,
+  "cli_jni_all_48_output_pairs_byte_identical": true,
+  "summary": [
+    {
+      "engine": "java",
+      "concurrency": 1,
+      "successes": 120,
+      "batch_mean_ms": 3226.655983333333,
+      "batch_min_ms": 3143.0928,
+      "batch_max_ms": 3349.668,
+      "container_peak_range_mib": [
+        207.8046875,
+        211.8515625
+      ]
+    },
+    {
+      "engine": "java",
+      "concurrency": 4,
+      "successes": 120,
+      "batch_mean_ms": 2022.9145333333333,
+      "batch_min_ms": 1753.7208,
+      "batch_max_ms": 2309.4459,
+      "container_peak_range_mib": [
+        493.53125,
+        501.36328125
+      ]
+    },
+    {
+      "engine": "jni",
+      "concurrency": 1,
+      "successes": 120,
+      "batch_mean_ms": 1876.5484166666665,
+      "batch_min_ms": 1820.5062,
+      "batch_max_ms": 1934.721,
+      "container_peak_range_mib": [
+        141.80859375,
+        143.078125
+      ]
+    },
+    {
+      "engine": "jni",
+      "concurrency": 4,
+      "successes": 120,
+      "batch_mean_ms": 1240.93335,
+      "batch_min_ms": 1077.1942,
+      "batch_max_ms": 1565.9413,
+      "container_peak_range_mib": [
+        227.45703125,
+        227.82421875
+      ]
+    },
+    {
+      "engine": "cli",
+      "concurrency": 1,
+      "successes": 120,
+      "batch_mean_ms": 2736.5055,
+      "batch_min_ms": 2634.9329,
+      "batch_max_ms": 2869.2379,
+      "container_peak_range_mib": [
+        176.60546875,
+        176.796875
+      ]
+    },
+    {
+      "engine": "cli",
+      "concurrency": 4,
+      "successes": 120,
+      "batch_mean_ms": 1599.5362,
+      "batch_min_ms": 1556.0274,
+      "batch_max_ms": 1689.0067,
+      "container_peak_range_mib": [
+        273.53515625,
+        274.828125
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "case": "run1-cli-c1",
+      "engine": "cli",
+      "concurrency": 1,
+      "successes": 60,
+      "batch_ms": [
+        2680.4058,
+        2696.8966,
+        2634.9329
+      ],
+      "container_peak_mib": 176.796875,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run1-cli-c4",
+      "engine": "cli",
+      "concurrency": 4,
+      "successes": 60,
+      "batch_ms": [
+        1689.0067,
+        1556.0274,
+        1574.6461
+      ],
+      "container_peak_mib": 273.53515625,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run1-java-c1",
+      "engine": "java",
+      "concurrency": 1,
+      "successes": 60,
+      "batch_ms": [
+        3143.0928,
+        3160.8073,
+        3164.3668
+      ],
+      "container_peak_mib": 211.8515625,
+      "mean_pair_bytes": 408126.1
+    },
+    {
+      "case": "run1-java-c4",
+      "engine": "java",
+      "concurrency": 4,
+      "successes": 60,
+      "batch_ms": [
+        2309.4459,
+        2121.9726,
+        1995.9214
+      ],
+      "container_peak_mib": 493.53125,
+      "mean_pair_bytes": 408126.1
+    },
+    {
+      "case": "run1-jni-c1",
+      "engine": "jni",
+      "concurrency": 1,
+      "successes": 60,
+      "batch_ms": [
+        1820.5062,
+        1838.7816,
+        1861.7158
+      ],
+      "container_peak_mib": 141.80859375,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run1-jni-c4",
+      "engine": "jni",
+      "concurrency": 4,
+      "successes": 60,
+      "batch_ms": [
+        1213.412,
+        1380.0235,
+        1565.9413
+      ],
+      "container_peak_mib": 227.45703125,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run2-cli-c1",
+      "engine": "cli",
+      "concurrency": 1,
+      "successes": 60,
+      "batch_ms": [
+        2684.6079,
+        2852.9519,
+        2869.2379
+      ],
+      "container_peak_mib": 176.60546875,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run2-cli-c4",
+      "engine": "cli",
+      "concurrency": 4,
+      "successes": 60,
+      "batch_ms": [
+        1576.8136,
+        1610.7305,
+        1589.9929
+      ],
+      "container_peak_mib": 274.828125,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run2-java-c1",
+      "engine": "java",
+      "concurrency": 1,
+      "successes": 60,
+      "batch_ms": [
+        3349.668,
+        3303.7952,
+        3238.2058
+      ],
+      "container_peak_mib": 207.8046875,
+      "mean_pair_bytes": 408126.1
+    },
+    {
+      "case": "run2-java-c4",
+      "engine": "java",
+      "concurrency": 4,
+      "successes": 60,
+      "batch_ms": [
+        1753.7208,
+        1781.6845,
+        2174.742
+      ],
+      "container_peak_mib": 501.36328125,
+      "mean_pair_bytes": 408126.1
+    },
+    {
+      "case": "run2-jni-c1",
+      "engine": "jni",
+      "concurrency": 1,
+      "successes": 60,
+      "batch_ms": [
+        1883.3618,
+        1934.721,
+        1920.2041
+      ],
+      "container_peak_mib": 143.078125,
+      "mean_pair_bytes": 191429.5
+    },
+    {
+      "case": "run2-jni-c4",
+      "engine": "jni",
+      "concurrency": 4,
+      "successes": 60,
+      "batch_ms": [
+        1096.901,
+        1112.1281,
+        1077.1942
+      ],
+      "container_peak_mib": 227.82421875,
+      "mean_pair_bytes": 191429.5
+    }
+  ],
+  "input_sha256": {
+    "0001.jpg": "79de07919d6cc4eeb7d8074c8a8d73cf07b027dddfcaf2e6c9e4f615b272c1f9",
+    "0002.jpg": "b9b728d701df4164cd4d26465cae8ca9530fa695aed83af6e2b193af5d091f29",
+    "0003.jpg": "ce5fd60f5420520c1819f30a619e0fe2c690dee5302d37ffd586fa4386aced38",
+    "0004.jpg": "3cb89efb6b2daffb0fa9dd400d0f32a54efb77e98e0d8eab965ce59c3cf1d86f",
+    "0005.jpg": "50cd40bb4236e3798f433ec06738e86d8e03b5f08fca88c18c3f3bf29d815f71",
+    "0006.jpg": "5dd20eb75f2140334cdc07facb595996df46b528d9d9929f6c369fea79fe68bc"
+  }
+}

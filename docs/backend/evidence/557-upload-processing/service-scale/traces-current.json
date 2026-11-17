@@ -1,0 +1,1214 @@
+[
+  {
+    "trace_id": "12f14c5d15675d43092325731c923a7f",
+    "span_count": 390,
+    "registration_to_last_ready_publish_ms": 13032.952034,
+    "ready_publish_count": 20,
+    "registration_epoch": 1794886070.5113542,
+    "registration_count": 1,
+    "processing_outcomes": {
+      "success": 20
+    },
+    "queue_wait": {
+      "count": 20,
+      "mean_ms": 5647.55,
+      "median_ms": 5847.0,
+      "p95_ms": 10542.0,
+      "max_ms": 10612.0
+    },
+    "stages": {
+      "upload.processing": {
+        "count": 20,
+        "mean_ms": 2312.1005525,
+        "median_ms": 2235.5638959999997,
+        "p95_ms": 2990.868447,
+        "max_ms": 3624.415142
+      },
+      "upload.processing.complete": {
+        "count": 20,
+        "mean_ms": 36.95589785,
+        "median_ms": 32.175985499999996,
+        "p95_ms": 65.792517,
+        "max_ms": 89.466328
+      },
+      "upload.processing.decode": {
+        "count": 20,
+        "mean_ms": 385.8028208,
+        "median_ms": 379.3789485,
+        "p95_ms": 531.266579,
+        "max_ms": 543.621549
+      },
+      "upload.processing.derive": {
+        "count": 20,
+        "mean_ms": 1206.0079773,
+        "median_ms": 1236.4927309999998,
+        "p95_ms": 1404.465733,
+        "max_ms": 1440.311635
+      },
+      "upload.processing.download": {
+        "count": 20,
+        "mean_ms": 382.62334165,
+        "median_ms": 314.850146,
+        "p95_ms": 662.379042,
+        "max_ms": 678.209425
+      },
+      "upload.processing.encode": {
+        "count": 40,
+        "mean_ms": 365.52836717499997,
+        "median_ms": 250.14002649999998,
+        "p95_ms": 860.291252,
+        "max_ms": 878.781392
+      },
+      "upload.processing.metadata": {
+        "count": 20,
+        "mean_ms": 0.1223605,
+        "median_ms": 0.117125,
+        "p95_ms": 0.136617,
+        "max_ms": 0.215961
+      },
+      "upload.processing.orientation": {
+        "count": 20,
+        "mean_ms": 0.1193026,
+        "median_ms": 0.10142000000000001,
+        "p95_ms": 0.24289,
+        "max_ms": 0.256839
+      },
+      "upload.processing.ready_publish": {
+        "count": 20,
+        "mean_ms": 5.63022775,
+        "median_ms": 2.9416735000000003,
+        "p95_ms": 19.416384,
+        "max_ms": 26.569334
+      },
+      "upload.processing.ready_read": {
+        "count": 20,
+        "mean_ms": 9.7471131,
+        "median_ms": 9.1125845,
+        "p95_ms": 12.206941,
+        "max_ms": 17.871951
+      },
+      "upload.processing.resize": {
+        "count": 40,
+        "mean_ms": 44.44311075,
+        "median_ms": 39.7322485,
+        "p95_ms": 85.965577,
+        "max_ms": 116.488607
+      },
+      "upload.processing.upload_preview": {
+        "count": 20,
+        "mean_ms": 408.09843889999996,
+        "median_ms": 293.8333005,
+        "p95_ms": 1026.720684,
+        "max_ms": 1284.505939
+      },
+      "upload.processing.upload_thumbnail": {
+        "count": 20,
+        "mean_ms": 261.5075607,
+        "median_ms": 235.706944,
+        "p95_ms": 394.520785,
+        "max_ms": 522.966326
+      },
+      "upload.registration.access": {
+        "count": 1,
+        "mean_ms": 2.985521,
+        "median_ms": 2.985521,
+        "p95_ms": 2.985521,
+        "max_ms": 2.985521
+      },
+      "upload.registration.created_publish": {
+        "count": 20,
+        "mean_ms": 2.8828298,
+        "median_ms": 2.868252,
+        "p95_ms": 3.393844,
+        "max_ms": 4.091246
+      },
+      "upload.registration.file_lookup": {
+        "count": 1,
+        "mean_ms": 4.777997,
+        "median_ms": 4.777997,
+        "p95_ms": 4.777997,
+        "max_ms": 4.777997
+      },
+      "upload.registration.file_write": {
+        "count": 1,
+        "mean_ms": 6.523564,
+        "median_ms": 6.523564,
+        "p95_ms": 6.523564,
+        "max_ms": 6.523564
+      },
+      "upload.registration.folders": {
+        "count": 1,
+        "mean_ms": 1.681525,
+        "median_ms": 1.681525,
+        "p95_ms": 1.681525,
+        "max_ms": 1.681525
+      },
+      "upload.registration.head_worker": {
+        "count": 20,
+        "mean_ms": 73.53986565,
+        "median_ms": 71.289589,
+        "p95_ms": 88.384225,
+        "max_ms": 107.564291
+      },
+      "upload.registration.nickname": {
+        "count": 1,
+        "mean_ms": 4.489961,
+        "median_ms": 4.489961,
+        "p95_ms": 4.489961,
+        "max_ms": 4.489961
+      },
+      "upload.registration.registration": {
+        "count": 1,
+        "mean_ms": 130.976084,
+        "median_ms": 130.976084,
+        "p95_ms": 130.976084,
+        "max_ms": 130.976084
+      },
+      "upload.registration.response": {
+        "count": 20,
+        "mean_ms": 0.1109546,
+        "median_ms": 0.1012485,
+        "p95_ms": 0.119378,
+        "max_ms": 0.279757
+      },
+      "upload.registration.storage_head": {
+        "count": 20,
+        "mean_ms": 73.50889595,
+        "median_ms": 71.255956,
+        "p95_ms": 88.35101,
+        "max_ms": 107.526547
+      },
+      "upload.registration.total": {
+        "count": 1,
+        "mean_ms": 577.783546,
+        "median_ms": 577.783546,
+        "p95_ms": 577.783546,
+        "max_ms": 577.783546
+      },
+      "upload.registration.uploaded_publish": {
+        "count": 1,
+        "mean_ms": 2.721962,
+        "median_ms": 2.721962,
+        "p95_ms": 2.721962,
+        "max_ms": 2.721962
+      },
+      "upload.registration.validate": {
+        "count": 1,
+        "mean_ms": 436.259377,
+        "median_ms": 436.259377,
+        "p95_ms": 436.259377,
+        "max_ms": 436.259377
+      }
+    }
+  },
+  {
+    "trace_id": "25bf2b973db47bfe1d9ad8ec8a6d5e03",
+    "span_count": 1910,
+    "registration_to_last_ready_publish_ms": 61498.67151,
+    "ready_publish_count": 100,
+    "registration_epoch": 1794886447.360866,
+    "registration_count": 1,
+    "processing_outcomes": {
+      "success": 100
+    },
+    "queue_wait": {
+      "count": 100,
+      "mean_ms": 28734.29,
+      "median_ms": 29160.0,
+      "p95_ms": 53837.0,
+      "max_ms": 56901.0
+    },
+    "stages": {
+      "upload.processing": {
+        "count": 100,
+        "mean_ms": 2322.73993125,
+        "median_ms": 2259.614802,
+        "p95_ms": 3190.750014,
+        "max_ms": 3727.75806
+      },
+      "upload.processing.complete": {
+        "count": 100,
+        "mean_ms": 38.57935688,
+        "median_ms": 33.629556,
+        "p95_ms": 55.195908,
+        "max_ms": 268.478557
+      },
+      "upload.processing.decode": {
+        "count": 100,
+        "mean_ms": 357.63178437,
+        "median_ms": 319.83725000000004,
+        "p95_ms": 580.473001,
+        "max_ms": 735.597303
+      },
+      "upload.processing.derive": {
+        "count": 100,
+        "mean_ms": 1069.41756395,
+        "median_ms": 1014.2379755,
+        "p95_ms": 1498.698582,
+        "max_ms": 1671.342705
+      },
+      "upload.processing.download": {
+        "count": 100,
+        "mean_ms": 571.53895483,
+        "median_ms": 501.21829149999996,
+        "p95_ms": 1335.653976,
+        "max_ms": 1807.596189
+      },
+      "upload.processing.encode": {
+        "count": 200,
+        "mean_ms": 311.750744575,
+        "median_ms": 255.19149099999998,
+        "p95_ms": 827.7424,
+        "max_ms": 1073.217554
+      },
+      "upload.processing.metadata": {
+        "count": 100,
+        "mean_ms": 0.12145233,
+        "median_ms": 0.106126,
+        "p95_ms": 0.181229,
+        "max_ms": 1.061221
+      },
+      "upload.processing.orientation": {
+        "count": 100,
+        "mean_ms": 0.22097281,
+        "median_ms": 0.098138,
+        "p95_ms": 0.209323,
+        "max_ms": 11.124755
+      },
+      "upload.processing.ready_publish": {
+        "count": 100,
+        "mean_ms": 4.13563411,
+        "median_ms": 2.9445465000000004,
+        "p95_ms": 9.414666,
+        "max_ms": 35.710651
+      },
+      "upload.processing.ready_read": {
+        "count": 100,
+        "mean_ms": 11.87751834,
+        "median_ms": 9.794058,
+        "p95_ms": 19.395328,
+        "max_ms": 94.300588
+      },
+      "upload.processing.resize": {
+        "count": 200,
+        "mean_ms": 43.96364013,
+        "median_ms": 39.335834,
+        "p95_ms": 89.158591,
+        "max_ms": 433.820695
+      },
+      "upload.processing.upload_preview": {
+        "count": 100,
+        "mean_ms": 360.78468676,
+        "median_ms": 282.9603825,
+        "p95_ms": 888.519104,
+        "max_ms": 1313.232843
+      },
+      "upload.processing.upload_thumbnail": {
+        "count": 100,
+        "mean_ms": 262.73941533,
+        "median_ms": 229.08432299999998,
+        "p95_ms": 455.201072,
+        "max_ms": 725.688957
+      },
+      "upload.registration.access": {
+        "count": 1,
+        "mean_ms": 2.716506,
+        "median_ms": 2.716506,
+        "p95_ms": 2.716506,
+        "max_ms": 2.716506
+      },
+      "upload.registration.created_publish": {
+        "count": 100,
+        "mean_ms": 2.70784936,
+        "median_ms": 2.534966,
+        "p95_ms": 3.484308,
+        "max_ms": 8.289523
+      },
+      "upload.registration.file_lookup": {
+        "count": 1,
+        "mean_ms": 8.409434,
+        "median_ms": 8.409434,
+        "p95_ms": 8.409434,
+        "max_ms": 8.409434
+      },
+      "upload.registration.file_write": {
+        "count": 1,
+        "mean_ms": 15.651521,
+        "median_ms": 15.651521,
+        "p95_ms": 15.651521,
+        "max_ms": 15.651521
+      },
+      "upload.registration.folders": {
+        "count": 1,
+        "mean_ms": 2.199119,
+        "median_ms": 2.199119,
+        "p95_ms": 2.199119,
+        "max_ms": 2.199119
+      },
+      "upload.registration.head_worker": {
+        "count": 100,
+        "mean_ms": 70.39287229,
+        "median_ms": 68.2193595,
+        "p95_ms": 88.194905,
+        "max_ms": 124.798108
+      },
+      "upload.registration.nickname": {
+        "count": 1,
+        "mean_ms": 5.101316,
+        "median_ms": 5.101316,
+        "p95_ms": 5.101316,
+        "max_ms": 5.101316
+      },
+      "upload.registration.registration": {
+        "count": 1,
+        "mean_ms": 625.668841,
+        "median_ms": 625.668841,
+        "p95_ms": 625.668841,
+        "max_ms": 625.668841
+      },
+      "upload.registration.response": {
+        "count": 100,
+        "mean_ms": 0.10524646,
+        "median_ms": 0.09963549999999999,
+        "p95_ms": 0.174968,
+        "max_ms": 0.238969
+      },
+      "upload.registration.storage_head": {
+        "count": 100,
+        "mean_ms": 70.35662657,
+        "median_ms": 68.180487,
+        "p95_ms": 88.169453,
+        "max_ms": 124.766888
+      },
+      "upload.registration.total": {
+        "count": 1,
+        "mean_ms": 2698.460681,
+        "median_ms": 2698.460681,
+        "p95_ms": 2698.460681,
+        "max_ms": 2698.460681
+      },
+      "upload.registration.uploaded_publish": {
+        "count": 1,
+        "mean_ms": 2.76586,
+        "median_ms": 2.76586,
+        "p95_ms": 2.76586,
+        "max_ms": 2.76586
+      },
+      "upload.registration.validate": {
+        "count": 1,
+        "mean_ms": 2061.884241,
+        "median_ms": 2061.884241,
+        "p95_ms": 2061.884241,
+        "max_ms": 2061.884241
+      }
+    }
+  },
+  {
+    "trace_id": "3d0aeb7747c73db84f75eafdf2252505",
+    "span_count": 200,
+    "registration_to_last_ready_publish_ms": 3800.976433,
+    "ready_publish_count": 10,
+    "registration_epoch": 1794886057.8039267,
+    "registration_count": 1,
+    "processing_outcomes": {
+      "success": 10
+    },
+    "queue_wait": {
+      "count": 10,
+      "mean_ms": 1149.9,
+      "median_ms": 1359.0,
+      "p95_ms": 2248.0,
+      "max_ms": 2248.0
+    },
+    "stages": {
+      "upload.processing": {
+        "count": 10,
+        "mean_ms": 1144.7759359,
+        "median_ms": 1155.1361995,
+        "p95_ms": 1692.844908,
+        "max_ms": 1692.844908
+      },
+      "upload.processing.complete": {
+        "count": 10,
+        "mean_ms": 30.9514867,
+        "median_ms": 29.8335185,
+        "p95_ms": 40.365516,
+        "max_ms": 40.365516
+      },
+      "upload.processing.decode": {
+        "count": 10,
+        "mean_ms": 33.4547608,
+        "median_ms": 26.0643875,
+        "p95_ms": 63.775677,
+        "max_ms": 63.775677
+      },
+      "upload.processing.derive": {
+        "count": 10,
+        "mean_ms": 326.5639832,
+        "median_ms": 274.23981949999995,
+        "p95_ms": 476.721455,
+        "max_ms": 476.721455
+      },
+      "upload.processing.download": {
+        "count": 10,
+        "mean_ms": 182.225758,
+        "median_ms": 152.352653,
+        "p95_ms": 435.119636,
+        "max_ms": 435.119636
+      },
+      "upload.processing.encode": {
+        "count": 20,
+        "mean_ms": 131.89840075,
+        "median_ms": 119.813855,
+        "p95_ms": 295.755538,
+        "max_ms": 298.911563
+      },
+      "upload.processing.metadata": {
+        "count": 10,
+        "mean_ms": 0.1351174,
+        "median_ms": 0.134664,
+        "p95_ms": 0.169437,
+        "max_ms": 0.169437
+      },
+      "upload.processing.orientation": {
+        "count": 10,
+        "mean_ms": 0.21197180000000002,
+        "median_ms": 0.101589,
+        "p95_ms": 1.136141,
+        "max_ms": 1.136141
+      },
+      "upload.processing.ready_publish": {
+        "count": 10,
+        "mean_ms": 3.2525030999999998,
+        "median_ms": 2.3761775,
+        "p95_ms": 10.182378,
+        "max_ms": 10.182378
+      },
+      "upload.processing.ready_read": {
+        "count": 10,
+        "mean_ms": 9.6599888,
+        "median_ms": 9.281956000000001,
+        "p95_ms": 12.110536,
+        "max_ms": 12.110536
+      },
+      "upload.processing.resize": {
+        "count": 20,
+        "mean_ms": 14.47555655,
+        "median_ms": 7.533501,
+        "p95_ms": 48.006022,
+        "max_ms": 53.950068
+      },
+      "upload.processing.upload_preview": {
+        "count": 10,
+        "mean_ms": 347.638246,
+        "median_ms": 258.36726699999997,
+        "p95_ms": 790.745642,
+        "max_ms": 790.745642
+      },
+      "upload.processing.upload_thumbnail": {
+        "count": 10,
+        "mean_ms": 240.6145224,
+        "median_ms": 246.211705,
+        "p95_ms": 298.677706,
+        "max_ms": 298.677706
+      },
+      "upload.registration.access": {
+        "count": 1,
+        "mean_ms": 2.807369,
+        "median_ms": 2.807369,
+        "p95_ms": 2.807369,
+        "max_ms": 2.807369
+      },
+      "upload.registration.created_publish": {
+        "count": 10,
+        "mean_ms": 2.5736868,
+        "median_ms": 2.572126,
+        "p95_ms": 5.480411,
+        "max_ms": 5.480411
+      },
+      "upload.registration.file_lookup": {
+        "count": 1,
+        "mean_ms": 3.963868,
+        "median_ms": 3.963868,
+        "p95_ms": 3.963868,
+        "max_ms": 3.963868
+      },
+      "upload.registration.file_write": {
+        "count": 1,
+        "mean_ms": 6.644951,
+        "median_ms": 6.644951,
+        "p95_ms": 6.644951,
+        "max_ms": 6.644951
+      },
+      "upload.registration.folders": {
+        "count": 1,
+        "mean_ms": 2.037074,
+        "median_ms": 2.037074,
+        "p95_ms": 2.037074,
+        "max_ms": 2.037074
+      },
+      "upload.registration.head_worker": {
+        "count": 10,
+        "mean_ms": 103.5641272,
+        "median_ms": 95.75978649999999,
+        "p95_ms": 174.448771,
+        "max_ms": 174.448771
+      },
+      "upload.registration.nickname": {
+        "count": 1,
+        "mean_ms": 5.009671,
+        "median_ms": 5.009671,
+        "p95_ms": 5.009671,
+        "max_ms": 5.009671
+      },
+      "upload.registration.registration": {
+        "count": 1,
+        "mean_ms": 68.840987,
+        "median_ms": 68.840987,
+        "p95_ms": 68.840987,
+        "max_ms": 68.840987
+      },
+      "upload.registration.response": {
+        "count": 10,
+        "mean_ms": 0.1352636,
+        "median_ms": 0.0945155,
+        "p95_ms": 0.453928,
+        "max_ms": 0.453928
+      },
+      "upload.registration.storage_head": {
+        "count": 10,
+        "mean_ms": 103.5340977,
+        "median_ms": 95.72922650000001,
+        "p95_ms": 174.425181,
+        "max_ms": 174.425181
+      },
+      "upload.registration.total": {
+        "count": 1,
+        "mean_ms": 508.923976,
+        "median_ms": 508.923976,
+        "p95_ms": 508.923976,
+        "max_ms": 508.923976
+      },
+      "upload.registration.uploaded_publish": {
+        "count": 1,
+        "mean_ms": 4.40585,
+        "median_ms": 4.40585,
+        "p95_ms": 4.40585,
+        "max_ms": 4.40585
+      },
+      "upload.registration.validate": {
+        "count": 1,
+        "mean_ms": 427.326112,
+        "median_ms": 427.326112,
+        "p95_ms": 427.326112,
+        "max_ms": 427.326112
+      }
+    }
+  },
+  {
+    "trace_id": "4f280869688d876c7082d172312750b2",
+    "span_count": 3810,
+    "registration_to_last_ready_publish_ms": 117382.861507,
+    "ready_publish_count": 200,
+    "registration_epoch": 1794887044.4865477,
+    "registration_count": 1,
+    "processing_outcomes": {
+      "success": 200
+    },
+    "queue_wait": {
+      "count": 200,
+      "mean_ms": 55707.985,
+      "median_ms": 55982.0,
+      "p95_ms": 105706.0,
+      "max_ms": 111042.0
+    },
+    "stages": {
+      "upload.processing": {
+        "count": 200,
+        "mean_ms": 2222.13152639,
+        "median_ms": 2145.9018539999997,
+        "p95_ms": 3009.515524,
+        "max_ms": 4014.995957
+      },
+      "upload.processing.complete": {
+        "count": 200,
+        "mean_ms": 34.89217005,
+        "median_ms": 31.732073,
+        "p95_ms": 53.520602,
+        "max_ms": 184.085251
+      },
+      "upload.processing.decode": {
+        "count": 200,
+        "mean_ms": 352.720787985,
+        "median_ms": 302.9111545,
+        "p95_ms": 554.054282,
+        "max_ms": 933.325383
+      },
+      "upload.processing.derive": {
+        "count": 200,
+        "mean_ms": 1069.48182366,
+        "median_ms": 1013.998828,
+        "p95_ms": 1506.417815,
+        "max_ms": 1935.643096
+      },
+      "upload.processing.download": {
+        "count": 200,
+        "mean_ms": 496.52224561,
+        "median_ms": 471.847972,
+        "p95_ms": 967.312542,
+        "max_ms": 2470.748249
+      },
+      "upload.processing.encode": {
+        "count": 400,
+        "mean_ms": 318.4897575875,
+        "median_ms": 265.762827,
+        "p95_ms": 856.841937,
+        "max_ms": 1178.280164
+      },
+      "upload.processing.metadata": {
+        "count": 200,
+        "mean_ms": 0.091810775,
+        "median_ms": 0.080509,
+        "p95_ms": 0.102352,
+        "max_ms": 1.551547
+      },
+      "upload.processing.orientation": {
+        "count": 200,
+        "mean_ms": 0.08991476,
+        "median_ms": 0.0743515,
+        "p95_ms": 0.107817,
+        "max_ms": 2.142313
+      },
+      "upload.processing.ready_publish": {
+        "count": 200,
+        "mean_ms": 3.210714995,
+        "median_ms": 2.8032545,
+        "p95_ms": 5.681596,
+        "max_ms": 11.407006
+      },
+      "upload.processing.ready_read": {
+        "count": 200,
+        "mean_ms": 10.176447755,
+        "median_ms": 9.3984135,
+        "p95_ms": 16.75725,
+        "max_ms": 32.07183
+      },
+      "upload.processing.resize": {
+        "count": 400,
+        "mean_ms": 39.7299425125,
+        "median_ms": 39.289837,
+        "p95_ms": 86.969849,
+        "max_ms": 361.711499
+      },
+      "upload.processing.upload_preview": {
+        "count": 200,
+        "mean_ms": 397.738226205,
+        "median_ms": 316.1921845,
+        "p95_ms": 799.263301,
+        "max_ms": 1825.282878
+      },
+      "upload.processing.upload_thumbnail": {
+        "count": 200,
+        "mean_ms": 203.12504908,
+        "median_ms": 165.939239,
+        "p95_ms": 430.991339,
+        "max_ms": 1866.052412
+      },
+      "upload.registration.access": {
+        "count": 1,
+        "mean_ms": 2.383595,
+        "median_ms": 2.383595,
+        "p95_ms": 2.383595,
+        "max_ms": 2.383595
+      },
+      "upload.registration.created_publish": {
+        "count": 200,
+        "mean_ms": 2.798013175,
+        "median_ms": 2.6857604999999998,
+        "p95_ms": 3.563307,
+        "max_ms": 10.798632
+      },
+      "upload.registration.file_lookup": {
+        "count": 1,
+        "mean_ms": 8.882347,
+        "median_ms": 8.882347,
+        "p95_ms": 8.882347,
+        "max_ms": 8.882347
+      },
+      "upload.registration.file_write": {
+        "count": 1,
+        "mean_ms": 20.542723,
+        "median_ms": 20.542723,
+        "p95_ms": 20.542723,
+        "max_ms": 20.542723
+      },
+      "upload.registration.folders": {
+        "count": 1,
+        "mean_ms": 3.44649,
+        "median_ms": 3.44649,
+        "p95_ms": 3.44649,
+        "max_ms": 3.44649
+      },
+      "upload.registration.head_worker": {
+        "count": 200,
+        "mean_ms": 67.93709146,
+        "median_ms": 64.18256550000001,
+        "p95_ms": 93.96422,
+        "max_ms": 136.338743
+      },
+      "upload.registration.nickname": {
+        "count": 1,
+        "mean_ms": 5.895767,
+        "median_ms": 5.895767,
+        "p95_ms": 5.895767,
+        "max_ms": 5.895767
+      },
+      "upload.registration.registration": {
+        "count": 1,
+        "mean_ms": 1172.319743,
+        "median_ms": 1172.319743,
+        "p95_ms": 1172.319743,
+        "max_ms": 1172.319743
+      },
+      "upload.registration.response": {
+        "count": 200,
+        "mean_ms": 0.076824405,
+        "median_ms": 0.0750325,
+        "p95_ms": 0.094467,
+        "max_ms": 0.227202
+      },
+      "upload.registration.storage_head": {
+        "count": 200,
+        "mean_ms": 67.91280194,
+        "median_ms": 64.1546225,
+        "p95_ms": 93.945619,
+        "max_ms": 136.310262
+      },
+      "upload.registration.total": {
+        "count": 1,
+        "mean_ms": 5322.675404,
+        "median_ms": 5322.675404,
+        "p95_ms": 5322.675404,
+        "max_ms": 5322.675404
+      },
+      "upload.registration.uploaded_publish": {
+        "count": 1,
+        "mean_ms": 3.160391,
+        "median_ms": 3.160391,
+        "p95_ms": 3.160391,
+        "max_ms": 3.160391
+      },
+      "upload.registration.validate": {
+        "count": 1,
+        "mean_ms": 4138.642099,
+        "median_ms": 4138.642099,
+        "p95_ms": 4138.642099,
+        "max_ms": 4138.642099
+      }
+    }
+  },
+  {
+    "trace_id": "8570230b7f164cfa7b210e8936e4084",
+    "span_count": 200,
+    "registration_to_last_ready_publish_ms": 3152.128218,
+    "ready_publish_count": 10,
+    "registration_epoch": 1794886990.657329,
+    "registration_count": 1,
+    "processing_outcomes": {
+      "success": 10
+    },
+    "queue_wait": {
+      "count": 10,
+      "mean_ms": 1106.1,
+      "median_ms": 1234.0,
+      "p95_ms": 2012.0,
+      "max_ms": 2012.0
+    },
+    "stages": {
+      "upload.processing": {
+        "count": 10,
+        "mean_ms": 892.414722,
+        "median_ms": 812.5692604999999,
+        "p95_ms": 1265.867158,
+        "max_ms": 1265.867158
+      },
+      "upload.processing.complete": {
+        "count": 10,
+        "mean_ms": 33.9675687,
+        "median_ms": 33.364527499999994,
+        "p95_ms": 39.301928,
+        "max_ms": 39.301928
+      },
+      "upload.processing.decode": {
+        "count": 10,
+        "mean_ms": 18.5675897,
+        "median_ms": 18.420716499999997,
+        "p95_ms": 19.557342,
+        "max_ms": 19.557342
+      },
+      "upload.processing.derive": {
+        "count": 10,
+        "mean_ms": 222.131775,
+        "median_ms": 220.192185,
+        "p95_ms": 243.456233,
+        "max_ms": 243.456233
+      },
+      "upload.processing.download": {
+        "count": 10,
+        "mean_ms": 220.0635349,
+        "median_ms": 169.58867149999998,
+        "p95_ms": 499.406876,
+        "max_ms": 499.406876
+      },
+      "upload.processing.encode": {
+        "count": 20,
+        "mean_ms": 93.90629895000001,
+        "median_ms": 89.27271,
+        "p95_ms": 182.76104,
+        "max_ms": 190.66801
+      },
+      "upload.processing.metadata": {
+        "count": 10,
+        "mean_ms": 0.1108318,
+        "median_ms": 0.1040585,
+        "p95_ms": 0.150041,
+        "max_ms": 0.150041
+      },
+      "upload.processing.orientation": {
+        "count": 10,
+        "mean_ms": 0.1019915,
+        "median_ms": 0.0954225,
+        "p95_ms": 0.135058,
+        "max_ms": 0.135058
+      },
+      "upload.processing.ready_publish": {
+        "count": 10,
+        "mean_ms": 2.8644104,
+        "median_ms": 2.5685279999999997,
+        "p95_ms": 4.60769,
+        "max_ms": 4.60769
+      },
+      "upload.processing.ready_read": {
+        "count": 10,
+        "mean_ms": 11.5909343,
+        "median_ms": 10.3566915,
+        "p95_ms": 17.437093,
+        "max_ms": 17.437093
+      },
+      "upload.processing.resize": {
+        "count": 20,
+        "mean_ms": 7.7891337,
+        "median_ms": 7.488881500000001,
+        "p95_ms": 16.414995,
+        "max_ms": 17.026505
+      },
+      "upload.processing.upload_preview": {
+        "count": 10,
+        "mean_ms": 191.5410171,
+        "median_ms": 166.55517450000002,
+        "p95_ms": 357.023047,
+        "max_ms": 357.023047
+      },
+      "upload.processing.upload_thumbnail": {
+        "count": 10,
+        "mean_ms": 210.0967234,
+        "median_ms": 155.738664,
+        "p95_ms": 658.748013,
+        "max_ms": 658.748013
+      },
+      "upload.registration.access": {
+        "count": 1,
+        "mean_ms": 2.619947,
+        "median_ms": 2.619947,
+        "p95_ms": 2.619947,
+        "max_ms": 2.619947
+      },
+      "upload.registration.created_publish": {
+        "count": 10,
+        "mean_ms": 3.0542068,
+        "median_ms": 3.1923415,
+        "p95_ms": 4.04304,
+        "max_ms": 4.04304
+      },
+      "upload.registration.file_lookup": {
+        "count": 1,
+        "mean_ms": 3.770037,
+        "median_ms": 3.770037,
+        "p95_ms": 3.770037,
+        "max_ms": 3.770037
+      },
+      "upload.registration.file_write": {
+        "count": 1,
+        "mean_ms": 6.519781,
+        "median_ms": 6.519781,
+        "p95_ms": 6.519781,
+        "max_ms": 6.519781
+      },
+      "upload.registration.folders": {
+        "count": 1,
+        "mean_ms": 2.76572,
+        "median_ms": 2.76572,
+        "p95_ms": 2.76572,
+        "max_ms": 2.76572
+      },
+      "upload.registration.head_worker": {
+        "count": 10,
+        "mean_ms": 108.4101015,
+        "median_ms": 92.903213,
+        "p95_ms": 167.14405,
+        "max_ms": 167.14405
+      },
+      "upload.registration.nickname": {
+        "count": 1,
+        "mean_ms": 4.997831,
+        "median_ms": 4.997831,
+        "p95_ms": 4.997831,
+        "max_ms": 4.997831
+      },
+      "upload.registration.registration": {
+        "count": 1,
+        "mean_ms": 181.624898,
+        "median_ms": 181.624898,
+        "p95_ms": 181.624898,
+        "max_ms": 181.624898
+      },
+      "upload.registration.response": {
+        "count": 10,
+        "mean_ms": 0.1161061,
+        "median_ms": 0.0700025,
+        "p95_ms": 0.450441,
+        "max_ms": 0.450441
+      },
+      "upload.registration.storage_head": {
+        "count": 10,
+        "mean_ms": 108.3842099,
+        "median_ms": 92.8796355,
+        "p95_ms": 167.116488,
+        "max_ms": 167.116488
+      },
+      "upload.registration.total": {
+        "count": 1,
+        "mean_ms": 553.680364,
+        "median_ms": 553.680364,
+        "p95_ms": 553.680364,
+        "max_ms": 553.680364
+      },
+      "upload.registration.uploaded_publish": {
+        "count": 1,
+        "mean_ms": 3.38518,
+        "median_ms": 3.38518,
+        "p95_ms": 3.38518,
+        "max_ms": 3.38518
+      },
+      "upload.registration.validate": {
+        "count": 1,
+        "mean_ms": 360.212188,
+        "median_ms": 360.212188,
+        "p95_ms": 360.212188,
+        "max_ms": 360.212188
+      }
+    }
+  },
+  {
+    "trace_id": "e5d0c3b5eaca21c145bd9befe30f69ca",
+    "span_count": 200,
+    "registration_to_last_ready_publish_ms": 4075.65958,
+    "ready_publish_count": 10,
+    "registration_epoch": 1794886404.5700455,
+    "registration_count": 1,
+    "processing_outcomes": {
+      "success": 10
+    },
+    "queue_wait": {
+      "count": 10,
+      "mean_ms": 1658.1,
+      "median_ms": 1832.0,
+      "p95_ms": 2737.0,
+      "max_ms": 2737.0
+    },
+    "stages": {
+      "upload.processing": {
+        "count": 10,
+        "mean_ms": 1154.0728346,
+        "median_ms": 1052.8620445000001,
+        "p95_ms": 1994.229253,
+        "max_ms": 1994.229253
+      },
+      "upload.processing.complete": {
+        "count": 10,
+        "mean_ms": 33.5264867,
+        "median_ms": 32.0661935,
+        "p95_ms": 47.904271,
+        "max_ms": 47.904271
+      },
+      "upload.processing.decode": {
+        "count": 10,
+        "mean_ms": 24.2380133,
+        "median_ms": 18.815881,
+        "p95_ms": 40.653089,
+        "max_ms": 40.653089
+      },
+      "upload.processing.derive": {
+        "count": 10,
+        "mean_ms": 287.2848259,
+        "median_ms": 229.0958455,
+        "p95_ms": 409.562055,
+        "max_ms": 409.562055
+      },
+      "upload.processing.download": {
+        "count": 10,
+        "mean_ms": 218.5136247,
+        "median_ms": 207.42298,
+        "p95_ms": 426.018129,
+        "max_ms": 426.018129
+      },
+      "upload.processing.encode": {
+        "count": 20,
+        "mean_ms": 121.35875365,
+        "median_ms": 96.6118405,
+        "p95_ms": 314.376886,
+        "max_ms": 335.091048
+      },
+      "upload.processing.metadata": {
+        "count": 10,
+        "mean_ms": 0.1451664,
+        "median_ms": 0.117318,
+        "p95_ms": 0.386399,
+        "max_ms": 0.386399
+      },
+      "upload.processing.orientation": {
+        "count": 10,
+        "mean_ms": 0.5865758999999999,
+        "median_ms": 0.09929550000000001,
+        "p95_ms": 4.907958,
+        "max_ms": 4.907958
+      },
+      "upload.processing.ready_publish": {
+        "count": 10,
+        "mean_ms": 3.3684566,
+        "median_ms": 2.091042,
+        "p95_ms": 8.42547,
+        "max_ms": 8.42547
+      },
+      "upload.processing.ready_read": {
+        "count": 10,
+        "mean_ms": 10.3465119,
+        "median_ms": 9.369490500000001,
+        "p95_ms": 14.667749,
+        "max_ms": 14.667749
+      },
+      "upload.processing.resize": {
+        "count": 20,
+        "mean_ms": 9.8120434,
+        "median_ms": 7.605024,
+        "p95_ms": 25.87402,
+        "max_ms": 28.868812
+      },
+      "upload.processing.upload_preview": {
+        "count": 10,
+        "mean_ms": 284.4424739,
+        "median_ms": 231.71367450000002,
+        "p95_ms": 759.926684,
+        "max_ms": 759.926684
+      },
+      "upload.processing.upload_thumbnail": {
+        "count": 10,
+        "mean_ms": 313.70129180000004,
+        "median_ms": 227.762251,
+        "p95_ms": 1090.274051,
+        "max_ms": 1090.274051
+      },
+      "upload.registration.access": {
+        "count": 1,
+        "mean_ms": 2.318487,
+        "median_ms": 2.318487,
+        "p95_ms": 2.318487,
+        "max_ms": 2.318487
+      },
+      "upload.registration.created_publish": {
+        "count": 10,
+        "mean_ms": 2.9192753,
+        "median_ms": 2.839242,
+        "p95_ms": 3.929561,
+        "max_ms": 3.929561
+      },
+      "upload.registration.file_lookup": {
+        "count": 1,
+        "mean_ms": 3.58651,
+        "median_ms": 3.58651,
+        "p95_ms": 3.58651,
+        "max_ms": 3.58651
+      },
+      "upload.registration.file_write": {
+        "count": 1,
+        "mean_ms": 6.172896,
+        "median_ms": 6.172896,
+        "p95_ms": 6.172896,
+        "max_ms": 6.172896
+      },
+      "upload.registration.folders": {
+        "count": 1,
+        "mean_ms": 1.610279,
+        "median_ms": 1.610279,
+        "p95_ms": 1.610279,
+        "max_ms": 1.610279
+      },
+      "upload.registration.head_worker": {
+        "count": 10,
+        "mean_ms": 89.1242068,
+        "median_ms": 90.7001285,
+        "p95_ms": 116.433104,
+        "max_ms": 116.433104
+      },
+      "upload.registration.nickname": {
+        "count": 1,
+        "mean_ms": 4.565587,
+        "median_ms": 4.565587,
+        "p95_ms": 4.565587,
+        "max_ms": 4.565587
+      },
+      "upload.registration.registration": {
+        "count": 1,
+        "mean_ms": 71.37932,
+        "median_ms": 71.37932,
+        "p95_ms": 71.37932,
+        "max_ms": 71.37932
+      },
+      "upload.registration.response": {
+        "count": 10,
+        "mean_ms": 0.1524492,
+        "median_ms": 0.1101715,
+        "p95_ms": 0.483335,
+        "max_ms": 0.483335
+      },
+      "upload.registration.storage_head": {
+        "count": 10,
+        "mean_ms": 89.0906947,
+        "median_ms": 90.6687155,
+        "p95_ms": 116.394663,
+        "max_ms": 116.394663
+      },
+      "upload.registration.total": {
+        "count": 1,
+        "mean_ms": 392.377722,
+        "median_ms": 392.377722,
+        "p95_ms": 392.377722,
+        "max_ms": 392.377722
+      },
+      "upload.registration.uploaded_publish": {
+        "count": 1,
+        "mean_ms": 2.522074,
+        "median_ms": 2.522074,
+        "p95_ms": 2.522074,
+        "max_ms": 2.522074
+      },
+      "upload.registration.validate": {
+        "count": 1,
+        "mean_ms": 311.240718,
+        "median_ms": 311.240718,
+        "p95_ms": 311.240718,
+        "max_ms": 311.240718
+      }
+    }
+  }
+]

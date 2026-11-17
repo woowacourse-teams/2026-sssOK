@@ -1,0 +1,36 @@
+{
+  "cases": [
+    {
+      "images": 20,
+      "trace_id": "12f14c5d15675d43092325731c923a7f",
+      "registered_created_ready_match": true,
+      "processing_success_match": true,
+      "failures_missing_late": 0,
+      "k6_exit": 0,
+      "health": 200
+    },
+    {
+      "images": 100,
+      "trace_id": "25bf2b973db47bfe1d9ad8ec8a6d5e03",
+      "registered_created_ready_match": true,
+      "processing_success_match": true,
+      "failures_missing_late": 0,
+      "k6_exit": 0,
+      "health": 200
+    },
+    {
+      "images": 200,
+      "trace_id": "4f280869688d876c7082d172312750b2",
+      "registered_created_ready_match": true,
+      "processing_success_match": true,
+      "failures_missing_late": 0,
+      "k6_exit": 0,
+      "health": 200
+    }
+  ],
+  "input_sha256_matches_load": true,
+  "resource_collectors_stopped": true,
+  "matrix_process_finished": true,
+  "cleanup_accounts_remaining": 6,
+  "jni_deployed": false
+}

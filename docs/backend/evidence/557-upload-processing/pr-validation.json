@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-17",
+  "java": 21,
+  "gradle_build": "passed",
+  "tests": {
+    "tests": 2806,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 18
+  },
+  "skipped_reason": "18 FFmpeg video contracts skipped on host; executed in native runtime",
+  "native_runtime": {
+    "tests": 96,
+    "failed": 0,
+    "skipped": 0,
+    "aborted": 0
+  },
+  "initial_attempt": "failed without CI JWT/CORS environment; rerun with CI test configuration passed",
+  "deployment": "not yet deployed"
+}

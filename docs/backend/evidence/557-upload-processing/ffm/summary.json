@@ -1,0 +1,152 @@
+{
+  "conditions": {
+    "image": "sssok-ffm-bench:557",
+    "jdk": 25,
+    "libvips": "8.18.2",
+    "cpu": 2,
+    "memory_mib": 1536,
+    "heap_mib": 512,
+    "concurrency": [
+      1,
+      4
+    ],
+    "input_count": 6,
+    "images_per_batch": 20,
+    "warmup_batches": 2,
+    "measured_batches_per_process": 5,
+    "vips_concurrency": 1,
+    "vips_cache_max": 0,
+    "thumbnail": "400px Q80",
+    "preview": "1600px Q85",
+    "effort": 0
+  },
+  "cases": {
+    "results/run1-ffm-c1": {
+      "batch_mean_ms": 1919.8137199999999,
+      "batch_median_ms": 1934.2946,
+      "memory_peak_mib": 153.33984375
+    },
+    "results/run1-ffm-c4": {
+      "batch_mean_ms": 1095.72288,
+      "batch_median_ms": 1096.8746,
+      "memory_peak_mib": 244.59765625
+    },
+    "results/run1-jni-c1": {
+      "batch_mean_ms": 2089.79646,
+      "batch_median_ms": 2035.6562,
+      "memory_peak_mib": 136.109375
+    },
+    "results/run1-jni-c4": {
+      "batch_mean_ms": 1072.94606,
+      "batch_median_ms": 1049.8705,
+      "memory_peak_mib": 222.91796875
+    },
+    "results/run2-ffm-c1": {
+      "batch_mean_ms": 1957.8611600000002,
+      "batch_median_ms": 1943.6373,
+      "memory_peak_mib": 153.46875
+    },
+    "results/run2-ffm-c4": {
+      "batch_mean_ms": 1098.52122,
+      "batch_median_ms": 1101.7736,
+      "memory_peak_mib": 241.79296875
+    },
+    "results/run2-jni-c1": {
+      "batch_mean_ms": 1961.56778,
+      "batch_median_ms": 1966.1503,
+      "memory_peak_mib": 137.06640625
+    },
+    "results/run2-jni-c4": {
+      "batch_mean_ms": 1066.54062,
+      "batch_median_ms": 1072.9772,
+      "memory_peak_mib": 219.140625
+    },
+    "results/run3-ffm-c4": {
+      "batch_mean_ms": 1201.54562,
+      "batch_median_ms": 1190.7705,
+      "memory_peak_mib": 239.83203125
+    },
+    "results/run3-jni-c4": {
+      "batch_mean_ms": 1097.06136,
+      "batch_median_ms": 1100.9364,
+      "memory_peak_mib": 221.8046875
+    },
+    "results/run4-ffm-c4": {
+      "batch_mean_ms": 1097.79706,
+      "batch_median_ms": 1092.8634,
+      "memory_peak_mib": 238.6328125
+    },
+    "results/run4-jni-c4": {
+      "batch_mean_ms": 1088.4809,
+      "batch_median_ms": 1084.0971,
+      "memory_peak_mib": 223.109375
+    },
+    "control21-results/run1-jni-c4": {
+      "batch_mean_ms": 1053.62776,
+      "batch_median_ms": 1060.8683,
+      "memory_peak_mib": 233.23828125
+    },
+    "control21-results/run2-jni-c4": {
+      "batch_mean_ms": 1081.22822,
+      "batch_median_ms": 1085.1733,
+      "memory_peak_mib": 233.97265625
+    }
+  },
+  "aggregates": {
+    "jni-c1": {
+      "processes": 2,
+      "batches": 10,
+      "images": 200,
+      "mean_ms": 2025.68212,
+      "median_ms": 1984.98605,
+      "memory_peak_mib_range": [
+        136.109375,
+        137.06640625
+      ]
+    },
+    "ffm-c1": {
+      "processes": 2,
+      "batches": 10,
+      "images": 200,
+      "mean_ms": 1938.83744,
+      "median_ms": 1937.79405,
+      "memory_peak_mib_range": [
+        153.33984375,
+        153.46875
+      ]
+    },
+    "jni-c4": {
+      "processes": 4,
+      "batches": 20,
+      "images": 400,
+      "mean_ms": 1081.257235,
+      "median_ms": 1079.3858,
+      "memory_peak_mib_range": [
+        219.140625,
+        223.109375
+      ]
+    },
+    "ffm-c4": {
+      "processes": 4,
+      "batches": 20,
+      "images": 400,
+      "mean_ms": 1123.396695,
+      "median_ms": 1102.42375,
+      "memory_peak_mib_range": [
+        238.6328125,
+        244.59765625
+      ]
+    }
+  },
+  "outputs_identical": true,
+  "compared_output_pairs": 72,
+  "inputs": {
+    "0006.jpg": "5dd20eb75f2140334cdc07facb595996df46b528d9d9929f6c369fea79fe68bc",
+    "0005.jpg": "50cd40bb4236e3798f433ec06738e86d8e03b5f08fca88c18c3f3bf29d815f71",
+    "0004.jpg": "3cb89efb6b2daffb0fa9dd400d0f32a54efb77e98e0d8eab965ce59c3cf1d86f",
+    "0001.jpg": "79de07919d6cc4eeb7d8074c8a8d73cf07b027dddfcaf2e6c9e4f615b272c1f9",
+    "0003.jpg": "ce5fd60f5420520c1819f30a619e0fe2c690dee5302d37ffd586fa4386aced38",
+    "0002.jpg": "b9b728d701df4164cd4d26465cae8ca9530fa695aed83af6e2b193af5d091f29"
+  },
+  "ffm_artifact_sha256": "4ac3c787ed0a903e9ba9aa6899ffd5e2879669dab9a9a4a8d2ba6c778b9c2926"
+}

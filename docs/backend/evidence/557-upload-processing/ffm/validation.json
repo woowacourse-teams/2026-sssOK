@@ -1,0 +1,44 @@
+{
+  "scope": "local only; no commit, push, PR or deployment",
+  "tests": {
+    "unitTest": {
+      "tests": 61,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "integrationTestH2": {
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "native_runtime_contracts": {
+    "tests": 96,
+    "failures": 0,
+    "skipped": 0,
+    "aborted": 0,
+    "user": "app",
+    "image": "sssok-image-final:557"
+  },
+  "ffm_jni_java_contracts": {
+    "tests": 116,
+    "failures": 0,
+    "skipped": 0,
+    "aborted": 0
+  },
+  "reproduction_check": "compile + contracts + environment capture passed",
+  "production_jar": {
+    "sha256": "8a3e7a57d43afcc2bd24e8edb9439949fbad988a440f0593003567aa38a07cc6",
+    "jni_present": true,
+    "cli_absent": true,
+    "ffm_absent": true
+  },
+  "limits": [
+    "No end-to-end READY/R2 measurement for the final engine",
+    "No actual instance split or API resizing",
+    "ARM64 local Docker benchmark, not production architecture guarantee",
+    "No long-running native leak/OOM soak or ICC/CMYK/HEIC coverage claimed"
+  ]
+}

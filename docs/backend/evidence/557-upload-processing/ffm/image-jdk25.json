@@ -1,0 +1,74 @@
+[
+    {
+        "Id": "sha256:b6b168a5fb60d0b4fddbe5fe397568ec1584ae09cf423af088f52abe97951b74",
+        "RepoTags": [
+            "sssok-ffm-bench:557"
+        ],
+        "RepoDigests": [
+            "sssok-ffm-bench@sha256:b6b168a5fb60d0b4fddbe5fe397568ec1584ae09cf423af088f52abe97951b74"
+        ],
+        "Parent": "",
+        "Comment": "buildkit.dockerfile.v0",
+        "Created": "2026-11-17T02:11:19.805077589Z",
+        "DockerVersion": "27.5.1",
+        "Author": "",
+        "Config": {
+            "Hostname": "",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/opt/java/openjdk/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "JAVA_HOME=/opt/java/openjdk",
+                "LANG=en_US.UTF-8",
+                "LANGUAGE=en_US:en",
+                "LC_ALL=en_US.UTF-8",
+                "JAVA_VERSION=jdk-21.0.13+9"
+            ],
+            "Cmd": [
+                "jshell"
+            ],
+            "Image": "",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "/__cacert_entrypoint.sh"
+            ],
+            "OnBuild": null,
+            "Labels": null
+        },
+        "Architecture": "arm64",
+        "Os": "linux",
+        "Size": 424572952,
+        "GraphDriver": {
+            "Data": null,
+            "Name": "overlayfs"
+        },
+        "RootFS": {
+            "Type": "layers",
+            "Layers": [
+                "sha256:3d971ddbca237031066ab6609a11ae2e9e5b109da24d5c5d94d2e584dd94bd54",
+                "sha256:fb635ccd0f88fd72ea358bc014941ed0c25d316498b69a4cf4db3131c3dfdd22",
+                "sha256:5cc729bbfbd0524fd64a1d6a53f44e2d680bfe98295e5a7b660888128b4a82c5",
+                "sha256:72a6afab5cbf6703e11ad467c22a32766ee48bc43cdb30ffa87a0b235b030d7b",
+                "sha256:ec57b0c29eae8ea196e9f316ca4a058a79261e254fd392c3aca5bbd5b28d23be",
+                "sha256:29d66284f5d7ff6df87ec4866ef66743af5ef4539812a15b0b7a0ee2f4298e4a",
+                "sha256:c3372f16fd4becf16c222bfb4e013825a77266f5af421b9644456e85a3b741be",
+                "sha256:1eec0ab83e99100fde5367626c434454cc4d022a36c9192e4b437080e7a0bfbc",
+                "sha256:0425b8db4f830112450091814e249be02517675ea33427c448205f150122bf7d",
+                "sha256:6e7b92995316a183d002ed06bcba98b2e02f8f9672a6e579925851abc0415d1d",
+                "sha256:e68c6524b5472862435c64d09a430315eae067cea0e43062d829888b89feaeb8",
+                "sha256:fd847f565af0665402ba46c96df3cf40728b9684fbf82d51d8d7a10a9dc432fb",
+                "sha256:a91a3bec526b7d5a73a015d81d81a88e97d25e28cc8c6cf3b927182dae4ee811"
+            ]
+        },
+        "Metadata": {
+            "LastTagTime": "2026-11-17T02:11:25.1014493Z"
+        }
+    }
+]
