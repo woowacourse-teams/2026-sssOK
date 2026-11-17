@@ -25,8 +25,7 @@ const ShareDoneSchema = z.object({
 /**
  * 앱이 공유 브리지를 아는지. 이 표시가 없는 예전 앱 빌드에 메시지를 보내면 답이 영영 오지 않는다.
  */
-export const canShareFromApp = (): boolean =>
-  isAppWebView() && (window.sssokApp?.share ?? 0) >= 1;
+export const canShareFromApp = (): boolean => isAppWebView() && (window.sssokApp?.share ?? 0) >= 1;
 
 let sequence = 0;
 

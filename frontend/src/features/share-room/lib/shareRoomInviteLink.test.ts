@@ -138,7 +138,9 @@ describe("shareRoomInviteLink 앱", () => {
       requestId: string;
     };
     window.dispatchEvent(
-      new CustomEvent("sssok:native", { detail: { type: "share/done", requestId, result: "shared" } }),
+      new CustomEvent("sssok:native", {
+        detail: { type: "share/done", requestId, result: "shared" },
+      }),
     );
 
     await expect(result).resolves.toBe("app");
