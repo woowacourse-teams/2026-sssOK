@@ -6,6 +6,7 @@ import com.sssok.renewal.outgoing.storage.AbortableOutputStream;
 import com.sssok.renewal.outgoing.database.DownloadJobRepository;
 import com.sssok.renewal.outgoing.database.DownloadFileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.config.DownloadCompressionProperties;
 import com.sssok.renewal.domain.download.DownloadJob;
 import com.sssok.renewal.domain.download.DownloadFileNames;
 import com.sssok.domain.file.StorageKey;
@@ -17,17 +18,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 // 긴 I/O 동안 DB 커넥션을 잡지 않도록 트랜잭션 없이 돌고, 상태 전이만 DownloadJobTransitions 에서 짧게 커밋한다.
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class DownloadCompressionWorker {
 
     private static final String ZIP_CONTENT_TYPE = "application/zip";
@@ -38,6 +39,24 @@ public class DownloadCompressionWorker {
     private final FileStorage fileStorage;
 
     private final DownloadProcessingMetrics metrics;
+    private final Executor prefetchExecutor;
+    private final int prefetchDepth;
+
+    public DownloadCompressionWorker(DownloadJobTransitions downloadJobTransitions,
+                                     DownloadJobRepository downloadJobRepository,
+                                     DownloadFileRepository downloadFileRepository,
+                                     FileStorage fileStorage,
+                                     DownloadProcessingMetrics metrics,
+                                     @Qualifier("downloadSourcePrefetchTaskExecutor") Executor prefetchExecutor,
+                                     DownloadCompressionProperties properties) {
+        this.downloadJobTransitions = downloadJobTransitions;
+        this.downloadJobRepository = downloadJobRepository;
+        this.downloadFileRepository = downloadFileRepository;
+        this.fileStorage = fileStorage;
+        this.metrics = metrics;
+        this.prefetchExecutor = prefetchExecutor;
+        this.prefetchDepth = properties.prefetchDepth();
+    }
 
     public void compress(Long jobId) {
         Timer.Sample sample = metrics.start();
@@ -90,24 +109,27 @@ public class DownloadCompressionWorker {
         ZipOutputStream zipOut = new ZipOutputStream(out);
         long processedBytes = 0;
         int lastReportedProgress = -1;
-        for (int i = 0; i < targets.size(); i++) {
-            StoredFile file = targets.get(i);
-            String entryName = entryNames.get(i);
-            try (InputStream in = clock.openSource(() -> fileStorage.openDownloadStream(file.getStorageKey()))) {
-                clock.write(() -> {
-                    zipOut.putNextEntry(new ZipEntry(entryName));
-                    in.transferTo(zipOut);
-                    zipOut.closeEntry();
-                });
-            }
-            clock.fileDone();
+        try (SourcePrefetcher<StoredFile> sources = SourcePrefetcher.start(targets,
+            file -> fileStorage.openDownloadStream(file.getStorageKey()), prefetchExecutor, prefetchDepth)) {
+            for (int i = 0; i < targets.size(); i++) {
+                StoredFile file = targets.get(i);
+                String entryName = entryNames.get(i);
+                try (InputStream in = clock.openSource(sources::next)) {
+                    clock.write(() -> {
+                        zipOut.putNextEntry(new ZipEntry(entryName));
+                        in.transferTo(zipOut);
+                        zipOut.closeEntry();
+                    });
+                }
+                clock.fileDone();
 
-            processedBytes += file.getFileSize().bytes();
-            int progress = totalBytes == 0 ? 100 : (int) (processedBytes * 100 / totalBytes);
-            if (progress != lastReportedProgress) {
-                int reported = progress;
-                clock.progress(() -> downloadJobTransitions.updateProgress(jobId, reported));
-                lastReportedProgress = progress;
+                processedBytes += file.getFileSize().bytes();
+                int progress = totalBytes == 0 ? 100 : (int) (processedBytes * 100 / totalBytes);
+                if (progress != lastReportedProgress) {
+                    int reported = progress;
+                    clock.progress(() -> downloadJobTransitions.updateProgress(jobId, reported));
+                    lastReportedProgress = progress;
+                }
             }
         }
         clock.write(zipOut::close);
