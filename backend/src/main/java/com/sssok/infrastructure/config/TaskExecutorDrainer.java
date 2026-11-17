@@ -37,6 +37,8 @@ public class TaskExecutorDrainer implements SmartLifecycle {
         "videoThumbnailTaskExecutor",
         "imageAnalysisTaskExecutor",
         "downloadCompressionTaskExecutor",
+        // 실행 중인 압축이 끝날 때까지 원본을 열어 줘야 하므로 압축 풀 다음에 비운다.
+        "downloadSourcePrefetchTaskExecutor",
         "applicationTaskExecutor",
         "roomNotificationTaskExecutor"
     );

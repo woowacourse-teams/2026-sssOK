@@ -324,6 +324,8 @@ Grafana의 **sssOK → sssOK Upload & Download** (`/d/sssok-media-transfer`)에�
 | `sssok_download_processing_seconds_count/sum/bucket` | `result=success/failure` | ZIP 워커 실행 결과와 시간 |
 | `sssok_download_waiting_seconds_count/sum/bucket` | 없음 | 잡 생성부터 워커의 RUNNING 전환까지. 실제 시작한 잡만 표본 |
 | `sssok_download_active` | 없음 | 이 프로세스에서 실행 중인 ZIP 워커 수 |
+| `sssok_download_compression_stage_seconds_count/sum/max` | `stage=open/read/deflate/upload/progress` | 성공한 ZIP 압축 한 건의 구간별 합계 시간. `open` 은 워커가 원본 GET 의 첫 바이트를 기다린 시간(미리 열어 둔 만큼 짧다), `deflate` 는 zip 쓰기에서 읽기·업로드를 뺀 압축 시간 |
+| `sssok_download_compression_files_total` | 없음 | 성공한 ZIP 압축에 담은 파일 수. 구간 합계를 이 값으로 나누면 장당 시간 |
 
 미디어 `result`: `success`(정상 파생본 생성), `retryable`(재처리 필요), `permanent_failure`(읽지 못하는
 이미지), `completed_without_thumbnail`(영상 썸네일 없이 완료), `skipped`(삭제됐거나 이미 처리된 작업).
