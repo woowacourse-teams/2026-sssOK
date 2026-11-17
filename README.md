@@ -52,7 +52,7 @@
 
 ### Frontend & App (iOS · Android)
 
-<img src="./.github/assets/stack/frontend.png" width="830" alt="TypeScript, React 19, TanStack Query, React Router, Webpack, Jest, Playwright, Storybook, React Native, Expo">
+<img src="./.github/assets/stack/frontend.png" width="830" alt="TypeScript, React 19, TanStack Query, Webpack, Jest, React Testing Library, Playwright, Storybook, React Native, Expo">
 
 ### Backend
 
@@ -64,7 +64,7 @@
 
 ### Infrastructure & CI/CD
 
-<img src="./.github/assets/stack/infra.png" width="830" alt="Amazon EC2, Amazon RDS, Amazon S3, CloudFront, Cloudflare R2, Docker, Nginx, GitHub Actions, GHCR, EAS Build">
+<img src="./.github/assets/stack/infra.png" width="830" alt="Amazon EC2, Amazon RDS, Amazon S3, CloudFront, CodePipeline, CodeBuild, Cloudflare R2, Docker, Nginx, GitHub Actions, GHCR, EAS Build">
 
 ### Monitoring
 
