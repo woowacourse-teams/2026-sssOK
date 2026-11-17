@@ -22,7 +22,9 @@ class PersonGroupingService:
         self.store = Store(settings.data)
         self.unavailable = False
         self.process = None
-        self.command = command or (lambda job: [sys.executable,'-m','gallery_mcp.analysis_worker',str(job['room_id']),job['id']])
+        self.command = command  # Optional one-shot adapter used by existing integrations.
+        self.worker_jobs = 0
+        self.worker_used_at = 0
 
     @contextmanager
     def boot(self):
@@ -101,15 +103,63 @@ class PersonGroupingService:
                     logging.getLogger(__name__).warning('Artifact cleanup failed for job %s; will retry', job_id)
 
     async def dispatch(self):
-        while True:
-            self.cleanup_finished()
-            job = self.store.claim()
-            if job:
-                await self.execute(job)
-            else:
-                await asyncio.sleep(1)
+        try:
+            while True:
+                self.cleanup_finished()
+                job = self.store.claim()
+                if job:
+                    await self.execute(job)
+                else:
+                    if (self.process and asyncio.get_running_loop().time() - self.worker_used_at
+                            >= self.settings.worker_idle_seconds):
+                        await self.stop_worker()
+                    await asyncio.sleep(1)
+        finally:
+            await self.stop_worker()
 
     async def execute(self, job):
+        if self.command is not None:
+            return await self.execute_once(job)
+        reusable = False
+        try:
+            async def request():
+                if self.process is None or self.process.returncode is not None:
+                    self.process = await asyncio.create_subprocess_exec(
+                        sys.executable, '-m', 'gallery_mcp.analysis_worker', '--serve',
+                        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+                        stderr=asyncio.subprocess.DEVNULL)
+                    self.worker_jobs = 0
+                self.process.stdin.write((json.dumps({'room_id': job['room_id'], 'id': job['id']}) + '\n').encode())
+                await self.process.stdin.drain()
+                return await self.process.stdout.readline()
+
+            response = await asyncio.wait_for(request(), timeout=self.settings.timeout)
+            if not response:
+                self.store.finish(job['id'], 'FAILED', error='ANALYSIS_FAILED')
+                return
+            if json.loads(response) != {'id': job['id']}:
+                raise ValueError('Unexpected worker response')
+            completed = self.store.get(job['room_id'], job['id'])['state'] == 'COMPLETED'
+            self.store.finish(job['id'], 'FAILED', error='WORKER_RESULT_NOT_COMMITTED')
+            self.worker_jobs += 1
+            self.worker_used_at = asyncio.get_running_loop().time()
+            reusable = completed and self.worker_jobs < self.settings.worker_max_jobs
+        except TimeoutError:
+            await self.stop_worker()
+            self.store.finish(job['id'], 'FAILED', error='ANALYSIS_TIMEOUT')
+        except asyncio.CancelledError:
+            await self.stop_worker()
+            self.store.finish(job['id'], 'FAILED', error='SERVER_STOPPED')
+            raise
+        except Exception:
+            await self.stop_worker()
+            self.store.finish(job['id'], 'FAILED', error='WORKER_START_OR_RESULT_FAILED')
+        finally:
+            if not reusable:
+                await self.stop_worker()
+            self.cleanup_finished()
+
+    async def execute_once(self, job):
         directory = self.settings.data / 'logs'
         directory.mkdir(exist_ok=True)
         try:
@@ -146,9 +196,11 @@ class PersonGroupingService:
             try:
                 self.process.terminate()
             except ProcessLookupError:
-                return
+                pass
             try:
                 await asyncio.wait_for(self.process.wait(),timeout=5)
             except TimeoutError:
                 self.process.kill()
                 await self.process.wait()
+        self.process = None
+        self.worker_jobs = 0

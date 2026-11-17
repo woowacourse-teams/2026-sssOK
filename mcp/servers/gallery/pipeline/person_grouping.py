@@ -177,13 +177,32 @@ def body_face_contradiction(body, faces, face_features, group, independent_ids):
     return None
 
 
+def body_references(bodies, groups):
+    return [[b['body_id'] for b in bodies if b['anchor_group'] == gi
+             and b['score'] >= .8 and b['area_ratio'] >= .02]
+            for gi in range(len(groups))]
+
+
+def body_candidate(body):
+    return (body['anchor_status'] == 'no_face_anchor'
+            and not (body['score'] < .8 or body['area_ratio'] < .03 or body['relative_area'] < .35))
+
+
+def body_feature_ids(bodies, faces, groups):
+    """Keep every reference, including single-photo competitors; preserve body IDs."""
+    anchor_bodies(bodies, faces, groups)
+    references = {bid for pool in body_references(bodies, groups) for bid in pool}
+    candidates = {b['body_id'] for b in bodies if body_candidate(b)}
+    if not references or not candidates:
+        return []
+    return sorted(references | candidates)
+
+
 def match_bodies(bodies, features, faces, groups, *, photo_identities=None, face_features=None):
     independent_ids = photo_identities or {item['image_id']: item['image_id'] for item in [*bodies, *faces]}
     anchor_bodies(bodies, faces, groups)
     similarity = features @ features.T
-    references = [[b['body_id'] for b in bodies if b['anchor_group'] == gi
-                   and b['score'] >= .8 and b['area_ratio'] >= .02]
-                  for gi in range(len(groups))]
+    references = body_references(bodies, groups)
     face_photos = [{faces[fid]['image_id'] for fid in group['face_ids']} for group in groups]
     proposals, pending = [], []
     for body in bodies:
@@ -193,7 +212,7 @@ def match_bodies(bodies, features, faces, groups, *, photo_identities=None, face
         if body['anchor_status'] != 'no_face_anchor':
             pending.append({'body_id': bid, 'reason': 'ambiguous_face_body_overlap'})
             continue
-        if body['score'] < .8 or body['area_ratio'] < .03 or body['relative_area'] < .35:
+        if not body_candidate(body):
             pending.append({'body_id': bid, 'reason': 'body_quality_or_size'})
             continue
         options = []

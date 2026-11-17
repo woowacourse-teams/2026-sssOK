@@ -1,7 +1,8 @@
+import copy
 import unittest
 import numpy as np
 
-from pipeline.person_grouping import build_face_groups, match_bodies
+from pipeline.person_grouping import build_face_groups, match_bodies, body_feature_ids
 
 
 def face(fid, pid):
@@ -17,6 +18,42 @@ def body(bid, pid):
 
 
 class GroupingTests(unittest.TestCase):
+    def test_feature_selection_keeps_single_reference_competitors(self):
+        faces = [face(0, 'ref1'), face(1, 'ref2'), face(2, 'competitor')]
+        groups = [{'face_ids': [0, 1]}, {'face_ids': [2]}]
+        bodies = [body(i, pid) for i, pid in enumerate(['ref1', 'ref2', 'competitor', 'candidate', 'low'])]
+        bodies[4]['score'] = .7
+        selected = body_feature_ids(bodies, faces, groups)
+        self.assertEqual(selected, [0, 1, 2, 3])
+        # A one-photo competitor must still block an ambiguous assignment.
+        features = np.array([[.62, (1-.62**2)**.5], [.62, (1-.62**2)**.5],
+                             [.70, (1-.70**2)**.5], [1., 0.], [1., 0.]])
+        sparse = np.zeros_like(features); sparse[selected] = features[selected]
+        full = match_bodies(copy.deepcopy(bodies), features, faces, groups)
+        reduced = match_bodies(copy.deepcopy(bodies), sparse, faces, groups)
+        self.assertEqual(full, reduced)
+        self.assertEqual(reduced[0], [])
+        self.assertTrue(any(p['reason'] == 'insufficient_similarity_or_margin' for p in reduced[1]))
+
+    def test_feature_selection_skips_model_without_references_or_candidates(self):
+        self.assertEqual(body_feature_ids([body(0, 'unknown')], [], []), [])
+        self.assertEqual(body_feature_ids([body(0, 'known')], [face(0, 'known')],
+                                         [{'face_ids': [0]}]), [])
+
+    def test_sparse_features_preserve_duplicate_photo_reference_rules(self):
+        faces = [face(0, 'ref1'), face(1, 'ref2')]
+        groups = [{'face_ids': [0, 1]}]
+        bodies = [body(i, pid) for i, pid in enumerate(['ref1', 'ref2', 'candidate', 'low'])]
+        bodies[3]['relative_area'] = .1
+        features = np.array([[1., 0.]] * 4)
+        selected = body_feature_ids(bodies, faces, groups)
+        sparse = np.zeros_like(features); sparse[selected] = features[selected]
+        identities = {'ref1':'same-photo', 'ref2':'same-photo', 'candidate':'candidate', 'low':'low'}
+        full = match_bodies(copy.deepcopy(bodies), features, faces, groups, photo_identities=identities)
+        reduced = match_bodies(copy.deepcopy(bodies), sparse, faces, groups, photo_identities=identities)
+        self.assertEqual(full, reduced)
+        self.assertEqual(reduced[0], [])
+
     def test_empty_detections(self):
         groups, evidence = build_face_groups([], np.empty((0, 128), dtype=np.float32))
         self.assertEqual(groups, [])
