@@ -18,8 +18,8 @@ for v in mounts:
   d=json.loads(Path(v['source']).read_text())
   assert d['uid'] not in expected
   expected[d['uid']]=d
-assert len(expected)==5
-print('Compose 통합: 5개 JSON 파일·고유 UID·마운트 확인',flush=True)
+assert len(expected)==7
+print('Compose 통합: 7개 JSON 파일·고유 UID·마운트 확인',flush=True)
 volume='sssok-dashboard-check-'+uuid.uuid4().hex[:12]
 r=run(['docker','volume','create',volume]);assert r.returncode==0,r.stderr
 cid=None
@@ -64,7 +64,7 @@ def verify():
   data=json.loads(api('GET','/api/search?type=dash-db').stdout)
   if {d['uid'] for d in data}==set(expected):break
   time.sleep(.5)
- assert len(data)==5 and {d['uid'] for d in data}==set(expected),data
+ assert len(data)==7 and {d['uid'] for d in data}==set(expected),data
  ids={}
  for uid,d in expected.items():
   actual=json.loads(api('GET','/api/dashboards/uid/'+uid).stdout)
@@ -98,11 +98,11 @@ try:
  start(True)
  ids=verify()
  assert ids[first]==old_id,(ids[first],old_id)
- print('자동 등록: sssOK 폴더 5개, 기존 UID/DB ID 중복 없이 갱신 확인',flush=True)
+ print('자동 등록: sssOK 폴더 7개, 기존 UID/DB ID 중복 없이 갱신 확인',flush=True)
  stop()
  start(True)
  assert verify()==ids
- print('같은 데이터 볼륨으로 재생성 후 5개 대시보드·DB ID 유지 확인',flush=True)
+ print('같은 데이터 볼륨으로 재생성 후 7개 대시보드·DB ID 유지 확인',flush=True)
  snapshot.restore_grafana()
  stop()
  start(False)

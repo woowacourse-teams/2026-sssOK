@@ -60,7 +60,7 @@ def main():
 
     grafana = services['grafana']
     files = [v for v in grafana['volumes'] if v['target'].endswith('.json')]
-    assert len(files) == 5, '대시보드 마운트는 5개여야 합니다'
+    assert len(files) == 7, '대시보드 마운트는 7개여야 합니다'
     uids, expressions = set(), []
     substitutions = {'${environment:regex}': 'dev|prod', '${destination:regex}': '.*',
                      '$__rate_interval': '5m', '$environment': 'dev', '$window': '5m'}
@@ -79,7 +79,7 @@ def main():
             ds = panel.get('datasource', {}).get('uid')
             for target in panel.get('targets', []):
                 uid = target.get('datasource', {}).get('uid', ds)
-                assert uid in ('prometheus', 'loki'), f'알 수 없는 데이터소스: {uid}'
+                assert uid in ('prometheus', 'loki', 'tempo'), f'알 수 없는 데이터소스: {uid}'
                 if uid != 'prometheus' or not target.get('expr'):
                     continue
                 expression = target['expr']
@@ -96,7 +96,7 @@ def main():
         check('prometheus', ['check', 'rules', '/tmp/queries.yml'], [(path, '/tmp/queries.yml')], '/bin/promtool')
     for script in ROOT.glob('*.sh'):
         run(['bash', '-n', str(script)])
-    print(f'중앙 Compose·서비스 설정·알림 시험·대시보드 5개 및 PromQL {len(expressions)}개 검사 통과')
+    print(f'중앙 Compose·서비스 설정·알림 시험·대시보드 7개 및 PromQL {len(expressions)}개 검사 통과')
 
 
 if __name__ == '__main__':

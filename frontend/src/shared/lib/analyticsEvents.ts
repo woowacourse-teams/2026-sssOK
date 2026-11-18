@@ -10,6 +10,11 @@ export interface AnalyticsEvents {
   "Room Create Started": Record<string, never>;
   "Room Created": { room_code: string; upload_policy: "everyone" | "host" };
   "Invite Link Copied": { is_success: boolean };
+  /**
+   * 초대 링크 공유 시트를 띄웠을 때. 실제로 보냈는지는 알 수 없다 —
+   * 안드로이드 앱은 시트를 그냥 닫아도 보냈다고 답한다.
+   */
+  "Invite Share Sheet Opened": { channel: "app" | "web" };
 
   /** 이름 입력 화면이 떴을 때. 이미 세션이 있어 곧장 들어가는 재방문은 세지 않는다. */
   "Room Join Started": { room_code: string; entry_src: AnalyticsEntrySource };

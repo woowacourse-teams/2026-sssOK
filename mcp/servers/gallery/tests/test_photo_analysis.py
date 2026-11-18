@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import numpy as np
 import cv2
@@ -41,13 +41,23 @@ class PhotoAnalysisTests(unittest.TestCase):
                  for i, p in enumerate(photos)]
         return faces, np.array([[1., 0.], [1., 0.]]), [np.zeros(63, bool), np.ones(63, bool)], []
 
+    def body_features(self, *args):
+        return np.empty((0, 512))
+
+    def test_unused_body_model_is_not_loaded(self):
+        self.body_features = Mock(side_effect=AssertionError('Must not run unused model'))
+        self.analyze()
+        self.body_features.assert_not_called()
+        evidence = json.loads((self.output / 'evidence.json').read_text())
+        self.assertEqual(evidence['computed_body_feature_ids'], [])
+
     def analyze(self, progress=None):
         features = SimpleNamespace(
             configure_runtime=lambda threads: {'test': 'fixed outputs'},
             resolve_assets=lambda root: {'test': self.model},
             prepare_photos=self.prepare, extract_faces=self.faces,
             extract_bodies=lambda *args: ([], []),
-            extract_body_features=lambda *args: np.empty((0, 512)))
+            extract_body_features=self.body_features)
         with patch.dict('sys.modules', {'pipeline.image_features': features}), contextlib.redirect_stdout(io.StringIO()):
             return run(self.inputs, self.output, self.root, 2, progress)
 
@@ -77,6 +87,18 @@ class PhotoAnalysisTests(unittest.TestCase):
         self.assertEqual(job['status'], 'completed')
         self.assertEqual(job['progress']['counts'], result['counts'])
         self.assertFalse(list(self.output.glob('*.tmp')))
+
+    def test_recovered_face_does_not_duplicate_existing_body_membership(self):
+        addition = {'group': 0, 'image_id': 'image_000000', 'body_id': 0,
+                    'score': .8, 'margin': .2, 'reference_body_ids': [1, 2]}
+        with patch('pipeline.photo_analysis.match_bodies', return_value=([addition], [])), \
+                patch('pipeline.photo_analysis.filter_conflicting_bodies', return_value=([addition], [])), \
+                patch('pipeline.photo_analysis.filter_uncertain_detector_bodies', return_value=([addition], [])):
+            result = self.analyze()
+        members = result['groups'][0]['memberships']
+        self.assertEqual(2, len(members))
+        self.assertEqual({'image_000000', 'image_000001'}, {m['image_id'] for m in members})
+        self.assertTrue(all(m['method'] == 'face' for m in members))
 
     def test_existing_result_is_not_overwritten(self):
         self.analyze()

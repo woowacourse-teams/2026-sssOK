@@ -122,6 +122,10 @@ media:
   # 아래 다섯 값은 전부 필수다. 코드에는 기본값이 없어서 한 줄이라도 빠지면 기동에 실패한다 —
   # 값의 출처를 여기 한 곳으로 두고, 빠진 값이 다른 값으로 조용히 대체되지 않게 하기 위함이다.
   image:
+    # Docker는 libvips(JNI) 사용. IDE는 java. MEDIA_IMAGE_PROCESSOR=java 로 재시작하면 복귀한다.
+    processor: ${MEDIA_IMAGE_PROCESSOR:java}
+    # 상세 진단 전용: 중간 픽셀 확정 비용을 포함한다. 일반 성능 측정과 분리한다.
+    native-stage-diagnostics: ${MEDIA_IMAGE_NATIVE_STAGE_DIAGNOSTICS:false}
     # 원본이 JPEG이든 PNG이든 파생본은 이 포맷으로 통일한다. 같은 SSIM에서 JPEG보다 30~37% 작고,
     # JPEG과 달리 투명도를 담을 수 있어 PNG도 같은 경로로 처리된다.
     # AVIF는 3~7%p 더 작지만 워커가 동시에 돌 때 처리량이 절반 안팎(16 vs 40장/초, 동시 8)이라 미뤘다.
@@ -222,6 +226,8 @@ download:
   compression:
     workers: ${DOWNLOAD_COMPRESSION_WORKERS:8}
     queue-capacity: ${DOWNLOAD_COMPRESSION_QUEUE_CAPACITY:100}
+    # 압축 한 건이 미리 겹쳐 열어 둘 다음 원본 수. 0 이면 미리 열지 않는다(#666)
+    prefetch-depth: ${DOWNLOAD_COMPRESSION_PREFETCH_DEPTH:3}
 
 springdoc:
   swagger-ui:

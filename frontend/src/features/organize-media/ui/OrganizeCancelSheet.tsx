@@ -1,6 +1,7 @@
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { Button } from "@/shared/ui/button";
 
-import { Body, Later, Submit } from "./OrganizeSheet.styles";
+import { Body, Later } from "./OrganizeSheet.styles";
 
 /** `running` 은 나누는 중에 멈출 때, `result` 는 다 나눈 결과 알림을 닫을 때다. */
 type OrganizeCancelKind = "running" | "result";
@@ -42,13 +43,11 @@ export const OrganizeCancelSheet = ({
   const copy = COPY[kind];
 
   return (
-    <BottomSheet title={copy.title} variant="action" onClose={onKeepGoing}>
+    <BottomSheet title={copy.title} onClose={onKeepGoing}>
       {(close) => (
         <>
           <Body>{copy.body}</Body>
-          <Submit type="button" onClick={close}>
-            {copy.keep}
-          </Submit>
+          <Button onClick={close}>{copy.keep}</Button>
           <Later type="button" onClick={onStop}>
             {copy.stop}
           </Later>

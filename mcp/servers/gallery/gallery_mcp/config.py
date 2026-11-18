@@ -21,6 +21,8 @@ class Settings:
     max_job_bytes: int = 300 * 1024 * 1024
     timeout: int = 600
     threads: int = 2
+    worker_max_jobs: int = 20
+    worker_idle_seconds: int = 60
     backend_url: str | None = None
     backend_token: str = ""
     standalone: bool = True
@@ -73,7 +75,7 @@ class Settings:
             raise ValueError('Progress interval must be positive and not exceed the heartbeat interval')
         if self.routes is None and len(self.token) < 32:
             raise ValueError('Service token must contain at least 32 characters')
-        for value in (self.max_photos, self.max_queue, self.timeout, self.threads):
+        for value in (self.max_photos, self.max_queue, self.timeout, self.threads, self.worker_max_jobs, self.worker_idle_seconds):
             if value < 1:
                 raise ValueError('Resource limits must be positive')
         if not self.allowed_hosts:
@@ -114,6 +116,8 @@ class Settings:
             max_photos=int(os.environ.get('GALLERY_MAX_PHOTOS', '200')),
             timeout=int(os.environ.get('GALLERY_JOB_TIMEOUT', '600')),
             threads=int(os.environ.get('GALLERY_THREADS', '2')),
+            worker_max_jobs=int(os.environ.get('GALLERY_WORKER_MAX_JOBS', '20')),
+            worker_idle_seconds=int(os.environ.get('GALLERY_WORKER_IDLE_SECONDS', '60')),
             backend_url=(os.environ.get('GALLERY_BACKEND_URL') or None) if routes is None else None,
             backend_token=(Path(os.environ['GALLERY_BACKEND_TOKEN_FILE']).read_text().strip()
                            if os.environ.get('GALLERY_BACKEND_TOKEN_FILE') else os.environ.get('GALLERY_BACKEND_TOKEN', '')) if routes is None else '',
