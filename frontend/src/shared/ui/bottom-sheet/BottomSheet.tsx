@@ -12,17 +12,9 @@ export interface BottomSheetProps {
   aside?: ReactNode;
   onClose?: () => void;
   children: ReactNode | ((close: () => void) => ReactNode);
-  variant?: "form" | "action";
 }
 
-export const BottomSheet = ({
-  title,
-  description,
-  aside,
-  onClose,
-  children,
-  variant = "form",
-}: BottomSheetProps) => {
+export const BottomSheet = ({ title, description, aside, onClose, children }: BottomSheetProps) => {
   const titleId = useId();
   const [isClosing, setIsClosing] = useState(false);
   const requestClose = (): void => {
@@ -100,14 +92,12 @@ export const BottomSheet = ({
         onAnimationEnd={(event) => {
           if (event.target === event.currentTarget && isClosing) onClose?.();
         }}
-        variant={variant}
         hasHandle={Boolean(onClose)}
         onClick={(event) => event.stopPropagation()}
       >
         {onClose && (
           <>
             <Handle
-              variant={variant}
               data-testid="bottom-sheet-handle"
               onPointerDown={(event) => {
                 if (isClosing) return;
@@ -138,7 +128,7 @@ export const BottomSheet = ({
         {description || aside ? (
           <TitleGroup hasClose={Boolean(onClose)}>
             <TitleText>
-              <Title id={titleId} hasClose={false} variant={variant}>
+              <Title id={titleId} hasClose={false}>
                 {title}
               </Title>
               {description && <Description>{description}</Description>}
@@ -146,13 +136,11 @@ export const BottomSheet = ({
             {aside}
           </TitleGroup>
         ) : (
-          <Title id={titleId} hasClose={Boolean(onClose)} variant={variant}>
+          <Title id={titleId} hasClose={Boolean(onClose)}>
             {title}
           </Title>
         )}
-        <Body variant={variant}>
-          {typeof children === "function" ? children(requestClose) : children}
-        </Body>
+        <Body>{typeof children === "function" ? children(requestClose) : children}</Body>
       </Sheet>
     </Overlay>,
     document.body,
@@ -194,19 +182,14 @@ const Overlay = styled.dialog`
   }
 `;
 
-const Sheet = styled.div<{ variant: "form" | "action"; hasHandle: boolean; isClosing: boolean }>`
+const Sheet = styled.div<{ hasHandle: boolean; isClosing: boolean }>`
   position: relative;
   width: 100%;
   max-height: 88dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* action 은 피그마 정리 시트(558:5390 · 560:177) 기준: 위 10px, 좌우·아래 20px. */
-  padding: ${({ hasHandle, variant }) =>
-    hasHandle ? (variant === "form" ? "12px" : "10px") : "44px"}
-    ${({ variant }) => (variant === "form" ? "30px" : "20px")}
-    calc(
-      ${({ variant }) => (variant === "form" ? "54px" : "20px")} + env(safe-area-inset-bottom, 0px)
-    );
+  padding: ${({ hasHandle }) => (hasHandle ? "12px" : "44px")} 30px
+    calc(54px + env(safe-area-inset-bottom, 0px));
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]} ${radius[24]} 0 0;
   box-shadow: ${shadow.sheet};
@@ -268,20 +251,19 @@ const Sheet = styled.div<{ variant: "form" | "action"; hasHandle: boolean; isClo
   }
 `;
 
-/* action 손잡이는 피그마대로 36×4, 아래 16px 띄운다. */
-const Handle = styled.div<{ variant: "form" | "action" }>`
+const Handle = styled.div`
   position: relative;
   width: 100%;
-  height: ${({ variant }) => (variant === "form" ? "23px" : "20px")};
+  height: 23px;
   margin: 0 auto;
 
   &::before {
     content: "";
     position: absolute;
     top: 0;
-    left: ${({ variant }) => (variant === "form" ? "calc(50% - 22px)" : "calc(50% - 18px)")};
-    width: ${({ variant }) => (variant === "form" ? "44px" : "36px")};
-    height: ${({ variant }) => (variant === "form" ? "5px" : "4px")};
+    left: calc(50% - 22px);
+    width: 44px;
+    height: 5px;
     border-radius: ${radius.full};
     background: ${colors.borderDefault};
   }
@@ -317,11 +299,10 @@ const DesktopClose = styled.button`
   }
 `;
 
-const Title = styled.h2<{ hasClose: boolean; variant: "form" | "action" }>`
-  /* action 제목은 피그마 정리 시트(558:5394 · 560:180)대로 20px 굵게. */
-  font-size: ${({ variant }) => (variant === "form" ? typography.label1.fontSize : "20px")};
-  font-weight: ${({ variant }) => (variant === "form" ? 600 : 700)};
-  line-height: ${({ variant }) => (variant === "form" ? typography.label1.lineHeight : "28px")};
+const Title = styled.h2<{ hasClose: boolean }>`
+  font-size: ${typography.label1.fontSize};
+  font-weight: 600;
+  line-height: ${typography.label1.lineHeight};
   color: ${colors.textStrong};
 
   @media (min-width: 768px) {
@@ -357,8 +338,7 @@ const Description = styled.p`
   white-space: pre-line;
 `;
 
-/* action 은 제목 아래 간격이 시트마다 달라(6px·24px) 내용 쪽에서 정한다. */
-const Body = styled.div<{ variant: "form" | "action" }>`
+const Body = styled.div`
   width: 100%;
-  margin-top: ${({ variant }) => (variant === "form" ? spacing[20] : "0")};
+  margin-top: ${spacing[20]};
 `;

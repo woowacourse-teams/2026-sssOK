@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { Button } from "@/shared/ui/button";
 
 import avatar1 from "../assets/person-avatar-1.svg";
 import avatar2 from "../assets/person-avatar-2.svg";
 import avatar3 from "../assets/person-avatar-3.svg";
-import { Actions, Avatar, Crowd, Later, Submit } from "./OrganizeSheet.styles";
+import { Avatar, Crowd, Later } from "./OrganizeSheet.styles";
 
 interface OrganizeConfirmSheetProps {
   /** 로그인하지 않은 사람. 한 번만 체험할 수 있다는 걸 시작 전에 알린다. */
@@ -59,18 +60,17 @@ export const OrganizeConfirmSheet = ({
     title="사진을 사람별로 모아드릴까요?"
     description={blockedReason ?? (isGuest ? GUEST_NOTICE : "같은 사람의 사진끼리 모아 드려요")}
     aside={<PeopleIllustration />}
-    variant="action"
     onClose={onClose}
   >
     {(close) => (
-      <Actions>
-        <Submit type="button" disabled={isStarting || blockedReason !== null} onClick={onStart}>
+      <>
+        <Button disabled={isStarting || blockedReason !== null} onClick={onStart}>
           {busyLabel ?? "얼굴 분석하고 정리하기"}
-        </Submit>
+        </Button>
         <Later type="button" onClick={close}>
           다음에 할게요
         </Later>
-      </Actions>
+      </>
     )}
   </BottomSheet>
 );
