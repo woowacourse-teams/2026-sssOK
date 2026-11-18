@@ -68,6 +68,7 @@ const MediaLikeButton = ({
 
   return (
     <LikeButton
+      data-drag-selection-ignore
       type="button"
       $liked={likedByMe}
       aria-label={`${item.media.fileName} 좋아요 ${likedByMe ? "취소" : "추가"}`}
@@ -140,7 +141,7 @@ const GalleryMediaCardView = ({
   const uploaderName = item.type === "local" ? "나" : item.media.uploaderName;
 
   return (
-    <Card $selected={isSelected}>
+    <Card $selected={isSelected} data-media-id={item.mediaId}>
       <CardButton
         type="button"
         onClick={() => (onOpen ?? onToggle)(item.mediaId)}
