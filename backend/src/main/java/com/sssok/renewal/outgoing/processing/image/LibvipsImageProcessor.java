@@ -4,6 +4,9 @@ import com.sssok.domain.file.DerivativeFormat;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivativeSpec;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivedImage;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivedImages;
+import com.sssok.renewal.outgoing.monitoring.UploadTracing;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -11,7 +14,16 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "media.image.processor", havingValue = "libvips")
 public class LibvipsImageProcessor implements ImageDerivativeEngine {
+    private final NativeImageDiagnostics diagnostics;
+
     public LibvipsImageProcessor() {
+        this(null, false);
+    }
+
+    @Autowired
+    public LibvipsImageProcessor(UploadTracing tracing,
+            @Value("${media.image.native-stage-diagnostics:false}") boolean stageDiagnostics) {
+        this.diagnostics = new NativeImageDiagnostics(tracing, stageDiagnostics);
         Native.initialize();
     }
 
@@ -26,8 +38,10 @@ public class LibvipsImageProcessor implements ImageDerivativeEngine {
         if (preview != null) {
             validate(preview);
         }
-        NativeResult result = Native.derive(source, thumbnail.maxWidth(), thumbnail.quality() * 100,
-            preview == null ? 0 : preview.maxWidth(), preview == null ? 0 : preview.quality() * 100);
+        NativeResult result = diagnostics.measure(timings -> Native.derive(
+            source, thumbnail.maxWidth(), thumbnail.quality() * 100,
+            preview == null ? 0 : preview.maxWidth(), preview == null ? 0 : preview.quality() * 100,
+            timings));
         return new DerivedImages(result.width(), result.height(),
             new DerivedImage(result.thumbnail(), DerivativeFormat.WEBP),
             result.preview() == null ? null : new DerivedImage(result.preview(), DerivativeFormat.WEBP));
@@ -52,6 +66,6 @@ public class LibvipsImageProcessor implements ImageDerivativeEngine {
         static void initialize() { }
         private static native void init();
         private static native NativeResult derive(byte[] source, int thumbnailWidth, float thumbnailQuality,
-                                                   int previewWidth, float previewQuality);
+                                                   int previewWidth, float previewQuality, long[] timings);
     }
 }

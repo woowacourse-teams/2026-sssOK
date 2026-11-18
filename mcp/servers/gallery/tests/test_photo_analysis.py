@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, Mock
 
 import numpy as np
 import cv2
@@ -41,13 +41,23 @@ class PhotoAnalysisTests(unittest.TestCase):
                  for i, p in enumerate(photos)]
         return faces, np.array([[1., 0.], [1., 0.]]), [np.zeros(63, bool), np.ones(63, bool)], []
 
+    def body_features(self, *args):
+        return np.empty((0, 512))
+
+    def test_unused_body_model_is_not_loaded(self):
+        self.body_features = Mock(side_effect=AssertionError('Must not run unused model'))
+        self.analyze()
+        self.body_features.assert_not_called()
+        evidence = json.loads((self.output / 'evidence.json').read_text())
+        self.assertEqual(evidence['computed_body_feature_ids'], [])
+
     def analyze(self, progress=None):
         features = SimpleNamespace(
             configure_runtime=lambda threads: {'test': 'fixed outputs'},
             resolve_assets=lambda root: {'test': self.model},
             prepare_photos=self.prepare, extract_faces=self.faces,
             extract_bodies=lambda *args: ([], []),
-            extract_body_features=lambda *args: np.empty((0, 512)))
+            extract_body_features=self.body_features)
         with patch.dict('sys.modules', {'pipeline.image_features': features}), contextlib.redirect_stdout(io.StringIO()):
             return run(self.inputs, self.output, self.root, 2, progress)
 
