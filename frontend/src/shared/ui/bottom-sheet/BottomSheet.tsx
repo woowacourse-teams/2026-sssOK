@@ -6,12 +6,15 @@ import { colors, radius, shadow, spacing, typography } from "@/shared/styles/tok
 
 export interface BottomSheetProps {
   title: string;
+  /** 제목 아래 회색 한 줄. 있으면 제목과 한 덩어리로 묶인다. */
+  description?: ReactNode;
+  /** 제목 덩어리 오른쪽에 붙는 작은 그림. */
+  aside?: ReactNode;
   onClose?: () => void;
   children: ReactNode | ((close: () => void) => ReactNode);
-  variant?: "form" | "action";
 }
 
-export const BottomSheet = ({ title, onClose, children, variant = "form" }: BottomSheetProps) => {
+export const BottomSheet = ({ title, description, aside, onClose, children }: BottomSheetProps) => {
   const titleId = useId();
   const [isClosing, setIsClosing] = useState(false);
   const requestClose = (): void => {
@@ -89,7 +92,6 @@ export const BottomSheet = ({ title, onClose, children, variant = "form" }: Bott
         onAnimationEnd={(event) => {
           if (event.target === event.currentTarget && isClosing) onClose?.();
         }}
-        variant={variant}
         hasHandle={Boolean(onClose)}
         onClick={(event) => event.stopPropagation()}
       >
@@ -123,9 +125,21 @@ export const BottomSheet = ({ title, onClose, children, variant = "form" }: Bott
             </DesktopClose>
           </>
         )}
-        <Title id={titleId} hasClose={Boolean(onClose)}>
-          {title}
-        </Title>
+        {description || aside ? (
+          <TitleGroup hasClose={Boolean(onClose)}>
+            <TitleText>
+              <Title id={titleId} hasClose={false}>
+                {title}
+              </Title>
+              {description && <Description>{description}</Description>}
+            </TitleText>
+            {aside}
+          </TitleGroup>
+        ) : (
+          <Title id={titleId} hasClose={Boolean(onClose)}>
+            {title}
+          </Title>
+        )}
         <Body>{typeof children === "function" ? children(requestClose) : children}</Body>
       </Sheet>
     </Overlay>,
@@ -144,6 +158,13 @@ const Overlay = styled.dialog`
   padding: 0;
   border: 0;
   color: inherit;
+  /*
+   * 모달 dialog 는 기본이 overflow: auto 다. 열릴 때 아래에서 올라오는 시트가 바깥으로 넘쳐
+   * 스크롤이 생기고, 첫 버튼에 포커스가 가며 그쪽으로 스크롤됐다가 되돌아와 시트가 튀어 보인다.
+   * 넘치는 내용은 시트 안에서 스크롤하므로 바깥은 막는다.
+   * hidden 은 포커스 이동 같은 코드 스크롤을 막지 못해 clip 을 쓴다.
+   */
+  overflow: clip;
   overscroll-behavior: none;
 
   &::backdrop {
@@ -161,17 +182,14 @@ const Overlay = styled.dialog`
   }
 `;
 
-const Sheet = styled.div<{ variant: "form" | "action"; hasHandle: boolean; isClosing: boolean }>`
+const Sheet = styled.div<{ hasHandle: boolean; isClosing: boolean }>`
   position: relative;
   width: 100%;
   max-height: 88dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: ${({ hasHandle }) => (hasHandle ? "12px" : "44px")}
-    ${({ variant }) => (variant === "form" ? "30px" : "24px")}
-    calc(
-      ${({ variant }) => (variant === "form" ? "54px" : "24px")} + env(safe-area-inset-bottom, 0px)
-    );
+  padding: ${({ hasHandle }) => (hasHandle ? "12px" : "44px")} 30px
+    calc(54px + env(safe-area-inset-bottom, 0px));
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]} ${radius[24]} 0 0;
   box-shadow: ${shadow.sheet};
@@ -290,6 +308,34 @@ const Title = styled.h2<{ hasClose: boolean }>`
   @media (min-width: 768px) {
     padding-right: ${({ hasClose }) => (hasClose ? "36px" : "0")};
   }
+`;
+
+const TitleGroup = styled.div<{ hasClose: boolean }>`
+  display: flex;
+  gap: ${spacing[8]};
+  align-items: center;
+
+  @media (min-width: 768px) {
+    padding-right: ${({ hasClose }) => (hasClose ? "36px" : "0")};
+  }
+`;
+
+const TitleText = styled.div`
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: ${spacing[4]};
+  min-width: 0;
+`;
+
+const Description = styled.p`
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  color: ${colors.textSecondary};
+  word-break: keep-all;
+  /* 문구 안의 줄바꿈(\n)을 그대로 살린다. */
+  white-space: pre-line;
 `;
 
 const Body = styled.div`
