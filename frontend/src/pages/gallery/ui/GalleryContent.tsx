@@ -257,6 +257,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
     selectedPhotoIds,
     isAllSelected,
     togglePhoto,
+    selectPhotos,
     removePhotos,
     toggleAllPhotos,
     clearSelection,
@@ -497,6 +498,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         }
         errorMessage={search.isError ? search.errorMessage : undefined}
         onTogglePhoto={togglePhoto}
+        onSelectPhotos={selectPhotos}
         onOpenPhoto={(mediaId) => {
           search.trackResultOpened(mediaId);
           setActiveMediaId(mediaId);
