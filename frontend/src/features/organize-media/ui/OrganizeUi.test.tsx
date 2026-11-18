@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 
 import type { MyOrganizeJob } from "../model/useOrganizeJob";
 import { OrganizeCancelSheet } from "./OrganizeCancelSheet";
-import { OrganizeKindSheet } from "./OrganizeKindSheet";
+import { OrganizeConfirmSheet } from "./OrganizeConfirmSheet";
 import { OrganizeLimitModal } from "./OrganizeLimitModal";
 import { OrganizeStatusBar } from "./OrganizeStatusBar";
 
@@ -31,46 +31,98 @@ const barHandlers = (): {
   onDismiss: jest.fn(),
 });
 
-describe("OrganizeKindSheet", () => {
-  it("처음에는 사람별로가 골라져 있다", async () => {
+describe("OrganizeConfirmSheet", () => {
+  it("사람별로 모을지 묻고, 얼굴 분석하고 정리하기를 누르면 시작한다", async () => {
     const onStart = jest.fn();
-    render(<OrganizeKindSheet isGuest={false} onStart={onStart} onClose={jest.fn()} />);
-
-    expect(screen.queryByText("준비 중")).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "얼굴 분석해서 정리하기" }));
-    expect(onStart).toHaveBeenCalledWith("PERSON");
-  });
-
-  it("비슷한 사진을 고르면 '비슷한 사진 묶기' 로 SIMILAR 를 시작한다", async () => {
-    const onStart = jest.fn();
-    render(<OrganizeKindSheet isGuest={false} onStart={onStart} onClose={jest.fn()} />);
-
-    await userEvent.click(screen.getByRole("radio", { name: "비슷한 사진 묶기" }));
-    expect(screen.getByRole("radio", { name: "비슷한 사진 묶기" })).toBeChecked();
-
-    await userEvent.click(screen.getByRole("button", { name: "비슷한 사진 묶기" }));
-    expect(onStart).toHaveBeenCalledWith("SIMILAR");
-  });
-
-  it("로그인하지 않았으면 웹에서는 앱을 설치하지 않으면 한 번만 체험할 수 있다고 알린다", () => {
-    render(<OrganizeKindSheet isGuest onStart={jest.fn()} onClose={jest.fn()} />);
+    render(<OrganizeConfirmSheet isGuest={false} onStart={onStart} onClose={jest.fn()} />);
 
     expect(
-      screen.getByText("앱을 설치하지 않으면 AI 정리는 한 번만 체험할 수 있어요."),
+      screen.getByRole("dialog", { name: "사진을 사람별로 모아드릴까요?" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음에 할게요" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "얼굴 분석하고 정리하기" }));
+    expect(onStart).toHaveBeenCalledTimes(1);
   });
 
-  it("앱 안에서는 설치 대신 로그인하지 않으면 한 번만 체험할 수 있다고 알린다", () => {
-    window.ReactNativeWebView = { postMessage: jest.fn() };
-    try {
-      render(<OrganizeKindSheet isGuest onStart={jest.fn()} onClose={jest.fn()} />);
+  it("다른 사람이 정리 중이면 안내를 바꾸고 정리 버튼을 막는다", async () => {
+    const onStart = jest.fn();
+    render(
+      <OrganizeConfirmSheet
+        isGuest
+        blockedReason="지금 다른 사람이 정리하고 있어요"
+        onStart={onStart}
+        onClose={jest.fn()}
+      />,
+    );
 
-      expect(
-        screen.getByText("로그인하지 않으면 AI 정리는 한 번만 체험할 수 있어요."),
-      ).toBeInTheDocument();
-    } finally {
-      delete window.ReactNativeWebView;
-    }
+    expect(screen.getByText("지금 다른 사람이 정리하고 있어요")).toBeInTheDocument();
+    expect(screen.queryByText(/한 번만 체험할 수 있어요/)).not.toBeInTheDocument();
+    const start = screen.getByRole("button", { name: "얼굴 분석하고 정리하기" });
+    expect(start).toBeDisabled();
+    await userEvent.click(start);
+    expect(onStart).not.toHaveBeenCalled();
+  });
+
+  it("사진을 처리하는 중이면 기다려 달라고 안내하고 버튼에 사진 처리 중이라고 적는다", () => {
+    render(
+      <OrganizeConfirmSheet
+        isGuest={false}
+        blockedReason={"사진을 처리하고 있어요.\n조금만 기다려 주세요."}
+        busyLabel="사진 처리하는 중..."
+        onStart={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText("사진을 처리하고 있어요. 조금만 기다려 주세요.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "사진 처리하는 중..." })).toBeDisabled();
+  });
+
+  it("결과 확인을 기다리는 막힘은 원래 버튼 문구로 막는다", () => {
+    render(
+      <OrganizeConfirmSheet
+        isGuest={false}
+        blockedReason="확인하지 않은 정리 결과가 있어요"
+        onStart={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "얼굴 분석하고 정리하기" })).toBeDisabled();
+  });
+
+  it("방에서 정리가 돌고 있으면 막힌 버튼에 정리하는 중이라고 적는다", () => {
+    render(
+      <OrganizeConfirmSheet
+        isGuest={false}
+        blockedReason="지금 다른 사람이 정리하고 있어요"
+        busyLabel="정리하는 중..."
+        onStart={jest.fn()}
+        onClose={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "정리하는 중..." })).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "얼굴 분석하고 정리하기" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("로그인하지 않았으면 기본 안내 대신 한 번만 체험할 수 있다고 알린다", () => {
+    render(<OrganizeConfirmSheet isGuest onStart={jest.fn()} onClose={jest.fn()} />);
+
+    expect(
+      screen.getByText("로그인하지 않으면 AI 정리는 한 번만 체험할 수 있어요."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("같은 사람의 사진끼리 모아 드려요")).not.toBeInTheDocument();
+  });
+
+  it("로그인했으면 같은 사람 사진끼리 모은다고 안내한다", () => {
+    render(<OrganizeConfirmSheet isGuest={false} onStart={jest.fn()} onClose={jest.fn()} />);
+
+    expect(screen.getByText("같은 사람의 사진끼리 모아 드려요")).toBeInTheDocument();
+    expect(screen.queryByText(/한 번만 체험할 수 있어요/)).not.toBeInTheDocument();
   });
 });
 
@@ -202,67 +254,7 @@ describe("OrganizeStatusBar", () => {
   });
 });
 
-describe("OrganizeStatusBar · 비슷한 사진", () => {
-  const similarOf = (overrides: Partial<MyOrganizeJob> = {}): MyOrganizeJob =>
-    jobOf({ kind: "SIMILAR", ...overrides });
-
-  it("묶는 중에는 묶기 진행률을 보여 준다", () => {
-    render(<OrganizeStatusBar job={similarOf({ percent: 47 })} {...barHandlers()} />);
-
-    expect(screen.getByText("비슷한 사진들 묶는 중... 47%")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "묶기 진행률" })).toBeInTheDocument();
-  });
-
-  it("완료되면 묶음 수와 확인하기를 보여 준다", async () => {
-    const handlers = barHandlers();
-    render(
-      <OrganizeStatusBar job={similarOf({ status: "READY", groupCount: 18 })} {...handlers} />,
-    );
-
-    expect(screen.getByText("비슷한 사진을 18개로 묶었어요")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "확인하기" }));
-    expect(handlers.onReview).toHaveBeenCalled();
-  });
-
-  it("묶을 사진이 없으면 찾지 못했다고 알린다", () => {
-    render(
-      <OrganizeStatusBar job={similarOf({ status: "READY", groupCount: 0 })} {...barHandlers()} />,
-    );
-
-    expect(screen.getByText("비슷한 사진을 찾지 못했어요")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
-  });
-
-  it("실패하면 묶지 못했다고 알리고 다시 시도를 보여 준다", async () => {
-    const handlers = barHandlers();
-    render(<OrganizeStatusBar job={similarOf({ status: "FAILED" })} {...handlers} />);
-
-    expect(screen.getByText("사진을 묶지 못했어요")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
-    expect(handlers.onRetry).toHaveBeenCalled();
-  });
-});
-
 describe("OrganizeCancelSheet", () => {
-  it("비슷한 사진은 묶기를 멈출지 묻는다", async () => {
-    const onStop = jest.fn();
-    const onKeepGoing = jest.fn();
-    render(
-      <OrganizeCancelSheet organizeKind="SIMILAR" onStop={onStop} onKeepGoing={onKeepGoing} />,
-    );
-
-    expect(screen.getByRole("dialog", { name: "사진 묶기를 멈출까요?" })).toBeInTheDocument();
-    expect(screen.getByText("지금까지 묶은 결과는 사라져요.")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "멈추기" }));
-    expect(onStop).toHaveBeenCalledTimes(1);
-
-    await userEvent.click(screen.getByRole("button", { name: "계속 묶기" }));
-    expect(onKeepGoing).not.toHaveBeenCalled();
-    fireEvent.animationEnd(screen.getByRole("heading").parentElement!);
-    expect(onKeepGoing).toHaveBeenCalled();
-  });
-
   it("멈추기와 계속 나누기를 나눠 부른다", async () => {
     const onStop = jest.fn();
     const onKeepGoing = jest.fn();

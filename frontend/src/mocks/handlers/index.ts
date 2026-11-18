@@ -6,6 +6,7 @@ import { mediaHandlers } from "./media";
 import { myRoomsHandlers } from "./myRooms";
 import { organizeHandlers } from "./organize";
 import { roomHandlers } from "./room";
+import { roomNotificationHandlers } from "./roomNotifications";
 import { uploadHandlers } from "./upload";
 
 export const handlers = [
@@ -14,6 +15,7 @@ export const handlers = [
   ...authHandlers,
   ...myRoomsHandlers,
   ...roomHandlers,
+  ...roomNotificationHandlers,
   ...uploadHandlers,
   ...downloadHandlers,
   ...mediaHandlers,

@@ -139,7 +139,7 @@ const mergeJob = (current: TrackedJob | null, next: IncomingJob): TrackedJob | n
  * - 진행·완료는 방 SSE 이벤트로만 받는다. 부르는 쪽이 `applyJobUpdate`·`applyRoomChange` 에 넘긴다.
  * - 정기 폴링은 하지 않는다. 들어올 때와 SSE 가 다시 붙었을 때(`resync`)만 `/current` 를 읽는다.
  * - 진행 바와 결과 알림은 시작한 사람에게만 보인다. 다른 사람의 작업은 `roomBusy` 로만 알 수 있어서
- *   이름 없이 "다른 사람이 정리하고 있어요" 로 막는다.
+ *   이름 없이 "지금 다른 사람이 정리하고 있어요" 로 막는다.
  */
 export const useOrganizeJob = ({
   roomId,
@@ -149,6 +149,8 @@ export const useOrganizeJob = ({
   isRunning: boolean;
   isStarting: boolean;
   blockedReason: string | null;
+  /** 나든 다른 사람이든 지금 방에서 정리가 돌고 있다. 결과 확인을 기다리는 건 포함하지 않는다. */
+  isOrganizing: boolean;
   isGroupCountLoading: boolean;
   review:
     | { readonly state: "loading"; readonly result?: undefined }
@@ -323,7 +325,7 @@ export const useOrganizeJob = ({
 
   /**
    * 내 작업을 `cancel` 로 끝내 방을 풀어 준다. 화면은 먼저 닫고, 서버 응답으로 상태를 맞춘다.
-   * 방 점유 이벤트가 오기 전에도 '자동으로 정리하기' 가 막혀 보이지 않게 점유를 먼저 푼다.
+   * 방 점유 이벤트가 오기 전에도 정리 버튼이 막혀 보이지 않게 점유를 먼저 푼다.
    */
   const release = useCallback(
     async (failureMessage: string) => {
@@ -345,13 +347,8 @@ export const useOrganizeJob = ({
 
   /** 분석을 멈춘다. */
   const cancel = useCallback(
-    () =>
-      release(
-        job?.kind === "SIMILAR"
-          ? "묶기를 멈추지 못했어요. 잠시 뒤 다시 시도해 주세요."
-          : "나누기를 멈추지 못했어요. 잠시 뒤 다시 시도해 주세요.",
-      ),
-    [job?.kind, release],
+    () => release("나누기를 멈추지 못했어요. 잠시 뒤 다시 시도해 주세요."),
+    [release],
   );
 
   /**
@@ -456,20 +453,20 @@ export const useOrganizeJob = ({
 
   // 완료된 내 결과도 검토 기한(30분) 동안 방을 점유한다. 다른 사람 작업과 구분해 알린다.
   const blockedReason = isRunning
-    ? kind === "SIMILAR"
-      ? "지금 비슷한 사진을 묶고 있어요"
-      : "지금 나누고 있어요"
+    ? "지금 나누고 있어요"
     : isAwaitingReview
       ? "확인하지 않은 정리 결과가 있어요"
       : room.busy
-        ? "다른 사람이 정리하고 있어요"
+        ? "지금 다른 사람이 정리하고 있어요"
         : null;
+  const isOrganizing = isRunning || (!isAwaitingReview && room.busy);
 
   return {
     notice,
     isRunning,
     isStarting,
     blockedReason,
+    isOrganizing,
     isGroupCountLoading: notice?.status === "READY" && readyResult === null,
     /**
      * 검토할 결과. 아직 읽는 중이면 `loading`, 읽지 못했으면 `failed` 다.

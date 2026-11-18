@@ -20,6 +20,7 @@ import {
 import { usePushNotifications, type PushEvent } from "../bridge/usePushNotifications";
 import { createAuthBridge } from "../bridge/authBridge";
 import { NATIVE_AUTH_PROVIDERS } from "../bridge/sdkAuth";
+import { handleShareMessage, SHARE_BRIDGE_VERSION, type ShareEvent } from "../bridge/shareBridge";
 import { getInviteEntryUrl } from "../config/inviteLink";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 import {
@@ -28,8 +29,8 @@ import {
   handleCookiePersistence,
 } from "../bridge/cookiePersistence";
 
-/** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장을 앱에 맡긴다. */
-const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION}, auth: ${JSON.stringify(NATIVE_AUTH_PROVIDERS)} }; true;`;
+/** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장·공유를 앱에 맡긴다. */
+const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION}, share: ${SHARE_BRIDGE_VERSION}, auth: ${JSON.stringify(NATIVE_AUTH_PROVIDERS)} }; true;`;
 
 /** 브릿지 메시지는 쏙 웹에서 온 것만 받는다. 로그인 페이지(`AUTH_ORIGINS`)도 저장을 시킬 수 없다. */
 const isWebOrigin = (url: string): boolean => {
@@ -167,6 +168,14 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
     return () => bridge.cancelAll();
   }, []);
 
+  const emitShare = useCallback((event: ShareEvent) => {
+    webView.current?.injectJavaScript(
+      `if (location.origin === ${JSON.stringify(WEB_ORIGIN)}) {
+        window.dispatchEvent(new CustomEvent("sssok:native", { detail: ${JSON.stringify(event)} }));
+      } true;`,
+    );
+  }, []);
+
   useEffect(() => {
     const bridge = createDownloadBridge((event: BridgeEvent) => {
       webView.current?.injectJavaScript(
@@ -268,6 +277,7 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
               return;
             }
             if (handleCookiePersistence(nativeEvent.data)) return;
+            if (handleShareMessage(nativeEvent.data, isWebOrigin, emitShare)) return;
             downloadBridge.current?.handle(nativeEvent.data);
           }}
           onLoadStart={() => {

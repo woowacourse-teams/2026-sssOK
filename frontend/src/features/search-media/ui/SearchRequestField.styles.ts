@@ -93,42 +93,12 @@ export const Panel = styled.div`
   right: 0;
   left: 0;
   z-index: 10;
-  padding: ${spacing[12]} 14px 6px;
+  padding: ${spacing[4]} 14px;
   border: 1px solid ${colors.borderDefault};
   border-radius: ${radius[16]};
 
   background-color: ${colors.backgroundDefault};
   box-shadow: ${shadow.modal};
-`;
-
-export const PanelTitle = styled.p`
-  margin: 0 0 ${spacing[4]};
-  color: ${colors.textSecondary};
-
-  ${typography.caption2}
-`;
-
-export const ModeHead = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  margin: -6px 0 2px -10px;
-
-  > p {
-    margin: 0;
-    color: ${colors.textStrong};
-
-    ${typography.caption1}
-  }
-`;
-
-export const Note = styled.p`
-  margin: 0;
-  padding: 6px 0 10px;
-  color: ${colors.textPrimary};
-
-  ${typography.caption1}
-  font-weight: 500;
 `;
 
 export const Item = styled.button`
