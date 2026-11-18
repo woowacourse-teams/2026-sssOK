@@ -101,6 +101,25 @@ WebView에 주입한 fetch 래퍼는 `/api/v1/auth/**` 성공 응답 이후 `aut
 로그아웃 → 완전 종료 → 재실행 → 로그인 화면을 실제 기기에서 확인한다.
 쿠키가 거절되거나 서버에서 refresh token이 무효화된 경우는 이 처리로 해결되지 않는다.
 
+## 사진첩 공유로 받기 (#863)
+
+사진첩에서 사진·영상을 고르고 공유 시트에서 쏙을 누르면 쏙으로 가져온다.
+
+- iOS: `expo-share-extension`이 공유 확장(`index.share.js`)을 만든다. 확장은 확인 시트(`src/share/ShareConfirmSheet.tsx`)를 띄우고, 받은 파일을 App Group(`group.com.ssssok.app`)의 `sharedData`에 둔다. [쏙에서 이어서 올리기]를 누르면 `sssok:///share`로 앱을 연다.
+- Android: `expo-share-intent`가 `SEND`·`SEND_MULTIPLE` 인텐트를 받아 앱을 바로 연다. 받은 파일은 앱 문서 폴더 `share-inbox`로 복사한다.
+- 받은 시각을 보관함의 `.received-at`에 적어 두고, 24시간이 지나도록 올리지 않은 공유는 앱이 볼 때 묻지 않고 지운다. 새로 공유하면 지난 공유는 지운다.
+- 앱은 보관함(`src/share/inbox.ts`)을 웹에 알리고, 웹이 시키면 저장소로 PUT 한다(`src/share/incomingShareBridge.ts`). 업로드 주소 발급과 완료 등록은 웹이 한다. 메시지는 `share/ready`·`share/put`·`share/cancel`·`share/clear`(웹 → 앱)와 `share/received`·`share/thumbnail`·`share/progress`·`share/put-done`(앱 → 웹)이다.
+
+공유 확장과 인텐트 필터는 네이티브 설정이라 Expo Go에서는 확인할 수 없다. 새 개발 빌드가 필요하다. iOS는 공유 확장용 번들 ID(`com.ssssok.app.ShareExtension`)와 App Group이 Apple Developer에 등록되어 있어야 하며, EAS 빌드가 자격 증명 설정 중에 등록을 묻는다.
+
+실기기에서 다음을 확인한다.
+
+1. 사진첩에서 사진 여러 장과 영상 1개를 골라 공유하면 앱 줄에 쏙이 보인다.
+2. iOS: 쏙을 누르면 확인 시트에 고른 개수와 썸네일이 보이고, [쏙에서 이어서 올리기]로 앱이 열린다. [취소]를 누르면 받은 파일이 지워진다.
+3. Android: 쏙을 누르면 앱이 바로 열린다.
+4. 웹이 `share/ready`를 보내면 `share/received`가 오고, 이어서 `share/thumbnail`이 온다.
+5. 웹이 `share/clear`를 보내면 보관함이 비고 빈 `share/received`가 온다.
+
 ## 네이티브 소셜 로그인
 
 카카오는 Android·iOS SDK, 애플은 iOS의 `expo-apple-authentication`을 사용한다. Android 애플 로그인과 브릿지를 지원하지 않는 이전 앱은 기존 웹 OAuth를 유지한다.
