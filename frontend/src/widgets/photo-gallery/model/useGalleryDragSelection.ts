@@ -14,6 +14,8 @@ interface DragSelectionOptions {
   ids: number[];
   selectedIds: number[];
   onSelect?: (ids: number[]) => void;
+  containerRef?: RefObject<HTMLElement | null>;
+  getMouseHits?: (area: SelectionRectangle) => number[];
 }
 
 interface Gesture {
@@ -40,7 +42,8 @@ interface DragSelectionResult {
 }
 
 export const useGalleryDragSelection = (options: DragSelectionOptions): DragSelectionResult => {
-  const containerRef = useRef<HTMLElement>(null);
+  const ownContainerRef = useRef<HTMLElement>(null);
+  const containerRef = options.containerRef ?? ownContainerRef;
   const latest = useRef(options);
   const [rectangle, setRectangle] = useState<SelectionRectangle | null>(null);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -86,9 +89,11 @@ export const useGalleryDragSelection = (options: DragSelectionOptions): DragSele
           lastRectangle = area;
           setRectangle(area);
         }
-        hits = cards
-          .filter((card) => intersects(area, card.getBoundingClientRect()))
-          .map((card) => Number(card.dataset.mediaId));
+        hits =
+          latest.current.getMouseHits?.(area) ??
+          cards
+            .filter((card) => intersects(area, card.getBoundingClientRect()))
+            .map((card) => Number(card.dataset.mediaId));
       } else {
         const target = document.elementFromPoint(gesture.current.x, gesture.current.y);
         let endId = target && container.contains(target) ? cardId(target) : null;
@@ -311,7 +316,7 @@ export const useGalleryDragSelection = (options: DragSelectionOptions): DragSele
       window.removeEventListener("keydown", keyDown);
       document.removeEventListener("visibilitychange", visibilityChange);
     };
-  }, [enabled]);
+  }, [enabled, containerRef]);
 
   return { containerRef, rectangle, isSelecting };
 };
