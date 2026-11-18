@@ -52,6 +52,50 @@ describe("RoomShareButton 공유 이벤트", () => {
     expect(track).toHaveBeenCalledWith("Invite Link Copied", { is_success: false });
   });
 
+  it("공유 시트가 떠 있는 동안 메뉴를 닫아 둔다", async () => {
+    const user = userEvent.setup();
+    const share = jest.fn(() => new Promise<void>(() => {}));
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => ({ matches: query === "(pointer: coarse)" }),
+    });
+    try {
+      await openMenu(user);
+
+      await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+
+      expect(share).toHaveBeenCalled();
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+      Object.defineProperty(window, "matchMedia", { value: undefined, configurable: true });
+    }
+  });
+
+  it("공유 시트로 넘기면 복사 토스트 없이 공유 시트 열림을 남긴다", async () => {
+    const user = userEvent.setup();
+    const share = jest.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { value: share, configurable: true });
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query: string) => ({ matches: query === "(pointer: coarse)" }),
+    });
+    try {
+      await openMenu(user);
+
+      await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+
+      expect(share).toHaveBeenCalledWith({ url: `${window.location.origin}/join/${ROOM_CODE}` });
+      expect(track).toHaveBeenCalledWith("Invite Share Sheet Opened", { channel: "web" });
+      expect(screen.queryByText("공유 링크를 복사했어요.")).not.toBeInTheDocument();
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    } finally {
+      Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
+      Object.defineProperty(window, "matchMedia", { value: undefined, configurable: true });
+    }
+  });
+
   it("현재 방 주소를 담은 QR 코드 모달을 연다", async () => {
     const user = userEvent.setup();
     await openMenu(user);
@@ -142,6 +186,7 @@ it("복사를 재시도하는 동안 이전 실패 안내를 닫는다", async (
   await openMenu(user);
   await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
   expect(await screen.findByText(/링크를 복사하지 못했어요/)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "방 공유 메뉴 열기" }));
   await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
   expect(screen.queryByText(/링크를 복사하지 못했어요/)).not.toBeInTheDocument();
   finish();

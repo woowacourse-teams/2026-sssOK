@@ -265,16 +265,24 @@ describe("useGallerySearch", () => {
       ]);
     });
 
-    it("요청 패널에서 고른 사람으로 바로 찾고, 입력창에는 그 이름을 남긴다", () => {
+    it("고른 사람이 올린 사진만 찾고, 입력창에는 '○○가 올린 사진' 을 남긴다", () => {
       const { result } = renderGallerySearch([item(2, "지우"), item(1, "소이")]);
 
       act(() => result.current.searchByUploader({ id: 2, name: "소이" }));
 
       expect(result.current.items.map((slot) => slot.mediaId)).toEqual([1]);
-      expect(result.current.appliedText).toBe("소이");
+      expect(result.current.appliedText).toBe("소이가 올린 사진");
     });
 
-    it("요청 패널에서 고른 사람은 이름이 겹치는 다른 사람 사진을 섞지 않는다", () => {
+    it("내가 올린 사진으로 찾으면 입력창에 '내가 올린 사진' 을 남긴다", () => {
+      const { result } = renderGallerySearch([item(1, "소이")]);
+
+      act(() => result.current.searchByUploader({ id: HOST_ID, name: "해니" }));
+
+      expect(result.current.appliedText).toBe("내가 올린 사진");
+    });
+
+    it("검색 제안에서 고른 사람은 이름이 겹치는 다른 사람 사진을 섞지 않는다", () => {
       const { result } = renderGallerySearch([item(3, "소이2"), item(2, "지우"), item(1, "소이")]);
 
       act(() => result.current.searchByUploader({ id: 2, name: "소이" }));

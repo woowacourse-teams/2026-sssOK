@@ -1,6 +1,5 @@
 import { FloatingBar } from "@/shared/ui/floating-bar";
 
-import type { OrganizeKind } from "../api/types";
 import closeIcon from "../assets/close.svg";
 import spinnerIcon from "../assets/spinner.svg";
 import alertCircle from "../assets/status-alert-circle.svg";
@@ -41,43 +40,22 @@ const countOf = (photoCount: number | null, percent: number | null): string | nu
     ? null
     : `${Math.floor((percent / 100) * photoCount)} / ${photoCount}`;
 
-/**
- * 종류마다 다른 문구. 사람별은 "나누기", 비슷한 사진은 "묶기" 다
- * (피그마 G-S3·G-S4·G-S4b·G-S4c · 649:2696).
- */
-const COPY: Record<
-  OrganizeKind,
-  {
-    progressLabel: string;
-    running: (percent: number) => string;
-    ready: (groupCount: number | null) => string;
-    failed: string;
-    empty: string;
-  }
-> = {
-  PERSON: {
-    progressLabel: "나누기 진행률",
-    running: (percent) => `나누는 중... ${percent}%`,
-    ready: (count) => (count === null ? "사진을 다 나눴어요" : `${count}명을 찾았어요`),
-    failed: "사진을 나누지 못했어요",
-    empty: "사람이 찍힌 사진을 찾지 못했어요",
-  },
-  SIMILAR: {
-    progressLabel: "묶기 진행률",
-    running: (percent) => `비슷한 사진들 묶는 중... ${percent}%`,
-    ready: (count) =>
-      count === null ? "사진을 다 묶었어요" : `비슷한 사진을 ${count}개로 묶었어요`,
-    failed: "사진을 묶지 못했어요",
-    empty: "비슷한 사진을 찾지 못했어요",
-  },
+/** 사람별 정리 알림 문구 (피그마 G-3·G-4·G-4b·G-4c · 1484:2758). */
+const COPY = {
+  progressLabel: "나누기 진행률",
+  running: (percent: number) => `나누는 중... ${percent}%`,
+  ready: (count: number | null) =>
+    count === null ? "사진을 다 나눴어요" : `${count}명을 찾았어요`,
+  failed: "사진을 나누지 못했어요",
+  empty: "사람이 찍힌 사진을 찾지 못했어요",
 };
 
 /**
  * RUNNING 인데 아직 아는 단계를 받지 못했으면 진행률이 null 이다.
  * 그때는 "나누는 중" 대신 준비 중이라고 알린다.
  */
-const runningLabelOf = (kind: OrganizeKind, percent: number | null): string =>
-  percent === null ? "사진 준비 중..." : COPY[kind].running(percent);
+const runningLabelOf = (percent: number | null): string =>
+  percent === null ? "사진 준비 중..." : COPY.running(percent);
 
 /* 아이콘 조각 위치는 피그마 레이어 그대로다(22px 칸 기준). */
 const SuccessIcon = () => (
@@ -103,7 +81,7 @@ const Close = ({ onClick }: { onClick: () => void }) => (
 
 /**
  * 갤러리 하단의 나누기 진행 바와 결과 알림.
- * 상태는 갖지 않는다. 무엇을 그릴지는 `job.status`·`job.kind`·`job.groupCount` 가 정한다.
+ * 상태는 갖지 않는다. 무엇을 그릴지는 `job.status`·`job.groupCount` 가 정한다.
  */
 export const OrganizeStatusBar = ({
   job,
@@ -112,12 +90,12 @@ export const OrganizeStatusBar = ({
   onRetry,
   onDismiss,
 }: OrganizeStatusBarProps) => {
-  const copy = COPY[job.kind];
+  const copy = COPY;
 
   if (job.status === "QUEUED" || job.status === "RUNNING") {
     // 차례를 기다리는 동안은 진행률·장수를 비워 둔다. "0%" 로 두면 분석이 멈춘 것처럼 보인다.
     const percent = job.isWaiting ? null : job.percent;
-    const label = job.isWaiting ? "분석 대기 중..." : runningLabelOf(job.kind, percent);
+    const label = job.isWaiting ? "분석 대기 중..." : runningLabelOf(percent);
 
     return (
       <Dock>
