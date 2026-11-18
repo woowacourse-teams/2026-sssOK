@@ -1,0 +1,41 @@
+{
+  "scope": "Local ARM64 Docker, CPU 2, memory 1400MiB, no network; local staging + analysis + normal cleanup; 100ms memory sampling; fresh3, reuse1+5. Not deployed server E2E.",
+  "results": [
+    {
+      "photos": 41,
+      "fresh_median_seconds": 12.47425154800294,
+      "reuse_first_seconds": 12.04494267096743,
+      "reuse_warm_median_seconds": 9.653764045971911,
+      "reduction_percent": 22.610474794237845,
+      "fresh_peak_container_mib": 851.9609375,
+      "reuse_peak_container_mib": 973.9296875,
+      "reuse_idle_worker_mib": [
+        515.6,
+        632.5,
+        470.4,
+        470.9,
+        470.9,
+        573.2
+      ],
+      "equal_all": true
+    },
+    {
+      "photos": 62,
+      "fresh_median_seconds": 16.75480355002219,
+      "reuse_first_seconds": 15.054219256038778,
+      "reuse_warm_median_seconds": 13.240293713985011,
+      "reduction_percent": 20.976132758253218,
+      "fresh_peak_container_mib": 949.4921875,
+      "reuse_peak_container_mib": 981.9765625,
+      "reuse_idle_worker_mib": [
+        567.8,
+        601.8,
+        562.8,
+        601.4,
+        600.0,
+        601.3
+      ],
+      "equal_all": true
+    }
+  ]
+}

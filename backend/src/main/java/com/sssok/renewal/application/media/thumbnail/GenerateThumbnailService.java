@@ -3,6 +3,7 @@ package com.sssok.renewal.application.media.thumbnail;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.storage.ImageDerivativeUploader;
 import com.sssok.renewal.outgoing.storage.ThumbnailMediaStorage;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.CaptureInfo;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivativeSpec;
@@ -44,6 +45,7 @@ public class GenerateThumbnailService {
     private final VideoProperties videoProperties;
 
     private final ThumbnailMediaStorage mediaStorage;
+    private final ImageDerivativeUploader derivativeUploader;
 
     public Result generate(ThumbnailClaim claimedJob, Source source) {
         if (thumbnailJobService.renewLease(claimedJob) != ThumbnailJobService.Heartbeat.RENEWED) {
@@ -146,10 +148,8 @@ public class GenerateThumbnailService {
             return Result.SKIPPED;
         }
         try {
-            mediaStorage.uploadThumbnail(thumbnailKey, derivedImages.thumbnail().content());
-            if (previewKey != null) {
-                mediaStorage.uploadPreview(previewKey, derivedImages.preview().content());
-            }
+            derivativeUploader.upload(thumbnailKey, derivedImages.thumbnail().content(),
+                previewKey, previewKey == null ? null : derivedImages.preview().content());
             CaptureInfo captureInfo = imageProcessor.readCaptureInfo(originalImageBytes);
             boolean completionAccepted = thumbnailJobCompletionService.complete(claimedJob, ProcessedMedia.ofImage(thumbnailKey, previewKey,
                 derivedImages.sourceWidth(), derivedImages.sourceHeight(), captureInfo.takenAt(), captureInfo.location()));

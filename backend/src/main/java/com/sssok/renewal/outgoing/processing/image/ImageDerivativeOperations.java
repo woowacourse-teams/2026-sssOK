@@ -130,6 +130,8 @@ public class ImageDerivativeOperations {
         if (format == DerivativeFormat.WEBP) {
             // 무손실 모드도 있지만 사진에서는 파일이 몇 배로 커진다.
             param.setCompressionType(WEBP_LOSSY);
+            // quality는 유지하고 압축 탐색 비용만 줄인다 (#557 실측).
+            ((WebPWriteParam) param).setMethod(0);
         }
         param.setCompressionQuality(quality);
 

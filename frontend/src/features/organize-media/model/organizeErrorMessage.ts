@@ -57,7 +57,7 @@ export const organizeErrorMessage = (error: unknown): string => {
     case ORGANIZE_ERROR_CODES.needsClarification:
       return "어떻게 정리할지 조금 더 자세히 써 주세요. 예: 사람별로 나눠 줘";
     case ORGANIZE_ERROR_CODES.unsupportedRequest:
-      return "아직 할 수 없는 정리예요. ‘자동으로 정리하기’에서 골라 주세요.";
+      return "아직 할 수 없는 정리예요. 제목 옆 ✨ 버튼으로 사람별로 정리해 주세요.";
     case ORGANIZE_ERROR_CODES.retryNotAllowed:
       return "이 작업은 더 다시 시도할 수 없어요. 새로 정리해 주세요.";
     default:

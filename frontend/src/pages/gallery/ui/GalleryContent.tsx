@@ -19,14 +19,12 @@ import { MoveMediaFolderBottomSheet } from "@/features/move-media-folder";
 import {
   countAnalyzablePhotos,
   OrganizeCancelSheet,
-  OrganizeKindSheet,
+  OrganizeConfirmSheet,
   type OrganizeLimit,
   OrganizeLimitModal,
   organizeLimitOf,
   OrganizeStatusBar,
-  type OrganizeKind,
   PersonReviewScreen,
-  SimilarReviewScreen,
   useOrganizeJob,
 } from "@/features/organize-media";
 import { SearchRequestField } from "@/features/search-media";
@@ -134,8 +132,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const [organizeLimit, setOrganizeLimit] = useState<OrganizeLimit | null>(null);
   const [isOrganizeCancelOpen, setIsOrganizeCancelOpen] = useState(false);
   const [isOrganizeResultCloseOpen, setIsOrganizeResultCloseOpen] = useState(false);
-  /** 열려 있는 검토 화면의 정리 종류. 사람별과 비슷한 사진은 화면이 다르다. */
-  const [reviewKind, setReviewKind] = useState<OrganizeKind | null>(null);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
 
   // 옵션 선택
   const { selectedFolderId, selectedOption, selectedSort, selectFolder, selectOption, selectSort } =
@@ -211,9 +208,19 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   }
   /** 사진 처리가 다 끝나야 정리할 수 있다. 진행 중인 정리 같은 다른 사유가 있으면 그쪽을 먼저 보인다. */
   const organizeBlockedReason =
-    organize.blockedReason ?? (isProcessingPhotos ? "사진을 처리하고 있어요" : null);
+    organize.blockedReason ??
+    (isProcessingPhotos ? "사진을 처리하고 있어요.\n조금만 기다려 주세요." : null);
   /**
-   * 정리를 시작하기 전에 장수 한도를 먼저 본다. 시트에서 방식까지 고른 뒤에 막히면 헛걸음이라서다.
+   * 기다리면 풀리는 막힘은 버튼에 지금 하는 일을 적는다. 결과 확인 대기는 기다려도 풀리지 않아
+   * 원래 문구를 둔다.
+   */
+  const organizeBusyLabel = organize.isOrganizing
+    ? "정리하는 중..."
+    : organize.blockedReason === null && isProcessingPhotos
+      ? "사진 처리하는 중..."
+      : null;
+  /**
+   * 정리를 시작하기 전에 장수 한도를 먼저 본다. 확인 시트에서 시작을 누른 뒤에 막히면 헛걸음이라서다.
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
    */
   const beginOrganize = (open: () => void): void => {
@@ -236,7 +243,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
 
   // 결과가 취소·만료돼 검토할 것이 없어지면 검토 화면도 닫는다. 다음 결과에서 저절로 열리지 않게 한다.
   const hasReview = organize.review !== null;
-  if (reviewKind && !hasReview) setReviewKind(null);
+  if (isReviewOpen && !hasReview) setIsReviewOpen(false);
 
   const folders = room.folders.map((folder) => ({
     ...folder,
@@ -303,7 +310,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   const applyReview = async (groups: Parameters<typeof organize.apply>[0]): Promise<void> => {
     const applied = await organize.apply(groups);
     if (!applied) return;
-    setReviewKind(null);
+    setIsReviewOpen(false);
     search.closeSearch();
     clearSelection();
     await Promise.all([refreshRoom(), refreshPhotos()]);
@@ -377,12 +384,11 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         onAddFolder={() => void handleCreateFolder("menu")}
         onEditFolder={() => setIsEditFolderOpen(true)}
         onDeleteFolder={() => setIsDeleteFolderOpen(true)}
+        onOrganize={() => beginOrganize(() => setIsOrganizeSheetOpen(true))}
         searchField={
           <SearchRequestField
             appliedText={search.appliedText}
-            folders={room.folders}
             uploaders={search.uploaders}
-            myNickname={room.myNickname ?? nickname}
             onOpen={search.openSearch}
             onSearchKeyword={(query) => {
               selectFolder(null);
@@ -392,14 +398,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             onSearchUploader={(uploader) => {
               selectFolder(null);
               search.searchByUploader(uploader);
-              clearSelection();
-            }}
-            organizeBlockedReason={organizeBlockedReason}
-            onOrganize={() => beginOrganize(() => setIsOrganizeSheetOpen(true))}
-            onOrganizeText={(text) => beginOrganize(() => void organize.start({ text }))}
-            onOpenFolder={(folderId) => {
-              search.closeSearch();
-              selectFolder(folderId);
               clearSelection();
             }}
             onClear={() => {
@@ -561,31 +559,18 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           // 검토 화면은 결과를 새로 받아 연다. 받는 동안은 화면 안에서 불러오는 중으로 보인다.
           onReview={() => {
             organize.reloadResult();
-            setReviewKind(organize.notice?.kind ?? "PERSON");
+            setIsReviewOpen(true);
           }}
         />
       )}
 
-      {reviewKind === "PERSON" && organize.review && (
+      {isReviewOpen && organize.review && (
         <PersonReviewScreen
           source={organize.review}
           myName={myName}
           memberNames={reviewMemberNames}
           folderNames={room.folders.map((folder) => folder.name)}
-          onClose={() => setReviewKind(null)}
-          onRetry={organize.reloadResult}
-          isSubmitting={organize.isApplying}
-          submitError={organize.applyError}
-          onDismissError={organize.clearApplyError}
-          onSubmit={applyReview}
-        />
-      )}
-
-      {reviewKind === "SIMILAR" && organize.review && (
-        <SimilarReviewScreen
-          source={organize.review}
-          folderNames={room.folders.map((folder) => folder.name)}
-          onClose={() => setReviewKind(null)}
+          onClose={() => setIsReviewOpen(false)}
           onRetry={organize.reloadResult}
           isSubmitting={organize.isApplying}
           submitError={organize.applyError}
@@ -595,20 +580,21 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       )}
 
       {isOrganizeSheetOpen && (
-        <OrganizeKindSheet
+        <OrganizeConfirmSheet
           isGuest={!memberSession.data}
           isStarting={organize.isStarting}
+          blockedReason={organizeBlockedReason}
+          busyLabel={organizeBusyLabel}
           onClose={() => setIsOrganizeSheetOpen(false)}
-          onStart={(kind) => {
+          onStart={() => {
             setIsOrganizeSheetOpen(false);
-            void organize.start({ kind });
+            void organize.start({ kind: "PERSON" });
           }}
         />
       )}
 
       {isOrganizeCancelOpen && organize.isRunning && (
         <OrganizeCancelSheet
-          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeCancelOpen(false)}
           onStop={() => {
             setIsOrganizeCancelOpen(false);
@@ -620,7 +606,6 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       {isOrganizeResultCloseOpen && organize.notice?.status === "READY" && (
         <OrganizeCancelSheet
           kind="result"
-          organizeKind={organize.notice?.kind}
           onKeepGoing={() => setIsOrganizeResultCloseOpen(false)}
           onStop={() => {
             setIsOrganizeResultCloseOpen(false);

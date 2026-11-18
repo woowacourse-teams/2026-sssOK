@@ -1,4 +1,7 @@
-"""One subprocess per analysis; heavy model imports stay outside the MCP process."""
+"""Sequential analysis worker; imports survive jobs, model objects do not."""
+from contextlib import contextmanager
+import gc
+import os
 import fcntl
 import json
 import logging
@@ -63,10 +66,51 @@ def execute(room_id, job_id, settings):
         store.complete(room_id, job_id, response)
 
 
+@contextmanager
+def job_log(path):
+    # Redirect native libraries as well as Python output, away from the protocol pipe.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    saved = [os.dup(fd) for fd in (1, 2)]
+    try:
+        with path.open('ab', buffering=0) as log:
+            os.dup2(log.fileno(), 1)
+            os.dup2(log.fileno(), 2)
+            yield
+    finally:
+        sys.stdout.flush()
+        sys.stderr.flush()
+        for fd, original in zip((1, 2), saved):
+            os.dup2(original, fd)
+            os.close(original)
+
+
+def serve(settings):
+    for line in sys.stdin:
+        request = json.loads(line)
+        room_id, job_id = request['room_id'], request['id']
+        # Resolve through the store before using the ID as a path.
+        Store(settings.data).get(room_id, job_id)
+        logs = settings.data / 'logs'
+        logs.mkdir(exist_ok=True)
+        with job_log(logs / f'{job_id}.log'):
+            try:
+                execute(room_id, job_id, settings)
+            except Exception as exc:
+                print(f'Analysis failed: {type(exc).__name__}', file=sys.stderr)
+                return 1  # Discard potentially damaged runtime state on failure.
+            gc.collect()
+        print(json.dumps({'id': job_id}), flush=True)
+    return 0
+
+
 if __name__ == '__main__':
     try:
-        execute(int(sys.argv[1]),sys.argv[2],Settings.environment())
+        settings = Settings.environment()
+        if sys.argv[1:] == ['--serve']:
+            raise SystemExit(serve(settings))
+        execute(int(sys.argv[1]), sys.argv[2], settings)
     except Exception as exc:
         # Signed storage URLs must not leak through HTTP exceptions in logs.
-        print(f'Analysis failed: {type(exc).__name__}',file=sys.stderr)
+        print(f'Analysis failed: {type(exc).__name__}', file=sys.stderr)
         raise SystemExit(1)
