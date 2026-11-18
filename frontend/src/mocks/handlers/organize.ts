@@ -31,7 +31,7 @@ interface MockJob {
   jobId: string;
   roomId: number;
   requesterId: number;
-  kind: "PERSON" | "SIMILAR";
+  kind: "PERSON";
   photoIds: number[];
   startedAt: number;
   createdAt: string;
@@ -64,21 +64,16 @@ const scenarioOf = (): Scenario => {
 
 /**
  * 실제 분석 서버처럼 단계마다 0부터 다시 센다(진행 정보 계약 #704).
- * 처음 3분의 1은 사진 내려받기다. 사람별은 다음이 얼굴 찾기, 마지막이 사람(몸) 찾기이고,
- * 비슷한 사진은 장면 특징을 뽑은 뒤 서로 비교한다.
+ * 처음 3분의 1은 사진 내려받기다. 다음이 얼굴 찾기, 마지막이 사람(몸) 찾기다.
  * 진행 바가 이 숫자를 그대로 쓰지 않고 전체 진행률로 바꾸는지 손으로 확인할 수 있다.
  */
-const STAGES: Record<MockJob["kind"], readonly string[]> = {
-  PERSON: ["downloading_photos", "detecting_faces", "detecting_bodies"],
-  SIMILAR: ["downloading_photos", "extracting_scene_features", "matching_similar_photos"],
-};
+const STAGES = ["downloading_photos", "detecting_faces", "detecting_bodies"] as const;
 
 const progressOf = (
-  kind: MockJob["kind"],
   processed: number,
   total: number,
 ): { stage: string; processed: number; total: number; unit: string } => {
-  const stages = STAGES[kind];
+  const stages = STAGES;
   const size = Math.ceil(total / stages.length);
   const index = Math.min(stages.length - 1, Math.floor(processed / size));
   const inStage = Math.min(total, (processed - index * size) * stages.length);
@@ -106,7 +101,7 @@ const snapshot = (
     | undefined;
   jobId: string;
   status: "READY" | "FAILED" | "QUEUED" | "RUNNING" | "CANCELED" | "APPLIED";
-  kind: "PERSON" | "SIMILAR";
+  kind: "PERSON";
   photoCount: number;
   excludedCount: number;
   attempt: number;
@@ -153,7 +148,7 @@ const snapshot = (
     attempt: job.attempt,
     jobVersion,
     ...(status === "RUNNING"
-      ? { progress: isWaiting ? WAITING : progressOf(job.kind, processed, total) }
+      ? { progress: isWaiting ? WAITING : progressOf(processed, total) }
       : {}),
     ...(status === "FAILED" ? { failureCode: "ANALYSIS_FAILED" } : {}),
     retryable: status === "FAILED" && job.attempt <= MAX_RETRIES,
@@ -269,7 +264,8 @@ export const resetOrganizeJobs = (): void => {
 export const organizeHandlers = [
   http.post(BASE, async ({ request, params }) => {
     const body = (await request.json().catch(() => ({}))) as { kind?: string };
-    if (body.kind !== "PERSON" && body.kind !== "SIMILAR") {
+    // 서버는 SIMILAR 도 받지만 화면에서는 사람별 정리만 쓴다.
+    if (body.kind !== "PERSON") {
       return error(400, "INVALID_PARAM", "요청 값이 올바르지 않습니다");
     }
     return startJob(request, Number(params.roomId), body.kind);
@@ -281,11 +277,7 @@ export const organizeHandlers = [
     if (text.length === 0 || text.length > 1000) {
       return error(400, "INVALID_PARAM", "요청 값이 올바르지 않습니다");
     }
-    const kind = /비슷|중복|닮은/.test(text)
-      ? "SIMILAR"
-      : /사람|인물|얼굴|친구/.test(text)
-        ? "PERSON"
-        : null;
+    const kind = /사람|인물|얼굴|친구/.test(text) ? "PERSON" : null;
     if (kind === null) {
       return error(
         422,
@@ -325,8 +317,7 @@ export const organizeHandlers = [
     const groupCount = job.scenario === "empty" ? 0 : Math.min(PEOPLE_LIMIT, media.length);
     const groups = Array.from({ length: groupCount }, (_, index) => {
       const photos = media.filter((__, photoIndex) => photoIndex % groupCount === index);
-      const prefix = job.kind === "SIMILAR" ? "similar" : "person";
-      return { groupId: `${prefix}_${index + 1}`, photoCount: photos.length, photos };
+      return { groupId: `person_${index + 1}`, photoCount: photos.length, photos };
     });
 
     return HttpResponse.json({
