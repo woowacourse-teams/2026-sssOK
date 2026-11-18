@@ -1,6 +1,8 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 
 import type { GalleryItem } from "@/entities/media";
+import { useGalleryDragSelection } from "../model/useGalleryDragSelection";
+import { DragSelectionOverlay } from "./DragSelectionOverlay";
 import { GalleryMediaCard } from "./GalleryMediaCard";
 import { GalleryGrid, GallerySection, StateMessage } from "./PhotoGallery.styles";
 import { PhotoGallerySkeleton } from "./PhotoGallerySkeleton";
@@ -17,6 +19,7 @@ interface PhotoGalleryProps {
   emptyMessage?: ReactNode;
   errorMessage?: string;
   onTogglePhoto: (photoId: number) => void;
+  onSelectPhotos?: (photoIds: number[]) => void;
   onOpenPhoto?: (mediaId: number) => void;
 }
 
@@ -32,8 +35,14 @@ export const PhotoGallery = ({
   emptyMessage = "조건에 맞는 사진이 없어요.",
   errorMessage = "사진을 불러오지 못했어요.",
   onTogglePhoto,
+  onSelectPhotos,
   onOpenPhoto,
 }: PhotoGalleryProps) => {
+  const { containerRef, rectangle, isSelecting } = useGalleryDragSelection({
+    ids: items.map((item) => item.mediaId),
+    selectedIds: selectedPhotoIds,
+    onSelect: items.length > 0 ? onSelectPhotos : undefined,
+  });
   const selectedIdSet = useMemo(() => new Set(selectedPhotoIds), [selectedPhotoIds]);
 
   /*
@@ -53,7 +62,7 @@ export const PhotoGallery = ({
   if (items.length === 0) return <StateMessage>{emptyMessage}</StateMessage>;
 
   return (
-    <GallerySection>
+    <GallerySection ref={containerRef} $selecting={isSelecting}>
       <GalleryGrid>
         {items.map((item) => (
           <GalleryMediaCard
@@ -68,6 +77,7 @@ export const PhotoGallery = ({
           />
         ))}
       </GalleryGrid>
+      <DragSelectionOverlay rectangle={rectangle} />
     </GallerySection>
   );
 };
