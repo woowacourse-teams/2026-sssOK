@@ -192,3 +192,62 @@ it("복사를 재시도하는 동안 이전 실패 안내를 닫는다", async (
   finish();
   expect(await screen.findByText("공유 링크를 복사했어요.")).toBeInTheDocument();
 });
+
+describe("RoomShareButton 메뉴 포커스", () => {
+  it("터치·마우스로 열면 첫 항목이 아니라 메뉴 상자에 포커스를 둔다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    expect(screen.getByRole("menu")).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).not.toHaveFocus();
+  });
+
+  it("키보드로 열면 첫 항목에 포커스를 준다", async () => {
+    const user = userEvent.setup();
+    render(<RoomShareButton roomCode={ROOM_CODE} />);
+    screen.getByRole("button", { name: "방 공유 메뉴 열기" }).focus();
+
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).toHaveFocus();
+  });
+
+  it("방향키로 열면 첫 항목에 포커스를 준다", async () => {
+    const user = userEvent.setup();
+    render(<RoomShareButton roomCode={ROOM_CODE} />);
+    screen.getByRole("button", { name: "방 공유 메뉴 열기" }).focus();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).toHaveFocus();
+  });
+
+  it("터치로 연 메뉴에서도 방향키로 첫 항목에 갈 수 있다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).toHaveFocus();
+  });
+
+  it("탭한 곳으로 포커스가 넘어가지 않아도 메뉴를 닫지 않는다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    // WebKit 은 탭한 버튼에 포커스를 주지 않아 relatedTarget 이 null 인 blur 가 온다.
+    fireEvent.blur(screen.getByRole("menu"), { relatedTarget: null });
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("터치로 연 메뉴에서 링크 공유를 누르면 링크를 복사한다", async () => {
+    const user = userEvent.setup();
+    const writeText = jest.spyOn(navigator.clipboard, "writeText");
+    await openMenu(user);
+
+    await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/${ROOM_CODE}`);
+  });
+});
