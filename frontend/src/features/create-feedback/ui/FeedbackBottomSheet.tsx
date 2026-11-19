@@ -51,7 +51,7 @@ export const FeedbackBottomSheet = ({
       <form onSubmit={submit}>
         <Stack gap={16}>
           <Textarea
-            autoFocus
+            data-autofocus
             label="문의 내용"
             placeholder="예) 업로드 속도가 너무 느려요"
             value={content}
