@@ -21,6 +21,9 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   const anchorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copyRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // 키보드로 열었을 때만 첫 항목에 포커스를 준다. 터치·마우스로 연 메뉴에서 첫 항목이 강조되지 않게 한다.
+  const openedWithKeyboard = useRef(false);
   const menuId = useId();
 
   const closeMenu = (): void => {
@@ -31,7 +34,10 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   useEffect(() => {
     if (!isOpen) return;
 
-    copyRef.current?.focus();
+    // WebKit 은 탭한 버튼에 포커스를 주지 않아서, 코드로 옮긴 포커스가 :focus-visible 로 강조된다.
+    // 터치·마우스로 열면 메뉴 상자에 포커스를 두어 방향키 이동과 스크린리더 안내만 살린다.
+    if (openedWithKeyboard.current) copyRef.current?.focus();
+    else menuRef.current?.focus();
 
     const handlePointerDown = (event: PointerEvent): void => {
       if (event.target instanceof Node && !anchorRef.current?.contains(event.target)) {
@@ -102,10 +108,15 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
           aria-haspopup="menu"
           aria-expanded={isOpen}
           aria-controls={isOpen ? menuId : undefined}
-          onClick={() => setIsOpen((open) => !open)}
+          onClick={(event) => {
+            // Enter·Space 로 누른 클릭은 detail 이 0 이다.
+            openedWithKeyboard.current = event.detail === 0;
+            setIsOpen((open) => !open);
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
+              openedWithKeyboard.current = true;
               setIsOpen(true);
             }
           }}
@@ -114,7 +125,9 @@ export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
         </IconButton>
         {isOpen && (
           <Menu
+            ref={menuRef}
             id={menuId}
+            tabIndex={-1}
             role="menu"
             aria-label="방 공유"
             onKeyDown={(event) => {
