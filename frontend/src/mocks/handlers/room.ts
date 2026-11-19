@@ -497,6 +497,12 @@ export const hasJoinedRoom = (token: string, roomId: number): boolean =>
   readJoinedRooms().has(joinKey(token, roomId));
 
 export const roomHandlers = [
+  // 갤러리 진입 시 조회한다. 목 토큰이 실제 서버로 넘어가지 않게 한다.
+  http.get(`${API_BASE_URL}/rooms/:roomId/notification-setting`, ({ request }) => {
+    const token = request.headers.get("Authorization");
+    if (!token || isBrokenToken(token)) return unauthorized();
+    return HttpResponse.json({ data: { enabled: true } });
+  }),
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
   http.get(`${API_BASE_URL}/rooms/:code`, ({ request, params }) => {
     const code = String(params.code);

@@ -1,7 +1,7 @@
 import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render as testingRender, screen } from "@testing-library/react";
+import { act, fireEvent, render as testingRender, screen } from "@testing-library/react";
 
 import type { GalleryItem, MediaItem } from "@/entities/media";
 import { GalleryMediaCard } from "./GalleryMediaCard";
@@ -237,4 +237,36 @@ describe("GalleryMediaCard", () => {
       value: originalRevokeObjectURL,
     });
   });
+});
+
+it("목록은 로컬 썸네일을 사용하고 실패 시 원본으로 대체하며 URL을 정리한다", () => {
+  const originalCreate = URL.createObjectURL;
+  const originalRevoke = URL.revokeObjectURL;
+  const blob = new Blob(["small"], { type: "image/webp" });
+  const create = jest.fn((value) => (value === blob ? "blob:thumbnail" : "blob:original"));
+  const revoke = jest.fn();
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: create });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revoke });
+  try {
+    const { unmount } = render(
+      <GalleryMediaCard
+        item={{ ...localItem, previewBlob: blob }}
+        roomId={1}
+        userId={1}
+        token="token"
+        isSelected={false}
+        onToggle={jest.fn()}
+      />,
+    );
+    const image = screen.getByRole("img", { name: "photo.jpg" });
+    expect(image).toHaveAttribute("src", "blob:thumbnail");
+    fireEvent.error(image);
+    expect(image).toHaveAttribute("src", "blob:original");
+    expect(revoke).toHaveBeenCalledWith("blob:thumbnail");
+    unmount();
+    expect(revoke).toHaveBeenCalledWith("blob:original");
+  } finally {
+    Object.defineProperty(URL, "createObjectURL", { configurable: true, value: originalCreate });
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: originalRevoke });
+  }
 });
