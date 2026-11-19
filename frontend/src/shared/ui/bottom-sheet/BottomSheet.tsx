@@ -2,6 +2,7 @@ import styled from "@emotion/styled";
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LuX } from "react-icons/lu";
+import { isAppWebView } from "@/shared/lib/isAppWebView";
 import { colors, radius, shadow, spacing, typography } from "@/shared/styles/tokens";
 
 export interface BottomSheetProps {
@@ -129,6 +130,7 @@ export const BottomSheet = ({ title, description, aside, onClose, children }: Bo
     >
       <Sheet
         ref={sheetRef}
+        $inApp={isAppWebView()}
         isClosing={isClosing}
         onAnimationEnd={(event) => {
           if (event.target === event.currentTarget && isClosing) onClose?.();
@@ -231,14 +233,14 @@ const Overlay = styled.dialog`
   }
 `;
 
-const Sheet = styled.div<{ hasHandle: boolean; isClosing: boolean }>`
+const Sheet = styled.div<{ hasHandle: boolean; isClosing: boolean; $inApp: boolean }>`
   position: relative;
   width: 100%;
   max-height: 88dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: ${({ hasHandle }) => (hasHandle ? "12px" : "44px")} 30px
-    calc(54px + env(safe-area-inset-bottom, 0px));
+    calc(${({ $inApp }) => ($inApp ? "24px" : "54px")} + env(safe-area-inset-bottom, 0px));
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]} ${radius[24]} 0 0;
   box-shadow: ${shadow.sheet};
