@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 
 import { getRoomSession } from "@/entities/session";
 import { track } from "@/shared/lib/analytics";
-import { issueLinkCode } from "@/features/share-room/api/issueLinkCode";
+import { API_BASE_URL } from "@/shared/config";
 import { useLinkCodeSession } from "./useLinkCodeSession";
 
 jest.mock("@/shared/lib/analytics", () => ({
@@ -29,8 +29,14 @@ beforeEach(() => localStorage.clear());
 
 describe("useLinkCodeSession 기기 연결 이벤트", () => {
   it("유효한 연결 코드로 들어오면 세션을 이어받고 연결 성공을 남긴다", async () => {
-    // 목이 이 코드를 유효한 것으로 기억하게 먼저 발급받는다
-    const { linkCode } = await issueLinkCode("mock-token-10234");
+    // 다른 기기에서 이미 발급받은 링크로 들어온 상황이다. 목이 이 코드를 유효한 것으로 기억하게 먼저 발급받는다.
+    const response = await fetch(`${API_BASE_URL}/auth/link-code`, {
+      method: "POST",
+      headers: { Authorization: "Bearer mock-token-10234" },
+    });
+    const {
+      data: { linkCode },
+    } = (await response.json()) as { data: { linkCode: string } };
 
     renderAt(linkCode);
 
