@@ -71,6 +71,22 @@ describe("RoomEntryPage", () => {
     refreshExpiresAt: FUTURE,
   };
 
+  it("방 정보 조회 실패 후 다시 시도하면 입장 화면을 보여준다", async () => {
+    server.use(
+      http.get(`${API_BASE_URL}/rooms/:code`, () => new HttpResponse(null, { status: 500 }), {
+        once: true,
+      }),
+    );
+    const user = userEvent.setup();
+    renderAt(MOCK_ROOM_CODES.active);
+
+    expect(
+      await screen.findByRole("heading", { name: "방 정보를 불러오지 못했어요" }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByRole("textbox")).toBeInTheDocument();
+  });
+
   it.each([false, true])("회원 입장(joined=%s)은 회원 토큰을 사용한다", async (joined) => {
     const anonymous = jest.fn();
     const join = jest.fn();
@@ -241,6 +257,10 @@ describe("RoomEntryPage", () => {
       expect(await screen.findByText(/입장하지 못했어요/)).toBeInTheDocument();
       // 세션만 남으면 다음 방문 때 입장하지 않은 채 갤러리로 새어 들어간다
       expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
+
+      await user.click(screen.getByRole("button", { name: "다시 시도" }));
+      expect(await screen.findByRole("textbox")).toBeInTheDocument();
+      expect(screen.queryByText(/입장하지 못했어요/)).not.toBeInTheDocument();
     });
 
     it("인증에 실패하면 에러 화면을 보여준다", async () => {
