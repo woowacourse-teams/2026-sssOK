@@ -1,5 +1,5 @@
 import type { UploadProgressSnapshot } from "./uploadProgress";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getAnalyticsRoom, track } from "@/shared/lib";
 
@@ -23,7 +23,7 @@ export interface UseMediaUploadOptions {
   folderIds?: number[];
   /** 발급이 거절한 파일. 업로드가 끝나기 전에 먼저 온다. */
   onRejected?: (rejected: RejectedFile[]) => void;
-  /** 파일 한 건이 스토리지에 올라간 직후. */
+  /** PUT 성공 후 목록 미리보기가 준비됐을 때. */
   onPreviewReady?: (media: PendingMedia) => void;
   /**
    * 등록까지 끝났을 때. 갤러리 갱신과 실패 모달(#74)이 여기서 갈린다.
@@ -63,6 +63,14 @@ export const useMediaUpload = ({
    * 진행률을 흘려서 사라진 바를 되살리는 걸 막는다.
    */
   const runIdRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      runIdRef.current += 1;
+      abortRef.current?.abort();
+    },
+    [],
+  );
 
   const start = async (files: File[]): Promise<void> => {
     // 이미 한 판이 돌고 있다. 두 판을 겹치면 진행 바가 어느 쪽을 세는지 알 수 없다.
@@ -105,7 +113,9 @@ export const useMediaUpload = ({
         onStarted: (targets) => update((state) => withTargets(state, targets)),
         onProgress: (one) => update((state) => withProgress(state, one)),
         onUploaded: (one) => update((state) => withUploaded(state, one)),
-        onPreviewReady,
+        onPreviewReady: (media) => {
+          if (isCurrent()) onPreviewReady?.(media);
+        },
       });
     } catch (error) {
       trackUploadError(files.length, analyticsRoom);

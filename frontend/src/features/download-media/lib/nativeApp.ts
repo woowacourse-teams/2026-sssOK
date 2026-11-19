@@ -10,6 +10,7 @@ import { z } from "zod";
  */
 
 import { captureException } from "@/shared/lib";
+import { NATIVE_SAVE_SPLIT_THRESHOLD } from "../config";
 import { prefersShareSheet } from "./prefersShareSheet";
 
 /** 앱이 진행·결과를 알릴 때 `window` 에 쏘는 이벤트 이름. */
@@ -177,6 +178,76 @@ export const saveToPhotoLibrary = (
   files: NativeFile[],
   params: NativeDownloadParams = {},
 ): Promise<NativeDownloadResult> => requestNative({ type: "download/save", files }, params);
+
+/** 1·3·5번째와 2·4·6번째로 나눈다. 두 요청이 고른 순서대로 나란히 진행된다. */
+const splitAlternately = <T>(items: T[]): [T[], T[]] => [
+  items.filter((_, index) => index % 2 === 0),
+  items.filter((_, index) => index % 2 === 1),
+];
+
+/** 두 요청의 결말을 하나로 합친다. 권한 거절·취소가 하나라도 있으면 그쪽이 판 전체의 결말이다. */
+const mergeResults = (
+  first: NativeDownloadResult,
+  second: NativeDownloadResult,
+): NativeDownloadResult => {
+  if (first.type === "permissionDenied" || second.type === "permissionDenied") {
+    return { type: "permissionDenied" };
+  }
+
+  if (first.type === "aborted" || second.type === "aborted") {
+    return { type: "aborted" };
+  }
+
+  return { type: "completed", failed: [...first.failed, ...second.failed] };
+};
+
+/**
+ * `saveToPhotoLibrary` 와 같지만, 장수가 많으면 요청을 두 개로 나눠 앱이 동시에 받는 수를 늘린다.
+ * 앱 빌드를 바꾸지 않고 웹 배포만으로 속도를 올리려는 임시 방법이다 (`NATIVE_SAVE_SPLIT_THRESHOLD` 참고).
+ *
+ * **두 번째 요청은 첫 요청이 받기 시작한 뒤에 보낸다.** 앱은 요청마다 사진첩 권한을 묻는데,
+ * 처음 설치한 사람에게 동시에 물으면 권한 창이 겹친다. 첫 진행 소식이 왔다는 건 권한을 받았다는 뜻이다.
+ * 첫 요청이 권한을 거절당하거나 취소되면 두 번째는 보내지 않는다.
+ *
+ * 진행·저장 소식은 사진별 id 로 오므로 두 요청 것을 그대로 흘려도 부르는 쪽 집계가 맞는다.
+ */
+export const saveToPhotoLibraryInParallel = async (
+  files: NativeFile[],
+  params: NativeDownloadParams = {},
+): Promise<NativeDownloadResult> => {
+  if (files.length <= NATIVE_SAVE_SPLIT_THRESHOLD) {
+    return saveToPhotoLibrary(files, params);
+  }
+
+  const [firstFiles, secondFiles] = splitAlternately(files);
+  let markPermitted = (): void => {};
+  const permitted = new Promise<null>((resolve) => {
+    markPermitted = () => resolve(null);
+  });
+
+  const firstRun = saveToPhotoLibrary(firstFiles, {
+    ...params,
+    onProgress: (id, loaded, total) => {
+      markPermitted();
+      params.onProgress?.(id, loaded, total);
+    },
+    onSaved: (id) => {
+      markPermitted();
+      params.onSaved?.(id);
+    },
+  });
+
+  // 진행 소식 없이 첫 요청이 끝날 수도 있다 (전부 실패). 끝난 결말이 completed 면 권한은 있었던 것이다.
+  const secondRun = Promise.race([permitted, firstRun]).then((settledFirst) =>
+    settledFirst === null || settledFirst.type === "completed"
+      ? saveToPhotoLibrary(secondFiles, params)
+      : settledFirst,
+  );
+
+  const [first, second] = await Promise.all([firstRun, secondRun]);
+
+  return mergeResults(first, second);
+};
 
 /** 파일 하나를 받아 공유 시트로 넘긴다. zip 처럼 사진첩에 들어갈 수 없는 파일에 쓴다. */
 export const shareFromNativeApp = (

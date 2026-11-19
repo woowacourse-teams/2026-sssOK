@@ -1,3 +1,4 @@
+import { createUploadPreviews } from "./createUploadPreviews";
 import { issueUploadUrls } from "../api/issueUploadUrls";
 import { registerMedia } from "../api/registerMedia";
 import type { Media } from "@/entities/media";
@@ -58,79 +59,96 @@ export const uploadFiles = async ({
     })),
   );
 
-  const results = await runWithLimit(targets, UPLOAD_CONCURRENCY, async (target) => {
-    const result = await uploadOne({
-      roomId,
-      token,
-      issued: target.issued,
-      file: target.file,
-      signal,
-      onProgress,
-    });
-
-    // 등록까지 기다리면 마지막 한 번에 몰아서 오른다. 올라간 즉시 세는 게 사용자가 보는 진행이다.
-    if (result.ok) {
-      onUploaded?.({
-        mediaId: target.issued.mediaId,
-        fileName: target.issued.fileName,
-      });
-      onPreviewReady?.({
-        mediaId: target.issued.mediaId,
+  const previews = createUploadPreviews(signal);
+  const deliveries: Promise<void>[] = [];
+  try {
+    const results = await runWithLimit(targets, UPLOAD_CONCURRENCY, async (target) => {
+      const preview = onPreviewReady ? previews.create(target.file) : Promise.resolve(undefined);
+      const result = await uploadOne({
+        roomId,
+        token,
+        issued: target.issued,
         file: target.file,
-        folderIds: folderIds ?? [],
+        signal,
+        onProgress,
+      });
+
+      // 등록까지 기다리면 마지막 한 번에 몰아서 오른다. 올라간 즉시 세는 게 사용자가 보는 진행이다.
+      if (result.ok) {
+        onUploaded?.({
+          mediaId: target.issued.mediaId,
+          fileName: target.issued.fileName,
+        });
+        deliveries.push(
+          preview.then((previewBlob) => {
+            onPreviewReady?.({
+              mediaId: target.issued.mediaId,
+              file: target.file,
+              ...(previewBlob ? { previewBlob } : {}),
+              folderIds: folderIds ?? [],
+            });
+          }),
+        );
+      }
+
+      return result;
+    });
+
+    const uploadedIds: number[] = [];
+    const failed: FailedUpload[] = [];
+
+    for (const result of results) {
+      if (result.ok) {
+        uploadedIds.push(result.mediaId);
+      } else {
+        failed.push(result.failure);
+      }
+    }
+
+    // 중단됐더라도 여기까지 올라간 것은 등록한다 — 중단은 "아직 안 올린 것을 그만두는" 것이지
+    // "올린 것을 무르는" 게 아니다 (#73).
+    if (uploadedIds.length === 0) {
+      return { registered: [], failed, rejected, alreadyRegistered: 0 };
+    }
+
+    const registerResult = await registerMedia(roomId, { mediaIds: uploadedIds }, token);
+    const registered: Media[] = registerResult.registered;
+
+    const targetByMediaId = new Map(targets.map((target) => [target.issued.mediaId, target]));
+    let alreadyRegistered = 0;
+
+    for (const failure of registerResult.failed) {
+      // 이미 올라간 것이다. 실패로 보여주면 멀쩡히 올라간 사진을 실패로 보게 된다.
+      // 응답에 Media 가 없어서 registered 에는 못 넣는다 — 갤러리를 다시 불러오면 나타난다.
+      if (failure.code === "UPLOAD_ALREADY_COMPLETED") {
+        alreadyRegistered += 1;
+        continue;
+      }
+
+      const target = targetByMediaId.get(failure.mediaId);
+
+      // 우리가 발급받아 올린 mediaId 만 등록에 실었으므로 못 찾을 수 없다.
+      // 그래도 응답이 어긋나면 빈 파일을 지어내지 않는다 — 재시도가 0바이트를 올리게 된다.
+      if (target === undefined) {
+        continue;
+      }
+
+      failed.push({
+        mediaId: failure.mediaId,
+        fileName: target.issued.fileName,
+        code: failure.code,
+        message: failure.message,
+        file: target.file,
       });
     }
 
-    return result;
-  });
-
-  const uploadedIds: number[] = [];
-  const failed: FailedUpload[] = [];
-
-  for (const result of results) {
-    if (result.ok) {
-      uploadedIds.push(result.mediaId);
-    } else {
-      failed.push(result.failure);
+    return { registered, failed, rejected, alreadyRegistered };
+  } finally {
+    // 등록 API와 후속 PUT을 썸네일 생성 때문에 대기시키지 않는다.
+    try {
+      await Promise.all(deliveries);
+    } finally {
+      previews.dispose();
     }
   }
-
-  // 중단됐더라도 여기까지 올라간 것은 등록한다 — 중단은 "아직 안 올린 것을 그만두는" 것이지
-  // "올린 것을 무르는" 게 아니다 (#73).
-  if (uploadedIds.length === 0) {
-    return { registered: [], failed, rejected, alreadyRegistered: 0 };
-  }
-
-  const registerResult = await registerMedia(roomId, { mediaIds: uploadedIds }, token);
-  const registered: Media[] = registerResult.registered;
-
-  const targetByMediaId = new Map(targets.map((target) => [target.issued.mediaId, target]));
-  let alreadyRegistered = 0;
-
-  for (const failure of registerResult.failed) {
-    // 이미 올라간 것이다. 실패로 보여주면 멀쩡히 올라간 사진을 실패로 보게 된다.
-    // 응답에 Media 가 없어서 registered 에는 못 넣는다 — 갤러리를 다시 불러오면 나타난다.
-    if (failure.code === "UPLOAD_ALREADY_COMPLETED") {
-      alreadyRegistered += 1;
-      continue;
-    }
-
-    const target = targetByMediaId.get(failure.mediaId);
-
-    // 우리가 발급받아 올린 mediaId 만 등록에 실었으므로 못 찾을 수 없다.
-    // 그래도 응답이 어긋나면 빈 파일을 지어내지 않는다 — 재시도가 0바이트를 올리게 된다.
-    if (target === undefined) {
-      continue;
-    }
-
-    failed.push({
-      mediaId: failure.mediaId,
-      fileName: target.issued.fileName,
-      code: failure.code,
-      message: failure.message,
-      file: target.file,
-    });
-  }
-
-  return { registered, failed, rejected, alreadyRegistered };
 };

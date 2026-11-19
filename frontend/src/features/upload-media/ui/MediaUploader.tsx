@@ -28,7 +28,7 @@ export interface MediaUploaderProps {
   hideButton?: boolean;
   /** 지금 열어둔 폴더. 없으면 루트로 올라간다. */
   folderIds?: number[];
-  /** 파일 한 건이 스토리지에 올라간 직후. */
+  /** PUT 성공 후 목록 미리보기가 준비됐을 때. */
   onPreviewReady?: (media: PendingMedia) => void;
   /** 한 장이라도 서버 등록이 끝난 뒤 방 정보를 다시 불러올 때 사용한다. */
   onRegistered?: () => void;
