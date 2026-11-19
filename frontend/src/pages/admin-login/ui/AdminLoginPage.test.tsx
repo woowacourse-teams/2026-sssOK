@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -15,7 +16,13 @@ const VALID = ADMIN_CREDENTIALS;
 const renderAt = (path: string = ROUTES.adminLogin): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
 
-  render(<RouterProvider router={router} />);
+  // 운영처럼 라우터를 QueryClientProvider 안에 둔다 — 관리자 화면과 오류 안내가 모두 쿼리를 쓴다.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 
   return router;
 };

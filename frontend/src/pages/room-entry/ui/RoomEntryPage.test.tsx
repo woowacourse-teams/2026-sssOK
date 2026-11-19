@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -11,6 +11,7 @@ import { RoomClosedPage } from "@/pages/room-closed";
 import { server } from "@/mocks/server";
 import { API_BASE_URL, ROUTE_PATTERNS } from "@/shared/config";
 import { track } from "@/shared/lib/analytics";
+import { render } from "../../../../test/renderWithToast";
 import { RoomEntryPage } from "./RoomEntryPage";
 
 jest.mock("@/shared/lib/analytics", () => ({
@@ -49,7 +50,7 @@ const renderAt = (code: string, state?: unknown, member?: MemberSession): void =
           <Route path={ROUTE_PATTERNS.closedRoom} element={<RoomClosedPage />} />
           <Route path={ROUTE_PATTERNS.roomEntry} element={<RoomEntryPage />} />
           <Route path={ROUTE_PATTERNS.gallery} element={<div>{GALLERY_TEXT}</div>} />
-          <Route path={ROUTE_PATTERNS.home} element={<div>홈 도착</div>} />
+          <Route path={ROUTE_PATTERNS.rooms} element={<div>방 목록 도착</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -138,9 +139,40 @@ describe("RoomEntryPage", () => {
       renderAt(MOCK_ROOM_CODES.active);
 
       expect(
-        await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+        await screen.findByRole("heading", { name: "어떤 이름으로 들어갈까요?" }),
       ).toBeInTheDocument();
       expect(getSubmitButton()).toBeDisabled();
+    });
+
+    it("이름 입력 시트 뒤에 들어갈 방의 갤러리를 깐다", async () => {
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await screen.findByRole("heading", { name: "어떤 이름으로 들어갈까요?" });
+      const preview = screen.getByTestId("room-entry-preview");
+
+      expect(within(preview).getByText("제주 여행")).toBeInTheDocument();
+      expect(within(preview).getByText("사진을 불러오는 중이에요.")).toBeInTheDocument();
+    });
+
+    it("시트 뒤 갤러리는 누르거나 읽을 수 없다", async () => {
+      renderAt(MOCK_ROOM_CODES.active);
+
+      await screen.findByRole("heading", { name: "어떤 이름으로 들어갈까요?" });
+      const preview = screen.getByTestId("room-entry-preview");
+
+      expect(preview).toHaveAttribute("inert");
+      expect(preview).toHaveAttribute("aria-hidden", "true");
+      // 접근성 트리에 남는 버튼은 시트의 입장하기 하나뿐이다
+      expect(screen.getAllByRole("button")).toEqual([getSubmitButton()]);
+    });
+
+    it("사진이 없는 방이면 시트 뒤에 사진 자리를 깔지 않는다", async () => {
+      renderAt(MOCK_ROOM_CODES.second);
+
+      await screen.findByRole("heading", { name: "어떤 이름으로 들어갈까요?" });
+      const preview = screen.getByTestId("room-entry-preview");
+
+      expect(within(preview).queryByText("사진을 불러오는 중이에요.")).not.toBeInTheDocument();
     });
 
     it("이름을 넣고 입장하면 이 방 토큰으로 저장하고 갤러리로 이동한다", async () => {
@@ -254,7 +286,7 @@ describe("RoomEntryPage", () => {
       renderAt(MOCK_ROOM_CODES.active);
 
       expect(
-        await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+        await screen.findByRole("heading", { name: "어떤 이름으로 들어갈까요?" }),
       ).toBeInTheDocument();
     });
 
@@ -273,7 +305,7 @@ describe("RoomEntryPage", () => {
       renderAt(MOCK_ROOM_CODES.active);
 
       expect(
-        await screen.findByRole("heading", { name: "표시할 이름을 입력해주세요" }),
+        await screen.findByRole("heading", { name: "어떤 이름으로 들어갈까요?" }),
       ).toBeInTheDocument();
       expect(getRoomSession(MOCK_ROOM_CODES.active)).toBeNull();
     });
@@ -316,11 +348,11 @@ describe("RoomEntryPage", () => {
   });
 
   describe("방 조회 실패", () => {
-    it("존재하지 않는 방은 안내와 홈 링크를 보여준다", async () => {
+    it("존재하지 않는 방은 안내와 랜딩으로 가는 링크를 보여준다", async () => {
       renderAt(MOCK_ROOM_CODES.notFound);
 
       expect(await screen.findByText("존재하지 않는 방이에요.")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "홈으로 돌아가기" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "홈으로 돌아가기" })).toHaveAttribute("href", "/");
     });
 
     it("형식이 틀린 코드는 코드 형식 문제라고 안내한다", async () => {
@@ -329,13 +361,13 @@ describe("RoomEntryPage", () => {
       expect(await screen.findByText("방 코드 형식이 올바르지 않아요.")).toBeInTheDocument();
     });
 
-    it("홈으로 돌아가기를 누르면 홈으로 이동한다", async () => {
+    it("로그인한 사람은 내 방 목록으로 돌아간다", async () => {
       const user = userEvent.setup();
-      renderAt(MOCK_ROOM_CODES.notFound);
+      renderAt(MOCK_ROOM_CODES.notFound, undefined, member);
 
-      await user.click(await screen.findByRole("link", { name: "홈으로 돌아가기" }));
+      await user.click(await screen.findByRole("link", { name: "내 방 목록으로 돌아가기" }));
 
-      expect(screen.getByText("홈 도착")).toBeInTheDocument();
+      expect(screen.getByText("방 목록 도착")).toBeInTheDocument();
     });
   });
 

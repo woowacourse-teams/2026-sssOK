@@ -551,7 +551,9 @@ export const roomHandlers = [
 
     const roomId = Number(params.roomId);
 
-    if (roomId !== MOCK_ROOM_ID) {
+    // 사진 픽스처는 기본 방에만 있다. 다른 활성 방은 빈 방(올린 것만 보이는 방)으로 답한다.
+    const roomCode = roomCodeOfId(roomId);
+    if (roomCode === null || !isActiveRoomCode(roomCode)) {
       return roomNotFound();
     }
 
@@ -636,7 +638,9 @@ export const roomHandlers = [
     const roomId = Number(params.roomId);
     const memberId = Number(token.replace("Bearer mock-token-", ""));
 
-    if (roomId !== MOCK_ROOM_ID) {
+    // 사진 픽스처는 기본 방에만 있다. 다른 활성 방은 빈 방(올린 것만 보이는 방)으로 답한다.
+    const roomCode = roomCodeOfId(roomId);
+    if (roomCode === null || !isActiveRoomCode(roomCode)) {
       return roomNotFound();
     }
 

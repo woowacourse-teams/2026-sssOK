@@ -10,6 +10,9 @@ public enum MediaType {
     JPEG("jpg", "image/jpeg", Kind.IMAGE),
     PNG("png", "image/png", Kind.IMAGE),
     GIF("gif", "image/gif", Kind.IMAGE),
+    WEBP("webp", "image/webp", Kind.IMAGE),
+    HEIC("heic", "image/heic", Kind.IMAGE),
+    HEIF("heif", "image/heif", Kind.IMAGE),
     MP4("mp4", "video/mp4", Kind.VIDEO),
     WEBM("webm", "video/webm", Kind.VIDEO),
     MOV("mov", "video/quicktime", Kind.VIDEO);

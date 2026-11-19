@@ -17,12 +17,24 @@ class MediaTypeTest {
         "cat.jpeg, JPEG",
         "cat.png, PNG",
         "cat.gif, GIF",
+        "cat.webp, WEBP",
+        "cat.HEIC, HEIC",
+        "cat.heif, HEIF",
         "clip.mp4, MP4",
         "clip.webm, WEBM",
         "clip.mov, MOV",
     })
     void 파일명에서_형식을_판별한다(String fileName, MediaType expected) {
         assertThat(MediaType.fromFileName(fileName)).isEqualTo(expected);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"image/webp, WEBP", "image/heic, HEIC", "image/heif, HEIF"})
+    void 추가_이미지_MIME을_판별한다(String mime, MediaType expected) {
+        assertThat(MediaType.fromMimeType(mime)).isEqualTo(expected);
+        assertThat(expected.isImage()).isTrue();
+        assertThat(expected.isVideo()).isFalse();
+        assertThat(expected.contentType()).isEqualTo(mime);
     }
 
     @Test
