@@ -43,7 +43,7 @@ const createImageUrl = (item: GalleryItem): string => {
   }
   if (item.file.type.startsWith("video/")) return "";
 
-  return URL.createObjectURL(item.file);
+  return URL.createObjectURL(item.previewBlob ?? item.file);
 };
 
 const MediaLikeButton = ({
@@ -100,8 +100,18 @@ const GalleryMediaCardView = ({
   onToggle,
   onOpen,
 }: GalleryMediaCardProps) => {
-  const [previewUrl] = useState(() => createImageUrl(item));
+  const [previewUrl, setPreviewUrl] = useState(() => createImageUrl(item));
   const localPreviewUrl = useRef(item.type === "local" ? previewUrl : null);
+  const localSource = item.type === "local" ? (item.previewBlob ?? item.file) : null;
+  const sourceRef = useRef(localSource);
+  useEffect(() => {
+    if (!localSource || sourceRef.current === localSource) return;
+    sourceRef.current = localSource;
+    if (localPreviewUrl.current) URL.revokeObjectURL(localPreviewUrl.current);
+    const url = URL.createObjectURL(localSource);
+    localPreviewUrl.current = url;
+    setPreviewUrl(url);
+  }, [localSource]);
   const thumbnailUrl = item.type === "server" ? item.media.thumbnailUrl : null;
   const [isThumbnailShown, setIsThumbnailShown] = useState(thumbnailUrl !== null);
   // 썸네일을 한 번 보여 준 카드는 서명 URL이 갱신돼도 src만 바꿔 loading="lazy"에 맡긴다.
@@ -158,6 +168,15 @@ const GalleryMediaCardView = ({
               alt={fileName}
               loading={item.type === "local" ? undefined : "lazy"}
               draggable={false}
+              onError={() => {
+                if (item.type !== "local" || !item.previewBlob || sourceRef.current === item.file)
+                  return;
+                sourceRef.current = item.file;
+                if (localPreviewUrl.current) URL.revokeObjectURL(localPreviewUrl.current);
+                const url = URL.createObjectURL(item.file);
+                localPreviewUrl.current = url;
+                setPreviewUrl(url);
+              }}
             />
             {isVideo && (
               <>

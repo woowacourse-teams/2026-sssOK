@@ -5,7 +5,7 @@ import type { PendingMedia } from "@/features/upload-media";
 
 export const usePendingMedia = (): {
   uploadSlots: GalleryItem[];
-  addPendingMedia: ({ mediaId, file, folderIds }: PendingMedia) => void;
+  addPendingMedia: ({ mediaId, file, previewBlob, folderIds }: PendingMedia) => void;
   addProcessingMedia: (media: Media) => void;
   removePendingMedia: (mediaIds: number[]) => void;
   addPendingMediaToFolder: (mediaIds: number[], folderId: number) => void;
@@ -13,9 +13,9 @@ export const usePendingMedia = (): {
 } => {
   const [uploadSlots, setUploadSlots] = useState<GalleryItem[]>([]);
 
-  const addPendingMedia = useCallback(({ mediaId, file, folderIds }: PendingMedia) => {
+  const addPendingMedia = useCallback(({ mediaId, file, previewBlob, folderIds }: PendingMedia) => {
     setUploadSlots((current) => [
-      { mediaId, type: "local", file, folderIds },
+      { mediaId, type: "local", file, ...(previewBlob ? { previewBlob } : {}), folderIds },
       ...current.filter((item) => item.mediaId !== mediaId),
     ]);
   }, []);
