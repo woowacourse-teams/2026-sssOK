@@ -1,3 +1,8 @@
+const SHARE_APP_GROUP = "group.com.ssssok.app";
+
+const SHARE_MAX_IMAGES = 100;
+const SHARE_MAX_VIDEOS = 20;
+
 module.exports = ({ config }) => {
   const environment =
     process.env.APP_ENV ||
@@ -23,6 +28,20 @@ module.exports = ({ config }) => {
           entitlements: {
             ...config.ios?.entitlements,
             "aps-environment": environment === "production" ? "production" : "development",
+          },
+          infoPlist: {
+            ...config.ios?.infoPlist,
+            AppGroup: SHARE_APP_GROUP,
+          },
+          privacyManifests: {
+            ...config.ios?.privacyManifests,
+            NSPrivacyAccessedAPITypes: [
+              ...(config.ios?.privacyManifests?.NSPrivacyAccessedAPITypes ?? []),
+              {
+                NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+                NSPrivacyAccessedAPITypeReasons: ["C617.1"],
+              },
+            ],
           },
         }
       : config.ios,
@@ -52,6 +71,34 @@ module.exports = ({ config }) => {
       "expo-asset",
       ["@react-native-seoul/kakao-login", { kakaoAppKey: "49e12318151676c430bd253609755519" }],
       "./plugins/withKakaoSceneDelegate",
+      [
+        "expo-share-extension",
+        {
+          activationRules: [
+            { type: "image", max: SHARE_MAX_IMAGES },
+            { type: "video", max: SHARE_MAX_VIDEOS },
+          ],
+          backgroundColor: { red: 255, green: 255, blue: 255, alpha: 255 },
+          excludedPackages: [
+            "expo-dev-client",
+            "expo-dev-launcher",
+            "expo-dev-menu",
+            "expo-splash-screen",
+            "expo-apple-authentication",
+            "expo-media-library",
+            "expo-sharing",
+            "expo-share-intent",
+          ],
+        },
+      ],
+      [
+        "expo-share-intent",
+        {
+          disableIOS: true,
+          androidIntentFilters: ["image/*", "video/*"],
+          androidMultiIntentFilters: ["image/*", "video/*"],
+        },
+      ],
       [
         "expo-build-properties",
         {

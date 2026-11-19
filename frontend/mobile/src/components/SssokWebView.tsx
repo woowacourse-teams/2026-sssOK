@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   BackHandler,
   Linking,
   Pressable,
@@ -22,6 +23,13 @@ import { createAuthBridge } from "../bridge/authBridge";
 import { NATIVE_AUTH_PROVIDERS } from "../bridge/sdkAuth";
 import { handleShareMessage, SHARE_BRIDGE_VERSION, type ShareEvent } from "../bridge/shareBridge";
 import { getInviteEntryUrl } from "../config/inviteLink";
+import {
+  createIncomingShareBridge,
+  INCOMING_SHARE_BRIDGE_VERSION,
+  type IncomingShareBridge,
+  type IncomingShareEvent,
+} from "../share/incomingShareBridge";
+import { useAndroidShareIntent } from "../share/useAndroidShareIntent";
 import { WEB_ORIGIN, WEB_URL } from "../config/web";
 import {
   canPersistCookies,
@@ -30,7 +38,7 @@ import {
 } from "../bridge/cookiePersistence";
 
 /** 웹이 페이지 스크립트보다 먼저 볼 수 있게 심는다. 웹은 이 값이 있어야 저장·공유를 앱에 맡긴다. */
-const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION}, share: ${SHARE_BRIDGE_VERSION}, auth: ${JSON.stringify(NATIVE_AUTH_PROVIDERS)} }; true;`;
+const BRIDGE_FLAG_SCRIPT = `window.sssokApp = { download: ${DOWNLOAD_BRIDGE_VERSION}, share: ${SHARE_BRIDGE_VERSION}, incomingShare: ${INCOMING_SHARE_BRIDGE_VERSION}, auth: ${JSON.stringify(NATIVE_AUTH_PROVIDERS)} }; true;`;
 
 /** 브릿지 메시지는 쏙 웹에서 온 것만 받는다. 로그인 페이지(`AUTH_ORIGINS`)도 저장을 시킬 수 없다. */
 const isWebOrigin = (url: string): boolean => {
@@ -66,6 +74,7 @@ interface SssokWebViewProps {
 export function SssokWebView({ onReady }: SssokWebViewProps) {
   const webView = useRef<WebView<object>>(null);
   const downloadBridge = useRef<ReturnType<typeof createDownloadBridge>>(null);
+  const incomingShare = useRef<IncomingShareBridge>(null);
   const authBridge = useRef<ReturnType<typeof createAuthBridge>>(null);
   const canGoBack = useRef(false);
   const [failed, setFailed] = useState(false);
@@ -151,6 +160,8 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
     loadedUrl.current = null;
     // 답을 받을 페이지가 사라졌다. 받던 것을 이어 가봐야 결과를 알릴 곳이 없다.
     downloadBridge.current?.cancelAll();
+    incomingShare.current?.cancelAll();
+    incomingShare.current?.resetReady();
     authBridge.current?.cancelAll();
     setFailed(true);
     onReady?.();
@@ -187,6 +198,35 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
 
     return () => bridge.cancelAll();
   }, []);
+
+  useEffect(() => {
+    const bridge = createIncomingShareBridge((event: IncomingShareEvent) => {
+      webView.current?.injectJavaScript(
+        `if (location.origin === ${JSON.stringify(WEB_ORIGIN)}) {
+          window.dispatchEvent(new CustomEvent("sssok:native", { detail: ${JSON.stringify(event)} }));
+        } true;`,
+      );
+    });
+
+    incomingShare.current = bridge;
+
+    const appState = AppState.addEventListener("change", (state) => {
+      if (state === "active") bridge.refresh();
+    });
+    const link = Linking.addEventListener("url", ({ url }) => {
+      if (url.startsWith("sssok:")) bridge.refresh();
+    });
+
+    return () => {
+      appState.remove();
+      link.remove();
+      bridge.cancelAll();
+    };
+  }, []);
+
+  const refreshIncomingShare = useCallback(() => incomingShare.current?.refresh(), []);
+
+  useAndroidShareIntent(refreshIncomingShare);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -277,11 +317,13 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
               return;
             }
             if (handleCookiePersistence(nativeEvent.data)) return;
+            if (incomingShare.current?.handle(nativeEvent.data)) return;
             if (handleShareMessage(nativeEvent.data, isWebOrigin, emitShare)) return;
             downloadBridge.current?.handle(nativeEvent.data);
           }}
           onLoadStart={() => {
             authBridge.current?.cancelAll();
+            incomingShare.current?.resetReady();
             loadedUrl.current = null;
             currentRoomCode.current = null;
           }}
