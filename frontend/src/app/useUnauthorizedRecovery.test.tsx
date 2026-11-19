@@ -9,7 +9,10 @@ import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { server } from "@/mocks/server";
 import { apiClient } from "@/shared/api";
 import { API_BASE_URL } from "@/shared/config";
+import { leaveToLanding } from "@/shared/lib/leaveToLanding";
 import { useUnauthorizedRecovery } from "./useUnauthorizedRecovery";
+
+jest.mock("@/shared/lib/leaveToLanding", () => ({ leaveToLanding: jest.fn() }));
 
 const session = {
   accessToken: "old",
@@ -101,7 +104,8 @@ it.each([false, true])("복구 불가 시 플랫폼별 화면으로 이동한다
   await act(async () => {
     await expect(request()).rejects.toMatchObject({ status: 401 });
   });
-  expect(result.current).toBe(native ? "/app/login" : "/home");
+  if (native) expect(result.current).toBe("/app/login");
+  else expect(leaveToLanding).toHaveBeenCalledTimes(1);
   expect(client.getQueryData(MEMBER_SESSION_QUERY_KEY)).toBeNull();
 });
 
@@ -147,7 +151,8 @@ it("다른 사용자의 토큰으로 원래 요청을 재시도하지 않는다"
   await act(async () => {
     await expect(request()).rejects.toMatchObject({ status: 401 });
   });
-  expect(result.current).toBe("/home");
+  expect(leaveToLanding).toHaveBeenCalledTimes(1);
+  expect(result.current).toBe("/rooms/ROOM/gallery");
 });
 
 it("재발급 후 재차 401은 반복하지 않고 종료한다", async () => {
@@ -164,7 +169,8 @@ it("재발급 후 재차 401은 반복하지 않고 종료한다", async () => {
     await expect(request()).rejects.toMatchObject({ status: 401 });
   });
   expect(count).toBe(1);
-  expect(result.current).toBe("/home");
+  expect(leaveToLanding).toHaveBeenCalledTimes(1);
+  expect(result.current).toBe("/rooms/ROOM/gallery");
 });
 
 it("재발급 중 로그아웃하면 늦은 응답을 적용하지 않는다", async () => {

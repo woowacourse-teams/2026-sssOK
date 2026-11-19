@@ -31,7 +31,7 @@ import { SearchRequestField } from "@/features/search-media";
 import { useRoomEvents } from "@/features/subscribe-room-events";
 import { MediaUploader } from "@/features/upload-media";
 import { ROUTES } from "@/shared/config";
-import { isAppWebView, rememberLoginReturn, track } from "@/shared/lib";
+import { isAppWebView, leaveToLanding, rememberLoginReturn, track } from "@/shared/lib";
 import { useToast } from "@/shared/ui/toast";
 import { FolderFilter } from "@/widgets/folder-filter";
 import { GalleryOptions } from "@/widgets/gallery-options";
@@ -80,6 +80,11 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
   }, [receivedRequest]);
   const navigate = useNavigate();
   const memberSession = useMemberSessionQuery();
+  // 앱은 로그인이 필수라 늘 방 목록으로, 웹 게스트는 방 목록이 없으니 랜딩으로 나간다.
+  const leaveRoom = (): void => {
+    if (isAppWebView() || memberSession.data) navigate(ROUTES.rooms, { replace: true });
+    else leaveToLanding();
+  };
   const queryClient = useQueryClient();
   const { refreshRoom, refreshPhotos } = useGalleryRefresh({
     roomCode: room.code,
@@ -376,7 +381,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         roomName={room.name}
         session={{ userId, accessToken, nickname: room.myNickname ?? nickname }}
         exitLabel={memberSession.data ? "내 방 목록" : "홈으로"}
-        onExit={() => navigate(memberSession.data ? ROUTES.rooms : ROUTES.home, { replace: true })}
+        onExit={leaveRoom}
         isHost={userId === room.hostId}
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
@@ -674,7 +679,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             queryClient.removeQueries({ queryKey: ["room", room.code] });
             queryClient.removeQueries({ queryKey: ["photos", room.roomId] });
             void queryClient.invalidateQueries({ queryKey: myRoomsQueryKey });
-            navigate(isAppWebView() ? ROUTES.rooms : ROUTES.home, { replace: true });
+            leaveRoom();
           }}
         />
       )}
