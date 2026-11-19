@@ -3,7 +3,10 @@ import styled from "@emotion/styled";
 
 import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
-export const GallerySection = styled.section`
+export const GallerySection = styled.section<{ $selecting?: boolean }>`
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: ${({ $selecting }) => ($selecting ? "crosshair" : "auto")};
   flex: 1;
   min-height: 0;
   width: 100%;

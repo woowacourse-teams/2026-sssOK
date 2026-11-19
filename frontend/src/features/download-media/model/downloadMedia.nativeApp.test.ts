@@ -323,3 +323,120 @@ describe("downloadMedia — 앱 웹뷰", () => {
     expect(saveBlob).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("downloadMedia — 앱 웹뷰, 요청 나누기", () => {
+  const fourTargets = [targetOf(1), targetOf(2), targetOf(3), targetOf(4)];
+  const idsOf = (message: SentMessage): number[] => (message.files ?? []).map(({ id }) => id);
+
+  it("3장 이하는 요청 하나로 보낸다", async () => {
+    serveBatch();
+    const sent = asNativeApp(({ requestId }) =>
+      emit({ type: "download/done", requestId, result: "completed", failed: [] }),
+    );
+
+    await run([targetOf(1), targetOf(2), targetOf(3)], "share");
+
+    expect(sent).toHaveLength(1);
+  });
+
+  it("4장 이상은 번갈아 두 요청으로 나누고, 두 번째는 첫 요청이 받기 시작한 뒤에 보낸다", async () => {
+    serveBatch();
+    const sent = asNativeApp(({ requestId, files }) => {
+      const [firstFile] = files ?? [];
+
+      emit({ type: "download/progress", requestId, id: firstFile.id, loaded: 1, total: 10 });
+      setTimeout(
+        () => emit({ type: "download/done", requestId, result: "completed", failed: [] }),
+        0,
+      );
+    });
+
+    const outcome = await run(fourTargets, "share");
+
+    expect(outcome).toEqual({ type: "saved", savedCount: 4, failed: [] });
+    expect(sent.map(idsOf)).toEqual([
+      [1, 3],
+      [2, 4],
+    ]);
+    expect(sent[0].requestId).not.toBe(sent[1].requestId);
+  });
+
+  it("첫 요청이 사진첩 권한을 거절당하면 두 번째 요청을 보내지 않는다", async () => {
+    serveBatch();
+    const sent = asNativeApp(({ requestId }) =>
+      emit({ type: "download/done", requestId, result: "permissionDenied", failed: [] }),
+    );
+
+    const outcome = await run(fourTargets, "share");
+
+    expect(outcome).toEqual({
+      type: "failed",
+      reason: PHOTO_PERMISSION_DENIED_MESSAGE,
+      isRetryable: false,
+    });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("두 요청의 실패를 합쳐 알린다", async () => {
+    serveBatch();
+    asNativeApp(({ requestId, files }) => {
+      const [firstFile] = files ?? [];
+
+      emit({ type: "download/saved", requestId, id: firstFile.id });
+      setTimeout(
+        () =>
+          emit({
+            type: "download/done",
+            requestId,
+            result: "completed",
+            failed: [{ id: firstFile.id + 2, status: 403, stage: "download" }],
+          }),
+        0,
+      );
+    });
+
+    const outcome = await run(fourTargets, "share");
+
+    expect(outcome).toEqual({
+      type: "saved",
+      savedCount: 2,
+      failed: [
+        { mediaId: 3, fileName: "IMG_3.jpg", status: 403, stage: "download" },
+        { mediaId: 4, fileName: "IMG_4.jpg", status: 403, stage: "download" },
+      ],
+    });
+  });
+
+  it("취소하면 두 요청 모두에 그만두라고 알린다", async () => {
+    serveBatch();
+    const controller = new AbortController();
+    const sent = asNativeApp((message) => {
+      if (message.type !== "download/save") return;
+
+      if (message.files?.[0].id === 1) {
+        emit({
+          type: "download/progress",
+          requestId: message.requestId,
+          id: 1,
+          loaded: 1,
+          total: 10,
+        });
+        return;
+      }
+
+      controller.abort();
+    });
+
+    const outcome = await run(fourTargets, "share", { signal: controller.signal });
+
+    expect(outcome).toEqual({ type: "aborted" });
+    const cancelled = sent
+      .filter(({ type }) => type === "download/cancel")
+      .map(({ requestId }) => requestId);
+    const saved = sent
+      .filter(({ type }) => type === "download/save")
+      .map(({ requestId }) => requestId);
+
+    expect(cancelled.sort()).toEqual(saved.sort());
+  });
+});
