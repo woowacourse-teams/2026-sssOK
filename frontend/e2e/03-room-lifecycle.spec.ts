@@ -27,13 +27,13 @@ test("권한을 바꾸고 방 이용을 끝내기 · E10–E12", async ({ users:
     await expectPhotos(b, [sea.name, mountain.name, cat.name, extra.name]);
   });
 
-  await test.step("E11 · B가 홈으로 나간 뒤 링크로 재입장하고 A의 방과 사진 유지", async () => {
+  await test.step("E11 · B가 랜딩으로 나간 뒤 링크로 재입장하고 A의 방과 사진 유지", async () => {
     const firstSession = await b.evaluate(
       (code) => JSON.parse(localStorage.getItem(`sssok.auth:${code}`)!),
       room.code,
     );
     await b.getByRole("button", { name: "홈으로", exact: true }).click();
-    await expect(b).toHaveURL(/\/home$/);
+    await expect(b).toHaveURL(/\/$/);
     await b.goto(room.invite);
     await expect(b).toHaveURL(room.gallery);
     await expect(b.getByRole("textbox", { name: "표시할 이름", exact: true })).toHaveCount(0);

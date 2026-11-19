@@ -15,3 +15,4 @@ export { waitUnlessAborted } from "./waitUnlessAborted";
 export { withDirectionParticle, withSubjectParticle } from "./koreanParticle";
 export { isAppWebView } from "./isAppWebView";
 export { rememberLoginReturn, takeLoginReturn } from "./loginReturn";
+export { leaveToLanding } from "./leaveToLanding";
