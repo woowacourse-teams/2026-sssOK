@@ -10,7 +10,6 @@ export const Stage = styled.div`
   overflow: hidden;
   border-radius: 14px;
   place-items: center;
-  touch-action: pan-y pinch-zoom;
 
   @media (min-width: 768px) {
     margin-right: 48px;
@@ -55,4 +54,19 @@ export const PreviousButton = styled(SlideButton)`
 
 export const NextButton = styled(SlideButton)`
   right: 12px;
+`;
+
+export const Viewport = styled.div`
+  position: absolute;
+  inset: 0;
+  display: flex;
+  touch-action: pan-y pinch-zoom;
+  will-change: transform;
+`;
+
+export const Slide = styled.div`
+  position: relative;
+  flex: 0 0 100%;
+  min-width: 0;
+  height: 100%;
 `;

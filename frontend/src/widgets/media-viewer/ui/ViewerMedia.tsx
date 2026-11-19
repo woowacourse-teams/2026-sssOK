@@ -3,8 +3,17 @@ import type { GalleryItem } from "@/entities/media";
 import { isVideoItem } from "../lib/isVideoItem";
 import { ViewerPhoto, ViewerVideoPlayer } from "./ViewerMedia.styles";
 
-export const ViewerMedia = ({ item }: { item: GalleryItem }) =>
-  isVideoItem(item) ? <ViewerVideo item={item} /> : <ViewerImage item={item} />;
+export const ViewerMedia = ({ item, active = true }: { item: GalleryItem; active?: boolean }) => {
+  if (!isVideoItem(item)) return <ViewerImage item={item} />;
+  if (active) return <ViewerVideo item={item} />;
+  return (
+    <ViewerPhoto
+      src={item.type === "server" ? (item.media.thumbnailUrl ?? undefined) : undefined}
+      alt=""
+      $visible
+    />
+  );
+};
 
 const ViewerImage = ({ item }: { item: GalleryItem }) => {
   const [localUrl] = useState(() =>
