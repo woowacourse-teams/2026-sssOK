@@ -3,8 +3,7 @@ import { isAppWebView } from "@/shared/lib";
 import { useMemberSessionQuery } from "./useMemberSessionQuery";
 
 export type StartDestination =
-  | { kind: "rooms"; to: typeof ROUTES.rooms }
-  | { kind: "landing"; to: typeof ROUTES.landing };
+  { kind: "rooms"; to: typeof ROUTES.rooms } | { kind: "landing"; to: typeof ROUTES.landing };
 
 /**
  * 홈 화면 대신 돌아갈 곳. 앱은 로그인이 필수라 늘 방 목록이고,
