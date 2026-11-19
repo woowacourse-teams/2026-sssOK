@@ -1,10 +1,9 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 
 import type { GalleryItem } from "@/entities/media";
-import { useGalleryDragSelection } from "../model/useGalleryDragSelection";
-import { DragSelectionOverlay } from "./DragSelectionOverlay";
 import { GalleryMediaCard } from "./GalleryMediaCard";
-import { GalleryGrid, GallerySection, StateMessage } from "./PhotoGallery.styles";
+import { StateMessage } from "./PhotoGallery.styles";
+import { VirtualGallery } from "./VirtualGallery";
 import { PhotoGallerySkeleton } from "./PhotoGallerySkeleton";
 
 interface PhotoGalleryProps {
@@ -38,11 +37,6 @@ export const PhotoGallery = ({
   onSelectPhotos,
   onOpenPhoto,
 }: PhotoGalleryProps) => {
-  const { containerRef, rectangle, isSelecting } = useGalleryDragSelection({
-    ids: items.map((item) => item.mediaId),
-    selectedIds: selectedPhotoIds,
-    onSelect: items.length > 0 ? onSelectPhotos : undefined,
-  });
   const selectedIdSet = useMemo(() => new Set(selectedPhotoIds), [selectedPhotoIds]);
 
   /*
@@ -56,17 +50,21 @@ export const PhotoGallery = ({
   const togglePhoto = useCallback((mediaId: number) => handlers.current.onTogglePhoto(mediaId), []);
   const openPhoto = useCallback((mediaId: number) => handlers.current.onOpenPhoto?.(mediaId), []);
   const canOpen = onOpenPhoto !== undefined;
+  const itemIds = useMemo(() => items.map((item) => item.mediaId), [items]);
 
   if (isPending && items.length === 0) return <PhotoGallerySkeleton count={expectedPhotoCount} />;
   if (isError && items.length === 0) return <StateMessage>{errorMessage}</StateMessage>;
   if (items.length === 0) return <StateMessage>{emptyMessage}</StateMessage>;
 
   return (
-    <GallerySection ref={containerRef} $selecting={isSelecting}>
-      <GalleryGrid>
-        {items.map((item) => (
+    <VirtualGallery
+      itemIds={itemIds}
+      selectedIds={selectedPhotoIds}
+      onSelect={onSelectPhotos}
+      renderCard={(index) => {
+        const item = items[index];
+        return (
           <GalleryMediaCard
-            key={item.mediaId}
             item={item}
             roomId={roomId}
             userId={userId}
@@ -75,9 +73,8 @@ export const PhotoGallery = ({
             onToggle={togglePhoto}
             onOpen={canOpen ? openPhoto : undefined}
           />
-        ))}
-      </GalleryGrid>
-      <DragSelectionOverlay rectangle={rectangle} />
-    </GallerySection>
+        );
+      }}
+    />
   );
 };
