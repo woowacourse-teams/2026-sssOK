@@ -92,7 +92,6 @@ export interface AnalyticsEvents {
     source: "gallery" | "viewer";
   };
 
-  "Device Link Copied": { is_success: boolean };
   /** 다른 기기에서 연결 링크로 들어와 세션을 이어받았을 때 */
   "Device Linked": { room_code: string };
   "Device Link Failed": { room_code: string };

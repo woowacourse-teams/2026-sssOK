@@ -1,9 +1,12 @@
 import { MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, maxBytesOf, mediaKindOf } from "./mediaFileRules";
 
 describe("mediaKindOf", () => {
-  it.each(["cat.jpg", "cat.jpeg", "cat.png", "cat.gif"])("%s 는 이미지다", (fileName) => {
-    expect(mediaKindOf(fileName)).toBe("IMAGE");
-  });
+  it.each(["cat.jpg", "cat.jpeg", "cat.png", "cat.gif", "cat.webp", "cat.heic", "cat.heif"])(
+    "%s 는 이미지다",
+    (fileName) => {
+      expect(mediaKindOf(fileName)).toBe("IMAGE");
+    },
+  );
 
   it.each(["trip.mp4", "trip.webm", "trip.mov"])("%s 는 영상이다", (fileName) => {
     expect(mediaKindOf(fileName)).toBe("VIDEO");
@@ -25,9 +28,13 @@ describe("mediaKindOf", () => {
     },
   );
 
-  it("아이폰 기본 포맷인 heic 은 아직 지원하지 않는다", () => {
-    expect(mediaKindOf("IMG_0001.HEIC")).toBeNull();
-    expect(mediaKindOf("IMG_0001.heif")).toBeNull();
+  it("아이폰 기본 포맷인 heic·heif 는 대문자 확장자도 이미지다", () => {
+    expect(mediaKindOf("IMG_0001.HEIC")).toBe("IMAGE");
+    expect(mediaKindOf("IMG_0001.HEIF")).toBe("IMAGE");
+  });
+
+  it("서버가 받지 않는 avif 는 지원하지 않는다", () => {
+    expect(mediaKindOf("photo.avif")).toBeNull();
   });
 });
 

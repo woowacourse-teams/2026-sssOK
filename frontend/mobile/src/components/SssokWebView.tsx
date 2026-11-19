@@ -233,6 +233,9 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
           source={{ uri: sourceUrl }}
           style={styles.webView}
           originWhitelist={["*"]}
+          // iOS 는 기본으로 사용자가 직접 누른 입력칸에만 키보드를 띄운다.
+          // 방 입장 이름 시트처럼 화면이 뜨자마자 입력칸에 포커스할 때도 키보드가 열리게 한다.
+          keyboardDisplayRequiresUserAction={false}
           onShouldStartLoadWithRequest={(request) => {
             if (request.isTopFrame === false) return true;
             if (request.url === "about:blank") return true;

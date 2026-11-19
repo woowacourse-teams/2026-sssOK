@@ -35,8 +35,8 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   args: {
     rejected: [
-      unsupported("IMG_0421.HEIC", 4),
-      unsupported("IMG_0422.HEIC", 3),
+      unsupported("IMG_0421.DNG", 4),
+      unsupported("IMG_0422.DNG", 3),
       oversized("노을_2026.png", 14),
     ],
     onClose: () => {},
@@ -55,7 +55,7 @@ export const OnlyOversized: Story = {
 export const ManyFiles: Story = {
   args: {
     rejected: Array.from({ length: 12 }, (_, index) =>
-      unsupported(`IMG_${400 + index}.HEIC`, 3 + index),
+      unsupported(`IMG_${400 + index}.DNG`, 3 + index),
     ),
     onClose: () => {},
   },

@@ -1,43 +1,29 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { HiArrowsRightLeft, HiLink, HiQrCode } from "react-icons/hi2";
+import { HiLink, HiQrCode } from "react-icons/hi2";
 
-import { getRoomSession } from "@/entities/session";
-import { ROUTES } from "@/shared/config";
 import { track } from "@/shared/lib";
 import { IconButton } from "@/shared/ui/icon-button";
 import { useToast } from "@/shared/ui/toast";
-import { issueLinkCode } from "../api/issueLinkCode";
 import { shareRoomInviteLink } from "../lib/shareRoomInviteLink";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 import { RoomQrModal } from "./RoomQrModal";
 
-const copyPendingText = async (text: Promise<string>): Promise<void> => {
-  if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard.write === "function") {
-    const blob = text.then((value) => new Blob([value], { type: "text/plain" }));
-    await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
-    return;
-  }
-  await navigator.clipboard.writeText(await text);
-};
-
 interface RoomShareButtonProps {
   roomCode: string;
-  accessToken?: string;
 }
 
-export const RoomShareButton = ({
-  roomCode,
-  accessToken: memberAccessToken,
-}: RoomShareButtonProps) => {
+export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  const [isCreatingDeviceLink, setIsCreatingDeviceLink] = useState(false);
   const { showToast } = useToast();
   const closeCopyToast = useRef<(() => void) | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const copyRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // 키보드로 열었을 때만 첫 항목에 포커스를 준다. 터치·마우스로 연 메뉴에서 첫 항목이 강조되지 않게 한다.
+  const openedWithKeyboard = useRef(false);
   const menuId = useId();
 
   const closeMenu = (): void => {
@@ -48,7 +34,10 @@ export const RoomShareButton = ({
   useEffect(() => {
     if (!isOpen) return;
 
-    copyRef.current?.focus();
+    // WebKit 은 탭한 버튼에 포커스를 주지 않아서, 코드로 옮긴 포커스가 :focus-visible 로 강조된다.
+    // 터치·마우스로 열면 메뉴 상자에 포커스를 두어 방향키 이동과 스크린리더 안내만 살린다.
+    if (openedWithKeyboard.current) copyRef.current?.focus();
+    else menuRef.current?.focus();
 
     const handlePointerDown = (event: PointerEvent): void => {
       if (event.target instanceof Node && !anchorRef.current?.contains(event.target)) {
@@ -98,44 +87,6 @@ export const RoomShareButton = ({
     }
   };
 
-  const copyDeviceLink = async (): Promise<void> => {
-    if (isCreatingDeviceLink) return;
-
-    closeCopyToast.current?.();
-    const accessToken = memberAccessToken ?? getRoomSession(roomCode)?.accessToken;
-    if (!accessToken) {
-      closeCopyToast.current = showToast({
-        message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.",
-        tone: "error",
-      });
-      return;
-    }
-
-    setIsCreatingDeviceLink(true);
-    try {
-      const deviceLink = issueLinkCode(accessToken).then(({ linkCode }) => {
-        const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin);
-        url.searchParams.set("linkCode", linkCode);
-        return url.href;
-      });
-      await copyPendingText(deviceLink);
-      track("Device Link Copied", { is_success: true });
-      closeCopyToast.current = showToast({
-        message: "다른 기기에서 이어할 링크를 복사했어요.",
-        tone: "success",
-      });
-      closeMenu();
-    } catch {
-      track("Device Link Copied", { is_success: false });
-      closeCopyToast.current = showToast({
-        message: "이어하기 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-        tone: "error",
-      });
-    } finally {
-      setIsCreatingDeviceLink(false);
-    }
-  };
-
   const openQrModal = (): void => {
     setIsOpen(false);
     setIsQrModalOpen(true);
@@ -157,10 +108,15 @@ export const RoomShareButton = ({
           aria-haspopup="menu"
           aria-expanded={isOpen}
           aria-controls={isOpen ? menuId : undefined}
-          onClick={() => setIsOpen((open) => !open)}
+          onClick={(event) => {
+            // Enter·Space 로 누른 클릭은 detail 이 0 이다.
+            openedWithKeyboard.current = event.detail === 0;
+            setIsOpen((open) => !open);
+          }}
           onKeyDown={(event) => {
             if (event.key === "ArrowDown" || event.key === "ArrowUp") {
               event.preventDefault();
+              openedWithKeyboard.current = true;
               setIsOpen(true);
             }
           }}
@@ -169,7 +125,9 @@ export const RoomShareButton = ({
         </IconButton>
         {isOpen && (
           <Menu
+            ref={menuRef}
             id={menuId}
+            tabIndex={-1}
             role="menu"
             aria-label="방 공유"
             onKeyDown={(event) => {
@@ -198,18 +156,6 @@ export const RoomShareButton = ({
               <span>
                 QR 코드 공유
                 <Description>QR 코드를 스캔해 바로 참여해요</Description>
-              </span>
-            </MenuItem>
-            <MenuItem
-              type="button"
-              role="menuitem"
-              disabled={isCreatingDeviceLink}
-              onClick={() => void copyDeviceLink()}
-            >
-              <HiArrowsRightLeft aria-hidden="true" />
-              <span>
-                다른 기기에서 이어하기
-                <Description>내 이름과 권한을 그대로 이어가요</Description>
               </span>
             </MenuItem>
           </Menu>
