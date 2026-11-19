@@ -43,7 +43,7 @@ READY 상태에서는 필수 분석 정보와 벡터 차원의 일치를 DB 제�
 - `AnalyzeImageService`는 프리뷰가 있으면 프리뷰, 없으면 원본의 GET 서명 URL을 설명 생성 포트에 전달한다.
 - `ImageDescriptionPort`와 `TextEmbeddingPort` 구현체는 전달받은 제한 시간을 실제 HTTP 요청에 적용해야 한다.
 - `ImageAnalysisSweeper`는 누락된 등록·중단된 작업·재시도 대기 작업을 회수한다.
-- DB의 이미지 타입은 IMAGE가 아닌 JPEG·PNG·GIF이므로 해당 타입만 등록·분석한다.
+- DB의 이미지 타입은 IMAGE가 아닌 JPEG·PNG·GIF·WebP·HEIC·HEIF이므로 해당 이미지 타입을 등록·분석한다.
 
 ## 활성화와 작업 제한
 
