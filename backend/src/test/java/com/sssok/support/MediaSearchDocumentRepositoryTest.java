@@ -17,6 +17,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -29,6 +31,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     // 공유 DB의 다른 API 테스트가 남긴 이미지를 전역 등록 배치가 가져오지 않도록 시각을 분리한다.
     private static final Instant TEST_CREATED_AT = Instant.parse("2100-01-01T00:00:00Z");
+
+    @Autowired
+    private com.sssok.infrastructure.persistence.search.MediaSearchDocumentJpaRepository searchJpa;
 
     private Instant now;
     @Autowired
@@ -43,6 +48,10 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @BeforeEach
     void setup() {
         cleanup();
+        jdbc.update("""
+            INSERT INTO room (id, code, name, status, upload_policy, host_id, created_at, updated_at)
+            VALUES (460001, 'SRCH881A', '검색테스트', 'ACTIVE', 'ANYONE', 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """);
         insert(460001L, "JPEG", "READY");
         now = TEST_CREATED_AT.plusSeconds(1);
     }
@@ -50,6 +59,23 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
     @AfterEach
     void cleanup() {
         jdbc.update("DELETE FROM stored_file WHERE id IN (460001, 460002, 460003)");
+        jdbc.update("DELETE FROM room WHERE id = 460001");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"WEBP", "HEIC", "HEIF"})
+    void 추가_이미지도_등록_선점_분석_검색과_누락_복구에_포함한다(String type) {
+        jdbc.update("UPDATE stored_file SET media_type = ? WHERE id = 460001", type);
+        repository.register(460001L, now);
+        assertThat(repository.findPending(now, 10)).containsExactly(460001L);
+        var attempt = repository.claimNextPendingAnalysis(now, 3).orElseThrow();
+        assertThat(repository.complete(attempt, analysis(), now)).isTrue();
+        assertThat(searchJpa.search(460001L, "[1,0,0]", "test-embedding", 3, .9, null, 1L, "ALL"))
+            .extracting(com.sssok.infrastructure.persistence.search.MediaSearchDocumentJpaRepository.SearchMatch::getMediaId)
+            .containsExactly(460001L);
+        insert(460002L, type, "READY");
+        assertThat(repository.registerMissing(TEST_CREATED_AT, now, 10)).isEqualTo(1);
+        assertThat(repository.claim(460002L, now, 3)).isPresent();
     }
 
     @Test
@@ -276,7 +302,7 @@ class MediaSearchDocumentRepositoryTest extends PostgresContainerSupport {
         jdbc.update("""
             INSERT INTO stored_file (id, room_id, uploader_id, original_file_name,
                 media_type, file_size_bytes, storage_key, status, created_at, updated_at, reserved_at)
-            VALUES (?, 1, 1, 'photo.jpg', ?, 100, ?, ?, ?,
+            VALUES (?, 460001, 1, 'photo.jpg', ?, 100, ?, ?, ?,
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, id, type, "test/" + id, status, Timestamp.from(TEST_CREATED_AT));
     }

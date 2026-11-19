@@ -38,6 +38,6 @@ public class OrganizeTargetPhotoSelector {
 
     private boolean isAnalyzable(StoredFile file) {
         MediaType type = file.getMediaType();
-        return file.getStatus() == UploadStatus.READY && (type == MediaType.JPEG || type == MediaType.PNG);
+        return file.getStatus() == UploadStatus.READY && (type.isImage() && !type.preservesAnimation());
     }
 }
