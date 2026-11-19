@@ -9,6 +9,8 @@ import { z } from "zod";
  * 메시지 형식의 짝은 `frontend/mobile/src/bridge/downloadBridge.ts` 에 있다. 한쪽을 바꾸면 다른 쪽도 고친다.
  */
 
+import { captureException } from "@/shared/lib";
+import { NATIVE_SAVE_SPLIT_THRESHOLD } from "../config";
 import { prefersShareSheet } from "./prefersShareSheet";
 
 /** 앱이 진행·결과를 알릴 때 `window` 에 쏘는 이벤트 이름. */
@@ -22,7 +24,12 @@ declare global {
      * 앱이 페이지보다 먼저 심어 두는 표시. 브릿지를 모르는 예전 앱 빌드에는 없다 —
      * 그런 앱에 메시지를 보내면 답이 영영 오지 않으므로, 이 값이 있을 때만 앱에 맡긴다.
      */
-    sssokApp?: { download?: number; auth?: ("kakao" | "apple")[] };
+    sssokApp?: {
+      download?: number;
+      auth?: ("kakao" | "apple")[];
+      /** 링크 공유 브리지 버전. `features/share-room/lib/nativeShare.ts` 가 본다. */
+      share?: number;
+    };
   }
 }
 
@@ -41,10 +48,24 @@ export interface NativeFile {
   mimeType: string;
 }
 
+/**
+ * 앱 안에서 어느 단계가 실패했는지. 앱은 상태 코드가 없는 실패를 모두 0 으로 넘겨서,
+ * 이 값이 없으면 받기가 끊긴 것과 사진첩이 거절한 것을 가를 수 없다.
+ *
+ * - `download` 스토리지에서 받다가 실패했다.
+ * - `save`     받은 파일을 사진첩에 넣다가 실패했다.
+ * - `share`    받은 파일을 공유 시트로 넘기다가 실패했다.
+ */
+export type NativeFailureStage = "download" | "save" | "share";
+
 export interface NativeFailure {
   id: number;
   /** 0 이면 응답 자체를 못 받은 것이다. `FailedDownload.status` 와 같은 규칙이다. */
   status: number;
+  /** 단계를 넘기기 전의 앱 빌드에서는 비어 있다. */
+  stage?: NativeFailureStage;
+  /** 앱이 받은 원래 에러 메시지. */
+  message?: string;
 }
 
 type NativeRequest =
@@ -64,7 +85,15 @@ const NativeEventSchema = z.discriminatedUnion("type", [
     ...identity,
     type: z.literal("download/done"),
     result: z.enum(["completed", "permissionDenied", "cancelled"]),
-    failed: z.array(z.object({ id: z.number(), status: z.number() })),
+    failed: z.array(
+      z.object({
+        id: z.number(),
+        status: z.number(),
+        // 모르는 단계가 와도 답 전체를 버리지 않는다. 버리면 진행 바가 영영 남는다.
+        stage: z.enum(["download", "save", "share"]).optional().catch(undefined),
+        message: z.string().optional().catch(undefined),
+      }),
+    ),
   }),
 ]);
 
@@ -150,8 +179,93 @@ export const saveToPhotoLibrary = (
   params: NativeDownloadParams = {},
 ): Promise<NativeDownloadResult> => requestNative({ type: "download/save", files }, params);
 
+/** 1·3·5번째와 2·4·6번째로 나눈다. 두 요청이 고른 순서대로 나란히 진행된다. */
+const splitAlternately = <T>(items: T[]): [T[], T[]] => [
+  items.filter((_, index) => index % 2 === 0),
+  items.filter((_, index) => index % 2 === 1),
+];
+
+/** 두 요청의 결말을 하나로 합친다. 권한 거절·취소가 하나라도 있으면 그쪽이 판 전체의 결말이다. */
+const mergeResults = (
+  first: NativeDownloadResult,
+  second: NativeDownloadResult,
+): NativeDownloadResult => {
+  if (first.type === "permissionDenied" || second.type === "permissionDenied") {
+    return { type: "permissionDenied" };
+  }
+
+  if (first.type === "aborted" || second.type === "aborted") {
+    return { type: "aborted" };
+  }
+
+  return { type: "completed", failed: [...first.failed, ...second.failed] };
+};
+
+/**
+ * `saveToPhotoLibrary` 와 같지만, 장수가 많으면 요청을 두 개로 나눠 앱이 동시에 받는 수를 늘린다.
+ * 앱 빌드를 바꾸지 않고 웹 배포만으로 속도를 올리려는 임시 방법이다 (`NATIVE_SAVE_SPLIT_THRESHOLD` 참고).
+ *
+ * **두 번째 요청은 첫 요청이 받기 시작한 뒤에 보낸다.** 앱은 요청마다 사진첩 권한을 묻는데,
+ * 처음 설치한 사람에게 동시에 물으면 권한 창이 겹친다. 첫 진행 소식이 왔다는 건 권한을 받았다는 뜻이다.
+ * 첫 요청이 권한을 거절당하거나 취소되면 두 번째는 보내지 않는다.
+ *
+ * 진행·저장 소식은 사진별 id 로 오므로 두 요청 것을 그대로 흘려도 부르는 쪽 집계가 맞는다.
+ */
+export const saveToPhotoLibraryInParallel = async (
+  files: NativeFile[],
+  params: NativeDownloadParams = {},
+): Promise<NativeDownloadResult> => {
+  if (files.length <= NATIVE_SAVE_SPLIT_THRESHOLD) {
+    return saveToPhotoLibrary(files, params);
+  }
+
+  const [firstFiles, secondFiles] = splitAlternately(files);
+  let markPermitted = (): void => {};
+  const permitted = new Promise<null>((resolve) => {
+    markPermitted = () => resolve(null);
+  });
+
+  const firstRun = saveToPhotoLibrary(firstFiles, {
+    ...params,
+    onProgress: (id, loaded, total) => {
+      markPermitted();
+      params.onProgress?.(id, loaded, total);
+    },
+    onSaved: (id) => {
+      markPermitted();
+      params.onSaved?.(id);
+    },
+  });
+
+  // 진행 소식 없이 첫 요청이 끝날 수도 있다 (전부 실패). 끝난 결말이 completed 면 권한은 있었던 것이다.
+  const secondRun = Promise.race([permitted, firstRun]).then((settledFirst) =>
+    settledFirst === null || settledFirst.type === "completed"
+      ? saveToPhotoLibrary(secondFiles, params)
+      : settledFirst,
+  );
+
+  const [first, second] = await Promise.all([firstRun, secondRun]);
+
+  return mergeResults(first, second);
+};
+
 /** 파일 하나를 받아 공유 시트로 넘긴다. zip 처럼 사진첩에 들어갈 수 없는 파일에 쓴다. */
 export const shareFromNativeApp = (
   file: NativeFile,
   params: NativeDownloadParams = {},
 ): Promise<NativeDownloadResult> => requestNative({ type: "download/share", file }, params);
+
+/**
+ * 앱에서 난 실패를 PostHog 예외로 남긴다. 웹이 직접 받는 경로는 `fetchMediaBlob` 이 남기지만,
+ * 앱 경로는 웹에 결과만 오므로 여기서 남기지 않으면 원인이 어디에도 없다.
+ */
+export const reportNativeFailure = (
+  { status, stage, message }: NativeFailure,
+  operation: "download.native_save" | "download.native_share",
+): void =>
+  captureException(new Error(message ?? "앱에서 파일을 저장하지 못했습니다."), {
+    level: "error",
+    operation,
+    status,
+    code: `NATIVE_${(stage ?? "unknown").toUpperCase()}_FAILED`,
+  });

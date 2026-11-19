@@ -1,52 +1,65 @@
 // ─────────────────────────────────────────────────────────────
-// 폰 하나를 두고, 스크롤 위치(T초)만으로 장면을 그린다.
-//  0    ~ 6.6  사람별: 정리 방식 시트 → 진행 막대 → 사진이 폰 밖으로 쏟아져 사람별 세 줄
-//               → 검토 화면 썸네일로 들어감 → 폴더 만들기 → 사람 폴더 탭
-//  6.6  ~ 12.8 비슷한 사진: 진행 막대 → 사진이 폰 밖으로 나와 세 더미로 쌓임 → 검토 화면 썸네일로 들어감
-//               → 3개 폴더 만들기 → '폴더 3개를 만들었어요' 알림 → 건배샷 폴더 탭 열기
-//  12.8 ~ 20.8 검색 → 찾은 사진을 골라 받기 (업로드·좋아요 구간은 건너뜀). 이 구간은 L = T - SHIFT 시각으로 그린다
+// 폰 하나를 두고, 스크롤 위치(T)만으로 장면을 그린다. 이야기는 '문제 → 해결 → 사용 방법' 순서다.
+//  문제     단톡방: 모임이 끝나고 "사진 보내 줘"가 쏟아진다
+//  해결·사용 방법 (INTRO) 내가 "아 어떡하지 ㅠㅠ / 한꺼번에 다운로드 받을 수 있는 방법 없나 / 잠시만!!" → ① 쏙으로 앱을 바꿔 방을 만들고 공유 링크 복사
+//           → ② 단톡방으로 돌아와 링크를 보냄 → ③ 링크를 누르면 친구들이 설치 없이 들어오고 사진이 한곳에 모인다.
+//           사진마다 올린 사람(민지·서연·나) 이름표가 붙는다
+//  받기     원본 그대로 한 번에 저장(카톡으로 받은 깨진 사진과 나란히) → 내 사진만 받고 싶으면 사람별로 나눈다(인물 분류)
+//  끝       링크 만들기 · App Store
+// 공유가 본론이고, 정리 기능은 인물 분류 하나만 '받는 방법'으로 보여 준다 (비슷한 사진·검색은 보여 주지 않는다)
 // ─────────────────────────────────────────────────────────────
 const LOCAL = "/landing/assets";
-const END = 24.5;
-// 스크롤 시각(T) → 장면 시각. 앞에 '모으기' 장면(INTRO 초)을 붙이고, 검색 화면을 보여 준 뒤부터 고르기 직전까지(15.2~18.9)는 건너뛴다.
-// 업로드·좋아요 장면은 보여 주지 않고, 검색으로 찾은 사진을 그대로 골라 받는다
-// 첫 장면(잠금화면 알림 → 사진방 → 사진이 올라옴, 약 3.6초)이 스크롤로도 너무 빠르지 않게 보이는 길이
-const INTRO = 2.8;
-const SKIP = [17.3, 21.0];
-// 장면 시각을 잠깐 멈춰 두고 그동안 따로 그리는 구간 [멈출 장면 시각, 길이]
-//  0: 사람별 폴더를 만든 직후(6.2) 1.2초 — 전체 탭에서 '나' 탭을 눌러 내 사진만 남는다
-//  1: 비슷한 사진 장면 앞(6.9) 0.9초 — '어떻게 정리할까요?' 시트에서 비슷한 사진 묶기를 누른다
-// SKIP·END 는 멈춤을 넣기 전 시각, 그 밖의 장면 상수는 멈춤을 뺀 시각이다
-const HOLDS = [
-  [6.2, 1.2],
-  [6.9, 0.9],
+// 첫 장면(단톡방 → 사진방, 약 3.6초)이 스크롤로도 너무 빠르지 않게 보이는 길이.
+// 친구들 사진이 올라오는 시간을 줄인 만큼(시계 1.35초) 함께 줄여, 앞 장면들의 스크롤 빠르기는 그대로 둔다
+const INTRO = 5.62;
+// 스크롤하면: 단톡방이 왼쪽으로 밀리고 폰 바탕화면이 들어옴 → 쏙 앱 아이콘을 누르면 방 만들기 화면이 아이콘에서
+// 커지며 열림 → 방 제목 입력 → '방 만들기' → "공유 링크를 복사했어요." → 단톡방으로 돌아와 링크를 보냄
+// → 그 링크를 누르면(LINK_TAP) 사진방으로
+const APP_IN = [0.1, 0.45];
+const OS_TAP = 0.7; // 바탕화면의 쏙 아이콘 누름
+const APP_OPEN = [0.78, 1.08]; // 방 만들기 화면이 아이콘 자리에서 커지며 열린다
+const MAKE_TYPE = [1.2, 1.55]; // 방 제목 입력
+const MAKE_TAP = 1.7; // '방 만들기' 누름
+const MAKE_TOAST = [1.78, 1.9, 2.2, 2.3]; // 복사 알림
+const APP_OUT = [2.3, 2.65];
+const SEND_AT = [2.7, 3.1]; // 단톡방에 남은 두 메시지("그냥 여기 다 올려!" + 링크)가 올라온다
+const LINK_TAP = 3.45;
+// 첫 장면 뒤 장면들. len = 그 장면에 쓰는 스크롤 길이(초)
+const STORY = [
+  { id: "save", len: 2.5 },
+  // 사람별: 정리 방식 시트가 올라와 '얼굴 분석해서 정리하기'를 누르기까지 (사람별 장면 시각 0.2 → 2.2)
+  { id: "person", len: 0.9 },
+  // 폴더가 생긴 뒤 '나' 탭을 눌러 내 사진만 남는다 (renderMeFolder)
+  // 폰 폭은 폴더 칩이 탭으로 날아 들어가는 시간만큼 길다 (renderFolderChips)
+  { id: "me", len: matchMedia("(max-width: 760px)").matches ? 1.3 : 1.15 },
+  { id: "end", len: 1.6 },
 ];
-const SCROLL_END = END + INTRO - (SKIP[1] - SKIP[0]);
-const unhold = (s) => {
-  let off = 0;
-  for (const [b, len] of HOLDS) {
-    if (s < b + off) break;
-    if (s < b + off + len) return b;
-    off += len;
-  }
-  return s - off;
+{
+  let at = INTRO;
+  STORY.forEach((s) => {
+    s.start = at;
+    at += s.len;
+  });
+}
+const PH = Object.fromEntries(STORY.map((s) => [s.id, s]));
+const SCROLL_END = STORY.at(-1).start + STORY.at(-1).len;
+// 스크롤 시각 T 에 그 장면 안에서 흐른 시간. 그 장면이 아니면 -1
+const phH = (T, id) => {
+  const s = PH[id];
+  return T >= s.start && (T < s.start + s.len || s === STORY.at(-1))
+    ? Math.min(T - s.start, s.len)
+    : -1;
 };
-// 멈춤 구간 i 안이면 0~길이, 아니면 -1
-const holdT = (s, i) => {
-  const start = HOLDS[i][0] + HOLDS.slice(0, i).reduce((a, [, len]) => a + len, 0);
-  return s >= start && s < start + HOLDS[i][1] ? s - start : -1;
-};
-const toRaw = (T) => {
-  const o = T - INTRO;
-  return o >= SKIP[0] ? o + (SKIP[1] - SKIP[0]) : o;
-};
-const toScene = (T) => unhold(toRaw(T));
-const toScroll = (b) => {
-  const o = b + HOLDS.filter(([at]) => b >= at).reduce((a, [, len]) => a + len, 0);
-  return (o >= SKIP[1] ? o - (SKIP[1] - SKIP[0]) : o) + INTRO;
-};
-// 정리 장면이 길어진 만큼 검색 장면부터 뒤로 민다 (비슷한 사진 폴더 장면 1.6초 포함)
-const SHIFT = 5.2;
+// 사람별 장면 시각: 시트를 누르기까지 흐르다가, 폴더가 생긴 뒤엔 그 시각(ME_AT)에 멈춘다
+const PERSON_FROM = 0.2;
+const PERSON_TO = 2.2;
+const ME_AT = 6.2;
+const personScene = (T) =>
+  T >= PH.me.start
+    ? ME_AT
+    : T >= PH.person.start
+      ? lerp(PERSON_FROM, PERSON_TO, (T - PH.person.start) / PH.person.len)
+      : 0;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
 const seg = (T, a, b) => clamp((T - a) / (b - a));
@@ -68,21 +81,14 @@ const CHAT_LEN = 1.5;
 const CHAT_RISE = matchMedia("(max-width: 760px)").matches ? 0.45 : 0;
 const FILM_END = SCROLL_END + CHAT_LEN + CHAT_RISE;
 let chatS = 0;
-// 단톡방은 처음엔 저절로 한 줄씩 올라오다가(CHAT_GAP 초마다), 스크롤을 시작하면 그때부터 스크롤로 넘긴다.
-// 스크롤을 시작한 순간까지 올라온 만큼(chatBase)은 그대로 두고, 남은 메시지만 스크롤 구간에 나눠 싣는다.
-// 남은 게 적을수록 단톡방 구간도 짧아진다 (다 나온 뒤면 0.25초만 머물고 다음 장면으로)
-const CHAT_GAP = 0.6;
-const CHAT_STEPS = 8; // 처음 깔린 대화 두 줄(CHAT_PRE) 뒤로 올라올 메시지 수 (CHAT 은 모두 10개)
+// 단톡방 메시지는 스크롤한 만큼 한 줄씩 올라온다 (저절로 올라오지 않는다)
+const CHAT_STEPS = 8; // 처음 깔린 대화 두 줄(CHAT_PRE) 뒤로 "잠시만!!"까지 올라올 메시지 수. 나머지 둘은 SEND_AT 에 (CHAT 은 모두 12개)
 let chatBase = null;
 let chatStep = 0;
 // 폰 폭에선 첫 화면에 단톡방이 없으니 저절로 올라오지 않는다. 올라왔을 때 위가 휑하지 않게
 // 다섯 줄(CHAT_PRE + 2)이 깔린 채로 나타나고, 나머지는 스크롤로 넘긴다
-const autoChatStep = () =>
-  reduceMotion
-    ? CHAT_STEPS
-    : CHAT_RISE
-      ? 2
-      : clamp(((performance.now() - introT0) / 1000 - 0.9) / CHAT_GAP, 0, CHAT_STEPS);
+// 저절로 올라오지 않는다: 스크롤해야 메시지가 올라온다 (폰 폭은 다섯 줄이 깔린 채로 시작)
+const autoChatStep = () => (reduceMotion ? CHAT_STEPS : CHAT_RISE ? 2 : 0);
 const chatLen = () =>
   CHAT_RISE +
   (chatBase === null
@@ -99,55 +105,22 @@ function show(el, o, y = 0, extra = "") {
 }
 
 // ── 장면 글 ──
+// 사용 방법 장면마다 글 하나. ph = 그 글이 떠 있는 장면들
 const TEXT = [
   {
-    a: 0.3,
-    c: 2.2,
-    tag: "2 · 사람별로 나누기",
-    // 질문 → 답으로 이어진다: "나 나온 사진, 언제 다 골라요? … 이젠 AI가 얼굴을 알아봐서 내 사진만 폴더에 쏙 모여요"
-    kicker: "사진 수백 장,",
-    title: "<em>내 사진</em>은<br />언제 다 골라요?",
+    ph: ["save"],
+    tag: "④ 원본으로 받기",
+    // ② 단계처럼 큰 제목 두 줄 + 설명 한 줄로 나눈다
+    title: "다 모이면<br /><em>원본 그대로</em>",
+    desc: "한 번에 저장해요.",
   },
   {
-    // 사람별 카드가 검토 화면으로 다 들어간 뒤(5.6) 뜬다
-    a: 5.6,
-    c: 6.35,
-    // 앞 장면과 한 문장으로 이어지니 태그는 다시 달지 않는다
-    ai: true,
-    // '나' 탭을 눌러 내 사진만 남는 순간. 질문(언제 다 골라요?) → 방법(버튼 한 번) → 결과(전부 있어요)로 끝난다
-    kicker: "내 폴더만 열면",
-    title: "<em>내가 나온 사진</em>이<br />전부 있어요",
-  },
-  {
-    a: 6.7,
-    c: 7.75,
-    tag: "3 · 비슷한 컷 묶기",
-    // 2번 장면처럼 질문 → 방법(버튼 한 번이면 비슷한 컷끼리 쏙 묶여요) → 결과(그 순간 사진이 한곳에)로 이어진다.
-    // 베스트 컷을 골라 주는 기능은 아니니 '잘 나온 한 장'처럼 고르기를 약속하는 말은 쓰지 않는다
-    kicker: "같은 포즈로 열 장씩 찍으면",
-    title: "<em>비슷한 사진</em>만<br />계속 넘기게 되죠?",
-    ai: true,
-  },
-  {
-    // 비슷한 사진 카드가 검토 화면으로 다 들어간 뒤(10.5) 뜬다
-    a: 10.5,
-    c: 12.4,
-    // 앞 장면과 한 문장으로 이어지니 태그는 다시 달지 않는다
-    ai: true,
-    // 건배샷 폴더를 여는 순간과 맞춘다
-    kicker: "폴더 하나만 열면",
-    title: "<em>보고 싶은 사진</em>이<br />바로 나와요",
-  },
-  {
-    a: 12.9,
-    c: 20.55,
-    tag: "4 · 검색해서 받기",
-    // kicker 의 질문을 검색창이 그대로 받아 '우리가 먹은 메뉴'를 입력한다 (SP_QUERY 와 맞춘다).
-    // 음성 검색처럼 들리지 않게 '말로' 대신 '떠오르는 대로'를 쓴다
-    kicker: "“우리 뭐 먹었더라?”",
-    title: "<em>떠오르는 대로</em> 검색하면<br />바로 찾아 저장해요",
-    ai: true,
-    // 50장 = 사진첩 저장 묶음 단위 (한 번에 많이 넘기면 폰이 멈춰서 나눠 저장한다)
+    // 인물 분류는 따로 내세우는 기능이 아니라 '받는 방법' 중 하나로 보여 준다
+    ph: ["person", "me"],
+    tag: "⑤ 내 사진만 받기",
+    // ②·④ 단계처럼 큰 제목 두 줄 + 설명 한 줄로 나눈다
+    title: "내 사진만 받고 싶다면<br /><em>버튼 한 번</em>으로",
+    desc: "내가 나온 사진만 골라 받아요.",
   },
 ];
 const textEls = TEXT.map((t) => {
@@ -194,9 +167,6 @@ const PHOTO_SRC = {
   8: "group-1",
 };
 const photoSrc = (n) => `${GN}/${PHOTO_SRC[n] ?? "group-2"}.jpg`;
-// 비슷한 사진 세 묶음(건배샷·떡볶이·마라샹궈)은 실제로 연달아 찍은 4장씩 (파일 이름은 예전 dessert·pasta 를 그대로 쓴다)
-const SIM_FILE = ["toast", "dessert", "pasta"];
-const simSrc = (g, f) => `${GN}/similar/${SIM_FILE[g]}-${f + 1}.jpg`;
 
 function paint(pic, p, r, v) {
   const el = pic.firstElementChild ?? pic.appendChild(document.createElement("i"));
@@ -219,7 +189,7 @@ function tile({ img, pic, who, heart = 0 }) {
   else el.innerHTML = `<img src="${img}" alt="" />`;
   el.insertAdjacentHTML(
     "beforeend",
-    `<span class="chk"></span><span class="upl">${who}</span><span class="hrt">${icon("heart")}<b>${heart}</b></span>`,
+    `<span class="chk"><svg viewBox="0 0 24 24"><path d="m4.5 12.75 6 6 9-13.5" /></svg></span><span class="upl${who === "나" ? " mine" : ""}">${who}</span><span class="hrt">${icon("heart")}<b>${heart}</b></span>`,
   );
   return el;
 }
@@ -235,130 +205,20 @@ const SHOTS = [
 const ITEMS = PEOPLE.flatMap((_, p) => SHOTS.map(([r, v], j) => ({ p, j, r, v })));
 const GRID = ITEMS.map((_, k) => ITEMS[(k * 7) % ITEMS.length]);
 const MINE = GRID.filter((g) => g.p === 2);
-const UPLOADER = ["서연", "나", "민지"];
+// 올린 사람: 사진방에 맨 먼저 올라오는 네 장(맨 뒤 네 칸)은 내가 사진첩에서 골라 올린 사진, 나머지는 친구들 사진
+const MY_UP = 4;
+const WHO = GRID.map((it, k) =>
+  k >= GRID.length - MY_UP ? "나" : ["서연", "민지"][(k + it.p) % 2],
+);
 const setP = GRID.map((it, k) =>
   $("setP").appendChild(
     tile({
       pic: picEl(it.p, it.r, it.v),
-      who: UPLOADER[(k + it.p) % 3],
+      who: WHO[k],
       heart: (k * 3) % 7,
     }),
   ),
 );
-const cards = GRID.map((it) => {
-  const el = document.createElement("div");
-  el.className = "pc";
-  el.appendChild(picEl(it.p, it.r, it.v));
-  $("cards").appendChild(el);
-  return { el, ...it };
-});
-
-// 비슷한 사진용: 묶음마다 연달아 찍은 4장 (similar/toast·dessert·pasta-1~4). [묶음, 컷]
-const SIM_GROUPS = [1, 5, 3];
-const SIM = [
-  [0, 0],
-  [1, 0],
-  [2, 0],
-  [0, 1],
-  [2, 1],
-  [1, 1],
-  [1, 2],
-  [0, 2],
-  [2, 2],
-  [0, 3],
-  [2, 3],
-  [1, 3],
-];
-const setS = SIM.map(([g, f], k) => {
-  const el = $("setS").appendChild(
-    tile({
-      img: simSrc(g, f),
-      who: UPLOADER[k % 3],
-      heart: (k * 2) % 5,
-    }),
-  );
-  return el;
-});
-
-// 폰 밖으로 나와 세 더미로 쌓이는 비슷한 사진 카드
-const simCards = SIM.map(([g, f]) => {
-  const el = document.createElement("div");
-  el.className = "pc";
-  const img = document.createElement("img");
-  img.src = simSrc(g, f);
-  img.alt = "";
-  Object.assign(img.style, {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-  });
-  el.appendChild(img);
-  $("cards").appendChild(el);
-  return { el, g, f };
-});
-
-// 검색·업로드·좋아요·다운로드용 [사진, 올린 사람, 처음 좋아요, 나중 좋아요, 검색에 맞음]
-const PHOTOS = [
-  [2, "서연", 1, 3, false],
-  [1, "민지", 2, 9, true],
-  [4, "나", 0, 2, false],
-  [3, "서연", 1, 5, true],
-  [6, "나", 0, 1, false],
-  [5, "민지", 3, 7, true],
-  [9, "나", 0, 2, false],
-  [7, "서연", 1, 4, false],
-];
-// 새로 올라오는 사진은 밀려난 첫 두 줄(2·1·4·3번)과 겹치지 않는 사진으로 고른다
-const NEW = [
-  [7, "민지"],
-  [9, "서연"],
-  [6, "민지"],
-  [8, "나"],
-];
-const setA = PHOTOS.map(([n, who, h]) =>
-  $("setA").appendChild(tile({ img: photoSrc(n), who, heart: h })),
-);
-const setNew = NEW.map(([n, who]) => $("setA").appendChild(tile({ img: photoSrc(n), who })));
-// 검색으로 모인 네 장(맨 앞 네 칸)을 고른다
-const PICKED = PHOTOS.map((p, i) => (p[4] ? i : -1)).filter((i) => i >= 0);
-
-// ── 검색 화면 (폰 밖, 크게) ──
-// 유사도 막대는 보여 주기용 값이다. 숫자는 쓰지 않고 길이만 보여 준다
-const SP_QUERY = "우리가 먹은 메뉴";
-const SP_SIM = PHOTOS.map(([, , , , match], i) =>
-  match ? 0.82 + ((i * 0.37) % 0.14) : 0.18 + ((i * 0.53) % 0.3),
-);
-// 정렬 뒤 자리: 맞는 사진 먼저, 그다음 유사도 높은 순
-const SP_RANK = PHOTOS.map((_, i) => i).sort((a, b) => SP_SIM[b] - SP_SIM[a]);
-const spItems = PHOTOS.map(([n, , , , match]) => {
-  const el = document.createElement("div");
-  el.className = "sp-it";
-  el.innerHTML = `<img src="${photoSrc(n)}" alt="" /><div class="sim"><b></b></div>`;
-  el.dataset.hit = match ? 1 : 0;
-  return $("spGrid").appendChild(el);
-});
-// 장면 시각 L 기준: 7.7 폰 대신 검색 화면 → 7.9 입력 → 8.95 유사도 → 9.35 정렬 → (건너뜀) → 13.7 폰으로 돌아감
-function renderSearch(L) {
-  const o = life(L, 7.78, 8.0, 13.68, 13.8) * (L < 7.78 ? 0 : 1);
-  show($("sp"), o, (1 - o) * 24, M.mobile ? "" : "translateY(-50%)");
-  if (o <= 0.001) return;
-  const typed = SP_QUERY.slice(0, Math.round(seg(L, 7.9, 8.4) * SP_QUERY.length));
-  $("spQ").textContent = typed || "";
-  const sort = inOut(seg(L, 9.35, 9.75));
-  spItems.forEach((el, i) => {
-    const from = i;
-    const to = SP_RANK.indexOf(i);
-    const col = lerp(from % 4, to % 4, sort);
-    const row = lerp(Math.floor(from / 4), Math.floor(to / 4), sort);
-    el.style.left = `calc(${col * 25}% + ${col * 3}px)`;
-    el.style.top = `${row * 50}%`;
-    const fill = ease(seg(L, 8.95 + i * 0.04, 9.3 + i * 0.04));
-    el.querySelector("b").style.width = `${SP_SIM[i] * 100 * fill}%`;
-    const hit = el.dataset.hit === "1";
-    el.classList.toggle("hit", hit && sort > 0.5);
-    el.style.opacity = hit ? 1 : 1 - 0.6 * sort;
-  });
-}
 
 // 탭: 전체만 있을 때와 사람 폴더가 생긴 뒤
 const TABS_A = [["전체", 86]];
@@ -368,19 +228,11 @@ const TABS_B = [
   ["서연", 28, "new"],
   ["나", 24, "new"],
 ];
-// 비슷한 사진 폴더 셋이 생긴 뒤: 새 폴더가 '전체' 바로 옆에 붙는다
-const TABS_C = [
-  ["전체", 86],
-  ["건배샷", 4, "new"],
-  ["떡볶이", 4, "new"],
-  ["마라샹궈", 4, "new"],
-  ["민지", 34],
-  ["서연", 28],
-  ["나", 24],
-];
 let tabsKey = "";
 let tabsLen = 0;
 function renderTabs(list, active, total) {
+  // 사진이 한 장도 없을 때만 빈 상태 문구를 보여 준다 (첫 사진이 내려오기 시작하면 사라진다)
+  $("gEmpty").classList.toggle("off", total > 0);
   const key = `${list.length}|${active}|${total}`;
   if (key === tabsKey) return;
   tabsKey = key;
@@ -394,97 +246,15 @@ function renderTabs(list, active, total) {
           `<span class="${i === active ? "on" : ""} ${cls} ${cls && pop}">${name}<i>${i === 0 ? total : n}</i></span>`,
       )
       .join("") + `<span class="add">${icon("folder")}폴더 추가</span>`;
-  // 고른 탭이 '폴더 추가' 버튼 밑에 가리면, 앱처럼 탭 줄을 왼쪽으로 밀어 다 보이게 한다
+  // 고른 탭이 '폴더 추가' 버튼 밑에 가리면, 앱처럼 탭 줄을 왼쪽으로 밀어 다 보이게 한다.
+  // 사람 폴더가 막 생긴 뒤(아직 '전체')에도 곧 누를 마지막 폴더 탭('나')이 가리지 않게 미리 민다
   const tabs = [...$("gTabs").children];
   const add = tabs.pop();
-  const on = tabs[active];
-  const over = active > 0 ? on.offsetLeft + on.offsetWidth + 12 - add.offsetLeft : 0;
+  const target = active > 0 ? active : tabs.length - 1;
+  const on = tabs[target];
+  const over = target > 0 ? on.offsetLeft + on.offsetWidth + 12 - add.offsetLeft : 0;
   tabs.forEach((t) => (t.style.transform = over > 0 ? `translateX(${-over}px)` : ""));
 }
-
-// 정리 방식 시트의 '비슷한 사진' 그림 (실제 시트와 같은 그림)
-[
-  ["left", -1],
-  ["right", 1],
-  ["center", 0],
-].forEach(([side, off]) => {
-  const s = document.createElement("span");
-  s.className = "scene";
-  s.style.transform = `translateX(${off * 1.3}em) rotate(${off * 8}deg)`;
-  s.innerHTML = `<img src="/landing/assets/app/similar-card.svg" alt="" /><img src="/landing/assets/app/similar-scene-${side}.svg" alt="" />`;
-  $("simThumb").appendChild(s);
-});
-$("simThumb").insertAdjacentHTML(
-  "beforeend",
-  `<span class="kcheck" style="z-index:2"><img src="/landing/assets/app/check.svg" alt="" /></span>`,
-);
-
-const rowLabs = PEOPLE.map((p, i) => {
-  const el = document.createElement("div");
-  el.className = "rowlab";
-  el.innerHTML = `<span class="ava"></span>${p.name} <b>0장</b>`;
-  el.querySelector(".ava").appendChild(picEl(i, 0, 1));
-  return $("rowLabs").appendChild(el);
-});
-
-// 폰 폭 사람별 장면: 세로 칸마다 깔리는 카드. 세 사람으로 나뉜 게 한눈에 보이게 한다
-const sortCols = PEOPLE.map(() => {
-  const el = document.createElement("div");
-  el.className = "scol";
-  return $("sortCols").appendChild(el);
-});
-
-const simLabs = ["건배샷", "떡볶이", "마라샹궈"].map((n) => {
-  const el = document.createElement("div");
-  el.className = "rowlab";
-  el.innerHTML = `${n} <b>4장</b>`;
-  return $("rowLabs").appendChild(el);
-});
-
-// 검토 화면 카드: 썸네일 줄 + 이름 고르기
-const chipsOf = (picked) =>
-  ["나", "민지", "서연"]
-    .map((c) => `<span class="chip ${c === picked ? "on" : ""}">${c}</span>`)
-    .join("") + `<span class="chip type">+ 직접 입력</span>`;
-function reviewCard(parent, thumbs, who, chips) {
-  const card = document.createElement("div");
-  // 이름(who)이 없으면 문구 줄 없이 칩만 크게 보인다 (비슷한 사진 묶음)
-  card.className = who ? "rcard" : "rcard chip-only";
-  card.innerHTML = `<div class="rthumbs"></div>${who ? `<div class="rwho">${who}</div>` : ""}<div class="chips">${chips}</div>`;
-  const row = card.querySelector(".rthumbs");
-  thumbs.forEach((t) => row.appendChild(t));
-  row.insertAdjacentHTML("beforeend", `<svg class="ico chev"><use href="#i-chev" /></svg>`);
-  parent.appendChild(card);
-}
-const thumb = (child, more) => {
-  const t = document.createElement("div");
-  t.className = "rthumb";
-  t.appendChild(child);
-  if (more) t.insertAdjacentHTML("beforeend", `<span class="more">+${more}</span>`);
-  return t;
-};
-PEOPLE.forEach((p, i) =>
-  reviewCard(
-    $("rvPCards"),
-    SHOTS.slice(0, 4).map(([r, v], j) => thumb(picEl(i, r, v), j === 3 ? p.total - 4 : 0)),
-    p.name,
-    chipsOf(p.name),
-  ),
-);
-const SIM_NAMES = ["건배샷", "떡볶이", "마라샹궈"];
-SIM_GROUPS.forEach((n, g) =>
-  reviewCard(
-    $("rvSCards"),
-    [0, 1, 2, 3].map((f) => {
-      const img = document.createElement("img");
-      img.src = simSrc(g, f);
-      img.alt = "";
-      return thumb(img);
-    }),
-    "",
-    `<span class="chip on">${SIM_NAMES[g]}</span>`,
-  ),
-);
 
 // ── 첫 장면 '모으기': 글 두 개와 친구들 폰 세 대 (시각은 스크롤 시각 T) ──
 const INTRO_TEXT = [
@@ -495,14 +265,29 @@ const INTRO_TEXT = [
     title: "사진 보내달라는 말,<br />이제 <em>그만!</em>",
     cta: true,
   },
+  // 사용 방법 세 단계: 단톡방 연출(앱 전환 → 링크 보내기 → 다 같이 모임)과 함께 하나씩 바뀐다. u = [뜨는 시각, 빠지는 시각] (시계 U)
   {
-    a: 0.95,
+    u: [APP_IN[0] + 0.15, APP_OUT[0]],
+    tag: "① 링크 만들기",
+    kicker: "사진 보내 달라는 말이 나오면",
+    title: "쏙에서<br /><em>방 하나</em> 만들고",
+  },
+  {
+    u: [APP_OUT[0] + 0.1, LINK_TAP + 0.05],
+    tag: "② 단톡방에 보내기",
+    title: "단톡방에<br /><em>링크 하나만</em> 올리면",
+    desc: "앱이 없어도<br />링크만 누르면 바로 들어와요.",
+  },
+  {
+    // 링크를 누른 직후엔 아직 단톡방 말풍선이 걷히는 중이라, 단톡방이 사진방 화면으로 바뀌기 시작할 때(MS = 4.2) 띄운다.
+    // MS 는 이 아래에서 정의되므로 같은 시각을 LINK_TAP 기준으로 적는다
+    u: [LINK_TAP + 0.75, Infinity],
     c: INTRO - 0.05,
-    tag: "1 · 링크로 모으기",
-    // 첫 화면의 문제("사진 보내달라는 말")에 대한 답을 먼저 말하고, 이어서 실제 쏙 갤러리가 열린다
-    title: "이제 사진은<br /><em>한곳에</em> 모아서!",
-    desc: "링크 하나만 보내면<br />친구들이 찍은 사진이 다 모여요.",
-    // 47% = 후처리 워커 2→4개일 때 사진 300장 준비 시간(288초→153초) 실측값
+    tag: "③ 다 같이 올리기",
+    // '링크'는 ②에서 이미 말했으니, 여기선 결과(각자 찍은 사진이 한곳에)만 말한다
+    title: "각자 찍은 사진이<br /><em>한곳에</em> 쏙!",
+    // 첫 화면 "사진 보내달라는 말, 이제 그만!"과 이어진다 ('원본'은 다음 장면 ④에서 말한다)
+    desc: "이제 따로 보내 달라고 안 해도 돼요.",
   },
 ];
 const introEls = INTRO_TEXT.map((t) => {
@@ -518,14 +303,14 @@ const introEls = INTRO_TEXT.map((t) => {
     (t.kicker ? `<span class="kicker">${t.kicker}</span>` : "") +
     (t.hero ? `<h2 class="title">${t.title}</h2>` : `<p class="title">${t.title}</p>`) +
     (t.desc ? `<p class="desc">${t.desc}</p>` : "") +
-    // 무슨 서비스인지 한 문장으로 푼다
-    (t.hero ? `<p class="hero-lead">다 같이 올리고, 내 사진만 쏙 골라가요</p>` : "") +
+    // 결론부터: 제목은 왜(문제), 이 한 줄은 무엇(서비스 정의), 스크롤은 어떻게
+    (t.hero
+      ? `<p class="hero-lead">링크 하나로 다 같이 찍은 사진을<br />원본 그대로 모으는 <b>사진 공유 서비스</b></p>`
+      : "") +
     (t.cta
       ? `<div class="hero-ctas">` +
+        // 첫 화면은 '설치 없이 링크 하나'가 메시지라 웹 버튼 하나만 둔다. 앱 설치는 끝 화면과 머리글 메뉴에 있다
         `<a class="cta hero-cta" href="/rooms/create?utm_source=landing&amp;utm_medium=web&amp;utm_content=hero">사진 모을 링크 만들기</a>` +
-        // 스토어가 둘이라 바로 이동하지 않고, 머리글처럼 iPhone·Android 를 고르는 메뉴를 연다
-        `<div class="start hero-app"><button type="button" class="cta store hero-cta" id="heroAppBtn" aria-haspopup="true" aria-expanded="false" aria-controls="heroAppMenu">앱 설치하기</button>` +
-        `<div class="start-menu" id="heroAppMenu" hidden></div></div>` +
         `</div>`
       : "");
   return $("texts").appendChild(el);
@@ -575,52 +360,33 @@ const cams = PEOPLE.map((p, c) => {
 });
 
 // ── 첫 화면 연출 ──
-//  스크롤 전: 단톡방에 "사진 보내줘" 메시지가 계속 올라온다 (페이지를 연 뒤 흐른 시간으로 그린다)
-//  스크롤하면 (스크롤 시각 T): 단톡방이 빠지고 친구들 폰 세 대가 올라온 뒤,
-//  각 폰의 사진이 쏙 아이콘으로 빨려 들어가고 → 아이콘이 쏙 폰으로 들어가 사진이 격자로 펼쳐진다
-// 단톡방 6명: 나·민지·서연·지수·하린·예나. 민지·서연은 사진 속 얼굴(PEOPLE 순서)을 프로필로 쓴다
-// [보낸 사람, 말]. 보낸 사람이 "나"면 오른쪽 노란 말풍선
-// 마지막은 나도 어쩔 줄 몰라 하는 말로 끝난다 → 다음 장면에서 쏙이 해결한다
-// 모임이 끝난 뒤 단톡방: 처음부터 깔린 평범한 대화(CHAT_PRE 줄) 아래로 "사진 보내줘" 요청 4개가 하나씩 올라온다.
-// 스크롤하면 말풍선이 모두 사진으로 바뀌어 사진방에 들어간다 (세 번째 값 true = 요청 메시지 표시용)
-// 문제가 글이 아니라 눈으로 보이게: 각자 사진을 낱장·묶음으로 흩어 보내고, 받은 사진은 화질이 깨져 있고,
-// 찾는 사진(마라샹궈)은 아무도 안 보냈다. 세 번째 값 { pics, blur } = 사진 말풍선 (blur = 화질 깨진 사진)
+//  스크롤 전: 모임이 끝난 뒤 단톡방에 메시지가 한 줄씩 올라온다 (페이지를 연 뒤 흐른 시간으로 그린다)
+//  스크롤하면 (스크롤 시각 T): 맨 아래 쏙 링크를 누르고 → 말풍선이 걷히며 단톡방 틀이 쏙 사진방으로 바뀐다
+// 단톡방 6명: 나·민지·서연·지수·하린·예나. [보낸 사람, 말, { pics, blur } | { link }]. 보낸 사람이 "나"면 오른쪽 노란 말풍선
+const LINK_CARD =
+  `<img src="/og/invite.png" alt="" />` +
+  // 주소 줄을 <small> 로 쓰면 '내 메시지는 이름(small)을 숨긴다'는 규칙에 걸려 사라진다. span 으로 쓴다
+  `<span class="lk-body"><b>사진방에 초대받았어요 📸</b>` +
+  `<span class="lk-desc">설치 없이 바로 들어와서 사진을 쏙 올려 주세요!</span>` +
+  `<span class="lk-url">ssssok.com</span></span>`;
+// 단톡방 대본: 요청 하나 + 불만 셋 + 해결. 불만 셋은 그대로 뒤 장면의 답이 된다
+//  흩어져서 여러 번 보냄 → 해결(한곳에) / 화질 깨짐 → 원본으로 받기 / 내 사진 누락 → 내 사진만 받기
+// 첫 화면 제목("사진 보내달라는 말")과 이어지게, 요청 "다들 사진 좀 보내줘~"는 링크가 나올 때까지 화면에 남는다
 const CHAT = [
-  ["민지", "오늘 완전 재밌었다!! ㅋㅋ"],
-  ["민지", "다들 사진 올려줘~"],
-  [
-    "서연",
-    "",
-    {
-      // 9장 묶음 (카톡처럼 3칸 격자). 마라샹궈 사진은 일부러 없다 → "마라샹궈 사진 어디갔노"
-      pics: [
-        "group-1",
-        "people/minji-2",
-        "cheers",
-        "people/seoyeon-3",
-        "similar/dessert-2",
-        "people/me-4",
-        "group-2",
-        "similar/toast-1",
-        "people/minji-5",
-      ],
-    },
-  ],
-  ["서연", "일단 내 폰에 있는 거 여깄음!"],
+  ["민지", "오늘 걸스나잇 완전 재밌었다!! ㅋㅋ"],
+  ["민지", "다들 사진 좀 보내줘~"],
+  ["서연", "", { pics: ["group-1", "people/minji-2", "cheers", "people/seoyeon-3"] }],
+  ["서연", "용량 때문에 나눠서 보낼게 ㅠ"],
   ["하린", "", { pics: ["people/me-2"], blur: true }],
-  ["하린", "이거 사진 쫌 깨져있는데?? ㅠ"],
-  // 지수는 찾는 마라샹궈 대신 엉뚱한 떡볶이 사진만 있다
-  [
-    "지수",
-    "",
-    {
-      pics: ["similar/dessert-3", "similar/dessert-4", "similar/toast-2"],
-    },
-  ],
-  ["지수", "아 마라샹궈 사진 어디갔노 스토리 올려야 하는데"],
-  // 마지막은 내가 보낸 메시지 (노란 말풍선)
-  ["나", "잠시 나 찍은 사진 왜케 많아 ㅠㅠ"],
-  ["나", "어떻게 다 보내 ㅠㅠ"],
+  ["하린", "이거 화질 왜 이래??"],
+  ["지수", "나 나온 사진은 아무도 안 보냄? 🥲"],
+  ["나", "아 어떡하지 ㅠㅠ"],
+  ["나", "한꺼번에 다운로드 받을 수 있는 방법 없나"],
+  ["나", "잠시만!!"],
+  // 아래 두 메시지는 앱 전환(방 만들기) 뒤에 올라온다 (SEND_AT)
+  // 마지막은 내가 보낸 메시지 (노란 말풍선). 내가 쏙 링크 하나를 올리고, 그 링크를 누르면 사진이 한곳에 모인다
+  ["나", "그냥 여기 다 올려!"],
+  ["나", "", { link: true }],
 ];
 const CHAT_PRE = 2;
 const CHAT_BASE = CHAT.length;
@@ -639,16 +405,20 @@ const chatEls = Array.from({ length: CHAT.length }, () => {
   el.innerHTML = `<span class="av">${SILHOUETTE}</span><div class="mb"><small></small><div class="row"><p></p><span class="meta"><i class="ur"></i><time>오후 9:41</time></span></div></div>`;
   return $("chatBody").appendChild(el);
 });
-// 링크로 들어오는 세 사람 (나는 카드를 눌러 먼저 들어간다)
-const joinEls = [
-  ["나", "링크로 바로 입장"],
-  ["민지", "님이 들어왔어요"],
-  ["서연", "님이 들어왔어요"],
-].map(([who, text]) => {
+// ③ 다 같이 올리기: 사진방이 열린 뒤 폰 옆에 쌓이는 쏙 푸시 알림 (아이폰 알림 배너 모양).
+// 폰 화면을 가리지 않게 폰 밖(넓은 화면은 오른쪽)에 둔다. 새 알림이 위에 오고 먼저 온 알림은 아래로 밀린다
+const PUSHES = [
+  "민지님, 서연님이 방에 들어왔어요",
+  "민지님이 사진 34장을 올렸어요",
+  "서연님이 사진 28장을 올렸어요",
+  "사진 86장이 다 모였어요",
+];
+const pushEls = PUSHES.map((text) => {
   const el = document.createElement("div");
-  el.className = "join";
-  el.style.setProperty("--av", AV_COLOR[who] ?? "#f7a77f");
-  el.innerHTML = `<span class="av">${SILHOUETTE}</span><span><b>${who}</b> ${text}</span>`;
+  el.className = "push";
+  el.innerHTML =
+    `<img src="/icons/apple-touch-icon.png" alt="" />` +
+    `<div><p><b>쏙</b><small>지금</small></p><span>${text}</span></div>`;
   return $("joins").appendChild(el);
 });
 const introT0 = performance.now();
@@ -656,27 +426,40 @@ const introT0 = performance.now();
 // 바뀌는 동안 말풍선이던 사진들이 각자 가까운 갤러리 칸으로 한꺼번에 쏙 들어가 앉는다(위아래 순서 그대로라 엇갈리지 않는다).
 // 폰 테두리가 둘러진 뒤엔 나머지 사진이 실시간 업로드처럼 한 장씩 맨 위에 올라오고, 먼저 온 사진은 아래로 밀린다.
 // 시계(U, 초)로 흐르고, 스크롤하면 스크롤만큼 앞당겨진다(그때만 빨라진다)
-const PH_AT = 0.05; // 첫 말풍선이 사진으로 바뀌기 시작하는 시각
+const PH_AT = 3.65; // 말풍선이 걷히기 시작하는 시각
 const PH_STAG = 0.06; // 말풍선 사이 간격 (위 말풍선부터)
 const PH_LEN = 0.45; // 말풍선 하나가 사진으로 바뀌는 시간
-const MS = 0.6; // 단톡방 틀이 폰 화면으로 바뀌기 시작
+const MS = 4.2; // 단톡방 틀이 폰 화면으로 바뀌기 시작
 const MORPH_END = MS + 0.7; // 단톡방 틀이 폰 화면 모양으로 다 바뀌는 시각
 const SWAP = [MS + 0.6, MS + 0.85]; // 폰 테두리가 둘러지고 단톡방이 걷혀 갤러리가 드러나는 구간
 const B_LAND = SWAP[1] + 0.05; // 말풍선이던 사진들이 갤러리 사진과 바뀌는 시각
-const UP_GAP = 0.3; // 나머지 사진 사이 간격 (가만히 둘 땐 끝까지 같은 빠르기)
+// 사진방에 들어오면 '올리기'를 눌러 폰 기본 사진 선택기에서 네 장을 골라 '추가' → 내 사진이 먼저 올라온다
+const FAB_TAP = SWAP[1] + 0.3;
+const PK_IN = [FAB_TAP + 0.05, FAB_TAP + 0.35];
+const PK_PICKS = [0, 1, 2, 3].map((i) => PK_IN[1] + 0.2 + i * 0.2);
+const PK_ADD = PK_PICKS.at(-1) + 0.35;
+const PK_OUT = [PK_ADD + 0.1, PK_ADD + 0.4];
+const UP_AT = PK_OUT[1] + 0.05; // 내 사진이 사진방에 앉기 시작하는 시각
+const PICK_TAPS = [[FAB_TAP, "fab"], ...PK_PICKS.map((t, i) => [t, `pk${i}`]), [PK_ADD, "pkAdd"]];
+const UP_GAP = 0.06; // 나머지 사진 사이 간격 (가만히 둘 땐 끝까지 같은 빠르기)
+const UP_PAUSE = 0.25; // 내 사진 네 장이 앉은 뒤 친구들 사진이 오기 시작할 때까지
 const UP_DROP = 0.4; // 나머지 사진이 맨 위에 내려앉는 시간
-const UP_PUSH = 0.22; // 앞 사진들이 한 줄 내려가는 시간
+const UP_PUSH = 0.11; // 앞 사진들이 한 줄 내려가는 시간 (두 장마다 한 줄이라 2 × UP_GAP 보다 짧게)
 // 말풍선이던 사진 수 (말풍선을 잰 뒤 정해진다)
-const ghostCount = () => ghostFrom?.length ?? CHAT.length;
+// 말풍선을 사진 조각으로 바꾸는 연출은 쓰지 않으니(ghostFrom 은 늘 빈 배열) 스크롤 전에도 0 으로 둔다.
+// 스크롤 전후로 값이 바뀌면 첫 장면 길이(landAt)가 달라져 목차 위치가 어긋난다
+const ghostCount = () => ghostFrom?.length ?? 0;
 // n 번째(1부터) 사진이 갤러리에 앉는 시각: 앞 G 장(말풍선)은 함께, 그 뒤는 한 장씩
 const landAt = (n) => {
   const G = ghostCount();
-  return n <= G ? B_LAND : B_LAND + 0.35 + (n - G - 1) * UP_GAP;
+  if (n <= G) return B_LAND;
+  // 내가 고른 네 장은 거의 한꺼번에, 그 뒤 친구들 사진은 한 장씩
+  if (n <= MY_UP) return UP_AT + (n - 1) * 0.1;
+  return UP_AT + MY_UP * 0.1 + UP_PAUSE + (n - MY_UP - 1) * UP_GAP;
 };
 const ghosts = Array.from({ length: CHAT.length }, () =>
   $("ghosts").appendChild(Object.assign(document.createElement("div"), { className: "ghost" })),
 );
-let upT0 = null;
 const INTRO_LEN = 1.5;
 // 사진이 쏙으로 들어가는 되풀이: 카드 사이 간격, 한 장이 나는 시간, 한 바퀴 (초)
 const LOOP_STEP = 0.2;
@@ -720,13 +503,13 @@ function measure() {
   // 폰 폭: 장면마다 글 길이가 달라도 화면 짜임은 같게 둔다. 글은 모두 머리글 아래 같은 자리에서 시작하고,
   // 폰은 가장 긴 글 아래로 TX_GAP 만큼 띄운 자리에서 화면 아래까지 채운다 (폭이 좁으면 폭에 맞춘다)
   const TX_GAP = 30;
-  const sceneTexts = [introEls[1], ...textEls];
+  const sceneTexts = [...introEls.slice(1), ...textEls];
   sceneTexts.forEach((el) => (el.style.top = ""));
   [phone, $("phoneShell")].forEach((el) => el.style.removeProperty("--ph"));
   if (mobile) {
     const txTop = sceneTexts[0].offsetTop;
     const txH = Math.max(...sceneTexts.map((el) => el.offsetHeight));
-    // 태그('2 · 사람별로 나누기' 같은 칩)가 없는 장면 글은 그만큼 짧아 폰과의 사이가 벌어진다.
+    // 태그('① 링크 보내기' 같은 칩)가 없는 장면 글은 그만큼 짧아 폰과의 사이가 벌어진다.
     // 태그 자리만큼 내려서, 작은 글·제목이 태그 있는 장면과 같은 줄에 오게 한다
     const tagged = sceneTexts.find((el) => el.querySelector(".tag") && el.querySelector(".kicker"));
     const tagSpace = tagged ? tagged.querySelector(".kicker").offsetTop : 0;
@@ -755,6 +538,8 @@ function measure() {
   const tw = (inner.w - pad * 2 - gap) / 2;
   const th = tw * 1.12;
   const gridTop = spot($("gGrid")).y;
+  // 빈 상태 문구는 사진 칸이 시작하는 자리부터 화면 아래까지의 가운데에 둔다
+  $("gEmpty").style.top = `${$("gGrid").offsetTop}px`;
   const cell = (k) => ({
     x: pad + (k % 2) * (tw + gap),
     y: Math.floor(k / 2) * (th + gap),
@@ -767,163 +552,63 @@ function measure() {
       transform: `translate(${c.x}px, ${c.y}px)`,
     });
   };
-  [...setP, ...setS, ...setA, ...setNew].forEach((el) =>
-    Object.assign(el.style, { width: `${tw}px`, height: `${th}px` }),
-  );
-
-  // 카드의 네 자리: 폰 속 칸 → 흩어진 자리 → 사람별 줄 → 검토 화면 썸네일
-  const bottom = inner.y + inner.h - th * 0.6;
-  const inPhone = GRID.map((_, k) => {
-    const c = cell(k);
-    return {
-      x: inner.x + c.x,
-      y: Math.min(inner.y + gridTop + c.y, bottom),
-      s: tw,
-    };
-  });
-  let rows;
-  let labs;
-  let cols = null;
-  if (mobile) {
-    // 폰 폭: 가로 줄로 두면 사진이 작고 아래가 텅 비니, 사람마다 세로 한 줄(민지·서연·나 세 칸)로 세운다.
-    // 이름표는 칸 위 가운데, 사진 5장은 그 아래로 쌓인다
-    const top = Math.max(H * 0.2, 150);
-    const labH = 40;
-    // 칸 사이는 카드 여백(양쪽 pad)보다 넓게 둬서 카드끼리 맞닿지 않게 한다
-    const gc = W * 0.06;
-    const s = Math.min((W * 0.9 - gc * 2) / 3, (H - top - labH - 16) / 5.32);
-    const g = s * 0.08;
-    const left = (W - (s * 3 + gc * 2)) / 2;
-    rows = PEOPLE.map((_, p) =>
-      Array.from({ length: 5 }, (_, j) => ({
-        x: left + p * (s + gc),
-        y: top + labH + j * (s + g),
-        s,
-      })),
-    );
-    labs = PEOPLE.map((_, p) => ({
-      x: left + p * (s + gc) + s / 2,
-      y: top,
-      mid: false,
-      center: true,
-    }));
-    // 칸 카드: 이름표와 사진 5장을 감싼다
-    const pad = s * 0.07;
-    cols = PEOPLE.map((_, p) => ({
-      x: left + p * (s + gc) - pad,
-      y: top - pad,
-      w: s + pad * 2,
-      h: labH + s * 5 + g * 4 + pad * 2,
-    }));
-  } else {
-    const gapR = H * 0.035;
-    const s = Math.min((H * 0.62 - gapR * 2) / 3, (W * 0.6) / 5.3);
-    const g = s * 0.08;
-    const labW = Math.max(150, W * 0.13);
-    const total = labW + s * 5 + g * 4;
-    const left = (W - total) / 2 + labW;
-    const top = H * 0.29;
-    rows = PEOPLE.map((_, p) =>
-      Array.from({ length: 5 }, (_, j) => ({
-        x: left + j * (s + g),
-        y: top + p * (s + gapR),
-        s,
-      })),
-    );
-    labs = PEOPLE.map((_, p) => ({
-      x: left - labW,
-      y: top + p * (s + gapR) + s / 2,
-      mid: true,
-    }));
-  }
-
-  const thumbs = [...$("rvPCards").querySelectorAll(".rcard")].map((card) =>
-    [...card.querySelectorAll(".rthumb")].map((t) => {
-      const r = spot(t);
-      return { x: inner.x + r.x, y: inner.y + r.y, s: r.w };
-    }),
-  );
+  setP.forEach((el) => Object.assign(el.style, { width: `${tw}px`, height: `${th}px` }));
 
   const taps = {
     kindGo: spot($("kindGo")),
-    fab: spot($("fab")),
+    gAi: spot($("gAi")),
     selDl: spot($("selDl")),
-    rvPGo: spot($("rvPGo")),
-    rvSGo: spot($("rvSGo")),
-    kindS: spot($("simThumb")),
+    all: spot($("gAll")),
+    mkGo: spot($("mkGo")),
+    osSsok: spot($("osSsok")),
+    fab: spot($("fab")),
+    pkAdd: spot($("pkAdd")),
+    ...Object.fromEntries(PK_SEL.map((c, i) => [`pk${i}`, spot(pkCells[c])])),
   };
-  // 첫 장면: 쏙 폰 자리 둘레에 친구들 폰 세 대
-  const pw = inner.w / 0.94;
-  const cx = inner.x + inner.w / 2;
-  const cy = inner.y + inner.h / 2;
-  const cw = mobile ? Math.min(pw * 0.42, (W - 40) / 3.1) : pw * 0.46;
-  const ch = cw / 0.462;
-  // 모바일은 화면 밖으로 나가지 않게 가로 자리를 화면 안으로 묶는다
-  const camPos = [
-    { dx: -0.68, dy: -0.04, r: -9 },
-    { dx: 0, dy: 0.06, r: 2 },
-    { dx: 0.68, dy: -0.06, r: 8 },
-  ].map(({ dx, dy, r }) => ({
-    x: clamp(cx + dx * pw - cw / 2, 14, W - 14 - cw),
-    // 폰 폭은 위 글이 길어 폴더와 겹치지 않게, 아래 빈 자리로 조금 내린다
-    y: cy + dy * inner.h - ch / 2 + (mobile ? H * 0.055 : 0),
-    w: cw,
-    h: ch,
-    r,
-  }));
-  cams.forEach((el, c) => {
-    Object.assign(el.style, {
-      width: `${cw}px`,
-      height: `${ch}px`,
-      borderWidth: `${cw * 0.04}px`,
-      borderRadius: `${cw * 0.15}px`,
-      fontSize: `${cw / 10}px`,
-    });
-  });
-  // 비슷한 사진: 폰 속 칸 → 세 더미 → 검토 화면 썸네일
-  const simFrom = SIM.map((_, i) => {
-    const c = cell(i);
-    return {
-      x: inner.x + c.x,
-      y: Math.min(inner.y + gridTop + c.y, bottom),
-      s: tw,
-    };
-  });
-  // 폰 폭: 가로 세 줄로 두면 더미가 작아 아래가 텅 비니, 세로로 한 줄씩 크게 쌓는다.
-  // 높이 = 맨 위 더미가 부채꼴로 솟는 몫(0.15) + 더미·이름표 간격(1.48) 두 번 + 마지막 더미와 이름표(1.3).
-  // 간격엔 아래 더미가 부채꼴로 솟는 몫까지 넣어, 위 이름표와 겹치지 않게 한다
-  const pTopM = Math.max(H * 0.2, 150);
-  const PM = Math.min(W * 0.42, (H - pTopM - 16) / 4.41);
-  const P = mobile ? PM : Math.min(W * 0.16, H * 0.3);
-  const pg = P * 0.45;
-  const pLeft = (W - P * 3 - pg * 2) / 2;
-  const pTop = H * 0.37;
-  const piles = [0, 1, 2].map((g) =>
-    mobile
-      ? { x: (W - P) / 2, y: pTopM + P * 0.15 + g * P * 1.48, s: P }
-      : { x: pLeft + g * (P + pg), y: pTop, s: P },
-  );
-  const simThumbs = [...$("rvSCards").querySelectorAll(".rcard")].map((card) =>
-    [...card.querySelectorAll(".rthumb")].map((t) => {
-      const r = spot(t);
-      return { x: inner.x + r.x, y: inner.y + r.y, s: r.w };
-    }),
-  );
+  // 입장·올리기 알림 자리: 넓은 화면은 폰 오른쪽, 폰 폭(또는 오른쪽이 좁으면)은 폰 화면 위
+  const side = !mobile && W - (inner.x + inner.w) > 280;
+  const pill = (i) =>
+    side
+      ? { x: inner.x + inner.w + 36, y: inner.y + inner.h * 0.3 + i * 52, center: false }
+      : { x: inner.x + inner.w / 2, y: inner.y + gridTop + th * 0.35 + i * 40, center: true };
   // 폰 폭 첫 화면엔 헤드라인만 두고, 단톡방은 CSS 자리(화면을 다 채운 자리)에서 화면 아래 밖으로 내려 둔다.
   // 스크롤하면 그 자리로 올라온다 (그림자까지 가리게 조금 더 내린다)
   // (사진방으로 바뀌는 중이면 단톡방에 인라인 top 이 남아 있으니 잠깐 지우고 CSS 자리를 잰다)
   const chatEl = $("chat");
   const chatTopInline = chatEl.style.top;
+  const chatHeightInline = chatEl.style.height;
   chatEl.style.top = "";
+  chatEl.style.height = "";
   const chatDrop = mobile ? H - chatEl.offsetTop + 40 : 0;
+  // 폰 폭 ② 단계에서 단톡방 위쪽을 글 높이만큼 줄일 때의 기준 자리·높이
+  const chatTop0 = chatEl.offsetTop;
+  const chatH0 = chatEl.offsetHeight;
+  // 폰 폭 ②·③: 단톡방 위 빈자리에 두 단계 글을 같은 자리(② 글 위치)로 이어서 보인다.
+  // 그 자리를 비우려고 단톡방 위쪽을 줄일 길이(sendNeed)와, ③ 글을 ② 자리로 올릴 길이(galShift)를 잰다
+  const layoutTop = (el) => {
+    let y = 0;
+    for (let n = el; n && n !== stage; n = n.offsetParent) y += n.offsetTop;
+    return y;
+  };
+  const sendEl = introEls[INTRO_TEXT.findIndex((t) => t.tag === "② 단톡방에 보내기")];
+  const galEl = introEls[INTRO_TEXT.findIndex((t) => t.tag === "③ 다 같이 올리기")];
+  const sendTop = layoutTop(sendEl);
+  const galShift = sendTop - layoutTop(galEl);
+  const sendNeed = mobile
+    ? Math.max(0, sendTop + Math.max(sendEl.offsetHeight, galEl.offsetHeight) + 14 - chatTop0)
+    : 0;
   chatEl.style.top = chatTopInline;
-  // 검색 카드는 폰보다 조금 아래에서 시작해, 제목과 화면 아래 사이 가운데 쪽에 둔다
-  $("sp").style.top = mobile ? `${pr.top - sr.top + 60}px` : "";
+  chatEl.style.height = chatHeightInline;
+  FOLDER_SHOW = mobile ? 0.36 : 0.15;
   M = {
     W,
     H,
     mobile,
     chatDrop,
+    chatTop0,
+    chatH0,
+    sendNeed,
+    galShift,
     base,
     inner,
     em,
@@ -932,51 +617,24 @@ function measure() {
     gridTop,
     cell,
     place,
-    inPhone,
-    rows,
-    labs,
-    cols,
-    thumbs,
     taps,
-    camPos,
-    simFrom,
-    piles,
-    simThumbs,
+    makeAt: spot($("make")),
+    pill,
   };
 }
 
-// 탭 표시: 회색 원이 눌렸다가 주황 고리가 퍼진다
-const TAPS = [
-  [1.0, "kindGo"],
-  [5.75, "rvPGo"],
-  [10.75, "rvSGo"],
-  [11.5, "simTab"],
-  [15.0, "fab"],
-  [19.1, "tile0"],
-  [19.25, "tile1"],
-  [19.4, "tile2"],
-  [19.8, "selDl"],
-];
+// 누르는 자리 (폰 화면 안 좌표)
 function tapPoint(key) {
-  if (key.startsWith("tile")) {
-    const c = M.cell(+key.slice(4));
-    return { x: c.x + M.tw / 2, y: M.gridTop + c.y + M.th / 2 };
-  }
-  // 새로 생긴 '건배샷' 폴더 탭 (탭 줄은 그때그때 다시 그려지니 누를 때 잰다)
-  if (key === "simTab" || key === "meTab") {
-    const t = $("gTabs").children[key === "simTab" ? 1 : 3];
+  // 새로 생긴 '나' 폴더 탭 (탭 줄은 그때그때 다시 그려지니 누를 때 잰다)
+  if (key === "meTab") {
+    const t = $("gTabs").children[3];
     if (!t) return { x: -99, y: -99 };
     const r = spot(t);
     return { x: r.cx, y: r.cy };
   }
-  if (key === "sbAct") {
-    const act = $("sb").querySelector(".act");
-    if (!act) return { x: -99, y: -99 };
-    const r = spot(act);
-    return { x: r.cx, y: r.cy };
-  }
   return { x: M.taps[key].cx, y: M.taps[key].cy };
 }
+
 // 마우스 화살표: 누를 자리로 0.3초 전부터 다가와 누르고, 다음 누름이 0.6초 안이면 사라지지 않고 그리로 옮겨 간다
 function renderTap(T, taps = TAPS) {
   const tap = $("tap");
@@ -1010,382 +668,282 @@ function renderTap(T, taps = TAPS) {
   tap.style.transform = "";
 }
 
-// ── 갤러리 화면 ──
-function renderGallery(T) {
-  const L = T - SHIFT;
-  // 탭: 사람 폴더는 검토 화면에서 '폴더 만들기'를 누른 뒤(6.05)부터. 잠깐 '나' 폴더를 연다
-  const total = within(L, 9.6, 11.6) ? 86 + NEW.filter((_, j) => L >= 10.1 + j * 0.2).length : 86;
-  // 비슷한 사진 폴더는 '3개 폴더 만들기'를 누른 뒤(11.0)부터. 잠깐 '건배샷' 폴더를 연다
-  if (T < 6.05) renderTabs(TABS_A, 0, total);
-  else if (T < 11.0) renderTabs(TABS_B, within(T, 6.2, 6.6) ? 3 : 0, total);
-  else renderTabs(TABS_C, within(T, 11.6, 12.6) ? 1 : 0, total);
-
-  // 검색창: 검색 장면에서만 글자가 쳐진다
-  const searching = within(L, 7.7, 15.6);
-  const QUERY = "우리가 먹은 메뉴";
-  const typed = QUERY.slice(0, Math.round(seg(L, 7.8, 8.4) * QUERY.length));
-  $("gSearch").classList.toggle("on", searching);
-  $("gQuery").innerHTML = searching
-    ? `${typed}<i class="caret"></i>`
-    : "어떤 사진을 찾거나 정리할까요?";
-  $("gQuery").style.color = searching ? "var(--strong)" : "";
-
-  $("gSort").innerHTML = `업로드 순 ${icon("down")}`;
-
-  // 사진 묶음 셋 중 하나만 보인다
-  $("setP").style.opacity = T < 6.6 ? 1 - seg(T, 6.5, 6.6) : 0;
-  $("setS").style.opacity = within(T, 6.5, 12.8) ? seg(T, 6.5, 6.65) * (1 - seg(T, 12.7, 12.8)) : 0;
-  $("setA").style.opacity = T >= 12.7 ? seg(T, 12.7, 12.85) : 0;
-
-  // 사람별 사진: 쏟아진 뒤엔 비우고, '나' 폴더를 열면 내 사진만 보인다
+// ── 갤러리 화면 (사람별 장면 시각 S) ──
+// 사진 칸마다 올린 사람·선택 동그라미 (장면마다 바꿔 쓴다)
+const upls = setP.map((el) => el.querySelector(".upl"));
+const chks = setP.map((el) => el.querySelector(".chk"));
+const whoOf = WHO;
+// 올린 사람 이름표는 실제 앱(UploaderBadge)처럼 흰 알약, 내 사진만 주황 알약이다 (CSS .upl / .upl.mine)
+function renderGallery(S) {
+  // 사람 폴더 탭은 폴더가 생긴 뒤(ME_AT)부터
+  renderTabs(S < ME_AT ? TABS_A : TABS_B, 0, 86);
   setP.forEach((el, k) => {
     const mine = MINE.indexOf(GRID[k]);
-    if (T < 6.05) {
-      M.place(el, k);
-      el.style.visibility = T < 2.3 ? "visible" : "hidden";
-      el.style.opacity = 1;
-    } else if (T < 6.2) {
-      // 폴더를 막 만든 때: 전체 탭 그대로 모든 사진
-      M.place(el, k);
-      el.style.visibility = "visible";
-      el.style.opacity = seg(T, 6.05, 6.2);
-    } else {
-      M.place(el, Math.max(mine, 0));
-      el.style.visibility = mine >= 0 ? "visible" : "hidden";
-      el.style.opacity = 1;
-    }
+    const only = S >= ME_AT;
+    M.place(el, only ? Math.max(mine, 0) : k);
+    el.style.visibility = !only || mine >= 0 ? "visible" : "hidden";
+    el.style.opacity = 1;
+    el.classList.remove("sel");
+    chks[k].style.setProperty("--on", 0);
   });
+  $("gAll").classList.remove("on");
 
-  renderSimilar(T);
-  renderPhotos(L);
-  renderStatusBar(T);
-
-  // 정리 방식 시트: 스크롤을 시작하면 바로 올라온다
-  const kindUp = ease(seg(T, 0.3, 0.6)) - ease(seg(T, 1.15, 1.3));
+  // 사람별 정리 확인 시트: 사람별 장면이 시작하면 올라오고, '얼굴 분석하고 정리하기'(1.0)를 누르면 내려간다
+  const kindUp = ease(seg(S, 0.3, 0.6)) - ease(seg(S, 1.15, 1.3));
   $("kindSheet").style.transform = `translateY(${(1 - kindUp) * 110}%)`;
   $("ovl").style.opacity = kindUp;
   $("ovl").style.visibility = kindUp <= 0.001 ? "hidden" : "visible";
 
-  // 선택 막대 → 다운로드 → 저장 알림
-  const selUp = ease(seg(L, 13.95, 14.15)) - ease(seg(L, 14.75, 14.95));
-  $("selbar").style.transform = `translateY(${(1 - selUp) * 180}%)`;
-  $("selN").textContent = PICKED.filter((_, i) => L >= 13.9 + i * 0.15 + 0.1).length;
-  $("saveToast").style.opacity = life(L, 14.85, 15.0, 15.35, 15.5);
-  // 폴더 만들기를 누르고 검토 화면이 빠지면 알림이 뜬다
-  // 사람별 폴더(5.75 에 누름 → 6.1) 와 비슷한 사진 폴더(11.1) 둘 다 같은 알림을 쓴다
-  $("folderToast").style.opacity = Math.max(
-    // 사람별 폴더 알림은 멈춤 구간(renderMeFolder)에서 그린다
-    life(T, 6.1, 6.2, 6.2, 6.201),
-    life(T, 11.1, 11.25, 12.25, 12.4),
-  );
-  // 진행 막대·선택 막대·알림이 떠 있는 동안 올리기 버튼은 숨는다
-  $("fab").style.opacity =
-    within(T, 1.2, 2.35) ||
-    within(T, 6.7, 8.0) ||
-    within(T, 6.05, 6.65) ||
-    within(T, 11.1, 12.4) ||
-    within(L, 13.95, 15.5)
-      ? 0
-      : 1;
+  $("selbar").style.transform = "translateY(180%)";
+  $("saveToast").style.opacity = 0;
+  $("folderToast").style.opacity = 0;
+  // 시트가 떠 있는 동안 올리기 버튼은 숨는다
+  $("fab").style.opacity = within(S, 0.3, PERSON_TO + 0.1) ? 0 : 1;
 }
 
-// 정리 진행 막대: 진행률이 차오르다가 "찾았어요 / 묶었어요 [확인하기]" 로 바뀐다
-// 진행률이 차오르는 상태는 보여 주지 않고, 완료 막대만 아래에서 올라온다
-const BARS = [
-  { a: 1.4, out: 2.2, done: "3명을 찾았어요" },
-  { a: 7.0, out: 7.85, done: "비슷한 사진을 3개로 묶었어요" },
+// ③ 받기: 전체 선택 → 다운로드 → "86장을 원본 그대로 저장했어요"
+const SAVE_TAPS = [
+  [0.35, "all"],
+  [0.85, "selDl"],
 ];
-let sbKey = "";
-// 완료 막대("3명을 찾았어요 [확인하기]", "비슷한 사진을 3개로 묶었어요 [확인하기]")와 확인하기 탭은
-// 보여 주지 않는다: 정리 방식을 고르면 바로 결과(사진이 쏟아짐)로 넘어간다
-const SHOW_BARS = false;
-function renderStatusBar(T) {
-  const sb = $("sb");
-  if (!SHOW_BARS) {
-    sb.style.opacity = 0;
-    sb.style.visibility = "hidden";
-    return;
-  }
-  const bar = BARS.find((b) => T >= b.a - 0.1 && T < b.out + 0.2) ?? BARS[0];
-  const o = life(T, bar.a, bar.a + 0.1, bar.out, bar.out + 0.1);
-  sb.style.opacity = o;
-  sb.style.visibility = o <= 0.001 ? "hidden" : "visible";
-  sb.style.transform = `translateY(${(1 - ease(seg(T, bar.a, bar.a + 0.12))) * 24}px)`;
-  const key = String(BARS.indexOf(bar));
-  if (key === sbKey) return;
-  sbKey = key;
-  // 문구 칸 이름을 .msg 로 쓰면 단톡방 말풍선(.msg, 절대 위치) 스타일이 덮어써 줄이 틀어진다
-  sb.innerHTML =
-    `<svg class="ok" viewBox="0 0 22 22" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#F66D3B" /><path d="M8 12.3l2.8 2.8L16 9.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>` +
-    `<span class="sb-msg">${bar.done}</span><span class="act">확인하기</span>` +
-    `<span class="x"><svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 4l10 10M14 4L4 14" fill="none" stroke="#8B8781" stroke-width="1.8" stroke-linecap="round" /></svg></span>`;
-}
-
-// 비슷한 사진: 묶는 동안엔 격자 그대로 있다가, 확인하기를 누르면 폰 밖으로 빠져나간다
-// 폴더를 만든 뒤(11.0)엔 다시 격자로 돌아오고, '건배샷' 폴더를 열면(11.6) 건배샷 4장만 앞으로 모인다
-function renderSimilar(T) {
-  let k = 0;
-  setS.forEach((el, i) => {
-    if (T < 11.0) {
-      M.place(el, i);
-      el.style.visibility = T < 7.8 + i * 0.02 ? "visible" : "hidden";
-      el.style.opacity = 1;
-      return;
-    }
-    const inFolder = within(T, 11.6, 12.6);
-    const mine = SIM[i][0] === 0;
-    M.place(el, inFolder && mine ? k++ : i);
-    el.style.visibility = !inFolder || mine ? "visible" : "hidden";
-    el.style.opacity = inFolder
-      ? seg(T, 11.6, 11.75)
-      : T >= 12.6
-        ? seg(T, 12.6, 12.75)
-        : seg(T, 11.0, 11.15);
-  });
-}
-
-// 검색·업로드·좋아요·다운로드 사진 움직임
-function renderPhotos(T) {
-  const { cell } = M;
-  const gather = inOut(seg(T, 8.5, 8.9)) * (1 - inOut(seg(T, 15.55, 15.75)));
-  const push = inOut(seg(T, 10.0, 10.9)) * (1 - inOut(seg(T, 11.3, 11.6)));
-  let k = 0;
-  setA.forEach((el, i) => {
-    const [, , h0, , match] = PHOTOS[i];
-    let c = cell(i);
-    let o = 1;
-    if (match) {
-      const b = cell(k++);
-      c = { x: lerp(c.x, b.x, gather), y: lerp(c.y, b.y, gather) };
-    } else {
-      o = 1 - gather;
-    }
-    const p = cell(i + 4);
-    c = { x: lerp(c.x, p.x, push), y: lerp(c.y, p.y, push) };
-    // 좋아요 수는 건너뛴 구간을 사이에 두고 튀지 않게 그대로 둔다
-    el.querySelector(".hrt b").textContent = h0;
-    const pk = PICKED.indexOf(i);
-    const on = pk < 0 ? 0 : seg(T, 13.9 + pk * 0.15, 13.98 + pk * 0.15) * (1 - seg(T, 15.35, 15.5));
-    const chk = el.querySelector(".chk");
-    chk.style.setProperty("--on", on);
-    chk.textContent = on > 0.5 ? "✓" : "";
+function renderSave(h) {
+  const off = seg(h, 1.0, 1.15);
+  setP.forEach((el, k) => {
+    const on = seg(h, 0.4 + k * 0.02, 0.48 + k * 0.02) * (1 - off);
+    chks[k].style.setProperty("--on", on);
     el.classList.toggle("sel", on > 0.5);
-    el.style.transform = `translate(${c.x}px, ${c.y}px)`;
-    el.style.opacity = o;
   });
-  setNew.forEach((el, j) => {
-    const a = ease(seg(T, 10.1 + j * 0.2, 10.35 + j * 0.2));
-    const c = cell(j);
-    el.style.opacity = within(T, 9.6, 11.6) ? a * (1 - seg(T, 11.3, 11.5)) : 0;
-    el.style.transform = `translate(${c.x}px, ${c.y}px) scale(${0.85 + a * 0.15})`;
-    el.style.transformOrigin = "50% 50%";
-  });
+  $("gAll").classList.toggle("on", within(h, 0.4, 1.0));
+  const selUp = ease(seg(h, 0.45, 0.65)) - ease(seg(h, 0.95, 1.15));
+  $("selbar").style.transform = `translateY(${(1 - selUp) * 180}%)`;
+  $("selN").textContent = Math.round(86 * seg(h, 0.4, 0.75));
+  $("saveToast").style.opacity = life(h, 1.1, 1.25, PH.save.len - 0.3, PH.save.len - 0.1);
+  // 저장한 뒤: 카톡으로 받은 깨진 사진과 쏙 원본을 나란히 보여 준다 (첫 화면 "사진 쫌 깨져있는데??"의 답)
+  const cmp = $("cmp");
+  const ca = ease(seg(h, 1.25, 1.55));
+  const P = M.pill(0);
+  // 넓은 화면: 폰 오른쪽 가장자리에 살짝 걸쳐 띄우고, 남는 오른쪽 자리를 다 써서 넓게 (최대 460px)
+  if (P.center) {
+    cmp.style.left = `${P.x}px`;
+    cmp.style.width = "";
+  } else {
+    const left = M.inner.x + M.inner.w - 56;
+    cmp.style.left = `${left}px`;
+    cmp.style.width = `${Math.max(300, Math.min(460, M.W - left - 28))}px`;
+  }
+  cmp.style.top = `${P.center ? M.inner.y + M.gridTop : P.y - M.H * 0.06}px`;
+  show(
+    cmp,
+    ca * (1 - seg(h, PH.save.len - 0.25, PH.save.len)),
+    (1 - ca) * 16,
+    P.center ? "translateX(-50%)" : "",
+  );
+  $("fab").style.opacity = within(h, 0.3, PH.save.len - 0.1) ? 0 : 1;
+  renderTap(h, SAVE_TAPS);
 }
 
-// ── 사람별: 쏟아짐 → 세 줄 → 검토 화면 썸네일로 ──
-function renderSort(T) {
-  cards.forEach((c, k) => {
-    const A = M.inPhone[k];
-    const C = M.rows[c.p][c.j];
-    const D = M.thumbs[c.p][Math.min(c.j, 3)];
-    // 화면 가득 흩어지는 단계 없이, 폰 칸에서 바로 사람별 줄로 정돈된다
-    const e2 = inOut(seg(T, 2.5 + (c.p * 5 + c.j) * 0.035, 3.3 + (c.p * 5 + c.j) * 0.035));
-    const e3 = inOut(seg(T, 4.85 + c.p * 0.08 + c.j * 0.025, 5.45 + c.p * 0.08 + c.j * 0.025));
-    const x = lerp(lerp(A.x, C.x, e2), D.x, e3);
-    let y = lerp(lerp(A.y, C.y, e2), D.y, e3);
-    const s = lerp(lerp(A.s, C.s, e2), D.s, e3);
-    // 처음 보는 사람이 눈으로 따라갈 수 있게 포물선·기울기를 작게 둔다
-    y -= Math.sin(e2 * Math.PI) * M.H * 0.03;
-    const r = Math.sin(e3 * Math.PI) * (c.j % 2 ? -3 : 3);
-    const o = T < 2.3 ? 0 : 1 - seg(T, 5.6, 5.7);
-    c.el.style.opacity = o;
-    c.el.style.visibility = o <= 0.001 ? "hidden" : "visible";
-    c.el.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg) scale(${s / 100})`;
-  });
-
-  // 폰 폭은 숫자가 0부터 오르다 멈춘 어중간한 값('2장')이 보이지 않게 처음부터 다 센 수로 띄운다
-  const cnt = M.cols ? 1 : ease(seg(T, 3.85, 4.55));
-  const colOn = M.cols ? life(T, 3.3, 3.6, 4.6, 4.85) : 0;
-  sortCols.forEach((el, p) => {
-    const C = M.cols?.[p];
-    el.style.visibility = C && colOn > 0.001 ? "visible" : "hidden";
-    if (!C) return;
-    el.style.left = `${C.x}px`;
-    el.style.top = `${C.y}px`;
-    el.style.width = `${C.w}px`;
-    el.style.height = `${C.h}px`;
-    el.style.opacity = colOn;
-  });
-  rowLabs.forEach((el, p) => {
-    const L = M.labs[p];
-    el.style.left = `${L.x}px`;
-    el.style.top = `${L.y}px`;
-    el.style.opacity = M.cols ? colOn : life(T, 3.75 + p * 0.08, 4.05 + p * 0.08, 4.6, 4.85);
-    el.style.transform = L.mid ? "translateY(-50%)" : L.center ? "translateX(-50%)" : "none";
-    el.querySelector("b").textContent = `${Math.round(PEOPLE[p].total * cnt)}장`;
-  });
-  show($("sortHead"), life(T, 3.4, 3.75, 4.6, 4.85), (1 - ease(seg(T, 3.4, 3.75))) * 20);
-}
-
-// ── 비슷한 사진: 폰 칸에서 바로 세 더미로 모임 → 검토 화면 썸네일로 ──
-function renderSimBurst(T) {
-  simCards.forEach(({ el, g, f }, i) => {
-    const A = M.simFrom[i];
-    const P = M.piles[g];
-    // 더미: 맨 위 컷은 반듯하고, 뒤 컷은 오른쪽 위로 비껴 부채꼴로 깔린다
-    const C = {
-      x: P.x + f * P.s * 0.07,
-      y: P.y - f * P.s * 0.05,
-      s: P.s,
-    };
-    const D = M.simThumbs[g][f];
-    const e2 = inOut(seg(T, 7.85 + g * 0.08 + f * 0.04, 8.65 + g * 0.08 + f * 0.04));
-    const e3 = inOut(seg(T, 9.85 + g * 0.08 + f * 0.025, 10.45 + g * 0.08 + f * 0.025));
-    const x = lerp(lerp(A.x, C.x, e2), D.x, e3);
-    let y = lerp(lerp(A.y, C.y, e2), D.y, e3);
-    const s = lerp(lerp(A.s, C.s, e2), D.s, e3);
-    y -= Math.sin(e2 * Math.PI) * M.H * 0.03;
-    const r = f * 2 * e2 * (1 - e3);
-    const o = T < 7.8 + i * 0.02 ? 0 : 1 - seg(T, 10.55, 10.65);
-    el.style.opacity = o;
-    el.style.visibility = o <= 0.001 ? "hidden" : "visible";
-    el.style.zIndex = 10 - f;
-    el.style.transform = `translate(${x}px, ${y}px) rotate(${r}deg) scale(${s / 100})`;
-  });
-  simLabs.forEach((el, g) => {
-    const P = M.piles[g];
-    el.style.left = `${P.x + P.s / 2}px`;
-    el.style.top = `${P.y + P.s * 1.12}px`;
-    el.style.transform = "translateX(-50%)";
-    el.style.opacity = life(T, 8.55 + g * 0.08, 8.85 + g * 0.08, 9.6, 9.8);
-  });
-  show($("simHead"), life(T, 8.4, 8.75, 9.6, 9.85), (1 - ease(seg(T, 8.4, 8.75))) * 20);
-}
-
-// ── 전체 그리기 ──
-function renderScene(T) {
-  if (!M) measure();
-
+// 사용 방법 글: 장면이 시작하면 들어오고 끝날 때 빠진다
+function renderTexts(T) {
   TEXT.forEach((t, i) => {
-    const o = life(T, t.a, t.a + 0.3, t.c, t.c + 0.3);
+    const a = PH[t.ph[0]].start;
+    const last = PH[t.ph.at(-1)];
+    const b = last.start + last.len;
+    const o = life(T, a + 0.05, a + 0.35, b - 0.3, b);
     show(
       textEls[i],
       o,
-      (1 - ease(seg(T, t.a, t.a + 0.3))) * 20,
+      (1 - ease(seg(T, a + 0.05, a + 0.35))) * 20,
       M.mobile ? "" : "translateY(-50%)",
     );
   });
+}
 
-  const L = T - SHIFT;
-  // 폰: 사진이 쏟아질 때 물러났다가, 사람별 줄 제목·이름이 빠진 뒤(4.85) 검토 화면과 함께 돌아온다. 마지막에 위로 빠진다
-  const away = Math.max(
-    seg(T, 2.3, 2.85) * (1 - seg(T, 4.85, 5.1)),
-    seg(T, 7.8, 8.3) * (1 - seg(T, 9.7, 10.05)),
-    seg(L, 7.6, 7.75) * (1 - seg(L, 13.82, 13.97)),
-  );
-  const exit = inOut(seg(L, 15.6, 16.1));
-  phone.style.opacity = (1 - away) * (1 - exit);
-  phone.style.visibility = +phone.style.opacity <= 0.001 ? "hidden" : "visible";
-  phone.style.transform = `${M.base} translateY(${-exit * M.H * 0.12}px) scale(${1 - away * 0.1 - exit * 0.1})`;
-
-  // 검토 화면 두 개. 사람별 썸네일은 날아온 카드가 닿은 뒤 채워진다
-  [
-    ["rvP", life(T, 4.85, 5.05, 5.9, 6.1)],
-    ["rvS", life(T, 9.7, 9.9, 10.95, 11.15)],
-  ].forEach(([id, o]) => {
-    // 겹쳐 비치지 않게 오른쪽에서 밀고 들어왔다가 오른쪽으로 빠진다
-    const k = o;
-    $(id).style.opacity = o > 0.001 ? 1 : 0;
-    $(id).style.transform = `translateX(${(1 - k) * 100}%)`;
-    $(id).style.boxShadow = k < 1 ? "-1em 0 2em rgba(26,22,18,.12)" : "";
-    $(id).style.visibility = o <= 0.001 ? "hidden" : "visible";
-  });
-  $("rvPCards")
-    .querySelectorAll(".rthumb")
-    .forEach((t) => (t.style.opacity = seg(T, 5.5, 5.6)));
-  $("rvSCards")
-    .querySelectorAll(".rthumb")
-    .forEach((t) => (t.style.opacity = seg(T, 10.45, 10.55)));
-
-  renderSort(T);
-  renderSimBurst(T);
-  renderGallery(T);
-  renderSearch(L);
-  renderTap(T);
-
-  // 마지막
-  if (M.mobile) {
-    $("end").style.top = `${M.H * 0.5 - stage.getBoundingClientRect().top}px`;
-  } else {
-    $("end").style.top = "";
+// 끝: 폰이 위로 빠지고 링크 만들기·App Store 가 뜬다 (e = 끝 장면에서 흐른 시간, 그 전이면 -1)
+function renderEnd(e) {
+  const on = e >= 0;
+  if (on) {
+    const exit = inOut(seg(e, 0, 0.5));
+    phone.style.opacity = 1 - exit;
+    phone.style.visibility = exit >= 0.999 ? "hidden" : "visible";
+    phone.style.transform = `${M.base} translateY(${-exit * M.H * 0.12}px) scale(${1 - exit * 0.1})`;
   }
-  show($("end"), L >= 15.9 ? 1 : 0, 0, "translateY(-50%)");
+  $("end").style.top = M.mobile ? `${M.H * 0.5 - stage.getBoundingClientRect().top}px` : "";
+  show($("end"), e >= 0.3 ? 1 : 0, 0, "translateY(-50%)");
   const pop = (el, a, b, from = 0.7) => {
-    const p = ease(seg(L, a, b));
+    const p = on ? ease(seg(e, a, b)) : 0;
     el.style.opacity = p;
     el.style.transform = `translateY(${(1 - p) * 16}px) scale(${from + p * (1 - from)})`;
   };
-  pop($("endLogo"), 15.9, 16.2, 0.6);
-  pop($("endKicker"), 16.1, 16.4, 1);
-  pop($("endTitle"), 16.25, 16.55, 1);
-  pop($("endDesc"), 16.4, 16.7, 1);
-  pop($("endCta"), 16.55, 16.85, 0.5);
-  pop($("endApps"), 16.7, 17.0, 1);
+  pop($("endLogo"), 0.3, 0.6, 0.6);
+  pop($("endKicker"), 0.5, 0.8, 1);
+  pop($("endTitle"), 0.65, 0.95, 1);
+  pop($("endDesc"), 0.8, 1.1, 1);
+  pop($("endCta"), 0.95, 1.25, 0.5);
+  pop($("endApps"), 1.1, 1.4, 1);
   ["endCta", "endApps"].forEach((id) => {
-    $(id).style.pointerEvents = L > 16.8 ? "auto" : "none";
-    $(id).tabIndex = L > 16.8 ? 0 : -1;
+    $(id).style.pointerEvents = e > 1.2 ? "auto" : "none";
+    $(id).tabIndex = e > 1.2 ? 0 : -1;
   });
+}
 
-  tocItems.forEach((btn, i) => {
-    const from = +btn.dataset.from;
-    const next = tocItems[i + 1] ? +tocItems[i + 1].dataset.from : Infinity;
-    if (T >= from && T < next) btn.setAttribute("aria-current", "step");
-    else btn.removeAttribute("aria-current");
-    btn.classList.toggle("done", T >= next);
+// 내 사진만 받기: 얼굴로 나뉜 사람별 폴더 카드 (폰 옆). 생겨나는 모습을 먼저 보여 주고 '나' 폴더를 연다
+const folderEls = PEOPLE.map((p, i) => {
+  const el = document.createElement("div");
+  el.className = "fcard";
+  el.innerHTML =
+    `<span class="f-ava"></span><span class="f-tx"><b>${p.name}</b><span>${p.total}장</span></span>` +
+    `<span class="f-th"></span>`;
+  el.querySelector(".f-ava").appendChild(picEl(i, 0, 1));
+  const th = el.querySelector(".f-th");
+  SHOTS.slice(1, 4).forEach(([r, v]) => {
+    const t = document.createElement("span");
+    t.appendChild(picEl(i, r, v));
+    th.appendChild(t);
+  });
+  return $("joins").appendChild(el);
+});
+// 폴더 카드가 다 생겨난 뒤에 '나' 탭을 누른다 (renderMeFolder 의 시각을 이만큼 늦춘다).
+// 폰 폭은 칩이 폴더 탭으로 날아 들어가는 시간만큼 더 늦춘다 (measure 가 정한다)
+let FOLDER_SHOW = 0.15;
+function renderFolders(h) {
+  const P = M.pill(0);
+  if (P.center) {
+    renderFolderChips(h);
+    return;
+  }
+  const meOn = h >= FOLDER_SHOW + 0.46;
+  folderEls.forEach((el, i) => {
+    el.classList.remove("chip");
+    el.style.left = `${P.x}px`;
+    el.style.top = `${P.y - M.H * 0.04 + i * 84}px`;
+    const a = ease(seg(h, 0.04 + i * 0.06, 0.22 + i * 0.06));
+    show(el, a, (1 - a) * 14, `scale(${meOn && i === 2 ? 1.06 : 1})`);
+    el.classList.toggle("on", meOn && i === 2);
+    el.classList.toggle("off", meOn && i !== 2);
+  });
+}
+
+// 폰 폭: 사람별 폴더를 작은 칩 세 개(얼굴·이름·장수)로 '폴더 3개를 만들었어요' 알림 위에 가로 한 줄로 띄우고,
+// 잠깐 보인 뒤 하나씩 폰 안 탭 줄의 제 폴더 탭(민지·서연·나)으로 작아지며 날아 들어간다. 닿는 순간 탭이 톡 튄다
+function renderFolderChips(h) {
+  const sr = stage.getBoundingClientRect();
+  const toast = $("folderToast").getBoundingClientRect();
+  const tabs = [...$("gTabs").children];
+  const gap = 4;
+  folderEls.forEach((el) => {
+    el.classList.add("chip");
+    el.classList.remove("on", "off");
+  });
+  // 칩 줄이 폰 화면 폭(양옆 10px 여백)보다 넓으면 줄 전체를 그만큼 줄여 화면 안에 맞춘다
+  const raw = folderEls.map((el) => el.offsetWidth);
+  const fit = Math.min(
+    1,
+    (M.inner.w - 20) / (raw.reduce((sum, w) => sum + w, 0) + gap * (raw.length - 1)),
+  );
+  const widths = raw.map((w) => w * fit);
+  const total = widths.reduce((sum, w) => sum + w, 0) + gap * (folderEls.length - 1);
+  // 폰 폭에선 알림·카드의 가운데 자리(P.x)가 폰 화면 가운데다
+  let x = M.pill(0).x - total / 2;
+  folderEls.forEach((el, i) => {
+    const w = widths[i];
+    const ch = el.offsetHeight * fit;
+    const y = toast.top - sr.top - 10 - ch;
+    // 줄인 만큼(fit) 칩 왼쪽 위를 기준으로 줄어든 자리에 그린다
+    el.style.left = `${x - (raw[i] - w) / 2}px`;
+    el.style.top = `${y}px`;
+    el.style.transformOrigin = "50% 50%";
+    const a = ease(seg(h, 0.04 + i * 0.05, 0.19 + i * 0.05));
+    const flyAt = 0.34 + i * 0.05;
+    const f = inOut(seg(h, flyAt, flyAt + 0.18));
+    // 날아갈 곳: 탭 줄에서 같은 사람의 폴더 탭 (0번은 '전체')
+    const tab = tabs[i + 1];
+    let dx = 0;
+    let dy = 0;
+    if (tab) {
+      const r = tab.getBoundingClientRect();
+      dx = r.left - sr.left + r.width / 2 - (x + w / 2);
+      dy = r.top - sr.top + r.height / 2 - (y + ch / 2);
+      // 닿는 순간 탭이 톡 커졌다 돌아온다
+      const end = flyAt + 0.18;
+      tab.style.scale = 1 + 0.18 * (seg(h, end - 0.03, end) - seg(h, end, end + 0.1));
+    }
+    const o = a * (1 - seg(f, 0.75, 1));
+    el.style.opacity = o;
+    el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+    el.style.transform = `translate(${dx * f}px, ${dy * f + (1 - a) * 10 - (el.offsetHeight - ch) / 2}px) scale(${fit * (0.9 + 0.1 * a) * (1 - 0.72 * f)})`;
+    x += w + gap;
   });
 }
 
 // ── 첫 장면 '모으기': 찰칵 → 사진이 흩어짐 → 쏙 폰으로 모여 갤러리에 쌓임 (T 는 스크롤 시각) ──
 // 첫 장면 상태: 시계 U, 말풍선 조각이 출발한 자리(처음 한 번 잰다)
 let introU = 0;
+// 폰 폭 ② 단계에서 단톡방 위쪽을 줄이는 길이(px). renderIntro 가 정하고 renderChat 이 쓴다
+let sendPush = 0;
 let ghostFrom = null;
 function renderIntro(T) {
   const N = setP.length;
   const UP_END = landAt(N) + UP_DROP;
   const UP_FULL = UP_END + 0.2;
-  // 시계: 스크롤을 시작하면(T 0.05) 저절로 흐른다. 맨 위로 되돌리면(T < 0.03) 처음부터.
-  // 스크롤로 넘기는 사람에게도(T 0.5~INTRO-0.3) 연출이 스크롤만큼 이어지게 한다 (저절로 흐른 쪽이 앞서면 그쪽을 따른다)
-  // 스크롤을 시작해야(T 0.05) 시작한다 (가만히 있으면 첫 화면 그대로). 시작한 뒤엔 멈춰도 저절로 이어지고,
   // 맨 위로 되돌리면(T < 0.03) 첫 화면(단톡방)으로 돌아간다
   if (T < 0.03) {
-    upT0 = null;
     ghostFrom = null;
     chatEls.forEach((el) => delete el.dataset.ghost);
-  } else if (upT0 === null && T >= 0.05) upT0 = performance.now();
-  const U = reduceMotion
-    ? UP_FULL
-    : Math.max(
-        upT0 === null ? 0 : (performance.now() - upT0) / 1000,
-        seg(T, 0.5, INTRO - 0.3) * UP_FULL,
-      );
+  }
+  // 저절로 흐르지 않는다: 스크롤한 만큼만 진행한다 (멈추면 그 자리에 멈춘다)
+  const U = reduceMotion ? UP_FULL : seg(T, 0.05, INTRO - 0.3) * UP_FULL;
   introU = U;
 
   // 폰 폭: 단톡방이 올라오는 만큼 헤드라인은 위로 빠진다 (넓은 화면은 그대로)
   const heroOut = CHAT_RISE ? chatRise : 0;
+  // 폰 폭: 단톡방이 화면을 꽉 채우는 동안(앱 전환 중 제외)엔 단계 글이 단톡방 위에 겹치니 단계 이름표만 띄운다
+  const appSw = inOut(seg(U, APP_IN[0], APP_IN[1])) - inOut(seg(U, APP_OUT[0], APP_OUT[1]));
+  const chipOnly = M.mobile && U < SWAP[1] && appSw < 0.5;
+  // 폰 폭: ② 글이 들어오는 동안 단톡방 위쪽이 줄어들고, ③ 을 지나 사진방 화면으로 바뀔 때까지 그대로 둔다
+  const sendIn = INTRO_TEXT.find((t) => t.tag === "② 단톡방에 보내기").u[0];
+  const galIn = INTRO_TEXT.find((t) => t.tag === "③ 다 같이 올리기").u[0];
+  sendPush = M.sendNeed * ease(seg(U, sendIn, sendIn + 0.3));
   INTRO_TEXT.forEach((t, i) => {
-    // '1 · 링크로 모으기' 글은 단톡방이 사진방으로 바뀌기 시작할 때(MS) 먼저 뜨고, 그다음 갤러리가 드러난다
-    const inA = i === 1 ? ease(seg(U, MS, MS + 0.35)) : 0;
+    // ② 단톡방에 보내기는 처음부터 끝까지 단톡방 안의 장면이라, 이름표만 두면 폰 폭에선 제목·설명이 한 번도 안 보인다.
+    // 그래서 ②·③ 은 글을 다 보이고, 그 대신 단톡방 위쪽을 글 높이만큼 줄여 둔다(sendPush).
+    // ③ 글은 ② 글이 있던 자리에 이어서 뜨고, 폰 화면이 둘러지는 동안 제자리로 내려간다
+    const isGal = M.mobile && t.tag === "③ 다 같이 올리기";
+    const isTop = isGal || (M.mobile && t.tag === "② 단톡방에 보내기");
+    introEls[i].classList.toggle("chip-only", !!t.u && chipOnly && !isTop);
+    // 사용 단계 글은 시계 U 로 뜨고 빠진다. 마지막 단계는 첫 장면이 끝날 때(t.c) 빠진다
+    const inA = t.u ? ease(seg(U, t.u[0], t.u[0] + 0.3)) : 0;
     // 첫 화면 헤드라인은 스크롤을 조금만 해도(시계가 흐르면) 빠진다
-    const o =
-      i === 1
-        ? Math.min(inA, 1 - seg(T, t.c, t.c + 0.3))
-        : Math.min(life(T, t.a, t.a + 0.3, t.c, t.c + 0.3), 1 - seg(U, 0.05, 0.4), 1 - heroOut);
+    const o = t.u
+      ? Math.min(
+          inA,
+          // 마지막 단계는 빠지는 시각이 없다 (Infinity + 0.25 - Infinity 는 NaN 이 된다).
+          // 폰 폭 ② 는 단톡방 위 빈자리가 비지 않게 ③ 글이 들어오기 직전까지 남았다가, 다 사라진 뒤 ③ 이 뜬다
+          // (둘이 겹쳐 비치면 글씨가 뒤섞여 보인다)
+          isTop && !isGal
+            ? 1 - seg(U, galIn - 0.25, galIn)
+            : Number.isFinite(t.u[1])
+              ? 1 - seg(U, t.u[1], t.u[1] + 0.25)
+              : 1,
+          t.c ? 1 - seg(T, t.c, t.c + 0.3) : 1,
+        )
+      : Math.min(life(T, t.a, t.a + 0.3, t.c, t.c + 0.3), 1 - seg(U, 0.05, 0.3), 1 - heroOut);
     show(
       introEls[i],
       o,
-      (1 - (i === 1 ? inA : ease(seg(T, t.a, t.a + 0.3)))) * 20 - (i === 0 ? heroOut * 48 : 0),
+      (1 - (t.u ? inA : ease(seg(T, t.a, t.a + 0.3)))) * 20 -
+        (i === 0 ? heroOut * 48 : 0) +
+        (isGal ? M.galShift * (1 - inOut(seg(U, SWAP[0], SWAP[1]))) : 0),
       M.mobile && i !== 0 ? "" : "translateY(-50%)",
     );
+    // 폰 폭에서 이름표만 보일 때: 단계마다 글 길이가 달라 이름표가 단톡방 바로 위에 붙거나 겹친다.
+    // 위 '링크 만들기' 버튼과 단톡방 사이 한가운데로 옮겨 위아래 간격을 같게 둔다
+    if (t.u && chipOnly && !isTop && o > 0.001) {
+      const tag = introEls[i].querySelector(".tag").getBoundingClientRect();
+      const above = $("startBtn").getBoundingClientRect().bottom;
+      const below = $("chat").getBoundingClientRect().top;
+      const shift = (above + below) / 2 - (tag.top + tag.bottom) / 2;
+      introEls[i].style.transform += ` translateY(${shift}px)`;
+    }
   });
   // 첫 화면 연출 도중에 스크롤하면 바로 마지막 상태로 넘긴다
   if (T > 0.02) introSkip = true;
@@ -1398,19 +956,22 @@ function renderIntro(T) {
     "translateX(-50%)",
   );
 
-  renderChat(E, T, chatStep);
+  renderChat(E, T, chatStep + 2 * seg(U, SEND_AT[0], SEND_AT[1]));
+  renderLinkTap(T);
 
-  // 예전 '친구들 사진첩 세 대 → 쏙 아이콘', 초대 카드, 입장 말풍선 연출은 쓰지 않는다
+  // 예전 '친구들 사진첩 세 대 → 쏙 아이콘' 연출은 쓰지 않는다 (초대 카드·입장 알림은 '① 링크 보내기'에서 쓴다)
   cams.forEach((el) => (el.style.visibility = "hidden"));
   $("share").style.visibility = "hidden";
-  show($("invite"), 0);
-  joinEls.forEach((el) => show(el, 0));
 
   // 쏙 폰: 바뀐 단톡방(이제 갤러리 화면) 둘레에 테두리가 둘러진다. 화면은 그 위의 단톡방이 걷히며 드러난다
   const appear = inOut(seg(U, SWAP[0], SWAP[1]));
   phone.style.opacity = appear;
   phone.style.visibility = appear <= 0.001 ? "hidden" : "visible";
   phone.style.transform = `${M.base} scale(${1.03 - appear * 0.03})`;
+  // ① 링크 만들기: 앱 전환 동안엔 폰이 쏙 '방 만들기' 화면으로 먼저 들어온다 (위 폰 상태를 덮어쓴다)
+  renderMake(U);
+  renderPicker(U);
+  if (appSw <= 0.001) renderTap(U, PICK_TAPS);
 
   // 갤러리: 사진이 실시간으로 한 장씩 맨 위에 올라온다 (사진 k 는 N-k 번째로 올라온다).
   // 두 칸짜리 격자라 줄 단위로 민다: 맨 윗줄이 차 있을 때 새 사진이 오면 모든 사진이 한 줄 아래로 내려가고,
@@ -1439,6 +1000,43 @@ function renderIntro(T) {
     el.style.visibility = o <= 0.001 ? "hidden" : "visible";
   });
   renderTabs(TABS_A, 0, Math.round((86 * landed) / N));
+  // 폰 테두리가 둘러지면(사진방에 들어오면) 쏙 푸시 알림이 하나씩 위에서 내려와 쌓이고, 다음 장면 직전에 빠진다.
+  // 알림이 네 개라 간격을 좁혀, 마지막 알림이 들어오는 시각은 세 개일 때와 같게 둔다
+  const pushIn = pushEls.map((_, i) =>
+    ease(seg(U, UP_AT + 0.45 + i * 0.25, UP_AT + 0.7 + i * 0.25)),
+  );
+  const pushOut = seg(T, INTRO - 0.4, INTRO - 0.1);
+  // 자리: 넓은 화면은 폰 오른쪽, 폰 폭(옆에 자리가 없음)은 폰 위쪽 가운데
+  const P = M.pill(0);
+  const top = P.center ? M.inner.y + M.em * 0.6 : M.inner.y + M.inner.h * 0.2;
+  pushEls.forEach((el, i) => {
+    const a = pushIn[i];
+    // 나보다 나중에 온 알림 수(들어오는 중이면 소수)
+    const below = pushIn.slice(i + 1).reduce((sum, b) => sum + b, 0);
+    if (P.center) {
+      // 폰 폭: 아래로 늘어놓으면 폰 화면 위쪽 절반을 가린다. 아이폰 알림처럼 최신 알림만 또렷하게 두고,
+      // 먼저 온 알림은 그 뒤에 한 칸마다 9px 아래로·6% 작게 겹쳐 두 장까지만 비친다(세 번째부터는 사라진다)
+      const depth = Math.min(below, 3);
+      const o = a * (1 - pushOut) * clamp(3 - depth);
+      el.style.left = `${P.x}px`;
+      el.style.top = `${top + Math.min(depth, 2) * 9 - (1 - a) * 18}px`;
+      el.style.zIndex = 18 + i;
+      el.style.transformOrigin = "50% 0";
+      el.style.transform = `translateX(-50%) scale(${1 - 0.06 * Math.min(depth, 2)})`;
+      el.style.opacity = o;
+      el.style.visibility = o <= 0.001 ? "hidden" : "visible";
+      return;
+    }
+    // 넓은 화면: 폰 오른쪽에 나보다 나중에 온 알림만큼 아래로 밀려 나란히 쌓인다
+    const y = top + below * (el.offsetHeight + 10) - (1 - a) * 18;
+    el.style.left = `${P.x}px`;
+    el.style.top = `${y}px`;
+    el.style.zIndex = "";
+    el.style.transformOrigin = "";
+    el.style.opacity = a * (1 - pushOut);
+    el.style.visibility = a * (1 - pushOut) <= 0.001 ? "hidden" : "visible";
+    el.style.transform = "";
+  });
 
   // 말풍선 조각: 말풍선 자리에서 글자가 지워지며 작은 사진으로 바뀌고(PH) → 틀이 바뀌는 동안 가까운 갤러리 칸으로 들어가 앉는다.
   // 위 말풍선이 가장 최근 사진(위 칸), 아래로 갈수록 먼저 올라온 사진(아래 칸)이라 서로 엇갈리지 않는다.
@@ -1521,6 +1119,161 @@ function renderIntro(T) {
   });
 }
 
+// '올리기' → 폰 기본 사진 선택기. 칸 PK_SEL[i] 에 내가 고를 사진(맨 먼저 올라올 네 장)을 두고, 나머지 칸엔 다른 사진을 채운다
+const PK_SEL = [1, 3, 4, 8];
+const pkCells = (() => {
+  const N = GRID.length;
+  const others = GRID.slice(0, N - MY_UP);
+  let o = 0;
+  return Array.from({ length: 15 }, (_, c) => {
+    const i = PK_SEL.indexOf(c);
+    const it = i >= 0 ? GRID[N - 1 - i] : others[o++ % others.length];
+    const cell = document.createElement("div");
+    cell.className = "pk-cell";
+    cell.append(picEl(it.p, it.r, it.v));
+    if (i >= 0) cell.insertAdjacentHTML("beforeend", `<b class="pk-chk">${i + 1}</b>`);
+    return $("pkGrid").appendChild(cell);
+  });
+})();
+function renderPicker(U) {
+  const a = inOut(seg(U, PK_IN[0], PK_IN[1])) - inOut(seg(U, PK_OUT[0], PK_OUT[1]));
+  const picker = $("picker");
+  const dim = $("pkDim");
+  const vis = a > 0.001 ? "visible" : "hidden";
+  picker.style.visibility = vis;
+  dim.style.visibility = vis;
+  dim.style.opacity = a;
+  picker.style.transform = `translateY(${(1 - a) * 105}%)`;
+  if (a <= 0.001) return;
+  let n = 0;
+  PK_SEL.forEach((c, i) => {
+    const s = seg(U, PK_PICKS[i] + 0.02, PK_PICKS[i] + 0.16);
+    if (s > 0) n++;
+    pkCells[c].classList.toggle("sel", s > 0);
+    pkCells[c].querySelector(".pk-chk").style.transform = `scale(${backOut(s)})`;
+  });
+  $("pkAdd").classList.toggle("on", n > 0);
+  $("pkAdd").textContent = n > 0 ? `추가(${n})` : "추가";
+  $("pkFoot").textContent = n > 0 ? `${n}장의 사진이 선택됨` : "사진을 선택하세요";
+}
+
+// ① 링크 만들기 (앱 전환): 단톡방이 왼쪽으로 밀리고 폰 바탕화면이 들어온다 → 쏙 아이콘 → '방 만들기' 화면.
+// 방 제목을 쓰고 '방 만들기'를 누르면 "공유 링크를 복사했어요." → 다시 단톡방으로 돌아간다 (문구는 실제 앱과 같다)
+const MAKE_TITLE = "걸스나잇 파티 ♥";
+function renderMake(U) {
+  const sw = inOut(seg(U, APP_IN[0], APP_IN[1])) - inOut(seg(U, APP_OUT[0], APP_OUT[1]));
+  const make = $("make");
+  make.style.visibility = sw > 0.001 ? "visible" : "hidden";
+  // 앱 전환 동안 단톡방은 폰 뒤로 물러난다 (폰 z-index 3, 옆 버튼 껍데기 2 보다 아래)
+  $("chat").style.zIndex = sw > 0.001 ? "1" : "";
+  if (sw <= 0.001) {
+    phone.classList.remove("os-dark");
+    // 방 만들기 화면에 직접 준 visible 은 부모(#make)의 hidden 을 이긴다. 같이 숨겨야 사진방이 드러난다
+    $("mkForm").style.visibility = "hidden";
+    $("mkSplash").style.visibility = "hidden";
+    return;
+  }
+  const chat = $("chat");
+  // 단톡방은 옆으로 밀린 채 반투명하게 남아, 카톡에서 잠깐 나왔다는 게 보이게 한다.
+  // 폰 폭에선 단톡방이 화면을 꽉 채워서, 조금만 밀면 단계 글과 폰 뒤에 겹쳐 보인다 → 화면 밖까지 밀고 거의 지운다
+  const slide = M.mobile ? 100 : 58;
+  chat.style.transform += ` translateX(${-sw * slide}%) scale(${1 - sw * 0.08})`;
+  chat.style.opacity = +chat.style.opacity * (1 - sw * (M.mobile ? 0.95 : 0.6));
+  phone.style.opacity = sw;
+  phone.style.visibility = "visible";
+  phone.style.transform = `${M.base} translateX(${(1 - sw) * 58}%) scale(${0.92 + sw * 0.08})`;
+  const typed = MAKE_TITLE.slice(
+    0,
+    Math.round(seg(U, MAKE_TYPE[0], MAKE_TYPE[1]) * MAKE_TITLE.length),
+  );
+  $("mkTitle").innerHTML = typed
+    ? `${typed}<i class="caret"></i>`
+    : `<i class="caret"></i><em>예) 제주 여행</em>`;
+  $("mkToast").style.opacity = life(U, ...MAKE_TOAST);
+  // 쏙 아이콘을 누르면 방 만들기 화면이 아이콘 자리에서 커지며 열린다
+  const open = inOut(seg(U, APP_OPEN[0], APP_OPEN[1]));
+  // 바탕화면이 들어온 뒤 쏙 아이콘을 누르기 전까지 쏙을 점점 강조한다 (다른 아이콘은 흐려짐)
+  $("osHome").style.setProperty("--focus", ease(seg(U, APP_IN[1] - 0.05, OS_TAP - 0.05)));
+  // 손가락이 닿으면 아이폰처럼 쏙 아이콘이 꾹 눌려 작아지고 어두워졌다가 돌아온다
+  const iconPress = seg(U, OS_TAP - 0.02, OS_TAP + 0.04) - seg(U, OS_TAP + 0.06, OS_TAP + 0.14);
+  $("osSsok").style.setProperty("--press", ease(clamp(iconPress)));
+  // 검은 바탕화면이 보이는 동안(앱이 열리기 전)엔 상태 표시줄 글자를 흰색으로
+  phone.classList.toggle("os-dark", open < 0.5);
+  // 아이폰에서 앱을 여는 것처럼: 아이콘 네모가 화면 전체로 늘어나고(모서리는 점점 펴진다),
+  // 늘어나는 동안엔 쏙 로고 화면이 보이다가 다 열릴 즈음 방 만들기 화면으로 바뀐다. 뒤 바탕화면은 살짝 다가오며 어두워진다
+  const ic = M.taps.osSsok;
+  const W = M.makeAt.w;
+  const H = M.makeAt.h;
+  const ix = ic.x - M.makeAt.x;
+  const iy = ic.y - M.makeAt.y;
+  const top = iy * (1 - open);
+  const left = ix * (1 - open);
+  const right = (W - ix - ic.w) * (1 - open);
+  const bottom = (H - iy - ic.h) * (1 - open);
+  const radius = ic.w * 0.225 * (1 - open) + 28 * open;
+  const form = $("mkForm");
+  form.style.transform = "";
+  form.style.opacity = 1;
+  form.style.borderRadius = "";
+  form.style.clipPath = `inset(${top}px ${right}px ${bottom}px ${left}px round ${radius}px)`;
+  form.style.visibility = open > 0.001 ? "visible" : "hidden";
+  const content = clamp((open - 0.55) / 0.4);
+  for (const c of form.children) {
+    if (c.id === "mkToast") continue;
+    c.style.opacity = content;
+    c.style.transform = `translateY(${(1 - content) * 0.6}em)`;
+  }
+  const splash = $("mkSplash");
+  splash.style.visibility = open > 0.001 && content < 1 ? "visible" : "hidden";
+  splash.style.left = `${left}px`;
+  splash.style.top = `${top}px`;
+  splash.style.width = `${W - left - right}px`;
+  splash.style.height = `${H - top - bottom}px`;
+  splash.style.borderRadius = `${radius}px`;
+  splash.style.opacity = 1 - content;
+  // 로고는 처음엔 아이콘을 꽉 채우고, 커지는 동안 아이콘 크기의 1.4배까지만 자란다
+  splash.firstElementChild.style.width = `${ic.w * (1 + 0.4 * open)}px`;
+  const home = $("osHome");
+  home.style.transformOrigin = `${ic.cx - M.makeAt.x}px ${ic.cy - M.makeAt.y}px`;
+  home.style.transform = `scale(${1 + 0.12 * open})`;
+  home.style.filter = `brightness(${1 - 0.5 * open})`;
+  // 앱이 열리며 커지는 동안 뒤 아이콘들은 점점 흐려지다가 사라진다 (열리는 화면 옆에 아이콘이 남지 않게).
+  // 검은 바탕은 그대로 둬야 뒤의 흰 화면이 비치지 않는다
+  const fade = ease(clamp(open / 0.8));
+  for (const part of home.children) {
+    part.style.filter = `blur(${fade * 8}px)`;
+    part.style.opacity = 1 - fade;
+  }
+  renderTap(U, [
+    [OS_TAP, "osSsok"],
+    [MAKE_TAP, "mkGo"],
+  ]);
+}
+
+// 해결: 스크롤을 시작하면 단톡방 맨 아래 쏙 링크를 누른다. 누르면 말풍선이 사진이 되어 사진방에 모인다
+function renderLinkTap(T) {
+  const tap = $("chatTap");
+  const U = introU;
+  const bub = chatEls.find((el) => el.dataset.link === "1")?.querySelector("p");
+  const o =
+    T > 0.02 && bub ? life(U, LINK_TAP - 0.3, LINK_TAP - 0.22, LINK_TAP + 0.2, LINK_TAP + 0.35) : 0;
+  tap.style.opacity = o;
+  if (!bub) return;
+  const click = seg(U, LINK_TAP - 0.06, LINK_TAP) - seg(U, LINK_TAP, LINK_TAP + 0.08);
+  const ring = seg(U, LINK_TAP, LINK_TAP + 0.35);
+  bub.style.transform = `scale(${1 - click * 0.05})`;
+  bub.style.boxShadow =
+    ring > 0 && ring < 1 ? `0 0 0 ${3 + ring * 6}px rgba(246, 109, 59, ${0.45 * (1 - ring)})` : "";
+  if (o <= 0.001) return;
+  const r = bub.getBoundingClientRect();
+  const sr = stage.getBoundingClientRect();
+  tap.style.left = `${r.left - sr.left + r.width * 0.5}px`;
+  tap.style.top = `${r.top - sr.top + r.height * 0.42}px`;
+  tap.style.setProperty("--press", 1 - click * 0.18);
+  tap.style.setProperty("--ring", ring > 0 ? 1 - ring : 0);
+  tap.style.setProperty("--ring-s", 0.6 + ring * 1.2);
+}
+
 // 단톡방: 메시지가 스크롤한 만큼 아래에서 올라오고, 오래된 것은 위로 밀려 흐려진다. 끝까지 가면 멈춘다.
 // 그려 둔 말풍선 k 는 k 번째로 최근 메시지를 보여 준다. 같은 사람이 이어 보내면 프로필·이름은 첫 말풍선에만.
 // 시각은 같은 사람 무리의 마지막 말풍선에만, 안 읽은 수는 최근 것일수록 크다. 스크롤하면 단톡방이 빠진다
@@ -1553,6 +1306,11 @@ function renderChat(E, T, S) {
       (1 - ease(seg(E, 0.15, 0.6))) * 30 + M.chatDrop * (1 - chatRise),
       M.mobile ? "" : "translate(-50%, -50%)",
     );
+    // 폰 폭 ②: 아래(링크 말풍선·입력칸)는 그대로 두고 위쪽만 내려, 비운 자리에 ② 제목·설명을 보인다
+    if (M.mobile && sendPush > 0.5) {
+      chat.style.top = `${M.chatTop0 + sendPush}px`;
+      chat.style.height = `${M.chatH0 - sendPush}px`;
+    }
   } else {
     // 제자리(덮어쓴 값을 지우고 잰다) → 폰 화면
     if (!M.chatRest) {
@@ -1567,7 +1325,10 @@ function renderChat(E, T, S) {
         h: r.height,
       };
     }
-    const A = M.chatRest;
+    // 폰 폭에선 ② 에서 줄여 둔 단톡방(위쪽이 sendNeed 만큼 내려온 자리)에서 폰 화면으로 바뀐다
+    const A = M.mobile
+      ? { ...M.chatRest, y: M.chatRest.y + M.sendNeed, h: M.chatRest.h - M.sendNeed }
+      : M.chatRest;
     const B = M.inner;
     chat.style.right = "auto";
     chat.style.bottom = "auto";
@@ -1588,6 +1349,8 @@ function renderChat(E, T, S) {
   chat.querySelector(".chat-input").style.opacity = chrome;
   // 폰 폭에선 남은 말풍선·이름이 사진 조각과 겹쳐 보이지 않게 더 빨리 걷는다
   const msgFade = 1 - seg(U, PH_AT, PH_AT + (M.mobile ? 0.15 : 0.4));
+  // 링크 말풍선은 사진이 다 모이기 시작할 때까지 남아 있다가 걷힌다
+  const linkFade = 1 - seg(U, MS - 0.1, MS + 0.2);
   if (o <= 0.001) return;
   // 두 개가 깔린 채로 시작해, step(저절로 + 스크롤)만큼 한 줄씩 올라오고 마지막 메시지에서 멈춘다
   const step = S;
@@ -1618,11 +1381,16 @@ function renderChat(E, T, S) {
       bub.classList.toggle("lots", (opt?.pics?.length ?? 0) > 4);
       bub.classList.toggle("three", (opt?.pics?.length ?? 0) === 3);
       bub.classList.toggle("blur", !!opt?.blur);
+      // 쏙 초대 링크 말풍선 (카톡 링크 미리보기 모양, 문구·그림은 실제 초대 링크 OG 와 같다)
+      bub.classList.toggle("link", !!opt?.link);
+      el.dataset.link = opt?.link ? "1" : "";
       if (opt?.pics)
         bub.innerHTML = opt.pics.map((f) => `<img src="${GN}/${f}.jpg" alt="" />`).join("");
+      else if (opt?.link) bub.innerHTML = LINK_CARD;
       else bub.textContent = text;
-      el.querySelector(".ur").textContent = k < 5 ? 5 - k : "";
-      el.querySelector("time").style.display = last ? "" : "none";
+      // 카톡의 안 읽음 숫자는 랜딩에선 뜻 없이 떠 있는 숫자로 보여 쓰지 않는다
+      el.querySelector(".ur").textContent = "";
+      el.dataset.last = last ? "1" : "";
     });
     chatH = chatEls.map((el, k) => {
       const g = n - k;
@@ -1642,11 +1410,15 @@ function renderChat(E, T, S) {
     // 바뀌기 시작하면 말풍선은 조각(ghost)이 이어받고, 프로필·이름·시각은 흐려진다
     el.dataset.live = g >= 0 ? "1" : "";
     // 단톡방 말풍선은 모두 사진 조각이 이어받는다 (앞의 평범한 대화도, 요청도)
-    const isReq = g >= 0;
+    // 말풍선을 사진 조각으로 바꾸는 연출은 쓰지 않는다: 링크 카드만 또렷이 남고 주변 말풍선이 반쯤 녹아
+    // 깨진 화면처럼 보였다. 링크를 누르면 말풍선은 걷히고, 사진은 사진방에서 한 장씩 올라온다
+    const isReq = false;
     el.dataset.req = isReq ? "1" : "";
     // 위 끝에 닿은 메시지는 반쯤 잘린 채 머리줄 밑에 남지 않게, 닿는 순간 짧게 흐려져 사라진다
     const edge = clamp((y + 8) / 14);
-    const mo = (g < 0 ? 0 : k === 0 ? p : 1) * msgFade * edge;
+    const mo = (g < 0 ? 0 : k === 0 ? p : 1) * (el.dataset.link ? linkFade : msgFade) * edge;
+    // 시각은 같은 사람 무리의 마지막 말풍선에만. 같은 사람의 다음 메시지가 아직 올라오지 않았으면 지금 말풍선이 마지막이다
+    el.querySelector("time").style.display = el.dataset.last || (k === 1 && p < 0.5) ? "" : "none";
     el.style.opacity = mo;
     el.style.visibility = mo <= 0.001 ? "hidden" : "visible";
     el.style.transform = `translateY(${y}px)`;
@@ -1734,7 +1506,7 @@ let headerOn = null;
 function renderHeader(T) {
   // 첫 화면 '사진 모을 링크 만들기' 버튼이 사라지기 시작하면(헤드라인이 흐려지기 시작하면) 바로 뜬다
   const heroGone = T >= INTRO || +introEls[0].style.opacity < 0.95;
-  const on = heroGone && toScene(T) - SHIFT < 15.85;
+  const on = heroGone && T < PH.end.start + 0.25;
   if (on === headerOn) return;
   headerOn = on;
   $("siteHeader").classList.toggle("on", on);
@@ -1745,34 +1517,12 @@ function renderHeader(T) {
   }
 }
 
-// 정리 방식 시트: 사람별 장면에선 '사람별로'가 골라진 채, 비슷한 사진 앞 멈춤 구간(h 0~0.9)에선
-// 시트가 '비슷한 사진'이 골라진 채로 올라와 → '비슷한 사진 묶기'를 누르면 내려간다 (문구는 실제 앱 시트와 같다)
-const SHEET_TAPS = [[0.36, "kindGo"]];
-let sheetSim = null;
-function renderKindSheet(h) {
-  const sim = h >= 0;
-  if (sim !== sheetSim) {
-    sheetSim = sim;
-    $("kindP").classList.toggle("on", !sim);
-    $("kindS").classList.toggle("on", sim);
-    $("kindGo").textContent = sim ? "비슷한 사진 묶기" : "얼굴 분석해서 정리하기";
-  }
-  if (h < 0) return;
-  const up = ease(seg(h, 0, 0.2)) - ease(seg(h, 0.62, 0.76));
-  $("kindSheet").style.transform = `translateY(${(1 - up) * 110}%)`;
-  $("ovl").style.opacity = up;
-  $("ovl").style.visibility = up <= 0.001 ? "hidden" : "visible";
-  $("fab").style.opacity = 0;
-  renderTap(h, SHEET_TAPS);
-}
-
-// 사람별 폴더를 만든 직후(멈춤 구간 0, h 0~1.2): 새 폴더 탭이 붙은 전체 탭에서 시작해
-// '나' 탭을 누르면(0.5) 내 사진만 앞으로 모이고 나머지는 빠진다. 알림은 그동안 떠 있다가 끝 무렵 사라진다
+// 사람별 폴더를 만든 직후(h 0~1.2): 새 폴더 탭이 붙은 전체 탭에서 시작해
+// '나' 탭을 누르면(0.32) 내 사진만 앞으로 모이고 나머지는 빠진다. 알림은 그동안 떠 있다가 끝 무렵 사라진다
 function renderMeFolder(h) {
-  if (h < 0) return;
-  const me = h >= 0.58;
+  const me = h >= 0.46;
   renderTabs(TABS_B, me ? 3 : 0, 86);
-  const go = inOut(seg(h, 0.6, 0.9));
+  const go = inOut(seg(h, 0.48, 0.74));
   setP.forEach((el, k) => {
     const mine = MINE.indexOf(GRID[k]);
     const a = M.cell(k);
@@ -1782,38 +1532,72 @@ function renderMeFolder(h) {
       el.style.opacity = 1;
       el.style.visibility = "visible";
     } else {
-      const o = 1 - seg(h, 0.58, 0.72);
+      const o = 1 - seg(h, 0.46, 0.58);
       el.style.transform = `translate(${a.x}px, ${a.y}px) scale(${1 - 0.08 * (1 - o)})`;
       el.style.opacity = o;
       el.style.visibility = o <= 0.001 ? "hidden" : "visible";
     }
   });
-  $("folderToast").style.opacity = 1 - seg(h, 0.95, 1.1);
+  $("folderToast").style.opacity = 1 - seg(h, 0.8, 0.95);
   $("fab").style.opacity = 0;
-  renderTap(h, [[0.42, "meTab"]]);
+  renderTap(h, [[0.32, "meTab"]]);
 }
 
 function render(T) {
   if (!M) measure();
-  renderScene(toScene(T));
-  renderMeFolder(T >= INTRO ? holdT(toRaw(T), 0) : -1);
-  renderKindSheet(T >= INTRO ? holdT(toRaw(T), 1) : -1);
+  const S = personScene(T);
+  // 폰·갤러리 바탕 (장면마다 아래에서 덧그린다)
+  phone.style.opacity = 1;
+  phone.style.visibility = "visible";
+  phone.style.transform = M.base;
+  renderGallery(S);
+  $("tap").style.opacity = 0;
+  $("chatTap").style.opacity = 0;
+  show($("cmp"), 0);
+  folderEls.forEach((el) => show(el, 0));
+  pushEls.forEach((el) => {
+    el.style.opacity = 0;
+    el.style.visibility = "hidden";
+  });
+
   if (T < INTRO) renderIntro(T);
   else {
-    // 첫 장면이 끝나면 스크롤 안내와 장면 글, 친구들 폰은 다시 나오지 않는다
+    // 첫 장면이 끝나면 스크롤 안내와 첫 장면 글, 단톡방은 다시 나오지 않는다
     show($("hint"), 0, 0, "translateX(-50%)");
     introEls.forEach((el) => show(el, 0));
     cams.forEach((el) => (el.style.visibility = "hidden"));
     introSkip = true;
     show($("chat"), 0);
     $("share").style.visibility = "hidden";
-    show($("invite"), 0);
-    joinEls.forEach((el) => show(el, 0));
     ghosts.forEach((el) => {
       el.style.opacity = 0;
       el.style.visibility = "hidden";
     });
   }
+
+  if (phH(T, "save") >= 0) renderSave(phH(T, "save"));
+  // 사람별 장면: 링크 옆 AI 반짝임을 눌러 확인 시트를 열고(시트는 0.3 부터 올라온다), '얼굴 분석하고 정리하기'를 누른다
+  if (phH(T, "person") >= 0)
+    renderTap(S, [
+      [0.22, "gAi"],
+      [1.0, "kindGo"],
+    ]);
+  if (phH(T, "me") >= 0) {
+    renderMeFolder(Math.max(0, phH(T, "me") - FOLDER_SHOW));
+    renderFolders(phH(T, "me"));
+  }
+  if (phH(T, "end") >= 0) renderMeFolder(PH.me.len - FOLDER_SHOW);
+  renderEnd(phH(T, "end"));
+  renderTexts(T);
+
+  // 옆 목차: 지금 장면에 불을 켠다
+  tocItems.forEach((btn, i) => {
+    const next = tocItems[i + 1] ? tocAt(tocItems[i + 1])[0] : Infinity;
+    if (T >= tocAt(btn)[0] && T < next) btn.setAttribute("aria-current", "step");
+    else btn.removeAttribute("aria-current");
+    btn.classList.toggle("done", T >= next);
+  });
+
   // 머리글은 첫 화면 헤드라인을 그린 뒤에 정한다 (헤드라인이 흐려지는 순간에 맞춰 뜨도록)
   renderHeader(T);
   // 옆 버튼 껍데기는 폰의 위치·크기·투명도를 그대로 따른다
@@ -1823,28 +1607,36 @@ function render(T) {
   shell.style.visibility = phone.style.visibility;
 }
 
-// ── 옆 목차: 누르면 그 장면 시각의 스크롤 위치로 간다 ──
+// ── 옆 목차: [켜지는 스크롤 시각, 누르면 가는 스크롤 시각]. 장면 이름(data-ph)으로 정한다 ──
+// 해결: 사진방에 사진이 다 모인 자리로 간다. 받기: 원본 저장부터 내 사진만 받기까지 한 칸이다
+// 첫 장면 시계 U → 스크롤 시각 T (renderIntro 의 U = seg(T, 0.05, INTRO - 0.3) × 전체 길이 를 거꾸로)
+const introFull = () => landAt(setP.length) + UP_DROP + 0.2;
+const uToT = (u) => 0.05 + (u / introFull()) * (INTRO - 0.35);
+// ①~③ 단계: [켜지는 시계, 누르면 가는 시계]
+const TOC_U = {
+  make: () => [APP_IN[0], MAKE_TYPE[1]], // 방 만들기 화면에 제목이 다 써진 자리
+  send: () => [APP_OUT[0], SEND_AT[1] + 0.1], // 단톡방에 링크가 올라온 자리
+  gather: () => [LINK_TAP + 0.1, UP_AT + 1.4], // 사진이 모이고 알림이 쌓인 자리
+};
+function tocAt(btn) {
+  const ph = btn.dataset.ph;
+  if (TOC_U[ph]) return TOC_U[ph]().map(uToT);
+  const s = PH[ph];
+  return [s.start, s.start + Math.min(1.6, s.len)];
+}
 const tocItems = [...document.querySelectorAll("#toc button")];
 tocItems.forEach((btn) => {
   btn.addEventListener("click", () => {
-    const travel = film.offsetHeight - stage.offsetHeight;
-    const go = Math.max(0, toScroll(+btn.dataset.go));
-    scrollTo({
-      top: film.offsetTop + (travel * (go + chatLen())) / FILM_END,
-      behavior: reduceMotion ? "auto" : "smooth",
-    });
+    const go = tocAt(btn)[1] + chatLen();
+    userScroll(1);
+    if (reduceMotion) scrollTo({ top: rawToTop(go) });
+    else playTo(go, 1);
   });
 });
 
-// ── 첫 화면 '쏙 앱 알아보기' 메뉴: 시작 방법 목록의 앱 항목(iPhone·Android)을 복사해 쓴다 ──
-$("heroAppMenu").append(
-  ...[...$("startMenu").content.children].slice(1).map((n) => n.cloneNode(true)),
-);
+// ── 머리글 '링크 만들기' 메뉴: 시작 방법 목록을 복사해 쓴다 ──
 $("headerMenu").append(...[...$("startMenu").content.children].map((n) => n.cloneNode(true)));
-[
-  [$("startBtn"), $("headerMenu")],
-  [$("heroAppBtn"), $("heroAppMenu")],
-].forEach(([btn, menu]) => {
+[[$("startBtn"), $("headerMenu")]].forEach(([btn, menu]) => {
   const setMenu = (open) => {
     menu.hidden = !open;
     btn.setAttribute("aria-expanded", String(open));
@@ -1874,10 +1666,18 @@ function scrollT() {
 }
 
 let lastT = -1;
+let smoothRaw = 0;
 function frame() {
   followSvh();
+  autoTick(performance.now());
   // 앞 단톡방 구간은 장면 시각을 0 에 묶어 두고, 그 안의 스크롤은 채팅에만 쓴다
-  const raw = scrollT();
+  // 장면은 스크롤 위치를 바로 따르지 않고 부드럽게 쫓아간다. 휠 한 칸마다 장면이 덜컥 튀지 않게 한다
+  const target = scrollT();
+  smoothRaw =
+    reduceMotion || play || auto.on || Math.abs(target - smoothRaw) < 0.002
+      ? target
+      : smoothRaw + (target - smoothRaw) * 0.09;
+  const raw = smoothRaw;
   if (chatBase === null && raw > 0.01) chatBase = autoChatStep();
   const len = chatLen();
   chatS = Math.min(raw, len);
@@ -1897,6 +1697,135 @@ function frame() {
     document.documentElement.classList.remove("js-wait");
   }
   requestAnimationFrame(frame);
+}
+
+// ── 목차로 이동할 때만 스크롤 위치를 정해진 시간 동안 천천히 옮긴다 (평소엔 스크롤한 만큼만 움직인다) ──
+const STEP_SPEED = 2.3; // 스크롤 시각 1 만큼 흐르는 데 걸리는 초
+const rawToTop = (raw) =>
+  film.offsetTop + ((film.offsetHeight - stage.offsetHeight) * raw) / FILM_END;
+let play = null;
+const easeSine = (t) => 0.5 - Math.cos(Math.PI * t) / 2;
+// span: 재생 시간을 정하는 길이 (기본은 지금 자리부터 목표까지)
+function playTo(to, maxSec = Infinity, span = null) {
+  const from = scrollT();
+  if (Math.abs(to - from) < 0.005) return;
+  const dist = span ?? Math.abs(to - from);
+  const dur = Math.min(maxSec, Math.max(0.6, dist * STEP_SPEED)) * 1000;
+  play = { from, to, t0: performance.now(), dur };
+  const tick = (now) => {
+    if (!play) return;
+    const k = clamp((now - play.t0) / play.dur);
+    scrollTo({ top: rawToTop(lerp(play.from, play.to, easeSine(k))), behavior: "instant" });
+    if (k < 1) requestAnimationFrame(tick);
+    else play = null;
+  };
+  requestAnimationFrame(tick);
+}
+
+// ── 자동 재생: 단계(①~⑤·끝)마다 아주 느리게 저절로 흐르고, 그 단계 끝에서 멈춰 기다린다.
+// 다음 단계는 사용자가 아래로 스크롤해야 시작한다: 아래로 스크롤하고 손을 떼면 곧바로(AUTO_RESUME) 그 자리부터
+// 다음 단계 끝까지 다시 저절로 흐른다. 흐르는 중에 휠·터치·클릭·키를 쓰면 그 순간 멈춘다.
+// 터치·클릭처럼 스크롤하지 않은 동작으로 멈췄거나 위로 스크롤해 되돌아갔다면, 다시 아래로 스크롤할 때까지 멈춰 있다.
+// 첫 화면은 들어오자마자 저절로 시작해 ① 끝까지 흐른다
+const AUTO_SPEED = 0.35; // 1초에 흐르는 스크롤 시각 (작을수록 느리다)
+const AUTO_FAST = 1.6; // ④ 원본으로 받기·⑤ 내 사진만 받기 구간만 이만큼 더 빠르게 흐른다
+const AUTO_RESUME = 350; // 아래로 스크롤하고 손을 뗀 뒤(관성이 멈춘 뒤) 다시 저절로 흐르기까지 (ms)
+const AUTO_START = 2200; // 첫 화면에서 저절로 시작하기까지 (ms). 첫 화면 글·버튼이 다 나타난(약 1.3초) 뒤 잠깐 머문다
+function autoStops() {
+  if (chatBase === null) chatBase = autoChatStep();
+  const len = chatLen();
+  // 첫 단톡방 장면("잠시만!!")에서는 멈추지 않고 ① 끝까지 이어서 흐른다
+  return [
+    len + uToT(MAKE_TOAST[2]), // ① 방을 만들고 "공유 링크를 복사했어요."
+    len + uToT(SEND_AT[1] + 0.15), // ② 단톡방에 링크를 보냄
+    len + INTRO - 0.45, // ③ 사진을 골라 올리고 친구들 사진까지 다 모임
+    len + PH.save.start + 2.0, // ④ 원본 비교 카드
+    len + PH.me.start + PH.me.len - 0.1, // ⑤ 내 사진만
+    FILM_END, // 끝
+  ];
+}
+const auto = { on: false, raw: 0, to: 0, last: 0, userAt: 0, userDir: 1, started: false };
+const t0 = performance.now();
+function autoTick(now) {
+  if (reduceMotion || play) {
+    auto.on = false;
+    return;
+  }
+  const dt = Math.min(0.05, (now - (auto.last || now)) / 1000);
+  auto.last = now;
+  if (!auto.on) {
+    // 시작할 때: 첫 화면은 잠깐 뒤에, 그 뒤로는 손을 떼고 AUTO_RESUME 지난 뒤 (앞으로 가던 중일 때만)
+    const firstStart = !auto.started && now - t0 > AUTO_START && auto.userAt === 0;
+    const resume =
+      auto.started && auto.userDir > 0 && auto.userAt && now - auto.userAt > AUTO_RESUME;
+    if (!firstStart && !resume) return;
+    const raw = scrollT();
+    const next = autoStops().find((s) => s > raw + 0.02);
+    // 단계 끝에 서 있으면(바로 앞 멈춤이 아주 가까우면) 기다린다
+    const atStop = autoStops().some((s) => Math.abs(s - raw) <= 0.02);
+    auto.started = true;
+    auto.userAt = 0;
+    if (next === undefined || (atStop && !firstStart)) return;
+    auto.on = true;
+    auto.raw = raw;
+    auto.to = next;
+  }
+  // ③ 끝(멈춤 3번째)부터 ⑤ 끝(멈춤 5번째)까지, 즉 ④·⑤ 단계를 흐르는 동안만 빠르게
+  const stops = autoStops();
+  const fast = auto.raw >= stops[2] - 1e-4 && auto.raw < stops[4];
+  auto.raw = Math.min(auto.to, auto.raw + AUTO_SPEED * (fast ? AUTO_FAST : 1) * dt);
+  scrollTo({ top: rawToTop(auto.raw), behavior: "instant" });
+  if (auto.raw >= auto.to - 1e-4) auto.on = false; // 단계 끝: 멈추고 기다린다
+}
+// 사용자가 직접 스크롤하거나 화면을 만지면 자동 재생을 멈춘다.
+// dir: 1 아래로 스크롤 · -1 위로 스크롤 · 0 스크롤 없는 동작(터치 시작·클릭). 마지막 동작이 아래로 스크롤일 때만 다시 흐른다
+function userScroll(dir) {
+  auto.on = false;
+  auto.started = true;
+  auto.userAt = performance.now();
+  auto.userDir = dir;
+}
+if (!reduceMotion) {
+  addEventListener("wheel", (e) => userScroll(Math.sign(e.deltaY)), { passive: true });
+  let touchY = null;
+  addEventListener(
+    "touchstart",
+    (e) => {
+      touchY = e.touches[0].clientY;
+      userScroll(0);
+    },
+    { passive: true },
+  );
+  addEventListener(
+    "touchmove",
+    (e) => {
+      if (touchY === null) return;
+      const dir = Math.sign(touchY - e.touches[0].clientY);
+      // 손가락이 거의 안 움직였으면(떨림) 스크롤로 치지 않는다 → 터치로 멈춘 상태가 유지된다
+      if (dir && Math.abs(touchY - e.touches[0].clientY) > 6) userScroll(dir);
+    },
+    { passive: true },
+  );
+  // 손을 뗀 뒤 관성으로 흐르는 동안은 기다렸다가 다시 시작한다
+  addEventListener(
+    "scroll",
+    () => {
+      if (auto.userAt) auto.userAt = performance.now();
+    },
+    { passive: true },
+  );
+  addEventListener("keydown", (e) => {
+    const dir = ["ArrowDown", "PageDown", " "].includes(e.key)
+      ? 1
+      : ["ArrowUp", "PageUp", "Home"].includes(e.key)
+        ? -1
+        : 0;
+    if (dir) userScroll(dir);
+  });
+  // 마우스로 화면을 누르거나 스크롤 막대를 잡으면 멈춘다 (터치는 위 touchstart 가 맡는다)
+  addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") userScroll(0);
+  });
 }
 
 // 폰 폭: 장면은 지금 보이는 화면 높이(innerHeight)에 맞춰 짠다(--svh).

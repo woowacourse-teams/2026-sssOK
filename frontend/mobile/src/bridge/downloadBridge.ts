@@ -19,9 +19,21 @@ const CONCURRENCY = 3;
 /** 진행률을 웹에 알리는 최소 간격(ms). 매 청크마다 웹뷰에 스크립트를 넣으면 화면이 버벅인다. */
 const PROGRESS_INTERVAL_MS = 200;
 
+/**
+ * 어느 단계에서 실패했는지. 같은 `status: 0` 이라도 받기가 끊긴 것과
+ * 사진첩이 파일을 거절한 것은 사용자가 할 일이 다르다.
+ */
+type FailureStage = "download" | "save" | "share";
+
+/** 원래 에러 메시지를 웹으로 넘길 때의 최대 길이. 원인을 가르기엔 충분하고 이벤트가 커지지 않는다. */
+const MAX_MESSAGE_LENGTH = 300;
+
 interface Failure {
   id: number;
   status: number;
+  /** 예전 웹은 모르는 필드라 버린다. 없으면 단계를 모르는 실패다. */
+  stage?: FailureStage;
+  message?: string;
 }
 
 export type BridgeEvent =
@@ -55,6 +67,16 @@ const statusOf = (error: unknown): number => {
 
   return matched === null ? 0 : Number(matched[1]);
 };
+
+const messageOf = (error: unknown): string =>
+  (error instanceof Error ? error.message : String(error)).slice(0, MAX_MESSAGE_LENGTH);
+
+const failureOf = (id: number, error: unknown, stage?: FailureStage): Failure => ({
+  id,
+  status: statusOf(error),
+  stage,
+  message: messageOf(error),
+});
 
 /** 경로를 벗어나는 글자만 막는다. 이름은 사진첩·공유 시트에 그대로 보인다. */
 const safeNameOf = (fileName: string): string => fileName.replace(/[/\\]/g, "_") || "file";
@@ -149,13 +171,15 @@ export const createDownloadBridge = (
         if (signal.aborted) return;
 
         let downloaded: File | undefined;
+        let stage: FailureStage = "download";
 
         try {
           downloaded = await download(requestId, index, file, signal);
+          stage = "save";
           await Asset.create(downloaded.uri);
           send({ type: "download/saved", requestId, id: file.id });
         } catch (error) {
-          if (!signal.aborted) failed.push({ id: file.id, status: statusOf(error) });
+          if (!signal.aborted) failed.push(failureOf(file.id, error, stage));
         } finally {
           removeQuietly(downloaded);
         }
@@ -173,9 +197,11 @@ export const createDownloadBridge = (
   /** 사용자가 시트를 닫아도 실패가 아니다. 무엇을 골랐는지는 OS 가 알려주지 않는다. */
   const share = async (requestId: string, file: BridgeFile, signal: AbortSignal): Promise<void> => {
     let downloaded: File | undefined;
+    let stage: FailureStage = "download";
 
     try {
       downloaded = await download(requestId, 0, file, signal);
+      stage = "share";
       await Sharing.shareAsync(downloaded.uri, {
         mimeType: file.mimeType,
         dialogTitle: file.fileName,
@@ -186,7 +212,7 @@ export const createDownloadBridge = (
         type: "download/done",
         requestId,
         result: signal.aborted ? "cancelled" : "completed",
-        failed: signal.aborted ? [] : [{ id: file.id, status: statusOf(error) }],
+        failed: signal.aborted ? [] : [failureOf(file.id, error, stage)],
       });
     } finally {
       removeQuietly(downloaded);
@@ -216,12 +242,12 @@ export const createDownloadBridge = (
     running.set(requestId, controller);
     void work
       // 권한 요청처럼 예상 밖에서 무너져도 답은 보낸다. 안 보내면 웹의 진행 바가 영영 남는다.
-      .catch(() =>
+      .catch((error: unknown) =>
         send({
           type: "download/done",
           requestId,
           result: "completed",
-          failed: files.map(({ id }) => ({ id, status: 0 })),
+          failed: files.map(({ id }) => ({ ...failureOf(id, error), status: 0 })),
         }),
       )
       .finally(() => running.delete(requestId));

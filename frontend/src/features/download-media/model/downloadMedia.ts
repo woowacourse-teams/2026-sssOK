@@ -5,6 +5,7 @@ import { createDownloadJob } from "../api/createDownloadJob";
 import { DOWNLOAD_CONCURRENCY, INDIVIDUAL_SAVE_GAP_MS, SHARE_BATCH_SIZE } from "../config";
 import {
   downloadMessageOfError,
+  downloadMessageOfFailure,
   downloadMessageOfStatus,
   isRetryableError,
   isRetryableStatus,
@@ -13,7 +14,8 @@ import {
 import { fetchMediaBlob } from "../lib/fetchMediaBlob";
 import {
   isNativeApp,
-  saveToPhotoLibrary,
+  reportNativeFailure,
+  saveToPhotoLibraryInParallel,
   shareFromNativeApp,
   type NativeFile,
 } from "../lib/nativeApp";
@@ -163,7 +165,7 @@ const saveInNativeApp = async (
     return { type: "empty", failed };
   }
 
-  const result = await saveToPhotoLibrary(files, {
+  const result = await saveToPhotoLibraryInParallel(files, {
     signal,
     onProgress: (mediaId, loaded, total) =>
       onProgress?.({
@@ -183,9 +185,15 @@ const saveInNativeApp = async (
     return { type: "failed", reason: PHOTO_PERMISSION_DENIED_MESSAGE, isRetryable: false };
   }
 
-  result.failed.forEach(({ id, status }) =>
-    failed.push({ mediaId: id, fileName: targetById.get(id)?.fileName ?? "", status }),
-  );
+  result.failed.forEach((failure) => {
+    reportNativeFailure(failure, "download.native_save");
+    failed.push({
+      mediaId: failure.id,
+      fileName: targetById.get(failure.id)?.fileName ?? "",
+      status: failure.status,
+      stage: failure.stage,
+    });
+  });
 
   const savedCount = files.length - result.failed.length;
 
@@ -285,9 +293,11 @@ export const downloadMedia = async (params: DownloadMediaParams): Promise<Downlo
       const [failure] = shared.failed;
 
       if (failure !== undefined) {
+        reportNativeFailure(failure, "download.native_share");
+
         return {
           type: "failed",
-          reason: downloadMessageOfStatus(failure.status),
+          reason: downloadMessageOfFailure(failure),
           isRetryable: isRetryableStatus(failure.status),
         };
       }

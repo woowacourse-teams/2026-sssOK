@@ -6,6 +6,7 @@ import { RoomShareButton } from "@/features/share-room";
 import { IconButton } from "@/shared/ui/icon-button";
 import { Row } from "@/shared/ui/row";
 import { Stack } from "@/shared/ui/stack";
+import sparkleIcon from "../assets/sparkle.svg";
 import { RoomMenuButton } from "./RoomMenuButton";
 import { Header, RoomTitle, TitleArea } from "./RoomSummary.styles";
 
@@ -25,6 +26,8 @@ interface RoomSummaryProps {
   onAddFolder?: () => void;
   onEditFolder?: () => void;
   onDeleteFolder?: () => void;
+  /** 제목 옆 ✨ 버튼. 사람별 정리 확인을 연다. 없으면 버튼을 그리지 않는다. */
+  onOrganize?: () => void;
 }
 
 export const RoomSummary = ({
@@ -42,6 +45,7 @@ export const RoomSummary = ({
   onAddFolder,
   onEditFolder,
   onDeleteFolder,
+  onOrganize,
   notificationMenu,
 }: RoomSummaryProps) => {
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -69,6 +73,12 @@ export const RoomSummary = ({
             </RoomTitle>
           </TitleArea>
           <Row align="center" gap={4}>
+            {/* 피그마 796:2622 · 공유 버튼 앞의 주황 ✨ 아이콘 버튼 */}
+            {onOrganize && (
+              <IconButton size="sm" aria-label="사진 사람별로 정리하기" onClick={onOrganize}>
+                <img src={sparkleIcon} alt="" width={22} height={22} />
+              </IconButton>
+            )}
             <RoomShareButton roomCode={roomCode} accessToken={session?.accessToken} />
             <RoomMenuButton
               notificationMenu={notificationMenu}

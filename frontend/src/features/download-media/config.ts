@@ -34,3 +34,15 @@ export const SHARE_BATCH_SIZE = 50;
 
 /** 압축 잡 상태를 되묻는 간격(ms). 명세의 "프론트는 1~2초 간격으로 조회한다" 를 따른다. */
 export const POLL_INTERVAL_MS = 1500;
+
+/**
+ * 앱에 사진첩 저장을 맡길 때, 이 장수를 넘으면 요청을 두 개로 나눠 동시에 보낸다.
+ *
+ * 앱은 요청 하나마다 3개씩 받고(`frontend/mobile/src/bridge/downloadBridge.ts` 의 `CONCURRENCY`),
+ * 한 장을 사진첩에 다 넣어야 다음 장을 받는다. 사진첩 쓰기는 한 줄로 서서, 요청이 하나면
+ * 그동안 회선이 논다. 요청을 둘로 나누면 받는 자리가 6개가 되어 쓰는 동안에도 받는다.
+ * 앱 값과 같게 둔다 — 3장 이하는 나눠도 받는 자리가 늘지 않는다.
+ *
+ * 앱 빌드에서 받기와 저장을 나누면 필요 없어지는 임시 값이다.
+ */
+export const NATIVE_SAVE_SPLIT_THRESHOLD = 3;

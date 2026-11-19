@@ -1,6 +1,7 @@
 package com.sssok.renewal.outgoing.database;
 
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailJob;
+import com.sssok.renewal.domain.media.thumbnail.ThumbnailTraceContext;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailKind;
 import com.sssok.renewal.domain.media.thumbnail.status.ThumbnailJobStatus;
 import jakarta.persistence.Column;
@@ -48,13 +49,18 @@ public class ThumbnailJobJpaEntity {
     @Column(name = "preview_key", length = 255)
     private String previewKey;
 
+    @Column(name = "traceparent", length = 55)
+    private String traceparent;
+    @Column(name = "tracestate", length = 512)
+    private String tracestate;
+
     public ThumbnailJobJpaEntity(ThumbnailJob job) {
         apply(job);
     }
 
     public ThumbnailJob toDomain() {
         return ThumbnailJob.reconstruct(mediaId, kind, ThumbnailJobStatus.from(state), attempts, availableAt, claimToken,
-            leaseUntil, createdAt, completedAt, errorCode, thumbnailKey, previewKey);
+            leaseUntil, createdAt, completedAt, errorCode, thumbnailKey, previewKey).traced(new ThumbnailTraceContext(traceparent, tracestate));
     }
 
     public void apply(ThumbnailJob job) {
@@ -70,5 +76,7 @@ public class ThumbnailJobJpaEntity {
         errorCode = job.getErrorCode();
         thumbnailKey = job.getThumbnailKey();
         previewKey = job.getPreviewKey();
+        traceparent = job.getTraceContext().traceparent();
+        tracestate = job.getTraceContext().tracestate();
     }
 }

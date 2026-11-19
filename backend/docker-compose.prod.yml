@@ -16,6 +16,7 @@
 # 칸마다 environment 를 따로 쓰면 앵커의 environment 를 통째로 덮으므로, 공통 값은 이 앵커로 합친다.
 x-app-env: &app-env
   SPRING_PROFILES_ACTIVE: prod
+  TRACING_ENVIRONMENT: prod
   # 힙 실사용 약 326MB를 기준으로 상한 512m 유지(#759). 비힙 등은 컨테이너 한도에 별도로 포함된다.
   # 서버 .env의 APP_JAVA_OPTS로 조정한다. 기존 JAVA_OPTS보다 이 값이 우선한다.
   JAVA_OPTS: "${APP_JAVA_OPTS:--Xmx512m -Duser.timezone=Asia/Seoul}"

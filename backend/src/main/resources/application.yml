@@ -19,7 +19,7 @@ spring:
       request-timeout: -1
 
   task:
-    # ZIP 압축·스토리지 정리·알림용 공용 워커
+    # 스토리지 정리·알림용 공용 워커
     execution:
       thread-name-prefix: media-worker-
       pool:
@@ -73,7 +73,7 @@ logging:
     # dev·prod 에는 영향이 없다 — 구조화 인코더가 콘솔 패턴 자체를 대체하고, 거기서는
     # requestId 가 이미 독립 필드로 나간다. application-local.yml 이 아니라 여기 두는 건
     # 그 파일이 gitignore 대상(개발자별 파일)이라 팀에 전달되지 않기 때문이다.
-    correlation: "[%X{requestId:-}] "
+    correlation: "[%X{requestId:-} %X{traceId:-} %X{spanId:-}] "
 
 cors:
   # 브라우저에서 API를 호출할 수 있는 오리진. 콤마로 구분한다.
@@ -122,6 +122,10 @@ media:
   # 아래 다섯 값은 전부 필수다. 코드에는 기본값이 없어서 한 줄이라도 빠지면 기동에 실패한다 —
   # 값의 출처를 여기 한 곳으로 두고, 빠진 값이 다른 값으로 조용히 대체되지 않게 하기 위함이다.
   image:
+    # Docker는 libvips(JNI) 사용. IDE는 java. MEDIA_IMAGE_PROCESSOR=java 로 재시작하면 복귀한다.
+    processor: ${MEDIA_IMAGE_PROCESSOR:java}
+    # 상세 진단 전용: 중간 픽셀 확정 비용을 포함한다. 일반 성능 측정과 분리한다.
+    native-stage-diagnostics: ${MEDIA_IMAGE_NATIVE_STAGE_DIAGNOSTICS:false}
     # 원본이 JPEG이든 PNG이든 파생본은 이 포맷으로 통일한다. 같은 SSIM에서 JPEG보다 30~37% 작고,
     # JPEG과 달리 투명도를 담을 수 있어 PNG도 같은 경로로 처리된다.
     # AVIF는 3~7%p 더 작지만 워커가 동시에 돌 때 처리량이 절반 안팎(16 vs 40장/초, 동시 8)이라 미뤘다.
@@ -219,6 +223,11 @@ download:
   sweep-cron: "0 */10 * * * *"
   # QUEUED·RUNNING 인데 이 시간 동안 진행 기록이 없으면 실패로 닫는다.
   stale-after: 30m
+  compression:
+    workers: ${DOWNLOAD_COMPRESSION_WORKERS:8}
+    queue-capacity: ${DOWNLOAD_COMPRESSION_QUEUE_CAPACITY:100}
+    # 압축 한 건이 미리 겹쳐 열어 둘 다음 원본 수. 0 이면 미리 열지 않는다(#666)
+    prefetch-depth: ${DOWNLOAD_COMPRESSION_PREFETCH_DEPTH:3}
 
 springdoc:
   swagger-ui:
@@ -226,6 +235,29 @@ springdoc:
     tags-sorter: alpha
 
 management:
+  tracing:
+    enabled: ${TRACING_ENABLED:false}
+    sampling:
+      probability: ${TRACING_SAMPLING_PROBABILITY:0.05}
+    propagation:
+      type: W3C
+    opentelemetry:
+      export:
+        max-queue-size: 512
+        max-batch-size: 64
+        schedule-delay: 1s
+        timeout: 2s
+  otlp:
+    tracing:
+      export:
+        enabled: ${TRACING_ENABLED:false}
+      endpoint: ${TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+      connect-timeout: 1s
+      timeout: 2s
+  opentelemetry:
+    resource-attributes:
+      "[service.name]": sssok-backend
+      "[deployment.environment]": ${TRACING_ENVIRONMENT:local}
   server:
     # 일반 API 포트(8080)와 분리한다. 기존 Prometheus는 Docker 내부 app:8081로 접근한다.
     # 개발은 호스트 Nginx용 loopback 포트도 사용한다. 중앙에는 지표 경로만 제한적으로 연결한다.

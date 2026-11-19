@@ -88,3 +88,31 @@ class SubjectEvidenceTests(unittest.TestCase):
         additions, pending = match_bodies(bs, np.array([[1., 0.]] * 3), fs, [{'face_ids': [0, 1, 2]}, {'face_ids': [3]}])
         self.assertEqual(additions, [])
         self.assertEqual(pending[0]['reason'], 'ambiguous_face_body_overlap')
+
+    def test_known_face_below_head_region_cannot_become_another_person(self):
+        fs = [face(0, 'a'), face(1, 'b'), face(2, 'c')]
+        fs[2]['bbox'] = [5, 50, 10, 10]
+        bs = [body(i, pid) for i, pid in enumerate(('a', 'b', 'c'))]
+        additions, pending = match_bodies(bs, np.array([[1., 0.]] * 3), fs,
+                                         [{'face_ids': [0, 1]}, {'face_ids': [2]}])
+        self.assertEqual(additions, [])
+        self.assertEqual(pending[0]['reason'], 'ambiguous_face_body_overlap')
+        self.assertIsNone(bs[2]['anchor_group'])
+
+    def test_body_with_second_known_face_outside_head_is_not_reference(self):
+        fs = [face(0, 'a'), face(1, 'b'), face(2, 'b')]
+        fs[2]['bbox'] = [5, 50, 10, 10]
+        bs = [body(i, pid) for i, pid in enumerate(('a', 'b', 'c'))]
+        additions, _ = match_bodies(bs, np.array([[1., 0.]] * 3), fs,
+                                    [{'face_ids': [0, 1]}, {'face_ids': [2]}])
+        self.assertEqual(additions, [])
+        self.assertIsNone(bs[1]['anchor_group'])
+
+    def test_separate_person_in_same_photo_can_still_match(self):
+        fs = [face(0, 'a'), face(1, 'b'), face(2, 'c')]
+        fs[2]['bbox'] = [5, 50, 10, 10]
+        bs = [body(i, pid) for i, pid in enumerate(('a', 'b', 'c', 'c'))]
+        bs[3]['bbox'] = [50, 0, 90, 100]
+        additions, _ = match_bodies(bs, np.array([[1., 0.]] * 4), fs,
+                                    [{'face_ids': [0, 1]}, {'face_ids': [2]}])
+        self.assertEqual([a['body_id'] for a in additions], [3])

@@ -102,3 +102,31 @@ describe("usePhotoSelection", () => {
     expect(track).toHaveBeenCalledTimes(2);
   });
 });
+
+it("드래그 범위에 맞춰 여러 사진의 선택을 한 번에 교체한다", () => {
+  const { result } = renderHook(() => usePhotoSelection([1, 2, 3]));
+  act(() => result.current.selectPhotos([1, 2, 3]));
+  act(() => result.current.selectPhotos([1]));
+  expect(result.current.selectedPhotoIds).toEqual([1]);
+});
+
+it("현재 목록의 드래그 선택을 교체해도 다른 목록에서 고른 사진은 보존한다", () => {
+  const { result, rerender } = renderHook((ids: number[]) => usePhotoSelection(ids), {
+    initialProps: [1, 2],
+  });
+  act(() => result.current.togglePhoto(1));
+  rerender([2, 3]);
+  act(() => result.current.selectPhotos([3]));
+  rerender([1, 2, 3]);
+  expect(result.current.selectedPhotoIds).toEqual([1, 3]);
+});
+
+it("목록에서 사라진 사진을 오래된 드래그 결과로 다시 선택하지 않는다", () => {
+  const { result, rerender } = renderHook((ids: number[]) => usePhotoSelection(ids), {
+    initialProps: [1, 2],
+  });
+  rerender([1]);
+  act(() => result.current.selectPhotos([1, 2]));
+  rerender([1, 2]);
+  expect(result.current.selectedPhotoIds).toEqual([1]);
+});

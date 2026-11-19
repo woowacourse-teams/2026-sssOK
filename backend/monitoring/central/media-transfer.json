@@ -38,6 +38,22 @@
       "keepTime": true,
       "includeVars": false,
       "targetBlank": false
+    },
+    {
+      "title": "업로드 단계",
+      "type": "link",
+      "url": "/d/sssok-upload-stages?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
+    },
+    {
+      "title": "전체 트레이스",
+      "type": "link",
+      "url": "/d/sssok-trace-overview?var-environment=${environment:percentencode}",
+      "keepTime": true,
+      "includeVars": false,
+      "targetBlank": false
     }
   ],
   "panels": [
@@ -1689,7 +1705,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "executor_queued_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_queued_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 대기",
               "range": true,
               "editorMode": "code"
@@ -1762,14 +1778,14 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "executor_active_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_active_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 활성",
               "range": true,
               "editorMode": "code"
             },
             {
               "refId": "B",
-              "expr": "executor_pool_max_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_pool_max_threads{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 최대",
               "range": true,
               "editorMode": "code"
@@ -1842,7 +1858,7 @@
           "targets": [
             {
               "refId": "A",
-              "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
+              "expr": "executor_queue_remaining_tasks{job=\"sssok-backend\",environment=\"$environment\",name=~\"applicationTaskExecutor|downloadCompressionTaskExecutor|imageThumbnailTaskExecutor|videoThumbnailTaskExecutor\"}",
               "legendFormat": "{{name}} 남은 슬롯",
               "range": true,
               "editorMode": "code"

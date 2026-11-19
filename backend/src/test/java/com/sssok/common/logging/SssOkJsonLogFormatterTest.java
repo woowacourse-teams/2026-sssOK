@@ -41,6 +41,15 @@ class SssOkJsonLogFormatterTest {
     }
 
     @Test
+    void traceId와_spanId를_JSON에_포함한다() throws Exception {
+        MDC.put("traceId", "0123456789abcdef0123456789abcdef");
+        MDC.put("spanId", "0123456789abcdef");
+        JsonNode log = format(formatter(), event(Level.INFO, "요청 처리"));
+        assertThat(log.get("traceId").asText()).isEqualTo("0123456789abcdef0123456789abcdef");
+        assertThat(log.get("spanId").asText()).isEqualTo("0123456789abcdef");
+    }
+
+    @Test
     @DisplayName("한 줄로 끝난다 — 수집기가 줄 단위로 읽는다")
     void writesSingleLine() {
         String raw = formatter().format(event(Level.INFO, "여러\n줄\n메시지"));

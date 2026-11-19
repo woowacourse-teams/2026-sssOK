@@ -115,7 +115,7 @@ class GenerateThumbnailServiceTest {
                 }
             }
         }
-        uploaded = new LinkedHashMap<>();
+        uploaded = new java.util.concurrent.ConcurrentHashMap<>();
         // 영상 경로는 원본을 내려받는 대신 이 주소를 추출기에 넘긴다.
         given(fileStorage.presignGet(any(), anyString(), anyString(), any()))
             .willReturn("https://r2.example.com/원본?sig=아무거나");
@@ -495,7 +495,7 @@ class GenerateThumbnailServiceTest {
             StorageKey uploadKey = invocation.getArgument(0);
             ThumbnailJobJpaEntity job = thumbnailJobs.findById(file.getId()).orElseThrow();
 
-            assertThat(job.getThumbnailKey()).isEqualTo(uploadKey.value());
+            assertThat(uploadKey.value()).isIn(job.getThumbnailKey(), job.getPreviewKey());
             assertThat(job.getPreviewKey()).isNotNull();
             throw new RuntimeException("upload failed");
         }).when(fileStorage).upload(any(), any(byte[].class), anyString());

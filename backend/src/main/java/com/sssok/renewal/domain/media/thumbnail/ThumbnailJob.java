@@ -19,6 +19,7 @@ public class ThumbnailJob {
     private String errorCode;
     private String thumbnailKey;
     private String previewKey;
+    private ThumbnailTraceContext traceContext = ThumbnailTraceContext.EMPTY;
 
     public ThumbnailJob(Long mediaId, ThumbnailKind kind, Instant now) {
         this(mediaId, kind, ThumbnailJobStatus.initial(), 0, now, null, null, now, null, null, null, null);
@@ -47,6 +48,11 @@ public class ThumbnailJob {
                                            String thumbnailKey, String previewKey) {
         return new ThumbnailJob(mediaId, kind, status, attempts, availableAt, claimToken, leaseUntil,
             createdAt, completedAt, errorCode, thumbnailKey, previewKey);
+    }
+
+    public ThumbnailJob traced(ThumbnailTraceContext context) {
+        this.traceContext = context;
+        return this;
     }
 
     public void claim(Instant now, Instant until) {

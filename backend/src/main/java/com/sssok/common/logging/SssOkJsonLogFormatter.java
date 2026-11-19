@@ -59,6 +59,8 @@ public class SssOkJsonLogFormatter implements StructuredLogFormatter<ILoggingEve
         members.add(LogFields.ENVIRONMENT, environment);
 
         // 요청 스레드에서만 차는 값. 배치·워커 스레드 로그에는 없으므로 비어 있으면 통째로 뺀다.
+        members.add("traceId", event -> mdc(event, "traceId")).whenHasLength();
+        members.add("spanId", event -> mdc(event, "spanId")).whenHasLength();
         members.add(LogFields.REQUEST_ID, event -> mdc(event, LogFields.REQUEST_ID)).whenHasLength();
         members.add(LogFields.METHOD, event -> mdc(event, LogFields.METHOD)).whenHasLength();
         members.add(LogFields.PATH, event -> mdc(event, LogFields.PATH)).whenHasLength();

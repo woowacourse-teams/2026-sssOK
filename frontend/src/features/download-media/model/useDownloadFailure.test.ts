@@ -63,6 +63,28 @@ describe("useDownloadFailure", () => {
     expect(result.current.failure?.message).toBe("받지 못했어요");
   });
 
+  it("앱에서 사진첩 저장이 실패하면 네트워크 탓으로 말하지 않는다", () => {
+    const result = settled({
+      type: "saved",
+      savedCount: 55,
+      failed: [{ mediaId: 3, fileName: "3.jpg", status: 0, stage: "save" }],
+    });
+
+    expect(result.current.failure?.message).toBe("사진첩에 저장하지 못했어요");
+  });
+
+  it("상태 코드가 같아도 단계가 다르면 사유가 섞인 것으로 본다", () => {
+    const result = settled({
+      type: "empty",
+      failed: [
+        { mediaId: 1, fileName: "1.jpg", status: 0, stage: "save" },
+        { mediaId: 2, fileName: "2.jpg", status: 0, stage: "download" },
+      ],
+    });
+
+    expect(result.current.failure?.message).toBe("받지 못했어요");
+  });
+
   it("재시도 대상에서 없는 사진은 빼고 기다리면 되는 것만 남긴다", () => {
     const result = settled({
       type: "empty",
