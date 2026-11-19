@@ -1,15 +1,7 @@
 import { z } from "zod";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  Alert,
-  BackHandler,
-  Linking,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, BackHandler, Linking, StyleSheet, View } from "react-native";
+import { ConnectionErrorScreen } from "./ConnectionErrorScreen";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import {
@@ -212,21 +204,13 @@ export function SssokWebView({ onReady }: SssokWebViewProps) {
   return (
     <SafeAreaView style={styles.page}>
       {failed ? (
-        <View style={styles.message}>
-          <Text style={styles.title}>쏙에 연결하지 못했어요</Text>
-          <Text style={styles.description}>인터넷 연결을 확인하고 다시 시도해주세요.</Text>
-          <Pressable
-            accessibilityRole="button"
-            style={styles.button}
-            onPress={() => {
-              canGoBack.current = false;
-              setFailed(false);
-              setSourceUrl(lastInternalUrl.current);
-            }}
-          >
-            <Text style={styles.buttonText}>다시 시도</Text>
-          </Pressable>
-        </View>
+        <ConnectionErrorScreen
+          onRetry={() => {
+            canGoBack.current = false;
+            setFailed(false);
+            setSourceUrl(lastInternalUrl.current);
+          }}
+        />
       ) : (
         <WebView<object>
           ref={webView}
@@ -331,13 +315,4 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: "#FFFFFF",
   },
-  title: { fontSize: 20, fontWeight: "700", color: "#1A1A1A", textAlign: "center" },
-  description: { fontSize: 15, color: "#8B8781", textAlign: "center" },
-  button: {
-    backgroundColor: "#F66D3B",
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-  },
-  buttonText: { fontSize: 16, fontWeight: "600", color: "#FFFFFF" },
 });
