@@ -16,6 +16,8 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -86,6 +88,25 @@ class IssueUploadUrlsServiceTest {
 
         // 프론트가 확장자로 추측하면 서명값과 어긋나 스토리지가 403 을 준다.
         assertThat(result.issued().get(0).headers()).containsEntry("Content-Type", "image/jpeg");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"webp", "heic", "heif"})
+    void 추가_이미지_형식을_예약하고_동일한_MIME으로_서명한다(String extension) {
+        String mime = "image/" + extension;
+        IssueUploadUrlsResult result = issue(roomId, hostId,
+            List.of(new UploadCandidate("photo." + extension, mime, 1024L)), null);
+
+        assertThat(result.rejected()).isEmpty();
+        assertThat(result.issued()).hasSize(1);
+        UploadUrl issued = result.issued().getFirst();
+        assertThat(issued.headers()).containsEntry("Content-Type", mime);
+        var stored = fileRepository.findById(issued.mediaId()).orElseThrow();
+        assertThat(stored.getMediaType().isImage()).isTrue();
+        assertThat(stored.getStorageKey().value()).endsWith("." + extension);
+        org.mockito.Mockito.verify(fileStorage).presignPut(
+            org.mockito.ArgumentMatchers.eq(stored.getStorageKey()),
+            org.mockito.ArgumentMatchers.eq(mime), any(Duration.class));
     }
 
     @Test
