@@ -13,8 +13,7 @@ export {
 } from "./model/analyzablePhotos";
 export { type MyOrganizeJob, type OrganizeRequest, useOrganizeJob } from "./model/useOrganizeJob";
 export { OrganizeCancelSheet } from "./ui/OrganizeCancelSheet";
-export { OrganizeKindSheet } from "./ui/OrganizeKindSheet";
+export { OrganizeConfirmSheet } from "./ui/OrganizeConfirmSheet";
 export { OrganizeLimitModal } from "./ui/OrganizeLimitModal";
 export { OrganizeStatusBar } from "./ui/OrganizeStatusBar";
 export { type PersonReviewSource, PersonReviewScreen } from "./ui/PersonReviewScreen";
-export { SimilarReviewScreen } from "./ui/SimilarReviewScreen";

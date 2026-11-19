@@ -3,9 +3,10 @@ package com.sssok.renewal.application.media.thumbnail;
 import com.sssok.renewal.domain.media.thumbnail.ThumbnailClaim;
 import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.renewal.outgoing.storage.FileStorage;
+import com.sssok.renewal.outgoing.storage.ImageDerivativeUploader;
+import com.sssok.renewal.outgoing.storage.ThumbnailMediaStorage;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.CaptureInfo;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivativeSpec;
-import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivedImage;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor.DerivedImages;
 import com.sssok.renewal.outgoing.processing.image.ThumbnailatorImageProcessor;
 import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.ExtractedFrame;
@@ -13,8 +14,6 @@ import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor.Ext
 import com.sssok.renewal.outgoing.processing.video.FfmpegVideoFrameExtractor;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Result;
 import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics.Source;
-import com.sssok.renewal.outgoing.monitoring.MediaProcessingMetrics;
-import com.sssok.domain.file.DerivativeContentType;
 import com.sssok.domain.file.DerivativeFormat;
 import com.sssok.domain.file.MediaType;
 import com.sssok.domain.file.ProcessedMedia;
@@ -24,10 +23,6 @@ import com.sssok.domain.file.UploadStatus;
 import com.sssok.infrastructure.config.DerivativeImageProperties.Variant;
 import com.sssok.infrastructure.config.DerivativeImageProperties;
 import com.sssok.renewal.outgoing.config.VideoProperties;
-import io.micrometer.core.instrument.Timer;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -49,19 +44,10 @@ public class GenerateThumbnailService {
     private final DerivativeImageProperties imageProperties;
     private final VideoProperties videoProperties;
 
-    private final MediaProcessingMetrics metrics;
+    private final ThumbnailMediaStorage mediaStorage;
+    private final ImageDerivativeUploader derivativeUploader;
 
-    public void generate(ThumbnailClaim claimedJob, Source source) {
-        Timer.Sample processingTimer = metrics.start();
-        Result processingResult = Result.RETRYABLE;
-        try {
-            processingResult = generateAttempt(claimedJob);
-        } finally {
-            metrics.completed(processingTimer, claimedJob.kind(), source, processingResult);
-        }
-    }
-
-    private Result generateAttempt(ThumbnailClaim claimedJob) {
+    public Result generate(ThumbnailClaim claimedJob, Source source) {
         if (thumbnailJobService.renewLease(claimedJob) != ThumbnailJobService.Heartbeat.RENEWED) {
             return Result.SKIPPED;
         }
@@ -120,7 +106,7 @@ public class GenerateThumbnailService {
             return Result.SKIPPED;
         }
         try {
-            upload(thumbnailKey, extractedFrame.content(), DerivativeContentType.of(thumbnailKey));
+            mediaStorage.uploadThumbnail(thumbnailKey, extractedFrame.content());
 
             boolean completionAccepted = thumbnailJobCompletionService.complete(claimedJob, ProcessedMedia.ofVideo(
                 thumbnailKey, extractedFrame.width(), extractedFrame.height(), extractedFrame.durationSeconds(),
@@ -134,7 +120,7 @@ public class GenerateThumbnailService {
 
     private Result processImage(StoredFile storedFile, ThumbnailClaim claimedJob) {
         // 원본 다운로드 실패는 바깥에서 재시도 가능한 실패로 처리한다.
-        byte[] originalImageBytes = downloadOriginalImage(storedFile.getStorageKey());
+        byte[] originalImageBytes = mediaStorage.download(storedFile.getStorageKey());
 
         DerivativeFormat derivativeFormat = imageProperties.format();
         // 원본을 한 번만 디코딩하도록 썸네일과 프리뷰를 함께 생성한다.
@@ -162,10 +148,8 @@ public class GenerateThumbnailService {
             return Result.SKIPPED;
         }
         try {
-            upload(thumbnailKey, derivedImages.thumbnail());
-            if (previewKey != null) {
-                upload(previewKey, derivedImages.preview());
-            }
+            derivativeUploader.upload(thumbnailKey, derivedImages.thumbnail().content(),
+                previewKey, previewKey == null ? null : derivedImages.preview().content());
             CaptureInfo captureInfo = imageProcessor.readCaptureInfo(originalImageBytes);
             boolean completionAccepted = thumbnailJobCompletionService.complete(claimedJob, ProcessedMedia.ofImage(thumbnailKey, previewKey,
                 derivedImages.sourceWidth(), derivedImages.sourceHeight(), captureInfo.takenAt(), captureInfo.location()));
@@ -180,21 +164,4 @@ public class GenerateThumbnailService {
         return new DerivativeSpec(variant.maxWidth(), derivativeFormat, variant.quality());
     }
 
-    private void upload(StorageKey storageKey, DerivedImage derivedImage) {
-        upload(storageKey, derivedImage.content(), DerivativeContentType.of(storageKey));
-    }
-
-    // 크기가 제한된 이미지에만 사용한다. 영상 원본은 메모리에 올리지 않는다.
-    private byte[] downloadOriginalImage(StorageKey storageKey) {
-        try (InputStream downloadStream = fileStorage.openDownloadStream(storageKey)) {
-            return downloadStream.readAllBytes();
-        } catch (IOException failure) {
-            throw new UncheckedIOException(failure);
-        }
-    }
-
-    // 전송 방식과 멀티파트 중단은 스토리지 계층에서 책임진다.
-    private void upload(StorageKey storageKey, byte[] content, String contentType) {
-        fileStorage.upload(storageKey, content, contentType);
-    }
 }

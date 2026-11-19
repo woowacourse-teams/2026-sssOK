@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""서버의 기존 Grafana 자격증명으로 5개 자동 등록을 확인한다. 비밀값은 출력하지 않는다."""
+"""서버의 기존 Grafana 자격증명으로 7개 자동 등록을 확인한다. 비밀값은 출력하지 않는다."""
 import argparse
 import base64
 import json
@@ -38,7 +38,7 @@ if args.auth_only:
     print('기존 Grafana 인증 확인 완료')
 else:
     root = Path(__file__).resolve().parent
-    for name in ('host-overview', 'backend-overview', 'logs', 'media-transfer', 'log-transfer'):
+    for name in ('host-overview', 'backend-overview', 'logs', 'media-transfer', 'log-transfer', 'upload-stages', 'trace-overview'):
         dashboard = json.loads((root / (name + '.json')).read_text())
         for attempt in range(12):
             try:
@@ -52,4 +52,4 @@ else:
             time.sleep(3)
         else:
             raise SystemExit('자동 등록 확인 실패: ' + dashboard['uid'])
-    print('중앙 대시보드 5개 자동 등록 확인 완료')
+    print('중앙 대시보드 7개 자동 등록 확인 완료')

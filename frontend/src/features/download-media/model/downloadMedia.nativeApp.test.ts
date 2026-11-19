@@ -4,12 +4,17 @@ import { http, HttpResponse } from "msw";
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { captureException } from "@/shared/lib";
 import { PHOTO_PERMISSION_DENIED_MESSAGE } from "../lib/downloadErrorMessage";
 import { saveBlob } from "../lib/saveBlob";
 import { downloadMedia } from "./downloadMedia";
 import type { DownloadMode, DownloadTarget } from "./types";
 
 jest.mock("../lib/saveBlob", () => ({ saveBlob: jest.fn() }));
+jest.mock("@/shared/lib", () => ({
+  ...jest.requireActual("@/shared/lib"),
+  captureException: jest.fn(),
+}));
 
 jest.mock("../config", () => ({
   ...jest.requireActual("../config"),
@@ -168,6 +173,77 @@ describe("downloadMedia — 앱 웹뷰", () => {
     });
   });
 
+  /**
+   * 앱은 상태 코드가 없는 실패를 모두 0 으로 넘긴다. 단계가 없으면 받기가 끊긴 것과
+   * 사진첩이 거절한 것을 가를 수 없고, 웹이 남기지 않으면 원인이 어디에도 없다.
+   */
+  it("앱이 알려준 단계를 실패에 싣고 원래 메시지로 예외를 남긴다", async () => {
+    serveBatch();
+    asNativeApp(({ requestId }) =>
+      emit({
+        type: "download/done",
+        requestId,
+        result: "completed",
+        failed: [
+          { id: 1, status: 0, stage: "save", message: "PHPhotosErrorDomain error 3302" },
+          { id: 2, status: 0, stage: "download", message: "The network connection was lost." },
+        ],
+      }),
+    );
+
+    const outcome = await run([targetOf(1), targetOf(2), targetOf(3)], "share");
+
+    expect(outcome).toEqual({
+      type: "saved",
+      savedCount: 1,
+      failed: [
+        { mediaId: 1, fileName: "IMG_1.jpg", status: 0, stage: "save" },
+        { mediaId: 2, fileName: "IMG_2.jpg", status: 0, stage: "download" },
+      ],
+    });
+    expect(captureException).toHaveBeenCalledWith(
+      new Error("PHPhotosErrorDomain error 3302"),
+      expect.objectContaining({
+        operation: "download.native_save",
+        status: 0,
+        code: "NATIVE_SAVE_FAILED",
+      }),
+    );
+    expect(captureException).toHaveBeenCalledWith(
+      new Error("The network connection was lost."),
+      expect.objectContaining({ code: "NATIVE_DOWNLOAD_FAILED" }),
+    );
+  });
+
+  it("단계를 모르는 예전 앱이나 모르는 단계가 와도 답을 버리지 않는다", async () => {
+    serveBatch();
+    asNativeApp(({ requestId }) =>
+      emit({
+        type: "download/done",
+        requestId,
+        result: "completed",
+        failed: [
+          { id: 1, status: 0 },
+          { id: 2, status: 0, stage: "teleport" },
+        ],
+      }),
+    );
+
+    const outcome = await run([targetOf(1), targetOf(2)], "share");
+
+    expect(outcome).toEqual({
+      type: "empty",
+      failed: [
+        { mediaId: 1, fileName: "IMG_1.jpg", status: 0 },
+        { mediaId: 2, fileName: "IMG_2.jpg", status: 0 },
+      ],
+    });
+    expect(captureException).toHaveBeenCalledWith(
+      expect.any(Error),
+      expect.objectContaining({ code: "NATIVE_UNKNOWN_FAILED" }),
+    );
+  });
+
   it("사진첩 권한을 거절하면 다시 눌러도 같은 실패로 알린다", async () => {
     serveBatch();
     asNativeApp(({ requestId }) =>
@@ -245,5 +321,122 @@ describe("downloadMedia — 앱 웹뷰", () => {
     expect(outcome).toMatchObject({ type: "saved", savedCount: 1 });
     expect(sent).toHaveLength(0);
     expect(saveBlob).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("downloadMedia — 앱 웹뷰, 요청 나누기", () => {
+  const fourTargets = [targetOf(1), targetOf(2), targetOf(3), targetOf(4)];
+  const idsOf = (message: SentMessage): number[] => (message.files ?? []).map(({ id }) => id);
+
+  it("3장 이하는 요청 하나로 보낸다", async () => {
+    serveBatch();
+    const sent = asNativeApp(({ requestId }) =>
+      emit({ type: "download/done", requestId, result: "completed", failed: [] }),
+    );
+
+    await run([targetOf(1), targetOf(2), targetOf(3)], "share");
+
+    expect(sent).toHaveLength(1);
+  });
+
+  it("4장 이상은 번갈아 두 요청으로 나누고, 두 번째는 첫 요청이 받기 시작한 뒤에 보낸다", async () => {
+    serveBatch();
+    const sent = asNativeApp(({ requestId, files }) => {
+      const [firstFile] = files ?? [];
+
+      emit({ type: "download/progress", requestId, id: firstFile.id, loaded: 1, total: 10 });
+      setTimeout(
+        () => emit({ type: "download/done", requestId, result: "completed", failed: [] }),
+        0,
+      );
+    });
+
+    const outcome = await run(fourTargets, "share");
+
+    expect(outcome).toEqual({ type: "saved", savedCount: 4, failed: [] });
+    expect(sent.map(idsOf)).toEqual([
+      [1, 3],
+      [2, 4],
+    ]);
+    expect(sent[0].requestId).not.toBe(sent[1].requestId);
+  });
+
+  it("첫 요청이 사진첩 권한을 거절당하면 두 번째 요청을 보내지 않는다", async () => {
+    serveBatch();
+    const sent = asNativeApp(({ requestId }) =>
+      emit({ type: "download/done", requestId, result: "permissionDenied", failed: [] }),
+    );
+
+    const outcome = await run(fourTargets, "share");
+
+    expect(outcome).toEqual({
+      type: "failed",
+      reason: PHOTO_PERMISSION_DENIED_MESSAGE,
+      isRetryable: false,
+    });
+    expect(sent).toHaveLength(1);
+  });
+
+  it("두 요청의 실패를 합쳐 알린다", async () => {
+    serveBatch();
+    asNativeApp(({ requestId, files }) => {
+      const [firstFile] = files ?? [];
+
+      emit({ type: "download/saved", requestId, id: firstFile.id });
+      setTimeout(
+        () =>
+          emit({
+            type: "download/done",
+            requestId,
+            result: "completed",
+            failed: [{ id: firstFile.id + 2, status: 403, stage: "download" }],
+          }),
+        0,
+      );
+    });
+
+    const outcome = await run(fourTargets, "share");
+
+    expect(outcome).toEqual({
+      type: "saved",
+      savedCount: 2,
+      failed: [
+        { mediaId: 3, fileName: "IMG_3.jpg", status: 403, stage: "download" },
+        { mediaId: 4, fileName: "IMG_4.jpg", status: 403, stage: "download" },
+      ],
+    });
+  });
+
+  it("취소하면 두 요청 모두에 그만두라고 알린다", async () => {
+    serveBatch();
+    const controller = new AbortController();
+    const sent = asNativeApp((message) => {
+      if (message.type !== "download/save") return;
+
+      if (message.files?.[0].id === 1) {
+        emit({
+          type: "download/progress",
+          requestId: message.requestId,
+          id: 1,
+          loaded: 1,
+          total: 10,
+        });
+        return;
+      }
+
+      controller.abort();
+    });
+
+    const outcome = await run(fourTargets, "share", { signal: controller.signal });
+
+    expect(outcome).toEqual({ type: "aborted" });
+    const cancelled = sent
+      .filter(({ type }) => type === "download/cancel")
+      .map(({ requestId }) => requestId);
+    const saved = sent
+      .filter(({ type }) => type === "download/save")
+      .map(({ requestId }) => requestId);
+
+    expect(cancelled.sort()).toEqual(saved.sort());
   });
 });

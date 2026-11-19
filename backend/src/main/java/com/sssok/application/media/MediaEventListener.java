@@ -3,9 +3,7 @@ package com.sssok.application.media;
 import static com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics.Stage.CREATED_PUBLISH;
 
 import com.sssok.application.port.out.EventPublisherPort;
-import com.sssok.renewal.outgoing.database.UploadFileRepository;
 import com.sssok.renewal.outgoing.monitoring.UploadRegistrationMetrics;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -21,8 +19,7 @@ public class MediaEventListener {
 
     private final UploadRegistrationMetrics metrics;
     private final EventPublisherPort eventPublisher;
-    private final UploadFileRepository uploadFileRepository;
-    private final MediaDetailAssembler mediaDetailAssembler;
+    private final ReadyMediaReader readyMediaReader;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -37,8 +34,7 @@ public class MediaEventListener {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(MediaReadyEvent event) {
-        uploadFileRepository.findById(event.mediaId())
-            .map(file -> mediaDetailAssembler.assembleForList(List.of(file), null).get(0))
+        readyMediaReader.read(event.mediaId())
             .ifPresent(media -> eventPublisher.publish(event.roomId(), "media.ready", media));
     }
 

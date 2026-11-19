@@ -60,7 +60,9 @@ public class MediaUploadController {
         return ApiResponse.of(ReissueUploadUrlResponse.from(result));
     }
 
-    @Operation(summary = "업로드 완료 등록")
+    @Operation(summary = "업로드 완료 등록", description = "같은 mediaId로 재요청하면 이미 등록된 PROCESSING·READY 미디어는 "
+        + "현재 정보를 registered에 반환하고 작업·이벤트를 다시 생성하지 않는다. 중복 ID는 첫 등장 순서로 한 번 처리한다. "
+        + "FAILED는 저장소를 다시 검증해 기존 재등록 규칙을 따른다. 모든 성공 응답은 기존처럼 201이다.")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<CompleteUploadResponse> completeUpload(

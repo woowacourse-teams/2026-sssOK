@@ -64,3 +64,10 @@ describe("usePendingMedia", () => {
     expect(result.current.uploadSlots.map((item) => item.folderIds)).toEqual([[20], [10]]);
   });
 });
+
+it("목록 썸네일과 상세 뷰어용 원본을 별도로 유지한다", () => {
+  const previewBlob = new Blob(["thumbnail"], { type: "image/webp" });
+  const { result } = renderHook(() => usePendingMedia());
+  act(() => result.current.addPendingMedia({ mediaId: 1, file, previewBlob, folderIds: [10] }));
+  expect(result.current.uploadSlots[0]).toMatchObject({ file, previewBlob, folderIds: [10] });
+});

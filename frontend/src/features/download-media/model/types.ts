@@ -1,3 +1,5 @@
+import type { NativeFailureStage } from "../lib/nativeApp";
+
 /**
  * 받는 방식. 시트에서 사용자가 고른다 (003-selection-download "골라서 받기").
  *
@@ -22,6 +24,8 @@ export interface FailedDownload {
   fileName: string;
   /** 0 이면 응답 자체를 못 받은 것이다 (회선 끊김·CORS 차단). */
   status: number;
+  /** 앱에서 받은 판만 있다. 같은 0 이라도 받기 실패와 사진첩 저장 실패를 가른다. */
+  stage?: NativeFailureStage;
 }
 
 /**

@@ -34,9 +34,10 @@ public class CompleteUploadValidator {
         // 요청 순서를 유지한다. DB 에 없는 ID 는 null 로 남겨 MEDIA_NOT_FOUND 로 거절한다.
         Map<Long, StoredFile> filesById = foundFiles.stream()
             .collect(Collectors.toMap(StoredFile::getId, Function.identity()));
-        List<StoredFile> requestedFiles = command.mediaIds().stream().map(filesById::get).toList();
+        List<Long> requestedIds = command.mediaIds().stream().distinct().toList();
+        List<StoredFile> requestedFiles = requestedIds.stream().map(filesById::get).toList();
         List<UploadRejectionReason> rejections = headWorkers.map(requestedFiles,
-            file -> file == null ? UploadRejectionReason.MEDIA_NOT_FOUND : verifyUploaded(file));
+            file -> verifyInRoom(file, command.roomId()));
 
         List<StoredFile> verifiedFiles = new ArrayList<>();
         List<FailedMedia> failedMedia = new ArrayList<>();
@@ -45,7 +46,7 @@ public class CompleteUploadValidator {
             if (rejection == null) {
                 verifiedFiles.add(requestedFiles.get(i));
             } else {
-                failedMedia.add(FailedMedia.of(command.mediaIds().get(i), rejection));
+                failedMedia.add(FailedMedia.of(requestedIds.get(i), rejection));
             }
         }
 
@@ -60,8 +61,19 @@ public class CompleteUploadValidator {
         }
     }
 
+    private UploadRejectionReason verifyInRoom(StoredFile file, Long roomId) {
+        if (file == null || !file.getRoomId().equals(roomId)) {
+            return UploadRejectionReason.MEDIA_NOT_FOUND;
+        }
+        return verifyUploaded(file);
+    }
+
     // 발급 때 신고한 값과 실제로 올라온 것이 다르면 거부한다. 통과하면 null 이다.
     private UploadRejectionReason verifyUploaded(StoredFile file) {
+        // 등록 완료분은 DB 상태를 신뢰한다. 재요청 때문에 R2 장애에 다시 종속되지 않는다.
+        if (file.getStatus().isVisible()) {
+            return null;
+        }
         Optional<UploadedObject> uploaded = metrics.measure(STORAGE_HEAD,
             () -> fileStorage.findUploaded(file.getStorageKey()));
         if (uploaded.isEmpty()) {

@@ -9,6 +9,9 @@ import { refreshMemberSession } from "../api/refreshMemberSession";
 /** 로그인 완료 시에도 이 키에 서버가 발급한 회원 세션을 저장한다. */
 export const MEMBER_SESSION_QUERY_KEY = ["member-session"] as const;
 
+/** setTimeout 이 기다릴 수 있는 가장 긴 시간(2^31 - 1ms). */
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+
 export const memberSessionQueryOptions = (): ReturnType<
   typeof queryOptions<
     MemberSession | null,
@@ -43,7 +46,9 @@ export const memberSessionQueryOptions = (): ReturnType<
     },
     refetchInterval: (query) => {
       if (query.state.status === "error" || !query.state.data) return false;
-      return Math.max(1000, Date.parse(query.state.data.expiresAt) - Date.now() - 60_000);
+      const untilRefresh = Date.parse(query.state.data.expiresAt) - Date.now() - 60_000;
+      // 타이머는 약 24.8일보다 길게 기다리지 못한다. 넘기면 기다리지 않고 바로 실행된다.
+      return Math.min(MAX_TIMER_DELAY_MS, Math.max(1000, untilRefresh));
     },
     gcTime: Infinity,
   });

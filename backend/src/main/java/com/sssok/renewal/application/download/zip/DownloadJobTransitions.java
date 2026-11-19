@@ -6,6 +6,7 @@ import com.sssok.domain.file.StorageKey;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 // 워커 안에서 직접 부르면 자기 호출이라 @Transactional 이 무시돼 별도 빈으로 뺐다.
@@ -42,6 +43,11 @@ class DownloadJobTransitions {
         DownloadJob job = get(jobId);
         job.markFailed(reason);
         downloadJobRepository.save(job);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    void markRejected(Long jobId, String reason) {
+        markFailed(jobId, reason);
     }
 
     private DownloadJob get(Long jobId) {

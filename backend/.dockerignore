@@ -1,5 +1,6 @@
 build/*
 !build/libs
+!build/native-image-test
 .gradle/
 .idea/
 *.iml

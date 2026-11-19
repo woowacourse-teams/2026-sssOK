@@ -151,6 +151,12 @@ jobs:
           # WebMvcTest(별도 @ActiveProfiles("test") 없이 도는 슬라이스)의 CORS 테스트가 통과하게 한다.
           CORS_ALLOWED_ORIGINS: http://localhost:3000
 
+      - name: libvips JNI 계약 검증
+        if: github.event_name != 'push'
+        run: |
+          ./gradlew prepareNativeImageTest --build-cache
+          docker build --target native-test -t sssok-native-test .
+
       - name: 공통 컴파일 캐시 갱신
         if: github.event_name == 'push'
         run: ./gradlew classes testClasses --build-cache

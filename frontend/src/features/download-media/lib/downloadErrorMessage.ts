@@ -20,6 +20,9 @@ const MESSAGE_BY_STATUS: Record<number, string> = {
 /** 앱에서 사진첩 쓰기를 거절당했을 때. 다시 눌러도 설정에서 켜기 전에는 똑같다. */
 export const PHOTO_PERMISSION_DENIED_MESSAGE = "사진 접근을 허용해야 사진첩에 저장할 수 있어요";
 
+/** 앱에서 받은 파일을 사진첩이 받아주지 않았을 때. 회선 문제가 아니라 다시 받아도 같을 수 있다. */
+export const PHOTO_SAVE_FAILED_MESSAGE = "사진첩에 저장하지 못했어요";
+
 /** 사유를 특정할 수 없을 때. 섞인 실패와 모르는 상태 코드가 여기로 온다. */
 export const DOWNLOAD_FALLBACK_MESSAGE = "받지 못했어요";
 
@@ -35,6 +38,23 @@ export const downloadMessageOfStatus = (status: number): string =>
   MESSAGE_BY_STATUS[status] ?? DOWNLOAD_FALLBACK_MESSAGE;
 
 export const isRetryableStatus = (status: number): boolean => RETRYABLE_STATUSES.includes(status);
+
+/**
+ * 실패 한 건의 문구. 앱이 단계를 알려준 실패는 상태 코드보다 단계를 먼저 본다 —
+ * 앱은 코드가 없는 실패를 모두 0 으로 넘겨서, 코드만 보면 전부 "네트워크" 로 읽힌다.
+ */
+export const downloadMessageOfFailure = ({
+  status,
+  stage,
+}: {
+  status: number;
+  stage?: "download" | "save" | "share";
+}): string => {
+  if (stage === "save") return PHOTO_SAVE_FAILED_MESSAGE;
+  if (stage === "share") return DOWNLOAD_FALLBACK_MESSAGE;
+
+  return downloadMessageOfStatus(status);
+};
 
 /**
  * 던져진 예외에서 문구를 뽑는다. `ApiError` 가 아니면 상태 코드를 알 수 없으니

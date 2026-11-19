@@ -2,6 +2,7 @@ import { ApiError } from "@/shared/api";
 import {
   DOWNLOAD_FALLBACK_MESSAGE,
   downloadMessageOfError,
+  downloadMessageOfFailure,
   downloadMessageOfStatus,
   isRetryableError,
   isRetryableStatus,
@@ -24,6 +25,22 @@ describe("downloadMessageOfStatus", () => {
 
   it("모르는 상태 코드에 그럴듯한 사유를 붙이지 않는다", () => {
     expect(downloadMessageOfStatus(503)).toBe(DOWNLOAD_FALLBACK_MESSAGE);
+  });
+});
+
+describe("downloadMessageOfFailure", () => {
+  it("앱이 알려준 단계를 상태 코드보다 먼저 본다", () => {
+    expect(downloadMessageOfFailure({ status: 0, stage: "save" })).toBe(
+      "사진첩에 저장하지 못했어요",
+    );
+    expect(downloadMessageOfFailure({ status: 0, stage: "share" })).toBe(DOWNLOAD_FALLBACK_MESSAGE);
+  });
+
+  it("받기에서 실패했거나 단계를 모르면 상태 코드로 가른다", () => {
+    expect(downloadMessageOfFailure({ status: 0, stage: "download" })).toBe(
+      downloadMessageOfStatus(0),
+    );
+    expect(downloadMessageOfFailure({ status: 404 })).toBe("찾을 수 없어요");
   });
 });
 

@@ -18,7 +18,7 @@ import notifications
 FILES = ('compose.yml', 'compose.web.yml', 'prometheus.yml', 'rules.yml',
          'alertmanager.yml', 'loki.yml', 'datasources.yml', 'dashboards.yml', 'nginx.conf',
          'host-overview.json', 'backend-overview.json', 'logs.json', 'media-transfer.json',
-         'log-transfer.json', 'check.sh', 'check-alerts.py', 'verify-dashboards.py',
+         'log-transfer.json', 'upload-stages.json', 'trace-overview.json', 'check.sh', 'check-alerts.py', 'verify-dashboards.py',
          'compose.discord.yml', 'notifications.py')
 # systemd timer로 실행하는 보고 작업. 컨테이너가 아니므로 SERVICES와 무관하다.
 REPORT_FILES = tuple('ops_report/' + name for name in (

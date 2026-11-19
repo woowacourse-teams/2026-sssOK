@@ -34,6 +34,8 @@ export interface UploadedFile {
 export interface PendingMedia {
   mediaId: number;
   file: File;
+  /** 목록 전용. 원본 업로드·상세 뷰어는 file을 사용한다. */
+  previewBlob?: Blob;
   folderIds: number[];
 }
 
@@ -114,7 +116,7 @@ export interface UploadFilesOptions {
    * 재발급받아 처음부터 다시 올라가는 파일이 있다.
    */
   onUploaded?: (uploaded: UploadedFile) => void;
-  /** PUT이 끝난 파일을 로컬 미리보기에 전달한다. */
+  /** PUT 성공 후 썸네일(실패 시 원본)을 로컬 미리보기에 전달한다. */
   onPreviewReady?: (media: PendingMedia) => void;
   /**
    * 중단하면 진행 중인 PUT 이 실제로 끊기고, 대기 중이던 파일은 출발하지 않는다.

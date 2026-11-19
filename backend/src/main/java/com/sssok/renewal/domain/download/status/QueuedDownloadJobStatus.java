@@ -15,4 +15,9 @@ public final class QueuedDownloadJobStatus implements DownloadJobStatus {
     public DownloadJobStatus run() {
         return RunningDownloadJobStatus.INSTANCE;
     }
+
+    @Override
+    public DownloadJobStatus fail() {
+        return FailedDownloadJobStatus.INSTANCE;
+    }
 }

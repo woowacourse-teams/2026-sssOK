@@ -31,6 +31,11 @@ public class ThumbnailJobRepository {
         return jpaRepository.claimable(kind.name(), now).map(ThumbnailJobJpaEntity::toDomain);
     }
 
+    // 새 작업 등록 경계. 실행 중 상태 저장과 구분한다.
+    public void enqueue(ThumbnailJob job) {
+        save(job);
+    }
+
     public void save(ThumbnailJob job) {
         jpaRepository.save(new ThumbnailJobJpaEntity(job));
     }

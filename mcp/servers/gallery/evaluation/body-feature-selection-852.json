@@ -1,0 +1,31 @@
+{
+  "scope": "Local ARM64 Docker, CPU 2, 1400MiB, no network/healthcheck; normal service cleanup; each mode cold1 + warm3; sampled memory 100ms; classification equality compares groups/photos/methods/counts/unassigned/errors, not scores. Separate experiment from #851; do not add percentage gains.",
+  "results": [
+    {
+      "photos": 41,
+      "worker_only_warm_median_seconds": 8.784145711979363,
+      "combined_warm_median_seconds": 7.891851502994541,
+      "additional_reduction_percent": 10.158007827305926,
+      "body_stage_before_seconds": 1.4451,
+      "body_stage_after_seconds": 0.0023,
+      "features_before": 41,
+      "features_after": 0,
+      "worker_only_peak_container_mib": 963.9609375,
+      "combined_peak_container_mib": 911.15234375,
+      "all_classifications_equal": true
+    },
+    {
+      "photos": 62,
+      "worker_only_warm_median_seconds": 12.482321129995398,
+      "combined_warm_median_seconds": 12.218738130002748,
+      "additional_reduction_percent": 2.1116505275549424,
+      "body_stage_before_seconds": 3.0662,
+      "body_stage_after_seconds": 2.5141,
+      "features_before": 85,
+      "features_after": 68,
+      "worker_only_peak_container_mib": 948.39453125,
+      "combined_peak_container_mib": 942.2578125,
+      "all_classifications_equal": true
+    }
+  ]
+}

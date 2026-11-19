@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GalleryItem } from "@/entities/media";
 import { type SearchType, type Uploader, useMediaSearchQuery } from "@/features/search-media";
 import { isApiError } from "@/shared/api";
-import { track } from "@/shared/lib";
+import { track, withSubjectParticle } from "@/shared/lib";
 
 interface UseGallerySearchParams {
   roomId: number;
@@ -78,7 +78,7 @@ export const useGallerySearch = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchType, setSearchType] = useState<SearchType>("keyword");
   const [query, setQuery] = useState("");
-  // 요청 패널에서 고른 올린 사람. 이름을 직접 입력해 찾을 때는 null 이다.
+  // 검색 제안에서 고른 올린 사람. 사진 내용으로 찾을 때는 null 이다.
   const [uploaderId, setUploaderId] = useState<number | null>(null);
   const [submitCount, setSubmitCount] = useState(0);
   const pendingRef = useRef<PendingSubmission | null>(null);
@@ -140,8 +140,12 @@ export const useGallerySearch = ({
 
   const uploaders = useMemo(() => collectUploaders(allItems, userId), [allItems, userId]);
 
-  // 결과를 보는 동안 입력창에 남겨 둘 글
-  const appliedText = isSearching ? query : null;
+  // 결과를 보는 동안 입력창에 남겨 둘 글. 올린 사람으로 찾을 때는 "소이가 올린 사진" 처럼 보여 준다.
+  const appliedText = !isSearching
+    ? null
+    : uploaderId === null
+      ? query
+      : `${uploaderId === userId ? "내가" : withSubjectParticle(query)} 올린 사진`;
 
   const errorMessage =
     isApiError(searchQuery.error) && searchQuery.error.code === "IMAGE_SEARCH_UNAVAILABLE"
@@ -208,7 +212,7 @@ export const useGallerySearch = ({
       pendingRef.current = { query: nextQuery, startedAt: performance.now() };
       setSubmitCount((count) => count + 1);
     },
-    /** 요청 패널에서 고른 사람이 올린 사진만 찾는다. 입력창에는 그 사람 이름을 남긴다. */
+    /** 검색 제안에서 고른 사람이 올린 사진만 찾는다. 입력창에는 "○○가 올린 사진" 을 남긴다. */
     searchByUploader: (uploader: Pick<Uploader, "id" | "name">) => {
       pendingRef.current = null;
       setSearchType("nickname");
