@@ -509,9 +509,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           items={viewerItems}
           activeMediaId={activeMediaId}
           roomId={room.roomId}
-          userId={userId}
           hostId={room.hostId}
-          token={accessToken}
           selectedPhotoIds={selectedPhotoIds}
           onChange={setActiveMediaId}
           onClose={() => setActiveMediaId(null)}
