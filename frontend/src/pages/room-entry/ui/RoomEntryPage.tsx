@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 
 import { useRoomQuery } from "@/entities/room";
-import { useRoomSession } from "@/entities/member-session";
+import { useRoomSession, useStartDestination } from "@/entities/member-session";
 import { removeRoomSession } from "@/entities/session";
 import { NameEntryBottomSheet } from "@/features/join-room";
 import { isApiError } from "@/shared/api";
@@ -17,7 +17,14 @@ const ERROR_MESSAGE: Record<string, string> = {
   ROOM_NOT_FOUND: "존재하지 않는 방이에요.",
 };
 
-const HomeLink = () => <Link to={ROUTES.home}>홈으로 돌아가기</Link>;
+const HomeLink = () => {
+  const start = useStartDestination();
+  return (
+    <Link to={start.to} reloadDocument={start.kind === "landing"}>
+      {start.kind === "rooms" ? "내 방 목록으로 돌아가기" : "홈으로 돌아가기"}
+    </Link>
+  );
+};
 
 /**
  * 방에 들어온 경로. 코드를 직접 입력하는 화면은 이 페이지로 보낼 때

@@ -55,7 +55,7 @@ export const NameEntryForm = ({ onSubmit, isPending = false }: NameEntryFormProp
           countLabel={`최대 ${MAX_NAME_LENGTH}자 중 ${name.length}자 입력`}
           onValueChange={setName}
           disabled={isPending}
-          autoFocus
+          data-autofocus
         />
 
         <Button type="submit" size="sm" disabled={!canSubmit} aria-label={buttonLabel}>

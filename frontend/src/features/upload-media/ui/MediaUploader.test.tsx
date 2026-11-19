@@ -307,7 +307,7 @@ describe("MediaUploader", () => {
     const user = userEvent.setup();
 
     renderUploader();
-    await user.upload(getFileInput(), [fileOf("IMG_0001.HEIC")]);
+    await user.upload(getFileInput(), [fileOf("IMG_0001.DNG")]);
     await user.click(screen.getByRole("button", { name: "확인" }));
 
     expect(screen.queryByRole("heading", { name: /올릴 수 없|너무 커/ })).not.toBeInTheDocument();
@@ -319,14 +319,13 @@ describe("MediaUploader", () => {
     renderUploader();
     await user.upload(getFileInput(), [
       fileOf("a.jpg"),
-      // 사파리는 파일명이 .HEIC 인데 image/jpeg 를 실어 보내기도 한다
-      fileOf("IMG_0001.HEIC"),
+      fileOf("IMG_0001.DNG"),
       fileOf("big.png", MAX_IMAGE_BYTES + 1, "image/png"),
     ]);
 
     // 사유가 섞였으므로 제목은 어느 한쪽으로 단정하지 않는다.
     expect(screen.getByRole("heading", { name: "2장은 올릴 수 없어요" })).toBeInTheDocument();
-    expect(screen.getByText(/IMG_0001\.HEIC/)).toBeInTheDocument();
+    expect(screen.getByText(/IMG_0001\.DNG/)).toBeInTheDocument();
     expect(screen.getByText("지원 안 함")).toBeInTheDocument();
     expect(screen.getByText("용량 초과")).toBeInTheDocument();
 
@@ -341,11 +340,11 @@ describe("MediaUploader", () => {
     const user = userEvent.setup();
 
     renderUploader();
-    await user.upload(getFileInput(), [fileOf("IMG_0001.HEIC"), fileOf("IMG_0002.HEIC")]);
+    await user.upload(getFileInput(), [fileOf("IMG_0001.DNG"), fileOf("IMG_0002.DNG")]);
 
     expect(screen.getByRole("heading", { name: "올릴 수 없는 형식이에요" })).toBeInTheDocument();
-    expect(screen.getByText(/IMG_0001\.HEIC/)).toBeInTheDocument();
-    expect(screen.getByText(/IMG_0002\.HEIC/)).toBeInTheDocument();
+    expect(screen.getByText(/IMG_0001\.DNG/)).toBeInTheDocument();
+    expect(screen.getByText(/IMG_0002\.DNG/)).toBeInTheDocument();
   });
 
   it("용량만 넘었으면 제목이 그 사유를 그대로 말한다", async () => {

@@ -10,7 +10,7 @@ import { OnboardingSection } from "./OnboardingSection";
 
 const renderSection = (): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter([{ path: "*", element: <OnboardingSection /> }], {
-    initialEntries: [ROUTES.home],
+    initialEntries: ["/"],
   });
   render(<RouterProvider router={router} />);
   return router;

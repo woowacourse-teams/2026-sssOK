@@ -1,4 +1,4 @@
-const configuredUrl = process.env.EXPO_PUBLIC_WEB_URL || "https://www.ssssok.com/home";
+const configuredUrl = process.env.EXPO_PUBLIC_WEB_URL || "https://www.ssssok.com/rooms";
 const parsedUrl = new URL(configuredUrl);
 
 if (parsedUrl.protocol !== "https:" && !(__DEV__ && parsedUrl.protocol === "http:")) {
