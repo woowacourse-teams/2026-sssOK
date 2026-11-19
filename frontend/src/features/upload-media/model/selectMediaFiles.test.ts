@@ -35,9 +35,13 @@ describe("selectMediaFiles", () => {
 
   it("확장자로 판별한다 — 아이폰이 넘겨준 mimeType 은 보지 않는다", () => {
     // 사파리는 파일명이 .HEIC 인데 image/jpeg 를 실어 보내기도 한다
-    const { accepted, rejected } = selectMediaFiles([fileOf("IMG_0001.HEIC", 1024, "image/jpeg")]);
+    const { accepted, rejected } = selectMediaFiles([
+      fileOf("IMG_0001.HEIC", 1024, "image/jpeg"),
+      fileOf("IMG_0002.DNG", 1024, "image/jpeg"),
+    ]);
 
-    expect(accepted).toEqual([]);
+    expect(accepted.map((file) => file.name)).toEqual(["IMG_0001.HEIC"]);
+    expect(rejected.map((file) => file.fileName)).toEqual(["IMG_0002.DNG"]);
     expect(rejected[0].code).toBe("UNSUPPORTED_MEDIA_TYPE");
   });
 

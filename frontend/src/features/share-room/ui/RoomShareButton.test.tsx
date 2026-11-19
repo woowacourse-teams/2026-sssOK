@@ -2,7 +2,6 @@ import { fireEvent, screen } from "@testing-library/react";
 import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 
-import { saveRoomSession } from "@/entities/session";
 import { track } from "@/shared/lib/analytics";
 import { RoomShareButton } from "./RoomShareButton";
 
@@ -17,14 +16,6 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>): Promise<void>
   render(<RoomShareButton roomCode={ROOM_CODE} />);
   await user.click(screen.getByRole("button", { name: "방 공유 메뉴 열기" }));
 };
-
-const saveSession = (accessToken = "mock-token-10234"): void =>
-  saveRoomSession(ROOM_CODE, {
-    accessToken,
-    userId: 10234,
-    nickname: "민수",
-    expiresAt: "2099-01-01T00:00:00Z",
-  });
 
 beforeEach(() => localStorage.clear());
 
@@ -107,69 +98,24 @@ describe("RoomShareButton 공유 이벤트", () => {
     expect(screen.getByText("7K93 QX2S")).toBeInTheDocument();
   });
 
-  it("다른 기기에서 이어하기 링크를 복사하면 기기 연결 링크 복사를 남긴다", async () => {
-    saveSession();
-    const user = userEvent.setup();
-    await openMenu(user);
-
-    await user.click(screen.getByRole("menuitem", { name: /다른 기기에서 이어하기/ }));
-
-    expect(await screen.findByText("다른 기기에서 이어할 링크를 복사했어요.")).toBeInTheDocument();
-    expect(track).toHaveBeenCalledWith("Device Link Copied", { is_success: true });
-  });
-
-  it("탭한 버튼이 포커스를 받지 않아도 메뉴가 먼저 닫히지 않고 이어하기 링크를 복사한다", async () => {
-    saveSession();
+  it("탭한 버튼이 포커스를 받지 않아도 메뉴가 먼저 닫히지 않는다", async () => {
     const user = userEvent.setup();
     await openMenu(user);
 
     fireEvent.blur(screen.getByRole("menuitem", { name: /링크 공유/ }), { relatedTarget: null });
-    await user.click(screen.getByRole("menuitem", { name: /다른 기기에서 이어하기/ }));
+    await user.click(screen.getByRole("menuitem", { name: /QR 코드 공유/ }));
 
-    expect(await screen.findByText("다른 기기에서 이어할 링크를 복사했어요.")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("ClipboardItem을 지원하면 링크를 받아오기 전에 복사를 시작한다", async () => {
-    saveSession();
-    const user = userEvent.setup();
-    class MockClipboardItem {
-      items: Record<string, Promise<Blob>>;
-      constructor(items: Record<string, Promise<Blob>>) {
-        this.items = items;
-      }
-    }
-    Object.defineProperty(globalThis, "ClipboardItem", {
-      value: MockClipboardItem,
-      configurable: true,
-    });
-    const write = jest.spyOn(navigator.clipboard, "write").mockResolvedValue();
-    const writeText = jest.spyOn(navigator.clipboard, "writeText");
-
-    try {
-      await openMenu(user);
-      await user.click(screen.getByRole("menuitem", { name: /다른 기기에서 이어하기/ }));
-
-      expect(
-        await screen.findByText("다른 기기에서 이어할 링크를 복사했어요."),
-      ).toBeInTheDocument();
-      expect(writeText).not.toHaveBeenCalled();
-      const item = write.mock.calls[0][0][0] as unknown as MockClipboardItem;
-      const copied = await (await item.items["text/plain"]).text();
-      expect(copied).toBe(`${window.location.origin}/join/${ROOM_CODE}?linkCode=483920`);
-    } finally {
-      Reflect.deleteProperty(globalThis, "ClipboardItem");
-    }
-  });
-
-  it("이어하기 링크를 받아오지 못하면 실패 토스트를 띄운다", async () => {
-    saveSession("invalid-token");
+  it("다른 기기에서 이어하기 항목은 보이지 않는다", async () => {
     const user = userEvent.setup();
     await openMenu(user);
 
-    await user.click(screen.getByRole("menuitem", { name: /다른 기기에서 이어하기/ }));
-
-    expect(await screen.findByText(/이어하기 링크를 만들지 못했어요/)).toBeInTheDocument();
-    expect(track).toHaveBeenCalledWith("Device Link Copied", { is_success: false });
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+    expect(
+      screen.queryByRole("menuitem", { name: /다른 기기에서 이어하기/ }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -191,4 +137,63 @@ it("복사를 재시도하는 동안 이전 실패 안내를 닫는다", async (
   expect(screen.queryByText(/링크를 복사하지 못했어요/)).not.toBeInTheDocument();
   finish();
   expect(await screen.findByText("공유 링크를 복사했어요.")).toBeInTheDocument();
+});
+
+describe("RoomShareButton 메뉴 포커스", () => {
+  it("터치·마우스로 열면 첫 항목이 아니라 메뉴 상자에 포커스를 둔다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    expect(screen.getByRole("menu")).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).not.toHaveFocus();
+  });
+
+  it("키보드로 열면 첫 항목에 포커스를 준다", async () => {
+    const user = userEvent.setup();
+    render(<RoomShareButton roomCode={ROOM_CODE} />);
+    screen.getByRole("button", { name: "방 공유 메뉴 열기" }).focus();
+
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).toHaveFocus();
+  });
+
+  it("방향키로 열면 첫 항목에 포커스를 준다", async () => {
+    const user = userEvent.setup();
+    render(<RoomShareButton roomCode={ROOM_CODE} />);
+    screen.getByRole("button", { name: "방 공유 메뉴 열기" }).focus();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).toHaveFocus();
+  });
+
+  it("터치로 연 메뉴에서도 방향키로 첫 항목에 갈 수 있다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("menuitem", { name: /링크 공유/ })).toHaveFocus();
+  });
+
+  it("탭한 곳으로 포커스가 넘어가지 않아도 메뉴를 닫지 않는다", async () => {
+    const user = userEvent.setup();
+    await openMenu(user);
+
+    // WebKit 은 탭한 버튼에 포커스를 주지 않아 relatedTarget 이 null 인 blur 가 온다.
+    fireEvent.blur(screen.getByRole("menu"), { relatedTarget: null });
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("터치로 연 메뉴에서 링크 공유를 누르면 링크를 복사한다", async () => {
+    const user = userEvent.setup();
+    const writeText = jest.spyOn(navigator.clipboard, "writeText");
+    await openMenu(user);
+
+    await user.click(screen.getByRole("menuitem", { name: /링크 공유/ }));
+
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/${ROOM_CODE}`);
+  });
 });

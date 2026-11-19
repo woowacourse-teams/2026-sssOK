@@ -1,7 +1,7 @@
 import styled from "@emotion/styled";
 import { Link, useRouteError } from "react-router-dom";
 
-import { ROUTES } from "@/shared/config";
+import { useStartDestination } from "@/entities/member-session";
 import { colors, spacing, typography } from "@/shared/styles/tokens";
 import { Button } from "@/shared/ui/button";
 
@@ -13,6 +13,7 @@ const isChunkLoadError = (error: unknown): boolean =>
 export const RouteErrorPage = () => {
   const error = useRouteError();
   const isChunkError = isChunkLoadError(error);
+  const start = useStartDestination();
 
   return (
     <Page>
@@ -26,7 +27,9 @@ export const RouteErrorPage = () => {
         <Button size="lg" onClick={() => window.location.reload()}>
           새로고침
         </Button>
-        <HomeLink to={ROUTES.home}>홈으로 가기</HomeLink>
+        <HomeLink to={start.to} reloadDocument={start.kind === "landing"}>
+          {start.kind === "rooms" ? "내 방 목록으로 가기" : "홈으로 가기"}
+        </HomeLink>
       </Actions>
     </Page>
   );
