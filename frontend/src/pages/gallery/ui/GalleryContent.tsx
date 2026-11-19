@@ -46,6 +46,7 @@ import { useGalleryRefresh } from "../model/useGalleryRefresh";
 import { useGallerySearch } from "../model/useGallerySearch";
 import { usePendingMedia } from "../model/usePendingMedia";
 import { usePhotoSelection } from "../model/usePhotoSelection";
+import { EmptyRoomGuide } from "./EmptyRoomGuide";
 import { GalleryModalHost } from "./GalleryModalHost";
 import {
   FolderEmptyDescription,
@@ -198,6 +199,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
       { room_code: room.code, role: userId === room.hostId ? "host" : "guest" },
     );
   }, [isEmptyGalleryVisible, room.code, room.hostId, userId]);
+
+  const isHost = userId === room.hostId;
+  const canUpload = canUploadTo(room, userId);
 
   useEffect(() => {
     if (completedUploadIds.length === 0) return;
@@ -382,7 +386,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         session={{ userId, accessToken, nickname: room.myNickname ?? nickname }}
         exitLabel={memberSession.data ? "내 방 목록" : "홈으로"}
         onExit={leaveRoom}
-        isHost={userId === room.hostId}
+        isHost={isHost}
         hasSelectedFolder={selectedFolderId !== null}
         onOpenSettings={() => navigate(ROUTES.roomSettings(room.code))}
         onDeleteRoom={() => setIsDeleteModalOpen(true)}
@@ -453,7 +457,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
         token={accessToken}
         // 방장만 올리는 방의 참여자에게는 버튼을 아예 내주지 않는다. 서버가 발급에서
         // 403 으로 막는 것을, 누르기 전에 화면이 먼저 말해주는 셈이다.
-        canUpload={canUploadTo(room, userId)}
+        canUpload={canUpload}
         hideButton={selectedPhotoIds.length > 0 || isOrganizeBarVisible}
         folderIds={selectedFolderId === null ? undefined : [selectedFolderId]}
         onPreviewReady={addPendingMedia}
@@ -490,11 +494,13 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
             ) : (
               "검색어에 맞는 사진이 없어요."
             )
+          ) : isEmptyGalleryVisible ? (
+            <EmptyRoomGuide isHost={isHost} canUpload={canUpload} />
           ) : selectedFolder?.photoCount === 0 ? (
             <FolderEmptyState>
               <FolderEmptyTitle>‘{selectedFolder.name}’ 폴더가 비어 있어요</FolderEmptyTitle>
               <FolderEmptyDescription>
-                {canUploadTo(room, userId)
+                {canUpload
                   ? "전체에서 사진을 선택해 이 폴더로 옮기거나,\n여기서 올리면 이 폴더에 바로 담겨요."
                   : "전체에서 사진을 선택해 이 폴더로 옮겨 보세요."}
               </FolderEmptyDescription>
@@ -514,9 +520,7 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
           items={viewerItems}
           activeMediaId={activeMediaId}
           roomId={room.roomId}
-          userId={userId}
           hostId={room.hostId}
-          token={accessToken}
           selectedPhotoIds={selectedPhotoIds}
           onChange={setActiveMediaId}
           onClose={() => setActiveMediaId(null)}
