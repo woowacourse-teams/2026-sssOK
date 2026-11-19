@@ -1,38 +1,21 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { HiArrowsRightLeft, HiLink, HiQrCode } from "react-icons/hi2";
+import { HiLink, HiQrCode } from "react-icons/hi2";
 
-import { getRoomSession } from "@/entities/session";
-import { ROUTES } from "@/shared/config";
 import { track } from "@/shared/lib";
 import { IconButton } from "@/shared/ui/icon-button";
 import { useToast } from "@/shared/ui/toast";
-import { issueLinkCode } from "../api/issueLinkCode";
 import { shareRoomInviteLink } from "../lib/shareRoomInviteLink";
 import { Anchor, Description, Menu, MenuItem } from "./RoomShareButton.styles";
 import { RoomQrModal } from "./RoomQrModal";
 
-const copyPendingText = async (text: Promise<string>): Promise<void> => {
-  if (typeof ClipboardItem !== "undefined" && typeof navigator.clipboard.write === "function") {
-    const blob = text.then((value) => new Blob([value], { type: "text/plain" }));
-    await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
-    return;
-  }
-  await navigator.clipboard.writeText(await text);
-};
-
 interface RoomShareButtonProps {
   roomCode: string;
-  accessToken?: string;
 }
 
-export const RoomShareButton = ({
-  roomCode,
-  accessToken: memberAccessToken,
-}: RoomShareButtonProps) => {
+export const RoomShareButton = ({ roomCode }: RoomShareButtonProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
   const [isCopying, setIsCopying] = useState(false);
-  const [isCreatingDeviceLink, setIsCreatingDeviceLink] = useState(false);
   const { showToast } = useToast();
   const closeCopyToast = useRef<(() => void) | null>(null);
   const anchorRef = useRef<HTMLDivElement>(null);
@@ -101,44 +84,6 @@ export const RoomShareButton = ({
       });
     } finally {
       setIsCopying(false);
-    }
-  };
-
-  const copyDeviceLink = async (): Promise<void> => {
-    if (isCreatingDeviceLink) return;
-
-    closeCopyToast.current?.();
-    const accessToken = memberAccessToken ?? getRoomSession(roomCode)?.accessToken;
-    if (!accessToken) {
-      closeCopyToast.current = showToast({
-        message: "현재 계정 정보를 찾지 못했어요. 다시 입장해 주세요.",
-        tone: "error",
-      });
-      return;
-    }
-
-    setIsCreatingDeviceLink(true);
-    try {
-      const deviceLink = issueLinkCode(accessToken).then(({ linkCode }) => {
-        const url = new URL(ROUTES.roomInvite(roomCode), window.location.origin);
-        url.searchParams.set("linkCode", linkCode);
-        return url.href;
-      });
-      await copyPendingText(deviceLink);
-      track("Device Link Copied", { is_success: true });
-      closeCopyToast.current = showToast({
-        message: "다른 기기에서 이어할 링크를 복사했어요.",
-        tone: "success",
-      });
-      closeMenu();
-    } catch {
-      track("Device Link Copied", { is_success: false });
-      closeCopyToast.current = showToast({
-        message: "이어하기 링크를 만들지 못했어요. 잠시 후 다시 시도해 주세요.",
-        tone: "error",
-      });
-    } finally {
-      setIsCreatingDeviceLink(false);
     }
   };
 
@@ -211,18 +156,6 @@ export const RoomShareButton = ({
               <span>
                 QR 코드 공유
                 <Description>QR 코드를 스캔해 바로 참여해요</Description>
-              </span>
-            </MenuItem>
-            <MenuItem
-              type="button"
-              role="menuitem"
-              disabled={isCreatingDeviceLink}
-              onClick={() => void copyDeviceLink()}
-            >
-              <HiArrowsRightLeft aria-hidden="true" />
-              <span>
-                다른 기기에서 이어하기
-                <Description>내 이름과 권한을 그대로 이어가요</Description>
               </span>
             </MenuItem>
           </Menu>

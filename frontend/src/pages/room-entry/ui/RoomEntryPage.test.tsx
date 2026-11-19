@@ -49,7 +49,7 @@ const renderAt = (code: string, state?: unknown, member?: MemberSession): void =
           <Route path={ROUTE_PATTERNS.closedRoom} element={<RoomClosedPage />} />
           <Route path={ROUTE_PATTERNS.roomEntry} element={<RoomEntryPage />} />
           <Route path={ROUTE_PATTERNS.gallery} element={<div>{GALLERY_TEXT}</div>} />
-          <Route path={ROUTE_PATTERNS.home} element={<div>홈 도착</div>} />
+          <Route path={ROUTE_PATTERNS.rooms} element={<div>방 목록 도착</div>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -316,11 +316,11 @@ describe("RoomEntryPage", () => {
   });
 
   describe("방 조회 실패", () => {
-    it("존재하지 않는 방은 안내와 홈 링크를 보여준다", async () => {
+    it("존재하지 않는 방은 안내와 랜딩으로 가는 링크를 보여준다", async () => {
       renderAt(MOCK_ROOM_CODES.notFound);
 
       expect(await screen.findByText("존재하지 않는 방이에요.")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "홈으로 돌아가기" })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "홈으로 돌아가기" })).toHaveAttribute("href", "/");
     });
 
     it("형식이 틀린 코드는 코드 형식 문제라고 안내한다", async () => {
@@ -329,13 +329,13 @@ describe("RoomEntryPage", () => {
       expect(await screen.findByText("방 코드 형식이 올바르지 않아요.")).toBeInTheDocument();
     });
 
-    it("홈으로 돌아가기를 누르면 홈으로 이동한다", async () => {
+    it("로그인한 사람은 내 방 목록으로 돌아간다", async () => {
       const user = userEvent.setup();
-      renderAt(MOCK_ROOM_CODES.notFound);
+      renderAt(MOCK_ROOM_CODES.notFound, undefined, member);
 
-      await user.click(await screen.findByRole("link", { name: "홈으로 돌아가기" }));
+      await user.click(await screen.findByRole("link", { name: "내 방 목록으로 돌아가기" }));
 
-      expect(screen.getByText("홈 도착")).toBeInTheDocument();
+      expect(screen.getByText("방 목록 도착")).toBeInTheDocument();
     });
   });
 

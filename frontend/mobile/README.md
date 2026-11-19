@@ -17,14 +17,14 @@ pnpm start
 iOS 시뮬레이터는 Xcode, Android 에뮬레이터는 Android SDK가 필요하다.
 `pnpm ios` / `pnpm android`는 해당 환경에서 Metro와 시뮬레이터·에뮬레이터를 실행한다.
 
-기본 진입점은 `https://www.ssssok.com/home`이다. 로그인 화면은 별도 브랜치 작업으로 아직 포함하지 않는다.
+기본 진입점은 `https://www.ssssok.com/rooms`(방 목록)이다. 로그인하지 않았으면 웹이 로그인 화면으로 보낸다.
 
 ## 로컬 웹 연결
 
 `.env.example`을 `.env.local`로 복사하고 실제 기기에서 접근 가능한 웹 주소를 지정한다.
 
 ```dotenv
-EXPO_PUBLIC_WEB_URL=http://192.168.0.10:3000/home
+EXPO_PUBLIC_WEB_URL=http://192.168.0.10:3000/rooms
 ```
 
 웹 개발 서버를 별도 터미널에서 실행하고 같은 Wi-Fi를 사용한다. `localhost`는 개발 PC가 아니라 앱을 실행하는 기기를 가리킨다.
