@@ -11,7 +11,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 class PreviewNecessityTest {
 
     @ParameterizedTest
-    @EnumSource(value = MediaType.class, names = {"JPEG", "PNG"})
+    @EnumSource(value = MediaType.class, names = {"JPEG", "PNG", "WEBP", "HEIC", "HEIF"})
     void 정지_사진은_프리뷰를_만든다(MediaType mediaType) {
         assertThat(file(mediaType).needsPreview()).isTrue();
     }
