@@ -10,6 +10,7 @@ import { ROUTES } from "@/shared/config";
 import { type AnalyticsEntrySource, track } from "@/shared/lib";
 import { PageSpinner } from "@/shared/ui/spinner";
 import { useJoinRoomMutation } from "../api";
+import { RoomEntryPreview } from "./RoomEntryPreview";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
@@ -130,10 +131,14 @@ export const RoomEntryPage = () => {
     return <Navigate to={ROUTES.gallery(code)} replace />;
   }
 
+  // 시트 뒤에 들어갈 갤러리를 깔아, 이름만 정하면 이 화면으로 들어간다는 걸 보여 준다.
   return (
-    <NameEntryBottomSheet
-      onSubmit={(nickname) => auth.mutate({ nickname, roomId: room.roomId })}
-      isPending={auth.isPending}
-    />
+    <>
+      <RoomEntryPreview room={room} />
+      <NameEntryBottomSheet
+        onSubmit={(nickname) => auth.mutate({ nickname, roomId: room.roomId })}
+        isPending={auth.isPending}
+      />
+    </>
   );
 };
