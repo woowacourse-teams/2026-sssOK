@@ -14,7 +14,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         INSERT INTO media_search_document (media_id, next_attempt_at, created_at, updated_at)
         SELECT f.id, :now, :now, :now
         FROM stored_file f
-        WHERE f.media_type IN ('JPEG', 'PNG', 'GIF')
+        WHERE f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF')
             AND f.status = 'READY'
             AND f.created_at >= :createdSince
             AND NOT EXISTS (SELECT 1 FROM media_search_document d WHERE d.media_id = f.id)
@@ -30,7 +30,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         INSERT INTO media_search_document (media_id, next_attempt_at, created_at, updated_at)
         SELECT id, :now, :now, :now
         FROM stored_file
-        WHERE id = :mediaId AND media_type IN ('JPEG', 'PNG', 'GIF') AND status = 'READY'
+        WHERE id = :mediaId AND media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF') AND status = 'READY'
         FOR KEY SHARE
         ON CONFLICT (media_id) DO NOTHING
         """, nativeQuery = true)
@@ -48,7 +48,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
                 JOIN stored_file f ON f.id = candidate.media_id
                 WHERE candidate.status = 'PENDING' AND candidate.next_attempt_at <= :now
                     AND candidate.attempts < :maxAttempts AND f.status = 'READY'
-                    AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+                    AND f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF')
                 ORDER BY candidate.next_attempt_at, candidate.media_id
                 LIMIT 1 FOR UPDATE OF candidate SKIP LOCKED
             )
@@ -74,7 +74,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
             AND EXISTS (
                 SELECT 1 FROM stored_file f
                 WHERE f.id = d.media_id AND f.status = 'READY'
-                    AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+                    AND f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF')
             )
         """, nativeQuery = true)
     int claim(
@@ -94,7 +94,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
             AND EXISTS (
                 SELECT 1 FROM stored_file f
                 WHERE f.id = d.media_id AND f.status = 'READY'
-                    AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+                    AND f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF')
             )
         """, nativeQuery = true)
     int complete(
@@ -166,7 +166,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
         FROM media_search_document d
         JOIN stored_file f ON f.id = d.media_id
         WHERE d.status = 'PENDING' AND d.next_attempt_at <= :now
-            AND f.status = 'READY' AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+            AND f.status = 'READY' AND f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF')
         ORDER BY d.next_attempt_at, d.media_id LIMIT :limit
         """, nativeQuery = true)
     List<Long> findPending(@Param("now") Instant now, @Param("limit") int limit);
@@ -184,7 +184,7 @@ public interface MediaSearchDocumentJpaRepository extends JpaRepository<MediaSea
             AND (:uploader = 'ALL'
                 OR (:uploader = 'ME' AND f.uploader_id = :requesterId)
                 OR (:uploader = 'OTHERS' AND f.uploader_id <> :requesterId))
-            AND f.media_type IN ('JPEG', 'PNG', 'GIF') AND d.status = 'READY'
+            AND f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF') AND d.status = 'READY'
             AND d.embedding_model = :model AND d.embedding_dimensions = :dimensions
             AND vector_dims(d.embedding) = :dimensions
         ), scored AS (

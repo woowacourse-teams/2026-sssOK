@@ -30,7 +30,7 @@ public interface RoomMemberJpaRepository extends JpaRepository<RoomMemberJpaEnti
                (SELECT count(*) FROM room_member m WHERE m.room_id = r.id) AS "memberCount",
                (SELECT f.thumbnail_key FROM stored_file f WHERE f.room_id = r.id
                    AND f.status IN ('PROCESSING', 'READY')
-                   AND f.media_type IN ('JPEG', 'PNG', 'GIF')
+                   AND f.media_type IN ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF')
                    AND f.thumbnail_key IS NOT NULL
                    ORDER BY f.created_at DESC, f.id DESC LIMIT 1) AS "thumbnailKey"
         FROM room_member mine JOIN room r ON r.id = mine.room_id

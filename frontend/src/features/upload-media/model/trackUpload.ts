@@ -2,7 +2,7 @@ import { type AnalyticsRoomContext, track } from "@/shared/lib";
 import type { RejectedSelection, SelectionRejectionCode } from "./selectMediaFiles";
 import type { UploadResult } from "./types";
 
-const UPLOAD_FORMATS = ["jpeg", "png", "gif", "webp", "avif", "mp4", "webm", "mov"];
+const UPLOAD_FORMATS = ["jpeg", "png", "gif", "webp", "heic", "heif", "avif", "mp4", "webm", "mov"];
 
 /** 서버의 포맷 판별과 같이 확장자를 우선한다. 파일명 자체는 이벤트로 보내지 않는다. */
 const formatOf = (fileName: string, mimeType: string): string => {
@@ -19,6 +19,8 @@ const formatOf = (fileName: string, mimeType: string): string => {
     "image/png": "png",
     "image/gif": "gif",
     "image/webp": "webp",
+    "image/heic": "heic",
+    "image/heif": "heif",
     "image/avif": "avif",
     "video/mp4": "mp4",
     "video/webm": "webm",

@@ -20,6 +20,11 @@ export const Menu = styled.div`
   border: 1px solid #e5ded1;
   border-radius: ${radius[12]};
   box-shadow: 0 8px 28px rgba(45, 38, 31, 0.16);
+
+  /* 터치·마우스로 열 때 포커스를 받아 두는 자리라 테두리를 그리지 않는다. */
+  &:focus {
+    outline: none;
+  }
 `;
 
 export const MenuItem = styled.button`

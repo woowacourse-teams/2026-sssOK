@@ -37,7 +37,7 @@ import lombok.NoArgsConstructor;
 @Check(name = "ck_stored_file_size", constraints = "file_size_bytes > 0")
 @Check(name = "ck_stored_file_retry", constraints = "retry_count >= 0")
 @Check(name = "ck_stored_file_status", constraints = "status in ('RESERVED', 'PROCESSING', 'READY', 'FAILED')")
-@Check(name = "ck_stored_file_type", constraints = "media_type in ('JPEG', 'PNG', 'GIF', 'MP4', 'WEBM', 'MOV')")
+@Check(name = "ck_stored_file_type", constraints = "media_type in ('JPEG', 'PNG', 'GIF', 'WEBP', 'HEIC', 'HEIF', 'MP4', 'WEBM', 'MOV')")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StoredFileJpaEntity extends BaseEntity {

@@ -32,8 +32,7 @@ describe("DownloadModeSheet", () => {
     expect(screen.getByText("7개를 어떻게 받을까요?")).toBeInTheDocument();
   });
 
-  // 항목이 셋이 되면 고르는 부담이 늘고, 폰에서는 닿지 않는 항목이 끼게 된다.
-  it("항목은 언제나 두 개다", () => {
+  it("데스크톱에서는 항목이 두 개다", () => {
     renderSheet();
 
     expect(screen.getAllByRole("radio")).toHaveLength(2);
@@ -55,6 +54,45 @@ describe("DownloadModeSheet", () => {
 
     expect(screen.getByText("사진첩에 저장")).toBeInTheDocument();
     expect(screen.queryByText("개별로 저장")).not.toBeInTheDocument();
+  });
+
+  describe("안드로이드", () => {
+    beforeEach(() => {
+      jest
+        .spyOn(navigator, "userAgent", "get")
+        .mockReturnValue("Mozilla/5.0 (Linux; Android 15; Pixel 9)");
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+      delete window.ReactNativeWebView;
+      delete window.sssokApp;
+    });
+
+    it("일반 브라우저에서는 ZIP만 표시하고 제출한다", async () => {
+      const { onSubmit } = renderSheet();
+
+      expect(screen.getAllByRole("radio")).toHaveLength(1);
+      expect(screen.getByRole("radio", { name: /zip 일괄 다운로드/ })).toBeChecked();
+      expect(screen.queryByText("개별로 저장")).not.toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("button", { name: "다운로드" }));
+      expect(onSubmit).toHaveBeenCalledWith("zip");
+    });
+
+    it.each([undefined, 1])(
+      "앱에서는 다운로드 브리지 버전 %s와 관계없이 기존 옵션을 유지한다",
+      (version) => {
+        window.ReactNativeWebView = { postMessage: jest.fn() };
+        if (version !== undefined) window.sssokApp = { download: version };
+        renderSheet();
+
+        expect(screen.getAllByRole("radio")).toHaveLength(2);
+        expect(
+          screen.getByText(version === 1 ? "사진첩에 저장" : "개별로 저장"),
+        ).toBeInTheDocument();
+      },
+    );
   });
 
   describe("앱 웹뷰", () => {

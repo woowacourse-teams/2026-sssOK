@@ -1,6 +1,6 @@
 import styled from "@emotion/styled";
 
-import { colors, spacing, typography } from "@/shared/styles/tokens";
+import { colors, radius, spacing, typography } from "@/shared/styles/tokens";
 
 export const Page = styled.main`
   display: flex;
@@ -42,6 +42,64 @@ export const Actions = styled.div`
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: ${spacing[12]};
+  gap: ${spacing[16]};
   width: 100%;
+  padding-top: ${spacing[24]};
+
+  > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: ${spacing[12]};
+    margin-top: ${spacing[24]};
+
+    svg {
+      width: 24px;
+      height: 24px;
+    }
+  }
+`;
+
+export const InstallLabel = styled.p`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: ${spacing[8]};
+  color: ${colors.textSecondary};
+  ${typography.caption1}
+`;
+
+export const StoreLinks = styled.div`
+  display: flex;
+  gap: ${spacing[12]};
+`;
+
+export const StoreLink = styled.a`
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: ${spacing[8]};
+  min-height: 48px;
+  border: 1.25px solid ${colors.borderDefault};
+  border-radius: ${radius[16]};
+  color: ${colors.textStrong};
+  ${typography.label3}
+
+  svg {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+  }
+
+  @media (hover: hover) {
+    &:hover {
+      background-color: ${colors.interactiveHover};
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid ${colors.primary};
+    outline-offset: 3px;
+  }
 `;
