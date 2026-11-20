@@ -41,27 +41,44 @@ export const Thumbnail = styled(MediaImage)`
   pointer-events: none;
 `;
 
+/** 체크 원은 26px로 유지하고, 주변을 포함한 44px 버튼으로 누르기 쉽게 한다. */
 export const SelectionMark = styled.button<{ $selected: boolean }>`
   position: absolute;
-  top: ${spacing[8]};
-  right: ${spacing[8]};
+  top: 0;
+  right: 0;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid ${({ $selected }) => ($selected ? colors.primary : colors.borderDisabled)};
-  border-radius: ${radius.full};
-  background-color: ${({ $selected }) => ($selected ? colors.primary : colors.backgroundDefault)};
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: ${radius[12]};
+  background: transparent;
   color: ${({ $selected }) => ($selected ? colors.textInverse : colors.borderDisabled)};
+
+  &::before {
+    content: "";
+    grid-area: 1 / 1;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    border: 1px solid ${({ $selected }) => ($selected ? colors.primary : colors.borderDisabled)};
+    border-radius: ${radius.full};
+    background-color: ${({ $selected }) => ($selected ? colors.primary : colors.backgroundDefault)};
+    pointer-events: none;
+  }
 
   &:focus-visible {
     outline: 2px solid ${colors.primary};
-    outline-offset: 3px;
+    outline-offset: -2px;
   }
 
   svg {
+    grid-area: 1 / 1;
+    position: relative;
     width: 15px;
     height: 15px;
+    pointer-events: none;
   }
 `;
 

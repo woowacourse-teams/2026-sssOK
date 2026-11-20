@@ -1,13 +1,26 @@
 import { useEffect, useRef } from "react";
+import { FiLink } from "react-icons/fi";
+import { FaApple, FaGooglePlay } from "react-icons/fa";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import mascot from "@/shared/assets/mascot-invite.png";
 import { ROUTES } from "@/shared/config";
 import { isAppWebView } from "@/shared/lib/isAppWebView";
+import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
 import { Stack } from "@/shared/ui/stack";
 import { buildInviteAppUrl, isMobileBrowser, openInviteApp } from "../lib/browserEntry";
-import { Actions, Content, Description, Image, Page, Title } from "./BrowserEntryPage.styles";
+import {
+  Actions,
+  Content,
+  Description,
+  Image,
+  InstallLabel,
+  Page,
+  StoreLinks,
+  StoreLink,
+  Title,
+} from "./BrowserEntryPage.styles";
 
 export const BrowserEntryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
@@ -19,15 +32,11 @@ export const BrowserEntryPage = () => {
     ROUTES.roomInvite(encodeURIComponent(code)) + search + hash,
     window.location.origin,
   );
-  const tryApp = !isAppWebView() && /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/.test(code);
+  const mobile = isMobileBrowser(navigator.userAgent, navigator.maxTouchPoints);
+  const tryApp = mobile && !isAppWebView() && /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/.test(code);
   const appUrl = buildInviteAppUrl(invite, navigator.userAgent);
   useEffect(() => {
-    if (
-      !tryApp ||
-      !isMobileBrowser(navigator.userAgent, navigator.maxTouchPoints) ||
-      attempted.current === appUrl
-    )
-      return;
+    if (!tryApp || attempted.current === appUrl) return;
     attempted.current = appUrl;
     try {
       const attemptKey = "sssok:last-invite-app-attempt";
@@ -51,11 +60,22 @@ export const BrowserEntryPage = () => {
         </Stack>
       </Content>
       <Actions>
-        <Button variant="primary" size="lg" onClick={() => openInviteApp(appUrl)}>
-          쏙 앱에서 열기
-        </Button>
-        <Button variant="default" size="lg" onClick={() => navigate(entry, { replace: true })}>
-          웹에서 참여하기
+        <InstallLabel>
+          <Badge variant="soft">추천</Badge>앱으로 더 편하게 이용해 보세요
+        </InstallLabel>
+        <StoreLinks>
+          <StoreLink href="https://play.google.com/store/apps/details?id=com.ssssok.app&pcampaignid=web_share">
+            <FaGooglePlay aria-hidden="true" />
+            Google Play
+          </StoreLink>
+          <StoreLink href="https://apps.apple.com/kr/app/%EC%8F%99-%ED%95%A8%EA%BB%98-%EB%AA%A8%EC%9C%BC%EB%8A%94-%EC%82%AC%EC%A7%84/id6828711923">
+            <FaApple aria-hidden="true" />
+            App Store
+          </StoreLink>
+        </StoreLinks>
+        <Button variant="primary" size="lg" onClick={() => navigate(entry, { replace: true })}>
+          <FiLink aria-hidden="true" />
+          웹으로 참여하기
         </Button>
       </Actions>
     </Page>

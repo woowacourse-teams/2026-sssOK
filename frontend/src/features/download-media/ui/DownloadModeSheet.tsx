@@ -3,6 +3,7 @@ import { HiCheck } from "react-icons/hi2";
 import { LuDownload, LuFileArchive, LuImageDown } from "react-icons/lu";
 
 import { BottomSheet } from "@/shared/ui/bottom-sheet";
+import { isAppWebView } from "@/shared/lib";
 import { SHARE_BATCH_SIZE } from "../config";
 import { isNativeApp, savesToPhotoLibrary } from "../lib/nativeApp";
 import { zipArchiveName } from "../lib/zipArchiveName";
@@ -53,6 +54,7 @@ export const DownloadModeSheet = ({
   const [mode, setMode] = useState<DownloadMode>("zip");
   const name = useId();
   const inNativeApp = isNativeApp();
+  const isAndroidBrowser = /Android/i.test(navigator.userAgent) && !isAppWebView();
   // 앱은 바이트를 웹뷰로 넘기지 않아 나눠 저장하지 않는다 (`nativeApp` 참고).
   const shareBatchCount = inNativeApp ? 1 : shareBatchCountOf(count);
 
@@ -78,7 +80,7 @@ export const DownloadModeSheet = ({
       };
 
   const options: ModeOption[] = [
-    oneByOne,
+    ...(isAndroidBrowser ? [] : [oneByOne]),
     {
       value: "zip",
       icon: LuFileArchive,
