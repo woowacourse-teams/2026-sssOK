@@ -102,6 +102,10 @@ jobs:
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
 
+    env:
+      FFMPEG_URL: https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-02-28-12-59/ffmpeg-n8.0.1-66-g27b8d1a017-linux64-gpl-8.0.tar.xz
+      FFMPEG_SHA256: 26d2ecd0cefba99f9d1ea92252a3a4f743a58df4c1c3cf9f8bbaaa40b1fca5b0
+
     defaults:
       run:
         working-directory: backend
@@ -125,19 +129,34 @@ jobs:
       - name: gradlew 실행 권한 부여
         run: chmod +x gradlew
 
-      # 영상 썸네일 추출기 테스트가 실물 ffmpeg 로 돈다. 없으면 그 테스트들이 조용히
-      # 건너뛰어져, 깨진 채로 머지돼도 CI 가 초록으로 통과한다.
-      # 운영 이미지에도 같은 패키지가 깔린다(backend/Dockerfile).
-      - name: ffmpeg 확인 및 설치
+      - name: FFmpeg 배포 파일 캐시 복원
         if: github.event_name != 'push'
+        id: ffmpeg-cache
+        uses: actions/cache@v4
+        timeout-minutes: 3
+        with:
+          path: ${{ runner.temp }}/ffmpeg.tar.xz
+          key: ffmpeg-${{ runner.os }}-${{ runner.arch }}-${{ env.FFMPEG_SHA256 }}
+
+      - name: FFmpeg 배포 파일 다운로드
+        if: github.event_name != 'push' && steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 3
         run: |
-          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y -qq ffmpeg
-          fi
-          # 설치가 조용히 실패하면 여기서 잡는다 — 테스트 스킵으로 흘러가지 않게 한다.
-          ffmpeg -version | head -1
-          ffprobe -version | head -1
+          curl --fail --location --silent --show-error --connect-timeout 10 --max-time 120 \
+            --output "$RUNNER_TEMP/ffmpeg.tar.xz" "$FFMPEG_URL"
+
+      - name: FFmpeg 무결성 및 실행 확인
+        if: github.event_name != 'push'
+        timeout-minutes: 2
+        run: |
+          archive="$RUNNER_TEMP/ffmpeg.tar.xz"
+          bin="$RUNNER_TEMP/ffmpeg-bin"
+          echo "$FFMPEG_SHA256  $archive" | sha256sum --check
+          mkdir -p "$bin"
+          tar -xJf "$archive" -C "$bin" --strip-components=2 --wildcards '*/bin/ffmpeg' '*/bin/ffprobe'
+          "$bin/ffmpeg" -version
+          "$bin/ffprobe" -version
+          echo "$bin" >> "$GITHUB_PATH"
 
       # 필수 CI는 한 Test JVM에서 Spring Context 캐시를 재사용한다. 성능·외부 연동 테스트는
       # test 태스크에서 제외하며, 문제를 좁혀야 할 때 범주별 태스크를 선택 실행한다.
