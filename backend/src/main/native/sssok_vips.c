@@ -2,6 +2,7 @@
 #include <vips/vips.h>
 #include <limits.h>
 #include <math.h>
+#include <string.h>
 
 /* JNI owns input and encoded buffers; every exit releases the entire lazy image graph first. */
 static void throw_error(JNIEnv *env, const char *type, const char *message) {
@@ -113,14 +114,20 @@ static int jpeg_shrink_factor(double shrink) {
 }
 
 static VipsImage *prepare_shared_pixels(void *input, jsize length, int width, int height,
-    int target_width, int target_height, StageTimes *times) {
+    int target_width, int target_height, gboolean jpeg, StageTimes *times) {
     VipsImage *base = NULL, *loaded = NULL, *decoded = NULL, *shared = NULL;
     if (times->enabled) {
         double shrink = MIN((double) width / target_width, (double) height / target_height);
         int factor = jpeg_shrink_factor(shrink);
         stage_start(times, STAGE_DECODE);
-        if (vips_jpegload_buffer(input, length, &loaded, "shrink", factor,
-            "access", VIPS_ACCESS_SEQUENTIAL, "fail_on", VIPS_FAIL_ON_ERROR, NULL)) goto done;
+        if (jpeg) {
+            if (vips_jpegload_buffer(input, length, &loaded, "shrink", factor,
+                "access", VIPS_ACCESS_SEQUENTIAL, "fail_on", VIPS_FAIL_ON_ERROR, NULL)) goto done;
+        } else {
+            loaded = vips_image_new_from_buffer(input, length, "", "access", VIPS_ACCESS_SEQUENTIAL,
+                "fail_on", VIPS_FAIL_ON_ERROR, NULL);
+            if (!loaded) goto done;
+        }
         decoded = vips_image_copy_memory(loaded);
         if (!decoded) goto done;
         stage_end(times, TRUE);
@@ -156,19 +163,33 @@ Java_com_sssok_renewal_outgoing_processing_image_LibvipsImageProcessor_00024Nati
     jbyteArray thumbnail = NULL, preview = NULL;
     jsize length = (*env)->GetArrayLength(env, source);
     if (length <= 0 || length > 150 * 1024 * 1024) {
-        throw_error(env, "java/lang/IllegalArgumentException", "JPEG input size exceeds limit");
+        throw_error(env, "java/lang/IllegalArgumentException", "Image input size exceeds limit");
         goto cleanup;
     }
     input = g_try_malloc((size_t) length);
     if (!input) {
-        throw_error(env, "java/lang/OutOfMemoryError", "Cannot allocate JPEG input");
+        throw_error(env, "java/lang/OutOfMemoryError", "Cannot allocate Image input");
         goto cleanup;
     }
     (*env)->GetByteArrayRegion(env, source, 0, length, input);
     if ((*env)->ExceptionCheck(env)) goto cleanup;
     stage_start(&times, STAGE_HEADER);
-    /* Header only: no full-size decode. Restrict this entry point to the measured JPEG loader. */
-    if (vips_jpegload_buffer(input, length, &header, "access", VIPS_ACCESS_SEQUENTIAL, NULL)) goto error;
+    /* Keep the measured JPEG loader and shrink-on-load path unchanged. */
+    gboolean jpeg = length >= 3 && ((unsigned char *) input)[0] == 255
+        && ((unsigned char *) input)[1] == 216 && ((unsigned char *) input)[2] == 255;
+    if (jpeg) {
+        if (vips_jpegload_buffer(input, length, &header, "access", VIPS_ACCESS_SEQUENTIAL, NULL)) goto error;
+    } else {
+        const char *loader = vips_foreign_find_load_buffer(input, length);
+        if (!loader || (strcmp(loader, "VipsForeignLoadWebpBuffer") != 0
+            && strcmp(loader, "VipsForeignLoadHeifBuffer") != 0)) {
+            throw_error(env, "java/lang/IllegalArgumentException", "Unsupported native image format");
+            goto cleanup;
+        }
+        header = vips_image_new_from_buffer(input, length, "", "access", VIPS_ACCESS_SEQUENTIAL,
+            "fail_on", VIPS_FAIL_ON_ERROR, NULL);
+        if (!header) goto error;
+    }
     int width = header->Xsize, height = header->Ysize, orientation = 1;
     if (vips_image_get_typeof(header, VIPS_META_ORIENTATION))
         vips_image_get_int(header, VIPS_META_ORIENTATION, &orientation);
@@ -182,12 +203,12 @@ Java_com_sssok_renewal_outgoing_processing_image_LibvipsImageProcessor_00024Nati
     if (width <= 0 || height <= 0 || (gint64) width * height > 100000000
         || target_width > 16383 || target_height > 16383
         || (gint64) target_width * target_height > 16000000) {
-        throw_error(env, "java/lang/IllegalArgumentException", "JPEG dimensions exceed processing limit");
+        throw_error(env, "java/lang/IllegalArgumentException", "Image dimensions exceed processing limit");
         goto cleanup;
     }
     VIPS_UNREF(header);
     stage_end(&times, TRUE);
-    shared = prepare_shared_pixels(input, length, width, height, target_width, target_height, &times);
+    shared = prepare_shared_pixels(input, length, width, height, target_width, target_height, jpeg, &times);
     if (!shared) goto error;
     int tw = MIN(thumb_width, width);
     int th = MAX(1, (int) round((double) height * tw / width));

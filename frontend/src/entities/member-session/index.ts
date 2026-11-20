@@ -3,3 +3,4 @@ export { MEMBER_SESSION_QUERY_KEY, useMemberSessionQuery } from "./model/useMemb
 
 export { memberSessionQueryOptions } from "./model/useMemberSessionQuery";
 export { useRoomSession } from "./model/useRoomSession";
+export { useStartDestination, type StartDestination } from "./model/useStartDestination";

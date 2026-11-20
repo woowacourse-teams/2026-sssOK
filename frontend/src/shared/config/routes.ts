@@ -1,5 +1,6 @@
 export const ROUTES = {
-  home: "/home",
+  /** CloudFront 가 랜딩(landing.html)을 띄우는 루트. SPA 밖이라 문서를 새로 불러와야 한다. */
+  landing: "/",
   privacy: "/privacy",
   terms: "/terms",
   rooms: "/rooms",
@@ -23,6 +24,7 @@ export const ROUTES = {
 
 /** 라우트 정의에 쓰는 패턴. ROUTES 는 실제 이동에 쓴다. */
 export const ROUTE_PATTERNS = {
+  /** 홈 화면은 없앴다. 예전 바로가기(manifest start_url)·북마크를 위해 주소만 남겨 되돌린다. */
   home: "/home",
   privacy: "/privacy",
   terms: "/terms",

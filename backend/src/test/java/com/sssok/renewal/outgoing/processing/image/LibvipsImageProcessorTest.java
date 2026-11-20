@@ -11,6 +11,10 @@ import java.io.ByteArrayOutputStream;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import java.io.ByteArrayInputStream;
 
 // 같은 계약 테스트를 실제 JNI에 적용한다. 전용 Docker 검증에서만 실행한다.
 @Tag("native-image")
@@ -19,6 +23,51 @@ class LibvipsImageProcessorTest extends ThumbnailatorImageProcessorTest {
     protected ThumbnailatorImageProcessor createProcessor() {
         return new ThumbnailatorImageProcessor(new ImageDerivativeOperations(),
             Optional.of(new LibvipsImageProcessor()));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"transparent.webp,96,64", "landscape.heic,96,64", "rotated.heif,64,96"})
+    void 새_형식은_네이티브로_회전과_색상을_보존하며_파생본을_만든다(String name, int width, int height)
+            throws Exception {
+        byte[] source;
+        try (var input = getClass().getResourceAsStream("/images/upload-formats/" + name)) {
+            assertThat(input).isNotNull();
+            source = input.readAllBytes();
+        }
+        var spec = new DerivativeSpec(32, DerivativeFormat.WEBP, .9f);
+        assertThat(new LibvipsImageProcessor().supports(source, spec, spec)).isTrue();
+        var result = createProcessor().derive(source, spec,
+            new DerivativeSpec(48, DerivativeFormat.WEBP, .9f)).orElseThrow();
+        assertThat(result.sourceWidth()).isEqualTo(width);
+        assertThat(result.sourceHeight()).isEqualTo(height);
+        BufferedImage thumb = ImageIO.read(new ByteArrayInputStream(result.thumbnail().content()));
+        BufferedImage preview = ImageIO.read(new ByteArrayInputStream(result.preview().content()));
+        assertThat(thumb.getWidth()).isEqualTo(32);
+        assertThat(preview.getWidth()).isEqualTo(48);
+        assertThat(preview.getHeight()).isEqualTo((int) Math.round(height * 48.0 / width));
+        // 좌측의 빨강은 시계 방향 회전 뒤에는 상단에 위치한다.
+        var red = new java.awt.Color(preview.getRGB(preview.getWidth() / 4, preview.getHeight() / 4), true);
+        assertThat(red.getRed()).isGreaterThan(180);
+        assertThat(red.getBlue()).isLessThan(80);
+        if (name.endsWith("webp")) {
+            assertThat(preview.getColorModel().hasAlpha()).isTrue();
+            assertThat((preview.getRGB(40, 26) >>> 24) & 255).isLessThan(20);
+        }
+        assertThat(createProcessor().derive(source, spec, null).orElseThrow().hasPreview()).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"transparent.webp", "landscape.heic", "rotated.heif"})
+    void 잘린_새_형식은_파생본을_만들지_않고_다음_정상_요청은_처리한다(String name) throws Exception {
+        byte[] source;
+        try (var input = getClass().getResourceAsStream("/images/upload-formats/" + name)) {
+            source = input.readAllBytes();
+        }
+        var processor = createProcessor();
+        var spec = new DerivativeSpec(32, DerivativeFormat.WEBP, .8f);
+        assertThatThrownBy(() -> processor.derive(java.util.Arrays.copyOf(source, 64), spec, null))
+            .isInstanceOf(RuntimeException.class);
+        assertThat(processor.derive(source, spec, null)).isPresent();
     }
 
     @Test

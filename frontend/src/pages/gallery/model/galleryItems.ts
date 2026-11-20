@@ -58,7 +58,7 @@ export const filterGalleryItems = (
   });
 
 export const sortGalleryItems = (items: GalleryItem[], sort: PhotoSort): GalleryItem[] => {
-  if (sort === "upload") return items;
+  if (sort === "upload") return [...items].sort((left, right) => right.mediaId - left.mediaId);
 
   return [...items].sort((left, right) => {
     const leftLikeCount = left.type === "server" ? (left.media.likeCount ?? 0) : 0;

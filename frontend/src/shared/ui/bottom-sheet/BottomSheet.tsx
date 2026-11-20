@@ -2,6 +2,7 @@ import styled from "@emotion/styled";
 import { useEffect, useLayoutEffect, useId, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { LuX } from "react-icons/lu";
+import { isAppWebView } from "@/shared/lib/isAppWebView";
 import { colors, radius, shadow, spacing, typography } from "@/shared/styles/tokens";
 
 export interface BottomSheetProps {
@@ -50,7 +51,16 @@ export const BottomSheet = ({ title, description, aside, onClose, children }: Bo
       width: body.style.width,
     };
 
+    // showModal 은 안쪽 첫 입력칸에 스크롤과 함께 포커스를 준다. 시트가 아직 화면 아래에서
+    // 올라오는 중이라 화면이 그쪽으로 튀었다가 돌아온다. 대화상자 자체에 먼저 포커스를 두고,
+    // 입력칸은 스크롤 없이 포커스한다. 같은 클릭 처리 안에서 부르므로 키보드도 함께 열린다.
+    const autoFocusTarget = sheetRef.current?.querySelector<HTMLElement>("[data-autofocus]");
+    if (autoFocusTarget) {
+      overlay.tabIndex = -1;
+      overlay.setAttribute("autofocus", "");
+    }
     overlay.showModal();
+    autoFocusTarget?.focus({ preventScroll: true });
     // iOS에서도 배경 페이지가 움직이지 않도록 현재 스크롤 위치에 고정한다.
     Object.assign(body.style, {
       overflow: "hidden",
@@ -67,6 +77,38 @@ export const BottomSheet = ({ title, description, aside, onClose, children }: Bo
       if (previousFocus instanceof HTMLElement && previousFocus.isConnected) {
         previousFocus.focus({ preventScroll: true });
       }
+    };
+  }, []);
+
+  // 키보드는 레이아웃 뷰포트가 아니라 보이는 영역(visual viewport)만 줄인다(iOS, Android Chrome 108+).
+  // 오버레이는 화면 끝까지 두고(키보드 위 반투명 막대 뒤로 배경이 비치지 않게),
+  // 키보드에 가려지는 높이만큼 시트 아래 여백을 늘려 내용을 키보드 위로 올린다.
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    const viewport = window.visualViewport;
+    if (!overlay || !viewport) return;
+
+    const sync = (): void => {
+      // iOS 는 입력칸이 키보드에 가려질 것 같으면 preventScroll 을 무시하고 페이지를 끌어올린다.
+      // body 를 고정해 두었으니 원래 위치는 늘 맨 위다. 확대 중이 아니면 되돌려 오버레이를 화면에 붙인다.
+      if (viewport.scale <= 1.01 && (window.scrollY !== 0 || viewport.offsetTop !== 0)) {
+        window.scrollTo(0, 0);
+      }
+      const hidden = overlay.clientHeight - viewport.offsetTop - viewport.height;
+      // 주소창이 접히고 펴지는 정도의 차이는 키보드로 보지 않는다.
+      const keyboardOpen = hidden > 80;
+      overlay.style.setProperty("--keyboard-inset", `${keyboardOpen ? Math.round(hidden) : 0}px`);
+      overlay.toggleAttribute("data-keyboard-open", keyboardOpen);
+    };
+
+    sync();
+    viewport.addEventListener("resize", sync);
+    viewport.addEventListener("scroll", sync);
+    window.addEventListener("scroll", sync);
+    return () => {
+      viewport.removeEventListener("resize", sync);
+      viewport.removeEventListener("scroll", sync);
+      window.removeEventListener("scroll", sync);
     };
   }, []);
 
@@ -88,6 +130,7 @@ export const BottomSheet = ({ title, description, aside, onClose, children }: Bo
     >
       <Sheet
         ref={sheetRef}
+        $inApp={isAppWebView()}
         isClosing={isClosing}
         onAnimationEnd={(event) => {
           if (event.target === event.currentTarget && isClosing) onClose?.();
@@ -176,26 +219,52 @@ const Overlay = styled.dialog`
   background: ${colors.overlay};
   z-index: 1000;
 
+  &:focus {
+    outline: none;
+  }
+
   @media (min-width: 768px) {
     align-items: center;
     padding: 24px;
+
+    &[data-keyboard-open] {
+      padding-bottom: calc(24px + var(--keyboard-inset));
+    }
   }
 `;
 
-const Sheet = styled.div<{ hasHandle: boolean; isClosing: boolean }>`
+const Sheet = styled.div<{ hasHandle: boolean; isClosing: boolean; $inApp: boolean }>`
   position: relative;
   width: 100%;
   max-height: 88dvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: ${({ hasHandle }) => (hasHandle ? "12px" : "44px")} 30px
-    calc(54px + env(safe-area-inset-bottom, 0px));
+    calc(${({ $inApp }) => ($inApp ? "24px" : "54px")} + env(safe-area-inset-bottom, 0px));
   background: ${colors.backgroundDefault};
   border-radius: ${radius[24]} ${radius[24]} 0 0;
   box-shadow: ${shadow.sheet};
   animation: ${({ isClosing }) => (isClosing ? "sheet-down" : "sheet-up")} 220ms
     cubic-bezier(0.22, 0.61, 0.36, 1) ${({ isClosing }) => (isClosing ? "forwards" : "backwards")};
   pointer-events: ${({ isClosing }) => (isClosing ? "none" : "auto")};
+
+  /*
+   * 키보드가 열리면 시트 흰 바탕은 화면 끝까지 두고, 내용만 키보드 위로 올린다.
+   * 홈 인디케이터 여백은 키보드가 가리므로 뺀다.
+   */
+  [data-keyboard-open] > & {
+    max-height: min(calc(88dvh + var(--keyboard-inset)), 100%);
+    padding-bottom: calc(${spacing[20]} + var(--keyboard-inset));
+    scroll-padding-bottom: var(--keyboard-inset);
+  }
+
+  @media (min-width: 768px) {
+    [data-keyboard-open] > & {
+      max-height: min(calc(100dvh - 48px), 100%);
+      padding-bottom: 32px;
+      scroll-padding-bottom: 0;
+    }
+  }
 
   @keyframes sheet-down {
     from {
