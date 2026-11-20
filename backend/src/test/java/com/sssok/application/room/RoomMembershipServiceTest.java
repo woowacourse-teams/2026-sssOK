@@ -38,6 +38,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -294,6 +296,17 @@ class RoomMembershipServiceTest extends PostgresContainerSupport {
         assertThat(roomMembershipService.getMyRooms(hostId).getFirst().thumbnailUrl()).contains("latest.webp");
         storedFileRepository.deleteById(latest);
         assertThat(roomMembershipService.getMyRooms(hostId).getFirst().thumbnailUrl()).contains("old.webp");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"WEBP", "HEIC", "HEIF"})
+    void 추가_이미지도_방_집계와_대표_사진에_포함한다(String type) {
+        Room room = createRoom();
+        saveMedia(room.getId(), hostId, type, "READY", "new-format.webp");
+        var summary = roomMembershipService.getMyRooms(hostId).getFirst();
+        assertThat(summary.mediaCount()).isEqualTo(1);
+        assertThat(summary.thumbnailUrl()).contains("new-format.webp");
+        assertThat(getRoomService.getByCode(room.getCode(), hostId).photoCount()).isEqualTo(1);
     }
 
     @Test

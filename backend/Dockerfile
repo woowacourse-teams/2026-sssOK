@@ -9,7 +9,7 @@ RUN cc -O2 -fPIC -shared -Wall -Wextra -Werror \
     /native/sssok_vips.c -o /native/libsssok_vips.so $(pkg-config --cflags --libs vips) -lm
 
 FROM eclipse-temurin:21-jre-alpine AS image-runtime
-RUN apk add --no-cache ffmpeg vips
+RUN apk add --no-cache ffmpeg vips vips-heif
 COPY --from=native-build /native/libsssok_vips.so /opt/sssok/native/libsssok_vips.so
 ENV JAVA_TOOL_OPTIONS="-Djava.library.path=/opt/sssok/native"
 

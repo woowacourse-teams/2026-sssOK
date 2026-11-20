@@ -4,7 +4,7 @@
  * 둘 중 하나를 고칠 때는 반드시 같이 고친다.
  */
 
-const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "png", "gif"];
+const IMAGE_EXTENSIONS: readonly string[] = ["jpg", "jpeg", "png", "gif", "webp", "heic", "heif"];
 const VIDEO_EXTENSIONS: readonly string[] = ["mp4", "webm", "mov"];
 
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;

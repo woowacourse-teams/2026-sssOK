@@ -164,17 +164,23 @@ describe("POST /rooms/{roomId}/media/upload-urls — 업로드 URL 발급", () =
 
   it("허용하지 않는 확장자는 rejected 로 갈리고 나머지는 그대로 발급된다", async () => {
     const body = await (
-      await issueUploadUrls([file("한라산.jpg"), file("아이폰-원본.heic")])
+      await issueUploadUrls([file("한라산.jpg"), file("아이폰-원본.dng")])
     ).json();
 
     expect(body.data.issued).toHaveLength(1);
     expect(body.data.rejected).toEqual([
       {
-        fileName: "아이폰-원본.heic",
+        fileName: "아이폰-원본.dng",
         code: "UNSUPPORTED_MEDIA_TYPE",
         message: expect.any(String),
       },
     ]);
+  });
+
+  it("heic 은 확장자 기준 MIME 으로 발급된다", async () => {
+    const issued = await issueOne(file("아이폰-원본.HEIC", 1024, "image/jpeg"));
+
+    expect(issued.headers["Content-Type"]).toBe("image/heic");
   });
 
   it("확장자가 아예 없는 이름도 rejected UNSUPPORTED_MEDIA_TYPE 이다", async () => {

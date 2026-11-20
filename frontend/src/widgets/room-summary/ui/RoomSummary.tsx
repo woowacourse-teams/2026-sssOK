@@ -79,7 +79,7 @@ export const RoomSummary = ({
                 <img src={sparkleIcon} alt="" width={22} height={22} />
               </IconButton>
             )}
-            <RoomShareButton roomCode={roomCode} accessToken={session?.accessToken} />
+            <RoomShareButton roomCode={roomCode} />
             <RoomMenuButton
               notificationMenu={notificationMenu}
               isHost={isHost}

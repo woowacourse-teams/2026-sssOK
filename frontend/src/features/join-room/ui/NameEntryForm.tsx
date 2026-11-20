@@ -6,8 +6,8 @@ import { Stack } from "@/shared/ui/stack";
 
 export const MAX_NAME_LENGTH = 12;
 
-/** 002 는 화면 제목으로, 005 는 시트 제목으로 쓴다. 묻는 말은 같다. */
-export const NAME_ENTRY_TITLE = "표시할 이름을 입력해주세요";
+/** 002 입장 시트의 제목. 이름을 정하는 것이 곧 방에 들어가는 것이라 입장으로 묻는다. */
+export const NAME_ENTRY_TITLE = "어떤 이름으로 들어갈까요?";
 
 export interface NameEntryFormProps {
   onSubmit: (name: string) => void;
@@ -55,7 +55,7 @@ export const NameEntryForm = ({ onSubmit, isPending = false }: NameEntryFormProp
           countLabel={`최대 ${MAX_NAME_LENGTH}자 중 ${name.length}자 입력`}
           onValueChange={setName}
           disabled={isPending}
-          autoFocus
+          data-autofocus
         />
 
         <Button type="submit" size="sm" disabled={!canSubmit} aria-label={buttonLabel}>
