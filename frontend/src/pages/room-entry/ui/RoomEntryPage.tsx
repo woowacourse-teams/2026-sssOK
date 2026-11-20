@@ -1,22 +1,31 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 
 import { useRoomQuery } from "@/entities/room";
-import { useRoomSession } from "@/entities/member-session";
+import { useRoomSession, useStartDestination } from "@/entities/member-session";
 import { removeRoomSession } from "@/entities/session";
 import { NameEntryBottomSheet } from "@/features/join-room";
 import { isApiError } from "@/shared/api";
 import { ROUTES } from "@/shared/config";
 import { type AnalyticsEntrySource, track } from "@/shared/lib";
+import { ErrorState, ErrorStateButton, ErrorStateLink } from "@/shared/ui/error-state";
 import { PageSpinner } from "@/shared/ui/spinner";
 import { useJoinRoomMutation } from "../api";
+import { RoomEntryPreview } from "./RoomEntryPreview";
 
 const ERROR_MESSAGE: Record<string, string> = {
   INVALID_ROOM_CODE: "방 코드 형식이 올바르지 않아요.",
   ROOM_NOT_FOUND: "존재하지 않는 방이에요.",
 };
 
-const HomeLink = () => <Link to={ROUTES.home}>홈으로 돌아가기</Link>;
+const HomeLink = ({ primary = false }: { primary?: boolean }) => {
+  const start = useStartDestination();
+  return (
+    <ErrorStateLink $primary={primary} to={start.to} reloadDocument={start.kind === "landing"}>
+      {start.kind === "rooms" ? "내 방 목록으로 돌아가기" : "홈으로 돌아가기"}
+    </ErrorStateLink>
+  );
+};
 
 /**
  * 방에 들어온 경로. 코드를 직접 입력하는 화면은 이 페이지로 보낼 때
@@ -29,11 +38,19 @@ const entrySourceOf = (state: unknown): AnalyticsEntrySource =>
 export const RoomEntryPage = () => {
   const { code = "" } = useParams<{ code: string }>();
   const entrySrc = entrySourceOf(useLocation().state);
-  const { session, isPending: isSessionPending, isError: isSessionError } = useRoomSession(code);
+  const {
+    session,
+    isPending: isSessionPending,
+    isError: isSessionError,
+    isFetching: isSessionFetching,
+    refetch: refetchSession,
+  } = useRoomSession(code);
   const {
     data: room,
     isPending,
     error,
+    isFetching: isRoomFetching,
+    refetch: refetchRoom,
   } = useRoomQuery({
     code,
     token: session?.accessToken,
@@ -90,9 +107,19 @@ export const RoomEntryPage = () => {
   if (isSessionPending) return <PageSpinner label="로그인 정보를 불러오는 중이에요." />;
   if (isSessionError)
     return (
-      <main>
-        <span role="alert">로그인 정보를 확인하지 못했어요. 다시 시도해 주세요.</span>
-      </main>
+      <ErrorState
+        title="로그인 정보를 확인하지 못했어요."
+        description="잠시 후 다시 시도해 주세요."
+      >
+        <ErrorStateButton
+          onClick={() => void refetchSession()}
+          disabled={isSessionFetching}
+          aria-busy={isSessionFetching}
+        >
+          다시 시도
+        </ErrorStateButton>
+        <HomeLink />
+      </ErrorState>
     );
 
   if (isPending) {
@@ -104,11 +131,28 @@ export const RoomEntryPage = () => {
       ? (ERROR_MESSAGE[error.code] ?? error.message)
       : "방 정보를 불러오지 못했어요.";
 
+    const invalidLink =
+      isApiError(error) && ["INVALID_ROOM_CODE", "ROOM_NOT_FOUND"].includes(error.code);
+    const title =
+      isApiError(error) && error.code === "ROOM_NOT_FOUND"
+        ? "방을 찾을 수 없어요"
+        : invalidLink
+          ? "초대 링크를 확인해 주세요"
+          : "방 정보를 불러오지 못했어요";
+
     return (
-      <main>
-        <p role="alert">{message}</p>
-        <HomeLink />
-      </main>
+      <ErrorState title={title} description={message}>
+        {!invalidLink && (
+          <ErrorStateButton
+            onClick={() => void refetchRoom()}
+            disabled={isRoomFetching}
+            aria-busy={isRoomFetching}
+          >
+            다시 시도
+          </ErrorStateButton>
+        )}
+        <HomeLink primary={invalidLink} />
+      </ErrorState>
     );
   }
 
@@ -118,10 +162,13 @@ export const RoomEntryPage = () => {
 
   if (auth.isError) {
     return (
-      <main>
-        <p role="alert">입장하지 못했어요. 잠시 후 다시 시도해주세요.</p>
+      <ErrorState
+        title="방에 입장하지 못했어요"
+        description={"잠시 후 다시 시도하거나\n초대 링크를 다시 열어 주세요."}
+      >
+        <ErrorStateButton onClick={() => auth.reset()}>다시 시도</ErrorStateButton>
         <HomeLink />
-      </main>
+      </ErrorState>
     );
   }
 
@@ -130,10 +177,14 @@ export const RoomEntryPage = () => {
     return <Navigate to={ROUTES.gallery(code)} replace />;
   }
 
+  // 시트 뒤에 들어갈 갤러리를 깔아, 이름만 정하면 이 화면으로 들어간다는 걸 보여 준다.
   return (
-    <NameEntryBottomSheet
-      onSubmit={(nickname) => auth.mutate({ nickname, roomId: room.roomId })}
-      isPending={auth.isPending}
-    />
+    <>
+      <RoomEntryPreview room={room} />
+      <NameEntryBottomSheet
+        onSubmit={(nickname) => auth.mutate({ nickname, roomId: room.roomId })}
+        isPending={auth.isPending}
+      />
+    </>
   );
 };

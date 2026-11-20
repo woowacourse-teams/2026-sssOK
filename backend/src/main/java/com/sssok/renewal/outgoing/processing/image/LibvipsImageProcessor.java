@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** 검증한 JPEG → WebP 경로만 대체한다. 다른 포맷과 EXIF 촬영 정보는 기존 구현이 담당한다. */
+/** JPEG 최적화 경로와 WebP·HEIF의 네이티브 디코딩을 제공한다. PNG·GIF는 기존 구현이 담당한다. */
 @Component
 @ConditionalOnProperty(name = "media.image.processor", havingValue = "libvips")
 public class LibvipsImageProcessor implements ImageDerivativeEngine {
@@ -28,9 +28,41 @@ public class LibvipsImageProcessor implements ImageDerivativeEngine {
     }
 
     public boolean supports(byte[] source, DerivativeSpec thumbnail, DerivativeSpec preview) {
-        return source.length >= 3 && (source[0] & 255) == 255 && (source[1] & 255) == 216
-            && (source[2] & 255) == 255 && thumbnail.format() == DerivativeFormat.WEBP
+        return (isJpeg(source) || isWebp(source) || isHeif(source))
+            && thumbnail.format() == DerivativeFormat.WEBP
             && (preview == null || preview.format() == DerivativeFormat.WEBP);
+    }
+
+    private static boolean isJpeg(byte[] source) {
+        return source.length >= 3 && (source[0] & 255) == 255 && (source[1] & 255) == 216
+            && (source[2] & 255) == 255;
+    }
+
+    private static boolean isWebp(byte[] source) {
+        return matches(source, 0, "RIFF") && matches(source, 8, "WEBP");
+    }
+
+    private static boolean isHeif(byte[] source) {
+        if (source.length < 16 || !matches(source, 4, "ftyp")) return false;
+        long boxSize = Integer.toUnsignedLong(java.nio.ByteBuffer.wrap(source).getInt());
+        if (boxSize < 16 || boxSize > source.length || (boxSize - 16) % 4 != 0) return false;
+        boolean heif = false;
+        for (int offset = 8; offset < boxSize; offset += 4) {
+            if (offset == 12) continue; // minor version is not a brand
+            if (matches(source, offset, "avif") || matches(source, offset, "avis")) return false;
+            heif |= matches(source, offset, "heic") || matches(source, offset, "heix")
+                || matches(source, offset, "hevc") || matches(source, offset, "hevx")
+                || matches(source, offset, "mif1") || matches(source, offset, "msf1");
+        }
+        return heif;
+    }
+
+    private static boolean matches(byte[] source, int offset, String signature) {
+        if (source.length - offset < signature.length()) return false;
+        for (int i = 0; i < signature.length(); i++) {
+            if (source[offset + i] != signature.charAt(i)) return false;
+        }
+        return true;
     }
 
     public DerivedImages derive(byte[] source, DerivativeSpec thumbnail, DerivativeSpec preview) {

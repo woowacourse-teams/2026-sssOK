@@ -122,10 +122,20 @@ describe("갤러리 목록에서 파생하는 개수", () => {
     expect(items.map((item) => item.mediaId)).toEqual([1, 2, 3]);
   });
 
-  it("업로드 순은 서버에서 받은 순서를 그대로 사용한다", () => {
-    const items = mergeGalleryItems([photo(3, []), photo(1, []), photo(2, [])], []);
+  it("업로드 순은 미리보기·서버 썸네일·재조회 전후 ID 내림차순을 유지한다", () => {
+    const stages = [
+      mergeGalleryItems([photo(1, [])], [preview(2, []), preview(4, []), preview(3, [])]),
+      mergeGalleryItems([photo(2, []), photo(1, [])], [preview(4, []), preview(3, [])]),
+      mergeGalleryItems([photo(3, []), photo(2, []), photo(1, []), photo(4, [])], []),
+      mergeGalleryItems([photo(4, []), photo(3, []), photo(2, []), photo(1, [])], []),
+    ];
 
-    expect(sortGalleryItems(items, "upload").map((item) => item.mediaId)).toEqual([3, 1, 2]);
+    for (const items of stages) {
+      const original = [...items];
+
+      expect(sortGalleryItems(items, "upload").map((item) => item.mediaId)).toEqual([4, 3, 2, 1]);
+      expect(items).toEqual(original);
+    }
   });
 
   it("썸네일 생성 중에는 미리보기를 유지하고 서버의 최신 폴더 정보를 반영한다", () => {

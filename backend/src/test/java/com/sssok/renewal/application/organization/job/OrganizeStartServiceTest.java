@@ -18,6 +18,8 @@ import java.util.List;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 // Repository + Service 통합 테스트 (H2). 접수 검증·방 활성 제한·멱등 키·회원 유형별 사용 제한을 확인한다.
 @OrganizeH2Test
@@ -52,6 +54,18 @@ class OrganizeStartServiceTest extends OrganizeServiceTestSupport {
                 .extracting(execution -> execution.attempt()).isEqualTo(1);
             assertThat(repository.findRoomState(room)).get()
                 .extracting("busy", "version").containsExactly(true, 1L);
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"webp", "heic", "heif"})
+        void 새_이미지_형식도_정리_대상과_사진_개수에_포함한다(String extension) {
+            Long host = registeredMember();
+            Long room = room(host);
+            Long id = photo(room, host, "photo." + extension, "image/" + extension, true);
+            OrganizeJob job = startService.startByKind(room, host, OrganizeKind.SIMILAR, key());
+            assertThat(job.photoCount()).isEqualTo(1);
+            assertThat(job.excludedCount()).isZero();
+            assertThat(repository.findPhotos(job.id())).extracting(photo -> photo.mediaId()).containsExactly(id);
         }
 
         @Test

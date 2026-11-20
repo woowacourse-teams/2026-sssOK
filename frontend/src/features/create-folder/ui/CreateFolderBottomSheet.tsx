@@ -48,7 +48,7 @@ export const CreateFolderBottomSheet = ({
       <form onSubmit={submit}>
         <Stack gap={16}>
           <Input
-            autoFocus
+            data-autofocus
             label="폴더 이름"
             placeholder="폴더 이름을 입력하세요"
             value={name}

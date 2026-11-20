@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router-dom";
 
@@ -17,7 +18,12 @@ const renderLazy = (load: () => Promise<{ LoadedPage: typeof LoadedPage }>): voi
     ],
     { initialEntries: ["/"] },
   );
-  render(<RouterProvider router={router} />);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 };
 
 describe("lazyPage", () => {

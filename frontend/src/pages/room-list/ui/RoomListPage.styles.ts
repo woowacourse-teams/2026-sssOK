@@ -289,9 +289,25 @@ export const ErrorBox = styled.section`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: ${spacing[16]};
+  gap: ${spacing[8]};
   color: ${colors.textSecondary};
   text-align: center;
 
   ${typography.body}
+  h2 {
+    color: ${colors.textStrong};
+    ${typography.heading2}
+  }
+
+  p {
+    ${typography.body}
+  }
+
+  > button {
+    width: auto;
+    min-width: 128px;
+    height: 44px;
+    margin-top: ${spacing[16]};
+    padding-inline: ${spacing[20]};
+  }
 `;

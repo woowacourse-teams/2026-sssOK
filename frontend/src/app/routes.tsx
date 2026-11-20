@@ -12,6 +12,7 @@ import { AdminRoute } from "./AdminRoute";
 import { lazyPage } from "./lazyPage";
 import { RoomMediaLayout } from "./RoomMediaLayout";
 import { RouteErrorPage } from "./RouteErrorPage";
+import { StartRedirect } from "./StartRedirect";
 import { useUnauthorizedRecovery } from "./useUnauthorizedRecovery";
 
 const PrivacyPolicyPage = lazyPage(
@@ -29,10 +30,6 @@ const LoginCallbackPage = lazyPage(
 const LoginPage = lazyPage(
   () => import("@/pages/login"),
   (m) => m.LoginPage,
-);
-const HomePage = lazyPage(
-  () => import("@/pages/home"),
-  (m) => m.HomePage,
 );
 const RoomListPage = lazyPage(
   () => import("@/pages/room-list"),
@@ -80,7 +77,7 @@ const pageRoutes: RouteObject[] = [
     element: <RedirectIfMember />,
     children: [{ path: ROUTE_PATTERNS.login, element: LoginPage }],
   },
-  { path: ROUTE_PATTERNS.home, element: HomePage },
+  { path: ROUTE_PATTERNS.home, element: <StartRedirect /> },
   {
     element: <RequireMember />,
     children: [
@@ -116,8 +113,8 @@ const pageRoutes: RouteObject[] = [
       { path: ROUTE_PATTERNS.adminAccounts, element: AdminAccountsPage },
     ],
   },
-  // 알 수 없는 주소는 홈으로 안내한다 (screens/001-home.md)
-  { path: "*", element: <Navigate to={ROUTES.home} replace /> },
+  // 알 수 없는 주소는 방 목록(웹 게스트는 랜딩)으로 보낸다
+  { path: "*", element: <StartRedirect /> },
 ];
 
 const AuthRecoveryLayout = () => {

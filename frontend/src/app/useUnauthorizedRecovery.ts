@@ -18,6 +18,7 @@ import {
   setAuthRecovery,
 } from "@/shared/api/authRecovery";
 import { ROUTES } from "@/shared/config";
+import { leaveToLanding } from "@/shared/lib";
 
 /** 공통 인증 복구에 세션 저장소와 플랫폼별 화면 이동을 연결한다. */
 export const useUnauthorizedRecovery = (): void => {
@@ -40,10 +41,9 @@ export const useUnauthorizedRecovery = (): void => {
       const context = current(token);
       if (!context) return;
       if (context.roomCode !== null) removeRoomSession(context.roomCode);
-      navigate(window.ReactNativeWebView ? ROUTES.login : ROUTES.home, {
-        replace: true,
-        flushSync: true,
-      });
+      // 웹은 세션이 지워져 게스트가 되므로 랜딩으로 보낸다. 문서를 새로 불러오니 아래 정리는 지금 화면을 위한 것이다.
+      if (window.ReactNativeWebView) navigate(ROUTES.login, { replace: true, flushSync: true });
+      else leaveToLanding();
       // 진행 중인 요청도 취소해 이전 계정의 데이터가 다시 캐시에 들어오지 않게 한다.
       void queryClient.cancelQueries();
       queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== "member-session" });

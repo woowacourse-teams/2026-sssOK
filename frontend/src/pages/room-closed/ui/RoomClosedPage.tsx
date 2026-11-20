@@ -1,5 +1,6 @@
 import { Navigate } from "react-router-dom";
 
+import { useStartDestination } from "@/entities/member-session";
 import closedRoomImage from "@/shared/assets/mascot-close.png";
 import { ROUTES } from "@/shared/config";
 import { isAppWebView } from "@/shared/lib";
@@ -16,6 +17,7 @@ import {
 } from "./RoomClosedPage.styles";
 
 export const RoomClosedPage = () => {
+  const start = useStartDestination();
   if (isAppWebView()) return <Navigate to={ROUTES.rooms} replace />;
 
   return (
@@ -31,7 +33,9 @@ export const RoomClosedPage = () => {
 
       <Actions>
         <PrimaryActionLink to={ROUTES.createRoom}>새 방 만들기</PrimaryActionLink>
-        <ActionLink to={ROUTES.home}>홈으로 가기</ActionLink>
+        <ActionLink to={start.to} reloadDocument={start.kind === "landing"}>
+          {start.kind === "rooms" ? "내 방 목록으로 가기" : "홈으로 가기"}
+        </ActionLink>
       </Actions>
     </Page>
   );
