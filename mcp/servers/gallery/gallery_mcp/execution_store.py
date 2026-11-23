@@ -201,9 +201,9 @@ class Store:
                 raise ValueError('Execution not found in this room; Spring may resubmit from its job record')
             return dict(row)
 
-    def claim(self):
+    def claim(self, resident_limit=1):
         with self._connection(write=True) as db:
-            if db.execute("SELECT 1 FROM executions WHERE state='RUNNING'").fetchone():
+            if db.execute("SELECT COUNT(*) FROM executions WHERE state='RUNNING'").fetchone()[0] >= resident_limit:
                 return None
             row = db.execute("SELECT * FROM executions WHERE state='QUEUED' ORDER BY created_at,id LIMIT 1").fetchone()
             if row:

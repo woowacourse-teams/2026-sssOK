@@ -18,6 +18,16 @@ PID = os.getpid()
 def run(source, output, *args):
     photo = next(source.iterdir())
     mode = photo.read_text()
+    if mode.startswith('batch'):
+        trace = source.parents[2] / 'schedule.log'
+        for index in range(1, 31):
+            with trace.open('a') as stream:
+                stream.write(f'{mode}-{index}\\n')
+            if mode == 'batchA' and index == 1:
+                deadline = time.monotonic() + 5
+                while not (trace.parent/'admitted').exists() and time.monotonic() < deadline:
+                    time.sleep(.01)
+            args[-1].write('detecting_faces', index, 30)
     if mode == 'fail': raise RuntimeError('private URL must not escape')
     if mode == 'crash': os._exit(2)
     if mode == 'sleep': time.sleep(30)
@@ -158,3 +168,53 @@ serve(Settings.environment())
         self.assertEqual(result['state'], 'COMPLETED')
         self.assertEqual(result['result']['unassignedMediaIds'], [1])
         self.assertIsNone(self.service.process)
+
+    def enqueue(self, name, kind, media_id):
+        path = self.inputs / (name + '.jpg')
+        path.write_text(name)
+        return self.service.start(1, str(uuid4()), [
+            Photo(mediaId=media_id, source=path.name, extension='jpg')], kind=kind)['executionId']
+
+    async def test_batch_boundary_admits_one_peer_and_resumes_without_repeating_work(self):
+        first = self.enqueue('batchA', 'PERSON', 1)
+        trace = self.settings.data / 'schedule.log'
+        with patch('gallery_mcp.scheduling.HIGH_QUEUE_SECONDS', 0):
+            run = asyncio.create_task(self.service.execute(self.service.store.claim()))
+            for _ in range(300):
+                if trace.exists():
+                    break
+                await asyncio.sleep(.01)
+            second = self.enqueue('batchB', 'SIMILAR', 2)
+            third = self.enqueue('batchC', 'PERSON', 3)
+            (trace.parent/'admitted').touch()
+            await asyncio.wait_for(run, 10)
+        entries = trace.read_text().splitlines()
+        self.assertEqual(entries[:11], [f'batchA-{i}' for i in range(1, 11)] + ['batchB-1'])
+        self.assertLess(entries.index('batchA-30'), entries.index('batchC-1'))
+        for name, execution_id in zip(('batchA','batchB','batchC'), (first, second, third)):
+            self.assertEqual([s for s in entries if s.startswith(name)],
+                             [f'{name}-{i}' for i in range(1,31)])
+            self.assertEqual(self.service.get(1, execution_id)['state'], 'COMPLETED')
+
+    async def test_timeout_reaps_both_resident_stacks_and_preserves_the_queue(self):
+        self.service.settings = replace(self.settings, timeout=2)
+        first = self.enqueue('batchA', 'PERSON', 1)
+        peer = self.enqueue('sleep', 'SIMILAR', 2)
+        queued = self.enqueue('ok', 'PERSON', 3)
+        (self.settings.data/'admitted').touch()
+        await self.service.execute(self.service.store.claim())
+        self.assertIsNone(self.service.process)
+        self.assertEqual(self.service.get(1, peer)['errorCode'], 'ANALYSIS_TIMEOUT')
+        self.assertEqual(self.service.get(1, first)['errorCode'], 'ANALYSIS_FAILED')
+        self.assertEqual(self.service.get(1, queued)['state'], 'QUEUED')
+        await self.service.execute(self.service.store.claim())
+        self.assertEqual(self.service.get(1, queued)['state'], 'COMPLETED')
+
+    async def test_idle_worker_exit_does_not_fail_the_next_job(self):
+        await self.run_job()
+        idle = self.service.process
+        idle.terminate()
+        await idle.wait()
+        next_job = await self.run_job(media_id=2)
+        self.assertEqual(next_job['state'], 'COMPLETED')
+        self.assertNotEqual(self.service.process.pid, idle.pid)
