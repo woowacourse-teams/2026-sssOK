@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -17,6 +18,9 @@ import org.springframework.stereotype.Repository;
 public class ThumbnailJobRepository {
     private final ThumbnailJobJpaRepository jpaRepository;
     private final EntityManager entityManager;
+
+    @Value("${media.thumbnail.queue.room-round-robin:false}")
+    private boolean roomRoundRobin;
 
     public Optional<ThumbnailJob> findById(Long mediaId) {
         return jpaRepository.findById(mediaId).map(ThumbnailJobJpaEntity::toDomain);
@@ -26,8 +30,15 @@ public class ThumbnailJobRepository {
         return jpaRepository.lock(mediaId).map(ThumbnailJobJpaEntity::toDomain);
     }
 
-    // JPA 쿼리가 원래 사용하던 FOR UPDATE SKIP LOCKED를 그대로 적용한다.
+    // 커서 변경은 선점과 함께 커밋되며 이미지 가공 전에 잠금이 풀린다.
     public Optional<ThumbnailJob> claimable(ThumbnailKind kind, Instant now) {
+        if (roomRoundRobin && kind == ThumbnailKind.IMAGE) {
+            long lastRoomId = jpaRepository.lockImageRoomCursor();
+            return jpaRepository.nextImageByRoom(lastRoomId, now).map(row -> {
+                jpaRepository.advanceImageRoomCursor(row.getMediaId());
+                return row.toDomain();
+            });
+        }
         return jpaRepository.claimable(kind.name(), now).map(ThumbnailJobJpaEntity::toDomain);
     }
 
