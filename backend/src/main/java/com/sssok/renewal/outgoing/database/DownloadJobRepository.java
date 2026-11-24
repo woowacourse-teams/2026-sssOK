@@ -6,16 +6,25 @@ import com.sssok.renewal.domain.download.status.DownloadJobStatus;
 import com.sssok.renewal.domain.download.status.FailedDownloadJobStatus;
 import com.sssok.renewal.domain.download.status.ReadyDownloadJobStatus;
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor
 public class DownloadJobRepository {
+    private static final String INSERT_JOB_MEDIA = """
+        INSERT INTO download_job_media (download_job_id, media_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        """;
+
     private final DownloadJobJpaRepository jpaRepository;
     private final DownloadJobMediaJpaRepository jobMediaJpaRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public DownloadJob save(DownloadJob job) {
         return toDomain(jpaRepository.save(toEntity(job)));
@@ -31,11 +40,16 @@ public class DownloadJobRepository {
     }
 
     // 워커가 대상을 다시 해석하지 않도록 생성 시점의 대상을 고정한다.
+    // IDENTITY 키라 JPA saveAll 은 행마다 insert 를 따로 보낸다. 대상이 최대 1000건이라
+    // 요청자 행을 잠근 접수 트랜잭션이 대상 수만큼 길어지지 않도록 JDBC 배치 한 번으로 묶는다.
     public void saveJobMedia(Long jobId, List<Long> mediaIds) {
-        List<DownloadJobMediaJpaEntity> entities = mediaIds.stream()
-            .map(mediaId -> new DownloadJobMediaJpaEntity(null, jobId, mediaId))
-            .toList();
-        jobMediaJpaRepository.saveAll(entities);
+        OffsetDateTime now = OffsetDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
+        jdbcTemplate.batchUpdate(INSERT_JOB_MEDIA, mediaIds, mediaIds.size(), (statement, mediaId) -> {
+            statement.setLong(1, jobId);
+            statement.setLong(2, mediaId);
+            statement.setObject(3, now);
+            statement.setObject(4, now);
+        });
     }
 
     public List<Long> findMediaIdsByJobId(Long jobId) {
