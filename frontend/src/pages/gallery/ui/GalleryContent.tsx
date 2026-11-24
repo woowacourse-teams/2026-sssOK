@@ -24,6 +24,7 @@ import {
   OrganizeLimitModal,
   organizeLimitOf,
   OrganizeStatusBar,
+  trackOrganizeOpened,
   PersonReviewScreen,
   useOrganizeJob,
 } from "@/features/organize-media";
@@ -233,8 +234,9 @@ export const GalleryContent = ({ room, accessToken, userId, nickname }: GalleryC
    * 사진 목록을 아직 못 읽었으면 세지 않고 서버 판단에 맡긴다(거절되면 같은 모달이 뜬다).
    */
   const beginOrganize = (open: () => void): void => {
-    const limit =
-      isPending || isError ? null : organizeLimitOf(countAnalyzablePhotos(allGalleryItems));
+    const photoCount = isPending || isError ? null : countAnalyzablePhotos(allGalleryItems);
+    const limit = photoCount === null ? null : organizeLimitOf(photoCount);
+    trackOrganizeOpened(photoCount, limit);
     if (limit) setOrganizeLimit(limit);
     else open();
   };

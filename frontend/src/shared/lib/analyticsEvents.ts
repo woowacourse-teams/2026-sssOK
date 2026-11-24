@@ -105,6 +105,40 @@ export interface AnalyticsEvents {
   "Gallery Filter Changed": { filter: "all" | "mine" | "others" | "liked" };
   "Gallery Sort Changed": { sort: "upload" | "popular" };
 
+  /**
+   * AI 정리(사람별로 나누기) 버튼을 눌렀을 때. `photo_count` 는 갤러리가 센 정리 대상 장수이고,
+   * 사진 목록을 아직 못 읽었으면 null 이다. 막힘·시작 이벤트의 분모다.
+   */
+  "Photo Organize Opened": { photo_count: number | null };
+  /**
+   * 정리를 시작하지 못하게 막았을 때. 버튼을 누르자마자 장수로 막았으면 `precheck`,
+   * 서버가 접수를 거절했으면 `server` 다. 200장 제한에 막힌 사람을 세는 데 쓴다.
+   */
+  "Photo Organize Blocked": {
+    reason: "tooMany" | "empty" | "trialExhausted";
+    photo_count: number | null;
+    stage: "precheck" | "server";
+  };
+  /** 서버가 정리 작업을 접수했을 때. `photo_count` 는 서버가 확정한 분석 대상 장수다. */
+  "Photo Organize Started": { kind: "PERSON" | "SIMILAR"; photo_count: number };
+  /**
+   * 이 기기에서 시작한 작업의 분석이 끝나 결과를 받았을 때. 다시 들어와 이어 본 작업은 세지 않는다.
+   * `duration_ms` 는 접수부터 결과를 받기까지다.
+   */
+  "Photo Organize Completed": {
+    kind: "PERSON" | "SIMILAR";
+    photo_count: number;
+    group_count: number;
+    duration_ms: number;
+  };
+  /**
+   * 정리가 실패했을 때. 접수 단계 오류(제한 거절 제외)는 `start`, 분석 중 실패는 `analysis` 다.
+   * `reason` 은 서버 오류 코드나 실패 코드이고, 모르면 `unknown` 이다.
+   */
+  "Photo Organize Failed": { reason: string; stage: "start" | "analysis" };
+  /** 검토한 결과를 폴더로 만들었을 때 */
+  "Photo Organize Applied": { kind: "PERSON" | "SIMILAR"; folder_count: number };
+
   "Search Opened": Record<string, never>;
   "Photo Searched":
     | { search_type: "keyword"; query_length: number; result_count: number; duration_ms: number }

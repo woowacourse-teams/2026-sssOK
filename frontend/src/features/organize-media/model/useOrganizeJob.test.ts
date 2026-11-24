@@ -12,8 +12,21 @@ import { http, HttpResponse } from "msw";
 
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
+import { track } from "@/shared/lib/analytics";
 import type { OrganizeCurrent, OrganizeJob } from "../api/types";
 import { useOrganizeJob } from "./useOrganizeJob";
+
+jest.mock("@/shared/lib/analytics", () => ({
+  ...jest.requireActual("@/shared/lib/analytics"),
+  track: jest.fn(),
+}));
+
+/** 이름이 같은 이벤트를 보낸 횟수와 속성 */
+const tracked = (event: string): unknown[] =>
+  jest
+    .mocked(track)
+    .mock.calls.filter(([name]) => name === event)
+    .map(([, properties]) => properties);
 
 const ROOM_ID = 1;
 const BASE = `${API_BASE_URL}/rooms/${ROOM_ID}/organize-jobs`;
@@ -127,7 +140,10 @@ const render = (): RenderHookResult<
 
 const settle = (): Promise<void> => act(async () => {});
 
-beforeEach(() => sessionStorage.clear());
+beforeEach(() => {
+  sessionStorage.clear();
+  jest.mocked(track).mockClear();
+});
 
 describe("useOrganizeJob", () => {
   it("사람별로 시작하면 중복 방지 키와 함께 접수하고 분석 대기 진행 바를 띄운다", async () => {
@@ -546,6 +562,7 @@ describe("useOrganizeJob", () => {
       expect(result.current.notice).toBeNull();
       expect(result.current.review).toBeNull();
       expect(result.current.blockedReason).toBeNull();
+      expect(tracked("Photo Organize Applied")).toEqual([{ kind: "PERSON", folder_count: 1 }]);
 
       // 반영 전 READY 이벤트가 늦게 와도 알림을 되살리지 않는다.
       act(() => result.current.applyJobUpdate({ ...readyCurrent.myJob!, jobVersion: 5 }));
@@ -655,6 +672,65 @@ describe("useOrganizeJob", () => {
 
     expect(result.current.limit).toEqual({ reason: "tooMany", count: 230 });
     expect(result.current.error).toBeNull();
+    expect(tracked("Photo Organize Blocked")).toEqual([
+      { reason: "tooMany", photo_count: 230, stage: "server" },
+    ]);
+    expect(tracked("Photo Organize Started")).toEqual([]);
+  });
+
+  describe("이벤트", () => {
+    it("시작하면 접수 장수를 남기고, 결과를 읽으면 완료를 한 번만 남긴다", async () => {
+      serve({ groupCount: 6 });
+      const { result } = render();
+      await settle();
+
+      await act(() => result.current.start({ kind: "PERSON" }));
+      expect(tracked("Photo Organize Started")).toEqual([{ kind: "PERSON", photo_count: 40 }]);
+
+      act(() => result.current.applyJobUpdate(jobOf({ status: "READY", jobVersion: 5 })));
+      await waitFor(() => expect(result.current.notice?.groupCount).toBe(6));
+      // 같은 완료 상태가 다시 와도 한 번만 센다.
+      act(() => result.current.applyJobUpdate(jobOf({ status: "READY", jobVersion: 6 })));
+      await settle();
+
+      expect(tracked("Photo Organize Completed")).toEqual([
+        { kind: "PERSON", photo_count: 40, group_count: 6, duration_ms: expect.any(Number) },
+      ]);
+    });
+
+    it("다시 들어와 이어 본 완료 작업은 완료로 세지 않는다", async () => {
+      serve({
+        current: {
+          roomBusy: true,
+          roomVersion: 2,
+          myJob: jobOf({ status: "READY", jobVersion: 5 }),
+        },
+      });
+      const { result } = render();
+
+      await waitFor(() => expect(result.current.notice?.groupCount).toBe(6));
+
+      expect(tracked("Photo Organize Completed")).toEqual([]);
+    });
+
+    it("분석이 실패하면 실패 코드를 남긴다", async () => {
+      serve();
+      const { result } = render();
+      await settle();
+      await act(() => result.current.start({ kind: "PERSON" }));
+
+      act(() =>
+        result.current.applyJobUpdate({
+          ...jobOf({ status: "FAILED", jobVersion: 4 }),
+          failureCode: "ANALYSIS_TIMEOUT",
+        }),
+      );
+      await settle();
+
+      expect(tracked("Photo Organize Failed")).toEqual([
+        { reason: "ANALYSIS_TIMEOUT", stage: "analysis" },
+      ]);
+    });
   });
   it("SSE 가 접수 응답보다 먼저 와도 분석 대상 장수를 잃지 않는다", async () => {
     serve();
