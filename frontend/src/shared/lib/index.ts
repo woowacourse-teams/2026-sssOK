@@ -2,6 +2,7 @@ export {
   captureException,
   getAnalyticsRoom,
   initAnalytics,
+  markInternalMember,
   setAnalyticsRoom,
   track,
 } from "./analytics";
