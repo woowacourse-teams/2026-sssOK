@@ -1,18 +1,31 @@
 import type { RenderResult } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { render } from "../../../../test/renderWithToast";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 
 import type { GalleryItem, MediaItem } from "@/entities/media";
+import { useRoomSession } from "@/entities/member-session";
 import { prefersShareSheet } from "@/features/download-media/lib/prefersShareSheet";
 import { saveBlob } from "@/features/download-media/lib/saveBlob";
 import { MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
 import { API_BASE_URL } from "@/shared/config";
 import { MediaViewerModal } from "./MediaViewerModal";
+
+jest.mock("@/entities/member-session", () => ({ useRoomSession: jest.fn() }));
+
+const mockSession = (userId: number, accessToken: string): void => {
+  jest.mocked(useRoomSession).mockReturnValue({
+    session: { userId, accessToken, nickname: "나", expiresAt: "2099-01-01T00:00:00Z" },
+    isPending: false,
+    isError: false,
+  } as ReturnType<typeof useRoomSession>);
+};
+
+beforeEach(() => mockSession(USER_ID, "token"));
 
 const ROOM_ID = 1;
 const USER_ID = 7;
@@ -76,9 +89,9 @@ const renderViewer = (
         items={viewerItems}
         activeMediaId={viewerItems[0].mediaId}
         roomId={ROOM_ID}
-        userId={USER_ID}
+
         hostId={99}
-        token="token"
+
         selectedPhotoIds={[]}
         onChange={onChange}
         onClose={onClose}
@@ -92,6 +105,32 @@ const renderViewer = (
 };
 
 describe("MediaViewerModal 삭제", () => {
+  it("더보기 메뉴의 방향키·Escape는 사진 이동이나 뷰어 닫기로 전달되지 않는다", () => {
+    const { onChange, onClose } = renderViewer();
+    const button = screen.getByLabelText("사진 더보기");
+    fireEvent.click(button);
+    fireEvent.keyDown(button, { key: "ArrowRight" });
+    fireEvent.keyDown(button, { key: "Escape" });
+
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).toHaveFocus();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [USER_ID, true],
+    [99, true],
+    [42, false],
+  ])("세션 사용자 %i의 소유자·방장 여부로 삭제 권한을 결정한다", (userId, allowed) => {
+    mockSession(userId, "session-token");
+    renderViewer();
+
+    const button = screen.getByRole("button", { name: "사진 삭제" });
+    if (allowed) expect(button).toBeEnabled();
+    else expect(button).toBeDisabled();
+  });
+
   it("업로드 미리보기에서도 삭제 버튼을 사용할 수 있다", async () => {
     const localItem: GalleryItem = {
       mediaId: 13,
@@ -237,9 +276,9 @@ describe("MediaViewerModal", () => {
           items={[item]}
           activeMediaId={5012}
           roomId={1024}
-          userId={12}
+
           hostId={12}
-          token="token"
+
           selectedPhotoIds={[]}
           onChange={jest.fn()}
           onClose={jest.fn()}
@@ -355,9 +394,9 @@ describe("라이트박스 단일 다운로드", () => {
         items={[viewerItem]}
         activeMediaId={viewerItem.mediaId}
         roomId={MOCK_ROOM_ID}
-        userId={1}
+
         hostId={1}
-        token={TOKEN}
+
         selectedPhotoIds={[]}
         onChange={jest.fn()}
         onClose={jest.fn()}
@@ -369,6 +408,7 @@ describe("라이트박스 단일 다운로드", () => {
   };
 
   beforeEach(() => {
+    mockSession(1, TOKEN);
     serveSingle();
     saveBlobMock.mockClear();
   });
@@ -492,9 +532,9 @@ describe("모바일 좌우 절반 터치", () => {
           items={items}
           activeMediaId={activeMediaId}
           roomId={1024}
-          userId={12}
+
           hostId={12}
-          token="token"
+
           selectedPhotoIds={[]}
           onChange={onChange}
           onClose={jest.fn()}

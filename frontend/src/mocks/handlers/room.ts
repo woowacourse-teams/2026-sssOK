@@ -497,6 +497,12 @@ export const hasJoinedRoom = (token: string, roomId: number): boolean =>
   readJoinedRooms().has(joinKey(token, roomId));
 
 export const roomHandlers = [
+  // 갤러리 진입 시 조회한다. 목 토큰이 실제 서버로 넘어가지 않게 한다.
+  http.get(`${API_BASE_URL}/rooms/:roomId/notification-setting`, ({ request }) => {
+    const token = request.headers.get("Authorization");
+    if (!token || isBrokenToken(token)) return unauthorized();
+    return HttpResponse.json({ data: { enabled: true } });
+  }),
   // 만료·삭제된 방도 404 가 아니라 200 + status 로 내려온다.
   http.get(`${API_BASE_URL}/rooms/:code`, ({ request, params }) => {
     const code = String(params.code);
@@ -545,7 +551,9 @@ export const roomHandlers = [
 
     const roomId = Number(params.roomId);
 
-    if (roomId !== MOCK_ROOM_ID) {
+    // 사진 픽스처는 기본 방에만 있다. 다른 활성 방은 빈 방(올린 것만 보이는 방)으로 답한다.
+    const roomCode = roomCodeOfId(roomId);
+    if (roomCode === null || !isActiveRoomCode(roomCode)) {
       return roomNotFound();
     }
 
@@ -630,7 +638,9 @@ export const roomHandlers = [
     const roomId = Number(params.roomId);
     const memberId = Number(token.replace("Bearer mock-token-", ""));
 
-    if (roomId !== MOCK_ROOM_ID) {
+    // 사진 픽스처는 기본 방에만 있다. 다른 활성 방은 빈 방(올린 것만 보이는 방)으로 답한다.
+    const roomCode = roomCodeOfId(roomId);
+    if (roomCode === null || !isActiveRoomCode(roomCode)) {
       return roomNotFound();
     }
 

@@ -78,8 +78,10 @@ describe("trackUpload", () => {
           media(2, "photo.webp", "image/webp"),
           media(3, "clipboard", "image/avif"),
           media(4, "photo", ""),
+          media(5, "IMG_0001.HEIC", "image/jpeg"),
+          media(6, "shared", "image/heif"),
         ],
-        failed: [failed(5)],
+        failed: [failed(7)],
       }),
       100,
       ROOM,
@@ -88,10 +90,10 @@ describe("trackUpload", () => {
     expect(track).toHaveBeenCalledWith(
       "Photo Uploaded",
       {
-        photo_count: 4,
+        photo_count: 6,
         failed_count: 1,
         duration_ms: 100,
-        uploaded_format_counts: { webp: 2, avif: 1, unknown: 1 },
+        uploaded_format_counts: { webp: 2, avif: 1, heic: 1, heif: 1, unknown: 1 },
       },
       ROOM,
     );

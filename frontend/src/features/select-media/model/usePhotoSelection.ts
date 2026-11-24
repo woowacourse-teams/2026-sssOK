@@ -14,6 +14,7 @@ export const usePhotoSelection = (
   isAllSelected: boolean;
   togglePhoto: (photoId: number) => void;
   removePhotos: (photoIds: number[]) => void;
+  selectPhotos: (photoIds: number[]) => void;
   toggleAllPhotos: () => void;
   clearSelection: () => void;
 } => {
@@ -45,6 +46,18 @@ export const usePhotoSelection = (
       return next;
     });
   };
+  // 현재 목록의 선택만 교체한다. 다른 폴더에서 선택한 사진은 보존한다.
+  const selectPhotos = (photoIds: number[]): void => {
+    const visibleIds = new Set(visiblePhotoIds);
+    const nextPhotoIds = photoIds.filter((id) => visibleIds.has(id));
+    if (nextPhotoIds.length > 0) trackSelectionStart();
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      visiblePhotoIds.forEach((id) => next.delete(id));
+      nextPhotoIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
   const removePhotos = (photoIds: number[]): void =>
     setSelectedIds((current) => {
       if (!photoIds.some((id) => current.has(id))) return current;
@@ -65,6 +78,7 @@ export const usePhotoSelection = (
     isAllSelected,
     togglePhoto,
     removePhotos,
+    selectPhotos,
     toggleAllPhotos,
     clearSelection,
   };

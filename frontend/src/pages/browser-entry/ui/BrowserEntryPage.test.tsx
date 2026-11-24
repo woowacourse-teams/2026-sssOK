@@ -33,13 +33,11 @@ const renderAtInvite = (): RenderResult =>
 beforeEach(() => {
   sessionStorage.clear();
   jest.clearAllMocks();
-  isMobileBrowserMock.mockReturnValue(false);
+  isMobileBrowserMock.mockReturnValue(true);
 });
 
 describe("BrowserEntryPage", () => {
-  it("모바일은 초대받은 방으로 자동 실행을 한 번 시도하고 버튼으로 재시도한다", async () => {
-    isMobileBrowserMock.mockReturnValue(true);
-    const user = userEvent.setup();
+  it("모바일은 같은 초대의 앱 자동 실행을 세션에서 한 번만 시도한다", () => {
     const { unmount } = renderAtInvite();
     expect(openInviteAppMock).toHaveBeenCalledTimes(1);
     expect(openInviteAppMock).toHaveBeenCalledWith(
@@ -48,31 +46,28 @@ describe("BrowserEntryPage", () => {
     unmount();
     renderAtInvite();
     expect(openInviteAppMock).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole("button", { name: "쏙 앱에서 열기" }));
-    expect(openInviteAppMock).toHaveBeenCalledTimes(2);
-    expect(openInviteAppMock).toHaveBeenLastCalledWith(
-      "sssok://localhost/join/ABCDEF23?linkCode=483920",
-    );
+    expect(screen.queryByRole("button", { name: "쏙 앱에서 열기" })).not.toBeInTheDocument();
   });
 
-  it("PC 미리보기는 두 버튼을 표시하고 앱을 자동 실행하지 않는다", () => {
-    const { unmount } = renderAtInvite();
-    expect(screen.getAllByRole("button")).toHaveLength(2);
-    expect(openInviteAppMock).not.toHaveBeenCalled();
-    unmount();
+  it("PC는 앱 실행 없이 초대 정보를 유지해 웹 입장 화면으로 이동한다", () => {
+    isMobileBrowserMock.mockReturnValue(false);
     renderAtInvite();
+    expect(screen.getByText("/rooms/ABCDEF23?linkCode=483920")).toBeInTheDocument();
     expect(openInviteAppMock).not.toHaveBeenCalled();
   });
 
-  it("앱 버튼은 초대 방 정보를 전달하고 웹 버튼은 같은 방으로 이동한다", async () => {
+  it("설치 버튼을 표시하고 웹 참여는 같은 방으로 이동한다", async () => {
     const user = userEvent.setup();
     renderAtInvite();
-    await user.click(screen.getByRole("button", { name: "쏙 앱에서 열기" }));
-    expect(openInviteAppMock).toHaveBeenCalledTimes(1);
-    expect(openInviteAppMock).toHaveBeenCalledWith(
-      "sssok://localhost/join/ABCDEF23?linkCode=483920",
+    expect(screen.getByRole("link", { name: "Google Play" })).toHaveAttribute(
+      "href",
+      "https://play.google.com/store/apps/details?id=com.ssssok.app&pcampaignid=web_share",
     );
-    await user.click(screen.getByRole("button", { name: "웹에서 참여하기" }));
+    expect(screen.getByRole("link", { name: "App Store" })).toHaveAttribute(
+      "href",
+      "https://apps.apple.com/kr/app/%EC%8F%99-%ED%95%A8%EA%BB%98-%EB%AA%A8%EC%9C%BC%EB%8A%94-%EC%82%AC%EC%A7%84/id6828711923",
+    );
+    await user.click(screen.getByRole("button", { name: "웹으로 참여하기" }));
     expect(screen.getByText("/rooms/ABCDEF23?linkCode=483920")).toBeInTheDocument();
     expect(openInviteAppMock).toHaveBeenCalledTimes(1);
   });

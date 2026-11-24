@@ -1,6 +1,6 @@
 {
   "name": "sssok-mobile",
-  "version": "0.1.2",
+  "version": "0.1.4",
   "main": "index.js",
   "dependencies": {
     "@notifee/react-native": "^9.1.8",

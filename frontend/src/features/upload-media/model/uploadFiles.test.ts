@@ -1,3 +1,6 @@
+import * as previewModule from "./createUploadPreviews";
+import * as uploadModule from "./uploadOne";
+import * as registerModule from "../api/registerMedia";
 import type { UploadResult } from "@/features/upload-media/model/types";
 import { http, HttpResponse } from "msw";
 
@@ -304,4 +307,51 @@ describe("uploadFiles", () => {
     expect(result.registered).toEqual([]);
     expect(result.alreadyRegistered).toBe(1);
   });
+});
+
+it("썸네일 생성이 느려도 원본 PUT과 완료 등록은 기다리지 않는다", async () => {
+  await enterRoom();
+  let release!: (blob: Blob) => void;
+  const preview = new Promise<Blob>((resolve) => {
+    release = resolve;
+  });
+  const dispose = jest.fn();
+  const thumbnail = new Blob(["small"], { type: "image/webp" });
+  const file = fileOf("original.jpg", 10);
+  const onPreviewReady = jest.fn();
+  const create = jest
+    .spyOn(previewModule, "createUploadPreviews")
+    .mockReturnValue({ create: () => preview, dispose });
+  const put = jest
+    .spyOn(uploadModule, "uploadOne")
+    .mockImplementation(async ({ file: sent, issued }) => {
+      expect(sent).toBe(file);
+      return { ok: true, mediaId: issued.mediaId };
+    });
+  let notify!: () => void;
+  const registered = new Promise<void>((resolve) => {
+    notify = resolve;
+  });
+  const register = jest.spyOn(registerModule, "registerMedia").mockImplementation(async () => {
+    notify();
+    return { registered: [], failed: [] };
+  });
+  const uploading = run([file], { onPreviewReady });
+  try {
+    await registered;
+    expect(put).toHaveBeenCalledTimes(1);
+    expect(onPreviewReady).not.toHaveBeenCalled();
+    release(thumbnail);
+    await uploading;
+    expect(onPreviewReady).toHaveBeenCalledWith(
+      expect.objectContaining({ file, previewBlob: thumbnail }),
+    );
+    expect(dispose).toHaveBeenCalledTimes(1);
+  } finally {
+    release(thumbnail);
+    await uploading;
+    create.mockRestore();
+    put.mockRestore();
+    register.mockRestore();
+  }
 });

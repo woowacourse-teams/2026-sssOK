@@ -15,7 +15,7 @@ import { fetchMediaBlob } from "../lib/fetchMediaBlob";
 import {
   isNativeApp,
   reportNativeFailure,
-  saveToPhotoLibrary,
+  saveToPhotoLibraryInParallel,
   shareFromNativeApp,
   type NativeFile,
 } from "../lib/nativeApp";
@@ -165,7 +165,7 @@ const saveInNativeApp = async (
     return { type: "empty", failed };
   }
 
-  const result = await saveToPhotoLibrary(files, {
+  const result = await saveToPhotoLibraryInParallel(files, {
     signal,
     onProgress: (mediaId, loaded, total) =>
       onProgress?.({

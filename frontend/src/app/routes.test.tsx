@@ -10,8 +10,13 @@ import { getRoomSession, saveRoomSession } from "@/entities/session";
 import { markMediaDeleted } from "@/mocks/db";
 import { MOCK_ROOM_CODES, MOCK_ROOM_ID } from "@/mocks/handlers/room";
 import { server } from "@/mocks/server";
+import { MEMBER_SESSION_QUERY_KEY } from "@/entities/member-session";
 import { API_BASE_URL, ROUTES } from "@/shared/config";
+import { leaveToLanding } from "@/shared/lib/leaveToLanding";
 import { routes } from "./routes";
+
+// 랜딩은 SPA 밖이라 jsdom 에서 문서를 바꿀 수 없다. 보냈는지만 본다.
+jest.mock("@/shared/lib/leaveToLanding", () => ({ leaveToLanding: jest.fn() }));
 
 const ROOM_CODE = "7K93QX2S";
 /** 다른 방 세션까지 함께 지우지 않는지 보는 데 쓴다. */
@@ -21,7 +26,7 @@ const OTHER_ROOM_CODE = "QRST6789";
 const unauthorized = (): HttpResponse<JsonBodyType> =>
   HttpResponse.json({ code: "UNAUTHORIZED", message: "다시 접속해주세요" }, { status: 401 });
 
-const renderAt = (path: string): ReturnType<typeof createMemoryRouter> => {
+const renderAt = (path: string, member?: unknown): ReturnType<typeof createMemoryRouter> => {
   const router = createMemoryRouter(routes, { initialEntries: [path] });
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -29,6 +34,7 @@ const renderAt = (path: string): ReturnType<typeof createMemoryRouter> => {
       mutations: { retry: false },
     },
   });
+  if (member) queryClient.setQueryData(MEMBER_SESSION_QUERY_KEY, member);
 
   render(
     <QueryClientProvider client={queryClient}>
@@ -42,19 +48,33 @@ const renderAt = (path: string): ReturnType<typeof createMemoryRouter> => {
 describe("라우트", () => {
   beforeEach(() => localStorage.clear());
 
-  it("/home 은 홈 화면을 보여준다", async () => {
-    renderAt(ROUTES.home);
+  // 홈 화면은 없다. 예전 바로가기(manifest start_url)·북마크로 /home 에 와도 홈 화면을 보여주지 않는다.
+  it("웹 게스트가 /home 으로 들어오면 랜딩으로 보낸다", async () => {
+    renderAt("/home");
 
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
+  });
+
+  it("로그인한 사람이 /home 으로 들어오면 방 목록으로 보낸다", async () => {
+    const router = renderAt("/home", {
+      accessToken: "member-token",
+      userId: 42,
+      nickname: "회원",
+      memberStatus: "REGISTERED",
+      expiresAt: "2099-01-01T00:00:00Z",
+      refreshExpiresAt: "2099-02-01T00:00:00Z",
+    });
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(ROUTES.rooms));
+    expect(leaveToLanding).not.toHaveBeenCalled();
   });
 
   // 운영에서 / 는 CloudFront 가 랜딩(landing.html)을 바로 주므로 앱까지 오지 않는다.
-  // 그 설정 전이나 로컬 개발 서버처럼 앱이 / 를 받으면 홈으로 보낸다.
-  it("/ 로 들어오면 홈으로 보낸다", async () => {
-    const router = renderAt("/");
+  // 그래도 앱이 / 를 받으면 문서를 새로 불러 랜딩을 받게 한다.
+  it("/ 로 들어오면 랜딩으로 보낸다", async () => {
+    renderAt("/");
 
-    expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
   });
 
   // 방 조회 결과에 따른 화면 분기는 RoomEntryPage.test.tsx 가 검증한다.
@@ -73,7 +93,10 @@ describe("라우트", () => {
       "href",
       ROUTES.createRoom,
     );
-    expect(screen.getByRole("link", { name: "홈으로 가기" })).toHaveAttribute("href", ROUTES.home);
+    expect(screen.getByRole("link", { name: "홈으로 가기" })).toHaveAttribute(
+      "href",
+      ROUTES.landing,
+    );
   });
 
   it("/rooms/:code/gallery 는 갤러리 화면을 보여준다", async () => {
@@ -150,7 +173,7 @@ describe("라우트", () => {
     expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
   });
 
-  it("갤러리 메뉴에서 방을 삭제하면 세션을 지우고 홈으로 이동한다", async () => {
+  it("웹 게스트가 갤러리 메뉴에서 방을 삭제하면 세션을 지우고 랜딩으로 보낸다", async () => {
     const user = userEvent.setup();
     const router = renderAtGallery();
 
@@ -166,8 +189,8 @@ describe("라우트", () => {
 
     await user.click(screen.getByRole("button", { name: "삭제하기" }));
 
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(ROUTES.home);
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
+    expect(router.state.location.pathname).toBe(ROUTES.gallery(ROOM_CODE));
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
 
@@ -310,32 +333,29 @@ describe("라우트", () => {
    * 맞지 않는 경우다. 손상된 세션을 그대로 두면 다음 요청도 같은 토큰으로 나가 401 만
    * 되풀이하고, 갤러리는 에러 문구만 띄운 채 돌아갈 길을 내주지 않는다.
    *
-   * 재발급도 실패하면 세션을 지우고 브라우저 홈으로 이동한다.
+   * 재발급도 실패하면 세션을 지우고 랜딩으로 보낸다.
    */
-  it("방 조회가 401 이면 그 방 세션을 지우고 홈으로 이동한다", async () => {
+  it("방 조회가 401 이면 그 방 세션을 지우고 랜딩으로 보낸다", async () => {
     server.use(
       http.get(`${API_BASE_URL}/rooms/${ROOM_CODE}`, ({ request }) =>
         request.headers.get("Authorization") === null ? undefined : unauthorized(),
       ),
     );
-    const router = renderAtGallery();
+    renderAtGallery();
 
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(ROUTES.home);
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
 
   /**
    * 방은 멀쩡히 조회되고 사진 목록만 401 인 경우다. 화면에는 "사진을 불러오지 못했어요" 로
-   * 다른 실패와 똑같이 보이지만, 재발급 실패는 공통 복구 정책에 따라 홈으로 이동한다.
+   * 다른 실패와 똑같이 보이지만, 재발급 실패는 공통 복구 정책에 따라 랜딩으로 보낸다.
    */
-  it("사진 목록이 401 이어도 실패 문구 대신 홈으로 이동한다", async () => {
+  it("사진 목록이 401 이어도 실패 문구 대신 랜딩으로 보낸다", async () => {
     server.use(http.get(`${API_BASE_URL}/rooms/${MOCK_ROOM_ID}/media/all`, unauthorized));
-    const router = renderAtGallery();
+    renderAtGallery();
 
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
-    expect(screen.queryByText("사진을 불러오지 못했어요.")).not.toBeInTheDocument();
-    expect(router.state.location.pathname).toBe(ROUTES.home);
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
     expect(getRoomSession(ROOM_CODE)).toBeNull();
   });
 
@@ -354,15 +374,14 @@ describe("라우트", () => {
     );
     renderAtGallery();
 
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
     expect(getRoomSession(OTHER_ROOM_CODE)).not.toBeNull();
   });
 
-  it("알 수 없는 주소는 홈으로 보낸다", async () => {
-    const router = renderAt("/이런-주소는-없다");
+  it("알 수 없는 주소는 웹 게스트를 랜딩으로 보낸다", async () => {
+    renderAt("/이런-주소는-없다");
 
-    expect(router.state.location.pathname).toBe(ROUTES.home);
-    expect(await screen.findByRole("heading", { name: /링크로 모으고/ })).toBeInTheDocument();
+    await waitFor(() => expect(leaveToLanding).toHaveBeenCalledTimes(1));
   });
 });
 

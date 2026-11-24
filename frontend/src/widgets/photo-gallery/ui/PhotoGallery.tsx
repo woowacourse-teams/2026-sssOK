@@ -2,7 +2,8 @@ import { useCallback, useLayoutEffect, useMemo, useRef, type ReactNode } from "r
 
 import type { GalleryItem } from "@/entities/media";
 import { GalleryMediaCard } from "./GalleryMediaCard";
-import { GalleryGrid, GallerySection, StateMessage } from "./PhotoGallery.styles";
+import { StateMessage } from "./PhotoGallery.styles";
+import { VirtualGallery } from "./VirtualGallery";
 import { PhotoGallerySkeleton } from "./PhotoGallerySkeleton";
 
 interface PhotoGalleryProps {
@@ -17,6 +18,7 @@ interface PhotoGalleryProps {
   emptyMessage?: ReactNode;
   errorMessage?: string;
   onTogglePhoto: (photoId: number) => void;
+  onSelectPhotos?: (photoIds: number[]) => void;
   onOpenPhoto?: (mediaId: number) => void;
 }
 
@@ -32,6 +34,7 @@ export const PhotoGallery = ({
   emptyMessage = "조건에 맞는 사진이 없어요.",
   errorMessage = "사진을 불러오지 못했어요.",
   onTogglePhoto,
+  onSelectPhotos,
   onOpenPhoto,
 }: PhotoGalleryProps) => {
   const selectedIdSet = useMemo(() => new Set(selectedPhotoIds), [selectedPhotoIds]);
@@ -47,17 +50,21 @@ export const PhotoGallery = ({
   const togglePhoto = useCallback((mediaId: number) => handlers.current.onTogglePhoto(mediaId), []);
   const openPhoto = useCallback((mediaId: number) => handlers.current.onOpenPhoto?.(mediaId), []);
   const canOpen = onOpenPhoto !== undefined;
+  const itemIds = useMemo(() => items.map((item) => item.mediaId), [items]);
 
   if (isPending && items.length === 0) return <PhotoGallerySkeleton count={expectedPhotoCount} />;
   if (isError && items.length === 0) return <StateMessage>{errorMessage}</StateMessage>;
   if (items.length === 0) return <StateMessage>{emptyMessage}</StateMessage>;
 
   return (
-    <GallerySection>
-      <GalleryGrid>
-        {items.map((item) => (
+    <VirtualGallery
+      itemIds={itemIds}
+      selectedIds={selectedPhotoIds}
+      onSelect={onSelectPhotos}
+      renderCard={(index) => {
+        const item = items[index];
+        return (
           <GalleryMediaCard
-            key={item.mediaId}
             item={item}
             roomId={roomId}
             userId={userId}
@@ -66,8 +73,8 @@ export const PhotoGallery = ({
             onToggle={togglePhoto}
             onOpen={canOpen ? openPhoto : undefined}
           />
-        ))}
-      </GalleryGrid>
-    </GallerySection>
+        );
+      }}
+    />
   );
 };
