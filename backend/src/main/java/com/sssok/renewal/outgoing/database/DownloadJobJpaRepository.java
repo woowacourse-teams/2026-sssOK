@@ -1,6 +1,7 @@
 package com.sssok.renewal.outgoing.database;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -25,6 +26,20 @@ public interface DownloadJobJpaRepository extends JpaRepository<DownloadJobJpaEn
         @Param("failed") String failed,
         @Param("reason") String reason,
         @Param("threshold") Instant threshold
+    );
+
+    // 이미 끝난 잡(READY·FAILED)은 건드리지 않는다.
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+        UPDATE download_job
+        SET status = :failed, failure_reason = :reason, updated_at = now()
+        WHERE id IN (:jobIds) AND status IN (:activeStatuses)
+        """, nativeQuery = true)
+    int failActiveByIds(
+        @Param("jobIds") Collection<Long> jobIds,
+        @Param("activeStatuses") List<String> activeStatuses,
+        @Param("failed") String failed,
+        @Param("reason") String reason
     );
 
     @Modifying(flushAutomatically = true)
