@@ -64,7 +64,7 @@ cd backend/loadtest
 npm test
 ```
 
-**입장·업로드 시나리오(`room-entry.js`·`media-upload.js`)를 돌릴 사람만** SSE 확장이 든 k6 를 한 번 빌드한다.
+**입장·업로드·SSE 시나리오(`room-entry.js`·`media-upload.js`·`sse-fanout.js`)를 돌릴 사람만** SSE 확장이 든 k6 를 한 번 빌드한다.
 k6 기본 기능으로는 SSE 연결을 유지할 수 없고, SSE 확장(xk6-sse)은 k6 의 자동 확장 받기 대상이 아니라서
 `import sse from 'k6/x/sse'` 를 그냥 `k6` 로 돌리면 `unknown dependency : k6/x/sse` 로 멈춘다.
 
@@ -582,6 +582,114 @@ k6 run -e PROFILE=load -e ZIP_CONCURRENCY=3 -e DURATION=5m -e RUN_ID=zip-3-$(dat
 - 서버는 계정마다 동시 3개까지 받는다. 가상 사용자마다 계정이 달라 이 상한으로는 429 가 나지 않는다. **429 가 나면 서버 전체 처리 여력 문제다.**
 - 만든 zip 은 서버가 READY 후 1시간이 지나면 지운다. 작업 수 × 사진 수만큼 스토리지를 잠시 쓴다.
 
+## 3-3. SSE 발행 병목 — `sse-fanout.js` (SSE, `bin/k6` 필요)
+
+같은 방에 구독자가 많은 채로 여러 명이 동시에 사진을 등록할 때 방 단위 발행(락 안에서 `room_events` 저장 + 전원 send)이
+줄을 서는지, 그 여파로 다른 방 요청까지 느려지는지 본다(#833).
+
+```
+방 A (실행마다 새로 만들고 끝나면 사진과 함께 지운다)
+  구독  SUBSCRIBERS 명   GET /rooms/{id}/events 를 처음부터 끝까지 유지
+  업로드 UPLOADERS 명    10장 묶음을 쉬지 않고 반복 등록 (0 이면 구독만)
+방 B~D (fixtures 의 방, 최대 3개)
+  조회  READERS 명       GET /rooms/{id}/media/all 반복 — 업로더 0 결과와 p99 를 비교한다
+```
+
+방이 여러 개인 fixtures 가 필요하다. 업로더는 참여자(방장 제외) 중 앞에서부터 쓰므로 `UPLOADERS` 보다 참여자가 많아야 한다.
+구독자는 방장·참여자 계정을 돌려 쓴다(한 계정이 연결을 여러 개 연다).
+
+```bash
+node seed/seed.mjs --base-url http://localhost:8080 --rooms 3 --members 10 --photos 100
+```
+
+```bash
+./bin/k6 run -e PROFILE=smoke k6/scenarios/sse-fanout.js
+```
+
+```bash
+./bin/k6 run -e PROFILE=load -e SUBSCRIBERS=20 -e UPLOADERS=5 -e READERS=15 -e RUN_ID=fanout-s20-u5-$(date -u +%Y%m%dT%H%MZ) -e SCRIPT_VERSION=$(git rev-parse --short HEAD) k6/scenarios/sse-fanout.js
+```
+
+| 환경 변수 | 기본값 (smoke / load) | 뜻 |
+| --- | --- | --- |
+| `SUBSCRIBERS` | 3 / 20 | 방 A 구독 연결 수 |
+| `UPLOADERS` | 2 / 5 | 방 A 동시 업로더 수. 0 이면 업로드 없음 |
+| `READERS` | 2 / 15 | 다른 방 조회 가상 사용자 수 |
+| `UPLOAD_PAUSE` | 0 | 업로더가 묶음 사이에 쉬는 초 (0.5~1.5배로 흔든다) |
+| `READ_THINK_TIME` | 1 | 조회 사이에 쉬는 초 |
+| `WARMUP` / `DURATION` | 30s / 2m | 예열 / 본 측정. 업로드·조회만 구간을 나누고 구독은 전 구간을 본다 |
+| `DRAIN` | 20s | 업로드가 끝난 뒤 구독을 더 유지하는 시간 |
+| `LOAD_START` | 5s | 구독을 연 뒤 업로드·조회를 시작하기까지. 느린 구독자를 붙일 때 늘린다 |
+| `ITERATIONS` | 2 | smoke 에서 업로더당 묶음 수 |
+
+**dev 측정 준비** — 측정은 dev(AWS)에서만 한다(#833). 실행 전 규모·시간대를 팀과 확인한다. dev·prod 가 RDS 를 공유한다.
+
+1. 이 시나리오·지표가 develop 에 머지되어 dev 에 배포됐는지 `GET /version` 의 `gitSha` 로 확인한다
+2. 중앙 Grafana 패널은 자동 배포되지 않는다. Actions 의 `monitoring-central-deploy` 를 develop SHA 로 한 번 실행한다
+3. dev `.env` 에 `HIKARI_MAXIMUM_POOL_SIZE=10`, `IMAGE_SEARCH_ENABLED=false` 를 넣고 블루-그린으로 반대 칸에 전환한다.
+   전환 뒤 Grafana 의 `hikaricp_connections_max` 가 10 인지 본다. 끝나면 두 값을 되돌리고 다시 전환한다
+4. LOAD 인스턴스에서 develop 을 받고 `GOOS=linux GOARCH=amd64 npm run build:k6`, `node seed/upload-images.mjs`,
+   시드(`--rooms 3 --members 25 --photos 100 --yes`)를 준비한다. 참여자가 업로더 최대 수(20)보다 많아야 한다
+5. 칸 사이에는 썸네일 대기열(`sssok_thumbnail_jobs`)이 빌 때까지 기다린다. 끝나면 `node seed/cleanup.mjs --yes` 로 시드를 지운다
+
+**결과의 `delivery` 읽는 법** — 구독자마다 받은 이벤트를 세어 합친 값이다. smoke 는 아래 넷 중 하나라도 0 이 아니면 실패다.
+
+| 항목 | 뜻 |
+| --- | --- |
+| `missingCreatedEvents` | 서버에 등록된 장 수 × 구독자 수 − 받은 `media.created` 수. 연결이 끊긴 구독자의 몫도 여기 들어간다 |
+| `registeredSource` | 등록된 장 수를 어디서 셌는지. `server` 는 teardown 에서 방 A 사진을 지우기 전에 센 값이다. 시간 초과로 클라이언트가 실패로 센 등록도 서버에는 남을 수 있어 이 값을 기준으로 삼는다 |
+| `duplicates` | 같은 이벤트 ID, 또는 같은 mediaId 의 `media.created` 를 두 번 받은 수 |
+| `idReversed` | 앞서 받은 이벤트 ID 보다 작은 ID 를 받은 수 |
+| `readyBeforeCreated` | `media.created` 를 받기 전에 같은 mediaId 의 `media.ready` 를 받은 수 |
+| `minCreatedPerSubscriber` | 가장 적게 받은 구독자의 `media.created` 수 |
+
+**서버 지표** — 이벤트 전달 지연·방 락 대기/보유 시간은 서버에서 잰다. k6 가상 사용자끼리는 값을 주고받을 수 없어
+"업로더가 등록한 시각"과 "구독자가 받은 시각"을 클라이언트에서 짝지을 수 없다.
+dev 는 중앙 Grafana `sssOK Upload Stages` 아래쪽 SSE·Hikari 패널에서 본다. p95/p99 용 구간 집계(bucket)는 dev 프로필에서만 켠다.
+
+| 지표 | 뜻 |
+| --- | --- |
+| `sssok_sse_publish_lock_wait_seconds` | 방 모니터에 들어가기까지 기다린 시간 (`event_type` 별) |
+| `sssok_sse_publish_lock_hold_seconds` | 모니터를 쥐고 있던 시간 = `room_events` 저장 + 전원 send |
+| `sssok_sse_publish_save_seconds` | 보유 시간 중 `room_events` INSERT 몫 |
+| `sssok_sse_delivery_seconds` | publish 호출부터 연결 하나에 send 가 끝날 때까지 (실패한 send 제외) |
+| `sssok_sse_send_total` / `sssok_sse_send_duration_seconds` | send 건수(`kind`=event·replay·heartbeat, `outcome`) / 한 번에 걸린 시간 |
+| `sssok_sse_heartbeat_round_seconds` | heartbeat 한 바퀴(전 방·전 연결) 시간 |
+| `sssok_sse_connections` | 지금 들고 있는 구독 연결 수 |
+| `sssok_upload_registration_duration_seconds{stage="created_publish"}` | 완료 등록 중 `media.created` 발행 단계 |
+| `hikaricp_connections_pending` / `hikaricp_connections_acquire_seconds` | 커넥션을 기다리는 스레드 수 / 획득까지 걸린 시간 |
+
+jstack BLOCKED 스레드 수는 지표가 아니라 측정 중에 dev 서버에서 직접 뜬다. 앱 이미지가 JRE 라 `jcmd`·`jstack` 이 없으므로
+JVM 에 SIGQUIT 를 보내 스레드 덤프를 표준 출력(컨테이너 로그)에 찍게 한다. 앱은 멈추지 않는다.
+
+```bash
+C=$(docker ps --format '{{.Names}}' | grep -E 'app-(blue|green)' | head -1); S=$(date -u +%Y-%m-%dT%H:%M:%SZ); docker kill --signal=QUIT "$C"; sleep 2; docker logs --since "$S" "$C" > /tmp/threads-$(date +%H%M%S).txt; grep -c 'java.lang.Thread.State: BLOCKED' /tmp/threads-*.txt
+```
+
+활성 칸이 둘 다 떠 있는 배포 직후에는 `blue.env`·`green.env` 로 활성 칸을 확인하고 그 컨테이너를 고른다.
+
+**느린 구독자** — 읽기를 멈춘 연결은 k6 로 만들 수 없어 `scripts/slow-subscriber.mjs` 로 붙인다. 이 스크립트가 방장의
+"내 방 목록"에서 방 A 를 찾아 참여자 계정(뒤에서부터)으로 입장하고, 구독을 연 뒤 한 바이트도 읽지 않는다.
+dev 앱 컨테이너는 호스트 포트를 열지 않아 Nginx(:80)를 거친다. dev Nginx 의 API 경로는 `proxy_buffering off` 라
+읽기 멈춤이 앱까지 전해질 것으로 보지만, Nginx·커널 버퍼가 차는 만큼 늦게 나타난다. 첫 실험에서 `sssok_sse_send_duration_seconds`
+가 늘어나는지 먼저 확인하고, 늘지 않으면 dev 서버 안에서 앱 컨테이너 네트워크에 붙여 다시 한다.
+
+```bash
+node scripts/slow-subscriber.mjs --fixtures $FIXTURES --count 1
+```
+
+위 명령이 "기다린다"를 찍으면 다른 터미널에서 시작 지연을 늘려 시나리오를 돌린다.
+
+```bash
+./bin/k6 run -e PROFILE=load -e LOAD_START=20s -e SUBSCRIBERS=20 -e UPLOADERS=5 k6/scenarios/sse-fanout.js
+```
+
+도구 확인용 로컬 실행에서 느린 구독자 2명을 붙이자 send 한 번이 최대 60초 멈추고, 그동안 다른 방 조회가 커넥션을 못 얻어 500 으로 실패했다
+(2026-11-25, Hikari 10·connection-timeout 3s). 본 측정에서 실패율 5% 를 넘으면 자동 중단되므로, 이 실험은 짧게 잡고 바로 정리한다.
+
+업로더는 쉬지 않고 등록하므로 등록 속도는 스토리지 PUT 시간에 달려 있다. 도구 확인용 로컬(MinIO)에서는 업로더 3명이
+초당 100장 넘게 등록했다. dev(R2)에서는 이보다 느리지만 업로더 20명 칸은 사진이 많이 쌓이므로 `UPLOAD_PAUSE` 를 정하고 시작한다.
+
 ## 4. 시나리오는 어디에 무엇이 있나
 
 ```
@@ -605,14 +713,17 @@ loadtest/
 │   │   ├── media-search.js  3-2 검색 (외부 AI 비용)
 │   │   ├── media-upload.js  3-2 업로드 + media.ready 측정 (bin/k6)
 │   │   ├── media-download.js 3-2 단건·다건 다운로드 URL 발급 + 원본 받기
-│   │   └── media-zip.js     3-2 ZIP 접수·완료 시간
+│   │   ├── media-zip.js     3-2 ZIP 접수·완료 시간
+│   │   └── sse-fanout.js    3-3 같은 방 동시 등록 + 다수 구독 + 다른 방 조회 (bin/k6)
 │   └── lib/
 │       ├── config.js        fixtures·환경 변수 검증 (잘못되면 요청 전에 멈춤)
 │       ├── http.js          인증 헤더, 응답 파싱, 업무 성공 판정 (모든 시나리오 공통)
 │       ├── run.js           예열·본 측정 구간, 중단 기준, 시작 전 대상·사진 수 확인
 │       ├── sse.js           방 이벤트 구독·유지 판정 (xk6-sse)
+│       ├── upload.js        전용 방 생성·10장 묶음 업로드·방째 정리 (업로드 시나리오 공통)
 │       └── summary.js       결과 JSON·콘솔 요약 생성
 ├── scripts/build-k6.sh      xk6-sse 를 넣은 bin/k6 빌드 (npm run build:k6)
+├── scripts/slow-subscriber.mjs 3-3 읽기를 멈춘 SSE 연결 (느린 구독자)
 ├── bin/                     빌드한 k6 — Git 제외
 ├── test/                    도구 단위 테스트 (npm test)
 ├── fixtures/                시드 결과 — Git 제외

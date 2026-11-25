@@ -70,7 +70,7 @@ export function writeSummary(data, { scenario, apis, phases, config, resultsDir,
         avgMs: round(duration?.avg),
         maxMs: round(duration?.max),
         httpFailRate: round(metric(data, `http_req_failed${tags}`)?.rate, 4),
-        businessFailRate: round(1 - (metric(data, `business_ok${tags}`)?.rate ?? 1), 4),
+        businessFailRate: businessFailRate(metric(data, `business_ok${tags}`)),
       };
     }
     report.phases[phase] = {
@@ -110,6 +110,14 @@ function toSeconds(duration) {
 
 function metric(data, name) {
   return data.metrics[name]?.values;
+}
+
+// 판정 표본이 없으면 k6 는 rate 를 0 으로 남긴다. 요청이 없던 API(업로더 0명 등)가 실패 100% 로 보이지 않게 비워 둔다.
+function businessFailRate(values) {
+  if (!values || values.passes + values.fails === 0) {
+    return null;
+  }
+  return round(1 - values.rate, 4);
 }
 
 function failedThresholds(data) {
