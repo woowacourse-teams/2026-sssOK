@@ -7,6 +7,8 @@ import com.sssok.application.port.out.EventSubscriberPort;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.outgoing.monitoring.SsePublishMetrics;
+import com.sssok.renewal.outgoing.monitoring.SsePublishMetrics.SendKind;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -14,7 +16,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,17 +26,26 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 // 구독 중인 SseEmitter를 이 JVM의 힙 메모리(Map)에만 들고 있으므로 단일 인스턴스 전제다
 // (스케일 아웃 시 Redis Pub/Sub 등으로 교체 필요 — 스케줄 배치들과 같은 전제).
 @Component
-@RequiredArgsConstructor
 public class InMemorySseEventPublisher implements EventPublisherPort, EventSubscriberPort {
 
     private final RoomEventJpaRepository roomEventJpaRepository;
     private final ObjectMapper objectMapper;
     private final RoomMemberRepository roomMemberRepository;
+    private final SsePublishMetrics metrics;
 
     private final Map<Long, List<SseEmitter>> emittersByRoom = new ConcurrentHashMap<>();
     private final Map<SseEmitter, Long> membershipIdByEmitter = new ConcurrentHashMap<>();
     // 회원 전용 이벤트를 그 회원의 연결에만 보내기 위해 연결마다 회원 ID 를 기억한다.
     private final Map<SseEmitter, Long> memberIdByEmitter = new ConcurrentHashMap<>();
+
+    public InMemorySseEventPublisher(RoomEventJpaRepository roomEventJpaRepository, ObjectMapper objectMapper,
+                                     RoomMemberRepository roomMemberRepository, SsePublishMetrics metrics) {
+        this.roomEventJpaRepository = roomEventJpaRepository;
+        this.objectMapper = objectMapper;
+        this.roomMemberRepository = roomMemberRepository;
+        this.metrics = metrics;
+        metrics.registerConnections(() -> emittersByRoom.values().stream().mapToInt(List::size).sum());
+    }
 
     // room_events 저장 + 브로드캐스트(publish)와, 구독 등록 + replay 조회(subscribe)가
     // 같은 방에 대해 겹치면 같은 이벤트가 두 번 전달되거나 순서가 뒤바뀔 수 있다.
@@ -45,10 +55,18 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
     public void publish(Long roomId, String eventType, Object payload, Long recipientMemberId) {
         String json = serialize(payload);
         List<SseEmitter> emitters = getOrCreateEmitters(roomId);
+        long requested = System.nanoTime();
         synchronized (emitters) {
-            RoomEventJpaEntity saved = roomEventJpaRepository.save(
-                new RoomEventJpaEntity(roomId, eventType, json, Instant.now(), recipientMemberId));
-            broadcast(emitters, roomId, saved.getId(), eventType, json, recipientMemberId);
+            long entered = System.nanoTime();
+            metrics.recordLockWait(eventType, entered - requested);
+            try {
+                RoomEventJpaEntity saved = roomEventJpaRepository.save(
+                    new RoomEventJpaEntity(roomId, eventType, json, Instant.now(), recipientMemberId));
+                metrics.recordSave(System.nanoTime() - entered);
+                broadcast(emitters, roomId, saved.getId(), eventType, json, recipientMemberId, requested);
+            } finally {
+                metrics.recordLockHold(eventType, System.nanoTime() - entered);
+            }
         }
     }
 
@@ -108,41 +126,53 @@ public class InMemorySseEventPublisher implements EventPublisherPort, EventSubsc
 
     @Scheduled(fixedRate = 15_000)
     public void sendHeartbeat() {
+        long roundStarted = System.nanoTime();
         emittersByRoom.forEach((roomId, emitters) -> {
             for (SseEmitter emitter : emitters) {
+                long started = System.nanoTime();
                 try {
                     emitter.send(SseEmitter.event().comment("heartbeat"));
+                    metrics.recordSend(SendKind.HEARTBEAT, true, System.nanoTime() - started);
                 } catch (IOException | IllegalStateException e) {
+                    metrics.recordSend(SendKind.HEARTBEAT, false, System.nanoTime() - started);
                     removeEmitter(roomId, emitter);
                 }
             }
         });
+        metrics.recordHeartbeatRound(System.nanoTime() - roundStarted);
     }
 
     private void replayMissedEvents(Long roomId, Long lastEventId, Long memberId, SseEmitter emitter) {
         List<RoomEventJpaEntity> missed = roomEventJpaRepository.findVisibleAfter(roomId, lastEventId, memberId);
         for (RoomEventJpaEntity event : missed) {
-            sendTo(emitter, roomId, event.getId(), event.getEventType(), event.getPayload());
+            sendTo(emitter, roomId, event.getId(), event.getEventType(), event.getPayload(), SendKind.REPLAY);
         }
     }
 
     private void broadcast(List<SseEmitter> emitters, Long roomId, Long eventId, String eventType, String json,
-                           Long recipientMemberId) {
+                           Long recipientMemberId, long requested) {
         for (SseEmitter emitter : emitters) {
             if (recipientMemberId == null || recipientMemberId.equals(memberIdByEmitter.get(emitter))) {
-                sendTo(emitter, roomId, eventId, eventType, json);
+                if (sendTo(emitter, roomId, eventId, eventType, json, SendKind.EVENT)) {
+                    metrics.recordDelivery(eventType, System.nanoTime() - requested);
+                }
             }
         }
     }
 
-    private void sendTo(SseEmitter emitter, Long roomId, Long eventId, String eventType, String json) {
+    private boolean sendTo(SseEmitter emitter, Long roomId, Long eventId, String eventType, String json, SendKind kind) {
+        long started = System.nanoTime();
         try {
             emitter.send(SseEmitter.event()
                 .id(String.valueOf(eventId))
                 .name(eventType)
                 .data(json));
+            metrics.recordSend(kind, true, System.nanoTime() - started);
+            return true;
         } catch (IOException | IllegalStateException e) {
+            metrics.recordSend(kind, false, System.nanoTime() - started);
             removeEmitter(roomId, emitter);
+            return false;
         }
     }
 

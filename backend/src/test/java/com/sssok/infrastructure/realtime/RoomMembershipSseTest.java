@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sssok.application.port.out.RoomMemberRepository;
 import com.sssok.application.room.exception.RoomMembershipRequiredException;
 import com.sssok.domain.room.RoomMember;
+import com.sssok.renewal.outgoing.monitoring.SsePublishMetrics;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -20,7 +22,8 @@ import org.junit.jupiter.api.Test;
 class RoomMembershipSseTest {
     private final RoomMemberRepository roomMemberRepository = mock(RoomMemberRepository.class);
     private final InMemorySseEventPublisher sseEventPublisher = new InMemorySseEventPublisher(
-        mock(RoomEventJpaRepository.class), new ObjectMapper(), roomMemberRepository);
+        mock(RoomEventJpaRepository.class), new ObjectMapper(), roomMemberRepository,
+        new SsePublishMetrics(new SimpleMeterRegistry()));
 
     @Test
     void 나간_참여기록의_모든_연결만_닫고_다른회원과_재참여_연결은_유지한다() throws Exception {
