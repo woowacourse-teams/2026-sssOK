@@ -43,6 +43,10 @@ public class TaskExecutorDrainer implements SmartLifecycle {
         "roomNotificationTaskExecutor"
     );
 
+    // 종료는 phase 가 높은 것부터 진행된다. 웹 graceful 종료 다음, 웹 서버 정지(그보다 1024 낮음)와
+    // 실행기 일시정지(Integer.MAX_VALUE / 2)보다 먼저 멈춘다.
+    public static final int PHASE = WebServerGracefulShutdownLifecycle.SMART_LIFECYCLE_PHASE - 512;
+
     private final ApplicationContext applicationContext;
     private final Duration drainTimeout;
     private volatile boolean running;
@@ -114,10 +118,8 @@ public class TaskExecutorDrainer implements SmartLifecycle {
         return running;
     }
 
-    // 종료는 phase 가 높은 것부터 진행된다. 웹 graceful 종료 다음, 웹 서버 정지(그보다 1024 낮음)와
-    // 실행기 일시정지(Integer.MAX_VALUE / 2)보다 먼저 멈춘다.
     @Override
     public int getPhase() {
-        return WebServerGracefulShutdownLifecycle.SMART_LIFECYCLE_PHASE - 512;
+        return PHASE;
     }
 }

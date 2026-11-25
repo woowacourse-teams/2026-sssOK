@@ -1,17 +1,13 @@
 // 사진 업로드 부하. 10장 묶음을 정해진 장/초로 올리고, 썸네일이 준비되는 데 걸린 시간을 SSE 로 잰다.
 // SSE 를 쓰므로 xk6-sse 가 든 bin/k6 로 실행한다.
 //
-//   업로드 (반복 하나 = 10장 묶음 하나, 가상 사용자마다 업로더 계정 하나):
-//     POST /media/upload-urls  10장 발급 — 거절 0장이어야 한다
-//     PUT  <서명 URL>           스토리지 직접 업로드. 사용자별 동시 3개
-//     POST /media               완료 등록 — PUT 에 성공한 장이 모두 등록되어야 한다 (부분 실패는 실패)
+//   업로드 (반복 하나 = 10장 묶음 하나, 가상 사용자마다 업로더 계정 하나): lib/upload.js 참고
 //
 //   관찰 (가상 사용자 1명):
 //     GET /rooms/{roomId}/events  media.created(완료 등록)와 media.ready(썸네일 준비)를 mediaId 로 짝지어
 //                                 지연(media_ready_ms)·누락(media_ready_missing)·시간 초과(media_ready_late)를 센다
 //
-//   업로드는 실행마다 새로 만든 전용 방에 한다. k6 는 fixtures 에 쓸 수 없어 올린 사진을 기록할 수 없으므로,
-//   방 안의 사진은 모두 이 실행이 올린 것이 되게 하고 끝날 때(teardown) 방째 정리한다.
+//   업로드는 실행마다 새로 만든 전용 방에 하고 끝날 때(teardown) 방째 정리한다.
 //   검색 분석이 켜진 서버는 올린 장마다 외부 AI 호출이 생긴다 — ALLOW_AI_COST=1 이 없으면 시작하지 않는다.
 //
 //   PROFILE=smoke  업로더 3명이 묶음 2개씩(60장). 업로드·ready 가 하나라도 실패하면 실패로 끝난다.
@@ -21,21 +17,18 @@ import exec from 'k6/execution';
 import { Counter, Rate, Trend } from 'k6/metrics';
 
 import {
-  durationEnv, env, fromCwd, intEnv, loadFixtures, resolveBaseUrl, resolveResultsDir,
+  durationEnv, env, intEnv, loadFixtures, resolveBaseUrl, resolveResultsDir,
 } from '../lib/config.js';
-import { businessFailures, businessOk, createClient } from '../lib/http.js';
+import { createClient } from '../lib/http.js';
 import { runInfo, stopConditions, warmupMain } from '../lib/run.js';
 import { holdRoomStream } from '../lib/sse.js';
 import { trackApis, trackMetrics, writeSummary } from '../lib/summary.js';
+import {
+  BATCH_SIZE, PUT_CONCURRENCY, UPLOAD_APIS, createDedicatedRoom, deleteRoomWithMedia, guardAiCost, loadImages, uploadBatch,
+} from '../lib/upload.js';
 
 const SCENARIO = 'media-upload';
-// 스토리지 PUT 은 우리 서버가 아니라 R2 로 가는 요청이라 API 와 따로 본다(storage_put).
-const APIS = ['upload_issue', 'storage_put', 'upload_complete'];
-const BATCH_SIZE = 10;
-const PUT_CONCURRENCY = 3;
-const API_PREFIX = '/api/v1';
-// 서버 RoomName.MAX_LENGTH
-const MAX_ROOM_NAME = 12;
+const APIS = UPLOAD_APIS;
 
 const mediaRegistered = new Counter('media_registered');
 const createdSeen = new Counter('media_created_seen');
@@ -85,17 +78,6 @@ export const options = {
   },
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
-
-function loadImages(dir) {
-  let manifest;
-  try {
-    manifest = JSON.parse(open(fromCwd(`${dir}/manifest.json`)));
-  } catch {
-    throw new Error(`${dir}/manifest.json 이 없습니다. 먼저 준비한다: node seed/upload-images.mjs`);
-  }
-  // 가상 사용자마다 이미지를 메모리에 올린다. 장 수 × 업로더 수만큼 쓰므로 큰 실제 사진은 장 수를 줄인다.
-  return manifest.files.map((file) => ({ ...file, bytes: open(fromCwd(`${dir}/${file.name}`), 'b') }));
-}
 
 // 업로더는 fixtures 의 기존 계정(방장 제외)을 쓴다. setup 에서 업로드 전용 방에 입장시킨다.
 function buildUploaders(count) {
@@ -157,30 +139,13 @@ export function setup() {
   const versionRes = http.get(`${BASE_URL}/version`, { tags: { api: 'setup' } });
   if (versionRes.status !== 200) exec.test.abort(`대상 서버 응답 없음: GET /version → ${versionRes.status}`);
 
-  // 검색 분석이 켜진 서버는 업로드마다 외부 AI 호출이 생긴다. 시드의 --allow-ai-cost 와 같은 확인이다.
-  const probe = http.get(`${BASE_URL}${API_PREFIX}/rooms/${fixtures.rooms[0].roomId}/media/all?query=loadtest%20probe`, {
-    headers: { Authorization: `Bearer ${HOST.accessToken}` }, tags: { api: 'setup' }, responseCallback: http.expectedStatuses(200, 503),
-  });
-  if (probe.status === 200 && env('ALLOW_AI_COST') !== '1') {
-    exec.test.abort('대상 서버의 이미지 검색이 켜져 있어 올린 장마다 외부 AI 호출이 생깁니다. 비용 한도를 확인했으면 -e ALLOW_AI_COST=1');
-  }
-
-  const name = `${NAME_TAG}${Date.now().toString(36)}`.slice(0, MAX_ROOM_NAME);
-  const created = client.post('setup', '/rooms', { token: HOST.accessToken, body: { name, uploadPolicy: 'everyone' }, expectedStatus: 201 });
-  if (!created.ok) exec.test.abort(`업로드 전용 방을 만들지 못했습니다: ${created.reason}`);
-  const room = created.data;
-  for (const uploader of UPLOADERS) {
-    const joined = client.post('setup', `/rooms/${room.roomId}/members`, { token: uploader.token, body: { code: room.code }, expectedStatus: 201 });
-    if (!joined.ok) {
-      exec.test.abort(`userId=${uploader.userId} 이 업로드 방에 입장하지 못했습니다: ${joined.reason}. 방 roomId=${room.roomId} 를 지운다`);
-    }
-  }
-  console.log(`업로드 전용 방 roomId=${room.roomId} code=${room.code} (끝나면 사진과 함께 지운다)`);
+  const searchEnabled = guardAiCost(BASE_URL, { roomId: fixtures.rooms[0].roomId, token: HOST.accessToken });
+  const room = createDedicatedRoom(client, { host: HOST, members: UPLOADERS, nameTag: NAME_TAG, label: '업로드 전용 방' });
   return {
     ...runInfo({ baseUrl: BASE_URL, appVersion: JSON.parse(versionRes.body), fixturesPath, fixtures, accounts: UPLOADERS.length }),
     roomId: room.roomId,
     code: room.code,
-    searchEnabled: probe.status === 200,
+    searchEnabled,
     watchUntil: Date.now() + (UPLOAD_START_SEC + CONFIG.uploadSec + CONFIG.readyTimeoutSec) * 1000,
   };
 }
@@ -189,68 +154,12 @@ const client = createClient(BASE_URL);
 
 export function upload(data) {
   const uploader = UPLOADERS[(exec.vu.idInTest - 1) % UPLOADERS.length];
-  const base = `/rooms/${data.roomId}/media`;
-  const iteration = exec.scenario.iterationInTest;
-  const files = Array.from({ length: BATCH_SIZE }, (_, k) => {
-    const image = IMAGES[(iteration * BATCH_SIZE + k) % IMAGES.length];
-    const ext = image.name.split('.').pop();
-    return { image, request: { fileName: `${NAME_TAG}-${iteration}-${k}.${ext}`, mimeType: image.mimeType, size: image.size } };
+  const registered = uploadBatch(client, {
+    roomId: data.roomId, token: uploader.token, images: IMAGES, key: exec.scenario.iterationInTest, nameTag: NAME_TAG,
   });
-
-  const issued = client.post('upload_issue', `${base}/upload-urls`, {
-    token: uploader.token,
-    body: { files: files.map((f) => f.request) },
-    validate: (body) => {
-      if (body.rejected.length > 0) return `발급 거절 ${body.rejected.length}장 (${body.rejected[0].code})`;
-      if (body.issued.length !== files.length) return `발급 ${body.issued.length} ≠ ${files.length}`;
-      return null;
-    },
-  });
-  if (!issued.ok) return;
-
-  const uploaded = putAll(issued.data.issued, files);
-  if (uploaded.length === 0) return;
-
-  const completed = client.post('upload_complete', base, {
-    token: uploader.token,
-    body: { mediaIds: uploaded },
-    expectedStatus: 201,
-    validate: (body) => {
-      if (body.failed.length > 0) return `완료 등록 부분 실패 ${body.failed.length}장 (${body.failed[0].code})`;
-      if (body.registered.length !== uploaded.length) return `등록 ${body.registered.length} ≠ PUT 성공 ${uploaded.length}`;
-      return null;
-    },
-  });
-  if (completed.data && Array.isArray(completed.data.registered)) {
-    mediaRegistered.add(completed.data.registered.length);
+  if (registered > 0) {
+    mediaRegistered.add(registered);
   }
-}
-
-// 사용자별 동시 3개씩 PUT 한다. 발급 응답의 method·headers 를 그대로 써야 서명이 맞는다.
-function putAll(issuedList, files) {
-  const uploaded = [];
-  for (let i = 0; i < issuedList.length; i += PUT_CONCURRENCY) {
-    const chunk = issuedList.slice(i, i + PUT_CONCURRENCY);
-    const requests = chunk.map((item) => {
-      const file = files.find((f) => f.request.fileName === item.fileName);
-      return {
-        method: item.method, url: item.uploadUrl, body: file.image.bytes,
-        params: { headers: item.headers, tags: { api: 'storage_put' }, timeout: '60s', responseCallback: http.expectedStatuses(200) },
-      };
-    });
-    const responses = http.batch(requests);
-    responses.forEach((res, k) => {
-      const ok = res.status === 200;
-      businessOk.add(ok, { api: 'storage_put' });
-      if (ok) {
-        uploaded.push(chunk[k].mediaId);
-      } else {
-        businessFailures.add(1, { api: 'storage_put', reason: `status ${res.status}` });
-        console.warn(`[storage_put] mediaId=${chunk[k].mediaId} 실패: status ${res.status}`);
-      }
-    });
-  }
-  return uploaded;
 }
 
 // media.created 를 받은 mediaId 마다 media.ready 가 READY_TIMEOUT 안에 오는지 본다.
@@ -288,23 +197,9 @@ export function watch(data) {
   }
 }
 
-// 전용 방의 사진은 모두 이 실행이 올린 것이다. 사진을 먼저 지워 스토리지 원본까지 정리하고 방을 지운다.
 export function teardown(data) {
   if (!data?.roomId) return;
-  const res = client.get('teardown', `/rooms/${data.roomId}/media/all`, { token: HOST.accessToken });
-  const ids = res.ok ? res.data.items.map((item) => item.mediaId) : [];
-  let deleted = 0;
-  for (let i = 0; i < ids.length; i += 500) {
-    const del = client.del('teardown', `/rooms/${data.roomId}/media`, { token: HOST.accessToken, body: { mediaIds: ids.slice(i, i + 500) } });
-    if (del.ok) deleted += del.data.deletedCount;
-  }
-  const room = client.del('teardown', `/rooms/${data.roomId}`, { token: HOST.accessToken });
-  const message = `업로드 전용 방 roomId=${data.roomId} 정리: 사진 ${deleted}/${ids.length}장 삭제, 방 ${room.ok ? '삭제' : `삭제 실패(${room.reason})`}`;
-  if (!res.ok || deleted !== ids.length || !room.ok) {
-    console.error(`${message} — 남은 사진·방을 방장 토큰으로 직접 지운다`);
-  } else {
-    console.log(message);
-  }
+  deleteRoomWithMedia(client, { roomId: data.roomId, hostToken: HOST.accessToken, label: '업로드 전용 방' });
 }
 
 export function handleSummary(data) {

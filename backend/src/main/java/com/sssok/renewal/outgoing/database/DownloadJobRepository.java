@@ -8,6 +8,7 @@ import com.sssok.renewal.domain.download.status.ReadyDownloadJobStatus;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,14 @@ public class DownloadJobRepository {
     public int failStaleActive(Instant threshold, String reason) {
         List<String> active = DownloadJobStatus.active().stream().map(DownloadJobStatus::name).toList();
         return jpaRepository.failStaleActive(active, FailedDownloadJobStatus.INSTANCE.name(), reason, threshold);
+    }
+
+    public int failActive(Collection<Long> jobIds, String reason) {
+        if (jobIds.isEmpty()) {
+            return 0;
+        }
+        List<String> active = DownloadJobStatus.active().stream().map(DownloadJobStatus::name).toList();
+        return jpaRepository.failActiveByIds(jobIds, active, FailedDownloadJobStatus.INSTANCE.name(), reason);
     }
 
     private DownloadJobJpaEntity toEntity(DownloadJob job) {

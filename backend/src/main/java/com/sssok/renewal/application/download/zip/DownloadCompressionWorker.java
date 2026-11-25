@@ -33,6 +33,7 @@ import org.springframework.stereotype.Service;
 public class DownloadCompressionWorker {
 
     private static final String ZIP_CONTENT_TYPE = "application/zip";
+    static final String INTERRUPTED_REASON = "서버 배포로 압축이 중단되었습니다. 다시 요청해주세요";
 
     private final DownloadJobTransitions downloadJobTransitions;
     private final DownloadJobRepository downloadJobRepository;
@@ -85,12 +86,21 @@ public class DownloadCompressionWorker {
             recordStages(jobId, clock);
             return true;
         } catch (Exception e) {
-            if (out != null) {
-                out.abort();
+            // 종료 중 중단된 경우에도 업로드 정리와 실패 기록은 끝내야 하므로 중단 표시를 잠시 내려 둔다.
+            boolean interrupted = Thread.interrupted();
+            try {
+                if (out != null) {
+                    out.abort();
+                }
+                // 잡 행의 사유 한 줄로는 원인을 가릴 수 없어 스택트레이스를 남긴다.
+                log.error("zip 압축에 실패했습니다. jobId={}", jobId, e);
+                String reason = interrupted || isInterruption(e) ? INTERRUPTED_REASON : failureReasonOf(e);
+                downloadJobTransitions.markFailed(jobId, reason);
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
             }
-            // 잡 행의 사유 한 줄로는 원인을 가릴 수 없어 스택트레이스를 남긴다.
-            log.error("zip 압축에 실패했습니다. jobId={}", jobId, e);
-            downloadJobTransitions.markFailed(jobId, failureReasonOf(e));
             return false;
         }
     }
@@ -115,6 +125,10 @@ public class DownloadCompressionWorker {
         try (SourcePrefetcher<StoredFile> sources = SourcePrefetcher.start(targets,
             file -> fileStorage.openDownloadStream(file.getStorageKey()), prefetchExecutor, prefetchDepth)) {
             for (int i = 0; i < targets.size(); i++) {
+                // 스토리지 I/O 는 중단 요청에 반응하지 않을 수 있어 파일마다 확인한다(#842).
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new CompressionInterruptedException();
+                }
                 StoredFile file = targets.get(i);
                 String entryName = entryNames.get(i);
                 try (InputStream in = clock.openSource(sources::next)) {
@@ -149,8 +163,24 @@ public class DownloadCompressionWorker {
             .collect(Collectors.joining(", ")));
     }
 
+    // 블로킹 호출이 중단되며 예외를 던지면 중단 표시가 지워지므로 원인도 함께 본다.
+    private boolean isInterruption(Throwable e) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof InterruptedException || cause instanceof CompressionInterruptedException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private String failureReasonOf(Exception e) {
         String message = e.getMessage();
         return message == null ? e.getClass().getSimpleName() : message;
+    }
+
+    private static final class CompressionInterruptedException extends IOException {
+        CompressionInterruptedException() {
+            super("서버 종료로 압축을 중단했습니다");
+        }
     }
 }

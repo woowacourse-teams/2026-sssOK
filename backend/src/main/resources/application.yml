@@ -32,7 +32,8 @@ spring:
       pool:
         size: 2
 
-  # 종료 시간 상한은 이 값 + shutdown.task-drain-timeout 이다. docker stop_grace_period 는 이보다 길어야 한다.
+  # 종료 시간 상한은 이 값 + shutdown.task-drain-timeout + ZIP 압축 중단 대기(3s, DownloadCompressionShutdown) 이다.
+  # docker stop_grace_period 는 이보다 길어야 한다.
   lifecycle:
     timeout-per-shutdown-phase: 20s
 
