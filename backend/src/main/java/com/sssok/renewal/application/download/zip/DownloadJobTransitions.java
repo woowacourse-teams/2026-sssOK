@@ -2,8 +2,10 @@ package com.sssok.renewal.application.download.zip;
 
 import com.sssok.renewal.outgoing.database.DownloadJobRepository;
 import com.sssok.renewal.domain.download.DownloadJob;
+import com.sssok.renewal.domain.download.status.FailedDownloadJobStatus;
 import com.sssok.domain.file.StorageKey;
 import java.time.Instant;
+import java.util.Collection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -38,11 +40,20 @@ class DownloadJobTransitions {
         downloadJobRepository.save(job);
     }
 
+    // 종료 처리(DownloadCompressionShutdown)가 먼저 실패로 닫은 잡은 그 사유를 그대로 둔다.
     @Transactional
     void markFailed(Long jobId, String reason) {
         DownloadJob job = get(jobId);
+        if (job.getStatus() == FailedDownloadJobStatus.INSTANCE) {
+            return;
+        }
         job.markFailed(reason);
         downloadJobRepository.save(job);
+    }
+
+    @Transactional
+    int failActive(Collection<Long> jobIds, String reason) {
+        return downloadJobRepository.failActive(jobIds, reason);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
