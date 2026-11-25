@@ -24,7 +24,7 @@ const DEAD_AFTER_SEC = HEARTBEAT_SEC * 2;
 
 // until(epoch ms)까지 연결을 유지하고 결과를 돌려준다. 끝까지 유지해야 성공이다.
 // 첫 데이터가 openLimitMs 안에 오지 않았거나, 중간에 끊겼거나, 403 등으로 열리지 않으면 실패로 센다.
-// onEvent(name, data, receivedAt) 는 이름 있는 이벤트마다 불린다. data 는 JSON 을 푼 값이다.
+// onEvent(name, data, receivedAt, id) 는 이름 있는 이벤트마다 불린다. data 는 JSON 을 푼 값, id 는 서버 room_events ID(문자열)다.
 // sse.open 이 가상 사용자를 붙잡고 있으므로 이벤트 사이의 짝 맞추기(예: media.created → media.ready)는 이 안에서 한다.
 export function holdRoomStream(baseUrl, { roomId, token, until, openLimitMs = (HEARTBEAT_SEC + 5) * 1000, name = 'room_events', tags = {}, onEvent }) {
   const started = Date.now();
@@ -45,7 +45,7 @@ export function holdRoomStream(baseUrl, { roomId, token, until, openLimitMs = (H
         result.events++;
         sseEvents.add(1, { event: event.name, ...tags });
         if (onEvent) {
-          onEvent(event.name, parseData(event.data), Date.now());
+          onEvent(event.name, parseData(event.data), Date.now(), event.id);
         }
       }
       if (Date.now() >= until) {

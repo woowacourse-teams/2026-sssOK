@@ -69,6 +69,7 @@ export function createApi(baseUrl, { retries = 3, timeoutMs = 15_000 } = {}) {
     joinRoom: (token, roomId, code) =>
       request('POST', `/rooms/${roomId}/members`, { token, body: { code }, expect: [200, 201] }),
     deleteRoom: (token, roomId) => request('DELETE', `/rooms/${roomId}`, { token }),
+    myRooms: (token) => request('GET', '/members/me/rooms', { token }),
     issueUploadUrls: (token, roomId, files) =>
       request('POST', `/rooms/${roomId}/media/upload-urls`, { token, body: { files } }),
     completeUpload: (token, roomId, mediaIds) =>

@@ -5,7 +5,8 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
+      # 부하 측정 때 운영(10)과 같은 풀로 맞출 수 있게 서버 .env 로 바꿀 수 있다(#833).
+      maximum-pool-size: ${HIKARI_MAXIMUM_POOL_SIZE:20}
       connection-timeout: 3000
 
   jpa:
@@ -33,6 +34,24 @@ storage:
     secret-key: ${R2_SECRET_KEY}
     bucket: ${R2_BUCKET}
     public-base-url: ${R2_PUBLIC_BASE_URL}
+
+# SSE 발행 구간·완료 등록 단계·커넥션 획득의 p95/p99 를 보려고 구간별 개수(bucket)로도 집계한다(#833).
+# 등록 단계만 시계열이 2천 개 넘게 생겨 운영에는 켜지 않는다. 기본 설정(application.yml)의 HTTP 집계와 합쳐진다.
+management:
+  metrics:
+    distribution:
+      percentiles-histogram:
+        sssok.sse: true
+        sssok.upload.registration.duration: true
+        hikaricp.connections.acquire: true
+      minimum-expected-value:
+        sssok.sse: 100us
+        sssok.upload.registration.duration: 1ms
+        hikaricp.connections.acquire: 100us
+      maximum-expected-value:
+        sssok.sse: 30s
+        sssok.upload.registration.duration: 10s
+        hikaricp.connections.acquire: 5s
 
 # 운영과 달리 개발 중 디버깅이 목적이라 SQL과 com.sssok 로그를 자세히 남긴다.
 logging:
