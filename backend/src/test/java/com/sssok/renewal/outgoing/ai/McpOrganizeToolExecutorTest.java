@@ -71,6 +71,18 @@ class McpOrganizeToolExecutorTest {
     }
 
     @Test
+    void 픽셀_정보가_있는_사진은_입장_예측값을_함께_전달한다() {
+        when(client.callTool(any(CallToolRequest.class))).thenReturn(accepted(receipt()));
+        var photo = new AnalysisPhoto(42L, "https://r2.test/signed", "jpg", 4_000_000L);
+        executor.execute(new OrganizeExecutionRequest(TOOL, 7L, JOB_ID, EXECUTION_ID, 1, List.of(photo)));
+
+        var sent = ArgumentCaptor.forClass(CallToolRequest.class);
+        verify(client).callTool(sent.capture());
+        assertThat(sent.getValue().arguments()).containsEntry("photos", List.of(Map.of(
+            "mediaId", 42L, "source", photo.source(), "extension", "jpg", "pixelCount", 4_000_000L)));
+    }
+
+    @Test
     void 같은_실행의_재전송은_기존_실행으로_받는다() {
         Map<String, Object> reused = receipt();
         reused.put("state", "COMPLETED");
