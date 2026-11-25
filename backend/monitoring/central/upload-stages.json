@@ -513,6 +513,438 @@
           "range": true
         }
       ]
+    },
+    {
+      "id": 10,
+      "title": "SSE 발행 병목을 읽는 순서",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "방 단위 발행은 모니터 안에서 `room_events` 저장과 전원 send 를 한다(#833). **락 대기**가 늘면 같은 방 동시 발행이 줄 선 것이고, **락 보유**가 늘면 저장이나 send 가 느린 것이다. 보유 중 저장 몫을 빼면 send 몫이다. **전달 지연**은 publish 호출부터 연결별 send 완료까지라 둘을 모두 포함한다. 아래 Hikari 패널로 줄 선 스레드가 커넥션을 쥐고 있는지 같이 본다."
+      }
+    },
+    {
+      "id": 11,
+      "title": "SSE 발행 · 락 대기 / 보유 / 저장 p95",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "같은 방 발행이 겹치면 대기가, 구독자가 많거나 느리면 보유가 늘어난다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,event_type) (rate(sssok_sse_publish_lock_wait_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "대기 · {{event_type}}",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (le,event_type) (rate(sssok_sse_publish_lock_hold_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "보유 · {{event_type}}",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(sssok_sse_publish_save_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "보유 중 저장",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "SSE 발행 · 이벤트 전달 지연 p95 / p99",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 39,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "publish 호출부터 연결 하나에 send 가 끝날 때까지. 실패한 send 는 넣지 않는다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,event_type) (rate(sssok_sse_delivery_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "p95 · {{event_type}}",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.99, sum by (le,event_type) (rate(sssok_sse_delivery_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "p99 · {{event_type}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "SSE send · 종류·결과별 초당 건수",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "event 는 발행, replay 는 재구독 시 놓친 이벤트, heartbeat 는 15초 주기. failure 가 생기면 그 연결은 끊는다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (kind,outcome) (rate(sssok_sse_send_total{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval]))",
+          "legendFormat": "{{kind}} · {{outcome}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "SSE send 한 번 p99 · heartbeat 한 바퀴 최대",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 47,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "읽지 않는 연결은 소켓 버퍼가 차면 send 에서 멈춘다. heartbeat 한 바퀴는 정리 배치와 같은 스케줄러 풀을 쓴다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.99, sum by (le,kind) (rate(sssok_sse_send_duration_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "send p99 · {{kind}}",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "max(sssok_sse_heartbeat_round_seconds_max{job=\"sssok-backend\",environment=\"$environment\"})",
+          "legendFormat": "heartbeat 한 바퀴 최대",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "SSE 구독 연결 수",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "이 인스턴스가 들고 있는 전체 구독 연결 수.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(sssok_sse_connections{job=\"sssok-backend\",environment=\"$environment\"})",
+          "legendFormat": "연결",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "완료 등록 · 단계별 p95",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 12,
+        "y": 55,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "created_publish 가 SSE 발행 단계다. 등록 1번(10장)이 media.created 를 10번 발행한다.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le,stage) (rate(sssok_upload_registration_duration_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\",outcome=\"success\"}[$__rate_interval])))",
+          "legendFormat": "{{stage}}",
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Hikari · 대기 스레드 / 커넥션 획득 p99",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 63,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "대기(pending)가 0 보다 크면 풀이 바닥난 것이다. 획득 p99 는 커넥션을 받기까지 기다린 시간.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "noValue": "데이터 없음",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 5,
+            "spanNulls": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(hikaricp_connections_pending{job=\"sssok-backend\",environment=\"$environment\"})",
+          "legendFormat": "대기 스레드",
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "max(hikaricp_connections_active{job=\"sssok-backend\",environment=\"$environment\"})",
+          "legendFormat": "사용 중",
+          "range": true
+        },
+        {
+          "refId": "C",
+          "expr": "histogram_quantile(0.99, sum by (le) (rate(hikaricp_connections_acquire_seconds_bucket{job=\"sssok-backend\",environment=\"$environment\"}[$__rate_interval])))",
+          "legendFormat": "획득 p99 (초, 오른쪽 축)",
+          "range": true
+        }
+      ]
     }
   ]
 }
