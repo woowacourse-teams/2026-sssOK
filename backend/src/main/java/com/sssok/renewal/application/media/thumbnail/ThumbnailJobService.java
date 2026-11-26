@@ -53,13 +53,13 @@ public class ThumbnailJobService {
 
     @Transactional
     public Optional<ThumbnailClaim> claimNext(ThumbnailKind kind) {
-        Instant now = clock.instant();
-        return jobRepository.claimable(kind, now).map(job -> {
-            job.claim(now, now.plus(properties.lease()));
+        return jobRepository.claimable(kind, clock.instant()).map(job -> {
+            Instant claimedAt = clock.instant();
+            job.claim(claimedAt, claimedAt.plus(properties.lease()));
             jobRepository.save(job);
             log.info("썸네일 작업 선점 mediaId={} claimToken={} attempt={}",
                 job.getMediaId(), job.getClaimToken(), job.getAttempts());
-            return new ThumbnailClaim(job.getMediaId(), kind, job.getClaimToken(), job.getAttempts(), now,
+            return new ThumbnailClaim(job.getMediaId(), kind, job.getClaimToken(), job.getAttempts(), claimedAt,
                 job.getAvailableAt(), job.getTraceContext());
         });
     }

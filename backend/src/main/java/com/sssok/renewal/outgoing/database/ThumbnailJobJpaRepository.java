@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -21,6 +22,26 @@ public interface ThumbnailJobJpaRepository extends JpaRepository<ThumbnailJobJpa
         ORDER BY available_at, media_id LIMIT 1 FOR UPDATE SKIP LOCKED
         """, nativeQuery = true)
     Optional<ThumbnailJobJpaEntity> claimable(@Param("kind") String kind, @Param("now") Instant now);
+
+    @Query(value = "SELECT last_room_id FROM image_thumbnail_room_cursor WHERE id = 1 FOR UPDATE",
+        nativeQuery = true)
+    long lockImageRoomCursor();
+
+    @Query(value = """
+        SELECT j.* FROM thumbnail_job j JOIN stored_file f ON f.id = j.media_id
+        WHERE j.kind = 'IMAGE' AND j.state IN ('PENDING', 'RETRY_WAIT') AND j.available_at <= :now
+        ORDER BY (f.room_id <= :lastRoomId), f.room_id, j.available_at, j.media_id
+        LIMIT 1 FOR UPDATE OF j SKIP LOCKED
+        """, nativeQuery = true)
+    Optional<ThumbnailJobJpaEntity> nextImageByRoom(@Param("lastRoomId") long lastRoomId, @Param("now") Instant now);
+
+    @Modifying
+    @Query(value = """
+        UPDATE image_thumbnail_room_cursor
+        SET last_room_id = (SELECT room_id FROM stored_file WHERE id = :mediaId)
+        WHERE id = 1
+        """, nativeQuery = true)
+    void advanceImageRoomCursor(@Param("mediaId") long mediaId);
 
     @Query(value = """
         SELECT media_id FROM thumbnail_job

@@ -27,6 +27,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -61,7 +62,7 @@ import static org.mockito.Mockito.*;
 @TestPropertySource(properties = {
     "spring.datasource.driver-class-name=org.postgresql.Driver",
     "spring.jpa.hibernate.ddl-auto=validate", "spring.flyway.enabled=true",
-    "media.thumbnail.queue.max-attempts=2"
+    "media.thumbnail.queue.max-attempts=2", "media.thumbnail.queue.room-round-robin=true"
 })
 class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     @Autowired
@@ -133,6 +134,71 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
             assertThat(holder.get(5, TimeUnit.SECONDS)).isEqualTo(first.getId());
         }
         assertThat(thumbnailJobService.claimNext(ThumbnailKind.IMAGE)).isEmpty();
+    }
+
+    @Test
+    void 커서_잠금을_기다린_시간은_작업_임대에_포함하지_않는다() throws Exception {
+        StoredFile file = pending();
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+            Future<ThumbnailClaim> worker = new TransactionTemplate(transactions).execute(tx -> {
+                repository.lockImageRoomCursor();
+                Integer holder = roomFixtureJdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                Future<ThumbnailClaim> result = pool.submit(() ->
+                    thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow());
+
+                Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> Boolean.TRUE.equals(
+                    roomFixtureJdbc.queryForObject("""
+                        SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+                            WHERE ? = ANY(pg_blocking_pids(pid)))
+                        """, Boolean.class, holder)));
+                now.updateAndGet(time -> time.plusSeconds(35));
+                return result;
+            });
+
+            ThumbnailClaim claim = worker.get(5, TimeUnit.SECONDS);
+            assertThat(claim.startedAt()).isEqualTo(now.get());
+            assertThat(repository.findById(file.getId()).orElseThrow().getLeaseUntil())
+                .isEqualTo(now.get().plusSeconds(30));
+        }
+    }
+
+    @Test
+    void 대기중인_다른_방을_먼저_배정한_뒤_원래_방의_다음_작업을_처리한다() {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 533L);
+        StoredFile first = pending();
+        StoredFile second = pending();
+        assertThat(thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow().mediaId()).isEqualTo(first.getId());
+        StoredFile otherRoom = pending(533L);
+
+        assertThat(thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow().mediaId()).isEqualTo(otherRoom.getId());
+        assertThat(thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow().mediaId()).isEqualTo(second.getId());
+    }
+
+    @Test
+    void 두_워커가_동시에_선점하면_대기중인_두_방에_한_장씩_배정한다() throws Exception {
+        UploadRoomFixtures.ensure(roomFixtureJdbc, 533L);
+        StoredFile firstRoom = pending();
+        pending();
+        StoredFile secondRoom = pending(533L);
+        pending(533L);
+
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
+            Callable<Long> claim = () -> {
+                ready.countDown();
+                if (!start.await(5, TimeUnit.SECONDS)) {
+                    throw new TimeoutException();
+                }
+                return thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow().mediaId();
+            };
+            Future<Long> a = pool.submit(claim);
+            Future<Long> b = pool.submit(claim);
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            assertThat(List.of(a.get(5, TimeUnit.SECONDS), b.get(5, TimeUnit.SECONDS)))
+                .containsExactlyInAnyOrder(firstRoom.getId(), secondRoom.getId());
+        }
     }
 
     @Test
@@ -394,7 +460,12 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     }
 
     private StoredFile pending() {
-        StoredFile file = reserve();
+        return pending(532L);
+    }
+
+    private StoredFile pending(long roomId) {
+        StoredFile file = files.save(StoredFile.reserve(roomId, 532L, "image.png", "image/png",
+            new FileSize(1024), Instant.now(), SIZE_POLICY));
         file.startProcessing();
         files.save(file);
         thumbnailJobService.enqueue(file);
