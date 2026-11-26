@@ -137,6 +137,32 @@ class ThumbnailJobServicesPostgresTest extends PostgresContainerSupport {
     }
 
     @Test
+    void 커서_잠금을_기다린_시간은_작업_임대에_포함하지_않는다() throws Exception {
+        StoredFile file = pending();
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+            Future<ThumbnailClaim> worker = new TransactionTemplate(transactions).execute(tx -> {
+                repository.lockImageRoomCursor();
+                Integer holder = roomFixtureJdbc.queryForObject("SELECT pg_backend_pid()", Integer.class);
+                Future<ThumbnailClaim> result = pool.submit(() ->
+                    thumbnailJobService.claimNext(ThumbnailKind.IMAGE).orElseThrow());
+
+                Awaitility.await().atMost(Duration.ofSeconds(5)).until(() -> Boolean.TRUE.equals(
+                    roomFixtureJdbc.queryForObject("""
+                        SELECT EXISTS (SELECT 1 FROM pg_stat_activity
+                            WHERE ? = ANY(pg_blocking_pids(pid)))
+                        """, Boolean.class, holder)));
+                now.updateAndGet(time -> time.plusSeconds(35));
+                return result;
+            });
+
+            ThumbnailClaim claim = worker.get(5, TimeUnit.SECONDS);
+            assertThat(claim.startedAt()).isEqualTo(now.get());
+            assertThat(repository.findById(file.getId()).orElseThrow().getLeaseUntil())
+                .isEqualTo(now.get().plusSeconds(30));
+        }
+    }
+
+    @Test
     void 대기중인_다른_방을_먼저_배정한_뒤_원래_방의_다음_작업을_처리한다() {
         UploadRoomFixtures.ensure(roomFixtureJdbc, 533L);
         StoredFile first = pending();
