@@ -20,6 +20,19 @@ class ExecutionStoreTests(unittest.TestCase):
         return self.store.create(1, request_id or str(uuid4()), fingerprint,
                                  [{'mediaId': 1, 'source': 'private-url'}], 8)
 
+    def test_person_admission_prefers_predicted_shorter_album(self):
+        for count, width in [(12, 2048), (16, 384)]:
+            photos = [dict(mediaId=i+1, source=f'{i}.jpg', pixelCount=width**2) for i in range(count)]
+            last, _ = self.store.create(1, str(uuid4()), 'snapshot', photos, 8)
+        self.assertEqual(self.store.claim()['id'], last['id'])
+
+    def test_unknown_size_preserves_fifo_across_legacy_request(self):
+        first, _ = self.store.create(1, str(uuid4()), 'large', [dict(pixelCount=50000000)], 8)
+        legacy, _ = self.create()
+        self.store.create(1, str(uuid4()), 'small', [dict(pixelCount=100)], 8)
+        self.assertEqual(self.store.claim()['id'], first['id'])
+        self.assertEqual(self.store.claim(2)['id'], legacy['id'])
+
     def legacy(self, state='RUNNING', result=None):
         execution_id = str(uuid4())
         row = dict(id=execution_id, room_id=1, request_id=execution_id,

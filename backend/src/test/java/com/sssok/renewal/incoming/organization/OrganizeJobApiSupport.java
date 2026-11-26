@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -15,6 +16,7 @@ import com.sssok.application.port.out.FileRepository;
 import com.sssok.application.room.CreateRoomService;
 import com.sssok.application.room.RoomMembershipService;
 import com.sssok.domain.file.FileSize;
+import com.sssok.domain.file.StorageKey;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.room.Room;
 import com.sssok.domain.room.RoomCode;
@@ -117,8 +119,8 @@ abstract class OrganizeJobApiSupport extends PostgresContainerSupport {
     @BeforeEach
     void setUp() {
         clock.reset();
-        given(fileStorage.presignGet(any(), any(), any(), any()))
-            .willAnswer(invocation -> "https://storage.test/" + invocation.getArgument(0, com.sssok.domain.file.StorageKey.class).value());
+        willAnswer(invocation -> "https://storage.test/" + invocation.getArgument(0, StorageKey.class).value())
+            .given(fileStorage).presignGet(any(), any(), any(), any());
         given(catalog.fetchTools()).willReturn(List.of(PERSON_TOOL, SIMILAR_TOOL));
 
         AuthResult host = anonymousAuthService.authenticate("가현");

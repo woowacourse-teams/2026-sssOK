@@ -14,6 +14,7 @@ from .inputs import Photo, fingerprint, validate
 from .execution_store import Store
 from .progress import progress_path, read_progress, snapshot
 from .rejection import RetryableRejection
+from .scheduling import Album, RESIDENT_LIMIT, select_album
 
 
 class PersonGroupingService:
@@ -120,44 +121,85 @@ class PersonGroupingService:
     async def execute(self, job):
         if self.command is not None:
             return await self.execute_once(job)
-        reusable = False
+        # An idle process may have exited between dispatches. No resident stack
+        # needs recovery at this point, so the first slice may start a fresh worker.
+        if self.process is not None and self.process.returncode is not None:
+            await self.stop_worker()
+        clock = asyncio.get_running_loop().time
+        first = Album(job['id'], job['room_id'], clock())
+        ready = [first]
+        residents = {first.id: first}
+        retire = False
+        failure = 'WORKER_START_OR_RESULT_FAILED'
         try:
-            async def request():
-                if self.process is None or self.process.returncode is not None:
-                    self.process = await asyncio.create_subprocess_exec(
-                        sys.executable, '-m', 'gallery_mcp.analysis_worker', '--serve',
-                        stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
-                        stderr=asyncio.subprocess.DEVNULL)
-                    self.worker_jobs = 0
-                self.process.stdin.write((json.dumps({'room_id': job['room_id'], 'id': job['id']}) + '\n').encode())
-                await self.process.stdin.drain()
-                return await self.process.stdout.readline()
+            while ready:
+                album = select_album(ready, clock())
+                ready.remove(album)
+                start = clock()
+                reply = await asyncio.wait_for(self.request_slice(album),
+                                               timeout=self.settings.timeout - album.elapsed)
+                album.account(clock() - start)
+                if not reply:
+                    failure = 'ANALYSIS_FAILED'
+                    break
+                response = json.loads(reply)
+                if response == {'id': album.id, 'yielded': True}:
+                    yielded = True
+                elif response in ({'id': album.id}, {'id': album.id, 'failed': True}):
+                    yielded = False
+                    failed = response.get('failed', False)
+                    code = 'ANALYSIS_FAILED' if failed else 'WORKER_RESULT_NOT_COMMITTED'
+                    # A committed completion is immutable, including on a lost final reply.
+                    retire |= self.store.finish(album.id, 'FAILED', error=code) or failed
+                    del residents[album.id]
+                    self.worker_jobs += 1
+                    self.worker_used_at = clock()
+                    self.cleanup_finished()
+                else:
+                    raise ValueError('Unexpected analysis worker response')
 
-            response = await asyncio.wait_for(request(), timeout=self.settings.timeout)
-            if not response:
-                self.store.finish(job['id'], 'FAILED', error='ANALYSIS_FAILED')
-                return
-            if json.loads(response) != {'id': job['id']}:
-                raise ValueError('Unexpected worker response')
-            completed = self.store.get(job['room_id'], job['id'])['state'] == 'COMPLETED'
-            self.store.finish(job['id'], 'FAILED', error='WORKER_RESULT_NOT_COMMITTED')
-            self.worker_jobs += 1
-            self.worker_used_at = asyncio.get_running_loop().time()
-            reusable = completed and self.worker_jobs < self.settings.worker_max_jobs
+                # Recycle only after all admitted stacks finish. Unclaimed jobs stay
+                # durable in FIFO order. A newly admitted peer precedes the yielding one.
+                if (not retire and len(residents) < RESIDENT_LIMIT
+                        and self.worker_jobs + len(residents) < self.settings.worker_max_jobs):
+                    job = self.store.claim(RESIDENT_LIMIT)
+                    if job:
+                        admitted = Album(job['id'], job['room_id'], clock())
+                        residents[admitted.id] = admitted
+                        ready.append(admitted)
+                if yielded:
+                    album.queued_at = clock()
+                    ready.append(album)
         except TimeoutError:
-            await self.stop_worker()
-            self.store.finish(job['id'], 'FAILED', error='ANALYSIS_TIMEOUT')
+            failure = 'ANALYSIS_TIMEOUT'
         except asyncio.CancelledError:
-            await self.stop_worker()
-            self.store.finish(job['id'], 'FAILED', error='SERVER_STOPPED')
+            failure = 'SERVER_STOPPED'
             raise
-        except Exception:
-            await self.stop_worker()
-            self.store.finish(job['id'], 'FAILED', error='WORKER_START_OR_RESULT_FAILED')
+        except (OSError, ValueError, RuntimeError):
+            logging.getLogger(__name__).warning('Analysis worker communication failed')
         finally:
-            if not reusable:
+            if residents or retire or self.worker_jobs >= self.settings.worker_max_jobs:
                 await self.stop_worker()
+            for resident in residents.values():
+                reason = failure
+                if failure == 'ANALYSIS_TIMEOUT' and resident is not album:
+                    reason = 'ANALYSIS_FAILED'
+                self.store.finish(resident.id, 'FAILED', error=reason)
             self.cleanup_finished()
+
+    async def request_slice(self, album):
+        if self.process is not None and self.process.returncode is not None:
+            return b''
+        if self.process is None:
+            self.process = await asyncio.create_subprocess_exec(
+                sys.executable, '-m', 'gallery_mcp.analysis_worker', '--serve',
+                stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.DEVNULL)
+            self.worker_jobs = 0
+        request = {'room_id': album.room_id, 'id': album.id, 'sliced': True}
+        self.process.stdin.write((json.dumps(request) + '\n').encode())
+        await self.process.stdin.drain()
+        return await self.process.stdout.readline()
 
     async def execute_once(self, job):
         directory = self.settings.data / 'logs'

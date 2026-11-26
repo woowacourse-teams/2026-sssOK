@@ -19,6 +19,8 @@ class Photo(BaseModel):
     source: str = Field(min_length=1, max_length=8192)
     extension: str = Field(pattern=r'^(jpg|jpeg|png|webp|heic|heif|tif|tiff|bmp)$')
 
+    pixelCount: int | None = Field(default=None, gt=0, le=2**63 - 1)
+
     @property
     def filename(self):
         return f'media_{self.mediaId:012d}.{self.extension}'

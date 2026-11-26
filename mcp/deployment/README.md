@@ -124,6 +124,10 @@ Unknown/unreadable DB versions, a missing DB for a SQLite release, or failure to
 release block automatic rollback and resume. Prepare all six checked model files before
 upgrading; see [similar-photo setup](../SIMILAR_PHOTOS.md).
 
+## PERSON 픽셀 기반 입장 검증
+
+픽셀 힌트를 지원하는 MCP에 연결한 뒤 DEV 백엔드의 `GALLERY_ORGANIZATION_PIXEL_ADMISSION_ENABLED=true`로 켠다(기본 false). 원본 표시 치수와 프리뷰 규격으로 분석 입력의 픽셀 수를 추정한다. 같은 환경의 연속된 PERSON 요청에 모든 사진의 힌트가 있을 때 장수와 총 픽셀 수로 입장 순서를 정한다. 메타데이터가 없는 요청과 SIMILAR는 접수 순서를 유지한다. 공유 워커의 배포와 DEV 백엔드 배포는 별개이므로 부하 측정에는 분리된 MCP를 사용한다.
+
 ## 한 MCP 서버에서 DEV·PROD 분리 (#710)
 
 백엔드 두 환경은 동일한 MCP URL을 사용하되, 서로 다른 `GALLERY_TOKEN`으로 인증한다.
