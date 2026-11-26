@@ -76,6 +76,10 @@ public class McpOrganizeToolExecutor {
     }
 
     private Map<String, Object> toPhotoArgument(AnalysisPhoto photo) {
+        if (photo.pixelCount() != null) {
+            return Map.of("mediaId", photo.mediaId(), "source", photo.source(), "extension", photo.extension(),
+                "pixelCount", photo.pixelCount());
+        }
         return Map.of("mediaId", photo.mediaId(), "source", photo.source(), "extension", photo.extension());
     }
 

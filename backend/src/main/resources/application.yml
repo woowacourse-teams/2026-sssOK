@@ -335,6 +335,7 @@ gallery:
     job:
       enabled: ${GALLERY_ORGANIZATION_JOB_ENABLED:false}
       max-photos: ${GALLERY_ORGANIZATION_MAX_PHOTOS:200}
+      pixel-admission-enabled: ${GALLERY_ORGANIZATION_PIXEL_ADMISSION_ENABLED:false}
       internal-token: ${GALLERY_BACKEND_TOKEN:}
       # 결과 본문 보관(분석 완료부터)과 검토 기한(분석 완료부터)은 서로 독립이다.
       retention: 3d

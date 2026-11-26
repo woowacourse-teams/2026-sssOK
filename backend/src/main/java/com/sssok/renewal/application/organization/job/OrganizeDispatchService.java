@@ -3,6 +3,9 @@ package com.sssok.renewal.application.organization.job;
 import com.sssok.application.port.out.FileRepository;
 import com.sssok.domain.file.StoredFile;
 import com.sssok.domain.file.StorageKey;
+import com.sssok.infrastructure.config.DerivativeImageProperties;
+import com.sssok.renewal.domain.organization.OrganizeKind;
+import org.springframework.beans.factory.annotation.Value;
 import com.sssok.renewal.application.organization.execute.AnalysisPhoto;
 import com.sssok.renewal.application.organization.execute.OrganizeExecutionException;
 import com.sssok.renewal.application.organization.execute.OrganizeExecutionRequest;
@@ -47,6 +50,9 @@ public class OrganizeDispatchService {
     private final ObjectProvider<McpOrganizeToolExecutor> executor;
     @Qualifier("organizeClock")
     private final Clock clock;
+    private final DerivativeImageProperties imageProperties;
+    @Value("${gallery.organization.job.pixel-admission-enabled:false}")
+    private boolean pixelAdmissionEnabled;
 
     public void dispatchDue() {
         if (!properties.enabled()) {
@@ -137,7 +143,8 @@ public class OrganizeDispatchService {
             }
             StorageKey key = sourceKeyOf(file, target.source());
             String url = fileStorage.presignGet(key, "inline", null, properties.photoUrlTtl());
-            photos.add(new AnalysisPhoto(target.mediaId(), url, extensionOf(key)));
+            Long pixels = pixelAdmissionEnabled && job.kind() == OrganizeKind.PERSON ? pixelCount(file, key) : null;
+            photos.add(new AnalysisPhoto(target.mediaId(), url, extensionOf(key), pixels));
         }
         OrganizeTool tool = new OrganizeTool(job.serverId(), job.toolName(), job.toolDescription());
         return Optional.of(new OrganizeExecutionRequest(tool, job.roomId(), job.publicId(), execution.executionId(),
@@ -150,6 +157,21 @@ public class OrganizeDispatchService {
             return file.getPreviewKey();
         }
         return file.getStorageKey();
+    }
+
+    private Long pixelCount(StoredFile file, StorageKey key) {
+        Integer width = file.getWidth();
+        Integer height = file.getHeight();
+        if (width == null || height == null || width <= 0 || height <= 0) {
+            return null;
+        }
+        if (key.equals(file.getPreviewKey())) {
+            // 기존 프리뷰는 생성 당시 설정을 보관하지 않으므로 현재 파생 이미지 규격으로 추정한다.
+            int previewWidth = Math.min(width, imageProperties.preview().maxWidth());
+            long previewHeight = Math.max(1L, Math.round(height * ((double) previewWidth / width)));
+            return previewWidth * previewHeight;
+        }
+        return (long) width * height;
     }
 
     private String extensionOf(StorageKey key) {

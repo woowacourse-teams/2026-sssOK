@@ -52,6 +52,36 @@ class _SimilarResponse(_ResultModel):
     errors: list[_PhotoError]
 
 
+def person_cost(row):
+    if row['kind'] != 'PERSON':
+        return None
+    photos = json.loads(row['photos'])
+    if any(photo.get('pixelCount') is None for photo in photos):
+        return None
+    megapixels = sum(photo['pixelCount'] for photo in photos) / 1_000_000
+    return 0.064565 * len(photos) + 0.045970 * megapixels
+
+
+def next_admission(rows):
+    first = next(rows, None)
+    if first is None:
+        return None
+    best = first
+    best_cost = person_cost(first)
+    if best_cost is None:
+        return first
+    # Only reorder the contiguous group with comparable estimates in the same environment.
+    for row in rows:
+        if row['environment'] != first['environment']:
+            break
+        cost = person_cost(row)
+        if cost is None:
+            break
+        if cost < best_cost:
+            best, best_cost = row, cost
+    return best
+
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -201,11 +231,12 @@ class Store:
                 raise ValueError('Execution not found in this room; Spring may resubmit from its job record')
             return dict(row)
 
-    def claim(self):
+    def claim(self, resident_limit=1):
         with self._connection(write=True) as db:
-            if db.execute("SELECT 1 FROM executions WHERE state='RUNNING'").fetchone():
+            if db.execute("SELECT COUNT(*) FROM executions WHERE state='RUNNING'").fetchone()[0] >= resident_limit:
                 return None
-            row = db.execute("SELECT * FROM executions WHERE state='QUEUED' ORDER BY created_at,id LIMIT 1").fetchone()
+            rows = db.execute("SELECT * FROM executions WHERE state='QUEUED' ORDER BY created_at,id")
+            row = next_admission(iter(rows))
             if row:
                 timestamp = now()
                 db.execute("UPDATE executions SET state='RUNNING',updated_at=? WHERE id=?", (timestamp, row['id']))

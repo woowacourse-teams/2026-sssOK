@@ -1,5 +1,5 @@
-"""Sequential analysis worker; imports survive jobs, model objects do not."""
-from contextlib import contextmanager
+"""One active analysis at a time; suspended albums keep their local feature state."""
+from contextlib import contextmanager, nullcontext
 import gc
 import os
 import fcntl
@@ -7,14 +7,36 @@ import json
 import logging
 from pathlib import Path
 import sys
+from queue import Queue
+from threading import Event, Thread
 
 from .config import Settings
 from .inputs import Photo, stage_photos
 from .execution_store import Store
 from .progress import ProgressFile, progress_path
+from .scheduling import BATCH_PHOTOS, FEATURE_STAGES, RESIDENT_LIMIT
 
 
-def execute(room_id, job_id, settings):
+@contextmanager
+def analysis_lock(data):
+    with (data / 'analysis.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+class AlbumProgress(ProgressFile):
+    def __init__(self, path, checkpoint):
+        super().__init__(path)
+        self.checkpoint = checkpoint
+
+    def write(self, stage, processed=None, total=None):
+        super().write(stage, processed, total)
+        if (self.checkpoint and stage in FEATURE_STAGES and processed
+                and (processed == total or processed % BATCH_PHOTOS == 0)):
+            self.checkpoint()
+
+
+def execute(room_id, job_id, settings, checkpoint=None):
     logging.getLogger('httpx').setLevel(logging.WARNING)
     store = Store(settings.data)
     job = store.get(room_id, job_id)
@@ -22,10 +44,9 @@ def execute(room_id, job_id, settings):
     directory.mkdir(parents=True, exist_ok=False)
     photos = [Photo.model_validate(p) for p in json.loads(job['photos'])]
     # The delivery loop reads this file; recording progress never sends anything itself.
-    progress = ProgressFile(progress_path(settings.data, job_id))
+    progress = AlbumProgress(progress_path(settings.data, job_id), checkpoint)
     # Also excludes a surviving orphan worker after a forced MCP server restart.
-    with (settings.data / 'analysis.lock').open('a') as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+    with (nullcontext() if checkpoint else analysis_lock(settings.data)):
         progress.write('downloading_photos', 0, len(photos))
         stage_photos(photos, directory / 'input', settings,
                      lambda done: progress.write('downloading_photos', done, len(photos)))
@@ -85,22 +106,74 @@ def job_log(path):
             os.close(original)
 
 
+class ResidentAnalysis:
+    """A thread preserves the synchronous model call stack across explicit checkpoints."""
+
+    def __init__(self, room_id, job_id, settings):
+        self.resume = Event()
+        self.events = Queue()
+        self.thread = Thread(target=self.run, args=(room_id, job_id, settings), daemon=True)
+
+    def checkpoint(self):
+        self.events.put('yield')
+        self.resume.wait()
+        self.resume.clear()
+
+    def run(self, room_id, job_id, settings):
+        try:
+            execute(room_id, job_id, settings, self.checkpoint)
+        except Exception as exc:
+            print(f'Analysis failed: {type(exc).__name__}', file=sys.stderr)
+            self.events.put('failed')
+        else:
+            self.events.put('done')
+
+    def step(self):
+        if self.thread.is_alive():
+            self.resume.set()
+        else:
+            self.thread.start()
+        event = self.events.get()
+        if event != 'yield':
+            self.thread.join()
+        return event
+
+
 def serve(settings):
+    residents = {}
+    store = Store(settings.data)
+    logs = settings.data / 'logs'
+    logs.mkdir(exist_ok=True)
     for line in sys.stdin:
         request = json.loads(line)
         room_id, job_id = request['room_id'], request['id']
-        # Resolve through the store before using the ID as a path.
-        Store(settings.data).get(room_id, job_id)
-        logs = settings.data / 'logs'
-        logs.mkdir(exist_ok=True)
+        store.get(room_id, job_id)
+        response = {'id': job_id}
         with job_log(logs / f'{job_id}.log'):
-            try:
-                execute(room_id, job_id, settings)
-            except Exception as exc:
-                print(f'Analysis failed: {type(exc).__name__}', file=sys.stderr)
-                return 1  # Discard potentially damaged runtime state on failure.
-            gc.collect()
-        print(json.dumps({'id': job_id}), flush=True)
+            if request.get('sliced'):
+                if job_id not in residents:
+                    if len(residents) >= RESIDENT_LIMIT:
+                        raise RuntimeError('Resident analysis limit exceeded')
+                    residents[job_id] = ResidentAnalysis(room_id, job_id, settings)
+                # Serialize even against an orphan from a previous server. Only this
+                # slice may write artifacts or redirect native model output.
+                with analysis_lock(settings.data):
+                    event = residents[job_id].step()
+                if event == 'yield':
+                    response['yielded'] = True
+                else:
+                    del residents[job_id]
+                    gc.collect()
+                    if event == 'failed':
+                        response['failed'] = True
+            else:
+                try:
+                    execute(room_id, job_id, settings)
+                except Exception as exc:
+                    print(f'Analysis failed: {type(exc).__name__}', file=sys.stderr)
+                    return 1
+                gc.collect()
+        print(json.dumps(response), flush=True)
     return 0
 
 

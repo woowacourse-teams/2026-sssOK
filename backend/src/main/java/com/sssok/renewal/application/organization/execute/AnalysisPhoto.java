@@ -1,6 +1,10 @@
 package com.sssok.renewal.application.organization.execute;
 
-public record AnalysisPhoto(long mediaId, String source, String extension) {
+public record AnalysisPhoto(long mediaId, String source, String extension, Long pixelCount) {
+    public AnalysisPhoto(long mediaId, String source, String extension) {
+        this(mediaId, source, extension, null);
+    }
+
     public AnalysisPhoto {
         if (mediaId <= 0 || isBlank(source) || isBlank(extension)) {
             throw new IllegalArgumentException("분석 사진의 ID, 주소, 확장자가 필요합니다");
