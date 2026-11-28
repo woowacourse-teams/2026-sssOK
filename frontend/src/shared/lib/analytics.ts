@@ -1,12 +1,14 @@
 import type { CaptureResult } from "posthog-js";
 import type { BeforeSendFn, PostHog } from "posthog-js";
 
-import { APP_VERSION, POSTHOG_HOST, POSTHOG_KEY } from "@/shared/config";
+import { APP_VERSION, INTERNAL_MEMBER_IDS, POSTHOG_HOST, POSTHOG_KEY } from "@/shared/config";
 import type { AnalyticsEventName, AnalyticsEvents, AnalyticsRoomContext } from "./analyticsEvents";
+import { isAppWebView } from "./isAppWebView";
 
 const INTERNAL_PARAM = "internal";
 const INTERNAL_PROPERTY = "is_internal";
 const APP_VERSION_PROPERTY = "app_version";
+const PLATFORM_PROPERTY = "platform";
 
 /** SDK 를 받는 동안 쌓아둘 이벤트 상한. 초기화가 끝내 실패해도 메모리가 새지 않게 한다. */
 const MAX_PENDING_EVENTS = 100;
@@ -16,6 +18,8 @@ type Properties = Record<string, unknown>;
 let client: PostHog | null = null;
 let pendingEvents: [AnalyticsEventName, Properties][] = [];
 let roomContext: AnalyticsRoomContext | null = null;
+/** SDK 를 받기 전에 팀원 계정 로그인을 확인했다. 초기화가 끝나면 표시를 켠다. */
+let isInternalMemberPending = false;
 
 /**
  * 지금 보고 있는 방. 방 안에서 보내는 이벤트마다 `room_code`·`role` 을 붙인다.
@@ -93,14 +97,34 @@ const applyInternalFlag = (posthog: PostHog): void => {
 };
 
 /**
- * 자동 수집 이벤트($pageview 등)까지 모든 이벤트에 이 번들의 버전을 붙인다.
- *
- * `register` 로 두지 않는 이유 — 기기에 저장돼 탭끼리 공유된다. 배포 전에 열어 둔 탭은 옛 번들을
- * 돌리는데, 새로 연 탭이 버전을 덮어쓰면 옛 번들의 이벤트에 새 버전이 붙는다.
+ * 팀원 계정으로 로그인하면 이 기기를 팀원 기기로 표시한다. 앱 웹뷰처럼 `?internal=1` 을 쓸 수 없는
+ * 곳을 위한 길이다. 팀원이 아니면 아무것도 바꾸지 않는다 — 주소로 켜 둔 표시를 지우지 않기 위해서다.
+ * SDK 를 받기 전에 불리면 기억해 뒀다가 초기화할 때 켠다.
  */
-export const attachAppVersion: BeforeSendFn = (event): CaptureResult | null => {
+export const markInternalMember = (
+  userId: number,
+  internalMemberIds: readonly number[] = INTERNAL_MEMBER_IDS,
+): void => {
+  if (!internalMemberIds.includes(userId)) return;
+  if (client) {
+    client.register({ [INTERNAL_PROPERTY]: true });
+    return;
+  }
+  isInternalMemberPending = true;
+};
+
+/**
+ * 자동 수집 이벤트($pageview 등)까지 모든 이벤트에 이 번들의 버전과 실행 환경을 붙인다.
+ *
+ * - `app_version`: `register` 로 두지 않는 이유 — 기기에 저장돼 탭끼리 공유된다. 배포 전에 열어 둔
+ *   탭은 옛 번들을 돌리는데, 새로 연 탭이 버전을 덮어쓰면 옛 번들의 이벤트에 새 버전이 붙는다.
+ * - `platform`: 쏙 앱 웹뷰면 `app`, 그 밖(브라우저·홈 화면에 추가한 웹)은 `web`. 브라우저 정보로는
+ *   홈 화면 웹과 앱이 구분되지 않아서, 앱이 심는 브릿지로 가른다.
+ */
+export const attachCommonProperties: BeforeSendFn = (event): CaptureResult | null => {
   if (event) {
     event.properties[APP_VERSION_PROPERTY] = APP_VERSION;
+    event.properties[PLATFORM_PROPERTY] = isAppWebView() ? "app" : "web";
   }
   return event;
 };
@@ -127,9 +151,13 @@ export const initAnalytics = async (): Promise<void> => {
       // 게스트가 올린 사진·영상이 녹화에 남지 않도록 자리만 남기고 가린다
       blockSelector: "img, video",
     },
-    before_send: attachAppVersion,
+    before_send: attachCommonProperties,
   });
   applyInternalFlag(posthog);
+  if (isInternalMemberPending) {
+    posthog.register({ [INTERNAL_PROPERTY]: true });
+    isInternalMemberPending = false;
+  }
 
   client = posthog;
   pendingEvents.forEach(([event, properties]) => posthog.capture(event, properties));

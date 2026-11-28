@@ -7,6 +7,7 @@ import { AppPushNotifications } from "@/features/app-push";
 import { isAppWebView } from "@/shared/lib";
 import { ToastProvider } from "@/shared/ui/toast";
 import { routes } from "./routes";
+import { useInternalMemberFlag } from "./useInternalMemberFlag";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -19,6 +20,7 @@ const queryClient = new QueryClient({
 
 export const App = () => {
   const [router] = useState(() => createBrowserRouter(routes));
+  useInternalMemberFlag(queryClient);
   return (
     <QueryClientProvider client={queryClient}>
       <ToastProvider>

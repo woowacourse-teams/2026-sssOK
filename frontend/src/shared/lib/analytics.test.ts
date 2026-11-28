@@ -1,6 +1,7 @@
 import posthog, { type CaptureResult } from "posthog-js";
 
-import { attachAppVersion, initAnalytics, parseInternalParam, track } from "./analytics";
+import { parseMemberIds } from "@/shared/config";
+import { attachCommonProperties, initAnalytics, parseInternalParam, track } from "./analytics";
 
 jest.mock("posthog-js", () => ({
   __esModule: true,
@@ -29,22 +30,43 @@ describe("parseInternalParam", () => {
   });
 });
 
-describe("attachAppVersion", () => {
-  it("보내는 이벤트에 번들 버전을 붙인다", () => {
-    const event: CaptureResult = {
-      uuid: "event-1",
-      event: "$pageview",
-      properties: { $current_url: "/" },
-    };
+describe("attachCommonProperties", () => {
+  const pageview = (): CaptureResult => ({
+    uuid: "event-1",
+    event: "$pageview",
+    properties: { $current_url: "/" },
+  });
 
-    expect(attachAppVersion(event)?.properties).toEqual({
+  afterEach(() => {
+    delete window.ReactNativeWebView;
+  });
+
+  it("브라우저에서는 번들 버전과 web 을 붙인다", () => {
+    expect(attachCommonProperties(pageview())?.properties).toEqual({
       $current_url: "/",
       app_version: "unknown",
+      platform: "web",
     });
   });
 
+  it("쏙 앱 웹뷰에서는 app 을 붙인다", () => {
+    window.ReactNativeWebView = { postMessage: jest.fn() };
+
+    expect(attachCommonProperties(pageview())?.properties).toMatchObject({ platform: "app" });
+  });
+
   it("앞선 단계가 버린 이벤트는 그대로 버린다", () => {
-    expect(attachAppVersion(null)).toBeNull();
+    expect(attachCommonProperties(null)).toBeNull();
+  });
+});
+
+describe("parseMemberIds", () => {
+  it("쉼표로 이은 회원 ID 를 읽고, 빈칸과 숫자가 아닌 값은 버린다", () => {
+    expect(parseMemberIds(" 12, 34 ,,abc,5x")).toEqual([12, 34]);
+  });
+
+  it("값이 없으면 빈 목록이다", () => {
+    expect(parseMemberIds(undefined)).toEqual([]);
   });
 });
 
@@ -82,14 +104,47 @@ describe("배포 빌드일 때", () => {
     return analytics;
   };
 
-  it("모든 이벤트에 번들 버전이 붙도록 초기화한다", async () => {
+  it("모든 이벤트에 번들 버전과 실행 환경이 붙도록 초기화한다", async () => {
     const analytics = loadFresh();
     await analytics.initAnalytics();
 
     expect(posthog.init).toHaveBeenCalledWith(
       expect.any(String),
-      expect.objectContaining({ before_send: analytics.attachAppVersion }),
+      expect.objectContaining({ before_send: analytics.attachCommonProperties }),
     );
+  });
+
+  describe("팀원 계정 로그인", () => {
+    const TEAM = [12, 34];
+
+    it("팀원 계정이면 이 기기를 팀원 기기로 표시한다", async () => {
+      const analytics = loadFresh();
+      await analytics.initAnalytics();
+
+      analytics.markInternalMember(34, TEAM);
+
+      expect(posthog.register).toHaveBeenCalledWith({ is_internal: true });
+    });
+
+    it("SDK 를 받기 전에 확인했으면 초기화할 때 표시한다", async () => {
+      const analytics = loadFresh();
+
+      analytics.markInternalMember(12, TEAM);
+      expect(posthog.register).not.toHaveBeenCalled();
+      await analytics.initAnalytics();
+
+      expect(posthog.register).toHaveBeenCalledWith({ is_internal: true });
+    });
+
+    it("팀원이 아니면 표시를 켜지도 지우지도 않는다", async () => {
+      const analytics = loadFresh();
+      await analytics.initAnalytics();
+
+      analytics.markInternalMember(99, TEAM);
+
+      expect(posthog.register).not.toHaveBeenCalled();
+      expect(posthog.unregister).not.toHaveBeenCalled();
+    });
   });
 
   it("SDK 를 받기 전에 난 이벤트는 초기화가 끝난 뒤 보낸다", async () => {

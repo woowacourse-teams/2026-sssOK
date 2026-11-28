@@ -72,6 +72,8 @@ module.exports = {
       // PostHog 프로젝트를 바꿔 보낼 때만 넘긴다. src/shared/config/analytics.ts 참고
       "process.env.POSTHOG_KEY": JSON.stringify(process.env.POSTHOG_KEY),
       "process.env.POSTHOG_HOST": JSON.stringify(process.env.POSTHOG_HOST),
+      // 팀원 회원 ID(쉼표 구분). 이 계정으로 로그인한 기기를 지표에서 뺀다. src/shared/config/analytics.ts 참고
+      "process.env.INTERNAL_MEMBER_IDS": JSON.stringify(process.env.INTERNAL_MEMBER_IDS),
       // 이 번들이 몇 버전인지. src/shared/config/version.ts 참고
       "process.env.APP_VERSION": JSON.stringify(version),
     }),
