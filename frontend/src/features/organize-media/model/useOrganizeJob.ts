@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isApiError } from "@/shared/api";
+import { getAnalyticsRoom } from "@/shared/lib";
 import {
   applyOrganizeJob,
   cancelOrganizeJob,
@@ -31,6 +32,15 @@ import {
   organizeErrorMessage,
   waitText,
 } from "./organizeErrorMessage";
+import {
+  type StartedOrganize,
+  trackOrganizeAnalysisFailed,
+  trackOrganizeApplied,
+  trackOrganizeCompleted,
+  trackOrganizeRejected,
+  trackOrganizeStarted,
+  trackOrganizeStartFailed,
+} from "./trackOrganize";
 
 /** 버튼으로 고른 방식이거나, 입력창에 쓴 문장이다. */
 export type OrganizeRequest = { kind: OrganizeKind } | { text: string };
@@ -193,6 +203,10 @@ export const useOrganizeJob = ({
   const [applyError, setApplyError] = useState<string | null>(null);
   /** 같은 내용을 다시 보낼 때는 같은 키를 써서, 응답만 놓친 반영이 두 번 일어나지 않게 한다. */
   const applyKeyRef = useRef<{ body: string; key: string } | null>(null);
+  /** 이 기기에서 시작한 작업. 완료·실패 이벤트는 이 작업에만 남긴다. */
+  const startedRef = useRef<StartedOrganize | null>(null);
+  /** 이미 남긴 결말(`jobId:attempt:status`). SSE·재조회로 같은 상태가 여러 번 와도 한 번만 센다. */
+  const trackedOutcomeRef = useRef<string | null>(null);
 
   const applyJob = useCallback(
     (next: IncomingJob) => setJob((current) => mergeJob(current, next)),
@@ -273,13 +287,26 @@ export const useOrganizeJob = ({
           "kind" in request
             ? await startOrganizeJob({ roomId, token, kind: request.kind, idempotencyKey })
             : await startOrganizeJobByText({ roomId, token, text: request.text, idempotencyKey });
+        startedRef.current = {
+          jobId: accepted.jobId,
+          kind: accepted.kind,
+          photoCount: accepted.photoCount,
+          startedAt: Date.now(),
+          room: getAnalyticsRoom(),
+        };
+        trackOrganizeStarted(startedRef.current);
         // 방 점유는 건드리지 않는다. 내 작업이 도는 동안은 isRunning 으로 막히고,
         // 버전 없이 바꾸면 응답보다 먼저 온 점유 해제 이벤트를 덮어쓴다.
         applyJob(accepted);
       } catch (cause) {
         const rejectedBy = limitOf(cause);
-        if (rejectedBy) setLimit(rejectedBy);
-        else setError(organizeErrorMessage(cause));
+        if (rejectedBy) {
+          trackOrganizeRejected(rejectedBy);
+          setLimit(rejectedBy);
+        } else {
+          trackOrganizeStartFailed(cause);
+          setError(organizeErrorMessage(cause));
+        }
         if (isApiError(cause) && cause.code === ORGANIZE_ERROR_CODES.inProgress) {
           void resync();
         }
@@ -415,6 +442,7 @@ export const useOrganizeJob = ({
             : current,
         );
         setRoom((current) => ({ ...current, busy: false }));
+        trackOrganizeApplied(job.kind ?? "PERSON", applied.folders.length);
         return applied;
       } catch (cause) {
         setApplyError(applyErrorMessage(cause));
@@ -433,6 +461,24 @@ export const useOrganizeJob = ({
   const isAwaitingReview = job?.status === "READY";
 
   const readyResult = loaded !== null && loaded.jobId === readyJobId ? loaded : null;
+
+  // 이 기기에서 시작한 작업의 결말을 한 번씩 남긴다. 완료는 결과(그룹 수)를 읽은 뒤에 센다.
+  // 다시 시도하면 회차(attempt)가 바뀌어 새 결말로 센다.
+  const readyGroupCount = readyResult?.result ? readyResult.result.groups.length : null;
+  useEffect(() => {
+    const started = startedRef.current;
+    if (!job || !started || started.jobId !== job.jobId) return;
+    const isDone = job.status === "READY" && readyGroupCount !== null;
+    const isFailed = job.status === "FAILED";
+    if (!isDone && !isFailed) return;
+
+    const key = `${job.jobId}:${job.attempt}:${job.status}`;
+    if (trackedOutcomeRef.current === key) return;
+    trackedOutcomeRef.current = key;
+
+    if (isDone) trackOrganizeCompleted(started, readyGroupCount);
+    else trackOrganizeAnalysisFailed(started, job.failureCode);
+  }, [job, readyGroupCount]);
   // 종류를 아직 모르면 결과의 종류를, 그것도 없으면 사람별로 본다.
   const kind: OrganizeKind = job?.kind ?? readyResult?.result?.kind ?? "PERSON";
 
